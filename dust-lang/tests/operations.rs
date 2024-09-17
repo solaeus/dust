@@ -1,6 +1,11 @@
 use dust_lang::*;
 
 #[test]
+fn long_math() {
+    assert_eq!(run("1 + 2 * 3 - 4 / 2"), Ok(Some(Value::integer(5))));
+}
+
+#[test]
 fn add() {
     assert_eq!(run("1 + 2"), Ok(Some(Value::integer(3))));
 }

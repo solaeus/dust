@@ -149,6 +149,57 @@ impl Vm {
 
                     self.insert(quotient, instruction.destination(), position)?;
                 }
+                Operation::Modulo => {
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
+                    let remainder = left
+                        .modulo(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+
+                    self.insert(remainder, instruction.destination(), position)?;
+                }
+                Operation::And => {
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
+                    let result = left
+                        .and(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+
+                    self.insert(result, instruction.destination(), position)?;
+                }
+                Operation::Or => {
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
+                    let result = left
+                        .or(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+
+                    self.insert(result, instruction.destination(), position)?;
+                }
                 Operation::Negate => {
                     let value = self.take_constant_or_clone_register(
                         instruction.first_argument(),
@@ -160,6 +211,18 @@ impl Vm {
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(negated, instruction.destination(), position)?;
+                }
+                Operation::Not => {
+                    let value = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let result = value
+                        .not()
+                        .map_err(|error| VmError::Value { error, position })?;
+
+                    self.insert(result, instruction.destination(), position)?;
                 }
                 Operation::Return => {
                     let value = self.pop(position)?;

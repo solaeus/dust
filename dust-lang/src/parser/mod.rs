@@ -279,8 +279,8 @@ impl<'src> Parser<'src> {
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
         let operator_position = self.current_position;
-        let operator = self.current_token.kind();
-        let rule = ParseRule::from(&operator);
+        let operator = self.current_token;
+        let rule = ParseRule::from(&operator.kind());
 
         self.advance()?;
 
@@ -330,11 +330,14 @@ impl<'src> Parser<'src> {
             }
         };
 
-        let mut instruction = match operator {
+        let mut instruction = match operator.kind() {
             TokenKind::Plus => Instruction::add(self.current_register, left, right),
             TokenKind::Minus => Instruction::subtract(self.current_register, left, right),
             TokenKind::Star => Instruction::multiply(self.current_register, left, right),
             TokenKind::Slash => Instruction::divide(self.current_register, left, right),
+            TokenKind::Percent => Instruction::modulo(self.current_register, left, right),
+            TokenKind::DoubleAmpersand => Instruction::and(self.current_register, left, right),
+            TokenKind::DoublePipe => Instruction::or(self.current_register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -343,7 +346,7 @@ impl<'src> Parser<'src> {
                         TokenKind::Star,
                         TokenKind::Slash,
                     ],
-                    found: self.previous_token.to_owned(),
+                    found: operator.to_owned(),
                     position: operator_position,
                 })
             }
@@ -448,6 +451,7 @@ impl<'src> Parser<'src> {
     }
 
     pub fn parse_block(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        self.advance()?;
         self.chunk.begin_scope();
 
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
@@ -467,13 +471,11 @@ impl<'src> Parser<'src> {
         let start = self.current_position.0;
         let (is_expression_statement, contains_block) = match self.current_token {
             Token::Let => {
-                self.advance()?;
                 self.parse_let_statement(true)?;
 
                 (false, false)
             }
             Token::LeftCurlyBrace => {
-                self.advance()?;
                 self.parse_block(true)?;
 
                 (true, true)
@@ -495,7 +497,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_let_statement(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
-        self.allow(TokenKind::Let)?;
+        self.advance()?;
 
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
@@ -692,7 +694,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Str => todo!(),
             TokenKind::While => todo!(),
             TokenKind::BangEqual => todo!(),
-            TokenKind::Bang => todo!(),
+            TokenKind::Bang => ParseRule {
+                prefix: Some(Parser::parse_unary),
+                infix: None,
+                precedence: Precedence::Unary,
+            },
             TokenKind::Colon => todo!(),
             TokenKind::Comma => todo!(),
             TokenKind::Dot => todo!(),
@@ -703,7 +709,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::DoubleDot => todo!(),
             TokenKind::DoubleEqual => todo!(),
-            TokenKind::DoublePipe => todo!(),
+            TokenKind::DoublePipe => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary),
+                precedence: Precedence::LogicalOr,
+            },
             TokenKind::Equal => ParseRule {
                 prefix: None,
                 infix: None,

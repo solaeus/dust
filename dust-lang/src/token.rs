@@ -2,7 +2,7 @@
 use std::fmt::{self, Display, Formatter};
 
 /// Source code token.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Token<'src> {
     // End of file
     Eof,

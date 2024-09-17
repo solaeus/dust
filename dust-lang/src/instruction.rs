@@ -99,8 +99,47 @@ impl Instruction {
         instruction
     }
 
+    pub fn modulo(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Modulo as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
+    pub fn and(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::And as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
+    pub fn or(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Or as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
     pub fn negate(to_register: u8, from_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Negate as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(from_index);
+
+        instruction
+    }
+
+    pub fn not(to_register: u8, from_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Not as u32);
 
         instruction.set_destination(to_register);
         instruction.set_first_argument(from_index);
@@ -306,6 +345,51 @@ impl Instruction {
 
                 format!("R({destination}) = {first_argument} / {second_argument}",)
             }
+            Operation::Modulo => {
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} % {second_argument}",)
+            }
+            Operation::And => {
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} && {second_argument}",)
+            }
+            Operation::Or => {
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} || {second_argument}",)
+            }
             Operation::Negate => {
                 let destination = self.destination();
                 let argument = if self.first_argument_is_constant() {
@@ -315,6 +399,16 @@ impl Instruction {
                 };
 
                 format!("R({destination}) = -{argument}")
+            }
+            Operation::Not => {
+                let destination = self.destination();
+                let argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+
+                format!("R({destination}) = !{argument}")
             }
             Operation::Return => return None,
         };
@@ -342,9 +436,13 @@ const SET_LOCAL: u8 = 0b0000_0101;
 const ADD: u8 = 0b0000_0110;
 const SUBTRACT: u8 = 0b0000_0111;
 const MULTIPLY: u8 = 0b0000_1000;
-const DIVIDE: u8 = 0b0000_1001;
-const NEGATE: u8 = 0b0000_1010;
-const RETURN: u8 = 0b0000_1011;
+const MODULO: u8 = 0b0000_1001;
+const AND: u8 = 0b0000_1010;
+const OR: u8 = 0b0000_1011;
+const DIVIDE: u8 = 0b0000_1100;
+const NEGATE: u8 = 0b0000_1101;
+const NOT: u8 = 0b0000_1110;
+const RETURN: u8 = 0b0000_1111;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -365,9 +463,13 @@ pub enum Operation {
     Subtract = SUBTRACT as isize,
     Multiply = MULTIPLY as isize,
     Divide = DIVIDE as isize,
+    Modulo = MODULO as isize,
+    And = AND as isize,
+    Or = OR as isize,
 
     // Unary operations
     Negate = NEGATE as isize,
+    Not = NOT as isize,
 
     // Control flow
     Return = RETURN as isize,
@@ -377,7 +479,13 @@ impl Operation {
     pub fn is_binary(&self) -> bool {
         matches!(
             self,
-            Operation::Add | Operation::Subtract | Operation::Multiply | Operation::Divide
+            Operation::Add
+                | Operation::Subtract
+                | Operation::Multiply
+                | Operation::Divide
+                | Operation::Modulo
+                | Operation::And
+                | Operation::Or
         )
     }
 }
@@ -395,8 +503,13 @@ impl From<u8> for Operation {
             SUBTRACT => Operation::Subtract,
             MULTIPLY => Operation::Multiply,
             DIVIDE => Operation::Divide,
+            MODULO => Operation::Modulo,
+            AND => Operation::And,
+            OR => Operation::Or,
             NEGATE => Operation::Negate,
-            _ => Operation::Return,
+            NOT => Operation::Not,
+            RETURN => Operation::Return,
+            _ => panic!("Invalid operation byte: {}", byte),
         }
     }
 }
@@ -414,7 +527,11 @@ impl From<Operation> for u8 {
             Operation::Subtract => SUBTRACT,
             Operation::Multiply => MULTIPLY,
             Operation::Divide => DIVIDE,
+            Operation::Modulo => MODULO,
+            Operation::And => AND,
+            Operation::Or => OR,
             Operation::Negate => NEGATE,
+            Operation::Not => NOT,
             Operation::Return => RETURN,
         }
     }
@@ -433,7 +550,11 @@ impl Display for Operation {
             Operation::Subtract => write!(f, "SUBTRACT"),
             Operation::Multiply => write!(f, "MULTIPLY"),
             Operation::Divide => write!(f, "DIVIDE"),
+            Operation::Modulo => write!(f, "MODULO"),
+            Operation::And => write!(f, "AND"),
+            Operation::Or => write!(f, "OR"),
             Operation::Negate => write!(f, "NEGATE"),
+            Operation::Not => write!(f, "NOT"),
             Operation::Return => write!(f, "RETURN"),
         }
     }
@@ -565,6 +686,40 @@ mod tests {
     }
 
     #[test]
+    fn and() {
+        let mut instruction = Instruction::and(0, 1, 2);
+
+        instruction.set_operation(Operation::And);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::And);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn or() {
+        let mut instruction = Instruction::or(0, 1, 2);
+
+        instruction.set_operation(Operation::Or);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Or);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
     fn negate() {
         let mut instruction = Instruction::negate(0, 1);
 
@@ -574,6 +729,22 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Negate);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn not() {
+        let mut instruction = Instruction::not(0, 1);
+
+        instruction.set_operation(Operation::Not);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Not);
         assert_eq!(instruction.destination(), 0);
         assert_eq!(instruction.first_argument(), 1);
         assert!(instruction.first_argument_is_constant());

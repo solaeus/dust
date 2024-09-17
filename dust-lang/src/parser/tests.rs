@@ -148,15 +148,60 @@ fn declare_local() {
 }
 
 #[test]
-fn constant() {
+fn and() {
     assert_eq!(
-        parse("42"),
+        parse("1 && 2"),
         Ok(Chunk::with_data(
             vec![
-                (Instruction::load_constant(0, 0), Span(0, 2)),
-                (Instruction::r#return(), Span(0, 2)),
+                (
+                    *Instruction::and(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 4)
+                ),
+                (Instruction::r#return(), Span(0, 6)),
             ],
-            vec![Value::integer(42)],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+}
+
+#[test]
+fn divide() {
+    assert_eq!(
+        parse("1 / 2"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::divide(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(), Span(0, 5)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+}
+
+#[test]
+fn multiply() {
+    assert_eq!(
+        parse("1 * 2"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::multiply(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(), Span(0, 5)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
     );
@@ -197,6 +242,21 @@ fn subtract() {
                 (Instruction::r#return(), Span(0, 5)),
             ],
             vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+}
+
+#[test]
+fn constant() {
+    assert_eq!(
+        parse("42"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(0, 2)),
+                (Instruction::r#return(), Span(0, 2)),
+            ],
+            vec![Value::integer(42)],
             vec![]
         ))
     );
