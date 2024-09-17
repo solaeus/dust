@@ -340,7 +340,6 @@ impl<'src> Parser<'src> {
         }
 
         self.emit_instruction(instruction, operator_position);
-
         self.increment_register()?;
 
         Ok(())

@@ -3,6 +3,11 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn empty() {
+    assert_eq!(parse(""), Ok(Chunk::with_data(vec![], vec![], vec![])),);
+}
+
+#[test]
 fn set_local() {
     assert_eq!(
         parse("let x = 41; x = 42;"),
@@ -44,24 +49,37 @@ fn parentheses_precedence() {
 }
 
 #[test]
-fn add_multiply_precedence() {
+fn math_operator_precedence() {
     assert_eq!(
-        parse("1 + 2 * 3"),
+        parse("1 + 2 - 3 * 4 / 5"),
         Ok(Chunk::with_data(
             vec![
                 (
-                    *Instruction::multiply(0, 1, 2)
+                    *Instruction::multiply(1, 2, 3)
                         .set_first_argument_to_constant()
                         .set_second_argument_to_constant(),
-                    Span(6, 7)
+                    Span(10, 11)
                 ),
                 (
-                    *Instruction::add(1, 0, 0).set_first_argument_to_constant(),
+                    *Instruction::add(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
                     Span(2, 3)
                 ),
-                (Instruction::r#return(), Span(0, 9)),
+                (
+                    *Instruction::divide(2, 1, 4).set_second_argument_to_constant(),
+                    Span(14, 15)
+                ),
+                (Instruction::subtract(3, 0, 2), Span(6, 7)),
+                (Instruction::r#return(), Span(0, 17)),
             ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(5),
+            ],
             vec![]
         ))
     );
