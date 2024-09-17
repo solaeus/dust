@@ -307,7 +307,14 @@ impl Instruction {
                 format!("R({destination}) = {first_argument} / {second_argument}",)
             }
             Operation::Negate => {
-                format!("R({}) = -RC({})", self.destination(), self.first_argument())
+                let destination = self.destination();
+                let argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+
+                format!("R({destination}) = -{argument}")
             }
             Operation::Return => return None,
         };

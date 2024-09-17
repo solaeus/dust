@@ -3,6 +3,53 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn block_scope() {
+    let source = "
+        let a = 0;
+        {
+            let b = 42;
+            {
+                let c = 1;
+            }
+            let d = 2;
+        }
+        let e = 1;
+    ";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(17, 18)),
+                (Instruction::declare_local(0, 0), Span(13, 14)),
+                (Instruction::load_constant(1, 1), Span(50, 52)),
+                (Instruction::declare_local(1, 1), Span(46, 47)),
+                (Instruction::load_constant(2, 2), Span(92, 93)),
+                (Instruction::declare_local(2, 2), Span(88, 89)),
+                (Instruction::load_constant(3, 3), Span(129, 130)),
+                (Instruction::declare_local(3, 3), Span(125, 126)),
+                (Instruction::load_constant(4, 4), Span(158, 159)),
+                (Instruction::declare_local(4, 4), Span(154, 155)),
+            ],
+            vec![
+                Value::integer(0),
+                Value::integer(42),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(1)
+            ],
+            vec![
+                Local::new(Identifier::new("a"), 0, Some(0)),
+                Local::new(Identifier::new("b"), 1, Some(1)),
+                Local::new(Identifier::new("c"), 2, Some(2)),
+                Local::new(Identifier::new("d"), 1, Some(3)),
+                Local::new(Identifier::new("e"), 0, Some(4)),
+            ]
+        )),
+    );
+}
+
+#[test]
 fn empty() {
     assert_eq!(parse(""), Ok(Chunk::with_data(vec![], vec![], vec![])),);
 }

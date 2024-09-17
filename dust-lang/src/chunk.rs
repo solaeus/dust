@@ -60,6 +60,12 @@ impl Chunk {
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
+    pub fn get_last_instruction(&self, position: Span) -> Result<&(Instruction, Span), ChunkError> {
+        self.instructions
+            .last()
+            .ok_or(ChunkError::InstructionUnderflow { position })
+    }
+
     pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
         let index = index as usize;
 
@@ -104,9 +110,9 @@ impl Chunk {
     }
 
     pub fn get_identifier(&self, index: u8) -> Option<&Identifier> {
-        let index = index as usize;
-
-        self.locals.get(index).map(|local| &local.identifier)
+        self.locals
+            .get(index as usize)
+            .map(|local| &local.identifier)
     }
 
     pub fn get_local_index(
