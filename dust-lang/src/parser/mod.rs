@@ -240,35 +240,46 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
-        let operator_position = self.previous_position;
-        let mut instruction = match self.previous_token.kind() {
-            TokenKind::Minus => {
-                self.advance()?;
-                self.parse_expression()?;
+        let operator = self.current_token;
+        let operator_position = self.current_position;
 
-                Instruction::negate(self.current_register, self.current_register - 1)
+        self.advance()?;
+        self.parse_expression()?;
+
+        let (previous_instruction, previous_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+
+        let (is_constant, destination, from_register) = match previous_instruction.operation() {
+            Operation::LoadConstant => {
+                self.decrement_register()?;
+
+                (
+                    true,
+                    previous_instruction.destination(),
+                    previous_instruction.first_argument(),
+                )
             }
             _ => {
+                self.emit_instruction(previous_instruction, previous_position);
+
+                (false, self.current_register, self.current_register - 1)
+            }
+        };
+
+        let mut instruction = match operator.kind() {
+            TokenKind::Bang => Instruction::not(destination, from_register),
+            TokenKind::Minus => Instruction::negate(destination, from_register),
+            _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
-                    expected: vec![TokenKind::Minus],
-                    found: self.previous_token.to_owned(),
+                    expected: &[TokenKind::Minus],
+                    found: operator.to_owned(),
                     position: operator_position,
                 })
             }
         };
 
-        let (previous_instruction, previous_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-
-        match previous_instruction.operation() {
-            Operation::LoadConstant => {
-                self.decrement_register()?;
-                instruction.set_first_argument(previous_instruction.destination());
-                instruction.set_first_argument_to_constant();
-            }
-            _ => {
-                self.emit_instruction(previous_instruction, previous_position);
-            }
+        if is_constant {
+            instruction.set_first_argument_to_constant();
         }
 
         self.increment_register()?;
@@ -340,7 +351,7 @@ impl<'src> Parser<'src> {
             TokenKind::DoublePipe => Instruction::or(self.current_register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
-                    expected: vec![
+                    expected: &[
                         TokenKind::Plus,
                         TokenKind::Minus,
                         TokenKind::Star,
@@ -450,7 +461,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    pub fn parse_block(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+    fn parse_block(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.advance()?;
         self.chunk.begin_scope();
 
@@ -459,6 +470,34 @@ impl<'src> Parser<'src> {
         }
 
         self.chunk.end_scope();
+
+        Ok(())
+    }
+
+    fn parse_list(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        self.advance()?;
+
+        let start = self.current_position.0;
+        let mut length = 0;
+
+        while !self.allow(TokenKind::RightSquareBrace)? && !self.is_eof() {
+            self.parse_expression()?;
+
+            length += 1;
+
+            if !self.allow(TokenKind::Comma)? {
+                self.expect(TokenKind::RightSquareBrace)?;
+
+                break;
+            }
+        }
+
+        let end = self.current_position.1;
+
+        self.emit_instruction(
+            Instruction::load_list(self.current_register, length),
+            Span(start, end),
+        );
 
         Ok(())
     }
@@ -700,7 +739,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Unary,
             },
             TokenKind::Colon => todo!(),
-            TokenKind::Comma => todo!(),
+            TokenKind::Comma => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Dot => todo!(),
             TokenKind::DoubleAmpersand => ParseRule {
                 prefix: None,
@@ -731,7 +774,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::LeftSquareBrace => todo!(),
+            TokenKind::LeftSquareBrace => ParseRule {
+                prefix: Some(Parser::parse_list),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Less => todo!(),
             TokenKind::LessOrEqual => todo!(),
             TokenKind::Minus => ParseRule {
@@ -758,7 +805,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::RightSquareBrace => todo!(),
+            TokenKind::RightSquareBrace => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Semicolon => ParseRule {
                 prefix: None,
                 infix: None,
@@ -791,7 +842,7 @@ pub enum ParseError {
         position: Span,
     },
     ExpectedTokenMultiple {
-        expected: Vec<TokenKind>,
+        expected: &'static [TokenKind],
         found: TokenOwned,
         position: Span,
     },

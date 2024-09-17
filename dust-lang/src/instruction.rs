@@ -32,6 +32,15 @@ impl Instruction {
         instruction
     }
 
+    pub fn load_list(to_register: u8, list_length: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::LoadList as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(list_length);
+
+        instruction
+    }
+
     pub fn declare_local(to_register: u8, variable_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::DeclareLocal as u32);
 
@@ -244,6 +253,16 @@ impl Instruction {
                     format!("R({}) = C({})", self.destination(), constant_index)
                 }
             }
+            Operation::LoadList => {
+                let destination = self.destination();
+                let first_index = destination - self.first_argument();
+                let last_index = destination - 1;
+
+                format!(
+                    "R({}) = [R({})..R({})]",
+                    destination, first_index, last_index
+                )
+            }
             Operation::DeclareLocal => {
                 let local_index = self.first_argument();
                 let identifier_display = if let Some(chunk) = chunk {
@@ -430,19 +449,20 @@ impl Display for Instruction {
 const MOVE: u8 = 0b0000_0000;
 const CLOSE: u8 = 0b000_0001;
 const LOAD_CONSTANT: u8 = 0b0000_0010;
-const DECLARE_LOCAL: u8 = 0b0000_0011;
-const GET_LOCAL: u8 = 0b0000_0100;
-const SET_LOCAL: u8 = 0b0000_0101;
-const ADD: u8 = 0b0000_0110;
-const SUBTRACT: u8 = 0b0000_0111;
-const MULTIPLY: u8 = 0b0000_1000;
-const MODULO: u8 = 0b0000_1001;
-const AND: u8 = 0b0000_1010;
-const OR: u8 = 0b0000_1011;
-const DIVIDE: u8 = 0b0000_1100;
-const NEGATE: u8 = 0b0000_1101;
-const NOT: u8 = 0b0000_1110;
-const RETURN: u8 = 0b0000_1111;
+const LOAD_LIST: u8 = 0b0000_0011;
+const DECLARE_LOCAL: u8 = 0b0000_0100;
+const GET_LOCAL: u8 = 0b0000_0101;
+const SET_LOCAL: u8 = 0b0000_0110;
+const ADD: u8 = 0b0000_0111;
+const SUBTRACT: u8 = 0b0000_1000;
+const MULTIPLY: u8 = 0b0000_1001;
+const MODULO: u8 = 0b0000_1010;
+const AND: u8 = 0b0000_1011;
+const OR: u8 = 0b0000_1100;
+const DIVIDE: u8 = 0b0000_1101;
+const NEGATE: u8 = 0b0000_1110;
+const NOT: u8 = 0b0000_1111;
+const RETURN: u8 = 0b0001_0000;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -450,8 +470,9 @@ pub enum Operation {
     Move = MOVE as isize,
     Close = CLOSE as isize,
 
-    // Constants
+    // Value loading
     LoadConstant = LOAD_CONSTANT as isize,
+    LoadList = LOAD_LIST as isize,
 
     // Variables
     DeclareLocal = DECLARE_LOCAL as isize,
@@ -496,6 +517,7 @@ impl From<u8> for Operation {
             MOVE => Operation::Move,
             CLOSE => Operation::Close,
             LOAD_CONSTANT => Operation::LoadConstant,
+            LOAD_LIST => Operation::LoadList,
             DECLARE_LOCAL => Operation::DeclareLocal,
             GET_LOCAL => Operation::GetLocal,
             SET_LOCAL => Operation::SetLocal,
@@ -520,6 +542,7 @@ impl From<Operation> for u8 {
             Operation::Move => MOVE,
             Operation::Close => CLOSE,
             Operation::LoadConstant => LOAD_CONSTANT,
+            Operation::LoadList => LOAD_LIST,
             Operation::DeclareLocal => DECLARE_LOCAL,
             Operation::GetLocal => GET_LOCAL,
             Operation::SetLocal => SET_LOCAL,
@@ -543,6 +566,7 @@ impl Display for Operation {
             Operation::Move => write!(f, "MOVE"),
             Operation::Close => write!(f, "CLOSE"),
             Operation::LoadConstant => write!(f, "LOAD_CONSTANT"),
+            Operation::LoadList => write!(f, "LOAD_LIST"),
             Operation::DeclareLocal => write!(f, "DECLARE_LOCAL"),
             Operation::GetLocal => write!(f, "GET_LOCAL"),
             Operation::SetLocal => write!(f, "SET_LOCAL"),

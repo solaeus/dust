@@ -54,6 +54,22 @@ impl Vm {
 
                     self.insert(value, to_register, position)?;
                 }
+                Operation::LoadList => {
+                    let to_register = instruction.destination();
+                    let length = instruction.first_argument();
+                    let first_register = to_register - length;
+                    let last_register = to_register - 1;
+
+                    let mut list = Vec::with_capacity(length as usize);
+
+                    for register_index in first_register..=last_register {
+                        let value = self.clone(register_index, position)?;
+
+                        list.push(value);
+                    }
+
+                    self.insert(Value::list(list), to_register, position)?;
+                }
                 Operation::DeclareLocal => {
                     let from_register = instruction.destination();
                     let to_local = instruction.first_argument();
