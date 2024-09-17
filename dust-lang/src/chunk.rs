@@ -498,7 +498,8 @@ impl AnnotatedError for ChunkError {
             ChunkError::IdentifierNotFound { identifier, .. } => {
                 Some(format!("Identifier: {}", identifier))
             }
-            _ => None,
+            ChunkError::IdentifierOverflow { .. } => Some("Identifier overflow".to_string()),
+            ChunkError::ConstantOverflow { .. } => Some("Constant overflow".to_string()),
         }
     }
 
@@ -508,7 +509,10 @@ impl AnnotatedError for ChunkError {
             ChunkError::ConstantAlreadyUsed { position, .. } => *position,
             ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
             ChunkError::IdentifierNotFound { position, .. } => *position,
-            _ => todo!(),
+            ChunkError::InstructionUnderflow { position, .. } => *position,
+            ChunkError::LocalIndexOutOfBounds { position, .. } => *position,
+            ChunkError::IdentifierOverflow { position, .. } => *position,
+            ChunkError::ConstantOverflow { position, .. } => *position,
         }
     }
 }
