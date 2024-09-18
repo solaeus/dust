@@ -224,6 +224,21 @@ impl Instruction {
     }
 
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> Option<String> {
+        let format_arguments = || {
+            let first_argument = if self.first_argument_is_constant() {
+                format!("C({})", self.first_argument())
+            } else {
+                format!("R({})", self.first_argument())
+            };
+            let second_argument = if self.second_argument_is_constant() {
+                format!("C({})", self.second_argument())
+            } else {
+                format!("R({})", self.second_argument())
+            };
+
+            (first_argument, second_argument)
+        };
+
         let info = match self.operation() {
             Operation::Move => {
                 format!("R({}) = R({})", self.destination(), self.first_argument())
@@ -306,106 +321,43 @@ impl Instruction {
             }
             Operation::Add => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} + {second_argument}",)
             }
             Operation::Subtract => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} - {second_argument}",)
             }
             Operation::Multiply => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} * {second_argument}",)
             }
             Operation::Divide => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} / {second_argument}",)
             }
             Operation::Modulo => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} % {second_argument}",)
             }
             Operation::And => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} && {second_argument}",)
             }
             Operation::Or => {
                 let destination = self.destination();
-                let first_argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
-                } else {
-                    format!("R({})", self.first_argument())
-                };
-                let second_argument = if self.second_argument_is_constant() {
-                    format!("C({})", self.second_argument())
-                } else {
-                    format!("R({})", self.second_argument())
-                };
+                let (first_argument, second_argument) = format_arguments();
 
                 format!("R({destination}) = {first_argument} || {second_argument}",)
             }

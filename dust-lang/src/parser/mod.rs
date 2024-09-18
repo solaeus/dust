@@ -96,7 +96,7 @@ impl<'src> Parser<'src> {
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        log::trace!("Parsing token \"{new_token}\" at {position}");
+        log::trace!("Parsing \"{new_token}\" at {position}");
 
         self.previous_token = replace(&mut self.current_token, new_token);
         self.previous_position = replace(&mut self.current_position, position);
@@ -271,7 +271,7 @@ impl<'src> Parser<'src> {
             TokenKind::Minus => Instruction::negate(destination, from_register),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
-                    expected: &[TokenKind::Minus],
+                    expected: &[TokenKind::Bang, TokenKind::Minus],
                     found: operator.to_owned(),
                     position: operator_position,
                 })
@@ -356,6 +356,9 @@ impl<'src> Parser<'src> {
                         TokenKind::Minus,
                         TokenKind::Star,
                         TokenKind::Slash,
+                        TokenKind::Percent,
+                        TokenKind::DoubleAmpersand,
+                        TokenKind::DoublePipe,
                     ],
                     found: operator.to_owned(),
                     position: operator_position,
@@ -475,13 +478,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_list(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
         self.advance()?;
 
-        let start = self.current_position.0;
         let mut length = 0;
 
         while !self.allow(TokenKind::RightSquareBrace)? && !self.is_eof() {
-            self.parse_expression()?;
+            self.parse(Precedence::Assignment)?; // Do not allow assignment
 
             length += 1;
 
@@ -535,7 +539,14 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_let_statement(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+    fn parse_let_statement(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
+        if !allow_assignment {
+            return Err(ParseError::ExpectedExpression {
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        }
+
         self.advance()?;
 
         let position = self.current_position;
@@ -587,7 +598,7 @@ impl<'src> Parser<'src> {
 
         if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
             log::trace!(
-                "Parsing {} as prefix with precedence {precedence}",
+                "Parsing \"{}\" with prefix parser at precedence {precedence}",
                 self.current_token,
             );
 
@@ -599,7 +610,7 @@ impl<'src> Parser<'src> {
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
                 log::trace!(
-                    "Parsing {} as infix with precedence {precedence}",
+                    "Parsing \"{}\" with infix parser at precedence {precedence}",
                     self.current_token,
                 );
 
