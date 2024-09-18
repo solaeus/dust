@@ -15,10 +15,11 @@ impl Instruction {
         instruction
     }
 
-    pub fn close(to_register: u8) -> Instruction {
+    pub fn close(from_register: u8, to_register: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Close as u32);
 
-        instruction.set_destination(to_register);
+        instruction.set_first_argument(from_register);
+        instruction.set_second_argument(to_register);
 
         instruction
     }
@@ -243,7 +244,12 @@ impl Instruction {
             Operation::Move => {
                 format!("R({}) = R({})", self.destination(), self.first_argument())
             }
-            Operation::Close => format!("R({})", self.destination()),
+            Operation::Close => {
+                let from_register = self.first_argument();
+                let to_register = self.second_argument().saturating_sub(1);
+
+                format!("R({from_register})..=R({to_register})")
+            }
             Operation::LoadConstant => {
                 let constant_index = self.first_argument();
 
@@ -274,7 +280,7 @@ impl Instruction {
                 let last_index = destination - 1;
 
                 format!(
-                    "R({}) = [R({})..R({})]",
+                    "R({}) = [R({})..=R({})]",
                     destination, first_index, last_index
                 )
             }
@@ -556,15 +562,11 @@ mod tests {
 
     #[test]
     fn close() {
-        let mut instruction = Instruction::close(1);
-
-        instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
+        let instruction = Instruction::close(1, 2);
 
         assert_eq!(instruction.operation(), Operation::Close);
-        assert_eq!(instruction.destination(), 1);
-        assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
     }
 
     #[test]

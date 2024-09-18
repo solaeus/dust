@@ -485,7 +485,16 @@ impl<'src> Parser<'src> {
         let mut length = 0;
 
         while !self.allow(TokenKind::RightSquareBrace)? && !self.is_eof() {
+            let next_register = self.current_register;
+
             self.parse(Precedence::Assignment)?; // Do not allow assignment
+
+            if next_register != self.current_register - 1 {
+                self.emit_instruction(
+                    Instruction::close(next_register, self.current_register - 1),
+                    self.current_position,
+                );
+            }
 
             length += 1;
 

@@ -66,7 +66,14 @@ impl Vm {
 
                     self.insert(value, to, position)?;
                 }
-                Operation::Close => todo!(),
+                Operation::Close => {
+                    let from = instruction.first_argument();
+                    let to = instruction.second_argument();
+
+                    for register_index in from..to {
+                        self.register_stack[register_index as usize] = None;
+                    }
+                }
                 Operation::LoadConstant => {
                     let to_register = instruction.destination();
                     let from_constant = instruction.first_argument();
@@ -77,13 +84,17 @@ impl Vm {
                 Operation::LoadList => {
                     let to_register = instruction.destination();
                     let length = instruction.first_argument();
-                    let first_register = to_register - length;
+                    let first_register = to_register - length - 1;
                     let last_register = to_register - 1;
 
                     let mut list = Vec::with_capacity(length as usize);
 
                     for register_index in first_register..=last_register {
-                        let value = self.clone(register_index, position)?;
+                        let value = match self.clone(register_index, position) {
+                            Ok(value) => value,
+                            Err(VmError::EmptyRegister { .. }) => continue,
+                            Err(error) => return Err(error),
+                        };
 
                         list.push(value);
                     }
