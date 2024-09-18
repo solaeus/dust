@@ -71,17 +71,17 @@ fn block_scope() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0), Span(17, 18)),
-                (Instruction::declare_local(0, 0), Span(13, 14)),
+                (Instruction::define_local(0, 0, false), Span(13, 14)),
                 (Instruction::load_constant(1, 1), Span(50, 52)),
-                (Instruction::declare_local(1, 1), Span(46, 47)),
+                (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (Instruction::load_constant(2, 2), Span(92, 93)),
-                (Instruction::declare_local(2, 2), Span(88, 89)),
+                (Instruction::define_local(2, 2, false), Span(88, 89)),
                 (Instruction::close(2, 3), Span(84, 124)),
                 (Instruction::load_constant(3, 3), Span(129, 130)),
-                (Instruction::declare_local(3, 3), Span(125, 126)),
+                (Instruction::define_local(3, 3, false), Span(125, 126)),
                 (Instruction::close(1, 4), Span(42, 153)),
                 (Instruction::load_constant(4, 4), Span(158, 159)),
-                (Instruction::declare_local(4, 4), Span(154, 155)),
+                (Instruction::define_local(4, 4, false), Span(154, 155)),
             ],
             vec![
                 Value::integer(0),
@@ -91,11 +91,11 @@ fn block_scope() {
                 Value::integer(1)
             ],
             vec![
-                Local::new(Identifier::new("a"), 0, Some(0)),
-                Local::new(Identifier::new("b"), 1, Some(1)),
-                Local::new(Identifier::new("c"), 2, Some(2)),
-                Local::new(Identifier::new("d"), 1, Some(3)),
-                Local::new(Identifier::new("e"), 0, Some(4)),
+                Local::new(Identifier::new("a"), false, 0, Some(0)),
+                Local::new(Identifier::new("b"), false, 1, Some(1)),
+                Local::new(Identifier::new("c"), false, 2, Some(2)),
+                Local::new(Identifier::new("d"), false, 1, Some(3)),
+                Local::new(Identifier::new("e"), false, 0, Some(4)),
             ]
         )),
     );
@@ -113,12 +113,12 @@ fn set_local() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0), Span(8, 10)),
-                (Instruction::declare_local(0, 0), Span(4, 5)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::load_constant(1, 1), Span(16, 18)),
                 (Instruction::set_local(1, 0), Span(12, 13)),
             ],
             vec![Value::integer(41), Value::integer(42)],
-            vec![Local::new(Identifier::new("x"), 0, Some(0)),]
+            vec![Local::new(Identifier::new("x"), false, 0, Some(0)),]
         )),
     );
 }
@@ -191,10 +191,10 @@ fn declare_local() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0), Span(8, 10)),
-                (Instruction::declare_local(0, 0), Span(4, 5)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
             ],
             vec![Value::integer(42)],
-            vec![Local::new(Identifier::new("x"), 0, Some(0))]
+            vec![Local::new(Identifier::new("x"), false, 0, Some(0))]
         )),
     );
 }

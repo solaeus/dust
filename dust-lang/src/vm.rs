@@ -35,6 +35,7 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
+        // DRY helper closure to take a constant or clone a register
         let take_constants_or_clone = |vm: &mut Vm,
                                        instruction: Instruction,
                                        position: Span|
@@ -107,7 +108,7 @@ impl Vm {
 
                     self.insert(Value::list(list), to_register, position)?;
                 }
-                Operation::DeclareLocal => {
+                Operation::DefineLocal => {
                     let from_register = instruction.destination();
                     let to_local = instruction.first_argument();
 
@@ -122,10 +123,21 @@ impl Vm {
                     self.insert(value, register_index, position)?;
                 }
                 Operation::SetLocal => {
-                    let from_register = instruction.destination();
-                    let to_local = instruction.first_argument();
+                    let register_index = instruction.destination();
+                    let local_index = instruction.first_argument();
+                    let local = self.chunk.get_local(local_index, position)?.clone();
+                    let value = self.clone_as_variable(local, position)?;
+                    let new_value = if instruction.first_argument_is_constant() {
+                        self.chunk.take_constant(register_index, position)?
+                    } else {
+                        self.clone(register_index, position)?
+                    };
 
-                    self.chunk.define_local(to_local, from_register, position)?;
+                    value
+                        .mutate(new_value)
+                        .map_err(|error| VmError::Value { error, position })?;
+
+                    self.insert(value, register_index, position)?;
                 }
                 Operation::Add => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
@@ -258,19 +270,40 @@ impl Vm {
         }
     }
 
+    fn clone_mutable(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
+        let index = index as usize;
+
+        if let Some(register) = self.register_stack.get_mut(index) {
+            let cloneable = if let Some(value) = register.take() {
+                value.into_mutable()
+            } else {
+                return Err(VmError::EmptyRegister { index, position });
+            };
+
+            *register = Some(cloneable.clone());
+
+            Ok(cloneable)
+        } else {
+            Err(VmError::RegisterIndexOutOfBounds { position })
+        }
+    }
+
     fn clone_as_variable(&mut self, local: Local, position: Span) -> Result<Value, VmError> {
         let index = if let Some(index) = local.register_index {
             index
         } else {
             return Err(VmError::UndefinedVariable {
-                identifier: local.identifier.clone(),
+                identifier: local.identifier,
                 position,
             });
         };
-        let clone_result = self.clone(index, position);
+        let clone_result = if local.mutable {
+            self.clone_mutable(index, position)
+        } else {
+            self.clone(index, position)
+        };
 
         match clone_result {
-            Ok(value) => Ok(value),
             Err(VmError::EmptyRegister { .. }) => Err(VmError::UndefinedVariable {
                 identifier: local.identifier,
                 position,
@@ -334,8 +367,8 @@ pub enum VmError {
 }
 
 impl From<ChunkError> for VmError {
-    fn from(v: ChunkError) -> Self {
-        Self::Chunk(v)
+    fn from(error: ChunkError) -> Self {
+        Self::Chunk(error)
     }
 }
 

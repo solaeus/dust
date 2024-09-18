@@ -295,12 +295,22 @@ impl<'src> Parser<'src> {
         let mut left_is_constant = false;
         let left = match left_instruction.operation() {
             Operation::LoadConstant => {
+                log::trace!(
+                    "Condensing {} to binary expression",
+                    left_instruction.operation()
+                );
+
                 left_is_constant = true;
 
                 self.decrement_register()?;
                 left_instruction.first_argument()
             }
             Operation::GetLocal => {
+                log::trace!(
+                    "Condensing {} to binary expression",
+                    left_instruction.operation()
+                );
+
                 self.decrement_register()?;
                 left_instruction.first_argument()
             }
@@ -330,12 +340,22 @@ impl<'src> Parser<'src> {
         let mut right_is_constant = false;
         let right = match right_instruction.operation() {
             Operation::LoadConstant => {
+                log::trace!(
+                    "Condensing {} to binary expression",
+                    right_instruction.operation()
+                );
+
                 right_is_constant = true;
 
                 self.decrement_register()?;
                 right_instruction.first_argument()
             }
             Operation::GetLocal => {
+                log::trace!(
+                    "Condensing {} to binary expression",
+                    right_instruction.operation()
+                );
+
                 self.decrement_register()?;
                 right_instruction.first_argument()
             }
@@ -423,6 +443,8 @@ impl<'src> Parser<'src> {
                     .register_index;
 
                 if let Some(register_index) = previous_register {
+                    log::trace!("Condensing SET_LOCAL to binary expression");
+
                     previous_instruction.set_destination(register_index);
                     self.emit_instruction(previous_instruction, self.current_position);
                 } else {
@@ -592,6 +614,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
+        let is_mutable = self.allow(TokenKind::Mut)?;
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
@@ -609,11 +632,14 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         let register = self.chunk.get_last_instruction(position)?.0.destination();
-        let local_index = self
-            .chunk
-            .declare_local(identifier, register, self.current_position)?;
+        let local_index =
+            self.chunk
+                .declare_local(identifier, is_mutable, register, self.current_position)?;
 
-        self.emit_instruction(Instruction::declare_local(register, local_index), position);
+        self.emit_instruction(
+            Instruction::define_local(register, local_index, is_mutable),
+            position,
+        );
         self.allow(TokenKind::Semicolon)?;
 
         Ok(())
@@ -824,8 +850,16 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Term,
             },
             TokenKind::MinusEqual => todo!(),
-            TokenKind::Mut => todo!(),
-            TokenKind::Percent => todo!(),
+            TokenKind::Mut => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenKind::Percent => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary),
+                precedence: Precedence::Factor,
+            },
             TokenKind::Plus => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_binary),

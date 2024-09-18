@@ -144,6 +144,7 @@ impl Chunk {
     pub fn declare_local(
         &mut self,
         identifier: Identifier,
+        mutable: bool,
         register_index: u8,
         position: Span,
     ) -> Result<u8, ChunkError> {
@@ -154,6 +155,7 @@ impl Chunk {
         } else {
             self.locals.push(Local::new(
                 identifier,
+                mutable,
                 self.scope_depth,
                 Some(register_index),
             ));
@@ -236,14 +238,21 @@ impl PartialEq for Chunk {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Local {
     pub identifier: Identifier,
+    pub mutable: bool,
     pub depth: usize,
     pub register_index: Option<u8>,
 }
 
 impl Local {
-    pub fn new(identifier: Identifier, depth: usize, register_index: Option<u8>) -> Self {
+    pub fn new(
+        identifier: Identifier,
+        mutable: bool,
+        depth: usize,
+        register_index: Option<u8>,
+    ) -> Self {
         Self {
             identifier,
+            mutable,
             depth,
             register_index,
         }
@@ -278,8 +287,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Locals",
         "------",
-        "INDEX IDENTIFIER DEPTH REGISTER",
-        "----- ---------- ----- --------",
+        "INDEX IDENTIFIER MUTABLE DEPTH REGISTER",
+        "----- ---------- ------- ----- --------",
     ];
 
     /// The default width of the disassembly output. To correctly align the output, this should be
@@ -384,6 +393,7 @@ impl<'a> ChunkDisassembler<'a> {
                 identifier,
                 depth,
                 register_index,
+                mutable,
             },
         ) in self.chunk.locals.iter().enumerate()
         {
@@ -392,8 +402,9 @@ impl<'a> ChunkDisassembler<'a> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "empty".to_string());
             let identifier_display = identifier.as_str();
-            let local_display =
-                format!("{index:<5} {identifier_display:<10} {depth:<5} {register_display:<8}");
+            let local_display = format!(
+                "{index:<5} {identifier_display:<10} {mutable:<7} {depth:<5} {register_display:<8}"
+            );
 
             disassembled.push_str(&center(&local_display));
         }

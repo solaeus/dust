@@ -34,7 +34,7 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     ops::{Range, RangeInclusive},
     sync::{Arc, RwLock},
 };
@@ -50,7 +50,6 @@ use crate::{EnumType, FunctionType, Identifier, RangeableType, StructType, Type}
 /// Dust value representation
 ///
 /// See the [module-level documentation][self] for more.
-#[derive(Debug)]
 pub enum Value {
     Raw(ValueData),
     Reference(Arc<ValueData>),
@@ -127,6 +126,8 @@ impl Value {
     }
 
     pub fn into_reference(self) -> Self {
+        log::trace!("Converting to reference: {self:?}");
+
         match self {
             Value::Raw(data) => Value::Reference(Arc::new(data)),
             Value::Reference(_) => self,
@@ -140,8 +141,16 @@ impl Value {
 
     pub fn into_mutable(self) -> Self {
         match self {
-            Value::Raw(data) => Value::Mutable(Arc::new(RwLock::new(data))),
-            Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
+            Value::Raw(data) => {
+                log::trace!("Converting to mutable: {data:?}");
+
+                Value::Mutable(Arc::new(RwLock::new(data)))
+            }
+            Value::Reference(data) => {
+                log::trace!("Converting to mutable: {data:?}");
+
+                Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone())))
+            }
             Value::Mutable(_) => self,
         }
     }
@@ -814,6 +823,20 @@ impl Clone for Value {
             Value::Raw(data) => Value::Raw(data.clone()),
             Value::Reference(data) => Value::Reference(data.clone()),
             Value::Mutable(data) => Value::Mutable(data.clone()),
+        }
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Value::Raw(data) => write!(f, "Value::Raw({data:?})"),
+            Value::Reference(data) => write!(f, "Value::Reference({data:?})"),
+            Value::Mutable(data) => {
+                let data = data.read().unwrap();
+
+                write!(f, "Value::Mutable({data:?})")
+            }
         }
     }
 }

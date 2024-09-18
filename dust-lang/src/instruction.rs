@@ -42,11 +42,12 @@ impl Instruction {
         instruction
     }
 
-    pub fn declare_local(to_register: u8, variable_index: u8) -> Instruction {
-        let mut instruction = Instruction(Operation::DeclareLocal as u32);
+    pub fn define_local(to_register: u8, variable_index: u8, is_mutable: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::DefineLocal as u32);
 
         instruction.set_destination(to_register);
         instruction.set_first_argument(variable_index);
+        instruction.set_second_argument(if is_mutable { 1 } else { 0 });
 
         instruction
     }
@@ -284,7 +285,7 @@ impl Instruction {
                     destination, first_index, last_index
                 )
             }
-            Operation::DeclareLocal => {
+            Operation::DefineLocal => {
                 let local_index = self.first_argument();
                 let identifier_display = if let Some(chunk) = chunk {
                     match chunk.get_identifier(local_index) {
@@ -433,7 +434,7 @@ pub enum Operation {
     LoadList = LOAD_LIST as isize,
 
     // Variables
-    DeclareLocal = DECLARE_LOCAL as isize,
+    DefineLocal = DECLARE_LOCAL as isize,
     GetLocal = GET_LOCAL as isize,
     SetLocal = SET_LOCAL as isize,
 
@@ -476,7 +477,7 @@ impl From<u8> for Operation {
             CLOSE => Operation::Close,
             LOAD_CONSTANT => Operation::LoadConstant,
             LOAD_LIST => Operation::LoadList,
-            DECLARE_LOCAL => Operation::DeclareLocal,
+            DECLARE_LOCAL => Operation::DefineLocal,
             GET_LOCAL => Operation::GetLocal,
             SET_LOCAL => Operation::SetLocal,
             ADD => Operation::Add,
@@ -501,7 +502,7 @@ impl From<Operation> for u8 {
             Operation::Close => CLOSE,
             Operation::LoadConstant => LOAD_CONSTANT,
             Operation::LoadList => LOAD_LIST,
-            Operation::DeclareLocal => DECLARE_LOCAL,
+            Operation::DefineLocal => DECLARE_LOCAL,
             Operation::GetLocal => GET_LOCAL,
             Operation::SetLocal => SET_LOCAL,
             Operation::Add => ADD,
@@ -525,7 +526,7 @@ impl Display for Operation {
             Operation::Close => write!(f, "CLOSE"),
             Operation::LoadConstant => write!(f, "LOAD_CONSTANT"),
             Operation::LoadList => write!(f, "LOAD_LIST"),
-            Operation::DeclareLocal => write!(f, "DECLARE_LOCAL"),
+            Operation::DefineLocal => write!(f, "DEFINE_LOCAL"),
             Operation::GetLocal => write!(f, "GET_LOCAL"),
             Operation::SetLocal => write!(f, "SET_LOCAL"),
             Operation::Add => write!(f, "ADD"),
@@ -585,16 +586,15 @@ mod tests {
 
     #[test]
     fn declare_local() {
-        let mut instruction = Instruction::declare_local(0, 1);
+        let mut instruction = Instruction::define_local(0, 1, true);
 
         instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
 
-        assert_eq!(instruction.operation(), Operation::DeclareLocal);
+        assert_eq!(instruction.operation(), Operation::DefineLocal);
         assert_eq!(instruction.destination(), 0);
         assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), true as u8);
         assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
