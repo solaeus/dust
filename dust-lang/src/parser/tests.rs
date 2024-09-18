@@ -3,6 +3,36 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn list_with_expression() {
+    let source = "[1, 2 + 3, 4]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(1, 2)),
+                (
+                    *Instruction::add(1, 1, 2)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(6, 7)
+                ),
+                (Instruction::load_constant(2, 3), Span(11, 12)),
+                (Instruction::load_list(3, 3), Span(0, 13)),
+                (Instruction::r#return(), Span(0, 13)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+            ],
+            vec![]
+        )),
+    );
+}
+
+#[test]
 fn list() {
     let source = "[1, 2, 3]";
 
