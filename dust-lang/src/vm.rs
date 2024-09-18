@@ -77,13 +77,13 @@ impl Vm {
                 }
                 Operation::LoadBoolean => {
                     let to_register = instruction.destination();
-                    let boolean = instruction.first_argument() != 0;
-                    let skip = instruction.second_argument() != 0;
+                    let boolean = instruction.first_argument_as_boolean();
+                    let skip = instruction.second_argument_as_boolean();
                     let value = Value::boolean(boolean);
 
                     self.insert(value, to_register, position)?;
 
-                    if skip {
+                    if boolean && skip {
                         self.ip += 1;
                     }
                 }
@@ -201,6 +201,45 @@ impl Vm {
 
                     self.insert(or, instruction.destination(), position)?;
                 }
+                Operation::Equal => {
+                    let (left, right) = take_constants_or_clone(self, instruction, position)?;
+                    let equal = left
+                        .equal(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let compare_to = instruction.destination_as_boolean();
+
+                    if let Some(boolean) = equal.as_boolean() {
+                        if boolean == compare_to {
+                            self.ip += 1;
+                        }
+                    }
+                }
+                Operation::Less => {
+                    let (left, right) = take_constants_or_clone(self, instruction, position)?;
+                    let less = left
+                        .less_than(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let compare_to = instruction.destination() != 0;
+
+                    if let Some(boolean) = less.as_boolean() {
+                        if boolean != compare_to {
+                            self.ip += 1;
+                        }
+                    }
+                }
+                Operation::LessEqual => {
+                    let (left, right) = take_constants_or_clone(self, instruction, position)?;
+                    let less_equal = left
+                        .less_than_or_equal(&right)
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let compare_to = instruction.destination() != 0;
+
+                    if let Some(boolean) = less_equal.as_boolean() {
+                        if boolean != compare_to {
+                            self.ip += 1;
+                        }
+                    }
+                }
                 Operation::Negate => {
                     let value = if instruction.first_argument_is_constant() {
                         self.chunk
@@ -226,6 +265,17 @@ impl Vm {
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(not, instruction.destination(), position)?;
+                }
+                Operation::Jump => {
+                    let offset = instruction.first_argument();
+                    let is_positive = instruction.second_argument_as_boolean();
+                    let new_ip = if is_positive {
+                        self.ip + offset as usize
+                    } else {
+                        self.ip - offset as usize
+                    };
+
+                    self.ip = new_ip;
                 }
                 Operation::Return => {
                     let value = self.pop(position)?;

@@ -150,6 +150,16 @@ impl Instruction {
         instruction
     }
 
+    pub fn equal(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Equal as u32);
+
+        instruction.set_destination(if comparison_boolean { 1 } else { 0 });
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
     pub fn negate(to_register: u8, from_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Negate as u32);
 
@@ -168,32 +178,33 @@ impl Instruction {
         instruction
     }
 
+    pub fn jump(offset: u8, is_positive: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::Jump as u32);
+
+        instruction.set_first_argument(offset);
+        instruction.set_second_argument(if is_positive { 1 } else { 0 });
+
+        instruction
+    }
+
     pub fn r#return() -> Instruction {
         Instruction(Operation::Return as u32)
     }
 
-    pub fn set_first_argument_to_constant(&mut self) -> &mut Self {
-        self.0 |= 0b1000_0000;
-
-        self
+    pub fn operation(&self) -> Operation {
+        Operation::from((self.0 & 0b0000_0000_0011_1111) as u8)
     }
 
-    pub fn first_argument_is_constant(&self) -> bool {
-        self.0 & 0b1000_0000 != 0
-    }
-
-    pub fn set_second_argument_to_constant(&mut self) -> &mut Self {
-        self.0 |= 0b0100_0000;
-
-        self
-    }
-
-    pub fn second_argument_is_constant(&self) -> bool {
-        self.0 & 0b0100_0000 != 0
+    pub fn set_operation(&mut self, operation: Operation) {
+        self.0 |= u8::from(operation) as u32;
     }
 
     pub fn destination(&self) -> u8 {
         (self.0 >> 24) as u8
+    }
+
+    pub fn destination_as_boolean(&self) -> bool {
+        (self.0 >> 24) != 0
     }
 
     pub fn set_destination(&mut self, destination: u8) {
@@ -205,6 +216,20 @@ impl Instruction {
         (self.0 >> 16) as u8
     }
 
+    pub fn first_argument_is_constant(&self) -> bool {
+        self.0 & 0b1000_0000 != 0
+    }
+
+    pub fn first_argument_as_boolean(&self) -> bool {
+        self.first_argument() != 0
+    }
+
+    pub fn set_first_argument_to_constant(&mut self) -> &mut Self {
+        self.0 |= 0b1000_0000;
+
+        self
+    }
+
     pub fn set_first_argument(&mut self, argument: u8) {
         self.0 |= (argument as u32) << 16;
     }
@@ -213,16 +238,22 @@ impl Instruction {
         (self.0 >> 8) as u8
     }
 
+    pub fn second_argument_is_constant(&self) -> bool {
+        self.0 & 0b0100_0000 != 0
+    }
+
+    pub fn second_argument_as_boolean(&self) -> bool {
+        self.second_argument() != 0
+    }
+
+    pub fn set_second_argument_to_constant(&mut self) -> &mut Self {
+        self.0 |= 0b0100_0000;
+
+        self
+    }
+
     pub fn set_second_argument(&mut self, argument: u8) {
         self.0 |= (argument as u32) << 8;
-    }
-
-    pub fn operation(&self) -> Operation {
-        Operation::from((self.0 & 0b0000_0000_0011_1111) as u8)
-    }
-
-    pub fn set_operation(&mut self, operation: Operation) {
-        self.0 |= u8::from(operation) as u32;
     }
 
     pub fn disassemble(&self, chunk: &Chunk) -> String {
@@ -263,14 +294,14 @@ impl Instruction {
             }
             Operation::LoadBoolean => {
                 let to_register = self.destination();
-                let boolean = if self.first_argument() == 0 {
-                    "false"
+                let boolean = self.first_argument_as_boolean();
+                let skip_display = if self.second_argument_as_boolean() {
+                    "IP++"
                 } else {
-                    "true"
+                    ""
                 };
-                let skip = self.second_argument() != 0;
 
-                format!("R({to_register}) = {boolean}; if {skip} ip++",)
+                format!("R({to_register}) = {boolean} {skip_display}",)
             }
             Operation::LoadConstant => {
                 let constant_index = self.first_argument();
@@ -389,6 +420,37 @@ impl Instruction {
 
                 format!("R({destination}) = {first_argument} || {second_argument}",)
             }
+            Operation::Equal => {
+                let comparison_symbol = if self.destination_as_boolean() {
+                    "=="
+                } else {
+                    "!="
+                };
+
+                let (first_argument, second_argument) = format_arguments();
+
+                format!("if {first_argument} {comparison_symbol} {second_argument} IP++",)
+            }
+            Operation::Less => {
+                let comparison_symbol = if self.destination_as_boolean() {
+                    "<"
+                } else {
+                    ">="
+                };
+                let (first_argument, second_argument) = format_arguments();
+
+                format!("if {first_argument} {comparison_symbol} {second_argument} IP++",)
+            }
+            Operation::LessEqual => {
+                let comparison_symbol = if self.destination_as_boolean() {
+                    "<="
+                } else {
+                    ">"
+                };
+                let (first_argument, second_argument) = format_arguments();
+
+                format!("if {first_argument} {comparison_symbol} {second_argument} IP++",)
+            }
             Operation::Negate => {
                 let destination = self.destination();
                 let argument = if self.first_argument_is_constant() {
@@ -408,6 +470,16 @@ impl Instruction {
                 };
 
                 format!("R({destination}) = !{argument}")
+            }
+            Operation::Jump => {
+                let offset = self.first_argument();
+                let positive = self.second_argument() != 0;
+
+                if positive {
+                    format!("IP += {}", offset)
+                } else {
+                    format!("IP -= {}", offset)
+                }
             }
             Operation::Return => return None,
         };
@@ -454,6 +526,16 @@ mod tests {
     }
 
     #[test]
+    fn load_boolean() {
+        let instruction = Instruction::load_boolean(4, true, true);
+
+        assert_eq!(instruction.operation(), Operation::LoadBoolean);
+        assert_eq!(instruction.destination(), 4);
+        assert!(instruction.first_argument_as_boolean());
+        assert!(instruction.second_argument_as_boolean());
+    }
+
+    #[test]
     fn load_constant() {
         let mut instruction = Instruction::load_constant(0, 1);
 
@@ -484,8 +566,6 @@ mod tests {
     fn add() {
         let mut instruction = Instruction::add(1, 1, 0);
 
-        instruction.set_operation(Operation::Add);
-
         instruction.set_first_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Add);
@@ -498,8 +578,6 @@ mod tests {
     #[test]
     fn subtract() {
         let mut instruction = Instruction::subtract(0, 1, 2);
-
-        instruction.set_operation(Operation::Subtract);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
@@ -516,8 +594,6 @@ mod tests {
     fn multiply() {
         let mut instruction = Instruction::multiply(0, 1, 2);
 
-        instruction.set_operation(Operation::Multiply);
-
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
@@ -532,8 +608,6 @@ mod tests {
     #[test]
     fn divide() {
         let mut instruction = Instruction::divide(0, 1, 2);
-
-        instruction.set_operation(Operation::Divide);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
@@ -550,8 +624,6 @@ mod tests {
     fn and() {
         let mut instruction = Instruction::and(0, 1, 2);
 
-        instruction.set_operation(Operation::And);
-
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
@@ -567,8 +639,6 @@ mod tests {
     fn or() {
         let mut instruction = Instruction::or(0, 1, 2);
 
-        instruction.set_operation(Operation::Or);
-
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
@@ -581,10 +651,23 @@ mod tests {
     }
 
     #[test]
+    fn equal() {
+        let mut instruction = Instruction::equal(true, 1, 2);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Equal);
+        assert!(instruction.destination_as_boolean());
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
     fn negate() {
         let mut instruction = Instruction::negate(0, 1);
-
-        instruction.set_operation(Operation::Negate);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
@@ -600,8 +683,6 @@ mod tests {
     fn not() {
         let mut instruction = Instruction::not(0, 1);
 
-        instruction.set_operation(Operation::Not);
-
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
@@ -613,10 +694,20 @@ mod tests {
     }
 
     #[test]
+    fn jump() {
+        let mut instruction = Instruction::jump(4, true);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Jump);
+        assert_eq!(instruction.first_argument(), 4);
+        assert!(instruction.first_argument_as_boolean());
+    }
+
+    #[test]
     fn r#return() {
         let mut instruction = Instruction::r#return();
-
-        instruction.set_operation(Operation::Return);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();

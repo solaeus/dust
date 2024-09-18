@@ -2,22 +2,32 @@ use std::fmt::{self, Display, Formatter};
 
 const MOVE: u8 = 0b0000_0000;
 const CLOSE: u8 = 0b000_0001;
+
 const LOAD_BOOLEAN: u8 = 0b0000_0010;
 const LOAD_CONSTANT: u8 = 0b0000_0011;
 const LOAD_LIST: u8 = 0b0000_0100;
+
 const DECLARE_LOCAL: u8 = 0b0000_0101;
 const GET_LOCAL: u8 = 0b0000_0110;
 const SET_LOCAL: u8 = 0b0000_0111;
+
 const ADD: u8 = 0b0000_1000;
 const SUBTRACT: u8 = 0b0000_1001;
 const MULTIPLY: u8 = 0b0000_1010;
-const MODULO: u8 = 0b0000_1011;
-const AND: u8 = 0b0000_1100;
-const OR: u8 = 0b0000_1101;
-const DIVIDE: u8 = 0b0000_1110;
-const NEGATE: u8 = 0b0000_1111;
-const NOT: u8 = 0b0001_0000;
-const RETURN: u8 = 0b0001_0001;
+const DIVIDE: u8 = 0b0000_1011;
+const MODULO: u8 = 0b0000_1100;
+const AND: u8 = 0b0000_1101;
+const OR: u8 = 0b0000_1110;
+
+const EQUAL: u8 = 0b0000_1111;
+const LESS: u8 = 0b0001_0000;
+const LESS_EQUAL: u8 = 0b0001_0001;
+
+const NEGATE: u8 = 0b0001_0010;
+const NOT: u8 = 0b0001_0011;
+
+const JUMP: u8 = 0b0001_0100;
+const RETURN: u8 = 0b0001_0101;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -44,11 +54,17 @@ pub enum Operation {
     And = AND as isize,
     Or = OR as isize,
 
+    // Relational operations
+    Equal = EQUAL as isize,
+    Less = LESS as isize,
+    LessEqual = LESS_EQUAL as isize,
+
     // Unary operations
     Negate = NEGATE as isize,
     Not = NOT as isize,
 
     // Control flow
+    Jump = JUMP as isize,
     Return = RETURN as isize,
 }
 
@@ -85,8 +101,12 @@ impl From<u8> for Operation {
             MODULO => Operation::Modulo,
             AND => Operation::And,
             OR => Operation::Or,
+            EQUAL => Operation::Equal,
+            LESS => Operation::Less,
+            LESS_EQUAL => Operation::LessEqual,
             NEGATE => Operation::Negate,
             NOT => Operation::Not,
+            JUMP => Operation::Jump,
             RETURN => Operation::Return,
             _ => {
                 if cfg!(test) {
@@ -117,8 +137,12 @@ impl From<Operation> for u8 {
             Operation::Modulo => MODULO,
             Operation::And => AND,
             Operation::Or => OR,
+            Operation::Equal => EQUAL,
+            Operation::Less => LESS,
+            Operation::LessEqual => LESS_EQUAL,
             Operation::Negate => NEGATE,
             Operation::Not => NOT,
+            Operation::Jump => JUMP,
             Operation::Return => RETURN,
         }
     }
@@ -142,8 +166,12 @@ impl Display for Operation {
             Operation::Modulo => write!(f, "MODULO"),
             Operation::And => write!(f, "AND"),
             Operation::Or => write!(f, "OR"),
+            Operation::Equal => write!(f, "EQUAL"),
+            Operation::Less => write!(f, "LESS"),
+            Operation::LessEqual => write!(f, "LESS_EQUAL"),
             Operation::Negate => write!(f, "NEGATE"),
             Operation::Not => write!(f, "NOT"),
+            Operation::Jump => write!(f, "JUMP"),
             Operation::Return => write!(f, "RETURN"),
         }
     }

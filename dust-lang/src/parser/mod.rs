@@ -153,6 +153,7 @@ impl<'src> Parser<'src> {
                 Instruction::load_boolean(self.current_register, boolean, false),
                 self.previous_position,
             );
+            self.increment_register()?;
         }
 
         Ok(())
@@ -382,6 +383,7 @@ impl<'src> Parser<'src> {
             TokenKind::Percent => Instruction::modulo(self.current_register, left, right),
             TokenKind::DoubleAmpersand => Instruction::and(self.current_register, left, right),
             TokenKind::DoublePipe => Instruction::or(self.current_register, left, right),
+            TokenKind::DoubleEqual => Instruction::equal(true, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -392,6 +394,7 @@ impl<'src> Parser<'src> {
                         TokenKind::Percent,
                         TokenKind::DoubleAmpersand,
                         TokenKind::DoublePipe,
+                        TokenKind::DoubleEqual,
                     ],
                     found: operator.to_owned(),
                     position: operator_position,
@@ -417,6 +420,10 @@ impl<'src> Parser<'src> {
 
         self.emit_instruction(instruction, operator_position);
         self.increment_register()?;
+
+        if let TokenKind::DoubleEqual = operator.kind() {
+            self.emit_instruction(Instruction::jump(2, true), operator_position);
+        }
 
         Ok(())
     }
@@ -521,14 +528,17 @@ impl<'src> Parser<'src> {
             ends_with_semicolon = true;
         }
 
+        let end = self.current_position.1;
+
         if ends_with_semicolon {
-            let end = self.current_position.1;
             let end_register = self.current_register;
 
             self.emit_instruction(
                 Instruction::close(start_register, end_register),
                 Span(start, end),
             );
+        } else {
+            self.emit_instruction(Instruction::r#return(), Span(start, end));
         }
 
         Ok(())
@@ -568,6 +578,18 @@ impl<'src> Parser<'src> {
             Instruction::load_list(self.current_register, length),
             Span(start, end),
         );
+
+        Ok(())
+    }
+
+    fn parse_if(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        self.advance()?;
+        self.parse_expression()?;
+        self.parse_block(false)?;
+
+        if self.allow(TokenKind::Else)? {
+            self.parse_block(false)?;
+        }
 
         Ok(())
     }
@@ -784,9 +806,17 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Async => todo!(),
             TokenKind::Bool => todo!(),
             TokenKind::Break => todo!(),
-            TokenKind::Else => todo!(),
+            TokenKind::Else => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::FloatKeyword => todo!(),
-            TokenKind::If => todo!(),
+            TokenKind::If => ParseRule {
+                prefix: Some(Parser::parse_if),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Int => todo!(),
             TokenKind::Let => ParseRule {
                 prefix: Some(Parser::parse_let_statement),
@@ -816,7 +846,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::LogicalAnd,
             },
             TokenKind::DoubleDot => todo!(),
-            TokenKind::DoubleEqual => todo!(),
+            TokenKind::DoubleEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary),
+                precedence: Precedence::Equality,
+            },
             TokenKind::DoublePipe => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_binary),
