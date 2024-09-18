@@ -313,7 +313,7 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back_left = true;
 
-                self.current_register
+                left_instruction.destination()
             }
         };
 
@@ -348,7 +348,7 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back_right = true;
 
-                self.current_register
+                right_instruction.destination()
             }
         };
 
@@ -573,7 +573,7 @@ impl<'src> Parser<'src> {
         };
         let has_semicolon = self.allow(TokenKind::Semicolon)?;
 
-        if (!has_semicolon || is_expression) && self.is_eof() {
+        if (!has_semicolon && is_expression) && self.is_eof() {
             let end = self.previous_position.1;
 
             self.emit_instruction(Instruction::r#return(), Span(start, end));

@@ -3,6 +3,26 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn list() {
+    let source = "[1, 2, 3]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(1, 2)),
+                (Instruction::load_constant(1, 1), Span(4, 5)),
+                (Instruction::load_constant(2, 2), Span(7, 8)),
+                (Instruction::load_list(3, 3), Span(0, 9)),
+                (Instruction::r#return(), Span(0, 9)),
+            ],
+            vec![Value::integer(1), Value::integer(2), Value::integer(3),],
+            vec![]
+        )),
+    );
+}
+
+#[test]
 fn block_scope() {
     let source = "
         let a = 0;
