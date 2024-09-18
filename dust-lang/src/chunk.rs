@@ -262,7 +262,7 @@ impl Local {
 pub struct ChunkDisassembler<'a> {
     name: &'a str,
     chunk: &'a Chunk,
-    width: usize,
+    width: Option<usize>,
     styled: bool,
 }
 
@@ -271,16 +271,16 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "OFFSET OPERATION      INFO                      POSITION",
-        "------ -------------- ------------------------- --------",
+        "INDEX OPERATION      INFO                      POSITION",
+        "----- -------------- ------------------------- --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
         "",
         "Constants",
         "---------",
-        "INDEX KIND  VALUE",
-        "----- ----- -----",
+        "INDEX   VALUE  ",
+        "----- ---------",
     ];
 
     const LOCAL_HEADER: [&'static str; 5] = [
@@ -291,21 +291,29 @@ impl<'a> ChunkDisassembler<'a> {
         "----- ---------- ------- ----- --------",
     ];
 
-    /// The default width of the disassembly output. To correctly align the output, this should be
-    /// set to the width of the longest line that the disassembler is guaranteed to produce.
-    const DEFAULT_WIDTH: usize = Self::INSTRUCTION_HEADER[4].len() + 1;
+    /// The default width of the disassembly output. To correctly align the output, this should
+    /// return the width of the longest line that the disassembler is guaranteed to produce.
+    pub fn default_width(styled: bool) -> usize {
+        let longest_line = Self::INSTRUCTION_HEADER[4];
+
+        if styled {
+            longest_line.bold().chars().count()
+        } else {
+            longest_line.chars().count()
+        }
+    }
 
     pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
         Self {
             name,
             chunk,
-            width: Self::DEFAULT_WIDTH,
+            width: None,
             styled: false,
         }
     }
 
     pub fn width(&mut self, width: usize) -> &mut Self {
-        self.width = width;
+        self.width = Some(width);
 
         self
     }
@@ -317,7 +325,11 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let center = |line: &str| format!("{line:^width$}\n", width = self.width);
+        let width = self
+            .width
+            .unwrap_or_else(|| Self::default_width(self.styled))
+            + 1;
+        let center = |line: &str| format!("{line:^width$}\n");
         let style = |line: String| {
             if self.styled {
                 line.bold().to_string()
@@ -326,10 +338,10 @@ impl<'a> ChunkDisassembler<'a> {
             }
         };
 
-        let mut disassembled = String::with_capacity(self.predict_length());
+        let mut disassembly = String::with_capacity(self.predict_length());
         let name_line = style(center(self.name));
 
-        disassembled.push_str(&name_line);
+        disassembly.push_str(&name_line);
 
         let info_line = center(&format!(
             "{} instructions, {} constants, {} locals",
@@ -339,52 +351,53 @@ impl<'a> ChunkDisassembler<'a> {
         ));
         let styled_info_line = {
             if self.styled {
-                info_line.bold().dimmed().to_string()
+                info_line.dimmed().to_string()
             } else {
                 info_line
             }
         };
 
-        disassembled.push_str(&styled_info_line);
+        disassembly.push_str(&styled_info_line);
 
         for line in Self::INSTRUCTION_HEADER {
-            disassembled.push_str(&style(center(line)));
+            disassembly.push_str(&style(center(line)));
         }
 
-        for (offset, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
+        for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info_option = instruction.disassembly_info(Some(self.chunk));
+
             let instruction_display = if let Some(info) = info_option {
-                format!("{offset:<6} {operation:14} {info:25} {position:8}")
+                format!("{index:<5} {operation:14} {info:25} {position:8}")
             } else {
-                format!("{offset:<6} {operation:14} {:25} {position:8}", " ")
+                format!("{index:<5} {operation:14} {:25} {position:8}", " ")
             };
 
-            disassembled.push_str(&center(&instruction_display));
+            disassembly.push_str(&center(&instruction_display));
         }
 
         for line in Self::CONSTANT_HEADER {
-            disassembled.push_str(&style(center(line)));
+            disassembly.push_str(&style(center(line)));
         }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
-            let value_kind_display = if let Some(value) = value_option {
-                value.kind().to_string()
-            } else {
-                "empty".to_string()
-            };
             let value_display = value_option
                 .as_ref()
                 .map(|value| value.to_string())
-                .unwrap_or_else(|| "empty".to_string());
-            let constant_display = format!("{index:<5} {value_kind_display:<5} {value_display:<5}");
+                .unwrap_or("empty".to_string());
+            let elipsis = if value_display.len() > 9 { "..." } else { "" };
+            let constant_display = if value_display.len() > 9 {
+                format!("{index:<5} {value_display:^7.7}{elipsis}")
+            } else {
+                format!("{index:<5} {value_display:10}")
+            };
 
-            disassembled.push_str(&center(&constant_display));
+            disassembly.push_str(&center(&constant_display));
         }
 
         for line in Self::LOCAL_HEADER {
-            disassembled.push_str(&style(center(line)));
+            disassembly.push_str(&style(center(line)));
         }
 
         for (
@@ -403,14 +416,14 @@ impl<'a> ChunkDisassembler<'a> {
                 .unwrap_or_else(|| "empty".to_string());
             let identifier_display = identifier.as_str();
             let local_display = format!(
-                "{index:<5} {identifier_display:<10} {mutable:<7} {depth:<5} {register_display:<8}"
+                "{index:<5} {identifier_display:10} {mutable:7} {depth:<5} {register_display:8}"
             );
 
-            disassembled.push_str(&center(&local_display));
+            disassembly.push_str(&center(&local_display));
         }
 
         let expected_length = self.predict_length();
-        let actual_length = disassembled.len();
+        let actual_length = disassembly.len();
 
         if !self.styled && expected_length != actual_length {
             log::debug!(
@@ -424,7 +437,7 @@ impl<'a> ChunkDisassembler<'a> {
             );
         }
 
-        disassembled
+        disassembly
     }
 
     /// Predicts the capacity of the disassembled output. This is used to pre-allocate the string
@@ -440,15 +453,21 @@ impl<'a> ChunkDisassembler<'a> {
     /// the ANSI escape codes will make the result too low. It still works as a lower bound in that
     /// case.
     fn predict_length(&self) -> usize {
-        const EXTRA_LINES: usize = 2; // There is one empty line after the name of the chunk
+        const EXTRA_LINES: usize = 2; // There is one info line and one empty line after the name
 
-        let static_line_count =
-            Self::INSTRUCTION_HEADER.len() + Self::CONSTANT_HEADER.len() + Self::LOCAL_HEADER.len();
+        let static_line_count = Self::INSTRUCTION_HEADER.len()
+            + Self::CONSTANT_HEADER.len()
+            + Self::LOCAL_HEADER.len()
+            + EXTRA_LINES;
         let dynamic_line_count =
             self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
-        let total_line_count = static_line_count + dynamic_line_count + EXTRA_LINES;
+        let total_line_count = static_line_count + dynamic_line_count;
+        let width = self
+            .width
+            .unwrap_or_else(|| Self::default_width(self.styled))
+            + 1;
 
-        total_line_count * (self.width + 1)
+        total_line_count * width
     }
 }
 

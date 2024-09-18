@@ -1287,7 +1287,7 @@ impl Display for ValueData {
             ValueData::Range(range_value) => {
                 write!(f, "{range_value}")
             }
-            ValueData::String(string) => write!(f, "\"{string}\""),
+            ValueData::String(string) => write!(f, "{string}"),
             ValueData::Struct(r#struct) => write!(f, "{struct}"),
             ValueData::Tuple(fields) => {
                 write!(f, "(")?;

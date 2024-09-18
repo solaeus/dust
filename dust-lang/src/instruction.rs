@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Chunk, Span};
+use crate::{Chunk, Operation, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Instruction(u32);
@@ -20,6 +20,16 @@ impl Instruction {
 
         instruction.set_first_argument(from_register);
         instruction.set_second_argument(to_register);
+
+        instruction
+    }
+
+    pub fn load_boolean(to_register: u8, value: bool, skip: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::LoadBoolean as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(if value { 1 } else { 0 });
+        instruction.set_second_argument(if skip { 1 } else { 0 });
 
         instruction
     }
@@ -251,6 +261,17 @@ impl Instruction {
 
                 format!("R({from_register})..=R({to_register})")
             }
+            Operation::LoadBoolean => {
+                let to_register = self.destination();
+                let boolean = if self.first_argument() == 0 {
+                    "false"
+                } else {
+                    "true"
+                };
+                let skip = self.second_argument() != 0;
+
+                format!("R({to_register}) = {boolean}; if {skip} ip++",)
+            }
             Operation::LoadConstant => {
                 let constant_index = self.first_argument();
 
@@ -401,144 +422,6 @@ impl Display for Instruction {
             write!(f, "{} {}", self.operation(), info)
         } else {
             write!(f, "{}", self.operation())
-        }
-    }
-}
-
-const MOVE: u8 = 0b0000_0000;
-const CLOSE: u8 = 0b000_0001;
-const LOAD_CONSTANT: u8 = 0b0000_0010;
-const LOAD_LIST: u8 = 0b0000_0011;
-const DECLARE_LOCAL: u8 = 0b0000_0100;
-const GET_LOCAL: u8 = 0b0000_0101;
-const SET_LOCAL: u8 = 0b0000_0110;
-const ADD: u8 = 0b0000_0111;
-const SUBTRACT: u8 = 0b0000_1000;
-const MULTIPLY: u8 = 0b0000_1001;
-const MODULO: u8 = 0b0000_1010;
-const AND: u8 = 0b0000_1011;
-const OR: u8 = 0b0000_1100;
-const DIVIDE: u8 = 0b0000_1101;
-const NEGATE: u8 = 0b0000_1110;
-const NOT: u8 = 0b0000_1111;
-const RETURN: u8 = 0b0001_0000;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Operation {
-    // Stack manipulation
-    Move = MOVE as isize,
-    Close = CLOSE as isize,
-
-    // Value loading
-    LoadConstant = LOAD_CONSTANT as isize,
-    LoadList = LOAD_LIST as isize,
-
-    // Variables
-    DefineLocal = DECLARE_LOCAL as isize,
-    GetLocal = GET_LOCAL as isize,
-    SetLocal = SET_LOCAL as isize,
-
-    // Binary operations
-    Add = ADD as isize,
-    Subtract = SUBTRACT as isize,
-    Multiply = MULTIPLY as isize,
-    Divide = DIVIDE as isize,
-    Modulo = MODULO as isize,
-    And = AND as isize,
-    Or = OR as isize,
-
-    // Unary operations
-    Negate = NEGATE as isize,
-    Not = NOT as isize,
-
-    // Control flow
-    Return = RETURN as isize,
-}
-
-impl Operation {
-    pub fn is_binary(&self) -> bool {
-        matches!(
-            self,
-            Operation::Add
-                | Operation::Subtract
-                | Operation::Multiply
-                | Operation::Divide
-                | Operation::Modulo
-                | Operation::And
-                | Operation::Or
-        )
-    }
-}
-
-impl From<u8> for Operation {
-    fn from(byte: u8) -> Self {
-        match byte {
-            MOVE => Operation::Move,
-            CLOSE => Operation::Close,
-            LOAD_CONSTANT => Operation::LoadConstant,
-            LOAD_LIST => Operation::LoadList,
-            DECLARE_LOCAL => Operation::DefineLocal,
-            GET_LOCAL => Operation::GetLocal,
-            SET_LOCAL => Operation::SetLocal,
-            ADD => Operation::Add,
-            SUBTRACT => Operation::Subtract,
-            MULTIPLY => Operation::Multiply,
-            DIVIDE => Operation::Divide,
-            MODULO => Operation::Modulo,
-            AND => Operation::And,
-            OR => Operation::Or,
-            NEGATE => Operation::Negate,
-            NOT => Operation::Not,
-            RETURN => Operation::Return,
-            _ => panic!("Invalid operation byte: {}", byte),
-        }
-    }
-}
-
-impl From<Operation> for u8 {
-    fn from(operation: Operation) -> Self {
-        match operation {
-            Operation::Move => MOVE,
-            Operation::Close => CLOSE,
-            Operation::LoadConstant => LOAD_CONSTANT,
-            Operation::LoadList => LOAD_LIST,
-            Operation::DefineLocal => DECLARE_LOCAL,
-            Operation::GetLocal => GET_LOCAL,
-            Operation::SetLocal => SET_LOCAL,
-            Operation::Add => ADD,
-            Operation::Subtract => SUBTRACT,
-            Operation::Multiply => MULTIPLY,
-            Operation::Divide => DIVIDE,
-            Operation::Modulo => MODULO,
-            Operation::And => AND,
-            Operation::Or => OR,
-            Operation::Negate => NEGATE,
-            Operation::Not => NOT,
-            Operation::Return => RETURN,
-        }
-    }
-}
-
-impl Display for Operation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Operation::Move => write!(f, "MOVE"),
-            Operation::Close => write!(f, "CLOSE"),
-            Operation::LoadConstant => write!(f, "LOAD_CONSTANT"),
-            Operation::LoadList => write!(f, "LOAD_LIST"),
-            Operation::DefineLocal => write!(f, "DEFINE_LOCAL"),
-            Operation::GetLocal => write!(f, "GET_LOCAL"),
-            Operation::SetLocal => write!(f, "SET_LOCAL"),
-            Operation::Add => write!(f, "ADD"),
-            Operation::Subtract => write!(f, "SUBTRACT"),
-            Operation::Multiply => write!(f, "MULTIPLY"),
-            Operation::Divide => write!(f, "DIVIDE"),
-            Operation::Modulo => write!(f, "MODULO"),
-            Operation::And => write!(f, "AND"),
-            Operation::Or => write!(f, "OR"),
-            Operation::Negate => write!(f, "NEGATE"),
-            Operation::Not => write!(f, "NOT"),
-            Operation::Return => write!(f, "RETURN"),
         }
     }
 }

@@ -50,12 +50,6 @@ impl Vm {
                 vm.chunk
                     .take_constant(instruction.second_argument(), position)?
             } else {
-                if let Operation::GetLocal = instruction.operation() {
-                    println!("GetLocal: {}", instruction);
-                }
-
-                println!("{}", instruction);
-
                 vm.clone(instruction.second_argument(), position)?
             };
 
@@ -79,6 +73,18 @@ impl Vm {
 
                     for register_index in from..to {
                         self.register_stack[register_index as usize] = None;
+                    }
+                }
+                Operation::LoadBoolean => {
+                    let to_register = instruction.destination();
+                    let boolean = instruction.first_argument() != 0;
+                    let skip = instruction.second_argument() != 0;
+                    let value = Value::boolean(boolean);
+
+                    self.insert(value, to_register, position)?;
+
+                    if skip {
+                        self.ip += 1;
                     }
                 }
                 Operation::LoadConstant => {

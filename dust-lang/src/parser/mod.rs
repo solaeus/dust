@@ -148,9 +148,11 @@ impl<'src> Parser<'src> {
             self.advance()?;
 
             let boolean = text.parse::<bool>().unwrap();
-            let value = Value::boolean(boolean);
 
-            self.emit_constant(value)?;
+            self.emit_instruction(
+                Instruction::load_boolean(self.current_register, boolean, false),
+                self.previous_position,
+            );
         }
 
         Ok(())
