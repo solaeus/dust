@@ -304,6 +304,12 @@ impl<'src> Parser<'src> {
                 self.decrement_register()?;
                 left_instruction.first_argument()
             }
+            Operation::Close => {
+                return Err(ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            }
             _ => {
                 push_back_left = true;
 
@@ -311,12 +317,11 @@ impl<'src> Parser<'src> {
             }
         };
 
-        let operator_position = self.current_position;
         let operator = self.current_token;
+        let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
         self.advance()?;
-
         self.parse(rule.precedence.increment())?;
 
         let (right_instruction, right_position) =
@@ -333,6 +338,12 @@ impl<'src> Parser<'src> {
             Operation::GetLocal => {
                 self.decrement_register()?;
                 right_instruction.first_argument()
+            }
+            Operation::Close => {
+                return Err(ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
             }
             _ => {
                 push_back_right = true;
@@ -431,7 +442,7 @@ impl<'src> Parser<'src> {
         } else {
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
-                self.current_position,
+                self.previous_position,
             );
             self.increment_register()?;
         }
@@ -468,11 +479,33 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.chunk.begin_scope();
 
+        let start = self.current_position.0;
+        let start_register = self.current_register;
+        let mut ends_with_semicolon = false;
+
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
             self.parse_statement()?;
+
+            if self.previous_token == Token::Semicolon {
+                ends_with_semicolon = true;
+            }
         }
 
         self.chunk.end_scope();
+
+        if self.current_token == Token::Semicolon {
+            ends_with_semicolon = true;
+        }
+
+        if ends_with_semicolon {
+            let end = self.current_position.1;
+            let end_register = self.current_register;
+
+            self.emit_instruction(
+                Instruction::close(start_register, end_register),
+                Span(start, end),
+            );
+        }
 
         Ok(())
     }
@@ -521,30 +554,31 @@ impl<'src> Parser<'src> {
 
     fn parse_statement(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let (is_expression_statement, contains_block) = match self.current_token {
+        let is_expression = match self.current_token {
             Token::Let => {
                 self.parse_let_statement(true)?;
 
-                (false, false)
+                false
             }
             Token::LeftCurlyBrace => {
                 self.parse_block(true)?;
 
-                (true, true)
+                self.previous_token != Token::Semicolon
             }
             _ => {
                 self.parse_expression()?;
 
-                (true, false)
+                true
             }
         };
         let has_semicolon = self.allow(TokenKind::Semicolon)?;
 
-        if is_expression_statement && !contains_block && !has_semicolon {
+        if (!has_semicolon || is_expression) && self.is_eof() {
             let end = self.previous_position.1;
 
-            self.emit_instruction(Instruction::r#return(), Span(start, end))
+            self.emit_instruction(Instruction::r#return(), Span(start, end));
         }
+
         Ok(())
     }
 
@@ -580,6 +614,7 @@ impl<'src> Parser<'src> {
             .declare_local(identifier, register, self.current_position)?;
 
         self.emit_instruction(Instruction::declare_local(register, local_index), position);
+        self.allow(TokenKind::Semicolon)?;
 
         Ok(())
     }

@@ -101,6 +101,10 @@ impl Chunk {
         }
     }
 
+    pub fn locals(&self) -> &[Local] {
+        &self.locals
+    }
+
     pub fn get_local(&self, index: u8, position: Span) -> Result<&Local, ChunkError> {
         let index = index as usize;
 

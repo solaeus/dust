@@ -1,6 +1,6 @@
 use crate::{
     dust_error::AnnotatedError, parse, Chunk, ChunkError, DustError, Identifier, Instruction,
-    Operation, Span, Value, ValueError,
+    Local, Operation, Span, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -49,6 +49,12 @@ impl Vm {
                 vm.chunk
                     .take_constant(instruction.second_argument(), position)?
             } else {
+                if let Operation::GetLocal = instruction.operation() {
+                    println!("GetLocal: {}", instruction);
+                }
+
+                println!("{}", instruction);
+
                 vm.clone(instruction.second_argument(), position)?
             };
 
@@ -110,15 +116,8 @@ impl Vm {
                 Operation::GetLocal => {
                     let register_index = instruction.destination();
                     let local_index = instruction.first_argument();
-                    let local = self.chunk.get_local(local_index, position)?;
-                    let value = if let Some(value_index) = &local.register_index {
-                        self.clone(*value_index, position)?
-                    } else {
-                        return Err(VmError::UndefinedVariable {
-                            identifier: local.identifier.clone(),
-                            position,
-                        });
-                    };
+                    let local = self.chunk.get_local(local_index, position)?.clone();
+                    let value = self.clone_as_variable(local, position)?;
 
                     self.insert(value, register_index, position)?;
                 }
@@ -170,19 +169,19 @@ impl Vm {
                 }
                 Operation::And => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
-                    let result = left
+                    let and = left
                         .and(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(result, instruction.destination(), position)?;
+                    self.insert(and, instruction.destination(), position)?;
                 }
                 Operation::Or => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
-                    let result = left
+                    let or = left
                         .or(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(result, instruction.destination(), position)?;
+                    self.insert(or, instruction.destination(), position)?;
                 }
                 Operation::Negate => {
                     let value = if instruction.first_argument_is_constant() {
@@ -204,11 +203,11 @@ impl Vm {
                     } else {
                         self.clone(instruction.first_argument(), position)?
                     };
-                    let result = value
+                    let not = value
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(result, instruction.destination(), position)?;
+                    self.insert(not, instruction.destination(), position)?;
                 }
                 Operation::Return => {
                     let value = self.pop(position)?;
@@ -259,6 +258,27 @@ impl Vm {
         }
     }
 
+    fn clone_as_variable(&mut self, local: Local, position: Span) -> Result<Value, VmError> {
+        let index = if let Some(index) = local.register_index {
+            index
+        } else {
+            return Err(VmError::UndefinedVariable {
+                identifier: local.identifier.clone(),
+                position,
+            });
+        };
+        let clone_result = self.clone(index, position);
+
+        match clone_result {
+            Ok(value) => Ok(value),
+            Err(VmError::EmptyRegister { .. }) => Err(VmError::UndefinedVariable {
+                identifier: local.identifier,
+                position,
+            }),
+            _ => clone_result,
+        }
+    }
+
     fn pop(&mut self, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.pop() {
             let value = register.ok_or(VmError::EmptyRegister {
@@ -300,9 +320,6 @@ pub enum VmError {
     StackUnderflow {
         position: Span,
     },
-    UndeclaredVariable {
-        position: Span,
-    },
     UndefinedVariable {
         identifier: Identifier,
         position: Span,
@@ -334,10 +351,9 @@ impl AnnotatedError for VmError {
             Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
-            Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UndefinedVariable { .. } => "Undefined variable",
-            Self::Chunk(error) => error.description(),
             Self::Value { .. } => "Value error",
+            Self::Chunk(error) => error.description(),
         }
     }
 
@@ -360,7 +376,6 @@ impl AnnotatedError for VmError {
             Self::InvalidInstruction { position, .. } => *position,
             Self::StackUnderflow { position } => *position,
             Self::StackOverflow { position } => *position,
-            Self::UndeclaredVariable { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::Chunk(error) => error.position(),
             Self::Value { position, .. } => *position,
