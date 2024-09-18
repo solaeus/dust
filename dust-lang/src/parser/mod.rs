@@ -289,12 +289,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
-        let operator_position = self.current_position;
-        let operator = self.current_token;
-        let rule = ParseRule::from(&operator.kind());
-
-        self.advance()?;
-
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let mut push_back_left = false;
@@ -313,9 +307,15 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back_left = true;
 
-                self.current_register - 1
+                self.current_register
             }
         };
+
+        let operator_position = self.current_position;
+        let operator = self.current_token;
+        let rule = ParseRule::from(&operator.kind());
+
+        self.advance()?;
 
         self.parse(rule.precedence.increment())?;
 
@@ -337,7 +337,7 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back_right = true;
 
-                self.current_register - 1
+                self.current_register
             }
         };
 
@@ -414,7 +414,6 @@ impl<'src> Parser<'src> {
                 if let Some(register_index) = previous_register {
                     previous_instruction.set_destination(register_index);
                     self.emit_instruction(previous_instruction, self.current_position);
-                    self.decrement_register()?;
                 } else {
                     self.emit_instruction(previous_instruction, previous_position);
                     self.emit_instruction(
@@ -434,6 +433,7 @@ impl<'src> Parser<'src> {
                 Instruction::get_local(self.current_register, local_index),
                 self.current_position,
             );
+            self.increment_register()?;
         }
 
         Ok(())
@@ -575,29 +575,11 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         let register = self.chunk.get_last_instruction(position)?.0.destination();
-
         let local_index = self
             .chunk
             .declare_local(identifier, register, self.current_position)?;
 
-        let (previous_instruction, previous_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-
-        if let Operation::GetLocal = previous_instruction.operation() {
-            let move_instruction = Instruction::r#move(
-                previous_instruction.destination(),
-                previous_instruction.first_argument(),
-            );
-
-            self.emit_instruction(move_instruction, position);
-        } else {
-            self.emit_instruction(previous_instruction, previous_position);
-        }
-
-        self.emit_instruction(
-            Instruction::declare_local(self.current_register - 1, local_index),
-            position,
-        );
+        self.emit_instruction(Instruction::declare_local(register, local_index), position);
 
         Ok(())
     }
