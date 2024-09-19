@@ -13,7 +13,7 @@ mod vm;
 
 use std::fmt::Display;
 
-pub use chunk::{Chunk, ChunkError, Local};
+pub use chunk::{Chunk, ChunkDisassembler, ChunkError, Local};
 pub use constructor::Constructor;
 pub use dust_error::{AnnotatedError, DustError};
 pub use identifier::Identifier;

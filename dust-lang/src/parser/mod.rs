@@ -149,11 +149,27 @@ impl<'src> Parser<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
 
-            self.emit_instruction(
-                Instruction::load_boolean(self.current_register, boolean, false),
-                self.previous_position,
-            );
-            self.increment_register()?;
+            if let Ok((last_instruction, _)) =
+                self.chunk.get_last_instruction(self.current_position)
+            {
+                let skip = last_instruction.operation() == Operation::Jump;
+                let destination = if let Operation::LoadBoolean = last_instruction.operation() {
+                    last_instruction.destination()
+                } else {
+                    self.current_register
+                };
+
+                self.emit_instruction(
+                    Instruction::load_boolean(destination, boolean, skip),
+                    self.previous_position,
+                );
+            } else {
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, boolean, false),
+                    self.previous_position,
+                );
+                self.increment_register()?;
+            }
         }
 
         Ok(())
@@ -419,10 +435,19 @@ impl<'src> Parser<'src> {
         }
 
         self.emit_instruction(instruction, operator_position);
-        self.increment_register()?;
 
-        if let TokenKind::DoubleEqual = operator.kind() {
-            self.emit_instruction(Instruction::jump(2, true), operator_position);
+        if operator == Token::DoubleEqual {
+            let distance = if push_back_left && push_back_right {
+                3
+            } else if push_back_left || push_back_right {
+                2
+            } else {
+                1
+            };
+
+            self.emit_instruction(Instruction::jump(distance, true), operator_position);
+        } else {
+            self.increment_register()?;
         }
 
         Ok(())
@@ -436,10 +461,20 @@ impl<'src> Parser<'src> {
         let token = self.current_token.to_owned();
         let start_position = self.current_position;
         let local_index = self.parse_identifier_from(token, start_position)?;
+        let is_mutable = self.chunk.get_local(local_index, start_position)?.mutable;
 
         self.advance()?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
+            if !is_mutable {
+                let identifier = self.chunk.get_identifier(local_index).cloned().unwrap();
+
+                return Err(ParseError::CannotMutateImmutableVariable {
+                    identifier,
+                    position: start_position,
+                });
+            }
+
             self.parse_expression()?;
 
             let (mut previous_instruction, previous_position) =
@@ -510,36 +545,11 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.chunk.begin_scope();
 
-        let start = self.current_position.0;
-        let start_register = self.current_register;
-        let mut ends_with_semicolon = false;
-
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
             self.parse_statement()?;
-
-            if self.previous_token == Token::Semicolon {
-                ends_with_semicolon = true;
-            }
         }
 
         self.chunk.end_scope();
-
-        if self.current_token == Token::Semicolon {
-            ends_with_semicolon = true;
-        }
-
-        let end = self.current_position.1;
-
-        if ends_with_semicolon {
-            let end_register = self.current_register;
-
-            self.emit_instruction(
-                Instruction::close(start_register, end_register),
-                Span(start, end),
-            );
-        } else {
-            self.emit_instruction(Instruction::r#return(), Span(start, end));
-        }
 
         Ok(())
     }
@@ -582,13 +592,13 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_if(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+    fn parse_if(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
         self.advance()?;
         self.parse_expression()?;
-        self.parse_block(false)?;
+        self.parse_block(allow_assignment)?;
 
         if self.allow(TokenKind::Else)? {
-            self.parse_block(false)?;
+            self.parse_block(allow_assignment)?;
         }
 
         Ok(())
@@ -939,6 +949,10 @@ impl From<&TokenKind> for ParseRule<'_> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
+    CannotMutateImmutableVariable {
+        identifier: Identifier,
+        position: Span,
+    },
     ExpectedExpression {
         found: TokenOwned,
         position: Span,
@@ -994,6 +1008,7 @@ impl AnnotatedError for ParseError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
@@ -1010,6 +1025,9 @@ impl AnnotatedError for ParseError {
 
     fn details(&self) -> Option<String> {
         match self {
+            Self::CannotMutateImmutableVariable { identifier, .. } => {
+                Some(format!("Cannot mutate immutable variable \"{identifier}\""))
+            }
             Self::ExpectedExpression { found, .. } => Some(format!("Found \"{found}\"")),
             Self::ExpectedToken {
                 expected, found, ..
@@ -1034,6 +1052,7 @@ impl AnnotatedError for ParseError {
 
     fn position(&self) -> Span {
         match self {
+            Self::CannotMutateImmutableVariable { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,

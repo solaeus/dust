@@ -207,6 +207,12 @@ impl Instruction {
         (self.0 >> 24) != 0
     }
 
+    pub fn set_destination_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.set_destination(if boolean { 1 } else { 0 });
+
+        self
+    }
+
     pub fn set_destination(&mut self, destination: u8) {
         self.0 &= 0x00FFFFFF;
         self.0 |= (destination as u32) << 24;
@@ -222,6 +228,12 @@ impl Instruction {
 
     pub fn first_argument_as_boolean(&self) -> bool {
         self.first_argument() != 0
+    }
+
+    pub fn set_first_argument_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.set_first_argument(if boolean { 1 } else { 0 });
+
+        self
     }
 
     pub fn set_first_argument_to_constant(&mut self) -> &mut Self {
@@ -244,6 +256,12 @@ impl Instruction {
 
     pub fn second_argument_as_boolean(&self) -> bool {
         self.second_argument() != 0
+    }
+
+    pub fn set_second_argument_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.set_second_argument(if boolean { 1 } else { 0 });
+
+        self
     }
 
     pub fn set_second_argument_to_constant(&mut self) -> &mut Self {
@@ -269,14 +287,14 @@ impl Instruction {
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> Option<String> {
         let format_arguments = || {
             let first_argument = if self.first_argument_is_constant() {
-                format!("C({})", self.first_argument())
+                format!("C{}", self.first_argument())
             } else {
-                format!("R({})", self.first_argument())
+                format!("R{}", self.first_argument())
             };
             let second_argument = if self.second_argument_is_constant() {
-                format!("C({})", self.second_argument())
+                format!("C{}", self.second_argument())
             } else {
-                format!("R({})", self.second_argument())
+                format!("R{}", self.second_argument())
             };
 
             (first_argument, second_argument)
@@ -284,13 +302,13 @@ impl Instruction {
 
         let info = match self.operation() {
             Operation::Move => {
-                format!("R({}) = R({})", self.destination(), self.first_argument())
+                format!("R{} = R{}", self.destination(), self.first_argument())
             }
             Operation::Close => {
                 let from_register = self.first_argument();
                 let to_register = self.second_argument().saturating_sub(1);
 
-                format!("R({from_register})..=R({to_register})")
+                format!("R{from_register}..=R{to_register}")
             }
             Operation::LoadBoolean => {
                 let to_register = self.destination();
@@ -301,7 +319,7 @@ impl Instruction {
                     ""
                 };
 
-                format!("R({to_register}) = {boolean} {skip_display}",)
+                format!("R{to_register} = {boolean} {skip_display}",)
             }
             Operation::LoadConstant => {
                 let constant_index = self.first_argument();
@@ -309,22 +327,14 @@ impl Instruction {
                 if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
                         Ok(value) => {
-                            format!(
-                                "R({}) = C({}) {}",
-                                self.destination(),
-                                constant_index,
-                                value
-                            )
+                            format!("R{} = C{} {}", self.destination(), constant_index, value)
                         }
-                        Err(error) => format!(
-                            "R({}) = C({}) {:?}",
-                            self.destination(),
-                            constant_index,
-                            error
-                        ),
+                        Err(error) => {
+                            format!("R{} = C{} {:?}", self.destination(), constant_index, error)
+                        }
                     }
                 } else {
-                    format!("R({}) = C({})", self.destination(), constant_index)
+                    format!("R{} = C{}", self.destination(), constant_index)
                 }
             }
             Operation::LoadList => {
@@ -332,12 +342,10 @@ impl Instruction {
                 let first_index = destination - self.first_argument();
                 let last_index = destination - 1;
 
-                format!(
-                    "R({}) = [R({})..=R({})]",
-                    destination, first_index, last_index
-                )
+                format!("R{} = [R{}..=R{}]", destination, first_index, last_index)
             }
             Operation::DefineLocal => {
+                let destination = self.destination();
                 let local_index = self.first_argument();
                 let identifier_display = if let Some(chunk) = chunk {
                     match chunk.get_identifier(local_index) {
@@ -347,18 +355,18 @@ impl Instruction {
                 } else {
                     "???".to_string()
                 };
+                let mutable_display = if self.second_argument_as_boolean() {
+                    "mut "
+                } else {
+                    ""
+                };
 
-                format!(
-                    "L({}) = R({}) {}",
-                    local_index,
-                    self.destination(),
-                    identifier_display
-                )
+                format!("L{local_index} = R{destination} {mutable_display}{identifier_display}")
             }
             Operation::GetLocal => {
                 let local_index = self.first_argument();
 
-                format!("R({}) = L({})", self.destination(), local_index)
+                format!("R{} = L{}", self.destination(), local_index)
             }
             Operation::SetLocal => {
                 let local_index = self.first_argument();
@@ -372,7 +380,7 @@ impl Instruction {
                 };
 
                 format!(
-                    "L({}) = R({}) {}",
+                    "L{} = R{} {}",
                     local_index,
                     self.destination(),
                     identifier_display
@@ -429,7 +437,7 @@ impl Instruction {
 
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("if {first_argument} {comparison_symbol} {second_argument} IP++",)
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ IP += 1 }}",)
             }
             Operation::Less => {
                 let comparison_symbol = if self.destination_as_boolean() {
@@ -454,22 +462,22 @@ impl Instruction {
             Operation::Negate => {
                 let destination = self.destination();
                 let argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
+                    format!("C{}", self.first_argument())
                 } else {
-                    format!("R({})", self.first_argument())
+                    format!("R{}", self.first_argument())
                 };
 
-                format!("R({destination}) = -{argument}")
+                format!("R{destination} = -{argument}")
             }
             Operation::Not => {
                 let destination = self.destination();
                 let argument = if self.first_argument_is_constant() {
-                    format!("C({})", self.first_argument())
+                    format!("C{}", self.first_argument())
                 } else {
-                    format!("R({})", self.first_argument())
+                    format!("R{}", self.first_argument())
                 };
 
-                format!("R({destination}) = !{argument}")
+                format!("R{destination} = !{argument}")
             }
             Operation::Jump => {
                 let offset = self.first_argument();
@@ -483,8 +491,15 @@ impl Instruction {
             }
             Operation::Return => return None,
         };
+        let trucated_length = 30;
+        let with_elipsis = trucated_length - 3;
+        let truncated_info = if info.len() > with_elipsis {
+            format!("{info:.<trucated_length$.with_elipsis$}")
+        } else {
+            info
+        };
 
-        Some(info)
+        Some(truncated_info)
     }
 }
 

@@ -271,8 +271,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "INDEX OPERATION      INFO                      POSITION",
-        "----- -------------- ------------------------- --------",
+        "INDEX OPERATION       INFO                           POSITION",
+        "----- --------------- ------------------------------ --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
@@ -293,14 +293,10 @@ impl<'a> ChunkDisassembler<'a> {
 
     /// The default width of the disassembly output. To correctly align the output, this should
     /// return the width of the longest line that the disassembler is guaranteed to produce.
-    pub fn default_width(styled: bool) -> usize {
+    pub fn default_width() -> usize {
         let longest_line = Self::INSTRUCTION_HEADER[4];
 
-        if styled {
-            longest_line.bold().chars().count()
-        } else {
-            longest_line.chars().count()
-        }
+        longest_line.chars().count()
     }
 
     pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
@@ -325,10 +321,7 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let width = self
-            .width
-            .unwrap_or_else(|| Self::default_width(self.styled))
-            + 1;
+        let width = self.width.unwrap_or_else(Self::default_width);
         let center = |line: &str| format!("{line:^width$}\n");
         let style = |line: String| {
             if self.styled {
@@ -369,9 +362,9 @@ impl<'a> ChunkDisassembler<'a> {
             let info_option = instruction.disassembly_info(Some(self.chunk));
 
             let instruction_display = if let Some(info) = info_option {
-                format!("{index:<5} {operation:14} {info:25} {position:8}")
+                format!("{index:<5} {operation:15} {info:30} {position:8}")
             } else {
-                format!("{index:<5} {operation:14} {:25} {position:8}", " ")
+                format!("{index:<5} {operation:15} {:30} {position:8}", " ")
             };
 
             disassembly.push_str(&center(&instruction_display));
@@ -462,10 +455,7 @@ impl<'a> ChunkDisassembler<'a> {
         let dynamic_line_count =
             self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
         let total_line_count = static_line_count + dynamic_line_count;
-        let width = self
-            .width
-            .unwrap_or_else(|| Self::default_width(self.styled))
-            + 1;
+        let width = self.width.unwrap_or_else(Self::default_width) + 1;
 
         total_line_count * width
     }

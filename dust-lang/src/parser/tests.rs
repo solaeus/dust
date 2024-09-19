@@ -76,10 +76,8 @@ fn block_scope() {
                 (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (Instruction::load_constant(2, 2), Span(92, 93)),
                 (Instruction::define_local(2, 2, false), Span(88, 89)),
-                (Instruction::close(2, 3), Span(84, 124)),
                 (Instruction::load_constant(3, 3), Span(129, 130)),
                 (Instruction::define_local(3, 3, false), Span(125, 126)),
-                (Instruction::close(1, 4), Span(42, 153)),
                 (Instruction::load_constant(4, 4), Span(158, 159)),
                 (Instruction::define_local(4, 4, false), Span(154, 155)),
             ],
@@ -109,16 +107,16 @@ fn empty() {
 #[test]
 fn set_local() {
     assert_eq!(
-        parse("let x = 41; x = 42;"),
+        parse("let mut x = 41; x = 42;"),
         Ok(Chunk::with_data(
             vec![
-                (Instruction::load_constant(0, 0), Span(8, 10)),
-                (Instruction::define_local(0, 0, false), Span(4, 5)),
-                (Instruction::load_constant(1, 1), Span(16, 18)),
-                (Instruction::set_local(1, 0), Span(12, 13)),
+                (Instruction::load_constant(0, 0), Span(12, 14)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (Instruction::load_constant(1, 1), Span(20, 22)),
+                (Instruction::set_local(1, 0), Span(16, 17)),
             ],
             vec![Value::integer(41), Value::integer(42)],
-            vec![Local::new(Identifier::new("x"), false, 0, Some(0)),]
+            vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]
         )),
     );
 }
