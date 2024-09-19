@@ -383,17 +383,17 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
-        let (mut instruction, push_args_first) = match operator.kind() {
-            TokenKind::Plus => (Instruction::add(self.current_register, left, 0), true),
-            TokenKind::Minus => (Instruction::subtract(self.current_register, left, 0), true),
-            TokenKind::Star => (Instruction::multiply(self.current_register, left, 0), true),
-            TokenKind::Slash => (Instruction::divide(self.current_register, left, 0), true),
-            TokenKind::Percent => (Instruction::modulo(self.current_register, left, 0), true),
-            TokenKind::DoubleEqual => (Instruction::equal(true, left, 0), false),
+        let (mut instruction, is_comparison) = match operator.kind() {
+            TokenKind::Plus => (Instruction::add(self.current_register, left, 0), false),
+            TokenKind::Minus => (Instruction::subtract(self.current_register, left, 0), false),
+            TokenKind::Star => (Instruction::multiply(self.current_register, left, 0), false),
+            TokenKind::Slash => (Instruction::divide(self.current_register, left, 0), false),
+            TokenKind::Percent => (Instruction::modulo(self.current_register, left, 0), false),
+            TokenKind::DoubleEqual => (Instruction::equal(true, left, 0), true),
             TokenKind::DoubleAmpersand => {
                 let and_test = Instruction::test(self.current_register, false);
 
-                (and_test, false)
+                (and_test, true)
             }
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
@@ -435,7 +435,7 @@ impl<'src> Parser<'src> {
             instruction.set_second_argument_to_constant();
         }
 
-        if push_args_first {
+        if !is_comparison {
             if push_back_left {
                 self.emit_instruction(left_instruction, left_position);
             }
@@ -447,7 +447,7 @@ impl<'src> Parser<'src> {
             self.emit_instruction(instruction, operator_position);
         }
 
-        if !push_args_first {
+        if is_comparison {
             let push_left_first = self.current_register.saturating_sub(1) == left;
 
             if push_back_left && push_left_first {
@@ -476,23 +476,19 @@ impl<'src> Parser<'src> {
         allow_assignment: bool,
         _allow_return: bool,
     ) -> Result<(), ParseError> {
-        let token = self.current_token.to_owned();
+        let token = self.current_token;
         let start_position = self.current_position;
         let local_index = self.parse_identifier_from(token, start_position)?;
         let is_mutable = self.chunk.get_local(local_index, start_position)?.mutable;
 
-        self.advance()?;
+        if !is_mutable {
+            return Err(ParseError::CannotMutateImmutableVariable {
+                identifier: self.chunk.get_identifier(local_index).cloned().unwrap(),
+                position: start_position,
+            });
+        }
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
-            if !is_mutable {
-                let identifier = self.chunk.get_identifier(local_index).cloned().unwrap();
-
-                return Err(ParseError::CannotMutateImmutableVariable {
-                    identifier,
-                    position: start_position,
-                });
-            }
-
             self.parse_expression()?;
 
             let (mut previous_instruction, previous_position) =
@@ -530,12 +526,8 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_identifier_from(
-        &mut self,
-        token: TokenOwned,
-        position: Span,
-    ) -> Result<u8, ParseError> {
-        if let TokenOwned::Identifier(text) = token {
+    fn parse_identifier_from(&mut self, token: Token, position: Span) -> Result<u8, ParseError> {
+        if let Token::Identifier(text) = token {
             let identifier = Identifier::new(text);
 
             if let Ok(local_index) = self.chunk.get_local_index(&identifier, position) {
@@ -616,19 +608,28 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_if(&mut self, allow_assignment: bool, _allow_return: bool) -> Result<(), ParseError> {
+    fn parse_if(&mut self, allow_assignment: bool, allow_return: bool) -> Result<(), ParseError> {
         self.advance()?;
         self.parse_expression()?;
+        self.parse_block(allow_assignment, allow_return)?;
 
-        self.parse_block(allow_assignment, false)?;
+        let jump_start = self.current_register;
+        let jump_index = self.chunk.len();
 
         if self.allow(TokenKind::Else)? {
             if self.allow(TokenKind::If)? {
-                self.parse_if(allow_assignment, false)?;
+                self.parse_if(allow_assignment, allow_return)?;
             } else {
-                self.parse_block(allow_assignment, false)?;
+                self.parse_block(allow_assignment, allow_return)?;
             }
         }
+
+        let jump_end = self.current_register;
+        let jump_distance = (jump_end - jump_start).max(1);
+        let jump = Instruction::jump(jump_distance, true);
+
+        self.chunk
+            .insert_instruction(jump_index, jump, self.current_position);
 
         Ok(())
     }
@@ -650,52 +651,17 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self, allow_return: bool) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-        let is_expression = match self.current_token {
+        match self.current_token {
             Token::Let => {
                 self.parse_let_statement(true, allow_return)?;
-
-                false
             }
             Token::LeftCurlyBrace => {
                 self.parse_block(true, true)?;
-
-                let last_operation = self.chunk.get_last_operation(self.current_position)?;
-                let ends_in_return = last_operation == Operation::Return;
-
-                if ends_in_return {
-                    self.chunk.pop_instruction(self.current_position)?;
-                }
-
-                ends_in_return
             }
             _ => {
                 self.parse_expression()?;
-
-                true
             }
         };
-
-        if !allow_return || !is_expression {
-            return Ok(());
-        }
-
-        let (last_instruction, _) = *self.chunk.get_previous(self.current_position)?;
-        let ends_in_assignment = matches!(
-            last_instruction.operation(),
-            Operation::DefineLocal | Operation::SetLocal
-        );
-        let has_semicolon = self.allow(TokenKind::Semicolon)?;
-
-        if !ends_in_assignment && !has_semicolon {
-            let end = self.previous_position.1;
-            let return_register = last_instruction.destination();
-
-            self.emit_instruction(
-                Instruction::r#return(return_register, return_register),
-                Span(start, end),
-            );
-        }
 
         Ok(())
     }
@@ -712,7 +678,7 @@ impl<'src> Parser<'src> {
             });
         }
 
-        self.advance()?;
+        self.allow(TokenKind::Let)?;
 
         let is_mutable = self.allow(TokenKind::Mut)?;
         let position = self.current_position;

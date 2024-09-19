@@ -18,6 +18,7 @@ fn equality_assignment_long() {
                 ),
                 (Instruction::jump(1, true), Span(13, 15)),
                 (Instruction::load_boolean(0, true, true), Span(20, 24)),
+                (Instruction::jump(1, true), Span(41, 42)),
                 (Instruction::load_boolean(0, false, false), Span(34, 39)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
             ],
@@ -68,8 +69,8 @@ fn if_else_expression() {
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2), Span(12, 13)),
+                (Instruction::jump(1, true), Span(26, 26)),
                 (Instruction::load_constant(1, 3), Span(23, 24)),
-                (Instruction::r#return(1, 1), Span(0, 26)),
             ],
             vec![
                 Value::integer(1),
@@ -99,7 +100,6 @@ fn list_with_expression() {
                 ),
                 (Instruction::load_constant(2, 3), Span(11, 12)),
                 (Instruction::load_list(3, 0, 3), Span(0, 13)),
-                (Instruction::r#return(3, 3), Span(0, 13)),
             ],
             vec![
                 Value::integer(1),
@@ -124,7 +124,6 @@ fn list() {
                 (Instruction::load_constant(1, 1), Span(4, 5)),
                 (Instruction::load_constant(2, 2), Span(7, 8)),
                 (Instruction::load_list(3, 0, 3), Span(0, 9)),
-                (Instruction::r#return(3, 3), Span(0, 9)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3),],
             vec![]
@@ -217,7 +216,6 @@ fn parentheses_precedence() {
                     *Instruction::multiply(1, 0, 2).set_second_argument_to_constant(),
                     Span(8, 9)
                 ),
-                (Instruction::r#return(1, 1), Span(0, 11)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3)],
             vec![]
@@ -248,7 +246,6 @@ fn math_operator_precedence() {
                     Span(14, 15)
                 ),
                 (Instruction::subtract(1, 0, 3), Span(6, 7)),
-                (Instruction::r#return(1, 1), Span(0, 17)),
             ],
             vec![
                 Value::integer(1),
@@ -284,10 +281,14 @@ fn and() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, true), Span(5, 7)),
+                (
+                    *Instruction::test(0, true)
+                        .set_second_argument_to_constant()
+                        .set_first_argument_to_constant(),
+                    Span(5, 7)
+                ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(1, 1), Span(0, 13)),
             ],
             vec![],
             vec![]
@@ -300,15 +301,12 @@ fn divide() {
     assert_eq!(
         parse("1 / 2"),
         Ok(Chunk::with_data(
-            vec![
-                (
-                    *Instruction::divide(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::r#return(0, 0), Span(0, 5)),
-            ],
+            vec![(
+                *Instruction::divide(0, 0, 1)
+                    .set_first_argument_to_constant()
+                    .set_second_argument_to_constant(),
+                Span(2, 3)
+            ),],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -320,15 +318,12 @@ fn multiply() {
     assert_eq!(
         parse("1 * 2"),
         Ok(Chunk::with_data(
-            vec![
-                (
-                    *Instruction::multiply(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::r#return(0, 0), Span(0, 5)),
-            ],
+            vec![(
+                *Instruction::multiply(0, 0, 1)
+                    .set_first_argument_to_constant()
+                    .set_second_argument_to_constant(),
+                Span(2, 3)
+            ),],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -340,15 +335,12 @@ fn add() {
     assert_eq!(
         parse("1 + 2"),
         Ok(Chunk::with_data(
-            vec![
-                (
-                    *Instruction::add(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::r#return(0, 0), Span(0, 5)),
-            ],
+            vec![(
+                *Instruction::add(0, 0, 1)
+                    .set_first_argument_to_constant()
+                    .set_second_argument_to_constant(),
+                Span(2, 3)
+            ),],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -360,15 +352,12 @@ fn subtract() {
     assert_eq!(
         parse("1 - 2"),
         Ok(Chunk::with_data(
-            vec![
-                (
-                    *Instruction::subtract(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::r#return(0, 0), Span(0, 5)),
-            ],
+            vec![(
+                *Instruction::subtract(0, 0, 1)
+                    .set_first_argument_to_constant()
+                    .set_second_argument_to_constant(),
+                Span(2, 3)
+            ),],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -380,10 +369,7 @@ fn constant() {
     assert_eq!(
         parse("42"),
         Ok(Chunk::with_data(
-            vec![
-                (Instruction::load_constant(0, 0), Span(0, 2)),
-                (Instruction::r#return(0, 0), Span(0, 2)),
-            ],
+            vec![(Instruction::load_constant(0, 0), Span(0, 2)),],
             vec![Value::integer(42)],
             vec![]
         ))

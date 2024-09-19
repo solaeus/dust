@@ -292,9 +292,13 @@ impl Vm {
                     self.ip = new_ip;
                 }
                 Operation::Return => {
-                    let return_value = self.pop(position)?;
+                    let start_register = instruction.destination();
+                    let end_register = instruction.first_argument();
+                    let return_value_count = end_register - start_register;
 
-                    return Ok(Some(return_value));
+                    if return_value_count == 1 {
+                        return Ok(Some(self.take(start_register, position)?));
+                    }
                 }
             }
         }
