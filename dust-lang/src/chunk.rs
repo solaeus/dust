@@ -379,11 +379,12 @@ impl<'a> ChunkDisassembler<'a> {
                 .as_ref()
                 .map(|value| value.to_string())
                 .unwrap_or("empty".to_string());
-            let elipsis = if value_display.len() > 9 { "..." } else { "" };
-            let constant_display = if value_display.len() > 9 {
-                format!("{index:<5} {value_display:^7.7}{elipsis}")
+            let trucated_length = 8;
+            let with_elipsis = trucated_length - 3;
+            let constant_display = if value_display.len() > with_elipsis {
+                format!("{index:<5} {value_display:.<trucated_length$.with_elipsis$}")
             } else {
-                format!("{index:<5} {value_display:10}")
+                format!("{index:<5} {value_display:<trucated_length$}")
             };
 
             disassembly.push_str(&center(&constant_display));

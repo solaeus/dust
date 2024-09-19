@@ -3,6 +3,56 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn equality_assignment_long() {
+    let source = "let a = if 4 == 4 { true } else { false };";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(13, 15)
+                ),
+                (Instruction::jump(1, true), Span(13, 15)),
+                (Instruction::load_boolean(0, true, true), Span(20, 24)),
+                (Instruction::load_boolean(0, false, false), Span(34, 39)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+            ],
+            vec![Value::integer(4), Value::integer(4),],
+            vec![Local::new(Identifier::new("a"), false, 0, Some(0)),]
+        )),
+    );
+}
+
+#[test]
+fn equality_assignment_short() {
+    let source = "let a = 4 == 4;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(10, 12)
+                ),
+                (Instruction::jump(1, true), Span(10, 12)),
+                (Instruction::load_boolean(0, true, true), Span(14, 15)),
+                (Instruction::load_boolean(0, false, false), Span(14, 15)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+            ],
+            vec![Value::integer(4), Value::integer(4),],
+            vec![Local::new(Identifier::new("a"), false, 0, Some(0)),]
+        )),
+    );
+}
+
+#[test]
 fn if_else_expression() {
     let source = "if 1 == 1 { 2 } else { 3 }";
 

@@ -149,26 +149,26 @@ impl<'src> Parser<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
 
-            if let Ok((last_instruction, _)) =
-                self.chunk.get_last_instruction(self.current_position)
+            if let Ok((last_instruction, _)) = self
+                .chunk
+                .get_last_instruction(self.current_position)
+                .copied()
             {
                 let skip = last_instruction.operation() == Operation::Jump;
-                let destination = if let Operation::LoadBoolean = last_instruction.operation() {
-                    last_instruction.destination()
-                } else {
-                    self.current_register
-                };
 
                 self.emit_instruction(
-                    Instruction::load_boolean(destination, boolean, skip),
+                    Instruction::load_boolean(self.current_register, boolean, skip),
                     self.previous_position,
                 );
+
+                if let Operation::LoadBoolean = last_instruction.operation() {
+                    self.increment_register()?;
+                }
             } else {
                 self.emit_instruction(
                     Instruction::load_boolean(self.current_register, boolean, false),
                     self.previous_position,
                 );
-                self.increment_register()?;
             }
         }
 
@@ -313,25 +313,20 @@ impl<'src> Parser<'src> {
         let mut push_back_left = false;
         let mut left_is_constant = false;
         let left = match left_instruction.operation() {
-            Operation::LoadConstant => {
+            Operation::LoadConstant | Operation::GetLocal => {
                 log::trace!(
                     "Condensing {} to binary expression",
                     left_instruction.operation()
                 );
 
-                left_is_constant = true;
+                left_is_constant = matches!(left_instruction.operation(), Operation::LoadConstant);
 
                 self.decrement_register()?;
                 left_instruction.first_argument()
             }
-            Operation::GetLocal => {
-                log::trace!(
-                    "Condensing {} to binary expression",
-                    left_instruction.operation()
-                );
-
+            Operation::LoadBoolean => {
                 self.decrement_register()?;
-                left_instruction.first_argument()
+                left_instruction.destination()
             }
             Operation::Close => {
                 return Err(ParseError::ExpectedExpression {
@@ -358,25 +353,21 @@ impl<'src> Parser<'src> {
         let mut push_back_right = false;
         let mut right_is_constant = false;
         let right = match right_instruction.operation() {
-            Operation::LoadConstant => {
+            Operation::LoadConstant | Operation::GetLocal => {
                 log::trace!(
                     "Condensing {} to binary expression",
                     right_instruction.operation()
                 );
 
-                right_is_constant = true;
+                right_is_constant =
+                    matches!(right_instruction.operation(), Operation::LoadConstant);
 
                 self.decrement_register()?;
                 right_instruction.first_argument()
             }
-            Operation::GetLocal => {
-                log::trace!(
-                    "Condensing {} to binary expression",
-                    right_instruction.operation()
-                );
-
+            Operation::LoadBoolean => {
                 self.decrement_register()?;
-                right_instruction.first_argument()
+                right_instruction.destination()
             }
             Operation::Close => {
                 return Err(ParseError::ExpectedExpression {
@@ -665,10 +656,36 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
 
-        let register = self.chunk.get_last_instruction(position)?.0.destination();
+        let (previous_instruction, previous_position) =
+            *self.chunk.get_last_instruction(position)?;
+        let register = previous_instruction.destination();
         let local_index =
             self.chunk
-                .declare_local(identifier, is_mutable, register, self.current_position)?;
+                .declare_local(identifier, is_mutable, register, previous_position)?;
+
+        // Optimize for assignment to a comparison
+        if let Operation::Jump = previous_instruction.operation() {
+            let (jump, jump_position) = self.chunk.pop_instruction(self.current_position)?;
+
+            if let Operation::Equal = self
+                .chunk
+                .get_last_instruction(self.current_position)?
+                .0
+                .operation()
+            {
+                self.emit_instruction(jump, jump_position);
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, true, true),
+                    self.current_position,
+                );
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, false, false),
+                    self.current_position,
+                );
+            } else {
+                self.emit_instruction(jump, jump_position);
+            }
+        }
 
         self.emit_instruction(
             Instruction::define_local(register, local_index, is_mutable),

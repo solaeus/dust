@@ -339,7 +339,7 @@ impl Instruction {
             }
             Operation::LoadList => {
                 let destination = self.destination();
-                let first_index = destination - self.first_argument();
+                let first_index = destination - (self.first_argument() - 1);
                 let last_index = destination - 1;
 
                 format!("R{} = [R{}..=R{}]", destination, first_index, last_index)
@@ -390,43 +390,43 @@ impl Instruction {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} + {second_argument}",)
+                format!("R{destination} = {first_argument} + {second_argument}",)
             }
             Operation::Subtract => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} - {second_argument}",)
+                format!("R{destination} = {first_argument} - {second_argument}",)
             }
             Operation::Multiply => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} * {second_argument}",)
+                format!("R{destination} = {first_argument} * {second_argument}",)
             }
             Operation::Divide => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} / {second_argument}",)
+                format!("R{destination} = {first_argument} / {second_argument}",)
             }
             Operation::Modulo => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} % {second_argument}",)
+                format!("R{destination} = {first_argument} % {second_argument}",)
             }
             Operation::And => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} && {second_argument}",)
+                format!("R{destination} = {first_argument} && {second_argument}",)
             }
             Operation::Or => {
                 let destination = self.destination();
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("R({destination}) = {first_argument} || {second_argument}",)
+                format!("R{destination} = {first_argument} || {second_argument}",)
             }
             Operation::Equal => {
                 let comparison_symbol = if self.destination_as_boolean() {
