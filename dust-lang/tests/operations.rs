@@ -2,7 +2,10 @@ use dust_lang::*;
 
 #[test]
 fn long_math() {
-    assert_eq!(run("1 + 2 * 3 - 4 / 2"), Ok(Some(Value::integer(5))));
+    assert_eq!(
+        run("1 + 2 * 3 - 4 / 2"),
+        Ok(Some(Value::integer(2).into_reference()))
+    );
 }
 
 #[test]

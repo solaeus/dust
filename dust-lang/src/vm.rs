@@ -303,7 +303,9 @@ impl Vm {
             }
         }
 
-        Ok(None)
+        let final_value = self.pop(Span(0, 0))?;
+
+        Ok(Some(final_value))
     }
 
     fn insert(&mut self, value: Value, index: u8, position: Span) -> Result<(), VmError> {

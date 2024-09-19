@@ -478,6 +478,9 @@ impl<'src> Parser<'src> {
     ) -> Result<(), ParseError> {
         let token = self.current_token;
         let start_position = self.current_position;
+
+        self.advance()?;
+
         let local_index = self.parse_identifier_from(token, start_position)?;
         let is_mutable = self.chunk.get_local(local_index, start_position)?.mutable;
 
@@ -516,11 +519,11 @@ impl<'src> Parser<'src> {
                 start_position,
             );
         } else {
-            self.increment_register()?;
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
+            self.increment_register()?;
         }
 
         Ok(())
@@ -663,6 +666,8 @@ impl<'src> Parser<'src> {
             }
         };
 
+        self.allow(TokenKind::Semicolon)?;
+
         Ok(())
     }
 
@@ -742,7 +747,7 @@ impl<'src> Parser<'src> {
 
         if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
             log::trace!(
-                "Parsing \"{}\" with prefix parser at precedence {precedence}",
+                "Parsing \"{}\" as prefix at precedence {precedence}",
                 self.current_token,
             );
 
@@ -754,7 +759,7 @@ impl<'src> Parser<'src> {
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
                 log::trace!(
-                    "Parsing \"{}\" with infix parser at precedence {precedence}",
+                    "Parsing \"{}\" as infix at precedence {precedence}",
                     self.current_token,
                 );
 
