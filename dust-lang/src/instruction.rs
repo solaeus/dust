@@ -528,6 +528,12 @@ impl Display for Instruction {
     }
 }
 
+impl From<&Instruction> for u32 {
+    fn from(instruction: &Instruction) -> Self {
+        instruction.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

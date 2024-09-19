@@ -288,8 +288,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "INDEX OPERATION       INFO                           POSITION",
-        "----- --------------- ------------------------------ --------",
+        "INDEX BYTECODE OPERATION       INFO                           POSITION",
+        "----- -------- --------------- ------------------------------ --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
@@ -377,11 +377,15 @@ impl<'a> ChunkDisassembler<'a> {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info_option = instruction.disassembly_info(Some(self.chunk));
+            let bytecode = u32::from(instruction);
 
             let instruction_display = if let Some(info) = info_option {
-                format!("{index:<5} {operation:15} {info:30} {position:8}")
+                format!("{index:<5} {bytecode:<8X} {operation:15} {info:30} {position:8}")
             } else {
-                format!("{index:<5} {operation:15} {:30} {position:8}", " ")
+                format!(
+                    "{index:<5} {bytecode:<8X} {operation:15} {:30} {position:8}",
+                    " "
+                )
             };
 
             disassembly.push_str(&center(&instruction_display));
