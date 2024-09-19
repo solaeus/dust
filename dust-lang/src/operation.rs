@@ -16,8 +16,9 @@ const SUBTRACT: u8 = 0b0000_1001;
 const MULTIPLY: u8 = 0b0000_1010;
 const DIVIDE: u8 = 0b0000_1011;
 const MODULO: u8 = 0b0000_1100;
-const AND: u8 = 0b0000_1101;
-const OR: u8 = 0b0000_1110;
+
+const TEST: u8 = 0b0000_1101;
+const TEST_SET: u8 = 0b0000_1110;
 
 const EQUAL: u8 = 0b0000_1111;
 const LESS: u8 = 0b0001_0000;
@@ -51,8 +52,10 @@ pub enum Operation {
     Multiply = MULTIPLY as isize,
     Divide = DIVIDE as isize,
     Modulo = MODULO as isize,
-    And = AND as isize,
-    Or = OR as isize,
+
+    // Logical operations
+    Test = TEST as isize,
+    TestSet = TEST_SET as isize,
 
     // Relational operations
     Equal = EQUAL as isize,
@@ -77,8 +80,6 @@ impl Operation {
                 | Operation::Multiply
                 | Operation::Divide
                 | Operation::Modulo
-                | Operation::And
-                | Operation::Or
         )
     }
 }
@@ -99,8 +100,8 @@ impl From<u8> for Operation {
             MULTIPLY => Operation::Multiply,
             DIVIDE => Operation::Divide,
             MODULO => Operation::Modulo,
-            AND => Operation::And,
-            OR => Operation::Or,
+            TEST => Operation::Test,
+            TEST_SET => Operation::TestSet,
             EQUAL => Operation::Equal,
             LESS => Operation::Less,
             LESS_EQUAL => Operation::LessEqual,
@@ -135,8 +136,8 @@ impl From<Operation> for u8 {
             Operation::Multiply => MULTIPLY,
             Operation::Divide => DIVIDE,
             Operation::Modulo => MODULO,
-            Operation::And => AND,
-            Operation::Or => OR,
+            Operation::Test => TEST,
+            Operation::TestSet => TEST_SET,
             Operation::Equal => EQUAL,
             Operation::Less => LESS,
             Operation::LessEqual => LESS_EQUAL,
@@ -164,8 +165,8 @@ impl Display for Operation {
             Operation::Multiply => write!(f, "MULTIPLY"),
             Operation::Divide => write!(f, "DIVIDE"),
             Operation::Modulo => write!(f, "MODULO"),
-            Operation::And => write!(f, "AND"),
-            Operation::Or => write!(f, "OR"),
+            Operation::Test => write!(f, "TEST"),
+            Operation::TestSet => write!(f, "TEST_SET"),
             Operation::Equal => write!(f, "EQUAL"),
             Operation::Less => write!(f, "LESS"),
             Operation::LessEqual => write!(f, "LESS_EQUAL"),

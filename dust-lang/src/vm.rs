@@ -186,21 +186,34 @@ impl Vm {
 
                     self.insert(remainder, instruction.destination(), position)?;
                 }
-                Operation::And => {
-                    let (left, right) = take_constants_or_clone(self, instruction, position)?;
-                    let and = left
-                        .and(&right)
-                        .map_err(|error| VmError::Value { error, position })?;
+                Operation::Test => {
+                    let register = instruction.destination();
+                    let test_value = instruction.second_argument_as_boolean();
+                    let value = self.clone(register, position)?;
+                    let boolean = value.as_boolean().ok_or_else(|| VmError::ExpectedBoolean {
+                        found: value,
+                        position,
+                    })?;
 
-                    self.insert(and, instruction.destination(), position)?;
+                    if boolean != test_value {
+                        self.ip += 1;
+                    }
                 }
-                Operation::Or => {
-                    let (left, right) = take_constants_or_clone(self, instruction, position)?;
-                    let or = left
-                        .or(&right)
-                        .map_err(|error| VmError::Value { error, position })?;
+                Operation::TestSet => {
+                    let to_register = instruction.destination();
+                    let argument = instruction.first_argument();
+                    let test_value = instruction.second_argument_as_boolean();
+                    let value = self.clone(argument, position)?;
+                    let boolean = value.as_boolean().ok_or_else(|| VmError::ExpectedBoolean {
+                        found: value.clone(),
+                        position,
+                    })?;
 
-                    self.insert(or, instruction.destination(), position)?;
+                    if boolean == test_value {
+                        self.insert(value, to_register, position)?;
+                    } else {
+                        self.ip += 1;
+                    }
                 }
                 Operation::Equal => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
@@ -279,9 +292,9 @@ impl Vm {
                     self.ip = new_ip;
                 }
                 Operation::Return => {
-                    let value = self.pop(position)?;
+                    let return_value = self.pop(position)?;
 
-                    return Ok(Some(value));
+                    return Ok(Some(return_value));
                 }
             }
         }
@@ -302,6 +315,20 @@ impl Vm {
             self.register_stack[index] = Some(value);
 
             Ok(())
+        }
+    }
+
+    fn take(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
+        let index = index as usize;
+
+        if let Some(register) = self.register_stack.get_mut(index) {
+            let value = register
+                .take()
+                .ok_or_else(|| VmError::EmptyRegister { index, position })?;
+
+            Ok(value)
+        } else {
+            Err(VmError::RegisterIndexOutOfBounds { position })
         }
     }
 
@@ -397,6 +424,10 @@ pub enum VmError {
         index: usize,
         position: Span,
     },
+    ExpectedBoolean {
+        found: Value,
+        position: Span,
+    },
     RegisterIndexOutOfBounds {
         position: Span,
     },
@@ -437,6 +468,7 @@ impl AnnotatedError for VmError {
     fn description(&self) -> &'static str {
         match self {
             Self::EmptyRegister { .. } => "Empty register",
+            Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::StackOverflow { .. } => "Stack overflow",
@@ -462,6 +494,7 @@ impl AnnotatedError for VmError {
     fn position(&self) -> Span {
         match self {
             Self::EmptyRegister { position, .. } => *position,
+            Self::ExpectedBoolean { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position } => *position,
             Self::InvalidInstruction { position, .. } => *position,
             Self::StackUnderflow { position } => *position,

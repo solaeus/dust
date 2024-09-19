@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Identifier, Instruction, Span, Value};
+use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Value};
 
 #[derive(Clone)]
 pub struct Chunk {
@@ -40,6 +40,14 @@ impl Chunk {
         self.scope_depth
     }
 
+    pub fn len(&self) -> usize {
+        self.instructions.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.instructions.is_empty()
+    }
+
     pub fn get_instruction(
         &self,
         offset: usize,
@@ -54,16 +62,25 @@ impl Chunk {
         self.instructions.push((instruction, position));
     }
 
+    pub fn insert_instruction(&mut self, index: usize, instruction: Instruction, position: Span) {
+        self.instructions.insert(index, (instruction, position));
+    }
+
     pub fn pop_instruction(&mut self, position: Span) -> Result<(Instruction, Span), ChunkError> {
         self.instructions
             .pop()
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
-    pub fn get_last_instruction(&self, position: Span) -> Result<&(Instruction, Span), ChunkError> {
+    pub fn get_previous(&self, position: Span) -> Result<&(Instruction, Span), ChunkError> {
         self.instructions
             .last()
             .ok_or(ChunkError::InstructionUnderflow { position })
+    }
+
+    pub fn get_last_operation(&self, position: Span) -> Result<Operation, ChunkError> {
+        self.get_previous(position)
+            .map(|(instruction, _)| instruction.operation())
     }
 
     pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {

@@ -43,39 +43,40 @@ impl Instruction {
         instruction
     }
 
-    pub fn load_list(to_register: u8, list_length: u8) -> Instruction {
+    pub fn load_list(to_register: u8, start_register: u8, list_length: u8) -> Instruction {
         let mut instruction = Instruction(Operation::LoadList as u32);
 
         instruction.set_destination(to_register);
-        instruction.set_first_argument(list_length);
+        instruction.set_first_argument(start_register);
+        instruction.set_second_argument(list_length);
 
         instruction
     }
 
-    pub fn define_local(to_register: u8, variable_index: u8, is_mutable: bool) -> Instruction {
+    pub fn define_local(to_register: u8, local_index: u8, is_mutable: bool) -> Instruction {
         let mut instruction = Instruction(Operation::DefineLocal as u32);
 
         instruction.set_destination(to_register);
-        instruction.set_first_argument(variable_index);
+        instruction.set_first_argument(local_index);
         instruction.set_second_argument(if is_mutable { 1 } else { 0 });
 
         instruction
     }
 
-    pub fn get_local(to_register: u8, variable_index: u8) -> Instruction {
+    pub fn get_local(to_register: u8, local_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::GetLocal as u32);
 
         instruction.set_destination(to_register);
-        instruction.set_first_argument(variable_index);
+        instruction.set_first_argument(local_index);
 
         instruction
     }
 
-    pub fn set_local(from_register: u8, variable_index: u8) -> Instruction {
+    pub fn set_local(from_register: u8, local_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::SetLocal as u32);
 
         instruction.set_destination(from_register);
-        instruction.set_first_argument(variable_index);
+        instruction.set_first_argument(local_index);
 
         instruction
     }
@@ -130,22 +131,21 @@ impl Instruction {
         instruction
     }
 
-    pub fn and(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
-        let mut instruction = Instruction(Operation::And as u32);
+    pub fn test(to_register: u8, test_value: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::Test as u32);
 
         instruction.set_destination(to_register);
-        instruction.set_first_argument(left_index);
-        instruction.set_second_argument(right_index);
+        instruction.set_second_argument_to_boolean(test_value);
 
         instruction
     }
 
-    pub fn or(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
-        let mut instruction = Instruction(Operation::Or as u32);
+    pub fn test_set(to_register: u8, argument_index: u8, test_value: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::TestSet as u32);
 
         instruction.set_destination(to_register);
-        instruction.set_first_argument(left_index);
-        instruction.set_second_argument(right_index);
+        instruction.set_first_argument(argument_index);
+        instruction.set_second_argument_to_boolean(test_value);
 
         instruction
     }
@@ -187,8 +187,13 @@ impl Instruction {
         instruction
     }
 
-    pub fn r#return() -> Instruction {
-        Instruction(Operation::Return as u32)
+    pub fn r#return(from_register: u8, to_register: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Return as u32);
+
+        instruction.set_destination(from_register);
+        instruction.set_first_argument(to_register);
+
+        instruction
     }
 
     pub fn operation(&self) -> Operation {
@@ -339,7 +344,7 @@ impl Instruction {
             }
             Operation::LoadList => {
                 let destination = self.destination();
-                let first_index = destination - (self.first_argument() - 1);
+                let first_index = self.first_argument();
                 let last_index = destination - 1;
 
                 format!("R{} = [R{}..=R{}]", destination, first_index, last_index)
@@ -416,17 +421,22 @@ impl Instruction {
 
                 format!("R{destination} = {first_argument} % {second_argument}",)
             }
-            Operation::And => {
+            Operation::Test => {
                 let destination = self.destination();
-                let (first_argument, second_argument) = format_arguments();
+                let test_value = self.second_argument_as_boolean();
+                let bang = if test_value { "" } else { "!" };
 
-                format!("R{destination} = {first_argument} && {second_argument}",)
+                format!("if {bang}R{destination} {{ IP++ }}",)
             }
-            Operation::Or => {
+            Operation::TestSet => {
                 let destination = self.destination();
-                let (first_argument, second_argument) = format_arguments();
+                let argument = format!("R{}", self.first_argument());
+                let test_value = self.second_argument_as_boolean();
+                let bang = if test_value { "" } else { "!" };
 
-                format!("R{destination} = {first_argument} || {second_argument}",)
+                format!(
+                    "if {bang}R{destination} {{ R{destination} = R{argument} }} else {{ IP++ }}",
+                )
             }
             Operation::Equal => {
                 let comparison_symbol = if self.destination_as_boolean() {
@@ -489,7 +499,12 @@ impl Instruction {
                     format!("IP -= {}", offset)
                 }
             }
-            Operation::Return => return None,
+            Operation::Return => {
+                let from_register = self.destination();
+                let to_register = self.first_argument();
+
+                format!("R{from_register}..=R{to_register}")
+            }
         };
         let trucated_length = 30;
         let with_elipsis = trucated_length - 3;
@@ -637,32 +652,21 @@ mod tests {
 
     #[test]
     fn and() {
-        let mut instruction = Instruction::and(0, 1, 2);
+        let instruction = Instruction::test(4, true);
 
-        instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
-
-        assert_eq!(instruction.operation(), Operation::And);
-        assert_eq!(instruction.destination(), 0);
-        assert_eq!(instruction.first_argument(), 1);
-        assert_eq!(instruction.second_argument(), 2);
-        assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
+        assert_eq!(instruction.operation(), Operation::Test);
+        assert_eq!(instruction.destination(), 4);
+        assert!(instruction.second_argument_as_boolean());
     }
 
     #[test]
     fn or() {
-        let mut instruction = Instruction::or(0, 1, 2);
+        let instruction = Instruction::test_set(4, 1, true);
 
-        instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
-
-        assert_eq!(instruction.operation(), Operation::Or);
-        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.operation(), Operation::TestSet);
+        assert_eq!(instruction.destination(), 4);
         assert_eq!(instruction.first_argument(), 1);
-        assert_eq!(instruction.second_argument(), 2);
-        assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
+        assert!(instruction.second_argument_as_boolean());
     }
 
     #[test]
@@ -710,10 +714,7 @@ mod tests {
 
     #[test]
     fn jump() {
-        let mut instruction = Instruction::jump(4, true);
-
-        instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
+        let instruction = Instruction::jump(4, true);
 
         assert_eq!(instruction.operation(), Operation::Jump);
         assert_eq!(instruction.first_argument(), 4);
@@ -722,13 +723,10 @@ mod tests {
 
     #[test]
     fn r#return() {
-        let mut instruction = Instruction::r#return();
-
-        instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
+        let instruction = Instruction::r#return(4, 8);
 
         assert_eq!(instruction.operation(), Operation::Return);
-        assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
+        assert_eq!(instruction.destination(), 4);
+        assert_eq!(instruction.first_argument(), 8);
     }
 }
