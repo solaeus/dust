@@ -1,6 +1,6 @@
 use crate::{
-    dust_error::AnnotatedError, parse, Chunk, ChunkError, DustError, Identifier, Instruction,
-    Local, Operation, Span, Value, ValueError,
+    parse, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, Local, Operation,
+    Span, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -35,11 +35,12 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
-        // DRY helper closure to take a constant or clone a register
-        let take_constants_or_clone = |vm: &mut Vm,
-                                       instruction: Instruction,
-                                       position: Span|
-         -> Result<(Value, Value), VmError> {
+        // DRY helper to take constants or clone registers for binary operations
+        fn take_constants_or_clone(
+            vm: &mut Vm,
+            instruction: Instruction,
+            position: Span,
+        ) -> Result<(Value, Value), VmError> {
             let left = if instruction.first_argument_is_constant() {
                 vm.chunk
                     .take_constant(instruction.first_argument(), position)?
@@ -54,7 +55,7 @@ impl Vm {
             };
 
             Ok((left, right))
-        };
+        }
 
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
             log::trace!("Running instruction {instruction} at {position}");

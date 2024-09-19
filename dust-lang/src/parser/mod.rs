@@ -482,20 +482,14 @@ impl<'src> Parser<'src> {
 
                     previous_instruction.set_destination(register_index);
                     self.emit_instruction(previous_instruction, self.current_position);
-                } else {
-                    self.emit_instruction(previous_instruction, previous_position);
-                    self.emit_instruction(
-                        Instruction::set_local(self.current_register - 1, local_index),
-                        self.current_position,
-                    );
                 }
-            } else {
-                self.emit_instruction(previous_instruction, previous_position);
-                self.emit_instruction(
-                    Instruction::set_local(self.current_register - 1, local_index),
-                    start_position,
-                );
             }
+
+            self.emit_instruction(previous_instruction, previous_position);
+            self.emit_instruction(
+                Instruction::set_local(self.current_register - 1, local_index),
+                start_position,
+            );
         } else {
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
@@ -591,6 +585,14 @@ impl<'src> Parser<'src> {
         if self.allow(TokenKind::Else)? {
             self.parse_block(allow_assignment)?;
         }
+
+        Ok(())
+    }
+
+    fn parse_while(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
+        self.advance()?;
+        self.parse_expression()?;
+        self.parse_block(allow_assignment)?;
 
         Ok(())
     }
@@ -853,7 +855,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Loop => todo!(),
             TokenKind::Map => todo!(),
             TokenKind::Str => todo!(),
-            TokenKind::While => todo!(),
+            TokenKind::While => ParseRule {
+                prefix: Some(Parser::parse_while),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::BangEqual => todo!(),
             TokenKind::Bang => ParseRule {
                 prefix: Some(Parser::parse_unary),
