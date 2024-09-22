@@ -4,7 +4,7 @@ use dust_lang::*;
 fn long_math() {
     assert_eq!(
         run("1 + 2 * 3 - 4 / 2"),
-        Ok(Some(Value::integer(2).into_reference()))
+        Ok(Some(Value::integer(5).into_reference()))
     );
 }
 

@@ -16,6 +16,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 pub struct Vm {
     chunk: Chunk,
     ip: usize,
+    last_modified: u8,
     register_stack: Vec<Option<Value>>,
 }
 
@@ -26,6 +27,7 @@ impl Vm {
         Self {
             chunk,
             ip: 0,
+            last_modified: 0,
             register_stack: Vec::new(),
         }
     }
@@ -303,7 +305,7 @@ impl Vm {
             }
         }
 
-        let final_value = self.pop(Span(0, 0))?;
+        let final_value = self.take(self.last_modified, Span(0, 0))?;
 
         Ok(Some(final_value))
     }
@@ -312,6 +314,8 @@ impl Vm {
         if self.register_stack.len() == Self::STACK_LIMIT {
             Err(VmError::StackOverflow { position })
         } else {
+            self.last_modified = index;
+
             let index = index as usize;
 
             while index >= self.register_stack.len() {
