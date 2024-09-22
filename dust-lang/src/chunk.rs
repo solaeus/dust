@@ -58,6 +58,10 @@ impl Chunk {
             .ok_or(ChunkError::CodeIndexOfBounds { offset, position })
     }
 
+    pub fn remove_instruction(&mut self, index: usize) -> (Instruction, Span) {
+        self.instructions.remove(index)
+    }
+
     pub fn push_instruction(&mut self, instruction: Instruction, position: Span) {
         self.instructions.push((instruction, position));
     }
@@ -72,15 +76,30 @@ impl Chunk {
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
-    pub fn get_previous(&self, position: Span) -> Result<&(Instruction, Span), ChunkError> {
-        self.instructions
-            .last()
-            .ok_or(ChunkError::InstructionUnderflow { position })
+    pub fn get_previous(&self) -> Option<&(Instruction, Span)> {
+        self.instructions.last()
     }
 
-    pub fn get_last_operation(&self, position: Span) -> Result<Operation, ChunkError> {
-        self.get_previous(position)
+    pub fn get_last_operation(&self) -> Option<Operation> {
+        self.get_previous()
             .map(|(instruction, _)| instruction.operation())
+    }
+
+    pub fn get_last_n_operations<const N: usize>(&self) -> [Option<Operation>; N] {
+        let mut operations = [None; N];
+
+        for i in 0..N {
+            let index = self.instructions.len().saturating_sub(i + 1);
+
+            let operation = self
+                .instructions
+                .get(index)
+                .map(|(instruction, _)| instruction.operation());
+
+            operations[i] = operation;
+        }
+
+        operations
     }
 
     pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {

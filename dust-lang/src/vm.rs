@@ -60,7 +60,7 @@ impl Vm {
         }
 
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
-            log::trace!("Running instruction {instruction} at {position}");
+            log::trace!("Running IP {} {instruction} at {position}", self.ip);
 
             match instruction.operation() {
                 Operation::Move => {

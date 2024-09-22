@@ -309,7 +309,13 @@ impl<'src> Lexer<'src> {
                 '!' => {
                     self.position += 1;
 
-                    (Token::Bang, Span(self.position - 1, self.position))
+                    if let Some('=') = self.peek_char() {
+                        self.position += 1;
+
+                        (Token::BangEqual, Span(self.position - 2, self.position))
+                    } else {
+                        (Token::Bang, Span(self.position - 1, self.position))
+                    }
                 }
                 ':' => {
                     self.position += 1;
@@ -965,6 +971,21 @@ mod tests {
                 (Token::String("foobar"), Span(14, 22)),
                 (Token::RightCurlyBrace, Span(23, 24)),
                 (Token::Eof, Span(24, 24)),
+            ])
+        )
+    }
+
+    #[test]
+    fn not_equal() {
+        let input = "42 != 42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer("42"), Span(0, 2)),
+                (Token::BangEqual, Span(3, 5)),
+                (Token::Integer("42"), Span(6, 8)),
+                (Token::Eof, Span(8, 8)),
             ])
         )
     }

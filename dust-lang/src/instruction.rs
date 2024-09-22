@@ -160,6 +160,26 @@ impl Instruction {
         instruction
     }
 
+    pub fn less(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Less as u32);
+
+        instruction.set_destination(if comparison_boolean { 1 } else { 0 });
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
+    pub fn less_equal(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::LessEqual as u32);
+
+        instruction.set_destination(if comparison_boolean { 1 } else { 0 });
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
+    }
+
     pub fn negate(to_register: u8, from_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Negate as u32);
 
