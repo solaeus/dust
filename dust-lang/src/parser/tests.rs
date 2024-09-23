@@ -498,6 +498,29 @@ fn and() {
 }
 
 #[test]
+fn variable_and() {
+    assert_eq!(
+        parse("let a = true; let b = false; a && b"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_boolean(0, true, false), Span(8, 12)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::load_boolean(1, false, false), Span(22, 27)),
+                (Instruction::define_local(1, 1, false), Span(18, 19)),
+                (Instruction::test(1, true), Span(31, 33)),
+                (Instruction::jump(1, true), Span(31, 33)),
+                (Instruction::r#move(2, 1), Span(31, 33)),
+            ],
+            vec![],
+            vec![
+                Local::new(Identifier::new("a"), false, 0, Some(0)),
+                Local::new(Identifier::new("b"), false, 0, Some(1)),
+            ]
+        ))
+    );
+}
+
+#[test]
 fn divide() {
     assert_eq!(
         parse("1 / 2"),

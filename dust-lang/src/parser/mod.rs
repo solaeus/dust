@@ -148,55 +148,62 @@ impl<'src> Parser<'src> {
         _allow_assignment: bool,
         _allow_return: bool,
     ) -> Result<(), ParseError> {
-        if let Token::Boolean(text) = self.current_token {
-            let position = self.current_position;
-            let boolean = text.parse::<bool>().unwrap();
+        let boolean_text = if let Token::Boolean(text) = self.current_token {
+            text
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::Boolean,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
 
-            self.advance()?;
+        let position = self.current_position;
+        let boolean = boolean_text.parse::<bool>().unwrap();
 
-            let previous_operations = self.chunk.get_last_n_operations::<2>();
+        self.advance()?;
 
-            if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] =
-                previous_operations
-            {
-                let (second_boolean, second_position) =
-                    self.chunk.pop_instruction(self.current_position)?;
-                let (first_boolean, first_position) =
-                    self.chunk.pop_instruction(self.current_position)?;
+        let previous_operations = self.chunk.get_last_n_operations::<2>();
 
-                if first_boolean.first_argument_as_boolean() == boolean {
-                    let skip = first_boolean.second_argument_as_boolean();
+        if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] = previous_operations {
+            let (second_boolean, second_position) =
+                self.chunk.pop_instruction(self.current_position)?;
+            let (first_boolean, first_position) =
+                self.chunk.pop_instruction(self.current_position)?;
 
-                    self.emit_instruction(
-                        Instruction::load_boolean(self.current_register, boolean, skip),
-                        position,
-                    );
+            if first_boolean.first_argument_as_boolean() == boolean {
+                let skip = first_boolean.second_argument_as_boolean();
 
-                    return Ok(());
-                }
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, boolean, skip),
+                    position,
+                );
 
-                if second_boolean.first_argument_as_boolean() == boolean {
-                    let skip = second_boolean.second_argument_as_boolean();
-
-                    self.emit_instruction(
-                        Instruction::load_boolean(self.current_register, boolean, skip),
-                        position,
-                    );
-
-                    return Ok(());
-                }
-
-                self.emit_instruction(first_boolean, first_position);
-                self.emit_instruction(second_boolean, second_position);
+                return Ok(());
             }
 
-            let skip = previous_operations[0] == Some(Operation::Jump);
+            if second_boolean.first_argument_as_boolean() == boolean {
+                let skip = second_boolean.second_argument_as_boolean();
 
-            self.emit_instruction(
-                Instruction::load_boolean(self.current_register, boolean, skip),
-                position,
-            );
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, boolean, skip),
+                    position,
+                );
+
+                return Ok(());
+            }
+
+            self.emit_instruction(first_boolean, first_position);
+            self.emit_instruction(second_boolean, second_position);
         }
+
+        let skip = previous_operations[0] == Some(Operation::Jump);
+
+        self.emit_instruction(
+            Instruction::load_boolean(self.current_register, boolean, skip),
+            position,
+        );
+        self.increment_register()?;
 
         Ok(())
     }
@@ -330,11 +337,7 @@ impl<'src> Parser<'src> {
 
                     (false, true, previous_instruction.first_argument())
                 }
-                Operation::LoadBoolean => {
-                    self.increment_register()?;
-
-                    (true, false, previous_instruction.destination())
-                }
+                Operation::LoadBoolean => (true, false, previous_instruction.destination()),
                 Operation::Close => {
                     return Err(ParseError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
@@ -391,6 +394,7 @@ impl<'src> Parser<'src> {
                 is_constant = true;
                 push_back = true;
 
+                self.decrement_register()?;
                 instruction.destination()
             }
             Operation::Close => {
@@ -552,13 +556,18 @@ impl<'src> Parser<'src> {
         let (push_back_left, left_is_constant, _) =
             self.handle_binary_argument(&left_instruction)?;
 
+        if let Operation::LoadBoolean = left_instruction.operation() {
+            self.increment_register()?;
+        }
+
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
+        let test_register = self.current_register.saturating_sub(1);
         let mut instruction = match operator.kind() {
-            TokenKind::DoubleAmpersand => Instruction::test(self.current_register, true),
-            TokenKind::DoublePipe => Instruction::test(self.current_register, false),
+            TokenKind::DoubleAmpersand => Instruction::test(test_register, true),
+            TokenKind::DoublePipe => Instruction::test(test_register, false),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
@@ -568,10 +577,6 @@ impl<'src> Parser<'src> {
             }
         };
 
-        if let Operation::LoadBoolean = left_instruction.operation() {
-            self.increment_register()?;
-        }
-
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
@@ -579,6 +584,12 @@ impl<'src> Parser<'src> {
             self.chunk.pop_instruction(self.current_position)?;
         let (push_back_right, right_is_constant, _) =
             self.handle_binary_argument(&right_instruction)?;
+
+        let emit_move_to = if self.current_register != test_register {
+            Some(self.current_register)
+        } else {
+            None
+        };
 
         if left_is_constant {
             instruction.set_first_argument_to_constant();
@@ -603,10 +614,12 @@ impl<'src> Parser<'src> {
             self.emit_instruction(right_instruction, right_position);
         }
 
-        self.emit_instruction(
-            Instruction::r#move(self.current_register, self.current_register - 1),
-            operator_position,
-        );
+        if let Some(register) = emit_move_to {
+            self.emit_instruction(
+                Instruction::r#move(register, test_register),
+                operator_position,
+            );
+        }
 
         Ok(())
     }
@@ -780,7 +793,19 @@ impl<'src> Parser<'src> {
             self.emit_instruction(second_load_boolean, second_position);
         }
 
-        if let Some(Operation::LoadBoolean) = self.chunk.get_last_operation() {
+        if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] =
+            self.chunk.get_last_n_operations()
+        {
+            // Do not emit a jump if the last two instructions were LoadBoolean operations. However,
+            // we need to set them to the same destination register and decrement the register count.
+
+            let (mut second_load_boolean, second_position) =
+                self.chunk.pop_instruction(self.current_position)?;
+            let (first_load_boolean, _) = self.chunk.get_previous().unwrap();
+
+            second_load_boolean.set_destination(first_load_boolean.destination());
+            self.emit_instruction(second_load_boolean, second_position);
+        } else if let Some(Operation::LoadBoolean) = self.chunk.get_last_operation() {
             // Skip the jump if the last instruction was a LoadBoolean operation. A LoadBoolean can
             // skip the following instruction, so a jump is unnecessary.
         } else {
