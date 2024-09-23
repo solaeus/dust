@@ -547,7 +547,68 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
-        todo!()
+        let (left_instruction, left_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let (push_back_left, left_is_constant, _) =
+            self.handle_binary_argument(&left_instruction)?;
+
+        let operator = self.current_token;
+        let operator_position = self.current_position;
+        let rule = ParseRule::from(&operator.kind());
+
+        let mut instruction = match operator.kind() {
+            TokenKind::DoubleAmpersand => Instruction::test(self.current_register, true),
+            TokenKind::DoublePipe => Instruction::test(self.current_register, false),
+            _ => {
+                return Err(ParseError::ExpectedTokenMultiple {
+                    expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
+                    found: operator.to_owned(),
+                    position: operator_position,
+                })
+            }
+        };
+
+        if let Operation::LoadBoolean = left_instruction.operation() {
+            self.increment_register()?;
+        }
+
+        self.advance()?;
+        self.parse(rule.precedence.increment())?;
+
+        let (mut right_instruction, right_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let (push_back_right, right_is_constant, _) =
+            self.handle_binary_argument(&right_instruction)?;
+
+        if left_is_constant {
+            instruction.set_first_argument_to_constant();
+        }
+
+        if right_is_constant {
+            if let Operation::LoadBoolean = right_instruction.operation() {
+                right_instruction.set_second_argument_to_boolean(true);
+            }
+
+            instruction.set_second_argument_to_constant();
+        }
+
+        if push_back_left {
+            self.emit_instruction(left_instruction, left_position);
+        }
+
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
+
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
+        }
+
+        self.emit_instruction(
+            Instruction::r#move(self.current_register, self.current_register - 1),
+            operator_position,
+        );
+
+        Ok(())
     }
 
     fn parse_variable(

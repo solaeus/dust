@@ -457,6 +457,7 @@ fn or() {
         parse("true || false"),
         Ok(Chunk::with_data(
             vec![
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (
                     *Instruction::test(0, false)
                         .set_second_argument_to_constant()
@@ -464,8 +465,8 @@ fn or() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::load_boolean(1, false, true), Span(8, 13)),
+                (Instruction::r#move(1, 0), Span(5, 7)),
             ],
             vec![],
             vec![]
@@ -479,6 +480,7 @@ fn and() {
         parse("true && false"),
         Ok(Chunk::with_data(
             vec![
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (
                     *Instruction::test(0, true)
                         .set_second_argument_to_constant()
@@ -486,8 +488,8 @@ fn and() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::load_boolean(1, false, true), Span(8, 13)),
+                (Instruction::r#move(1, 0), Span(5, 7)),
             ],
             vec![],
             vec![]

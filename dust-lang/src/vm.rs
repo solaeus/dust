@@ -86,7 +86,7 @@ impl Vm {
 
                     self.insert(value, to_register, position)?;
 
-                    if boolean && skip {
+                    if skip {
                         self.ip += 1;
                     }
                 }
