@@ -1,6 +1,60 @@
 use dust_lang::*;
 
 #[test]
+fn less_than() {
+    assert_eq!(run("1 < 2"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn greater_than() {
+    assert_eq!(run("1 > 2"), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn less_than_or_equal() {
+    assert_eq!(run("1 <= 2"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("1 <= 1"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn greater_than_or_equal() {
+    assert_eq!(run("1 >= 2"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("1 >= 1"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn equal() {
+    assert_eq!(run("1 == 1"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn not_equal() {
+    assert_eq!(run("1 != 1"), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn and() {
+    assert_eq!(run("true && true"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("true && false"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("false && true"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("false && false"), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn or() {
+    assert_eq!(run("true || true"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("true || false"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("false || true"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("false || false"), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn not() {
+    assert_eq!(run("!true"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("!false"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
 fn long_math() {
     assert_eq!(
         run("1 + 2 * 3 - 4 / 2"),

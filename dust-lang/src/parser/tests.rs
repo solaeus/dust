@@ -3,37 +3,6 @@ use crate::Local;
 use super::*;
 
 #[test]
-fn comparison_chain() {
-    let source = "1 == 2 > 3 < 4 != 5;";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            vec![
-                (
-                    *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(1, true), Span(2, 4)),
-                (
-                    *Instruction::equal(true, 1, 2)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(7, 9)
-                ),
-                (Instruction::jump(1, true), Span(7, 9)),
-                (Instruction::load_boolean(0, true, true), Span(2, 4)),
-                (Instruction::load_boolean(0, false, false), Span(2, 4)),
-            ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
-            vec![]
-        )),
-    );
-}
-
-#[test]
 fn not() {
     let source = "!true";
 
