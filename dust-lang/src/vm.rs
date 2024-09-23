@@ -42,7 +42,7 @@ impl Vm {
             vm: &mut Vm,
             instruction: Instruction,
             position: Span,
-        ) -> Result<(Value, Value), VmError> {
+        ) -> Result<(Value, &Value), VmError> {
             let left = if instruction.first_argument_is_constant() {
                 vm.chunk
                     .take_constant(instruction.first_argument(), position)?
@@ -51,9 +51,9 @@ impl Vm {
             };
             let right = if instruction.second_argument_is_constant() {
                 vm.chunk
-                    .take_constant(instruction.second_argument(), position)?
+                    .get_constant(instruction.second_argument(), position)?
             } else {
-                vm.clone(instruction.second_argument(), position)?
+                vm.get(instruction.second_argument(), position)?
             };
 
             Ok((left, right))
@@ -151,7 +151,7 @@ impl Vm {
                 Operation::Add => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let sum = left
-                        .add(&right)
+                        .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(sum, instruction.destination(), position)?;
@@ -159,7 +159,7 @@ impl Vm {
                 Operation::Subtract => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let difference = left
-                        .subtract(&right)
+                        .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(difference, instruction.destination(), position)?;
@@ -167,7 +167,7 @@ impl Vm {
                 Operation::Multiply => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let product = left
-                        .multiply(&right)
+                        .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(product, instruction.destination(), position)?;
@@ -175,7 +175,7 @@ impl Vm {
                 Operation::Divide => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let quotient = left
-                        .divide(&right)
+                        .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(quotient, instruction.destination(), position)?;
@@ -183,7 +183,7 @@ impl Vm {
                 Operation::Modulo => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let remainder = left
-                        .modulo(&right)
+                        .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
                     self.insert(remainder, instruction.destination(), position)?;
@@ -220,7 +220,7 @@ impl Vm {
                 Operation::Equal => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let equal = left
-                        .equal(&right)
+                        .equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
                     let compare_to = instruction.destination_as_boolean();
 
@@ -233,7 +233,7 @@ impl Vm {
                 Operation::Less => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let less = left
-                        .less_than(&right)
+                        .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
                     let compare_to = instruction.destination() != 0;
 
@@ -246,7 +246,7 @@ impl Vm {
                 Operation::LessEqual => {
                     let (left, right) = take_constants_or_clone(self, instruction, position)?;
                     let less_equal = left
-                        .less_than_or_equal(&right)
+                        .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
                     let compare_to = instruction.destination() != 0;
 
@@ -334,6 +334,20 @@ impl Vm {
         if let Some(register) = self.register_stack.get_mut(index) {
             let value = register
                 .take()
+                .ok_or_else(|| VmError::EmptyRegister { index, position })?;
+
+            Ok(value)
+        } else {
+            Err(VmError::RegisterIndexOutOfBounds { position })
+        }
+    }
+
+    fn get(&self, index: u8, position: Span) -> Result<&Value, VmError> {
+        let index = index as usize;
+
+        if let Some(register) = self.register_stack.get(index) {
+            let value = register
+                .as_ref()
                 .ok_or_else(|| VmError::EmptyRegister { index, position })?;
 
             Ok(value)

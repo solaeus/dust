@@ -477,9 +477,31 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
+        let (previous_booleans, equal_argument) = if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean), Some(Operation::Jump), Some(Operation::Equal)] =
+            self.chunk.get_last_n_operations()
+        {
+            self.increment_register()?;
+
+            let load_booleans = (
+                self.chunk.pop_instruction(self.current_position)?,
+                self.chunk.pop_instruction(self.current_position)?,
+            );
+
+            let (jump, jump_position) = self.chunk.pop_instruction(self.current_position)?;
+            let (equal, equal_position) = self.chunk.pop_instruction(self.current_position)?;
+            let equal_argument = equal.second_argument();
+            let is_constant = equal.second_argument_is_constant();
+
+            self.emit_instruction(equal, equal_position);
+            self.emit_instruction(jump, jump_position);
+
+            (Some(load_booleans), Some((equal_argument, is_constant)))
+        } else {
+            (None, None)
+        };
+
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-
         let (push_back_left, left_is_constant, left) =
             self.handle_binary_argument(&left_instruction)?;
 
@@ -514,13 +536,18 @@ impl<'src> Parser<'src> {
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-
         let (push_back_right, right_is_constant, right) =
             self.handle_binary_argument(&right_instruction)?;
 
         instruction.set_second_argument(right);
 
-        if left_is_constant {
+        if let Some((equal_argument, is_constant)) = equal_argument {
+            instruction.set_first_argument(equal_argument);
+
+            if is_constant {
+                instruction.set_first_argument_to_constant();
+            }
+        } else if left_is_constant {
             instruction.set_first_argument_to_constant();
         }
 
@@ -528,23 +555,31 @@ impl<'src> Parser<'src> {
             instruction.set_second_argument_to_constant();
         }
 
-        self.emit_instruction(instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
-        self.emit_instruction(
-            Instruction::load_boolean(self.current_register, true, true),
-            operator_position,
-        );
-        self.emit_instruction(
-            Instruction::load_boolean(self.current_register, false, false),
-            operator_position,
-        );
-
         if push_back_left {
             self.emit_instruction(left_instruction, left_position);
         }
 
         if push_back_right {
             self.emit_instruction(right_instruction, right_position);
+        }
+
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
+
+        if let Some(((left_boolean, left_position), (right_boolean, right_position))) =
+            previous_booleans
+        {
+            self.emit_instruction(right_boolean, right_position);
+            self.emit_instruction(left_boolean, left_position);
+        } else {
+            self.emit_instruction(
+                Instruction::load_boolean(self.current_register, true, true),
+                operator_position,
+            );
+            self.emit_instruction(
+                Instruction::load_boolean(self.current_register, false, false),
+                operator_position,
+            );
         }
 
         Ok(())

@@ -399,10 +399,10 @@ impl<'a> ChunkDisassembler<'a> {
             let bytecode = u32::from(instruction);
 
             let instruction_display = if let Some(info) = info_option {
-                format!("{index:<5} {bytecode:<8X} {operation:15} {info:30} {position:8}")
+                format!("{index:<5} {bytecode:<08X} {operation:15} {info:30} {position:8}")
             } else {
                 format!(
-                    "{index:<5} {bytecode:<8X} {operation:15} {:30} {position:8}",
+                    "{index:<5} {bytecode:<08X} {operation:15} {:30} {position:8}",
                     " "
                 )
             };
