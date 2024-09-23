@@ -322,35 +322,32 @@ impl<'src> Parser<'src> {
         let (previous_instruction, previous_position) =
             self.chunk.pop_instruction(self.current_position)?;
 
-        let (is_constant, destination, from_register) = match previous_instruction.operation() {
-            Operation::LoadConstant => {
-                self.decrement_register()?;
+        let (push_back, is_constant, argument) = {
+            match previous_instruction.operation() {
+                Operation::GetLocal => (false, false, previous_instruction.destination()),
+                Operation::LoadConstant => {
+                    self.decrement_register()?;
 
-                (
-                    true,
-                    previous_instruction.destination(),
-                    previous_instruction.first_argument(),
-                )
-            }
-            Operation::LoadBoolean => {
-                self.decrement_register()?;
+                    (false, true, previous_instruction.first_argument())
+                }
+                Operation::LoadBoolean => {
+                    self.increment_register()?;
 
-                (
-                    true,
-                    previous_instruction.destination(),
-                    previous_instruction.first_argument(),
-                )
-            }
-            _ => {
-                self.emit_instruction(previous_instruction, previous_position);
-
-                (false, self.current_register, self.current_register - 1)
+                    (true, false, previous_instruction.destination())
+                }
+                Operation::Close => {
+                    return Err(ParseError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    });
+                }
+                _ => (true, false, previous_instruction.destination()),
             }
         };
 
         let mut instruction = match operator.kind() {
-            TokenKind::Bang => Instruction::not(destination, from_register),
-            TokenKind::Minus => Instruction::negate(destination, from_register),
+            TokenKind::Bang => Instruction::not(self.current_register, argument),
+            TokenKind::Minus => Instruction::negate(self.current_register, argument),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[TokenKind::Bang, TokenKind::Minus],
@@ -362,6 +359,10 @@ impl<'src> Parser<'src> {
 
         if is_constant {
             instruction.set_first_argument_to_constant();
+        }
+
+        if push_back {
+            self.emit_instruction(previous_instruction, previous_position);
         }
 
         self.emit_instruction(instruction, operator_position);

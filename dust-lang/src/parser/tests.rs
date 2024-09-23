@@ -10,8 +10,8 @@ fn not() {
         parse(source),
         Ok(Chunk::with_data(
             vec![
-                (Instruction::load_boolean(0, true, true), Span(1, 5)),
-                (Instruction::not(0, 0), Span(1, 5)),
+                (Instruction::load_boolean(0, true, false), Span(1, 5)),
+                (Instruction::not(1, 0), Span(0, 1)),
             ],
             vec![],
             vec![]
