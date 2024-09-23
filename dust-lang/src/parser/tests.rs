@@ -26,11 +26,11 @@ fn negate() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
-            vec![
-                (Instruction::load_constant(0, 0), Span(2, 4)),
-                (Instruction::negate(0, 0), Span(1, 5)),
-            ],
-            vec![Value::integer(42),],
+            vec![(
+                *Instruction::negate(0, 0).set_first_argument_to_constant(),
+                Span(0, 1)
+            ),],
+            vec![Value::integer(42)],
             vec![]
         )),
     );

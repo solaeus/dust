@@ -197,7 +197,7 @@ impl Vm {
                         position,
                     })?;
 
-                    if boolean != test_value {
+                    if boolean == test_value {
                         self.ip += 1;
                     }
                 }

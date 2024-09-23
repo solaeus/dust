@@ -332,6 +332,15 @@ impl<'src> Parser<'src> {
                     previous_instruction.first_argument(),
                 )
             }
+            Operation::LoadBoolean => {
+                self.decrement_register()?;
+
+                (
+                    true,
+                    previous_instruction.destination(),
+                    previous_instruction.first_argument(),
+                )
+            }
             _ => {
                 self.emit_instruction(previous_instruction, previous_position);
 
@@ -355,82 +364,66 @@ impl<'src> Parser<'src> {
             instruction.set_first_argument_to_constant();
         }
 
-        self.increment_register()?;
         self.emit_instruction(instruction, operator_position);
 
         Ok(())
     }
 
-    fn parse_binary(&mut self) -> Result<(), ParseError> {
-        fn handle_argument(
-            parser: &mut Parser,
-            instruction: &Instruction,
-        ) -> Result<(bool, bool, u8), ParseError> {
-            let mut push_back = false;
-            let mut is_constant = false;
-            let argument = match instruction.operation() {
-                Operation::GetLocal => {
-                    parser.decrement_register()?;
-                    instruction.destination()
-                }
-                Operation::LoadConstant => {
-                    is_constant = true;
+    fn handle_binary_argument(
+        &mut self,
+        instruction: &Instruction,
+    ) -> Result<(bool, bool, u8), ParseError> {
+        let mut push_back = false;
+        let mut is_constant = false;
+        let argument = match instruction.operation() {
+            Operation::GetLocal => {
+                self.decrement_register()?;
+                instruction.destination()
+            }
+            Operation::LoadConstant => {
+                is_constant = true;
 
-                    parser.decrement_register()?;
-                    instruction.first_argument()
-                }
-                Operation::LoadBoolean => {
-                    is_constant = true;
-                    push_back = true;
+                self.decrement_register()?;
+                instruction.first_argument()
+            }
+            Operation::LoadBoolean => {
+                is_constant = true;
+                push_back = true;
 
-                    instruction.destination()
-                }
-                Operation::Close => {
-                    return Err(ParseError::ExpectedExpression {
-                        found: parser.previous_token.to_owned(),
-                        position: parser.previous_position,
-                    });
-                }
-                _ => {
-                    push_back = true;
+                instruction.destination()
+            }
+            Operation::Close => {
+                return Err(ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            }
+            _ => {
+                push_back = true;
 
-                    instruction.destination()
-                }
-            };
+                instruction.destination()
+            }
+        };
 
-            Ok((push_back, is_constant, argument))
-        }
+        Ok((push_back, is_constant, argument))
+    }
 
+    fn parse_math_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_left, left_is_constant, left) = handle_argument(self, &left_instruction)?;
+        let (push_back_left, left_is_constant, left) =
+            self.handle_binary_argument(&left_instruction)?;
 
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
-        let (mut instruction, is_comparison) = match operator.kind() {
-            TokenKind::Plus => (Instruction::add(self.current_register, left, 0), false),
-            TokenKind::Minus => (Instruction::subtract(self.current_register, left, 0), false),
-            TokenKind::Star => (Instruction::multiply(self.current_register, left, 0), false),
-            TokenKind::Slash => (Instruction::divide(self.current_register, left, 0), false),
-            TokenKind::Percent => (Instruction::modulo(self.current_register, left, 0), false),
-            TokenKind::DoubleEqual => (Instruction::equal(true, left, 0), true),
-            TokenKind::BangEqual => (Instruction::equal(false, left, 0), true),
-            TokenKind::Less => (Instruction::less(true, left, 0), true),
-            TokenKind::LessEqual => (Instruction::less_equal(true, left, 0), true),
-            TokenKind::Greater => (Instruction::less_equal(false, left, 0), true),
-            TokenKind::GreaterEqual => (Instruction::less(false, left, 0), true),
-            TokenKind::DoubleAmpersand => {
-                let and_test = Instruction::test(self.current_register, false);
-
-                (and_test, true)
-            }
-            TokenKind::DoublePipe => {
-                let or_test = Instruction::test(self.current_register, true);
-
-                (or_test, true)
-            }
+        let mut instruction = match operator.kind() {
+            TokenKind::Plus => Instruction::add(self.current_register, left, 0),
+            TokenKind::Minus => Instruction::subtract(self.current_register, left, 0),
+            TokenKind::Star => Instruction::multiply(self.current_register, left, 0),
+            TokenKind::Slash => Instruction::divide(self.current_register, left, 0),
+            TokenKind::Percent => Instruction::modulo(self.current_register, left, 0),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -439,14 +432,6 @@ impl<'src> Parser<'src> {
                         TokenKind::Star,
                         TokenKind::Slash,
                         TokenKind::Percent,
-                        TokenKind::DoubleEqual,
-                        TokenKind::BangEqual,
-                        TokenKind::Less,
-                        TokenKind::LessEqual,
-                        TokenKind::Greater,
-                        TokenKind::GreaterEqual,
-                        TokenKind::DoubleAmpersand,
-                        TokenKind::DoublePipe,
                     ],
                     found: operator.to_owned(),
                     position: operator_position,
@@ -454,17 +439,14 @@ impl<'src> Parser<'src> {
             }
         };
 
-        if !(operator == Token::DoubleEqual) {
-            self.increment_register()?;
-        }
-
+        self.increment_register()?;
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let (push_back_right, right_is_constant, right) =
-            handle_argument(self, &right_instruction)?;
+            self.handle_binary_argument(&right_instruction)?;
 
         instruction.set_second_argument(right);
 
@@ -476,55 +458,95 @@ impl<'src> Parser<'src> {
             instruction.set_second_argument_to_constant();
         }
 
-        if !is_comparison {
-            if push_back_left {
-                self.emit_instruction(left_instruction, left_position);
-            }
-
-            if push_back_right {
-                self.emit_instruction(right_instruction, right_position);
-            }
-
-            self.emit_instruction(instruction, operator_position);
+        if push_back_left {
+            self.emit_instruction(left_instruction, left_position);
         }
 
-        if is_comparison {
-            let push_left_first = self.current_register.saturating_sub(1) == left;
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
+        }
 
-            if push_back_left && push_left_first {
-                self.emit_instruction(left_instruction, left_position);
+        self.emit_instruction(instruction, operator_position);
+
+        Ok(())
+    }
+
+    fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
+        let (left_instruction, left_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+
+        let (push_back_left, left_is_constant, left) =
+            self.handle_binary_argument(&left_instruction)?;
+
+        let operator = self.current_token;
+        let operator_position = self.current_position;
+        let rule = ParseRule::from(&operator.kind());
+        let mut instruction = match self.current_token.kind() {
+            TokenKind::DoubleEqual => Instruction::equal(true, left, 0),
+            TokenKind::BangEqual => Instruction::equal(false, left, 0),
+            TokenKind::Less => Instruction::less(true, left, 0),
+            TokenKind::LessEqual => Instruction::less_equal(true, left, 0),
+            TokenKind::Greater => Instruction::less_equal(false, left, 0),
+            TokenKind::GreaterEqual => Instruction::less(false, left, 0),
+            _ => {
+                return Err(ParseError::ExpectedTokenMultiple {
+                    expected: &[
+                        TokenKind::DoubleEqual,
+                        TokenKind::BangEqual,
+                        TokenKind::Less,
+                        TokenKind::LessEqual,
+                        TokenKind::Greater,
+                        TokenKind::GreaterEqual,
+                    ],
+                    found: self.current_token.to_owned(),
+                    position: self.current_position,
+                })
             }
+        };
 
-            let jump_distance = if left_is_constant { 1 } else { 2 };
+        self.advance()?;
+        self.parse(rule.precedence.increment())?;
 
-            self.emit_instruction(instruction, operator_position);
-            self.emit_instruction(Instruction::jump(jump_distance, true), operator_position);
+        let (right_instruction, right_position) =
+            self.chunk.pop_instruction(self.current_position)?;
 
-            if push_back_left && !push_left_first {
-                self.emit_instruction(left_instruction, left_position);
-            }
+        let (push_back_right, right_is_constant, right) =
+            self.handle_binary_argument(&right_instruction)?;
 
-            if push_back_right {
-                self.emit_instruction(right_instruction, right_position);
-            }
+        instruction.set_second_argument(right);
 
-            if !push_back_left && !push_back_right {
-                if self.current_register > 0 {
-                    self.decrement_register()?;
-                }
+        if left_is_constant {
+            instruction.set_first_argument_to_constant();
+        }
 
-                self.emit_instruction(
-                    Instruction::load_boolean(self.current_register, true, true),
-                    operator_position,
-                );
-                self.emit_instruction(
-                    Instruction::load_boolean(self.current_register, false, false),
-                    operator_position,
-                );
-            }
+        if right_is_constant {
+            instruction.set_second_argument_to_constant();
+        }
+
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
+        self.emit_instruction(
+            Instruction::load_boolean(self.current_register, true, true),
+            operator_position,
+        );
+        self.emit_instruction(
+            Instruction::load_boolean(self.current_register, false, false),
+            operator_position,
+        );
+
+        if push_back_left {
+            self.emit_instruction(left_instruction, left_position);
+        }
+
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
         }
 
         Ok(())
+    }
+
+    fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
+        todo!()
     }
 
     fn parse_variable(
@@ -920,7 +942,7 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::BangEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
             TokenKind::Bool => todo!(),
@@ -949,17 +971,17 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Dot => todo!(),
             TokenKind::DoubleAmpersand => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::LogicalAnd,
             },
             TokenKind::DoubleEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
             TokenKind::DoublePipe => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::LogicalOr,
             },
             TokenKind::DoubleDot => todo!(),
@@ -986,12 +1008,12 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::FloatKeyword => todo!(),
             TokenKind::Greater => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             TokenKind::GreaterEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             TokenKind::Identifier => ParseRule {
@@ -1027,12 +1049,12 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::Less => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             TokenKind::LessEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             TokenKind::Let => ParseRule {
@@ -1044,7 +1066,7 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Map => todo!(),
             TokenKind::Minus => ParseRule {
                 prefix: Some(Parser::parse_unary),
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
             TokenKind::MinusEqual => todo!(),
@@ -1055,12 +1077,12 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::Percent => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             TokenKind::Plus => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
             TokenKind::PlusEqual => todo!(),
@@ -1086,12 +1108,12 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::Slash => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             TokenKind::Star => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary),
+                infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             TokenKind::Str => todo!(),
