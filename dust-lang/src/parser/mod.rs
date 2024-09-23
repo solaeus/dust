@@ -138,7 +138,6 @@ impl<'src> Parser<'src> {
             Instruction::load_constant(self.current_register, constant_index),
             position,
         );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -203,7 +202,6 @@ impl<'src> Parser<'src> {
             Instruction::load_boolean(self.current_register, boolean, skip),
             position,
         );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -332,11 +330,7 @@ impl<'src> Parser<'src> {
         let (push_back, is_constant, argument) = {
             match previous_instruction.operation() {
                 Operation::GetLocal => (false, false, previous_instruction.destination()),
-                Operation::LoadConstant => {
-                    self.decrement_register()?;
-
-                    (false, true, previous_instruction.first_argument())
-                }
+                Operation::LoadConstant => (false, true, previous_instruction.first_argument()),
                 Operation::LoadBoolean => (true, false, previous_instruction.destination()),
                 Operation::Close => {
                     return Err(ParseError::ExpectedExpression {
@@ -347,6 +341,10 @@ impl<'src> Parser<'src> {
                 _ => (true, false, previous_instruction.destination()),
             }
         };
+
+        if push_back {
+            self.increment_register()?;
+        }
 
         let mut instruction = match operator.kind() {
             TokenKind::Bang => Instruction::not(self.current_register, argument),
@@ -380,21 +378,16 @@ impl<'src> Parser<'src> {
         let mut push_back = false;
         let mut is_constant = false;
         let argument = match instruction.operation() {
-            Operation::GetLocal => {
-                self.decrement_register()?;
-                instruction.destination()
-            }
+            Operation::GetLocal => instruction.destination(),
             Operation::LoadConstant => {
                 is_constant = true;
 
-                self.decrement_register()?;
                 instruction.first_argument()
             }
             Operation::LoadBoolean => {
                 is_constant = true;
                 push_back = true;
 
-                self.decrement_register()?;
                 instruction.destination()
             }
             Operation::Close => {
@@ -480,8 +473,6 @@ impl<'src> Parser<'src> {
         let (previous_booleans, equal_argument) = if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean), Some(Operation::Jump), Some(Operation::Equal)] =
             self.chunk.get_last_n_operations()
         {
-            self.increment_register()?;
-
             let load_booleans = (
                 self.chunk.pop_instruction(self.current_position)?,
                 self.chunk.pop_instruction(self.current_position)?,
@@ -557,10 +548,12 @@ impl<'src> Parser<'src> {
 
         if push_back_left {
             self.emit_instruction(left_instruction, left_position);
+            self.increment_register()?;
         }
 
         if push_back_right {
             self.emit_instruction(right_instruction, right_position);
+            self.increment_register()?;
         }
 
         self.emit_instruction(instruction, operator_position);
@@ -588,19 +581,13 @@ impl<'src> Parser<'src> {
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_left, left_is_constant, _) =
-            self.handle_binary_argument(&left_instruction)?;
-
-        if let Operation::LoadBoolean = left_instruction.operation() {
-            self.increment_register()?;
-        }
 
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
-        let test_register = self.current_register.saturating_sub(1);
-        let mut instruction = match operator.kind() {
+        let test_register = left_instruction.destination();
+        let instruction = match operator.kind() {
             TokenKind::DoubleAmpersand => Instruction::test(test_register, true),
             TokenKind::DoublePipe => Instruction::test(test_register, false),
             _ => {
@@ -612,49 +599,21 @@ impl<'src> Parser<'src> {
             }
         };
 
+        self.increment_register()?;
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
         let (mut right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_right, right_is_constant, _) =
-            self.handle_binary_argument(&right_instruction)?;
 
-        let emit_move_to = if self.current_register != test_register {
-            Some(self.current_register)
-        } else {
-            None
-        };
-
-        if left_is_constant {
-            instruction.set_first_argument_to_constant();
+        if let Operation::LoadBoolean = right_instruction.operation() {
+            right_instruction.set_second_argument_to_boolean(true);
         }
 
-        if right_is_constant {
-            if let Operation::LoadBoolean = right_instruction.operation() {
-                right_instruction.set_second_argument_to_boolean(true);
-            }
-
-            instruction.set_second_argument_to_constant();
-        }
-
-        if push_back_left {
-            self.emit_instruction(left_instruction, left_position);
-        }
-
+        self.emit_instruction(left_instruction, left_position);
         self.emit_instruction(instruction, operator_position);
         self.emit_instruction(Instruction::jump(1, true), operator_position);
-
-        if push_back_right {
-            self.emit_instruction(right_instruction, right_position);
-        }
-
-        if let Some(register) = emit_move_to {
-            self.emit_instruction(
-                Instruction::r#move(register, test_register),
-                operator_position,
-            );
-        }
+        self.emit_instruction(right_instruction, right_position);
 
         Ok(())
     }
@@ -704,7 +663,7 @@ impl<'src> Parser<'src> {
 
             self.emit_instruction(previous_instruction, previous_position);
             self.emit_instruction(
-                Instruction::set_local(self.current_register - 1, local_index),
+                Instruction::set_local(self.current_register, local_index),
                 start_position,
             );
         } else {
@@ -712,7 +671,6 @@ impl<'src> Parser<'src> {
                 Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
-            self.increment_register()?;
         }
 
         Ok(())
@@ -773,9 +731,13 @@ impl<'src> Parser<'src> {
 
             self.parse(Precedence::Assignment)?; // Do not allow assignment
 
-            if next_register != self.current_register - 1 {
+            if let Some(Operation::LoadConstant) = self.chunk.get_last_operation() {
+                self.increment_register()?;
+            }
+
+            if next_register != self.current_register.saturating_sub(1) {
                 self.emit_instruction(
-                    Instruction::close(next_register, self.current_register - 1),
+                    Instruction::close(next_register, self.current_register.saturating_sub(1)),
                     self.current_position,
                 );
             }
@@ -919,6 +881,7 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
+        self.increment_register()?;
 
         let (previous_instruction, previous_position) =
             *self

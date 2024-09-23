@@ -3,8 +3,8 @@ use crate::Local;
 use super::*;
 
 #[test]
-fn equality_chain() {
-    let source = "1 == 2 == 3;";
+fn comparison_chain() {
+    let source = "1 == 2 > 3 < 4 != 5;";
 
     assert_eq!(
         parse(source),
@@ -278,7 +278,7 @@ fn if_else_expression() {
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2), Span(12, 13)),
                 (Instruction::jump(1, true), Span(26, 26)),
-                (Instruction::load_constant(1, 3), Span(23, 24)),
+                (Instruction::load_constant(0, 3), Span(23, 24)),
             ],
             vec![
                 Value::integer(1),
@@ -489,15 +489,9 @@ fn or() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (
-                    *Instruction::test(0, false)
-                        .set_second_argument_to_constant()
-                        .set_first_argument_to_constant(),
-                    Span(5, 7)
-                ),
+                (Instruction::test(0, false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, true), Span(8, 13)),
-                (Instruction::r#move(1, 0), Span(5, 7)),
             ],
             vec![],
             vec![]
@@ -512,15 +506,9 @@ fn and() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (
-                    *Instruction::test(0, true)
-                        .set_second_argument_to_constant()
-                        .set_first_argument_to_constant(),
-                    Span(5, 7)
-                ),
+                (Instruction::test(0, true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, true), Span(8, 13)),
-                (Instruction::r#move(1, 0), Span(5, 7)),
             ],
             vec![],
             vec![]
@@ -538,9 +526,10 @@ fn variable_and() {
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::load_boolean(1, false, false), Span(22, 27)),
                 (Instruction::define_local(1, 1, false), Span(18, 19)),
-                (Instruction::test(1, true), Span(31, 33)),
+                (Instruction::get_local(2, 0), Span(29, 30)),
+                (Instruction::test(2, true), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
-                (Instruction::r#move(2, 1), Span(31, 33)),
+                (Instruction::get_local(3, 1), Span(34, 35)),
             ],
             vec![],
             vec![

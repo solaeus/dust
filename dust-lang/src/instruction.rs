@@ -365,7 +365,7 @@ impl Instruction {
             Operation::LoadList => {
                 let destination = self.destination();
                 let first_index = self.first_argument();
-                let last_index = destination - 1;
+                let last_index = destination.saturating_sub(1);
 
                 format!("R{} = [R{}..=R{}]", destination, first_index, last_index)
             }
