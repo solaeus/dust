@@ -101,9 +101,11 @@ impl Vm {
                 }
                 Operation::LoadList => {
                     let to_register = instruction.destination();
-                    let length = instruction.first_argument();
-                    let first_register = to_register - length - 1;
-                    let last_register = to_register - 1;
+                    let first_register = instruction.first_argument();
+                    let length = instruction.second_argument();
+                    let last_register = first_register + length + 1;
+
+                    println!("{first_register}..={last_register}");
 
                     let mut list = Vec::with_capacity(length as usize);
 
