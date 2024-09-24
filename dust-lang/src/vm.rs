@@ -16,7 +16,6 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 pub struct Vm {
     chunk: Chunk,
     ip: usize,
-    last_modified: u8,
     register_stack: Vec<Option<Value>>,
 }
 
@@ -27,7 +26,6 @@ impl Vm {
         Self {
             chunk,
             ip: 0,
-            last_modified: 0,
             register_stack: Vec::new(),
         }
     }
@@ -60,7 +58,11 @@ impl Vm {
         }
 
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
-            log::trace!("Running IP {} {instruction} at {position}", self.ip);
+            log::trace!(
+                "Running IP {} {} at {position}",
+                self.ip,
+                instruction.operation()
+            );
 
             match instruction.operation() {
                 Operation::Move => {
@@ -302,20 +304,25 @@ impl Vm {
                         return Ok(Some(self.take(start_register, position)?));
                     }
                 }
+                Operation::End => {
+                    let returns_value = instruction.destination_as_boolean();
+
+                    return if returns_value {
+                        Ok(Some(self.pop(position)?))
+                    } else {
+                        Ok(None)
+                    };
+                }
             }
         }
 
-        let final_value = self.take(self.last_modified, Span(0, 0))?;
-
-        Ok(Some(final_value))
+        Ok(None)
     }
 
     fn insert(&mut self, value: Value, index: u8, position: Span) -> Result<(), VmError> {
         if self.register_stack.len() == Self::STACK_LIMIT {
             Err(VmError::StackOverflow { position })
         } else {
-            self.last_modified = index;
-
             let index = index as usize;
 
             while index >= self.register_stack.len() {

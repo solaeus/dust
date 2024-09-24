@@ -375,7 +375,10 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
-        let mut instruction = match operator.kind() {
+        self.advance()?;
+        self.parse(rule.precedence.increment())?;
+
+        let mut new_instruction = match operator.kind() {
             TokenKind::Plus => Instruction::add(self.current_register, left, 0),
             TokenKind::Minus => Instruction::subtract(self.current_register, left, 0),
             TokenKind::Star => Instruction::multiply(self.current_register, left, 0),
@@ -397,33 +400,59 @@ impl<'src> Parser<'src> {
         };
 
         self.increment_register()?;
-        self.advance()?;
-        self.parse(rule.precedence.increment())?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let (push_back_right, right_is_constant, right) =
             self.handle_binary_argument(&right_instruction)?;
 
-        instruction.set_second_argument(right);
+        new_instruction.set_second_argument(right);
 
         if left_is_constant {
-            instruction.set_first_argument_to_constant();
+            new_instruction.set_first_argument_to_constant();
         }
 
         if right_is_constant {
-            instruction.set_second_argument_to_constant();
+            new_instruction.set_second_argument_to_constant();
         }
 
-        if push_back_left {
-            self.emit_instruction(left_instruction, left_position);
+        let mut instructions = if !push_back_left && !push_back_right {
+            self.emit_instruction(new_instruction, operator_position);
+
+            return Ok(());
+        } else if push_back_right && !push_back_left {
+            vec![
+                (right_instruction, right_position),
+                (new_instruction, operator_position),
+            ]
+        } else if push_back_left && !push_back_right {
+            vec![
+                (left_instruction, left_position),
+                (new_instruction, operator_position),
+            ]
+        } else {
+            vec![
+                (new_instruction, operator_position),
+                (left_instruction, left_position),
+                (right_instruction, right_position),
+            ]
+        };
+
+        while let Some(operation) = self.chunk.get_last_operation() {
+            if operation.is_math() {
+                let (instruction, position) = self.chunk.pop_instruction(self.current_position)?;
+
+                instructions.push((instruction, position));
+            } else {
+                break;
+            }
         }
 
-        if push_back_right {
-            self.emit_instruction(right_instruction, right_position);
-        }
+        instructions.sort_by_key(|(instruction, _)| instruction.destination());
 
-        self.emit_instruction(instruction, operator_position);
+        for (instruction, position) in instructions {
+            self.emit_instruction(instruction, position);
+        }
 
         Ok(())
     }
@@ -501,25 +530,18 @@ impl<'src> Parser<'src> {
             if push_back_right {
                 self.emit_instruction(right_instruction, right_position);
             }
-
-            self.emit_instruction(instruction, operator_position);
-            self.emit_instruction(Instruction::jump(1, true), operator_position);
-            self.emit_instruction(
-                Instruction::r#move(self.current_register, instruction.destination()),
-                operator_position,
-            );
-        } else {
-            self.emit_instruction(instruction, operator_position);
-            self.emit_instruction(Instruction::jump(1, true), operator_position);
-            self.emit_instruction(
-                Instruction::load_boolean(self.current_register, true, true),
-                operator_position,
-            );
-            self.emit_instruction(
-                Instruction::load_boolean(self.current_register, false, false),
-                operator_position,
-            );
         }
+
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
+        self.emit_instruction(
+            Instruction::load_boolean(self.current_register, true, true),
+            operator_position,
+        );
+        self.emit_instruction(
+            Instruction::load_boolean(self.current_register, false, false),
+            operator_position,
+        );
 
         Ok(())
     }
@@ -549,12 +571,8 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
-        let (mut right_instruction, right_position) =
+        let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-
-        if let Operation::LoadBoolean = right_instruction.operation() {
-            right_instruction.set_second_argument_to_boolean(true);
-        }
 
         self.emit_instruction(left_instruction, left_position);
         self.emit_instruction(instruction, operator_position);
@@ -591,7 +609,7 @@ impl<'src> Parser<'src> {
             let (mut previous_instruction, previous_position) =
                 self.chunk.pop_instruction(self.current_position)?;
 
-            if previous_instruction.operation().is_binary() {
+            if previous_instruction.operation().is_math() {
                 let previous_register = self
                     .chunk
                     .get_local(local_index, start_position)?
@@ -646,13 +664,13 @@ impl<'src> Parser<'src> {
     fn parse_block(
         &mut self,
         _allow_assignment: bool,
-        allow_return: bool,
+        _allow_return: bool,
     ) -> Result<(), ParseError> {
         self.advance()?;
         self.chunk.begin_scope();
 
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
-            self.parse_statement(allow_return)?;
+            self.parse_statement(_allow_return)?;
         }
 
         self.chunk.end_scope();
@@ -712,40 +730,17 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        if self.allow(TokenKind::LeftCurlyBrace)? {
+        if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(allow_assignment, allow_return)?;
         }
 
-        let jump_position = self.current_position;
-        let jump_start = self.current_register;
-        let jump_index = self.chunk.len();
-
         if self.allow(TokenKind::Else)? {
-            if self.allow(TokenKind::If)? {
+            if let Token::If = self.current_token {
                 self.parse_if(allow_assignment, allow_return)?;
             }
 
-            if self.allow(TokenKind::LeftCurlyBrace)? {
+            if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(allow_assignment, allow_return)?;
-            }
-        }
-
-        if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] =
-            self.chunk.get_last_n_operations()
-        {
-            // Do not emit a jump if the last two instructions were LoadBoolean operations.
-        } else if let [Some(Operation::LoadConstant), Some(Operation::LoadConstant)] =
-            self.chunk.get_last_n_operations()
-        {
-            // Do not emit a jump if the last two instructions were LoadConstant operations.
-        } else {
-            let jump_end = self.current_register;
-            let jump_distance = (jump_end - jump_start).max(1);
-            let jump = Instruction::jump(jump_distance, true);
-
-            if jump_distance > 1 {
-                self.chunk
-                    .insert_instruction(jump_index, jump, jump_position);
             }
         }
 
@@ -769,19 +764,27 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self, allow_return: bool) -> Result<(), ParseError> {
-        match self.current_token {
+        let is_expression = match self.current_token {
             Token::Let => {
                 self.parse_let_statement(true, allow_return)?;
+
+                self.allow(TokenKind::Semicolon)?
             }
             Token::LeftCurlyBrace => {
                 self.parse_block(true, true)?;
+
+                !self.allow(TokenKind::Semicolon)?
             }
             _ => {
                 self.parse_expression()?;
+
+                !self.allow(TokenKind::Semicolon)?
             }
         };
 
-        self.allow(TokenKind::Semicolon)?;
+        if self.current_token == Token::RightCurlyBrace || self.is_eof() {
+            self.emit_instruction(Instruction::end(is_expression), self.current_position);
+        }
 
         Ok(())
     }

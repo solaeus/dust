@@ -12,6 +12,7 @@ fn not() {
             vec![
                 (Instruction::load_boolean(0, true, false), Span(1, 5)),
                 (Instruction::not(1, 0), Span(0, 1)),
+                (Instruction::end(true), Span(5, 5)),
             ],
             vec![],
             vec![]
@@ -26,10 +27,13 @@ fn negate() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::negate(0, 0).set_first_argument_to_constant(),
-                Span(0, 1)
-            ),],
+            vec![
+                (
+                    *Instruction::negate(0, 0).set_first_argument_to_constant(),
+                    Span(0, 1)
+                ),
+                (Instruction::end(true), Span(5, 5))
+            ],
             vec![Value::integer(42)],
             vec![]
         )),
@@ -53,6 +57,7 @@ fn greater_than_or_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::end(false), Span(7, 7)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -77,6 +82,7 @@ fn greater() {
                 (Instruction::jump(1, true), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
+                (Instruction::end(false), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -101,6 +107,7 @@ fn less_than_or_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::end(false), Span(7, 7)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -125,6 +132,7 @@ fn less_than() {
                 (Instruction::jump(1, true), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
+                (Instruction::end(false), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -149,6 +157,7 @@ fn not_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::end(false), Span(7, 7)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -173,6 +182,7 @@ fn equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::end(true), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -198,6 +208,7 @@ fn equality_assignment_long() {
                 (Instruction::load_boolean(0, true, true), Span(13, 15)),
                 (Instruction::load_boolean(0, false, false), Span(13, 15)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::end(false), Span(42, 42)),
             ],
             vec![Value::integer(4), Value::integer(4)],
             vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
@@ -223,6 +234,7 @@ fn equality_assignment_short() {
                 (Instruction::load_boolean(0, true, true), Span(10, 12)),
                 (Instruction::load_boolean(0, false, false), Span(10, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::end(false), Span(15, 15)),
             ],
             vec![Value::integer(4), Value::integer(4)],
             vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
@@ -247,6 +259,7 @@ fn if_expression() {
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(0, true, true), Span(5, 7)),
                 (Instruction::load_boolean(0, false, false), Span(5, 7)),
+                (Instruction::end(true), Span(15, 15)),
             ],
             vec![Value::integer(1), Value::integer(1)],
             vec![]
@@ -271,6 +284,7 @@ fn if_else_expression() {
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(0, true, true), Span(5, 7)),
                 (Instruction::load_boolean(0, false, false), Span(5, 7)),
+                (Instruction::end(true), Span(26, 26)),
             ],
             vec![Value::integer(1), Value::integer(1)],
             vec![]
@@ -295,6 +309,7 @@ fn list_with_expression() {
                 ),
                 (Instruction::load_constant(2, 3), Span(11, 12)),
                 (Instruction::load_list(3, 0, 3), Span(0, 13)),
+                (Instruction::end(true), Span(13, 13)),
             ],
             vec![
                 Value::integer(1),
@@ -319,6 +334,7 @@ fn list() {
                 (Instruction::load_constant(1, 1), Span(4, 5)),
                 (Instruction::load_constant(2, 2), Span(7, 8)),
                 (Instruction::load_list(3, 0, 3), Span(0, 9)),
+                (Instruction::end(true), Span(9, 9)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3),],
             vec![]
@@ -350,10 +366,13 @@ fn block_scope() {
                 (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (Instruction::load_constant(2, 2), Span(92, 93)),
                 (Instruction::define_local(2, 2, false), Span(88, 89)),
+                (Instruction::end(false), Span(121, 124)),
                 (Instruction::load_constant(3, 3), Span(129, 130)),
                 (Instruction::define_local(3, 3, false), Span(125, 126)),
+                (Instruction::end(false), Span(150, 159)),
                 (Instruction::load_constant(4, 4), Span(158, 159)),
                 (Instruction::define_local(4, 4, false), Span(154, 155)),
+                (Instruction::end(false), Span(165, 165)),
             ],
             vec![
                 Value::integer(0),
@@ -388,6 +407,7 @@ fn set_local() {
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (Instruction::load_constant(1, 1), Span(20, 22)),
                 (Instruction::set_local(1, 0), Span(16, 17)),
+                (Instruction::end(false), Span(23, 23)),
             ],
             vec![Value::integer(41), Value::integer(42)],
             vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]
@@ -411,6 +431,7 @@ fn parentheses_precedence() {
                     *Instruction::multiply(1, 0, 2).set_second_argument_to_constant(),
                     Span(8, 9)
                 ),
+                (Instruction::end(true), Span(11, 11)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3)],
             vec![]
@@ -425,22 +446,23 @@ fn math_operator_precedence() {
         Ok(Chunk::with_data(
             vec![
                 (
-                    *Instruction::multiply(2, 2, 3)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
-                    Span(10, 11)
-                ),
-                (
                     *Instruction::add(0, 0, 1)
                         .set_first_argument_to_constant()
                         .set_second_argument_to_constant(),
                     Span(2, 3)
                 ),
                 (
-                    *Instruction::divide(3, 2, 4).set_second_argument_to_constant(),
+                    *Instruction::multiply(1, 2, 3)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(10, 11)
+                ),
+                (
+                    *Instruction::divide(2, 1, 4).set_second_argument_to_constant(),
                     Span(14, 15)
                 ),
-                (Instruction::subtract(1, 0, 3), Span(6, 7)),
+                (Instruction::subtract(3, 0, 2), Span(6, 7)),
+                (Instruction::end(true), Span(17, 17)),
             ],
             vec![
                 Value::integer(1),
@@ -455,13 +477,14 @@ fn math_operator_precedence() {
 }
 
 #[test]
-fn declare_local() {
+fn define_local() {
     assert_eq!(
         parse("let x = 42;"),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0), Span(8, 10)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::end(false), Span(11, 11)),
             ],
             vec![Value::integer(42)],
             vec![Local::new(Identifier::new("x"), false, 0, Some(0))]
@@ -478,7 +501,8 @@ fn or() {
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, true), Span(8, 13)),
+                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::end(true), Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -495,7 +519,8 @@ fn and() {
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, true), Span(8, 13)),
+                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::end(true), Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -517,6 +542,7 @@ fn variable_and() {
                 (Instruction::test(2, true), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
+                (Instruction::end(true), Span(35, 35)),
             ],
             vec![],
             vec![
@@ -532,12 +558,15 @@ fn divide() {
     assert_eq!(
         parse("1 / 2"),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::divide(0, 0, 1)
-                    .set_first_argument_to_constant()
-                    .set_second_argument_to_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::divide(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::end(true), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -549,12 +578,15 @@ fn multiply() {
     assert_eq!(
         parse("1 * 2"),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::multiply(0, 0, 1)
-                    .set_first_argument_to_constant()
-                    .set_second_argument_to_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::multiply(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::end(true), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -566,12 +598,15 @@ fn add() {
     assert_eq!(
         parse("1 + 2"),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::add(0, 0, 1)
-                    .set_first_argument_to_constant()
-                    .set_second_argument_to_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::add(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::end(true), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -583,12 +618,15 @@ fn subtract() {
     assert_eq!(
         parse("1 - 2"),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::subtract(0, 0, 1)
-                    .set_first_argument_to_constant()
-                    .set_second_argument_to_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::subtract(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::end(true), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -600,7 +638,10 @@ fn constant() {
     assert_eq!(
         parse("42"),
         Ok(Chunk::with_data(
-            vec![(Instruction::load_constant(0, 0), Span(0, 2)),],
+            vec![
+                (Instruction::load_constant(0, 0), Span(0, 2)),
+                (Instruction::end(true), Span(2, 2)),
+            ],
             vec![Value::integer(42)],
             vec![]
         ))
