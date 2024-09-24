@@ -302,7 +302,45 @@ fn if_else_expression() {
 }
 
 #[test]
-fn list_with_expression() {
+fn list_with_complex_expression() {
+    let source = "[1, 2 + 3 - 4 * 5]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(1, 2)),
+                (
+                    *Instruction::add(1, 1, 2)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(6, 7)
+                ),
+                (
+                    *Instruction::multiply(2, 3, 4)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(14, 15)
+                ),
+                (Instruction::subtract(3, 1, 2), Span(10, 11)),
+                (Instruction::close(1, 3), Span(17, 18)),
+                (Instruction::load_list(4, 0, 2), Span(0, 18)),
+                (Instruction::end(true), Span(18, 18)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(5)
+            ],
+            vec![]
+        )),
+    );
+}
+
+#[test]
+fn list_with_simple_expression() {
     let source = "[1, 2 + 3, 4]";
 
     assert_eq!(
