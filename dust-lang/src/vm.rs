@@ -1,5 +1,3 @@
-use log::debug;
-
 use crate::{
     parse, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, Local, Operation,
     Span, Value, ValueError,
@@ -254,18 +252,15 @@ impl Vm {
                 Operation::Less => {
                     let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
 
-                    assert_eq!(jump.operation(), Operation::Jump);
+                    debug_assert_eq!(jump.operation(), Operation::Jump);
 
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let less = left
-                        .less_than(right)
-                        .map_err(|error| VmError::Value { error, position })?;
                     let boolean = left
-                        .equal(right)
+                        .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?
                         .as_boolean()
                         .ok_or_else(|| VmError::ExpectedBoolean {
-                            found: less,
+                            found: left.clone(),
                             position,
                         })?;
                     let compare_to = instruction.destination_as_boolean();
@@ -285,17 +280,17 @@ impl Vm {
                     }
                 }
                 Operation::LessEqual => {
-                    let (jump, _) = *self.read(position)?;
+                    let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+
+                    debug_assert_eq!(jump.operation(), Operation::Jump);
+
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let less_or_equal = left
-                        .less_than_or_equal(right)
-                        .map_err(|error| VmError::Value { error, position })?;
                     let boolean = left
-                        .equal(right)
+                        .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?
                         .as_boolean()
                         .ok_or_else(|| VmError::ExpectedBoolean {
-                            found: less_or_equal,
+                            found: left.clone(),
                             position,
                         })?;
                     let compare_to = instruction.destination_as_boolean();

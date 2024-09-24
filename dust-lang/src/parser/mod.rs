@@ -731,7 +731,7 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        if matches!(
+        let jump_position = if matches!(
             self.chunk.get_last_n_operations(),
             [
                 Some(Operation::LoadBoolean),
@@ -741,8 +741,20 @@ impl<'src> Parser<'src> {
         ) {
             self.chunk.pop_instruction(self.current_position)?;
             self.chunk.pop_instruction(self.current_position)?;
-            self.chunk.pop_instruction(self.current_position)?;
             self.decrement_register()?;
+            self.chunk.pop_instruction(self.current_position)?.1
+        } else {
+            self.current_position
+        };
+
+        if let [Some(Operation::LoadBoolean)] = self.chunk.get_last_n_operations() {
+            let (mut load_boolean, load_boolean_position) =
+                self.chunk.pop_instruction(self.current_position)?;
+
+            load_boolean.set_second_argument_to_boolean(true);
+
+            self.emit_instruction(load_boolean, load_boolean_position);
+            self.increment_register()?;
         }
 
         let jump_start = self.chunk.len();
@@ -752,10 +764,13 @@ impl<'src> Parser<'src> {
         }
 
         let jump_end = self.chunk.len();
-        let jump_instruction = Instruction::jump((jump_end - jump_start) as u8, true);
+        let jump_distance = jump_end - jump_start;
 
-        self.chunk
-            .insert_instruction(jump_start, jump_instruction, self.current_position);
+        self.chunk.insert_instruction(
+            jump_start,
+            Instruction::jump(jump_distance as u8, true),
+            jump_position,
+        );
 
         if self.allow(TokenKind::Else)? {
             if let Token::If = self.current_token {
