@@ -467,7 +467,7 @@ impl Instruction {
 
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("if {first_argument} {comparison_symbol} {second_argument} {{ IP += 1 }}",)
+                format!("if {first_argument} {comparison_symbol} {second_argument} IP++",)
             }
             Operation::Less => {
                 let comparison_symbol = if self.destination_as_boolean() {

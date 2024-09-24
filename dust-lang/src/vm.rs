@@ -37,7 +37,7 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
-        // DRY helper to take constants or clone registers for binary operations
+        // DRY helper to get constant or register values for binary operations
         fn get_arguments(
             vm: &mut Vm,
             instruction: Instruction,
@@ -225,7 +225,7 @@ impl Vm {
                     let compare_to = instruction.destination_as_boolean();
 
                     if let Some(boolean) = equal.as_boolean() {
-                        if boolean == compare_to {
+                        if boolean && compare_to {
                             self.ip += 1;
                         }
                     }
@@ -235,7 +235,7 @@ impl Vm {
                     let less = left
                         .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
-                    let compare_to = instruction.destination() != 0;
+                    let compare_to = instruction.destination_as_boolean();
 
                     if let Some(boolean) = less.as_boolean() {
                         if boolean == compare_to {
@@ -248,7 +248,7 @@ impl Vm {
                     let less_equal = left
                         .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
-                    let compare_to = instruction.destination() != 0;
+                    let compare_to = instruction.destination_as_boolean();
 
                     if let Some(boolean) = less_equal.as_boolean() {
                         if boolean == compare_to {

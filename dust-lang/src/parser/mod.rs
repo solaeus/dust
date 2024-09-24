@@ -384,12 +384,7 @@ impl<'src> Parser<'src> {
 
                 instruction.first_argument()
             }
-            Operation::LoadBoolean => {
-                is_constant = true;
-                push_back = true;
-
-                instruction.destination()
-            }
+            Operation::LoadBoolean => instruction.destination(),
             Operation::Close => {
                 return Err(ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -470,26 +465,20 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
-        let (previous_booleans, equal_argument) = if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean), Some(Operation::Jump), Some(Operation::Equal)] =
-            self.chunk.get_last_n_operations()
-        {
-            let load_booleans = (
-                self.chunk.pop_instruction(self.current_position)?,
-                self.chunk.pop_instruction(self.current_position)?,
-            );
+        let is_repetition = matches!(
+            self.chunk.get_last_n_operations(),
+            [
+                Some(_),
+                Some(_),
+                Some(Operation::Jump),
+                Some(Operation::Equal | Operation::Less | Operation::LessEqual)
+            ]
+        );
 
-            let (jump, jump_position) = self.chunk.pop_instruction(self.current_position)?;
-            let (equal, equal_position) = self.chunk.pop_instruction(self.current_position)?;
-            let equal_argument = equal.second_argument();
-            let is_constant = equal.second_argument_is_constant();
-
-            self.emit_instruction(equal, equal_position);
-            self.emit_instruction(jump, jump_position);
-
-            (Some(load_booleans), Some((equal_argument, is_constant)))
-        } else {
-            (None, None)
-        };
+        if is_repetition {
+            self.decrement_register()?;
+            self.decrement_register()?;
+        }
 
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -532,13 +521,7 @@ impl<'src> Parser<'src> {
 
         instruction.set_second_argument(right);
 
-        if let Some((equal_argument, is_constant)) = equal_argument {
-            instruction.set_first_argument(equal_argument);
-
-            if is_constant {
-                instruction.set_first_argument_to_constant();
-            }
-        } else if left_is_constant {
+        if left_is_constant {
             instruction.set_first_argument_to_constant();
         }
 
@@ -546,25 +529,24 @@ impl<'src> Parser<'src> {
             instruction.set_second_argument_to_constant();
         }
 
-        if push_back_left {
-            self.emit_instruction(left_instruction, left_position);
-            self.increment_register()?;
-        }
+        if push_back_left || push_back_right {
+            if push_back_left {
+                self.emit_instruction(left_instruction, left_position);
+            }
 
-        if push_back_right {
-            self.emit_instruction(right_instruction, right_position);
-            self.increment_register()?;
-        }
+            if push_back_right {
+                self.emit_instruction(right_instruction, right_position);
+            }
 
-        self.emit_instruction(instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
-
-        if let Some(((left_boolean, left_position), (right_boolean, right_position))) =
-            previous_booleans
-        {
-            self.emit_instruction(right_boolean, right_position);
-            self.emit_instruction(left_boolean, left_position);
+            self.emit_instruction(instruction, operator_position);
+            self.emit_instruction(Instruction::jump(1, true), operator_position);
+            self.emit_instruction(
+                Instruction::r#move(self.current_register, instruction.destination()),
+                operator_position,
+            );
         } else {
+            self.emit_instruction(instruction, operator_position);
+            self.emit_instruction(Instruction::jump(1, true), operator_position);
             self.emit_instruction(
                 Instruction::load_boolean(self.current_register, true, true),
                 operator_position,
