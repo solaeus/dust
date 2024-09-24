@@ -542,6 +542,7 @@ impl<'src> Parser<'src> {
             Instruction::load_boolean(self.current_register, false, false),
             operator_position,
         );
+        self.increment_register()?;
 
         Ok(())
     }
@@ -730,9 +731,31 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
+        if matches!(
+            self.chunk.get_last_n_operations(),
+            [
+                Some(Operation::LoadBoolean),
+                Some(Operation::LoadBoolean),
+                Some(Operation::Jump)
+            ]
+        ) {
+            self.chunk.pop_instruction(self.current_position)?;
+            self.chunk.pop_instruction(self.current_position)?;
+            self.chunk.pop_instruction(self.current_position)?;
+            self.decrement_register()?;
+        }
+
+        let jump_start = self.chunk.len();
+
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(allow_assignment, allow_return)?;
         }
+
+        let jump_end = self.chunk.len();
+        let jump_instruction = Instruction::jump((jump_end - jump_start) as u8, true);
+
+        self.chunk
+            .insert_instruction(jump_start, jump_instruction, self.current_position);
 
         if self.allow(TokenKind::Else)? {
             if let Token::If = self.current_token {

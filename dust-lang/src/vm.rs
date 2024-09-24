@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::{
     parse, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, Local, Operation,
     Span, Value, ValueError,
@@ -60,7 +62,7 @@ impl Vm {
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
             log::trace!(
                 "Running IP {} {} at {position}",
-                self.ip,
+                self.ip - 1,
                 instruction.operation()
             );
 
@@ -220,42 +222,96 @@ impl Vm {
                     }
                 }
                 Operation::Equal => {
+                    let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+
+                    debug_assert_eq!(jump.operation(), Operation::Jump);
+
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let equal = left
+                    let boolean = left
                         .equal(right)
-                        .map_err(|error| VmError::Value { error, position })?;
+                        .map_err(|error| VmError::Value { error, position })?
+                        .as_boolean()
+                        .ok_or_else(|| VmError::ExpectedBoolean {
+                            found: left.clone(),
+                            position,
+                        })?;
                     let compare_to = instruction.destination_as_boolean();
 
-                    if let Some(boolean) = equal.as_boolean() {
-                        if boolean && compare_to {
-                            self.ip += 1;
-                        }
+                    if boolean == compare_to {
+                        self.ip += 1;
+                    } else {
+                        let jump_distance = jump.destination();
+                        let is_positive = jump.first_argument_as_boolean();
+                        let new_ip = if is_positive {
+                            self.ip + jump_distance as usize
+                        } else {
+                            self.ip - jump_distance as usize
+                        };
+
+                        self.ip = new_ip;
                     }
                 }
                 Operation::Less => {
+                    let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+
+                    assert_eq!(jump.operation(), Operation::Jump);
+
                     let (left, right) = get_arguments(self, instruction, position)?;
                     let less = left
                         .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
+                    let boolean = left
+                        .equal(right)
+                        .map_err(|error| VmError::Value { error, position })?
+                        .as_boolean()
+                        .ok_or_else(|| VmError::ExpectedBoolean {
+                            found: less,
+                            position,
+                        })?;
                     let compare_to = instruction.destination_as_boolean();
 
-                    if let Some(boolean) = less.as_boolean() {
-                        if boolean == compare_to {
-                            self.ip += 1;
-                        }
+                    if boolean == compare_to {
+                        self.ip += 1;
+                    } else {
+                        let jump_distance = jump.destination();
+                        let is_positive = jump.first_argument_as_boolean();
+                        let new_ip = if is_positive {
+                            self.ip + jump_distance as usize
+                        } else {
+                            self.ip - jump_distance as usize
+                        };
+
+                        self.ip = new_ip;
                     }
                 }
                 Operation::LessEqual => {
+                    let (jump, _) = *self.read(position)?;
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let less_equal = left
+                    let less_or_equal = left
                         .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
+                    let boolean = left
+                        .equal(right)
+                        .map_err(|error| VmError::Value { error, position })?
+                        .as_boolean()
+                        .ok_or_else(|| VmError::ExpectedBoolean {
+                            found: less_or_equal,
+                            position,
+                        })?;
                     let compare_to = instruction.destination_as_boolean();
 
-                    if let Some(boolean) = less_equal.as_boolean() {
-                        if boolean == compare_to {
-                            self.ip += 1;
-                        }
+                    if boolean == compare_to {
+                        self.ip += 1;
+                    } else {
+                        let jump_distance = jump.destination();
+                        let is_positive = jump.first_argument_as_boolean();
+                        let new_ip = if is_positive {
+                            self.ip + jump_distance as usize
+                        } else {
+                            self.ip - jump_distance as usize
+                        };
+
+                        self.ip = new_ip;
                     }
                 }
                 Operation::Negate => {
@@ -307,11 +363,9 @@ impl Vm {
                 Operation::End => {
                     let returns_value = instruction.destination_as_boolean();
 
-                    return if returns_value {
-                        Ok(Some(self.pop(position)?))
-                    } else {
-                        Ok(None)
-                    };
+                    if returns_value {
+                        return Ok(Some(self.pop(position)?));
+                    }
                 }
             }
         }
