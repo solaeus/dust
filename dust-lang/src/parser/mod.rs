@@ -293,16 +293,16 @@ impl<'src> Parser<'src> {
 
         let (push_back, is_constant, argument) = {
             match previous_instruction.operation() {
-                Operation::GetLocal => (false, false, previous_instruction.destination()),
-                Operation::LoadConstant => (false, true, previous_instruction.first_argument()),
-                Operation::LoadBoolean => (true, false, previous_instruction.destination()),
+                Operation::GetLocal => (false, false, previous_instruction.a()),
+                Operation::LoadConstant => (false, true, previous_instruction.a()),
+                Operation::LoadBoolean => (true, false, previous_instruction.a()),
                 Operation::Close => {
                     return Err(ParseError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     });
                 }
-                _ => (true, false, previous_instruction.destination()),
+                _ => (true, false, previous_instruction.a()),
             }
         };
 
@@ -323,7 +323,7 @@ impl<'src> Parser<'src> {
         };
 
         if is_constant {
-            instruction.set_first_argument_to_constant();
+            instruction.set_b_is_constant();
         }
 
         if push_back {
@@ -342,13 +342,13 @@ impl<'src> Parser<'src> {
         let mut push_back = false;
         let mut is_constant = false;
         let argument = match instruction.operation() {
-            Operation::GetLocal => instruction.destination(),
+            Operation::GetLocal => instruction.a(),
             Operation::LoadConstant => {
                 is_constant = true;
 
-                instruction.first_argument()
+                instruction.b()
             }
-            Operation::LoadBoolean => instruction.destination(),
+            Operation::LoadBoolean => instruction.a(),
             Operation::Close => {
                 return Err(ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -358,7 +358,7 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back = true;
 
-                instruction.destination()
+                instruction.a()
             }
         };
 
@@ -406,14 +406,14 @@ impl<'src> Parser<'src> {
         let (push_back_right, right_is_constant, right) =
             self.handle_binary_argument(&right_instruction)?;
 
-        new_instruction.set_second_argument(right);
+        new_instruction.set_c(right);
 
         if left_is_constant {
-            new_instruction.set_first_argument_to_constant();
+            new_instruction.set_b_is_constant();
         }
 
         if right_is_constant {
-            new_instruction.set_second_argument_to_constant();
+            new_instruction.set_c_is_constant();
         }
 
         let mut instructions = if !push_back_left && !push_back_right {
@@ -448,9 +448,9 @@ impl<'src> Parser<'src> {
             }
         }
 
-        instructions.sort_by_key(|(instruction, _)| instruction.destination());
+        instructions.sort_by_key(|(instruction, _)| instruction.a());
 
-        for (instruction, position) in instructions {
+        for (mut instruction, position) in instructions {
             self.emit_instruction(instruction, position);
         }
 
@@ -512,14 +512,14 @@ impl<'src> Parser<'src> {
         let (push_back_right, right_is_constant, right) =
             self.handle_binary_argument(&right_instruction)?;
 
-        instruction.set_second_argument(right);
+        instruction.set_c(right);
 
         if left_is_constant {
-            instruction.set_first_argument_to_constant();
+            instruction.set_b_is_constant();
         }
 
         if right_is_constant {
-            instruction.set_second_argument_to_constant();
+            instruction.set_c_is_constant();
         }
 
         if push_back_left || push_back_right {
@@ -555,10 +555,9 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
-        let test_register = left_instruction.destination();
         let instruction = match operator.kind() {
-            TokenKind::DoubleAmpersand => Instruction::test(test_register, true),
-            TokenKind::DoublePipe => Instruction::test(test_register, false),
+            TokenKind::DoubleAmpersand => Instruction::test(left_instruction.a(), false),
+            TokenKind::DoublePipe => Instruction::test(left_instruction.a(), true),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
@@ -619,7 +618,7 @@ impl<'src> Parser<'src> {
                 if let Some(register_index) = previous_register {
                     log::trace!("Condensing SET_LOCAL to binary expression");
 
-                    previous_instruction.set_destination(register_index);
+                    previous_instruction.set_a(register_index);
                     self.emit_instruction(previous_instruction, self.current_position);
 
                     return Ok(());
@@ -747,11 +746,11 @@ impl<'src> Parser<'src> {
             self.current_position
         };
 
-        if let [Some(Operation::LoadBoolean)] = self.chunk.get_last_n_operations() {
+        if let Some(Operation::LoadBoolean) = self.chunk.get_last_operation() {
             let (mut load_boolean, load_boolean_position) =
                 self.chunk.pop_instruction(self.current_position)?;
 
-            load_boolean.set_second_argument_to_boolean(true);
+            load_boolean.set_c_to_boolean(true);
 
             self.emit_instruction(load_boolean, load_boolean_position);
             self.increment_register()?;
@@ -764,7 +763,7 @@ impl<'src> Parser<'src> {
         }
 
         let jump_end = self.chunk.len();
-        let jump_distance = jump_end - jump_start;
+        let jump_distance = jump_end.saturating_sub(jump_start);
 
         self.chunk.insert_instruction(
             jump_start,
@@ -859,15 +858,14 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
         self.increment_register()?;
 
-        let (previous_instruction, previous_position) =
-            *self
-                .chunk
-                .get_previous()
-                .ok_or_else(|| ParseError::ExpectedExpression {
-                    found: self.current_token.to_owned(),
-                    position,
-                })?;
-        let register = previous_instruction.destination();
+        let (previous_instruction, previous_position) = *self
+            .chunk
+            .get_last_instruction()
+            .ok_or_else(|| ParseError::ExpectedExpression {
+                found: self.current_token.to_owned(),
+                position,
+            })?;
+        let register = previous_instruction.a();
         let local_index =
             self.chunk
                 .declare_local(identifier, is_mutable, register, previous_position)?;

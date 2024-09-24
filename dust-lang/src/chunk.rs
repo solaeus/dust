@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{instruction, AnnotatedError, Identifier, Instruction, Operation, Span, Value};
+use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Value};
 
 #[derive(Clone)]
 pub struct Chunk {
@@ -76,12 +76,12 @@ impl Chunk {
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
-    pub fn get_previous(&self) -> Option<&(Instruction, Span)> {
+    pub fn get_last_instruction(&self) -> Option<&(Instruction, Span)> {
         self.instructions.last()
     }
 
     pub fn get_last_operation(&self) -> Option<Operation> {
-        self.get_previous()
+        self.get_last_instruction()
             .map(|(instruction, _)| instruction.operation())
     }
 

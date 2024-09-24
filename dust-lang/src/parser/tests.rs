@@ -28,10 +28,7 @@ fn negate() {
         parse(source),
         Ok(Chunk::with_data(
             vec![
-                (
-                    *Instruction::negate(0, 0).set_first_argument_to_constant(),
-                    Span(0, 1)
-                ),
+                (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
                 (Instruction::end(true), Span(5, 5))
             ],
             vec![Value::integer(42)],
@@ -50,8 +47,8 @@ fn greater_than_or_equal() {
             vec![
                 (
                     *Instruction::less(false, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -75,8 +72,8 @@ fn greater() {
             vec![
                 (
                     *Instruction::less_equal(false, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::jump(1, true), Span(2, 3)),
@@ -100,8 +97,8 @@ fn less_than_or_equal() {
             vec![
                 (
                     *Instruction::less_equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -125,8 +122,8 @@ fn less_than() {
             vec![
                 (
                     *Instruction::less(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::jump(1, true), Span(2, 3)),
@@ -150,8 +147,8 @@ fn not_equal() {
             vec![
                 (
                     *Instruction::equal(false, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -175,8 +172,8 @@ fn equal() {
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -200,8 +197,8 @@ fn equality_assignment_long() {
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(13, 15)
                 ),
                 (Instruction::jump(2, true), Span(13, 15)),
@@ -228,8 +225,8 @@ fn equality_assignment_short() {
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(10, 12)
                 ),
                 (Instruction::jump(1, true), Span(10, 12)),
@@ -254,8 +251,8 @@ fn if_expression() {
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(5, 7)
                 ),
                 (Instruction::jump(2, true), Span(5, 7)),
@@ -279,8 +276,8 @@ fn if_else_expression() {
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(5, 7)
                 ),
                 (Instruction::jump(2, true), Span(5, 7)),
@@ -312,14 +309,14 @@ fn list_with_complex_expression() {
                 (Instruction::load_constant(0, 0), Span(1, 2)),
                 (
                     *Instruction::add(1, 1, 2)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(6, 7)
                 ),
                 (
                     *Instruction::multiply(2, 3, 4)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(14, 15)
                 ),
                 (Instruction::subtract(3, 1, 2), Span(10, 11)),
@@ -350,8 +347,8 @@ fn list_with_simple_expression() {
                 (Instruction::load_constant(0, 0), Span(1, 2)),
                 (
                     *Instruction::add(1, 1, 2)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(6, 7)
                 ),
                 (Instruction::load_constant(2, 3), Span(11, 12)),
@@ -470,12 +467,12 @@ fn parentheses_precedence() {
             vec![
                 (
                     *Instruction::add(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(3, 4)
                 ),
                 (
-                    *Instruction::multiply(1, 0, 2).set_second_argument_to_constant(),
+                    *Instruction::multiply(1, 0, 2).set_c_is_constant(),
                     Span(8, 9)
                 ),
                 (Instruction::end(true), Span(11, 11)),
@@ -494,18 +491,18 @@ fn math_operator_precedence() {
             vec![
                 (
                     *Instruction::add(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (
                     *Instruction::multiply(1, 2, 3)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(10, 11)
                 ),
                 (
-                    *Instruction::divide(2, 1, 4).set_second_argument_to_constant(),
+                    *Instruction::divide(2, 1, 4).set_c_is_constant(),
                     Span(14, 15)
                 ),
                 (Instruction::subtract(3, 0, 2), Span(6, 7)),
@@ -546,7 +543,7 @@ fn or() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, false), Span(5, 7)),
+                (Instruction::test(0, true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::end(true), Span(13, 13)),
@@ -564,7 +561,7 @@ fn and() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, true), Span(5, 7)),
+                (Instruction::test(0, false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::end(true), Span(13, 13)),
@@ -586,7 +583,7 @@ fn variable_and() {
                 (Instruction::load_boolean(1, false, false), Span(22, 27)),
                 (Instruction::define_local(1, 1, false), Span(18, 19)),
                 (Instruction::get_local(2, 0), Span(29, 30)),
-                (Instruction::test(2, true), Span(31, 33)),
+                (Instruction::test(2, false), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::end(true), Span(35, 35)),
@@ -608,8 +605,8 @@ fn divide() {
             vec![
                 (
                     *Instruction::divide(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::end(true), Span(5, 5)),
@@ -628,8 +625,8 @@ fn multiply() {
             vec![
                 (
                     *Instruction::multiply(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::end(true), Span(5, 5)),
@@ -648,8 +645,8 @@ fn add() {
             vec![
                 (
                     *Instruction::add(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::end(true), Span(5, 5)),
@@ -668,8 +665,8 @@ fn subtract() {
             vec![
                 (
                     *Instruction::subtract(0, 0, 1)
-                        .set_first_argument_to_constant()
-                        .set_second_argument_to_constant(),
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::end(true), Span(5, 5)),

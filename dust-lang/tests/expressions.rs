@@ -1,7 +1,16 @@
 use dust_lang::*;
 
 #[test]
-fn if_expression() {
+fn if_else() {
+    assert_eq!(run("if true { 1 } else { 2 }"), Ok(Some(Value::integer(1))));
+    assert_eq!(
+        run("if false { 1 } else { 2 }"),
+        Ok(Some(Value::integer(2)))
+    );
+}
+
+#[test]
+fn r#if() {
     assert_eq!(run("if true { 1 }"), Ok(Some(Value::integer(1))));
     assert_eq!(
         run("if 42 == 42 { 1 } else { 2 }"),

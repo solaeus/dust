@@ -41,17 +41,15 @@ impl Vm {
             instruction: Instruction,
             position: Span,
         ) -> Result<(&Value, &Value), VmError> {
-            let left = if instruction.first_argument_is_constant() {
-                vm.chunk
-                    .get_constant(instruction.first_argument(), position)?
+            let left = if instruction.b_is_constant() {
+                vm.chunk.get_constant(instruction.b(), position)?
             } else {
-                vm.get(instruction.first_argument(), position)?
+                vm.get(instruction.b(), position)?
             };
-            let right = if instruction.second_argument_is_constant() {
-                vm.chunk
-                    .get_constant(instruction.second_argument(), position)?
+            let right = if instruction.c_is_constant() {
+                vm.chunk.get_constant(instruction.c(), position)?
             } else {
-                vm.get(instruction.second_argument(), position)?
+                vm.get(instruction.c(), position)?
             };
 
             Ok((left, right))
@@ -66,24 +64,24 @@ impl Vm {
 
             match instruction.operation() {
                 Operation::Move => {
-                    let from = instruction.first_argument();
-                    let to = instruction.destination();
+                    let from = instruction.b();
+                    let to = instruction.a();
                     let value = self.take(from, position)?;
 
                     self.insert(value, to, position)?;
                 }
                 Operation::Close => {
-                    let from = instruction.first_argument();
-                    let to = instruction.second_argument();
+                    let from = instruction.b();
+                    let to = instruction.c();
 
                     for register_index in from..to {
                         self.register_stack[register_index as usize] = None;
                     }
                 }
                 Operation::LoadBoolean => {
-                    let to_register = instruction.destination();
-                    let boolean = instruction.first_argument_as_boolean();
-                    let skip = instruction.second_argument_as_boolean();
+                    let to_register = instruction.a();
+                    let boolean = instruction.b_as_boolean();
+                    let skip = instruction.c_as_boolean();
                     let value = Value::boolean(boolean);
 
                     self.insert(value, to_register, position)?;
@@ -93,19 +91,17 @@ impl Vm {
                     }
                 }
                 Operation::LoadConstant => {
-                    let to_register = instruction.destination();
-                    let from_constant = instruction.first_argument();
+                    let to_register = instruction.a();
+                    let from_constant = instruction.b();
                     let value = self.chunk.take_constant(from_constant, position)?;
 
                     self.insert(value, to_register, position)?;
                 }
                 Operation::LoadList => {
-                    let to_register = instruction.destination();
-                    let first_register = instruction.first_argument();
-                    let length = instruction.second_argument();
+                    let to_register = instruction.a();
+                    let first_register = instruction.b();
+                    let length = instruction.c();
                     let last_register = first_register + length + 1;
-
-                    println!("{first_register}..={last_register}");
 
                     let mut list = Vec::with_capacity(length as usize);
 
@@ -122,25 +118,25 @@ impl Vm {
                     self.insert(Value::list(list), to_register, position)?;
                 }
                 Operation::DefineLocal => {
-                    let from_register = instruction.destination();
-                    let to_local = instruction.first_argument();
+                    let from_register = instruction.a();
+                    let to_local = instruction.b();
 
                     self.chunk.define_local(to_local, from_register, position)?;
                 }
                 Operation::GetLocal => {
-                    let register_index = instruction.destination();
-                    let local_index = instruction.first_argument();
+                    let register_index = instruction.a();
+                    let local_index = instruction.b();
                     let local = self.chunk.get_local(local_index, position)?.clone();
                     let value = self.clone_as_variable(local, position)?;
 
                     self.insert(value, register_index, position)?;
                 }
                 Operation::SetLocal => {
-                    let register_index = instruction.destination();
-                    let local_index = instruction.first_argument();
+                    let register_index = instruction.a();
+                    let local_index = instruction.b();
                     let local = self.chunk.get_local(local_index, position)?.clone();
                     let value = self.clone_as_variable(local, position)?;
-                    let new_value = if instruction.first_argument_is_constant() {
+                    let new_value = if instruction.b_is_constant() {
                         self.chunk.take_constant(register_index, position)?
                     } else {
                         self.clone(register_index, position)?
@@ -154,61 +150,76 @@ impl Vm {
                 }
                 Operation::Add => {
                     let (left, right) = get_arguments(self, instruction, position)?;
+
+                    log::debug!("{left} + {right}");
+
                     let sum = left
                         .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(sum, instruction.destination(), position)?;
+                    self.insert(sum, instruction.a(), position)?;
                 }
                 Operation::Subtract => {
                     let (left, right) = get_arguments(self, instruction, position)?;
+
+                    log::debug!("{left} - {right}");
+
                     let difference = left
                         .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(difference, instruction.destination(), position)?;
+                    self.insert(difference, instruction.a(), position)?;
                 }
                 Operation::Multiply => {
                     let (left, right) = get_arguments(self, instruction, position)?;
+
+                    log::debug!("{left} * {right}");
+
                     let product = left
                         .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(product, instruction.destination(), position)?;
+                    self.insert(product, instruction.a(), position)?;
                 }
                 Operation::Divide => {
                     let (left, right) = get_arguments(self, instruction, position)?;
+
+                    log::debug!("{left} / {right}");
+
                     let quotient = left
                         .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(quotient, instruction.destination(), position)?;
+                    self.insert(quotient, instruction.a(), position)?;
                 }
                 Operation::Modulo => {
                     let (left, right) = get_arguments(self, instruction, position)?;
+
+                    log::debug!("{left} % {right}");
+
                     let remainder = left
                         .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(remainder, instruction.destination(), position)?;
+                    self.insert(remainder, instruction.a(), position)?;
                 }
                 Operation::Test => {
-                    let register = instruction.destination();
-                    let test_value = instruction.second_argument_as_boolean();
+                    let register = instruction.a();
+                    let test_value = instruction.c_as_boolean();
                     let value = self.get(register, position)?;
                     let boolean = value.as_boolean().ok_or_else(|| VmError::ExpectedBoolean {
                         found: value.clone(),
                         position,
                     })?;
 
-                    if boolean == test_value {
+                    if boolean != test_value {
                         self.ip += 1;
                     }
                 }
                 Operation::TestSet => {
-                    let to_register = instruction.destination();
-                    let argument = instruction.first_argument();
-                    let test_value = instruction.second_argument_as_boolean();
+                    let to_register = instruction.a();
+                    let argument = instruction.b();
+                    let test_value = instruction.c_as_boolean();
                     let value = self.clone(argument, position)?;
                     let boolean = value.as_boolean().ok_or_else(|| VmError::ExpectedBoolean {
                         found: value.clone(),
@@ -235,13 +246,13 @@ impl Vm {
                             found: left.clone(),
                             position,
                         })?;
-                    let compare_to = instruction.destination_as_boolean();
+                    let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump_distance = jump.destination();
-                        let is_positive = jump.first_argument_as_boolean();
+                        let jump_distance = jump.a();
+                        let is_positive = jump.a_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
@@ -265,13 +276,13 @@ impl Vm {
                             found: left.clone(),
                             position,
                         })?;
-                    let compare_to = instruction.destination_as_boolean();
+                    let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump_distance = jump.destination();
-                        let is_positive = jump.first_argument_as_boolean();
+                        let jump_distance = jump.a();
+                        let is_positive = jump.a_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
@@ -295,13 +306,13 @@ impl Vm {
                             found: left.clone(),
                             position,
                         })?;
-                    let compare_to = instruction.destination_as_boolean();
+                    let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump_distance = jump.destination();
-                        let is_positive = jump.first_argument_as_boolean();
+                        let jump_distance = jump.a();
+                        let is_positive = jump.a_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
@@ -312,34 +323,32 @@ impl Vm {
                     }
                 }
                 Operation::Negate => {
-                    let value = if instruction.first_argument_is_constant() {
-                        self.chunk
-                            .get_constant(instruction.first_argument(), position)?
+                    let value = if instruction.b_is_constant() {
+                        self.chunk.get_constant(instruction.b(), position)?
                     } else {
-                        self.get(instruction.first_argument(), position)?
+                        self.get(instruction.b(), position)?
                     };
                     let negated = value
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(negated, instruction.destination(), position)?;
+                    self.insert(negated, instruction.a(), position)?;
                 }
                 Operation::Not => {
-                    let value = if instruction.first_argument_is_constant() {
-                        self.chunk
-                            .get_constant(instruction.first_argument(), position)?
+                    let value = if instruction.b_is_constant() {
+                        self.chunk.get_constant(instruction.b(), position)?
                     } else {
-                        self.get(instruction.first_argument(), position)?
+                        self.get(instruction.b(), position)?
                     };
                     let not = value
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(not, instruction.destination(), position)?;
+                    self.insert(not, instruction.a(), position)?;
                 }
                 Operation::Jump => {
-                    let offset = instruction.first_argument();
-                    let is_positive = instruction.second_argument_as_boolean();
+                    let offset = instruction.b();
+                    let is_positive = instruction.c_as_boolean();
                     let new_ip = if is_positive {
                         self.ip + offset as usize
                     } else {
@@ -349,8 +358,8 @@ impl Vm {
                     self.ip = new_ip;
                 }
                 Operation::Return => {
-                    let start_register = instruction.destination();
-                    let end_register = instruction.first_argument();
+                    let start_register = instruction.a();
+                    let end_register = instruction.b();
                     let return_value_count = end_register - start_register;
 
                     if return_value_count == 1 {
@@ -358,7 +367,7 @@ impl Vm {
                     }
                 }
                 Operation::End => {
-                    let returns_value = instruction.destination_as_boolean();
+                    let returns_value = instruction.a_as_boolean();
 
                     if returns_value {
                         return Ok(Some(self.pop(position)?));
