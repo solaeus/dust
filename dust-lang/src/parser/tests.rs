@@ -231,6 +231,30 @@ fn equality_assignment_short() {
 }
 
 #[test]
+fn if_expression() {
+    let source = "if 1 == 1 { 2 }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::load_constant(0, 2), Span(12, 13)),
+                (Instruction::jump(1, true), Span(5, 7)),
+            ],
+            vec![Value::integer(1), Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+}
+
+#[test]
 fn if_else_expression() {
     let source = "if 1 == 1 { 2 } else { 3 }";
 
@@ -246,7 +270,7 @@ fn if_else_expression() {
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2), Span(12, 13)),
-                (Instruction::jump(1, true), Span(26, 26)),
+                (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 3), Span(23, 24)),
             ],
             vec![

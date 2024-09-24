@@ -745,31 +745,40 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_if(&mut self, allow_assignment: bool, allow_return: bool) -> Result<(), ParseError> {
+        let position = self.current_position;
+
         self.advance()?;
         self.parse_expression()?;
 
-        let (second_load_boolean, second_position) =
+        let (mut condition, condition_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (first_load_boolean, first_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-        let length_after_expression = self.chunk.len();
 
+        if let Operation::LoadBoolean = condition.operation() {
+            condition.set_second_argument_to_boolean(true);
+        }
+
+        self.emit_instruction(condition, condition_position);
+        self.emit_instruction(Instruction::jump(1, true), condition_position);
         self.parse_block(allow_assignment, allow_return)?;
 
+        let jump_position = self.current_position;
         let jump_start = self.current_register;
         let jump_index = self.chunk.len();
 
         if self.allow(TokenKind::Else)? {
             if self.allow(TokenKind::If)? {
                 self.parse_if(allow_assignment, allow_return)?;
-            } else {
+            }
+
+            if self.allow(TokenKind::LeftCurlyBrace)? {
                 self.parse_block(allow_assignment, allow_return)?;
             }
-        }
 
-        if self.chunk.len() == length_after_expression {
-            self.emit_instruction(first_load_boolean, first_position);
-            self.emit_instruction(second_load_boolean, second_position);
+            return Err(ParseError::ExpectedTokenMultiple {
+                expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
         }
 
         if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] =
@@ -785,15 +794,20 @@ impl<'src> Parser<'src> {
             second_load_boolean.set_destination(first_load_boolean.destination());
             self.emit_instruction(second_load_boolean, second_position);
         } else if let Some(Operation::LoadBoolean) = self.chunk.get_last_operation() {
-            // Skip the jump if the last instruction was a LoadBoolean operation. A LoadBoolean can
-            // skip the following instruction, so a jump is unnecessary.
+            let (mut load_boolean, position) = self.chunk.pop_instruction(self.current_position)?;
+
+            load_boolean.set_second_argument_to_boolean(true);
+
+            self.emit_instruction(load_boolean, position);
         } else {
             let jump_end = self.current_register;
             let jump_distance = (jump_end - jump_start).max(1);
             let jump = Instruction::jump(jump_distance, true);
 
-            self.chunk
-                .insert_instruction(jump_index, jump, self.current_position);
+            if jump_distance > 1 {
+                self.chunk
+                    .insert_instruction(jump_index, jump, jump_position);
+            }
         }
 
         Ok(())
@@ -1287,12 +1301,23 @@ impl AnnotatedError for ParseError {
             Self::ExpectedTokenMultiple {
                 expected, found, ..
             } => {
-                let expected = expected
-                    .iter()
-                    .map(|kind| kind.to_string() + ", ")
-                    .collect::<String>();
+                let mut details = String::from("Expected");
 
-                Some(format!("Expected one of {expected}, found \"{found}\""))
+                for (index, token) in expected.iter().enumerate() {
+                    details.push_str(&format!(" \"{token}\""));
+
+                    if index < expected.len() - 2 {
+                        details.push_str(", ");
+                    }
+
+                    if index == expected.len() - 2 {
+                        details.push_str(" or");
+                    }
+                }
+
+                details.push_str(&format!(" found \"{found}\""));
+
+                Some(details)
             }
             Self::InvalidAssignmentTarget { found, .. } => {
                 Some(format!("Invalid assignment target, found \"{found}\""))
