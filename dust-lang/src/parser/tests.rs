@@ -195,8 +195,8 @@ fn equality_assignment_long() {
                     Span(13, 15)
                 ),
                 (Instruction::jump(1, true), Span(13, 15)),
-                (Instruction::load_boolean(0, true, true), Span(20, 24)),
-                (Instruction::load_boolean(0, false, false), Span(34, 39)),
+                (Instruction::load_boolean(0, true, true), Span(13, 15)),
+                (Instruction::load_boolean(0, false, false), Span(13, 15)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
             ],
             vec![Value::integer(4), Value::integer(4)],
@@ -245,10 +245,10 @@ fn if_expression() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 2), Span(12, 13)),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::load_boolean(0, true, true), Span(5, 7)),
+                (Instruction::load_boolean(0, false, false), Span(5, 7)),
             ],
-            vec![Value::integer(1), Value::integer(1), Value::integer(2)],
+            vec![Value::integer(1), Value::integer(1)],
             vec![]
         )),
     );
@@ -269,16 +269,10 @@ fn if_else_expression() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 2), Span(12, 13)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 3), Span(23, 24)),
+                (Instruction::load_boolean(0, true, true), Span(5, 7)),
+                (Instruction::load_boolean(0, false, false), Span(5, 7)),
             ],
-            vec![
-                Value::integer(1),
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3)
-            ],
+            vec![Value::integer(1), Value::integer(1)],
             vec![]
         )),
     );

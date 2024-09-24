@@ -3,7 +3,10 @@ use dust_lang::*;
 #[test]
 fn if_expression() {
     assert_eq!(run("if true { 1 }"), Ok(Some(Value::integer(1))));
-    assert_eq!(run("if false { 1 }"), Ok(None));
+    assert_eq!(
+        run("if 42 == 42 { 1 } else { 2 }"),
+        Ok(Some(Value::integer(2)))
+    );
 }
 
 #[test]

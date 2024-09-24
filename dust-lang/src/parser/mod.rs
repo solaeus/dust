@@ -162,44 +162,8 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let previous_operations = self.chunk.get_last_n_operations::<2>();
-
-        if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] = previous_operations {
-            let (second_boolean, second_position) =
-                self.chunk.pop_instruction(self.current_position)?;
-            let (first_boolean, first_position) =
-                self.chunk.pop_instruction(self.current_position)?;
-
-            if first_boolean.first_argument_as_boolean() == boolean {
-                let skip = first_boolean.second_argument_as_boolean();
-
-                self.emit_instruction(
-                    Instruction::load_boolean(self.current_register, boolean, skip),
-                    position,
-                );
-
-                return Ok(());
-            }
-
-            if second_boolean.first_argument_as_boolean() == boolean {
-                let skip = second_boolean.second_argument_as_boolean();
-
-                self.emit_instruction(
-                    Instruction::load_boolean(self.current_register, boolean, skip),
-                    position,
-                );
-
-                return Ok(());
-            }
-
-            self.emit_instruction(first_boolean, first_position);
-            self.emit_instruction(second_boolean, second_position);
-        }
-
-        let skip = previous_operations[0] == Some(Operation::Jump);
-
         self.emit_instruction(
-            Instruction::load_boolean(self.current_register, boolean, skip),
+            Instruction::load_boolean(self.current_register, boolean, false),
             position,
         );
 
@@ -745,21 +709,12 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_if(&mut self, allow_assignment: bool, allow_return: bool) -> Result<(), ParseError> {
-        let position = self.current_position;
-
         self.advance()?;
         self.parse_expression()?;
 
-        let (mut condition, condition_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-
-        if let Operation::LoadBoolean = condition.operation() {
-            condition.set_second_argument_to_boolean(true);
+        if self.allow(TokenKind::LeftCurlyBrace)? {
+            self.parse_block(allow_assignment, allow_return)?;
         }
-
-        self.emit_instruction(condition, condition_position);
-        self.emit_instruction(Instruction::jump(1, true), condition_position);
-        self.parse_block(allow_assignment, allow_return)?;
 
         let jump_position = self.current_position;
         let jump_start = self.current_register;
@@ -773,32 +728,16 @@ impl<'src> Parser<'src> {
             if self.allow(TokenKind::LeftCurlyBrace)? {
                 self.parse_block(allow_assignment, allow_return)?;
             }
-
-            return Err(ParseError::ExpectedTokenMultiple {
-                expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            });
         }
 
         if let [Some(Operation::LoadBoolean), Some(Operation::LoadBoolean)] =
             self.chunk.get_last_n_operations()
         {
-            // Do not emit a jump if the last two instructions were LoadBoolean operations. However,
-            // we need to set them to the same destination register and decrement the register count.
-
-            let (mut second_load_boolean, second_position) =
-                self.chunk.pop_instruction(self.current_position)?;
-            let (first_load_boolean, _) = self.chunk.get_previous().unwrap();
-
-            second_load_boolean.set_destination(first_load_boolean.destination());
-            self.emit_instruction(second_load_boolean, second_position);
-        } else if let Some(Operation::LoadBoolean) = self.chunk.get_last_operation() {
-            let (mut load_boolean, position) = self.chunk.pop_instruction(self.current_position)?;
-
-            load_boolean.set_second_argument_to_boolean(true);
-
-            self.emit_instruction(load_boolean, position);
+            // Do not emit a jump if the last two instructions were LoadBoolean operations.
+        } else if let [Some(Operation::LoadConstant), Some(Operation::LoadConstant)] =
+            self.chunk.get_last_n_operations()
+        {
+            // Do not emit a jump if the last two instructions were LoadConstant operations.
         } else {
             let jump_end = self.current_register;
             let jump_distance = (jump_end - jump_start).max(1);
