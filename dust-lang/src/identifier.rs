@@ -1,17 +1,15 @@
 //! Key used to identify a value or type.
 //!
-//! Identifiers are used to uniquely identify values and types in Dust programs. They are
-//! cached to avoid duplication. This means that two identifiers with the same text are the same
-//! object in memory.
+//! Identifiers are used to uniquely identify values and types in Dust programs.
 //!
 //! # Examples
 //! ```
 //! # use dust_lang::Identifier;
 //! let foo = Identifier::new("foo");
-//! let also_foo = Identifier::new("foo");
-//! let another_foo = Identifier::new("foo");
+//! let also_foo = foo.clone();
+//! let another_foo = also_foo.clone();
 //!
-//! assert_eq!(foo.strong_count(), 4); // One for each of the above and one for the cache.
+//! assert_eq!(foo.strong_count(), 3); // One for each of the above.
 //! ```
 use std::{
     fmt::{self, Display, Formatter},
@@ -27,7 +25,6 @@ use serde::{de::Visitor, Deserialize, Serialize};
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    /// Creates a new identifier or returns a clone of an existing one from a cache.
     pub fn new<T: ToString>(text: T) -> Self {
         let string = text.to_string();
 

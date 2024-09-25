@@ -24,21 +24,21 @@ fn main() {
         .parse_env("DUST_LOG")
         .format(|buf, record| {
             let level = match record.level() {
-                Level::Error => "ERROR".red(),
-                Level::Warn => "WARN".yellow(),
-                Level::Info => "INFO".white(),
-                Level::Debug => "DEBUG".blue(),
-                Level::Trace => "TRACE".purple(),
+                Level::Info => "INFO".white().bold(),
+                Level::Debug => "DEBUG".blue().bold(),
+                Level::Warn => "WARN".yellow().bold(),
+                Level::Error => "ERROR".red().bold(),
+                Level::Trace => "TRACE".purple().bold(),
             }
             .bold();
-            let level_display = format!("[{level:^5}]").white().on_black();
+            let level_display = format!("{level:<5}");
             let module = record
                 .module_path()
-                .map(|path| path.split("::").last().unwrap_or("unknown"))
+                .map(|path| path.split("::").last().unwrap_or(path))
                 .unwrap_or("unknown")
                 .dimmed();
 
-            writeln!(buf, "{level_display} {module:^6} {}", record.args())
+            writeln!(buf, "{level_display:^10} {module:^6} {}", record.args())
         })
         .init();
 

@@ -40,7 +40,7 @@ impl<'src> Parser<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
         let (current_token, current_position) = lexer.next_token()?;
 
-        log::trace!("Starting parser with token \"{current_token}\" at {current_position}");
+        log::info!("Starting parser with token \"{current_token}\" at {current_position}");
 
         Ok(Parser {
             lexer,
@@ -96,7 +96,7 @@ impl<'src> Parser<'src> {
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        log::trace!("Parsing \"{new_token}\" at {position}");
+        log::info!("Parsing \"{new_token}\" at {position}");
 
         self.previous_token = replace(&mut self.current_token, new_token);
         self.previous_position = replace(&mut self.current_position, position);
@@ -438,7 +438,7 @@ impl<'src> Parser<'src> {
             ]
         };
 
-        while let Some(operation) = self.chunk.get_last_operation() {
+        while let Ok(operation) = self.chunk.get_last_operation() {
             if operation.is_math() {
                 let (instruction, position) = self.chunk.pop_instruction(self.current_position)?;
 
@@ -688,14 +688,13 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let start_register = self.current_register;
-        let mut length = 0;
 
         while !self.allow(TokenKind::RightSquareBrace)? && !self.is_eof() {
             let next_register = self.current_register;
 
             self.parse(Precedence::Assignment)?; // Do not allow assignment
 
-            if let Some(Operation::LoadConstant) = self.chunk.get_last_operation() {
+            if let Operation::LoadConstant = self.chunk.get_last_operation()? {
                 self.increment_register()?;
             }
 
@@ -706,19 +705,16 @@ impl<'src> Parser<'src> {
                 );
             }
 
-            length += 1;
-
             if !self.allow(TokenKind::Comma)? {
                 self.expect(TokenKind::RightSquareBrace)?;
-
-                break;
             }
         }
 
+        let end_register = self.current_register - 1;
         let end = self.current_position.1;
 
         self.emit_instruction(
-            Instruction::load_list(self.current_register, start_register, length),
+            Instruction::load_list(self.current_register, start_register, end_register),
             Span(start, end),
         );
         self.increment_register()?;
@@ -864,17 +860,11 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
         self.increment_register()?;
 
-        let (previous_instruction, previous_position) = *self
-            .chunk
-            .get_last_instruction()
-            .ok_or_else(|| ParseError::ExpectedExpression {
-                found: self.current_token.to_owned(),
-                position,
-            })?;
+        let (previous_instruction, previous_position) = self.chunk.get_last_instruction()?;
         let register = previous_instruction.a();
         let local_index =
             self.chunk
-                .declare_local(identifier, is_mutable, register, previous_position)?;
+                .declare_local(identifier, is_mutable, register, *previous_position)?;
 
         // Optimize for assignment to a comparison
         // if let Operation::Jump = previous_instruction.operation() {
@@ -909,8 +899,8 @@ impl<'src> Parser<'src> {
         let allow_return = precedence == Precedence::None;
 
         if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
-            log::trace!(
-                "Parsing \"{}\" as prefix at precedence {precedence}",
+            log::debug!(
+                "Prefix \"{}\" has precedence {precedence}",
                 self.current_token,
             );
 
@@ -921,8 +911,8 @@ impl<'src> Parser<'src> {
 
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
-                log::trace!(
-                    "Parsing \"{}\" as infix at precedence {precedence}",
+                log::debug!(
+                    "Infix \"{}\" has precedence {precedence}",
                     self.current_token,
                 );
 

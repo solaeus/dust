@@ -321,7 +321,7 @@ fn list_with_complex_expression() {
                 ),
                 (Instruction::subtract(3, 1, 2), Span(10, 11)),
                 (Instruction::close(1, 3), Span(17, 18)),
-                (Instruction::load_list(4, 0, 2), Span(0, 18)),
+                (Instruction::load_list(4, 0, 3), Span(0, 18)),
                 (Instruction::end(true), Span(18, 18)),
             ],
             vec![
@@ -352,7 +352,7 @@ fn list_with_simple_expression() {
                     Span(6, 7)
                 ),
                 (Instruction::load_constant(2, 3), Span(11, 12)),
-                (Instruction::load_list(3, 0, 3), Span(0, 13)),
+                (Instruction::load_list(3, 0, 2), Span(0, 13)),
                 (Instruction::end(true), Span(13, 13)),
             ],
             vec![
@@ -377,7 +377,7 @@ fn list() {
                 (Instruction::load_constant(0, 0), Span(1, 2)),
                 (Instruction::load_constant(1, 1), Span(4, 5)),
                 (Instruction::load_constant(2, 2), Span(7, 8)),
-                (Instruction::load_list(3, 0, 3), Span(0, 9)),
+                (Instruction::load_list(3, 0, 2), Span(0, 9)),
                 (Instruction::end(true), Span(9, 9)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3),],

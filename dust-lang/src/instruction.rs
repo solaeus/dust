@@ -41,12 +41,12 @@ impl Instruction {
         instruction
     }
 
-    pub fn load_list(to_register: u8, start_register: u8, list_length: u8) -> Instruction {
+    pub fn load_list(to_register: u8, start_register: u8, end_register: u8) -> Instruction {
         let mut instruction = Instruction(Operation::LoadList as u32);
 
         instruction.set_a(to_register);
         instruction.set_b(start_register);
-        instruction.set_c(list_length);
+        instruction.set_c(end_register);
 
         instruction
     }
@@ -371,12 +371,9 @@ impl Instruction {
             Operation::LoadList => {
                 let destination = self.a();
                 let first_index = self.b();
-                let last_index = destination.saturating_sub(1);
+                let last_index = self.c();
 
-                Some(format!(
-                    "R{} = [R{}..=R{}]",
-                    destination, first_index, last_index
-                ))
+                Some(format!("R{destination} = [R{first_index}..=R{last_index}]",))
             }
             Operation::DefineLocal => {
                 let destination = self.a();

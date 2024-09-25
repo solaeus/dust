@@ -76,11 +76,18 @@ impl Chunk {
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
-    pub fn get_last_instruction(&self) -> Option<&(Instruction, Span)> {
-        self.instructions.last()
+    pub fn get_last_instruction(&self) -> Result<(&Instruction, &Span), ChunkError> {
+        let (instruction, position) =
+            self.instructions
+                .last()
+                .ok_or_else(|| ChunkError::InstructionUnderflow {
+                    position: Span(0, 0),
+                })?;
+
+        Ok((instruction, position))
     }
 
-    pub fn get_last_operation(&self) -> Option<Operation> {
+    pub fn get_last_operation(&self) -> Result<Operation, ChunkError> {
         self.get_last_instruction()
             .map(|(instruction, _)| instruction.operation())
     }

@@ -56,7 +56,7 @@ impl Vm {
         }
 
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
-            log::trace!(
+            log::info!(
                 "Running IP {} {} at {position}",
                 self.ip - 1,
                 instruction.operation()
@@ -67,6 +67,8 @@ impl Vm {
                     let from = instruction.b();
                     let to = instruction.a();
                     let value = self.take(from, position)?;
+
+                    log::debug!("R{from} -{{{value}}}-> R{to}");
 
                     self.insert(value, to, position)?;
                 }
@@ -100,13 +102,14 @@ impl Vm {
                 Operation::LoadList => {
                     let to_register = instruction.a();
                     let first_register = instruction.b();
-                    let length = instruction.c();
-                    let last_register = first_register + length + 1;
-
+                    let last_register = instruction.c();
+                    let length = last_register - first_register + 1;
                     let mut list = Vec::with_capacity(length as usize);
 
+                    log::debug!("R{to_register} = [R{first_register}..=R{last_register}]");
+
                     for register_index in first_register..=last_register {
-                        let value = match self.clone(register_index, position) {
+                        let value = match self.take(register_index, position) {
                             Ok(value) => value,
                             Err(VmError::EmptyRegister { .. }) => continue,
                             Err(error) => return Err(error),
@@ -126,80 +129,90 @@ impl Vm {
                 Operation::GetLocal => {
                     let register_index = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.chunk.get_local(local_index, position)?.clone();
-                    let value = self.clone_as_variable(local, position)?;
+                    let local = self.chunk.get_local(local_index, position)?;
+                    let value = if let Some(index) = local.register_index {
+                        self.take(index, position)?
+                    } else {
+                        return Err(VmError::UndefinedVariable {
+                            identifier: local.identifier.clone(),
+                            position,
+                        });
+                    };
 
                     self.insert(value, register_index, position)?;
                 }
                 Operation::SetLocal => {
                     let register_index = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.chunk.get_local(local_index, position)?.clone();
-                    let value = self.clone_as_variable(local, position)?;
+                    let local = self.chunk.get_local(local_index, position)?;
+                    let value = if let Some(index) = local.register_index {
+                        self.take(index, position)?
+                    } else {
+                        return Err(VmError::UndefinedVariable {
+                            identifier: local.identifier.clone(),
+                            position,
+                        });
+                    };
+
                     let new_value = if instruction.b_is_constant() {
                         self.chunk.take_constant(register_index, position)?
                     } else {
-                        self.clone(register_index, position)?
+                        self.take(register_index, position)?
                     };
 
                     value
                         .mutate(new_value)
                         .map_err(|error| VmError::Value { error, position })?;
-
                     self.insert(value, register_index, position)?;
                 }
                 Operation::Add => {
                     let (left, right) = get_arguments(self, instruction, position)?;
-
-                    log::debug!("{left} + {right}");
-
                     let sum = left
                         .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("{left} + {right} = {sum}");
 
                     self.insert(sum, instruction.a(), position)?;
                 }
                 Operation::Subtract => {
                     let (left, right) = get_arguments(self, instruction, position)?;
-
-                    log::debug!("{left} - {right}");
-
                     let difference = left
                         .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("{left} - {right} = {difference}");
 
                     self.insert(difference, instruction.a(), position)?;
                 }
                 Operation::Multiply => {
                     let (left, right) = get_arguments(self, instruction, position)?;
 
-                    log::debug!("{left} * {right}");
-
                     let product = left
                         .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("{position} {left} * {right}");
 
                     self.insert(product, instruction.a(), position)?;
                 }
                 Operation::Divide => {
                     let (left, right) = get_arguments(self, instruction, position)?;
-
-                    log::debug!("{left} / {right}");
-
                     let quotient = left
                         .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("{left} / {right} = {quotient}");
 
                     self.insert(quotient, instruction.a(), position)?;
                 }
                 Operation::Modulo => {
                     let (left, right) = get_arguments(self, instruction, position)?;
-
-                    log::debug!("{left} % {right}");
-
                     let remainder = left
                         .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("{left} % {right} = {remainder}");
 
                     self.insert(remainder, instruction.a(), position)?;
                 }
@@ -238,6 +251,7 @@ impl Vm {
                     debug_assert_eq!(jump.operation(), Operation::Jump);
 
                     let (left, right) = get_arguments(self, instruction, position)?;
+
                     let boolean = left
                         .equal(right)
                         .map_err(|error| VmError::Value { error, position })?
@@ -247,6 +261,8 @@ impl Vm {
                             position,
                         })?;
                     let compare_to = instruction.a_as_boolean();
+
+                    log::debug!("{left} == {right} = {boolean} == {compare_to}");
 
                     if boolean == compare_to {
                         self.ip += 1;
@@ -263,11 +279,12 @@ impl Vm {
                     }
                 }
                 Operation::Less => {
-                    let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+                    let jump = self.chunk.get_instruction(self.ip, position)?.0;
 
                     debug_assert_eq!(jump.operation(), Operation::Jump);
 
                     let (left, right) = get_arguments(self, instruction, position)?;
+
                     let boolean = left
                         .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?
@@ -277,6 +294,8 @@ impl Vm {
                             position,
                         })?;
                     let compare_to = instruction.a_as_boolean();
+
+                    log::debug!("{left} < {right} = {boolean} == {compare_to}");
 
                     if boolean == compare_to {
                         self.ip += 1;
@@ -293,7 +312,7 @@ impl Vm {
                     }
                 }
                 Operation::LessEqual => {
-                    let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+                    let jump = self.chunk.get_instruction(self.ip, position)?.0;
 
                     debug_assert_eq!(jump.operation(), Operation::Jump);
 
@@ -307,6 +326,8 @@ impl Vm {
                             position,
                         })?;
                     let compare_to = instruction.a_as_boolean();
+
+                    log::debug!("{left} <= {right} = {boolean} == {compare_to}");
 
                     if boolean == compare_to {
                         self.ip += 1;
@@ -332,6 +353,8 @@ impl Vm {
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
+                    log::debug!("-({value}) = {negated}");
+
                     self.insert(negated, instruction.a(), position)?;
                 }
                 Operation::Not => {
@@ -343,6 +366,8 @@ impl Vm {
                     let not = value
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
+
+                    log::debug!("!{value} = {not}");
 
                     self.insert(not, instruction.a(), position)?;
                 }
