@@ -29,7 +29,6 @@ const NOT: u8 = 0b0001_0011;
 
 const JUMP: u8 = 0b0001_0100;
 const RETURN: u8 = 0b0001_0101;
-const END: u8 = 0b0001_0110;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -70,7 +69,6 @@ pub enum Operation {
     // Control flow
     Jump = JUMP as isize,
     Return = RETURN as isize,
-    End = END as isize,
 }
 
 impl Operation {
@@ -111,12 +109,11 @@ impl From<u8> for Operation {
             NOT => Operation::Not,
             JUMP => Operation::Jump,
             RETURN => Operation::Return,
-            END => Operation::End,
             _ => {
                 if cfg!(test) {
                     panic!("Invalid operation byte: {}", byte)
                 } else {
-                    Operation::End
+                    Operation::Return
                 }
             }
         }
@@ -148,7 +145,6 @@ impl From<Operation> for u8 {
             Operation::Not => NOT,
             Operation::Jump => JUMP,
             Operation::Return => RETURN,
-            Operation::End => END,
         }
     }
 }
@@ -178,7 +174,6 @@ impl Display for Operation {
             Operation::Not => write!(f, "NOT"),
             Operation::Jump => write!(f, "JUMP"),
             Operation::Return => write!(f, "RETURN"),
-            Operation::End => write!(f, "END"),
         }
     }
 }

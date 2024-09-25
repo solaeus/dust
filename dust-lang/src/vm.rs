@@ -93,9 +93,14 @@ impl Vm {
                 Operation::LoadConstant => {
                     let to_register = instruction.a();
                     let from_constant = instruction.b();
+                    let jump = instruction.c_as_boolean();
                     let value = self.chunk.take_constant(from_constant, position)?;
 
                     self.insert(value, to_register, position)?;
+
+                    if jump {
+                        self.ip += 1;
+                    }
                 }
                 Operation::LoadList => {
                     let to_register = instruction.a();
@@ -367,17 +372,12 @@ impl Vm {
                         return Ok(Some(self.take(start_register, position)?));
                     }
                 }
-                Operation::End => {
-                    let returns_value = instruction.a_as_boolean();
-
-                    if returns_value {
-                        return Ok(Some(self.pop(position)?));
-                    }
-                }
             }
         }
 
-        Ok(None)
+        let final_value = self._pop(Span(0, 0))?;
+
+        Ok(Some(final_value))
     }
 
     fn insert(&mut self, value: Value, index: u8, position: Span) -> Result<(), VmError> {
@@ -446,7 +446,7 @@ impl Vm {
         }
     }
 
-    fn clone_mutable(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
+    fn _clone_mutable(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
         let index = index as usize;
 
         if let Some(register) = self.register_stack.get_mut(index) {
@@ -464,7 +464,7 @@ impl Vm {
         }
     }
 
-    fn clone_as_variable(&mut self, local: Local, position: Span) -> Result<Value, VmError> {
+    fn _clone_as_variable(&mut self, local: Local, position: Span) -> Result<Value, VmError> {
         let index = if let Some(index) = local.register_index {
             index
         } else {
@@ -474,7 +474,7 @@ impl Vm {
             });
         };
         let clone_result = if local.mutable {
-            self.clone_mutable(index, position)
+            self._clone_mutable(index, position)
         } else {
             self.clone(index, position)
         };
@@ -488,7 +488,7 @@ impl Vm {
         }
     }
 
-    fn pop(&mut self, position: Span) -> Result<Value, VmError> {
+    fn _pop(&mut self, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.pop() {
             let value = register.ok_or(VmError::EmptyRegister {
                 index: self.register_stack.len().saturating_sub(1),

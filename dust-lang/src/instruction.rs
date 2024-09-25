@@ -32,11 +32,12 @@ impl Instruction {
         instruction
     }
 
-    pub fn load_constant(to_register: u8, constant_index: u8) -> Instruction {
+    pub fn load_constant(to_register: u8, constant_index: u8, skip: bool) -> Instruction {
         let mut instruction = Instruction(Operation::LoadConstant as u32);
 
         instruction.set_a(to_register);
         instruction.set_b(constant_index);
+        instruction.set_c_to_boolean(skip);
 
         instruction
     }
@@ -214,14 +215,6 @@ impl Instruction {
         instruction
     }
 
-    pub fn end(returns_value: bool) -> Instruction {
-        let mut instruction = Instruction(Operation::End as u32);
-
-        instruction.set_a_to_boolean(returns_value);
-
-        instruction
-    }
-
     pub fn operation(&self) -> Operation {
         Operation::from((self.0 & 0b0000_0000_0011_1111) as u8)
     }
@@ -355,18 +348,21 @@ impl Instruction {
                 Some(info)
             }
             Operation::LoadConstant => {
+                let register_index = self.a();
                 let constant_index = self.b();
-
-                if let Some(chunk) = chunk {
+                let jump = if self.c_as_boolean() { "&& JUMP" } else { "" };
+                let constant = if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
-                        Ok(value) => Some(format!("R{} = C{} {}", self.a(), constant_index, value)),
-                        Err(error) => {
-                            Some(format!("R{} = C{} {:?}", self.a(), constant_index, error))
-                        }
+                        Ok(constant) => constant.to_string(),
+                        Err(error) => format!("{error:?}"),
                     }
                 } else {
-                    Some(format!("R{} = C{}", self.a(), constant_index))
-                }
+                    "???".to_string()
+                };
+
+                Some(format!(
+                    "R{register_index} = C{constant_index} ({constant}) {jump}",
+                ))
             }
             Operation::LoadList => {
                 let destination = self.a();
@@ -541,15 +537,6 @@ impl Instruction {
 
                 Some(format!("R{from_register}..=R{to_register}"))
             }
-            Operation::End => {
-                let return_value = self.a_as_boolean();
-
-                if return_value {
-                    Some("return".to_string())
-                } else {
-                    Some("null".to_string())
-                }
-            }
         };
 
         (info, jump_offset)
@@ -601,7 +588,7 @@ mod tests {
 
     #[test]
     fn load_constant() {
-        let mut instruction = Instruction::load_constant(0, 1);
+        let mut instruction = Instruction::load_constant(0, 1, true);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
@@ -611,6 +598,7 @@ mod tests {
         assert_eq!(instruction.b(), 1);
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());
+        assert!(instruction.c_as_boolean());
     }
 
     #[test]
@@ -762,13 +750,5 @@ mod tests {
         assert_eq!(instruction.operation(), Operation::Return);
         assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 8);
-    }
-
-    #[test]
-    fn end() {
-        let instruction = Instruction::end(true);
-
-        assert_eq!(instruction.operation(), Operation::End);
-        assert!(instruction.a_as_boolean());
     }
 }

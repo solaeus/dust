@@ -1,6 +1,14 @@
 use dust_lang::*;
 
 #[test]
+fn r#while() {
+    assert_eq!(
+        run("let mut x = 0; while x < 5 { x = x + 1 } x"),
+        Ok(Some(Value::integer(5)))
+    );
+}
+
+#[test]
 fn if_else() {
     assert_eq!(run("if true { 1 } else { 2 }"), Ok(Some(Value::integer(1))));
     assert_eq!(

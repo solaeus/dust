@@ -87,6 +87,20 @@ impl Chunk {
         Ok((instruction, position))
     }
 
+    pub fn find_last_instruction(&mut self, operation: Operation) -> Option<usize> {
+        self.instructions
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(index, (instruction, _))| {
+                if instruction.operation() == operation {
+                    Some(index)
+                } else {
+                    None
+                }
+            })
+    }
+
     pub fn get_last_operation(&self) -> Result<Operation, ChunkError> {
         self.get_last_instruction()
             .map(|(instruction, _)| instruction.operation())

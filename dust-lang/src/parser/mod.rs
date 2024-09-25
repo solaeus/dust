@@ -145,7 +145,7 @@ impl<'src> Parser<'src> {
         let constant_index = self.chunk.push_constant(value, position)?;
 
         self.emit_instruction(
-            Instruction::load_constant(self.current_register, constant_index),
+            Instruction::load_constant(self.current_register, constant_index, false),
             position,
         );
 
@@ -352,7 +352,16 @@ impl<'src> Parser<'src> {
         let mut push_back = false;
         let mut is_constant = false;
         let argument = match instruction.operation() {
-            Operation::GetLocal => instruction.a(),
+            Operation::GetLocal => {
+                let local_index = instruction.b();
+                let local = self.chunk.get_local(local_index, self.current_position)?;
+
+                if let Some(index) = local.register_index {
+                    index
+                } else {
+                    instruction.a()
+                }
+            }
             Operation::LoadConstant => {
                 is_constant = true;
 
@@ -492,12 +501,12 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
         let mut instruction = match self.current_token.kind() {
-            TokenKind::DoubleEqual => Instruction::equal(true, left, 0),
-            TokenKind::BangEqual => Instruction::equal(false, left, 0),
-            TokenKind::Less => Instruction::less(true, left, 0),
-            TokenKind::LessEqual => Instruction::less_equal(true, left, 0),
-            TokenKind::Greater => Instruction::less_equal(false, left, 0),
-            TokenKind::GreaterEqual => Instruction::less(false, left, 0),
+            TokenKind::DoubleEqual => Instruction::equal(true, left.saturating_sub(1), 0),
+            TokenKind::BangEqual => Instruction::equal(false, left.saturating_sub(1), 0),
+            TokenKind::Less => Instruction::less(true, left.saturating_sub(1), 0),
+            TokenKind::LessEqual => Instruction::less_equal(true, left.saturating_sub(1), 0),
+            TokenKind::Greater => Instruction::less_equal(false, left.saturating_sub(1), 0),
+            TokenKind::GreaterEqual => Instruction::less(false, left.saturating_sub(1), 0),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -532,14 +541,12 @@ impl<'src> Parser<'src> {
             instruction.set_c_is_constant();
         }
 
-        if push_back_left || push_back_right {
-            if push_back_left {
-                self.emit_instruction(left_instruction, left_position);
-            }
+        if push_back_left {
+            self.emit_instruction(left_instruction, left_position);
+        }
 
-            if push_back_right {
-                self.emit_instruction(right_instruction, right_position);
-            }
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
         }
 
         self.emit_instruction(instruction, operator_position);
@@ -735,18 +742,14 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        let is_explicit_true =
-            matches!(self.previous_token, Token::Boolean("true")) && length == self.chunk.len() - 1;
+        let is_explicit_boolean =
+            matches!(self.previous_token, Token::Boolean(_)) && length == self.chunk.len() - 1;
 
-        if is_explicit_true {
-            let (mut load_boolean, load_boolean_position) =
-                self.chunk.pop_instruction(self.current_position)?;
-
-            debug_assert_eq!(load_boolean.operation(), Operation::LoadBoolean);
-
-            load_boolean.set_c_to_boolean(true);
-            self.emit_instruction(load_boolean, load_boolean_position);
-            self.increment_register()?;
+        if is_explicit_boolean {
+            self.emit_instruction(
+                Instruction::test(self.current_register, false),
+                self.current_position,
+            );
         }
 
         let jump_position = if matches!(
@@ -771,8 +774,25 @@ impl<'src> Parser<'src> {
             self.parse_block(allow_assignment, allow_return)?;
         }
 
+        if self.chunk.get_last_operation()? == Operation::LoadConstant
+            && self.current_token == Token::Else
+        {
+            let (mut load_constant, load_constant_position) =
+                self.chunk.pop_instruction(self.current_position)?;
+
+            load_constant.set_c_to_boolean(true);
+
+            self.emit_instruction(load_constant, load_constant_position);
+        }
+
         let jump_end = self.chunk.len();
         let jump_distance = jump_end.saturating_sub(jump_start);
+
+        self.chunk.insert_instruction(
+            jump_start,
+            Instruction::jump(jump_distance as u8, true),
+            jump_position,
+        );
 
         if self.allow(TokenKind::Else)? {
             if let Token::If = self.current_token {
@@ -784,12 +804,6 @@ impl<'src> Parser<'src> {
             }
         }
 
-        self.chunk.insert_instruction(
-            jump_start,
-            Instruction::jump(jump_distance as u8, true),
-            jump_position,
-        );
-
         Ok(())
     }
 
@@ -799,8 +813,27 @@ impl<'src> Parser<'src> {
         allow_return: bool,
     ) -> Result<(), ParseError> {
         self.advance()?;
+
+        let jump_start = self.chunk.len();
+
         self.parse_expression()?;
         self.parse_block(allow_assignment, allow_return)?;
+
+        let jump_end = self.chunk.len() - 1;
+        let jump_distance = jump_end.saturating_sub(jump_start) as u8;
+        let jump_back = Instruction::jump(jump_distance, false);
+        let jump_over_index = self.chunk.find_last_instruction(Operation::Jump);
+
+        if let Some(index) = jump_over_index {
+            let (mut jump_over, jump_over_position) = self.chunk.remove_instruction(index);
+
+            jump_over.set_b(jump_distance);
+            self.chunk
+                .insert_instruction(index, jump_over, jump_over_position);
+        }
+
+        self.chunk
+            .insert_instruction(jump_end, jump_back, self.current_position);
 
         Ok(())
     }
@@ -810,27 +843,19 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self, allow_return: bool) -> Result<(), ParseError> {
-        let is_expression = match self.current_token {
+        match self.current_token {
             Token::Let => {
                 self.parse_let_statement(true, allow_return)?;
-
-                self.allow(TokenKind::Semicolon)?
             }
             Token::LeftCurlyBrace => {
                 self.parse_block(true, true)?;
-
-                !self.allow(TokenKind::Semicolon)?
             }
             _ => {
                 self.parse_expression()?;
-
-                !self.allow(TokenKind::Semicolon)?
             }
         };
 
-        if self.current_token == Token::RightCurlyBrace || self.is_eof() {
-            self.emit_instruction(Instruction::end(is_expression), self.current_position);
-        }
+        self.allow(TokenKind::Semicolon)?;
 
         Ok(())
     }
