@@ -23,22 +23,21 @@ fn main() {
     env_logger::builder()
         .parse_env("DUST_LOG")
         .format(|buf, record| {
-            let level = match record.level() {
-                Level::Info => "INFO".white().bold(),
-                Level::Debug => "DEBUG".blue().bold(),
-                Level::Warn => "WARN".yellow().bold(),
-                Level::Error => "ERROR".red().bold(),
-                Level::Trace => "TRACE".purple().bold(),
-            }
-            .bold();
-            let level_display = format!("{level:<5}");
+            let level_display = match record.level() {
+                Level::Info => "INFO".bold().white(),
+                Level::Debug => "DEBUG".bold().blue(),
+                Level::Warn => "WARN".bold().yellow(),
+                Level::Error => "ERROR".bold().red(),
+                Level::Trace => "TRACE".bold().purple(),
+            };
             let module = record
                 .module_path()
                 .map(|path| path.split("::").last().unwrap_or(path))
                 .unwrap_or("unknown")
                 .dimmed();
+            let display = format!("{level_display:5} {module:^6} {args}", args = record.args());
 
-            writeln!(buf, "{level_display:^10} {module:^6} {}", record.args())
+            writeln!(buf, "{display}")
         })
         .init();
 

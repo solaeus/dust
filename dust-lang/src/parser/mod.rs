@@ -7,6 +7,8 @@ use std::{
     num::{ParseFloatError, ParseIntError},
 };
 
+use colored::Colorize;
+
 use crate::{
     AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, LexError, Lexer,
     Operation, Span, Token, TokenKind, TokenOwned, Value,
@@ -40,7 +42,11 @@ impl<'src> Parser<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
         let (current_token, current_position) = lexer.next_token()?;
 
-        log::info!("Starting parser with token \"{current_token}\" at {current_position}");
+        log::info!(
+            "{} at {}",
+            current_token.to_string().bold(),
+            current_position.to_string()
+        );
 
         Ok(Parser {
             lexer,
@@ -96,7 +102,11 @@ impl<'src> Parser<'src> {
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        log::info!("Parsing \"{new_token}\" at {position}");
+        log::info!(
+            "{} at {}",
+            new_token.to_string().bold(),
+            position.to_string()
+        );
 
         self.previous_token = replace(&mut self.current_token, new_token);
         self.previous_position = replace(&mut self.current_position, position);
@@ -705,9 +715,7 @@ impl<'src> Parser<'src> {
                 );
             }
 
-            if !self.allow(TokenKind::Comma)? {
-                self.expect(TokenKind::RightSquareBrace)?;
-            }
+            self.allow(TokenKind::Comma)?;
         }
 
         let end_register = self.current_register - 1;
@@ -717,7 +725,6 @@ impl<'src> Parser<'src> {
             Instruction::load_list(self.current_register, start_register, end_register),
             Span(start, end),
         );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -900,8 +907,8 @@ impl<'src> Parser<'src> {
 
         if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
             log::debug!(
-                "Prefix \"{}\" has precedence {precedence}",
-                self.current_token,
+                "{} is {precedence} prefix",
+                self.current_token.to_string().bold(),
             );
 
             prefix_parser(self, allow_assignment, allow_return)?;
@@ -912,8 +919,8 @@ impl<'src> Parser<'src> {
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
                 log::debug!(
-                    "Infix \"{}\" has precedence {precedence}",
-                    self.current_token,
+                    "{} is {precedence} infix",
+                    self.current_token.to_string().bold(),
                 );
 
                 if allow_assignment && self.current_token == Token::Equal {

@@ -56,19 +56,17 @@ impl Vm {
         }
 
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
-            log::info!(
-                "Running IP {} {} at {position}",
-                self.ip - 1,
-                instruction.operation()
-            );
+            let ip = self.ip - 1;
+            let operation = instruction.operation();
+            let position_display = position.to_string();
+
+            log::info!("{ip:^3} | {position_display:^10} | {operation}");
 
             match instruction.operation() {
                 Operation::Move => {
                     let from = instruction.b();
                     let to = instruction.a();
                     let value = self.take(from, position)?;
-
-                    log::debug!("R{from} -{{{value}}}-> R{to}");
 
                     self.insert(value, to, position)?;
                 }
@@ -105,8 +103,6 @@ impl Vm {
                     let last_register = instruction.c();
                     let length = last_register - first_register + 1;
                     let mut list = Vec::with_capacity(length as usize);
-
-                    log::debug!("R{to_register} = [R{first_register}..=R{last_register}]");
 
                     for register_index in first_register..=last_register {
                         let value = match self.take(register_index, position) {
@@ -171,8 +167,6 @@ impl Vm {
                         .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    log::debug!("{left} + {right} = {sum}");
-
                     self.insert(sum, instruction.a(), position)?;
                 }
                 Operation::Subtract => {
@@ -180,8 +174,6 @@ impl Vm {
                     let difference = left
                         .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
-
-                    log::debug!("{left} - {right} = {difference}");
 
                     self.insert(difference, instruction.a(), position)?;
                 }
@@ -192,8 +184,6 @@ impl Vm {
                         .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    log::debug!("{position} {left} * {right}");
-
                     self.insert(product, instruction.a(), position)?;
                 }
                 Operation::Divide => {
@@ -202,8 +192,6 @@ impl Vm {
                         .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    log::debug!("{left} / {right} = {quotient}");
-
                     self.insert(quotient, instruction.a(), position)?;
                 }
                 Operation::Modulo => {
@@ -211,8 +199,6 @@ impl Vm {
                     let remainder = left
                         .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
-
-                    log::debug!("{left} % {right} = {remainder}");
 
                     self.insert(remainder, instruction.a(), position)?;
                 }
@@ -262,8 +248,6 @@ impl Vm {
                         })?;
                     let compare_to = instruction.a_as_boolean();
 
-                    log::debug!("{left} == {right} = {boolean} == {compare_to}");
-
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
@@ -295,8 +279,6 @@ impl Vm {
                         })?;
                     let compare_to = instruction.a_as_boolean();
 
-                    log::debug!("{left} < {right} = {boolean} == {compare_to}");
-
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
@@ -327,8 +309,6 @@ impl Vm {
                         })?;
                     let compare_to = instruction.a_as_boolean();
 
-                    log::debug!("{left} <= {right} = {boolean} == {compare_to}");
-
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
@@ -353,8 +333,6 @@ impl Vm {
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    log::debug!("-({value}) = {negated}");
-
                     self.insert(negated, instruction.a(), position)?;
                 }
                 Operation::Not => {
@@ -366,8 +344,6 @@ impl Vm {
                     let not = value
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
-
-                    log::debug!("!{value} = {not}");
 
                     self.insert(not, instruction.a(), position)?;
                 }
