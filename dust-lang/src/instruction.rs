@@ -389,10 +389,10 @@ impl Instruction {
                 } else {
                     "???".to_string()
                 };
-                let mutable_display = if self.c_as_boolean() { "mut " } else { "" };
+                let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
                 Some(format!(
-                    "L{local_index} = R{destination} {mutable_display}{identifier_display}"
+                    "L{local_index} = R{destination} {mutable_display} {identifier_display}"
                 ))
             }
             Operation::GetLocal => {

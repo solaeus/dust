@@ -727,22 +727,22 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_if(&mut self, allow_assignment: bool, allow_return: bool) -> Result<(), ParseError> {
-        self.advance()?;
+        let length = self.chunk.len();
 
+        self.advance()?;
         self.parse_expression()?;
 
-        let is_explicit_true = matches!(self.previous_token, Token::Boolean("true"))
-            && matches!(self.current_token, Token::LeftCurlyBrace);
-
-        let (mut load_boolean, load_boolean_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-
-        debug_assert_eq!(load_boolean.operation(), Operation::LoadBoolean);
-
-        load_boolean.set_c_to_boolean(is_explicit_true);
-        self.emit_instruction(load_boolean, load_boolean_position);
+        let is_explicit_true =
+            matches!(self.previous_token, Token::Boolean("true")) && length == self.chunk.len() - 1;
 
         if is_explicit_true {
+            let (mut load_boolean, load_boolean_position) =
+                self.chunk.pop_instruction(self.current_position)?;
+
+            debug_assert_eq!(load_boolean.operation(), Operation::LoadBoolean);
+
+            load_boolean.set_c_to_boolean(true);
+            self.emit_instruction(load_boolean, load_boolean_position);
             self.increment_register()?;
         }
 
@@ -763,12 +763,6 @@ impl<'src> Parser<'src> {
         };
 
         let jump_start = self.chunk.len();
-        let load_boolean_index =
-            if let Operation::LoadBoolean = self.chunk.get_last_operation().unwrap() {
-                Some(self.chunk.len().saturating_sub(1))
-            } else {
-                None
-            };
 
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(allow_assignment, allow_return)?;
@@ -792,8 +786,6 @@ impl<'src> Parser<'src> {
             Instruction::jump(jump_distance as u8, true),
             jump_position,
         );
-
-        if let Some(index) = load_boolean_index {}
 
         Ok(())
     }

@@ -21,11 +21,13 @@ fn r#if() {
 #[test]
 fn less_than() {
     assert_eq!(run("1 < 2"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("2 < 1"), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
 fn greater_than() {
     assert_eq!(run("1 > 2"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("2 > 1"), Ok(Some(Value::boolean(true))));
 }
 
 #[test]
@@ -43,11 +45,13 @@ fn greater_than_or_equal() {
 #[test]
 fn equal() {
     assert_eq!(run("1 == 1"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run("1 == 2"), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
 fn not_equal() {
     assert_eq!(run("1 != 1"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run("2 != 1"), Ok(Some(Value::boolean(true))));
 }
 
 #[test]

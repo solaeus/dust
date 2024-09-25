@@ -14,21 +14,11 @@
 //! assert_eq!(foo.strong_count(), 4); // One for each of the above and one for the cache.
 //! ```
 use std::{
-    collections::HashMap,
     fmt::{self, Display, Formatter},
-    hash::Hash,
-    sync::{Arc, OnceLock, RwLock},
+    sync::Arc,
 };
 
 use serde::{de::Visitor, Deserialize, Serialize};
-
-/// In-use identifiers.
-static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
-
-/// Returns the identifier cache.
-fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
-    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
-}
 
 /// Key used to identify a value or type.
 ///
@@ -40,17 +30,8 @@ impl Identifier {
     /// Creates a new identifier or returns a clone of an existing one from a cache.
     pub fn new<T: ToString>(text: T) -> Self {
         let string = text.to_string();
-        let mut cache = identifier_cache().write().unwrap();
 
-        if let Some(old) = cache.get(&string) {
-            old.clone()
-        } else {
-            let new = Identifier(Arc::new(string.clone()));
-
-            cache.insert(string, new.clone());
-
-            new
-        }
+        Identifier(Arc::new(string.clone()))
     }
 
     pub fn as_str(&self) -> &str {

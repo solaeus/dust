@@ -1,4 +1,4 @@
-//! Description of a kind of value.
+//! Value types.
 //!
 //! Most types are concrete and specific, the exceptions are the Generic and Any types.
 //!
