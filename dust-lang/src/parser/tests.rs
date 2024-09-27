@@ -191,7 +191,7 @@ fn equality_assignment_long() {
                         .set_c_is_constant(),
                     Span(13, 15)
                 ),
-                (Instruction::jump(1, true), Span(13, 15)),
+                (Instruction::jump(1, true), Span(27, 31)),
                 (Instruction::load_boolean(0, true, false), Span(20, 24)),
                 (Instruction::load_boolean(0, false, false), Span(34, 39)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -241,7 +241,7 @@ fn if_expression() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(15, 15)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
             ],
             vec![Value::integer(1), Value::integer(1), Value::integer(2)],
@@ -264,7 +264,7 @@ fn if_else_expression() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(16, 20)),
                 (Instruction::load_constant(0, 2, true), Span(12, 13)),
                 (Instruction::load_constant(0, 3, false), Span(23, 24)),
             ],

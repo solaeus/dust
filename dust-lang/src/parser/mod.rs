@@ -752,7 +752,7 @@ impl<'src> Parser<'src> {
             );
         }
 
-        let jump_position = if matches!(
+        if matches!(
             self.chunk.get_last_n_operations(),
             [
                 Some(Operation::LoadBoolean),
@@ -762,11 +762,9 @@ impl<'src> Parser<'src> {
         ) {
             self.chunk.pop_instruction(self.current_position)?;
             self.chunk.pop_instruction(self.current_position)?;
+            self.chunk.pop_instruction(self.current_position)?;
             self.decrement_register()?;
-            self.chunk.pop_instruction(self.current_position)?.1
-        } else {
-            self.current_position
-        };
+        }
 
         let jump_start = self.chunk.len();
 
@@ -791,7 +789,7 @@ impl<'src> Parser<'src> {
         self.chunk.insert_instruction(
             jump_start,
             Instruction::jump(jump_distance as u8, true),
-            jump_position,
+            self.current_position,
         );
 
         if self.allow(TokenKind::Else)? {
