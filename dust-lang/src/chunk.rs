@@ -87,6 +87,19 @@ impl Chunk {
         Ok((instruction, position))
     }
 
+    pub fn get_last_n_instructions<const N: usize>(&self) -> [Option<&(Instruction, Span)>; N] {
+        let mut instructions = [None; N];
+
+        for i in 0..N {
+            let index = self.instructions.len().saturating_sub(i + 1);
+            let instruction = self.instructions.get(index);
+
+            instructions[i] = instruction;
+        }
+
+        instructions
+    }
+
     pub fn find_last_instruction(&mut self, operation: Operation) -> Option<usize> {
         self.instructions
             .iter()

@@ -477,21 +477,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
-        let is_repetition = matches!(
-            self.chunk.get_last_n_operations(),
-            [
-                Some(_),
-                Some(_),
-                Some(Operation::Jump),
-                Some(Operation::Equal | Operation::Less | Operation::LessEqual)
-            ]
-        );
-
-        if is_repetition {
-            self.decrement_register()?;
-            self.decrement_register()?;
-        }
-
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let (push_back_left, left_is_constant, left) =
@@ -551,15 +536,6 @@ impl<'src> Parser<'src> {
 
         self.emit_instruction(instruction, operator_position);
         self.emit_instruction(Instruction::jump(1, true), operator_position);
-        self.emit_instruction(
-            Instruction::load_boolean(self.current_register, true, true),
-            operator_position,
-        );
-        self.emit_instruction(
-            Instruction::load_boolean(self.current_register, false, false),
-            operator_position,
-        );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -837,7 +813,29 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_expression(&mut self) -> Result<(), ParseError> {
-        self.parse(Precedence::None)
+        self.parse(Precedence::None)?;
+
+        if let [Some((jump, _)), Some((comparison, comparison_position))] =
+            self.chunk.get_last_n_instructions()
+        {
+            if let (Operation::Jump, Operation::Equal | Operation::Less | Operation::LessEqual) =
+                (jump.operation(), comparison.operation())
+            {
+                let comparison_position = *comparison_position;
+
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, true, true),
+                    comparison_position,
+                );
+                self.emit_instruction(
+                    Instruction::load_boolean(self.current_register, false, false),
+                    comparison_position,
+                );
+                self.increment_register()?;
+            }
+        }
+
+        Ok(())
     }
 
     fn parse_statement(&mut self, allow_return: bool) -> Result<(), ParseError> {
