@@ -341,8 +341,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "INDEX BYTECODE OPERATION       INFO                      JUMP           POSITION",
-        "----- -------- --------------- ------------------------- -------------- --------",
+        "INDEX BYTECODE OPERATION       INFO                      JUMP     POSITION",
+        "----- -------- --------------- ------------------------- -------- --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
@@ -445,7 +445,7 @@ impl<'a> ChunkDisassembler<'a> {
             };
             let bytecode = u32::from(instruction);
             let instruction_display = format!(
-                "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:14} {position:8}"
+                "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
             );
 
             disassembly.push_str(&center(&instruction_display));
