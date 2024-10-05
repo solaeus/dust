@@ -916,6 +916,7 @@ impl<'src> Parser<'src> {
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         let allow_assignment = precedence < Precedence::Assignment;
         let allow_return = precedence == Precedence::None;
+        let mut parsed = false;
 
         if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
             log::debug!(
@@ -924,6 +925,7 @@ impl<'src> Parser<'src> {
             );
 
             prefix_parser(self, allow_assignment, allow_return)?;
+            parsed = true;
         }
 
         let mut infix_rule = ParseRule::from(&self.current_token.kind());
@@ -948,9 +950,38 @@ impl<'src> Parser<'src> {
             }
 
             infix_rule = ParseRule::from(&self.current_token.kind());
+            parsed = true;
         }
 
-        Ok(())
+        if parsed {
+            Ok(())
+        } else {
+            Err(ParseError::ExpectedTokenMultiple {
+                expected: &[
+                    // This should list all infix operators and the semicolon token
+                    TokenKind::BangEqual,
+                    TokenKind::DoubleAmpersand,
+                    TokenKind::DoublePipe,
+                    TokenKind::DoubleEqual,
+                    TokenKind::Greater,
+                    TokenKind::GreaterEqual,
+                    TokenKind::Less,
+                    TokenKind::LessEqual,
+                    TokenKind::Minus,
+                    TokenKind::MinusEqual,
+                    TokenKind::Percent,
+                    TokenKind::Plus,
+                    TokenKind::PlusEqual,
+                    TokenKind::Star,
+                    TokenKind::StarEqual,
+                    TokenKind::Semicolon,
+                    TokenKind::Slash,
+                    TokenKind::SlashEqual,
+                ],
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            })
+        }
     }
 }
 
