@@ -356,7 +356,7 @@ impl Vm {
                     let new_ip = if is_positive {
                         self.ip + offset as usize
                     } else {
-                        self.ip - offset as usize
+                        self.ip - (offset + 1) as usize
                     };
 
                     self.ip = new_ip;

@@ -332,7 +332,33 @@ fn if_else_expression() {
 }
 
 #[test]
-fn if_expression() {
+fn if_expression_false() {
+    let source = "if 1 == 2 { 2 }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::r#return(), Span(15, 15)),
+            ],
+            vec![Value::integer(1), Value::integer(2), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(None));
+}
+
+#[test]
+fn if_expression_true() {
     let source = "if 1 == 1 { 2 }";
 
     assert_eq!(
@@ -730,12 +756,15 @@ fn subtract() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::subtract(0, 0, 1)
-                    .set_b_is_constant()
-                    .set_c_is_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::subtract(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -759,6 +788,7 @@ fn variable_and() {
                 (Instruction::test(2, false), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
+                (Instruction::r#return(), Span(35, 35)),
             ],
             vec![],
             vec![
@@ -779,23 +809,20 @@ fn r#while() {
         parse(source),
         Ok(Chunk::with_data(
             vec![
-                (Instruction::load_constant(0, 0, false), Span(0, 1)),
-                (Instruction::define_local(0, 0, true), Span(0, 0)),
+                (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::less(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(0, 1)
+                    *Instruction::less(true, 0, 1).set_c_is_constant(),
+                    Span(23, 24)
                 ),
-                (Instruction::jump(1, true), Span(0, 1)),
-                (Instruction::load_boolean(1, true, true), Span(0, 1)),
-                (Instruction::load_boolean(1, false, false), Span(0, 1)),
-                (Instruction::add(0, 0, 2), Span(0, 1)),
-                (Instruction::jump(0, false), Span(0, 1)),
-                (Instruction::get_local(3, 0), Span(0, 1)),
+                (Instruction::jump(2, true), Span(23, 24)),
+                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
+                (Instruction::jump(3, false), Span(41, 42)),
+                (Instruction::get_local(1, 0), Span(41, 42)),
+                (Instruction::r#return(), Span(42, 42)),
             ],
-            vec![],
-            vec![]
+            vec![Value::integer(0), Value::integer(5), Value::integer(1),],
+            vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]
         )),
     );
 

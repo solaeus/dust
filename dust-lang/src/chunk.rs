@@ -437,7 +437,13 @@ impl<'a> ChunkDisassembler<'a> {
             };
             let jump_offset = if let Some(jump_offset) = jump_offset {
                 let index = index as isize;
-                let jump_index = index + jump_offset + 1;
+                let jump_index = {
+                    if jump_offset > 0 {
+                        index + (jump_offset + 1)
+                    } else {
+                        index + jump_offset
+                    }
+                };
 
                 format!("{index} -> {jump_index}")
             } else {

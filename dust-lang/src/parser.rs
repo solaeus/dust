@@ -345,11 +345,13 @@ impl<'src> Parser<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
-    ) -> Result<(bool, bool, u8), ParseError> {
+    ) -> Result<(bool, bool, bool, u8), ParseError> {
         let mut push_back = false;
         let mut is_constant = false;
+        let mut is_local = false;
         let argument = match instruction.operation() {
             Operation::GetLocal => {
+                is_local = true;
                 let local_index = instruction.b();
                 let local = self.chunk.get_local(local_index, self.current_position)?;
 
@@ -378,13 +380,13 @@ impl<'src> Parser<'src> {
             }
         };
 
-        Ok((push_back, is_constant, argument))
+        Ok((push_back, is_constant, is_local, argument))
     }
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_left, left_is_constant, left) =
+        let (push_back_left, left_is_constant, left_is_local, left) =
             self.handle_binary_argument(&left_instruction)?;
 
         let operator = self.current_token;
@@ -394,12 +396,21 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
+        let register = if left_is_local {
+            left
+        } else {
+            let current = self.current_register;
+
+            self.increment_register()?;
+
+            current
+        };
         let mut new_instruction = match operator.kind() {
-            TokenKind::Plus => Instruction::add(self.current_register, left, 0),
-            TokenKind::Minus => Instruction::subtract(self.current_register, left, 0),
-            TokenKind::Star => Instruction::multiply(self.current_register, left, 0),
-            TokenKind::Slash => Instruction::divide(self.current_register, left, 0),
-            TokenKind::Percent => Instruction::modulo(self.current_register, left, 0),
+            TokenKind::Plus => Instruction::add(register, left, 0),
+            TokenKind::Minus => Instruction::subtract(register, left, 0),
+            TokenKind::Star => Instruction::multiply(register, left, 0),
+            TokenKind::Slash => Instruction::divide(register, left, 0),
+            TokenKind::Percent => Instruction::modulo(register, left, 0),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -415,11 +426,9 @@ impl<'src> Parser<'src> {
             }
         };
 
-        self.increment_register()?;
-
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_right, right_is_constant, right) =
+        let (push_back_right, right_is_constant, right_is_local, right) =
             self.handle_binary_argument(&right_instruction)?;
 
         new_instruction.set_c(right);
@@ -476,7 +485,7 @@ impl<'src> Parser<'src> {
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_left, left_is_constant, left) =
+        let (push_back_left, left_is_constant, _, left) =
             self.handle_binary_argument(&left_instruction)?;
 
         let operator = self.current_token;
@@ -510,7 +519,7 @@ impl<'src> Parser<'src> {
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_right, right_is_constant, right) =
+        let (push_back_right, right_is_constant, _, right) =
             self.handle_binary_argument(&right_instruction)?;
 
         instruction.set_c(right);
@@ -771,14 +780,14 @@ impl<'src> Parser<'src> {
         self.parse_block(allow_assignment, allow_return)?;
 
         let jump_end = self.chunk.len();
-        let jump_distance = jump_end.saturating_sub(jump_start) as u8;
+        let jump_distance = jump_end.abs_diff(jump_start) as u8;
         let jump_back = Instruction::jump(jump_distance, false);
         let jump_over_index = self.chunk.find_last_instruction(Operation::Jump);
 
         if let Some(index) = jump_over_index {
-            let (mut jump_over, jump_over_position) = self.chunk.remove_instruction(index);
+            let (_, jump_over_position) = self.chunk.remove_instruction(index);
+            let jump_over = Instruction::jump(jump_distance - 1, true);
 
-            jump_over.set_b(jump_distance);
             self.chunk
                 .insert_instruction(index, jump_over, jump_over_position);
         }
