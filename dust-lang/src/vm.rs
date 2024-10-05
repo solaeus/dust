@@ -366,7 +366,7 @@ impl Vm {
                 Operation::Return => {
                     let start_register = instruction.a();
                     let end_register = instruction.b();
-                    let return_value_count = end_register - start_register;
+                    let return_value_count = (end_register - start_register).max(1);
 
                     if return_value_count == 1 {
                         return Ok(Some(self.take(start_register, position)?));
@@ -375,9 +375,7 @@ impl Vm {
             }
         }
 
-        let final_value = self._pop(Span(0, 0))?;
-
-        Ok(Some(final_value))
+        Ok(None)
     }
 
     fn insert(&mut self, value: Value, index: u8, position: Span) -> Result<(), VmError> {
@@ -488,7 +486,7 @@ impl Vm {
         }
     }
 
-    fn _pop(&mut self, position: Span) -> Result<Value, VmError> {
+    fn pop(&mut self, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.pop() {
             let value = register.ok_or(VmError::EmptyRegister {
                 index: self.register_stack.len().saturating_sub(1),

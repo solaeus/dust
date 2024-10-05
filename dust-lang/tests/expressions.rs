@@ -1,113 +1,758 @@
 use dust_lang::*;
 
 #[test]
-fn r#while() {
-    assert_eq!(
-        run("let mut x = 0; while x < 5 { x = x + 1 } x"),
-        Ok(Some(Value::integer(5)))
-    );
-}
-
-#[test]
-fn if_else() {
-    assert_eq!(run("if true { 1 } else { 2 }"), Ok(Some(Value::integer(1))));
-    assert_eq!(
-        run("if false { 1 } else { 2 }"),
-        Ok(Some(Value::integer(2)))
-    );
-}
-
-#[test]
-fn r#if() {
-    assert_eq!(run("if true { 1 }"), Ok(Some(Value::integer(1))));
-    assert_eq!(
-        run("if 42 == 42 { 1 } else { 2 }"),
-        Ok(Some(Value::integer(1)))
-    );
-}
-
-#[test]
-fn less_than() {
-    assert_eq!(run("1 < 2"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("2 < 1"), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn greater_than() {
-    assert_eq!(run("1 > 2"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("2 > 1"), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn less_than_or_equal() {
-    assert_eq!(run("1 <= 2"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("1 <= 1"), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn greater_than_or_equal() {
-    assert_eq!(run("1 >= 2"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("1 >= 1"), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn equal() {
-    assert_eq!(run("1 == 1"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("1 == 2"), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn not_equal() {
-    assert_eq!(run("1 != 1"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("2 != 1"), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn and() {
-    assert_eq!(run("true && true"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("true && false"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("false && true"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("false && false"), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn or() {
-    assert_eq!(run("true || true"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("true || false"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("false || true"), Ok(Some(Value::boolean(true))));
-    assert_eq!(run("false || false"), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn not() {
-    assert_eq!(run("!true"), Ok(Some(Value::boolean(false))));
-    assert_eq!(run("!false"), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn long_math() {
-    assert_eq!(
-        run("1 + 2 * 3 - 4 / 2"),
-        Ok(Some(Value::integer(5).into_reference()))
-    );
-}
-
-#[test]
 fn add() {
+    assert_eq!(
+        parse("1 + 2"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::add(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(0, 0), Span(5, 5))
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+
     assert_eq!(run("1 + 2"), Ok(Some(Value::integer(3))));
 }
 
 #[test]
-fn subtract() {
-    assert_eq!(run("1 - 2"), Ok(Some(Value::integer(-1))));
+fn and() {
+    assert_eq!(
+        parse("true && false"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
+                (Instruction::test(0, false), Span(5, 7)),
+                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+            ],
+            vec![],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("true && false"), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
-fn multiply() {
-    assert_eq!(run("2 * 3"), Ok(Some(Value::integer(6))));
+fn block_scope() {
+    let source = "
+        let a = 0;
+        {
+            let b = 42;
+            {
+                let c = 1;
+            }
+            let d = 2;
+        }
+        let e = 1;
+    ";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(17, 18)),
+                (Instruction::define_local(0, 0, false), Span(13, 14)),
+                (Instruction::load_constant(1, 1, false), Span(50, 52)),
+                (Instruction::define_local(1, 1, false), Span(46, 47)),
+                (Instruction::load_constant(2, 2, false), Span(92, 93)),
+                (Instruction::define_local(2, 2, false), Span(88, 89)),
+                (Instruction::load_constant(3, 3, false), Span(129, 130)),
+                (Instruction::define_local(3, 3, false), Span(125, 126)),
+                (Instruction::load_constant(4, 4, false), Span(158, 159)),
+                (Instruction::define_local(4, 4, false), Span(154, 155)),
+            ],
+            vec![
+                Value::integer(0),
+                Value::integer(42),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(1)
+            ],
+            vec![
+                Local::new(Identifier::new("a"), false, 0, Some(0)),
+                Local::new(Identifier::new("b"), false, 1, Some(1)),
+                Local::new(Identifier::new("c"), false, 2, Some(2)),
+                Local::new(Identifier::new("d"), false, 1, Some(3)),
+                Local::new(Identifier::new("e"), false, 0, Some(4)),
+            ]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(None));
+}
+
+#[test]
+fn constant() {
+    assert_eq!(
+        parse("42"),
+        Ok(Chunk::with_data(
+            vec![(Instruction::load_constant(0, 0, false), Span(0, 2)),],
+            vec![Value::integer(42)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("42"), Ok(Some(Value::integer(42))));
+}
+
+#[test]
+fn define_local() {
+    assert_eq!(
+        parse("let x = 42;"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(8, 10)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+            ],
+            vec![Value::integer(42)],
+            vec![Local::new(Identifier::new("x"), false, 0, Some(0))]
+        )),
+    );
+
+    assert_eq!(run("let x = 42;"), Ok(None));
 }
 
 #[test]
 fn divide() {
-    assert_eq!(run("6 / 3"), Ok(Some(Value::integer(2))));
+    assert_eq!(
+        parse("1.0 / 2.0"),
+        Ok(Chunk::with_data(
+            vec![(
+                *Instruction::divide(0, 0, 1)
+                    .set_b_is_constant()
+                    .set_c_is_constant(),
+                Span(2, 3)
+            ),],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("1 / 2"), Ok(Some(Value::float(0.5))));
+}
+
+#[test]
+fn empty() {
+    assert_eq!(parse(""), Ok(Chunk::with_data(vec![], vec![], vec![])),);
+    assert_eq!(run(""), Ok(None));
+}
+
+#[test]
+fn equal() {
+    let source = "1 == 2";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 4)
+                ),
+                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::load_boolean(0, true, true), Span(2, 4)),
+                (Instruction::load_boolean(0, false, false), Span(2, 4)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn equality_assignment_long() {
+    let source = "let a = if 4 == 4 { true } else { false };";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(13, 15)
+                ),
+                (Instruction::jump(1, true), Span(27, 31)),
+                (Instruction::load_boolean(0, true, false), Span(20, 24)),
+                (Instruction::load_boolean(0, false, false), Span(34, 39)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+            ],
+            vec![Value::integer(4), Value::integer(4)],
+            vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn equality_assignment_short() {
+    let source = "let a = 4 == 4;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(10, 12)
+                ),
+                (Instruction::jump(1, true), Span(10, 12)),
+                (Instruction::load_boolean(0, true, true), Span(10, 12)),
+                (Instruction::load_boolean(0, false, false), Span(10, 12)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+            ],
+            vec![Value::integer(4), Value::integer(4)],
+            vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(None));
+}
+
+#[test]
+fn greater() {
+    let source = "1 > 2;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::less_equal(false, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::jump(1, true), Span(2, 3)),
+                (Instruction::load_boolean(0, true, true), Span(2, 3)),
+                (Instruction::load_boolean(0, false, false), Span(2, 3)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn greater_than_or_equal() {
+    let source = "1 >= 2;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::less(false, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 4)
+                ),
+                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::load_boolean(0, true, true), Span(2, 4)),
+                (Instruction::load_boolean(0, false, false), Span(2, 4)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn if_else_expression() {
+    let source = "if 1 == 1 { 2 } else { 3 }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Span(16, 20)),
+                (Instruction::load_constant(0, 2, true), Span(12, 13)),
+                (Instruction::load_constant(0, 3, false), Span(23, 24)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3)
+            ],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(2))));
+}
+
+#[test]
+fn if_expression() {
+    let source = "if 1 == 1 { 2 }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Span(15, 15)),
+                (Instruction::load_constant(0, 2, false), Span(12, 13)),
+            ],
+            vec![Value::integer(1), Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(2))));
+}
+
+#[test]
+fn less_than() {
+    let source = "1 < 2;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::less(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::jump(1, true), Span(2, 3)),
+                (Instruction::load_boolean(0, true, true), Span(2, 3)),
+                (Instruction::load_boolean(0, false, false), Span(2, 3)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn less_than_or_equal() {
+    let source = "1 <= 2;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::less_equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 4)
+                ),
+                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::load_boolean(0, true, true), Span(2, 4)),
+                (Instruction::load_boolean(0, false, false), Span(2, 4)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn list() {
+    let source = "[1, 2, 3]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
+                (Instruction::load_constant(1, 1, false), Span(4, 5)),
+                (Instruction::load_constant(2, 2, false), Span(7, 8)),
+                (Instruction::load_list(3, 0, 2), Span(0, 9)),
+            ],
+            vec![Value::integer(1), Value::integer(2), Value::integer(3),],
+            vec![]
+        )),
+    );
+
+    assert_eq!(
+        run(source),
+        Ok(Some(Value::list(vec![
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(3)
+        ])))
+    );
+}
+
+#[test]
+fn list_with_complex_expression() {
+    let source = "[1, 2 + 3 - 4 * 5]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
+                (
+                    *Instruction::add(1, 1, 2)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(6, 7)
+                ),
+                (
+                    *Instruction::multiply(2, 3, 4)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(14, 15)
+                ),
+                (Instruction::subtract(3, 1, 2), Span(10, 11)),
+                (Instruction::close(1, 3), Span(17, 18)),
+                (Instruction::load_list(4, 0, 3), Span(0, 18)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(5)
+            ],
+            vec![]
+        )),
+    );
+
+    assert_eq!(
+        run(source),
+        Ok(Some(Value::list(vec![
+            Value::integer(1),
+            Value::integer(1)
+        ])))
+    );
+}
+
+#[test]
+fn list_with_simple_expression() {
+    let source = "[1, 2 + 3, 4]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
+                (
+                    *Instruction::add(1, 1, 2)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(6, 7)
+                ),
+                (Instruction::load_constant(2, 3, false), Span(11, 12)),
+                (Instruction::load_list(3, 0, 2), Span(0, 13)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+            ],
+            vec![]
+        )),
+    );
+
+    assert_eq!(
+        run(source),
+        Ok(Some(Value::list(vec![
+            Value::integer(1),
+            Value::integer(5),
+            Value::integer(4)
+        ])))
+    );
+}
+
+#[test]
+fn math_operator_precedence() {
+    assert_eq!(
+        parse("1 + 2 - 3 * 4 / 5"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::add(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (
+                    *Instruction::multiply(1, 2, 3)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(10, 11)
+                ),
+                (
+                    *Instruction::divide(2, 1, 4).set_c_is_constant(),
+                    Span(14, 15)
+                ),
+                (Instruction::subtract(3, 0, 2), Span(6, 7)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(5),
+            ],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("1 + 2 - 3 * 4 / 5"), Ok(Some(Value::integer(1))));
+}
+
+#[test]
+fn multiply() {
+    assert_eq!(
+        parse("1 * 2"),
+        Ok(Chunk::with_data(
+            vec![(
+                *Instruction::multiply(0, 0, 1)
+                    .set_b_is_constant()
+                    .set_c_is_constant(),
+                Span(2, 3)
+            ),],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("1 * 2"), Ok(Some(Value::integer(2))));
+}
+
+#[test]
+fn negate() {
+    let source = "-(42)";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![(*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),],
+            vec![Value::integer(42)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(-42))));
+}
+
+#[test]
+fn not() {
+    let source = "!true";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_boolean(0, true, false), Span(1, 5)),
+                (Instruction::not(1, 0), Span(0, 1)),
+            ],
+            vec![],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+}
+
+#[test]
+fn not_equal() {
+    let source = "1 != 2;";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::equal(false, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 4)
+                ),
+                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::load_boolean(0, true, true), Span(2, 4)),
+                (Instruction::load_boolean(0, false, false), Span(2, 4)),
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn or() {
+    assert_eq!(
+        parse("true || false"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
+                (Instruction::test(0, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::load_boolean(1, false, false), Span(8, 13)),
+            ],
+            vec![],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("true || false"), Ok(Some(Value::boolean(true))));
+}
+
+#[test]
+fn parentheses_precedence() {
+    assert_eq!(
+        parse("(1 + 2) * 3"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::add(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(3, 4)
+                ),
+                (
+                    *Instruction::multiply(1, 0, 2).set_c_is_constant(),
+                    Span(8, 9)
+                ),
+            ],
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("(1 + 2) * 3"), Ok(Some(Value::integer(9))));
+}
+
+#[test]
+fn set_local() {
+    assert_eq!(
+        parse("let mut x = 41; x = 42;"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(12, 14)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (Instruction::load_constant(1, 1, false), Span(20, 22)),
+                (Instruction::set_local(1, 0), Span(16, 17)),
+            ],
+            vec![Value::integer(41), Value::integer(42)],
+            vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]
+        )),
+    );
+
+    assert_eq!(run("let mut x = 41; x = 42;"), Ok(Some(Value::integer(42))));
+}
+
+#[test]
+fn subtract() {
+    assert_eq!(
+        parse("1 - 2"),
+        Ok(Chunk::with_data(
+            vec![(
+                *Instruction::subtract(0, 0, 1)
+                    .set_b_is_constant()
+                    .set_c_is_constant(),
+                Span(2, 3)
+            ),],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run("1 - 2"), Ok(Some(Value::integer(-1))));
+}
+
+#[test]
+fn variable_and() {
+    assert_eq!(
+        parse("let a = true; let b = false; a && b"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_boolean(0, true, false), Span(8, 12)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::load_boolean(1, false, false), Span(22, 27)),
+                (Instruction::define_local(1, 1, false), Span(18, 19)),
+                (Instruction::get_local(2, 0), Span(29, 30)),
+                (Instruction::test(2, false), Span(31, 33)),
+                (Instruction::jump(1, true), Span(31, 33)),
+                (Instruction::get_local(3, 1), Span(34, 35)),
+            ],
+            vec![],
+            vec![
+                Local::new(Identifier::new("a"), false, 0, Some(0)),
+                Local::new(Identifier::new("b"), false, 0, Some(1)),
+            ]
+        ))
+    );
+
+    assert_eq!(
+        run("let a = true; let b = false; a && b"),
+        Ok(Some(Value::boolean(false)))
+    );
+}
+
+#[test]
+fn r#while() {
+    let source = "let mut x = 0; while x < 5 { x = x + 1 } x";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(0, 1)),
+                (Instruction::define_local(0, 0, true), Span(0, 0)),
+                (
+                    *Instruction::less(false, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(0, 1)
+                ),
+                (Instruction::jump(1, true), Span(0, 1)),
+                (Instruction::load_boolean(1, true, true), Span(0, 1)),
+                (Instruction::load_boolean(1, false, false), Span(0, 1)),
+                (Instruction::add(0, 0, 2), Span(0, 1)),
+                (Instruction::jump(0, false), Span(0, 1)),
+                (Instruction::get_local(3, 0), Span(0, 1)),
+            ],
+            vec![],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(5))));
 }

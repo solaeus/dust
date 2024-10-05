@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
@@ -283,7 +280,7 @@ impl<'src> Parser<'src> {
         _allow_return: bool,
     ) -> Result<(), ParseError> {
         self.allow(TokenKind::LeftParenthesis)?;
-        self.parse_expression()?;
+        self.parse(Precedence::Assignment)?; // Do not allow assignment
         self.expect(TokenKind::RightParenthesis)
     }
 
@@ -296,7 +293,7 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
 
         self.advance()?;
-        self.parse_expression()?;
+        self.parse(Precedence::Assignment)?; // Do not allow assignment
 
         let (previous_instruction, previous_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -597,7 +594,7 @@ impl<'src> Parser<'src> {
                 });
             }
 
-            self.parse_expression()?;
+            self.parse(Precedence::Assignment)?; // Do not allow assignment
 
             let (mut previous_instruction, previous_position) =
                 self.chunk.pop_instruction(self.current_position)?;
@@ -716,7 +713,7 @@ impl<'src> Parser<'src> {
         let length = self.chunk.len();
 
         self.advance()?;
-        self.parse_expression()?;
+        self.parse(Precedence::Assignment)?; // Do not allow assignment
 
         let is_explicit_boolean =
             matches!(self.previous_token, Token::Boolean(_)) && length == self.chunk.len() - 1;
@@ -727,22 +724,6 @@ impl<'src> Parser<'src> {
                 self.current_position,
             );
         }
-
-        if matches!(
-            self.chunk.get_last_n_operations(),
-            [
-                Some(Operation::LoadBoolean),
-                Some(Operation::LoadBoolean),
-                Some(Operation::Jump)
-            ]
-        ) {
-            self.chunk.pop_instruction(self.current_position)?;
-            self.chunk.pop_instruction(self.current_position)?;
-            self.chunk.pop_instruction(self.current_position)?;
-            self.decrement_register()?;
-        }
-
-        let jump_start = self.chunk.len();
 
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(allow_assignment, allow_return)?;
@@ -758,15 +739,6 @@ impl<'src> Parser<'src> {
 
             self.emit_instruction(load_constant, load_constant_position);
         }
-
-        let jump_end = self.chunk.len();
-        let jump_distance = jump_end.saturating_sub(jump_start);
-
-        self.chunk.insert_instruction(
-            jump_start,
-            Instruction::jump(jump_distance as u8, true),
-            self.current_position,
-        );
 
         if self.allow(TokenKind::Else)? {
             if let Token::If = self.current_token {
@@ -790,10 +762,10 @@ impl<'src> Parser<'src> {
 
         let jump_start = self.chunk.len();
 
-        self.parse_expression()?;
+        self.parse(Precedence::Assignment)?; // Do not allow assignment
         self.parse_block(allow_assignment, allow_return)?;
 
-        let jump_end = self.chunk.len() - 1;
+        let jump_end = self.chunk.len();
         let jump_distance = jump_end.saturating_sub(jump_start) as u8;
         let jump_back = Instruction::jump(jump_distance, false);
         let jump_over_index = self.chunk.find_last_instruction(Operation::Jump);
@@ -851,7 +823,14 @@ impl<'src> Parser<'src> {
             }
         };
 
-        self.allow(TokenKind::Semicolon)?;
+        if !self.allow(TokenKind::Semicolon)? && self.is_eof() {
+            let register = self.current_register.saturating_sub(1);
+
+            self.emit_instruction(
+                Instruction::r#return(register, register),
+                self.current_position,
+            );
+        }
 
         Ok(())
     }
@@ -893,25 +872,6 @@ impl<'src> Parser<'src> {
         let local_index =
             self.chunk
                 .declare_local(identifier, is_mutable, register, *previous_position)?;
-
-        // Optimize for assignment to a comparison
-        // if let Operation::Jump = previous_instruction.operation() {
-        //     let (jump, jump_position) = self.chunk.pop_instruction(self.current_position)?;
-
-        //     if let Some(Operation::Equal) = self.chunk.get_last_operation() {
-        //         self.emit_instruction(jump, jump_position);
-        //         self.emit_instruction(
-        //             Instruction::load_boolean(self.current_register, true, true),
-        //             self.current_position,
-        //         );
-        //         self.emit_instruction(
-        //             Instruction::load_boolean(self.current_register, false, false),
-        //             self.current_position,
-        //         );
-        //     } else {
-        //         self.emit_instruction(jump, jump_position);
-        //     }
-        // }
 
         self.emit_instruction(
             Instruction::define_local(register, local_index, is_mutable),
