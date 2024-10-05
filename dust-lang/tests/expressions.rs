@@ -1,9 +1,10 @@
 use dust_lang::*;
-
 #[test]
 fn add() {
+    let source = "1 + 2";
+
     assert_eq!(
-        parse("1 + 2"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (
@@ -19,13 +20,15 @@ fn add() {
         ))
     );
 
-    assert_eq!(run("1 + 2"), Ok(Some(Value::integer(3))));
+    assert_eq!(run(source), Ok(Some(Value::integer(3))));
 }
 
 #[test]
 fn and() {
+    let source = "true && false";
+
     assert_eq!(
-        parse("true && false"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
@@ -39,7 +42,7 @@ fn and() {
         ))
     );
 
-    assert_eq!(run("true && false"), Ok(Some(Value::boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
@@ -93,8 +96,9 @@ fn block_scope() {
 
 #[test]
 fn constant() {
+    let source = "42";
     assert_eq!(
-        parse("42"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 2)),
@@ -105,13 +109,14 @@ fn constant() {
         ))
     );
 
-    assert_eq!(run("42"), Ok(Some(Value::integer(42))));
+    assert_eq!(run(source), Ok(Some(Value::integer(42))));
 }
 
 #[test]
 fn define_local() {
+    let source = "let x = 42;";
     assert_eq!(
-        parse("let x = 42;"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0, false), Span(8, 10)),
@@ -122,13 +127,14 @@ fn define_local() {
         )),
     );
 
-    assert_eq!(run("let x = 42;"), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
 fn divide() {
+    let source = "2 / 2";
     assert_eq!(
-        parse("2 / 2"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (
@@ -144,13 +150,14 @@ fn divide() {
         ))
     );
 
-    assert_eq!(run("2 / 2"), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(Value::integer(1))));
 }
 
 #[test]
 fn empty() {
-    assert_eq!(parse(""), Ok(Chunk::with_data(vec![], vec![], vec![])),);
-    assert_eq!(run(""), Ok(None));
+    let source = "";
+    assert_eq!(parse(source), Ok(Chunk::with_data(vec![], vec![], vec![])),);
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -506,8 +513,9 @@ fn list_with_simple_expression() {
 
 #[test]
 fn math_operator_precedence() {
+    let source = "1 + 2 - 3 * 4 / 5";
     assert_eq!(
-        parse("1 + 2 - 3 * 4 / 5"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (
@@ -539,13 +547,14 @@ fn math_operator_precedence() {
         ))
     );
 
-    assert_eq!(run("1 + 2 - 3 * 4 / 5"), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(Value::integer(1))));
 }
 
 #[test]
 fn multiply() {
+    let source = "1 * 2";
     assert_eq!(
-        parse("1 * 2"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![(
                 *Instruction::multiply(0, 0, 1)
@@ -558,7 +567,7 @@ fn multiply() {
         ))
     );
 
-    assert_eq!(run("1 * 2"), Ok(Some(Value::integer(2))));
+    assert_eq!(run(source), Ok(Some(Value::integer(2))));
 }
 
 #[test]
@@ -624,8 +633,9 @@ fn not_equal() {
 
 #[test]
 fn or() {
+    let source = "true || false";
     assert_eq!(
-        parse("true || false"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
@@ -638,13 +648,14 @@ fn or() {
         ))
     );
 
-    assert_eq!(run("true || false"), Ok(Some(Value::boolean(true))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
 }
 
 #[test]
 fn parentheses_precedence() {
+    let source = "(1 + 2) * 3";
     assert_eq!(
-        parse("(1 + 2) * 3"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (
@@ -663,13 +674,14 @@ fn parentheses_precedence() {
         ))
     );
 
-    assert_eq!(run("(1 + 2) * 3"), Ok(Some(Value::integer(9))));
+    assert_eq!(run(source), Ok(Some(Value::integer(9))));
 }
 
 #[test]
 fn set_local() {
+    let source = "let mut x = 41; x = 42;";
     assert_eq!(
-        parse("let mut x = 41; x = 42;"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
@@ -682,13 +694,14 @@ fn set_local() {
         )),
     );
 
-    assert_eq!(run("let mut x = 41; x = 42;"), Ok(Some(Value::integer(42))));
+    assert_eq!(run(source), Ok(Some(Value::integer(42))));
 }
 
 #[test]
 fn subtract() {
+    let source = "1 - 2";
     assert_eq!(
-        parse("1 - 2"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![(
                 *Instruction::subtract(0, 0, 1)
@@ -701,13 +714,14 @@ fn subtract() {
         ))
     );
 
-    assert_eq!(run("1 - 2"), Ok(Some(Value::integer(-1))));
+    assert_eq!(run(source), Ok(Some(Value::integer(-1))));
 }
 
 #[test]
 fn variable_and() {
+    let source = "let a = true; let b = false; a && b";
     assert_eq!(
-        parse("let a = true; let b = false; a && b"),
+        parse(source),
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_boolean(0, true, false), Span(8, 12)),
@@ -727,10 +741,7 @@ fn variable_and() {
         ))
     );
 
-    assert_eq!(
-        run("let a = true; let b = false; a && b"),
-        Ok(Some(Value::boolean(false)))
-    );
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
