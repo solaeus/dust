@@ -364,13 +364,11 @@ impl Vm {
                     self.ip = new_ip;
                 }
                 Operation::Return => {
-                    let start_register = instruction.a();
-                    let end_register = instruction.b();
-                    let return_value_count = (end_register - start_register).max(1);
-
-                    if return_value_count == 1 {
-                        return Ok(Some(self.take(start_register, position)?));
-                    }
+                    return if let Some(Some(value)) = self.register_stack.pop() {
+                        Ok(Some(value))
+                    } else {
+                        Ok(None)
+                    };
                 }
             }
         }

@@ -814,23 +814,25 @@ impl<'src> Parser<'src> {
         match self.current_token {
             Token::Let => {
                 self.parse_let_statement(true, allow_return)?;
+                self.allow(TokenKind::Semicolon)?;
             }
             Token::LeftCurlyBrace => {
                 self.parse_block(true, true)?;
+                self.allow(TokenKind::Semicolon)?;
             }
             _ => {
                 self.parse_expression()?;
+
+                if !self.allow(TokenKind::Semicolon)? && self.is_eof() {
+                    let register = self.current_register.saturating_sub(1);
+
+                    self.emit_instruction(
+                        Instruction::r#return(register, register),
+                        self.current_position,
+                    );
+                }
             }
         };
-
-        if !self.allow(TokenKind::Semicolon)? && self.is_eof() {
-            let register = self.current_register.saturating_sub(1);
-
-            self.emit_instruction(
-                Instruction::r#return(register, register),
-                self.current_position,
-            );
-        }
 
         Ok(())
     }

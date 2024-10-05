@@ -32,6 +32,7 @@ fn and() {
                 (Instruction::test(0, false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::r#return(0, 0), Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -95,7 +96,10 @@ fn constant() {
     assert_eq!(
         parse("42"),
         Ok(Chunk::with_data(
-            vec![(Instruction::load_constant(0, 0, false), Span(0, 2)),],
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(0, 2)),
+                (Instruction::r#return(0, 0), Span(2, 2))
+            ],
             vec![Value::integer(42)],
             vec![]
         ))
@@ -124,20 +128,23 @@ fn define_local() {
 #[test]
 fn divide() {
     assert_eq!(
-        parse("1.0 / 2.0"),
+        parse("2 / 2"),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::divide(0, 0, 1)
-                    .set_b_is_constant()
-                    .set_c_is_constant(),
-                Span(2, 3)
-            ),],
-            vec![Value::integer(1), Value::integer(2)],
+            vec![
+                (
+                    *Instruction::divide(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(0, 0), Span(5, 5))
+            ],
+            vec![Value::integer(2), Value::integer(2)],
             vec![]
         ))
     );
 
-    assert_eq!(run("1 / 2"), Ok(Some(Value::float(0.5))));
+    assert_eq!(run("2 / 2"), Ok(Some(Value::integer(1))));
 }
 
 #[test]
