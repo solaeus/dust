@@ -159,9 +159,15 @@ impl<'src> Lexer<'src> {
                     }
                 }
                 '*' => {
-                    self.position += 1;
+                    if let Some('=') = self.peek_second_char() {
+                        self.position += 2;
 
-                    (Token::Star, Span(self.position - 1, self.position))
+                        (Token::StarEqual, Span(self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Star, Span(self.position - 1, self.position))
+                    }
                 }
                 '(' => {
                     self.position += 1;
@@ -261,9 +267,15 @@ impl<'src> Lexer<'src> {
                     )
                 }
                 '/' => {
-                    self.position += 1;
+                    if let Some('=') = self.peek_second_char() {
+                        self.position += 2;
 
-                    (Token::Slash, Span(self.position - 1, self.position))
+                        (Token::SlashEqual, Span(self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Slash, Span(self.position - 1, self.position))
+                    }
                 }
                 '%' => {
                     self.position += 1;

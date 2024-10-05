@@ -60,7 +60,9 @@ pub enum Token<'src> {
     RightSquareBrace,
     Semicolon,
     Slash,
+    SlashEqual,
     Star,
+    StarEqual,
 }
 
 impl<'src> Token<'src> {
@@ -116,7 +118,9 @@ impl<'src> Token<'src> {
             Token::RightSquareBrace => 1,
             Token::Semicolon => 1,
             Token::Slash => 1,
+            Token::SlashEqual => 2,
             Token::Star => 1,
+            Token::StarEqual => 2,
         }
     }
 
@@ -167,7 +171,9 @@ impl<'src> Token<'src> {
             Token::RightSquareBrace => TokenOwned::RightSquareBrace,
             Token::Semicolon => TokenOwned::Semicolon,
             Token::Star => TokenOwned::Star,
+            Token::StarEqual => TokenOwned::StarEqual,
             Token::Slash => TokenOwned::Slash,
+            Token::SlashEqual => TokenOwned::SlashEqual,
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
@@ -222,7 +228,9 @@ impl<'src> Token<'src> {
             Token::RightSquareBrace => TokenKind::RightSquareBrace,
             Token::Semicolon => TokenKind::Semicolon,
             Token::Star => TokenKind::Star,
+            Token::StarEqual => TokenKind::StarEqual,
             Token::Slash => TokenKind::Slash,
+            Token::SlashEqual => TokenKind::SlashEqual,
             Token::Str => TokenKind::Str,
             Token::String(_) => TokenKind::String,
             Token::Struct => TokenKind::Struct,
@@ -279,7 +287,9 @@ impl<'src> Display for Token<'src> {
             Token::RightSquareBrace => write!(f, "]"),
             Token::Semicolon => write!(f, ";"),
             Token::Slash => write!(f, "/"),
+            Token::SlashEqual => write!(f, "/="),
             Token::Star => write!(f, "*"),
+            Token::StarEqual => write!(f, "*="),
             Token::Str => write!(f, "str"),
             Token::String(value) => write!(f, "{value}"),
             Token::Struct => write!(f, "struct"),
@@ -348,8 +358,10 @@ pub enum TokenOwned {
     RightSquareBrace,
     Semicolon,
     Star,
+    StarEqual,
     Struct,
     Slash,
+    SlashEqual,
 }
 
 impl Display for TokenOwned {
@@ -400,7 +412,9 @@ impl Display for TokenOwned {
             TokenOwned::RightSquareBrace => Token::RightSquareBrace.fmt(f),
             TokenOwned::Semicolon => Token::Semicolon.fmt(f),
             TokenOwned::Star => Token::Star.fmt(f),
+            TokenOwned::StarEqual => Token::StarEqual.fmt(f),
             TokenOwned::Slash => Token::Slash.fmt(f),
+            TokenOwned::SlashEqual => Token::SlashEqual.fmt(f),
             TokenOwned::Str => Token::Str.fmt(f),
             TokenOwned::String(string) => Token::String(string).fmt(f),
             TokenOwned::Struct => Token::Struct.fmt(f),
@@ -467,8 +481,10 @@ pub enum TokenKind {
     RightSquareBrace,
     Semicolon,
     Star,
+    StarEqual,
     Struct,
     Slash,
+    SlashEqual,
 }
 
 impl Display for TokenKind {
@@ -519,8 +535,10 @@ impl Display for TokenKind {
             TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),
             TokenKind::Semicolon => Token::Semicolon.fmt(f),
             TokenKind::Star => Token::Star.fmt(f),
+            TokenKind::StarEqual => Token::StarEqual.fmt(f),
             TokenKind::Str => Token::Str.fmt(f),
             TokenKind::Slash => Token::Slash.fmt(f),
+            TokenKind::SlashEqual => Token::SlashEqual.fmt(f),
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
             TokenKind::While => Token::While.fmt(f),

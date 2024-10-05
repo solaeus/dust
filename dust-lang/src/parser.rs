@@ -348,12 +348,12 @@ impl<'src> Parser<'src> {
     ) -> Result<(bool, bool, bool, u8), ParseError> {
         let mut push_back = false;
         let mut is_constant = false;
-        let mut is_local = false;
+        let mut is_mutable_local = false;
         let argument = match instruction.operation() {
             Operation::GetLocal => {
-                is_local = true;
                 let local_index = instruction.b();
                 let local = self.chunk.get_local(local_index, self.current_position)?;
+                is_mutable_local = local.is_mutable;
 
                 if let Some(index) = local.register_index {
                     index
@@ -380,24 +380,44 @@ impl<'src> Parser<'src> {
             }
         };
 
-        Ok((push_back, is_constant, is_local, argument))
+        Ok((push_back, is_constant, is_mutable_local, argument))
     }
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_left, left_is_constant, left_is_local, left) =
+        let (push_back_left, left_is_constant, left_is_mutable_local, left) =
             self.handle_binary_argument(&left_instruction)?;
 
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator.kind());
 
+        if let TokenKind::PlusEqual
+        | TokenKind::MinusEqual
+        | TokenKind::StarEqual
+        | TokenKind::SlashEqual = operator.kind()
+        {
+            if !left_is_mutable_local {
+                return Err(ParseError::ExpectedMutableVariable {
+                    found: self.previous_token.to_owned(),
+                    position: left_position,
+                });
+            }
+        }
+
         self.advance()?;
         self.parse(rule.precedence.increment())?;
 
-        let register = if left_is_local {
+        let (right_instruction, right_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let (push_back_right, right_is_constant, right_is_mutable_local, right) =
+            self.handle_binary_argument(&right_instruction)?;
+
+        let register = if left_is_mutable_local {
             left
+        } else if right_is_mutable_local {
+            right
         } else {
             let current = self.current_register;
 
@@ -406,18 +426,26 @@ impl<'src> Parser<'src> {
             current
         };
         let mut new_instruction = match operator.kind() {
-            TokenKind::Plus => Instruction::add(register, left, 0),
-            TokenKind::Minus => Instruction::subtract(register, left, 0),
-            TokenKind::Star => Instruction::multiply(register, left, 0),
-            TokenKind::Slash => Instruction::divide(register, left, 0),
-            TokenKind::Percent => Instruction::modulo(register, left, 0),
+            TokenKind::Plus => Instruction::add(register, left, right),
+            TokenKind::PlusEqual => Instruction::add(register, left, right),
+            TokenKind::Minus => Instruction::subtract(register, left, right),
+            TokenKind::MinusEqual => Instruction::subtract(register, left, right),
+            TokenKind::Star => Instruction::multiply(register, left, right),
+            TokenKind::StarEqual => Instruction::multiply(register, left, right),
+            TokenKind::Slash => Instruction::divide(register, left, right),
+            TokenKind::SlashEqual => Instruction::divide(register, left, right),
+            TokenKind::Percent => Instruction::modulo(register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
                         TokenKind::Plus,
+                        TokenKind::PlusEqual,
                         TokenKind::Minus,
+                        TokenKind::MinusEqual,
                         TokenKind::Star,
+                        TokenKind::StarEqual,
                         TokenKind::Slash,
+                        TokenKind::SlashEqual,
                         TokenKind::Percent,
                     ],
                     found: operator.to_owned(),
@@ -425,13 +453,6 @@ impl<'src> Parser<'src> {
                 })
             }
         };
-
-        let (right_instruction, right_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-        let (push_back_right, right_is_constant, right_is_local, right) =
-            self.handle_binary_argument(&right_instruction)?;
-
-        new_instruction.set_c(right);
 
         if left_is_constant {
             new_instruction.set_b_is_constant();
@@ -1122,7 +1143,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
-            TokenKind::MinusEqual => todo!(),
+            TokenKind::MinusEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_math_binary),
+                precedence: Precedence::Assignment,
+            },
             TokenKind::Mut => ParseRule {
                 prefix: None,
                 infix: None,
@@ -1138,7 +1163,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
-            TokenKind::PlusEqual => todo!(),
+            TokenKind::PlusEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_math_binary),
+                precedence: Precedence::Assignment,
+            },
             TokenKind::RightCurlyBrace => ParseRule {
                 prefix: None,
                 infix: None,
@@ -1164,10 +1193,20 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
+            TokenKind::SlashEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_math_binary),
+                precedence: Precedence::Assignment,
+            },
             TokenKind::Star => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
+            },
+            TokenKind::StarEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_math_binary),
+                precedence: Precedence::Assignment,
             },
             TokenKind::Str => todo!(),
             TokenKind::String => ParseRule {
@@ -1202,6 +1241,10 @@ pub enum ParseError {
     },
     ExpectedTokenMultiple {
         expected: &'static [TokenKind],
+        found: TokenOwned,
+        position: Span,
+    },
+    ExpectedMutableVariable {
         found: TokenOwned,
         position: Span,
     },
@@ -1250,6 +1293,7 @@ impl AnnotatedError for ParseError {
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
+            Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::UndefinedVariable { .. } => "Undefined variable",
             Self::RegisterOverflow { .. } => "Register overflow",
@@ -1291,6 +1335,9 @@ impl AnnotatedError for ParseError {
 
                 Some(details)
             }
+            Self::ExpectedMutableVariable { found, .. } => {
+                Some(format!("Expected mutable variable, found \"{found}\""))
+            }
             Self::InvalidAssignmentTarget { found, .. } => {
                 Some(format!("Invalid assignment target, found \"{found}\""))
             }
@@ -1312,6 +1359,7 @@ impl AnnotatedError for ParseError {
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
+            Self::ExpectedMutableVariable { position, .. } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::RegisterOverflow { position } => *position,

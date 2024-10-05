@@ -1,4 +1,5 @@
 use dust_lang::*;
+
 #[test]
 fn add() {
     let source = "1 + 2";
@@ -17,6 +18,28 @@ fn add() {
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(3))));
+}
+
+#[test]
+fn add_assign() {
+    let source = "let mut a = 1; a += 2; a";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (*Instruction::add(0, 0, 1).set_c_is_constant(), Span(17, 19)),
+                (Instruction::get_local(1, 0), Span(23, 24)),
+                (Instruction::r#return(), Span(24, 24))
+            ],
+            vec![Value::integer(1), Value::integer(2)],
+            vec![Local::new(Identifier::new("a"), true, 0, Some(0))]
         ))
     );
 
@@ -97,6 +120,7 @@ fn block_scope() {
 #[test]
 fn constant() {
     let source = "42";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -115,6 +139,7 @@ fn constant() {
 #[test]
 fn define_local() {
     let source = "let x = 42;";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -133,6 +158,7 @@ fn define_local() {
 #[test]
 fn divide() {
     let source = "2 / 2";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -154,8 +180,34 @@ fn divide() {
 }
 
 #[test]
+fn divide_assign() {
+    let source = "let mut a = 2; a /= 2; a";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (
+                    *Instruction::divide(0, 0, 1).set_c_is_constant(),
+                    Span(17, 19)
+                ),
+                (Instruction::get_local(1, 0), Span(23, 24)),
+                (Instruction::r#return(), Span(24, 24))
+            ],
+            vec![Value::integer(2), Value::integer(2)],
+            vec![Local::new(Identifier::new("a"), true, 0, Some(0))]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(1))));
+}
+
+#[test]
 fn empty() {
     let source = "";
+
     assert_eq!(parse(source), Ok(Chunk::with_data(vec![], vec![], vec![])),);
     assert_eq!(run(source), Ok(None));
 }
@@ -554,6 +606,7 @@ fn list_with_simple_expression() {
 #[test]
 fn math_operator_precedence() {
     let source = "1 + 2 - 3 * 4 / 5";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -594,6 +647,7 @@ fn math_operator_precedence() {
 #[test]
 fn multiply() {
     let source = "1 * 2";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -612,6 +666,31 @@ fn multiply() {
     );
 
     assert_eq!(run(source), Ok(Some(Value::integer(2))));
+}
+
+#[test]
+fn multiply_assign() {
+    let source = "let mut a = 2; a *= 3 a";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (
+                    *Instruction::multiply(0, 0, 1).set_c_is_constant(),
+                    Span(17, 19)
+                ),
+                (Instruction::get_local(1, 0), Span(22, 23)),
+                (Instruction::r#return(), Span(23, 23))
+            ],
+            vec![Value::integer(2), Value::integer(3)],
+            vec![Local::new(Identifier::new("a"), true, 0, Some(0)),]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(6))));
 }
 
 #[test]
@@ -683,6 +762,7 @@ fn not_equal() {
 #[test]
 fn or() {
     let source = "true || false";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -704,6 +784,7 @@ fn or() {
 #[test]
 fn parentheses_precedence() {
     let source = "(1 + 2) * 3";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -731,6 +812,7 @@ fn parentheses_precedence() {
 #[test]
 fn set_local() {
     let source = "let mut x = 41; x = 42; x";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -753,6 +835,7 @@ fn set_local() {
 #[test]
 fn subtract() {
     let source = "1 - 2";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -774,8 +857,34 @@ fn subtract() {
 }
 
 #[test]
+fn subtract_assign() {
+    let source = "let mut x = 42; x -= 2; x";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(12, 14)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (
+                    *Instruction::subtract(0, 0, 1).set_c_is_constant(),
+                    Span(18, 20)
+                ),
+                (Instruction::get_local(1, 0), Span(24, 25)),
+                (Instruction::r#return(), Span(25, 25)),
+            ],
+            vec![Value::integer(42), Value::integer(2)],
+            vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(40))));
+}
+
+#[test]
 fn variable_and() {
     let source = "let a = true; let b = false; a && b";
+
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
