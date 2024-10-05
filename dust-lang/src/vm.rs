@@ -146,14 +146,13 @@ impl Vm {
                     let register_index = instruction.a();
                     let local_index = instruction.b();
                     let local = self.chunk.get_local(local_index, position)?;
-                    let value = if let Some(index) = local.register_index {
-                        self.take(index, position)?
-                    } else {
-                        return Err(VmError::UndefinedVariable {
+
+                    if !local.is_mutable {
+                        return Err(VmError::CannotMutateImmutableLocal {
                             identifier: local.identifier.clone(),
                             position,
                         });
-                    };
+                    }
 
                     let new_value = if instruction.b_is_constant() {
                         self.chunk.take_constant(register_index, position)?
@@ -161,10 +160,9 @@ impl Vm {
                         self.take(register_index, position)?
                     };
 
-                    value
-                        .mutate(new_value)
-                        .map_err(|error| VmError::Value { error, position })?;
-                    self.insert(value, register_index, position)?;
+                    self.insert(new_value, register_index, position)?;
+                    self.chunk
+                        .define_local(local_index, register_index, position)?;
                 }
                 Operation::Add => {
                     let (left, right) = get_arguments(self, instruction, position)?;
@@ -469,7 +467,7 @@ impl Vm {
                 position,
             });
         };
-        let clone_result = if local.mutable {
+        let clone_result = if local.is_mutable {
             self._clone_mutable(index, position)
         } else {
             self.clone(index, position)
@@ -508,6 +506,10 @@ impl Vm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
+    CannotMutateImmutableLocal {
+        identifier: Identifier,
+        position: Span,
+    },
     EmptyRegister {
         index: usize,
         position: Span,
@@ -555,6 +557,7 @@ impl AnnotatedError for VmError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::CannotMutateImmutableLocal { .. } => "Cannot mutate immutable variable",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
@@ -581,6 +584,7 @@ impl AnnotatedError for VmError {
 
     fn position(&self) -> Span {
         match self {
+            Self::CannotMutateImmutableLocal { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position } => *position,

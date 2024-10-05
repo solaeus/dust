@@ -206,13 +206,8 @@ impl Instruction {
         instruction
     }
 
-    pub fn r#return(from_register: u8, to_register: u8) -> Instruction {
-        let mut instruction = Instruction(Operation::Return as u32);
-
-        instruction.set_a(from_register);
-        instruction.set_b(to_register);
-
-        instruction
+    pub fn r#return() -> Instruction {
+        Instruction(Operation::Return as u32)
     }
 
     pub fn operation(&self) -> Operation {
@@ -350,7 +345,14 @@ impl Instruction {
             Operation::LoadConstant => {
                 let register_index = self.a();
                 let constant_index = self.b();
-                let jump = if self.c_as_boolean() { "&& JUMP" } else { "" };
+                let jump = if self.c_as_boolean() {
+                    jump_offset = Some(1);
+
+                    "&& JUMP"
+                } else {
+                    ""
+                };
+
                 let constant = if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
                         Ok(constant) => constant.to_string(),
@@ -531,12 +533,7 @@ impl Instruction {
 
                 None
             }
-            Operation::Return => {
-                let from_register = self.a();
-                let to_register = self.b();
-
-                Some(format!("R{from_register}..=R{to_register}"))
-            }
+            Operation::Return => None,
         };
 
         (info, jump_offset)
@@ -745,10 +742,8 @@ mod tests {
 
     #[test]
     fn r#return() {
-        let instruction = Instruction::r#return(4, 8);
+        let instruction = Instruction::r#return();
 
         assert_eq!(instruction.operation(), Operation::Return);
-        assert_eq!(instruction.a(), 4);
-        assert_eq!(instruction.b(), 8);
     }
 }

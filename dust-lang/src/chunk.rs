@@ -308,7 +308,7 @@ impl PartialEq for Chunk {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Local {
     pub identifier: Identifier,
-    pub mutable: bool,
+    pub is_mutable: bool,
     pub depth: usize,
     pub register_index: Option<u8>,
 }
@@ -322,7 +322,7 @@ impl Local {
     ) -> Self {
         Self {
             identifier,
-            mutable,
+            is_mutable: mutable,
             depth,
             register_index,
         }
@@ -481,7 +481,7 @@ impl<'a> ChunkDisassembler<'a> {
                 identifier,
                 depth,
                 register_index,
-                mutable,
+                is_mutable: mutable,
             },
         ) in self.chunk.locals.iter().enumerate()
         {

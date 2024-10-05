@@ -13,7 +13,7 @@ fn add() {
                         .set_c_is_constant(),
                     Span(2, 3)
                 ),
-                (Instruction::r#return(0, 0), Span(5, 5))
+                (Instruction::r#return(), Span(5, 5))
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -35,7 +35,7 @@ fn and() {
                 (Instruction::test(0, false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(0, 0), Span(13, 13)),
+                (Instruction::r#return(), Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -102,7 +102,7 @@ fn constant() {
         Ok(Chunk::with_data(
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 2)),
-                (Instruction::r#return(0, 0), Span(2, 2))
+                (Instruction::r#return(), Span(2, 2))
             ],
             vec![Value::integer(42)],
             vec![]
@@ -143,7 +143,7 @@ fn divide() {
                         .set_c_is_constant(),
                     Span(2, 3)
                 ),
-                (Instruction::r#return(0, 0), Span(5, 5))
+                (Instruction::r#return(), Span(5, 5))
             ],
             vec![Value::integer(2), Value::integer(2)],
             vec![]
@@ -177,6 +177,7 @@ fn equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::r#return(), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -188,7 +189,7 @@ fn equal() {
 
 #[test]
 fn equality_assignment_long() {
-    let source = "let a = if 4 == 4 { true } else { false };";
+    let source = "let a = if 4 == 4 { true } else { false }; a";
 
     assert_eq!(
         parse(source),
@@ -200,10 +201,12 @@ fn equality_assignment_long() {
                         .set_c_is_constant(),
                     Span(13, 15)
                 ),
-                (Instruction::jump(1, true), Span(27, 31)),
-                (Instruction::load_boolean(0, true, false), Span(20, 24)),
+                (Instruction::jump(1, true), Span(13, 15)),
+                (Instruction::load_boolean(0, true, true), Span(20, 24)),
                 (Instruction::load_boolean(0, false, false), Span(34, 39)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::get_local(1, 0), Span(43, 44)),
+                (Instruction::r#return(), Span(44, 44)),
             ],
             vec![Value::integer(4), Value::integer(4)],
             vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
@@ -215,7 +218,7 @@ fn equality_assignment_long() {
 
 #[test]
 fn equality_assignment_short() {
-    let source = "let a = 4 == 4;";
+    let source = "let a = 4 == 4; a";
 
     assert_eq!(
         parse(source),
@@ -231,18 +234,20 @@ fn equality_assignment_short() {
                 (Instruction::load_boolean(0, true, true), Span(10, 12)),
                 (Instruction::load_boolean(0, false, false), Span(10, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::get_local(1, 0), Span(16, 17)),
+                (Instruction::r#return(), Span(17, 17)),
             ],
             vec![Value::integer(4), Value::integer(4)],
             vec![Local::new(Identifier::new("a"), false, 0, Some(0))]
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
 }
 
 #[test]
 fn greater() {
-    let source = "1 > 2;";
+    let source = "1 > 2";
 
     assert_eq!(
         parse(source),
@@ -257,6 +262,7 @@ fn greater() {
                 (Instruction::jump(1, true), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
+                (Instruction::r#return(), Span(5, 5)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -268,7 +274,7 @@ fn greater() {
 
 #[test]
 fn greater_than_or_equal() {
-    let source = "1 >= 2;";
+    let source = "1 >= 2";
 
     assert_eq!(
         parse(source),
@@ -283,6 +289,7 @@ fn greater_than_or_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::r#return(), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -306,9 +313,10 @@ fn if_else_expression() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(16, 20)),
+                (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2, true), Span(12, 13)),
                 (Instruction::load_constant(0, 3, false), Span(23, 24)),
+                (Instruction::r#return(), Span(26, 26)),
             ],
             vec![
                 Value::integer(1),
@@ -337,8 +345,9 @@ fn if_expression() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(15, 15)),
+                (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::r#return(), Span(15, 15)),
             ],
             vec![Value::integer(1), Value::integer(1), Value::integer(2)],
             vec![]
@@ -350,7 +359,7 @@ fn if_expression() {
 
 #[test]
 fn less_than() {
-    let source = "1 < 2;";
+    let source = "1 < 2";
 
     assert_eq!(
         parse(source),
@@ -365,6 +374,7 @@ fn less_than() {
                 (Instruction::jump(1, true), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
+                (Instruction::r#return(), Span(5, 5)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -376,7 +386,7 @@ fn less_than() {
 
 #[test]
 fn less_than_or_equal() {
-    let source = "1 <= 2;";
+    let source = "1 <= 2";
 
     assert_eq!(
         parse(source),
@@ -391,6 +401,7 @@ fn less_than_or_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::r#return(), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -412,6 +423,7 @@ fn list() {
                 (Instruction::load_constant(1, 1, false), Span(4, 5)),
                 (Instruction::load_constant(2, 2, false), Span(7, 8)),
                 (Instruction::load_list(3, 0, 2), Span(0, 9)),
+                (Instruction::r#return(), Span(9, 9)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3),],
             vec![]
@@ -452,6 +464,7 @@ fn list_with_complex_expression() {
                 (Instruction::subtract(3, 1, 2), Span(10, 11)),
                 (Instruction::close(1, 3), Span(17, 18)),
                 (Instruction::load_list(4, 0, 3), Span(0, 18)),
+                (Instruction::r#return(), Span(18, 18)),
             ],
             vec![
                 Value::integer(1),
@@ -468,7 +481,7 @@ fn list_with_complex_expression() {
         run(source),
         Ok(Some(Value::list(vec![
             Value::integer(1),
-            Value::integer(1)
+            Value::integer(-15)
         ])))
     );
 }
@@ -490,6 +503,7 @@ fn list_with_simple_expression() {
                 ),
                 (Instruction::load_constant(2, 3, false), Span(11, 12)),
                 (Instruction::load_list(3, 0, 2), Span(0, 13)),
+                (Instruction::r#return(), Span(13, 13)),
             ],
             vec![
                 Value::integer(1),
@@ -535,6 +549,7 @@ fn math_operator_precedence() {
                     Span(14, 15)
                 ),
                 (Instruction::subtract(3, 0, 2), Span(6, 7)),
+                (Instruction::r#return(), Span(17, 17)),
             ],
             vec![
                 Value::integer(1),
@@ -556,12 +571,15 @@ fn multiply() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
-            vec![(
-                *Instruction::multiply(0, 0, 1)
-                    .set_b_is_constant()
-                    .set_c_is_constant(),
-                Span(2, 3)
-            ),],
+            vec![
+                (
+                    *Instruction::multiply(0, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(2, 3)
+                ),
+                (Instruction::r#return(), Span(5, 5)),
+            ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
         ))
@@ -577,7 +595,10 @@ fn negate() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
-            vec![(*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),],
+            vec![
+                (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
+                (Instruction::r#return(), Span(5, 5)),
+            ],
             vec![Value::integer(42)],
             vec![]
         )),
@@ -596,6 +617,7 @@ fn not() {
             vec![
                 (Instruction::load_boolean(0, true, false), Span(1, 5)),
                 (Instruction::not(1, 0), Span(0, 1)),
+                (Instruction::r#return(), Span(5, 5)),
             ],
             vec![],
             vec![]
@@ -607,7 +629,7 @@ fn not() {
 
 #[test]
 fn not_equal() {
-    let source = "1 != 2;";
+    let source = "1 != 2";
 
     assert_eq!(
         parse(source),
@@ -622,6 +644,7 @@ fn not_equal() {
                 (Instruction::jump(1, true), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
+                (Instruction::r#return(), Span(6, 6)),
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -642,6 +665,7 @@ fn or() {
                 (Instruction::test(0, true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
+                (Instruction::r#return(), Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -668,6 +692,7 @@ fn parentheses_precedence() {
                     *Instruction::multiply(1, 0, 2).set_c_is_constant(),
                     Span(8, 9)
                 ),
+                (Instruction::r#return(), Span(11, 11)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(3)],
             vec![]
@@ -679,7 +704,7 @@ fn parentheses_precedence() {
 
 #[test]
 fn set_local() {
-    let source = "let mut x = 41; x = 42;";
+    let source = "let mut x = 41; x = 42; x";
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
@@ -688,6 +713,8 @@ fn set_local() {
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (Instruction::load_constant(1, 1, false), Span(20, 22)),
                 (Instruction::set_local(1, 0), Span(16, 17)),
+                (Instruction::get_local(1, 0), Span(24, 25)),
+                (Instruction::r#return(), Span(25, 25)),
             ],
             vec![Value::integer(41), Value::integer(42)],
             vec![Local::new(Identifier::new("x"), true, 0, Some(0)),]

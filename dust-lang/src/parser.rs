@@ -585,7 +585,10 @@ impl<'src> Parser<'src> {
         let local_index = self.parse_identifier_from(token, start_position)?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
-            let is_mutable = self.chunk.get_local(local_index, start_position)?.mutable;
+            let is_mutable = self
+                .chunk
+                .get_local(local_index, start_position)?
+                .is_mutable;
 
             if !is_mutable {
                 return Err(ParseError::CannotMutateImmutableVariable {
@@ -729,8 +732,10 @@ impl<'src> Parser<'src> {
             self.parse_block(allow_assignment, allow_return)?;
         }
 
-        if self.chunk.get_last_operation()? == Operation::LoadConstant
-            && self.current_token == Token::Else
+        let last_operation = self.chunk.get_last_operation()?;
+
+        if let (Operation::LoadConstant | Operation::LoadBoolean, Token::Else) =
+            (last_operation, self.current_token)
         {
             let (mut load_constant, load_constant_position) =
                 self.chunk.pop_instruction(self.current_position)?;
@@ -803,7 +808,6 @@ impl<'src> Parser<'src> {
                     Instruction::load_boolean(self.current_register, false, false),
                     comparison_position,
                 );
-                self.increment_register()?;
             }
         }
 
@@ -824,12 +828,7 @@ impl<'src> Parser<'src> {
                 self.parse_expression()?;
 
                 if !self.allow(TokenKind::Semicolon)? && self.is_eof() {
-                    let register = self.current_register.saturating_sub(1);
-
-                    self.emit_instruction(
-                        Instruction::r#return(register, register),
-                        self.current_position,
-                    );
+                    self.emit_instruction(Instruction::r#return(), self.current_position);
                 }
             }
         };
