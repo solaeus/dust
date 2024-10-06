@@ -255,7 +255,7 @@ impl Vm {
                         self.ip += 1;
                     } else {
                         let jump_distance = jump.a();
-                        let is_positive = jump.a_as_boolean();
+                        let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
@@ -286,7 +286,7 @@ impl Vm {
                         self.ip += 1;
                     } else {
                         let jump_distance = jump.a();
-                        let is_positive = jump.a_as_boolean();
+                        let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
@@ -316,7 +316,7 @@ impl Vm {
                         self.ip += 1;
                     } else {
                         let jump_distance = jump.a();
-                        let is_positive = jump.a_as_boolean();
+                        let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
                             self.ip + jump_distance as usize
                         } else {
