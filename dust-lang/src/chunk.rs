@@ -286,9 +286,7 @@ impl Display for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk Display")
-                .styled(true)
-                .disassemble()
+            self.disassembler("Chunk").styled(true).disassemble()
         )
     }
 }
@@ -298,9 +296,7 @@ impl Debug for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk Debug Display")
-                .styled(false)
-                .disassemble()
+            self.disassembler("Chunk").styled(false).disassemble()
         )
     }
 }
@@ -345,7 +341,7 @@ impl Local {
 pub struct ChunkDisassembler<'a> {
     name: &'a str,
     chunk: &'a Chunk,
-    width: Option<usize>,
+    width: usize,
     styled: bool,
     indent: usize,
 }
@@ -380,21 +376,21 @@ impl<'a> ChunkDisassembler<'a> {
     pub fn default_width() -> usize {
         let longest_line = Self::INSTRUCTION_HEADER[4];
 
-        longest_line.chars().count()
+        longest_line.chars().count().max(80)
     }
 
     pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
         Self {
             name,
             chunk,
-            width: None,
+            width: Self::default_width(),
             styled: false,
             indent: 0,
         }
     }
 
     pub fn width(&mut self, width: usize) -> &mut Self {
-        self.width = Some(width);
+        self.width = width;
 
         self
     }
@@ -412,46 +408,50 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let width = self.width.unwrap_or_else(Self::default_width);
-        let center = |line: &str| format!("{line:^width$}\n");
-        let style = |line: String| {
-            if self.styled {
-                line.bold().to_string()
+        let center_and_style = |line: &str, style: bool| {
+            if style {
+                format!("|{line:^width$}|", line = line.bold(), width = self.width)
             } else {
-                line
+                format!("|{line:^width$}|", width = self.width)
             }
         };
 
         let mut disassembly = String::with_capacity(self.predict_length());
-        let mut push_line = |line: &str| {
+
+        if self.indent > 0 {
+            disassembly.push_str("  ");
+        }
+
+        disassembly.push('|');
+        disassembly.push_str(&"-".repeat(self.width));
+        disassembly.push('|');
+        disassembly.push('\n');
+
+        let mut push_line = |line: &str, style: bool| {
             for _ in 0..self.indent {
-                disassembly.push_str("    ");
+                disassembly.push_str("|  ");
             }
 
-            disassembly.push_str(line);
+            let line = center_and_style(line, style);
+
+            disassembly.push_str(&line);
+            disassembly.push('\n');
         };
-        let name_line = style(center(self.name));
 
-        push_line(&name_line);
+        push_line(self.name, self.styled);
 
-        let info_line = center(&format!(
+        let info_line = format!(
             "{} instructions, {} constants, {} locals",
             self.chunk.instructions.len(),
             self.chunk.constants.len(),
             self.chunk.locals.len()
-        ));
-        let styled_info_line = {
-            if self.styled {
-                info_line.dimmed().to_string()
-            } else {
-                info_line
-            }
-        };
+        )
+        .dimmed();
 
-        push_line(&styled_info_line);
+        push_line(&info_line, false);
 
         for line in Self::INSTRUCTION_HEADER {
-            push_line(&style(center(line)));
+            push_line(line, self.styled);
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
@@ -482,11 +482,11 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
             );
 
-            push_line(&center(&instruction_display));
+            push_line(&instruction_display, false);
         }
 
         for line in Self::CONSTANT_HEADER {
-            push_line(&style(center(line)));
+            push_line(line, self.styled);
         }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
@@ -502,27 +502,47 @@ impl<'a> ChunkDisassembler<'a> {
                 format!("{index:<5} {value_display:<trucated_length$}")
             };
 
-            push_line(&center(&constant_display));
+            push_line(&constant_display, false);
 
-            if let Some(chunk) = value_option.as_ref().and_then(|value| match value {
-                Value::Raw(value_data) => value_data.as_function().map(|function| function.body()),
-                Value::Reference(arc) => arc.as_function().map(|function| function.body()),
-                Value::Mutable(arc) => todo!(),
-            }) {
-                let mut function_disassembler = chunk.disassembler("function");
-
-                function_disassembler
-                    .styled(self.styled)
-                    .indent(self.indent + 1);
-
-                let function_disassembly = function_disassembler.disassemble();
-
-                push_line(&function_disassembly);
+            if let Some(function_disassembly) =
+                value_option.as_ref().and_then(|value| match value {
+                    Value::Raw(value_data) => value_data.as_function().map(|function| {
+                        function
+                            .body()
+                            .disassembler("function")
+                            .styled(self.styled)
+                            .indent(self.indent + 1)
+                            .width(self.width)
+                            .disassemble()
+                    }),
+                    Value::Reference(arc) => arc.as_function().map(|function| {
+                        function
+                            .body()
+                            .disassembler("function")
+                            .styled(self.styled)
+                            .indent(self.indent + 1)
+                            .width(self.width)
+                            .disassemble()
+                    }),
+                    Value::Mutable(rw_lock) => {
+                        rw_lock.read().unwrap().as_function().map(|function| {
+                            function
+                                .body()
+                                .disassembler("function")
+                                .styled(self.styled)
+                                .indent(self.indent + 1)
+                                .width(self.width)
+                                .disassemble()
+                        })
+                    }
+                })
+            {
+                push_line(&function_disassembly, false);
             }
         }
 
         for line in Self::LOCAL_HEADER {
-            push_line(&style(center(line)));
+            push_line(line, self.styled);
         }
 
         for (
@@ -549,8 +569,15 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_display:8}"
             );
 
-            push_line(&center(&local_display));
+            push_line(&local_display, false);
         }
+
+        for _ in 0..self.indent {
+            disassembly.push_str("|  ");
+        }
+
+        disassembly.push('|');
+        disassembly.push_str(&"-".repeat(self.width));
 
         let expected_length = self.predict_length();
         let actual_length = disassembly.len();
@@ -592,9 +619,8 @@ impl<'a> ChunkDisassembler<'a> {
         let dynamic_line_count =
             self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
         let total_line_count = static_line_count + dynamic_line_count;
-        let width = self.width.unwrap_or_else(Self::default_width) + 1;
 
-        total_line_count * width
+        total_line_count * self.width
     }
 }
 
