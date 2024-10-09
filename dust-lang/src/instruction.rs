@@ -305,6 +305,39 @@ impl Instruction {
         self
     }
 
+    pub fn is_expression(&self) -> bool {
+        let operation = self.operation();
+
+        if operation.is_math() {
+            return if !self.b_is_constant() {
+                self.a() != self.b()
+            } else if !self.c_is_constant() {
+                self.a() != self.c()
+            } else {
+                true
+            };
+        }
+
+        matches!(
+            operation,
+            Operation::Not
+                | Operation::Negate
+                | Operation::Equal
+                | Operation::Less
+                | Operation::LessEqual
+                | Operation::Add
+                | Operation::Subtract
+                | Operation::Multiply
+                | Operation::Divide
+                | Operation::Modulo
+                | Operation::Test
+                | Operation::GetLocal
+                | Operation::LoadBoolean
+                | Operation::LoadConstant
+                | Operation::LoadList
+        )
+    }
+
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> (Option<String>, Option<isize>) {
         let format_arguments = || {
             let first_argument = if self.b_is_constant() {

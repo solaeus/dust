@@ -82,6 +82,17 @@ impl Operation {
                 | Operation::Modulo
         )
     }
+
+    pub fn is_comparison(&self) -> bool {
+        matches!(
+            self,
+            Operation::Equal | Operation::Less | Operation::LessEqual
+        )
+    }
+
+    pub fn is_test(&self) -> bool {
+        matches!(self, Operation::Test | Operation::TestSet)
+    }
 }
 
 impl From<u8> for Operation {

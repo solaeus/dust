@@ -1,8 +1,10 @@
 //! Token, TokenOwned and TokenKind types.
 use std::fmt::{self, Display, Formatter};
 
+use serde::{Deserialize, Serialize};
+
 /// Source code token.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Token<'src> {
     // End of file
     Eof,
@@ -29,6 +31,7 @@ pub enum Token<'src> {
     Loop,
     Map,
     Mut,
+    Return,
     Str,
     Struct,
     While,
@@ -115,6 +118,7 @@ impl<'src> Token<'src> {
             Token::Percent => 1,
             Token::Plus => 1,
             Token::PlusEqual => 2,
+            Token::Return => 6,
             Token::RightCurlyBrace => 1,
             Token::RightParenthesis => 1,
             Token::RightSquareBrace => 1,
@@ -169,6 +173,7 @@ impl<'src> Token<'src> {
             Token::Percent => TokenOwned::Percent,
             Token::Plus => TokenOwned::Plus,
             Token::PlusEqual => TokenOwned::PlusEqual,
+            Token::Return => TokenOwned::Return,
             Token::RightCurlyBrace => TokenOwned::RightCurlyBrace,
             Token::RightParenthesis => TokenOwned::RightParenthesis,
             Token::RightSquareBrace => TokenOwned::RightSquareBrace,
@@ -227,6 +232,7 @@ impl<'src> Token<'src> {
             Token::Percent => TokenKind::Percent,
             Token::Plus => TokenKind::Plus,
             Token::PlusEqual => TokenKind::PlusEqual,
+            Token::Return => TokenKind::Return,
             Token::RightCurlyBrace => TokenKind::RightCurlyBrace,
             Token::RightParenthesis => TokenKind::RightParenthesis,
             Token::RightSquareBrace => TokenKind::RightSquareBrace,
@@ -287,6 +293,7 @@ impl<'src> Display for Token<'src> {
             Token::Percent => write!(f, "%"),
             Token::Plus => write!(f, "+"),
             Token::PlusEqual => write!(f, "+="),
+            Token::Return => write!(f, "return"),
             Token::RightCurlyBrace => write!(f, "}}"),
             Token::RightParenthesis => write!(f, ")"),
             Token::RightSquareBrace => write!(f, "]"),
@@ -332,6 +339,7 @@ pub enum TokenOwned {
     Loop,
     Map,
     Mut,
+    Return,
     Str,
     While,
 
@@ -414,6 +422,7 @@ impl Display for TokenOwned {
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
             TokenOwned::PlusEqual => Token::PlusEqual.fmt(f),
+            TokenOwned::Return => Token::Return.fmt(f),
             TokenOwned::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
             TokenOwned::RightParenthesis => Token::RightParenthesis.fmt(f),
             TokenOwned::RightSquareBrace => Token::RightSquareBrace.fmt(f),
@@ -457,6 +466,7 @@ pub enum TokenKind {
     Let,
     Loop,
     Map,
+    Return,
     Str,
     While,
 
@@ -539,6 +549,7 @@ impl Display for TokenKind {
             TokenKind::Percent => Token::Percent.fmt(f),
             TokenKind::Plus => Token::Plus.fmt(f),
             TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
+            TokenKind::Return => Token::Return.fmt(f),
             TokenKind::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
             TokenKind::RightParenthesis => Token::RightParenthesis.fmt(f),
             TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),

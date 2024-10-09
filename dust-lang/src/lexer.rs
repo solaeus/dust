@@ -4,6 +4,8 @@
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
 
+use serde::{Deserialize, Serialize};
+
 use crate::{dust_error::AnnotatedError, Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
@@ -78,7 +80,7 @@ pub fn lex<'chars, 'src: 'chars>(
 ///     ]
 /// )
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,
@@ -543,6 +545,7 @@ impl<'src> Lexer<'src> {
             "loop" => Token::Loop,
             "map" => Token::Map,
             "mut" => Token::Mut,
+            "return" => Token::Return,
             "str" => Token::Str,
             "struct" => Token::Struct,
             "true" => Token::Boolean("true"),

@@ -3,10 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    value::ValueKind, AnnotatedError, Function, Identifier, Instruction, Operation, Span, Type,
-    Value,
-};
+use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
@@ -222,6 +219,14 @@ impl Chunk {
         register_index: u8,
         position: Span,
     ) -> Result<u8, ChunkError> {
+        log::debug!(
+            "Declaring local: {:?} {:?} {:?} {:?}",
+            identifier,
+            r#type,
+            is_mutable,
+            register_index
+        );
+
         let starting_length = self.locals.len();
 
         if starting_length + 1 > (u8::MAX as usize) {

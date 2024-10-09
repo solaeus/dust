@@ -270,7 +270,7 @@ fn equality_assignment_long() {
 
 #[test]
 fn equality_assignment_short() {
-    let source = "let a = 4 == 4; a";
+    let source = "let a = 4 == 4 a";
 
     assert_eq!(
         parse(source),
@@ -286,8 +286,8 @@ fn equality_assignment_short() {
                 (Instruction::load_boolean(0, true, true), Span(10, 12)),
                 (Instruction::load_boolean(0, false, false), Span(10, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
-                (Instruction::get_local(1, 0), Span(16, 17)),
-                (Instruction::r#return(), Span(17, 17)),
+                (Instruction::get_local(1, 0), Span(15, 16)),
+                (Instruction::r#return(), Span(16, 16)),
             ],
             vec![Value::integer(4), Value::integer(4)],
             vec![Local::new(Identifier::new("a"), None, false, 0, Some(0))]
