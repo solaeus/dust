@@ -26,7 +26,9 @@ pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Enum, Function, Struct, Value, ValueError};
 pub use vm::{run, Vm, VmError};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Span(pub usize, pub usize);
 
 impl Display for Span {

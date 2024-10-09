@@ -45,7 +45,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{EnumType, FunctionType, Identifier, RangeableType, StructType, Type};
+use crate::{Chunk, EnumType, FunctionType, Identifier, RangeableType, StructType, Type};
 
 /// Dust value representation
 ///
@@ -71,6 +71,10 @@ impl Value {
 
     pub fn float(value: f64) -> Self {
         Value::Raw(ValueData::Float(value))
+    }
+
+    pub fn function(body: Chunk) -> Self {
+        Value::Raw(ValueData::Function(Function { body }))
     }
 
     pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
@@ -987,6 +991,7 @@ pub enum ValueData {
     Character(char),
     Enum(Enum),
     Float(f64),
+    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Map(HashMap<Identifier, Value>),
@@ -1002,6 +1007,7 @@ impl ValueData {
             ValueData::Boolean(_) => Type::Boolean,
             ValueData::Byte(_) => Type::Byte,
             ValueData::Character(_) => Type::Character,
+            ValueData::Function(Function { .. }) => todo!(),
             ValueData::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
             ValueData::Float(_) => Type::Float,
             ValueData::Integer(_) => Type::Integer,
@@ -1257,6 +1263,9 @@ impl Display for ValueData {
 
                 Ok(())
             }
+            ValueData::Function(Function { .. }) => {
+                write!(f, "function")
+            }
             ValueData::Integer(integer) => write!(f, "{integer}"),
             ValueData::Map(pairs) => {
                 write!(f, "{{ ")?;
@@ -1315,6 +1324,7 @@ impl PartialEq for ValueData {
             (ValueData::Byte(left), ValueData::Byte(right)) => left == right,
             (ValueData::Character(left), ValueData::Character(right)) => left == right,
             (ValueData::Float(left), ValueData::Float(right)) => left == right,
+            (ValueData::Function(left), ValueData::Function(right)) => left == right,
             (ValueData::Integer(left), ValueData::Integer(right)) => left == right,
             (ValueData::List(left), ValueData::List(right)) => left == right,
             (ValueData::Map(left), ValueData::Map(right)) => left == right,
@@ -1344,6 +1354,8 @@ impl Ord for ValueData {
             (ValueData::Character(_), _) => Ordering::Greater,
             (ValueData::Float(left), ValueData::Float(right)) => left.partial_cmp(right).unwrap(),
             (ValueData::Float(_), _) => Ordering::Greater,
+            (ValueData::Function(left), ValueData::Function(right)) => left.cmp(right),
+            (ValueData::Function(_), _) => Ordering::Greater,
             (ValueData::Integer(left), ValueData::Integer(right)) => left.cmp(right),
             (ValueData::Integer(_), _) => Ordering::Greater,
             (ValueData::List(left), ValueData::List(right)) => left.cmp(right),
@@ -1371,6 +1383,7 @@ impl Serialize for ValueData {
             ValueData::Character(character) => serializer.serialize_char(*character),
             ValueData::Enum(r#emum) => r#emum.serialize(serializer),
             ValueData::Float(float) => serializer.serialize_f64(*float),
+            ValueData::Function(function) => function.serialize(serializer),
             ValueData::Integer(integer) => serializer.serialize_i64(*integer),
             ValueData::List(list) => list.serialize(serializer),
             ValueData::Map(pairs) => {
@@ -1434,11 +1447,8 @@ impl<'de> Deserialize<'de> for ValueData {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Function {
-    Parsed {
-        name: Identifier,
-        r#type: FunctionType,
-    },
+pub struct Function {
+    body: Chunk,
 }
 
 impl Function {

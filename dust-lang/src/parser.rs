@@ -21,7 +21,7 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
             .map_err(|error| DustError::Parse { error, source })?;
     }
 
-    Ok(parser.chunk)
+    Ok(parser.take_chunk())
 }
 
 #[derive(Debug)]
@@ -39,6 +39,7 @@ impl<'src> Parser<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
         let (current_token, current_position) = lexer.next_token()?;
 
+        log::info!("Begin chunk");
         log::info!(
             "{} at {}",
             current_token.to_string().bold(),
@@ -57,6 +58,8 @@ impl<'src> Parser<'src> {
     }
 
     pub fn take_chunk(self) -> Chunk {
+        log::info!("End chunk");
+
         self.chunk
     }
 
@@ -689,7 +692,7 @@ impl<'src> Parser<'src> {
         _allow_assignment: bool,
         _allow_return: bool,
     ) -> Result<(), ParseError> {
-        self.advance()?;
+        self.expect(TokenKind::LeftCurlyBrace)?;
         self.chunk.begin_scope();
 
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
@@ -913,6 +916,33 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_function(
+        &mut self,
+        _allow_assignment: bool,
+        _allow_return: bool,
+    ) -> Result<(), ParseError> {
+        self.advance()?;
+
+        self.expect(TokenKind::LeftParenthesis)?;
+
+        let mut function_parser = Parser::new(self.lexer)?;
+
+        self.expect(TokenKind::RightParenthesis)?;
+
+        function_parser.parse_block(false, true)?;
+
+        self.previous_token = function_parser.previous_token;
+        self.previous_position = function_parser.previous_position;
+        self.current_token = function_parser.current_token;
+        self.current_position = function_parser.current_position;
+
+        let function = Value::function(function_parser.take_chunk());
+
+        self.emit_constant(function)?;
+
+        Ok(())
+    }
+
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         let allow_assignment = precedence < Precedence::Assignment;
         let allow_return = precedence == Precedence::None;
@@ -1111,6 +1141,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             TokenKind::FloatKeyword => todo!(),
+            TokenKind::Fn => ParseRule {
+                prefix: Some(Parser::parse_function),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Greater => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),

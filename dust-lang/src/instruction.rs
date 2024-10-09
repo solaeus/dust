@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{Chunk, Operation, Span};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Instruction(u32);
 
 impl Instruction {

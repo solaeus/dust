@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Value};
 
-#[derive(Clone)]
+#[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Option<Value>>,
@@ -305,7 +305,7 @@ impl PartialEq for Chunk {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
     pub identifier: Identifier,
     pub is_mutable: bool,

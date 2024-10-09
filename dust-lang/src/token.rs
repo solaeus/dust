@@ -1,4 +1,4 @@
-//! Token and TokenOwned types.
+//! Token, TokenOwned and TokenKind types.
 use std::fmt::{self, Display, Formatter};
 
 /// Source code token.
@@ -22,6 +22,7 @@ pub enum Token<'src> {
     Break,
     Else,
     FloatKeyword,
+    Fn,
     If,
     Int,
     Let,
@@ -82,6 +83,7 @@ impl<'src> Token<'src> {
             Token::Break => 5,
             Token::Else => 4,
             Token::FloatKeyword => 5,
+            Token::Fn => 2,
             Token::If => 2,
             Token::Int => 3,
             Token::Let => 3,
@@ -146,6 +148,7 @@ impl<'src> Token<'src> {
             Token::Equal => TokenOwned::Equal,
             Token::Float(float) => TokenOwned::Float(float.to_string()),
             Token::FloatKeyword => TokenOwned::FloatKeyword,
+            Token::Fn => TokenOwned::Fn,
             Token::Greater => TokenOwned::Greater,
             Token::GreaterEqual => TokenOwned::GreaterOrEqual,
             Token::Identifier(text) => TokenOwned::Identifier(text.to_string()),
@@ -203,6 +206,7 @@ impl<'src> Token<'src> {
             Token::Equal => TokenKind::Equal,
             Token::Float(_) => TokenKind::Float,
             Token::FloatKeyword => TokenKind::FloatKeyword,
+            Token::Fn => TokenKind::Fn,
             Token::Greater => TokenKind::Greater,
             Token::GreaterEqual => TokenKind::GreaterEqual,
             Token::Identifier(_) => TokenKind::Identifier,
@@ -262,6 +266,7 @@ impl<'src> Display for Token<'src> {
             Token::Equal => write!(f, "="),
             Token::Float(value) => write!(f, "{value}"),
             Token::FloatKeyword => write!(f, "float"),
+            Token::Fn => write!(f, "fn"),
             Token::Greater => write!(f, ">"),
             Token::GreaterEqual => write!(f, ">="),
             Token::Identifier(value) => write!(f, "{value}"),
@@ -320,6 +325,7 @@ pub enum TokenOwned {
     Break,
     Else,
     FloatKeyword,
+    Fn,
     If,
     Int,
     Let,
@@ -387,6 +393,7 @@ impl Display for TokenOwned {
             TokenOwned::Equal => Token::Equal.fmt(f),
             TokenOwned::Float(float) => Token::Float(float).fmt(f),
             TokenOwned::FloatKeyword => Token::FloatKeyword.fmt(f),
+            TokenOwned::Fn => Token::Fn.fmt(f),
             TokenOwned::Greater => Token::Greater.fmt(f),
             TokenOwned::GreaterOrEqual => Token::GreaterEqual.fmt(f),
             TokenOwned::Identifier(text) => Token::Identifier(text).fmt(f),
@@ -444,6 +451,7 @@ pub enum TokenKind {
     Break,
     Else,
     FloatKeyword,
+    Fn,
     If,
     Int,
     Let,
@@ -510,6 +518,7 @@ impl Display for TokenKind {
             TokenKind::Equal => Token::Equal.fmt(f),
             TokenKind::Float => write!(f, "float value"),
             TokenKind::FloatKeyword => Token::FloatKeyword.fmt(f),
+            TokenKind::Fn => Token::Fn.fmt(f),
             TokenKind::Greater => Token::Greater.fmt(f),
             TokenKind::GreaterEqual => Token::GreaterEqual.fmt(f),
             TokenKind::Identifier => write!(f, "identifier"),

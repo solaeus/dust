@@ -78,7 +78,7 @@ pub fn lex<'chars, 'src: 'chars>(
 ///     ]
 /// )
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,
@@ -532,6 +532,7 @@ impl<'src> Lexer<'src> {
             "else" => Token::Else,
             "false" => Token::Boolean("false"),
             "float" => Token::FloatKeyword,
+            "fn" => Token::Fn,
             "if" => Token::If,
             "int" => Token::Int,
             "let" => Token::Let,
