@@ -926,6 +926,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_return(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
         if !allowed.explicit_return {
             return Err(ParseError::UnexpectedReturn {
                 position: self.current_position,
@@ -948,7 +950,9 @@ impl<'src> Parser<'src> {
             )?;
         }
 
-        self.emit_instruction(Instruction::r#return(), self.current_position);
+        let end = self.current_position.1;
+
+        self.emit_instruction(Instruction::r#return(), Span(start, end));
 
         Ok(())
     }

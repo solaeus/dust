@@ -408,28 +408,31 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let center_and_style = |line: &str, style: bool| {
-            if style {
-                format!("|{line:^width$}|", line = line.bold(), width = self.width)
-            } else {
-                format!("|{line:^width$}|", width = self.width)
-            }
-        };
-
         let mut disassembly = String::with_capacity(self.predict_length());
+        let indent = "│  ".repeat(self.indent);
+        let top_border = "┌".to_string() + &"─".repeat(self.width) + "┐";
 
-        if self.indent > 0 {
-            disassembly.push_str("  ");
-        }
-
-        disassembly.push('|');
-        disassembly.push_str(&"-".repeat(self.width));
-        disassembly.push('|');
+        disassembly.push_str(&indent);
+        disassembly.push_str(&top_border);
         disassembly.push('\n');
 
-        let mut push_line = |line: &str, style: bool| {
+        let center_and_style = |line: &str, style: bool| {
+            if style {
+                format!("│{line:^width$}│", line = line.bold(), width = self.width)
+            } else {
+                format!("│{line:^width$}│", width = self.width)
+            }
+        };
+        let mut push = |line: &str, style: bool| {
+            if line.lines().count() > 1 {
+                disassembly.push_str(line);
+                disassembly.push('\n');
+
+                return;
+            }
+
             for _ in 0..self.indent {
-                disassembly.push_str("|  ");
+                disassembly.push_str("│  ");
             }
 
             let line = center_and_style(line, style);
@@ -438,7 +441,7 @@ impl<'a> ChunkDisassembler<'a> {
             disassembly.push('\n');
         };
 
-        push_line(self.name, self.styled);
+        push(self.name, self.styled);
 
         let info_line = format!(
             "{} instructions, {} constants, {} locals",
@@ -448,10 +451,10 @@ impl<'a> ChunkDisassembler<'a> {
         )
         .dimmed();
 
-        push_line(&info_line, false);
+        push(&info_line, false);
 
         for line in Self::INSTRUCTION_HEADER {
-            push_line(line, self.styled);
+            push(line, self.styled);
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
@@ -482,11 +485,42 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
             );
 
-            push_line(&instruction_display, false);
+            push(&instruction_display, false);
+        }
+
+        for line in Self::LOCAL_HEADER {
+            push(line, self.styled);
+        }
+
+        for (
+            index,
+            Local {
+                identifier,
+                r#type,
+                depth,
+                register_index,
+                is_mutable: mutable,
+            },
+        ) in self.chunk.locals.iter().enumerate()
+        {
+            let register_display = register_index
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "empty".to_string());
+            let identifier_display = identifier.as_str();
+            let type_display = r#type
+                .as_ref()
+                .map(|r#type| r#type.to_string())
+                .unwrap_or("unknown".to_string());
+            let local_display = format!(
+                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_display:8}"
+            );
+
+            push(&local_display, false);
         }
 
         for line in Self::CONSTANT_HEADER {
-            push_line(line, self.styled);
+            push(line, self.styled);
         }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
@@ -502,7 +536,7 @@ impl<'a> ChunkDisassembler<'a> {
                 format!("{index:<5} {value_display:<trucated_length$}")
             };
 
-            push_line(&constant_display, false);
+            push(&constant_display, false);
 
             if let Some(function_disassembly) =
                 value_option.as_ref().and_then(|value| match value {
@@ -537,47 +571,15 @@ impl<'a> ChunkDisassembler<'a> {
                     }
                 })
             {
-                push_line(&function_disassembly, false);
+                push(&function_disassembly, false);
             }
         }
 
-        for line in Self::LOCAL_HEADER {
-            push_line(line, self.styled);
-        }
+        let indent = "│  ".repeat(self.indent);
+        let bottom_border = "└".to_string() + &"─".repeat(self.width) + "┘";
 
-        for (
-            index,
-            Local {
-                identifier,
-                r#type,
-                depth,
-                register_index,
-                is_mutable: mutable,
-            },
-        ) in self.chunk.locals.iter().enumerate()
-        {
-            let register_display = register_index
-                .as_ref()
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "empty".to_string());
-            let identifier_display = identifier.as_str();
-            let type_display = r#type
-                .as_ref()
-                .map(|r#type| r#type.to_string())
-                .unwrap_or("unknown".to_string());
-            let local_display = format!(
-                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_display:8}"
-            );
-
-            push_line(&local_display, false);
-        }
-
-        for _ in 0..self.indent {
-            disassembly.push_str("|  ");
-        }
-
-        disassembly.push('|');
-        disassembly.push_str(&"-".repeat(self.width));
+        disassembly.push_str(&indent);
+        disassembly.push_str(&bottom_border);
 
         let expected_length = self.predict_length();
         let actual_length = disassembly.len();
