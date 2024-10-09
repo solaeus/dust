@@ -45,7 +45,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{Chunk, EnumType, FunctionType, Identifier, RangeableType, StructType, Type};
+use crate::{Chunk, EnumType, Identifier, RangeableType, StructType, Type};
 
 /// Dust value representation
 ///
@@ -1063,6 +1063,14 @@ impl ValueData {
         }
     }
 
+    pub fn as_function(&self) -> Option<&Function> {
+        if let ValueData::Function(function) = self {
+            Some(function)
+        } else {
+            None
+        }
+    }
+
     pub fn is_rangeable(&self) -> bool {
         matches!(
             self,
@@ -1452,6 +1460,10 @@ pub struct Function {
 }
 
 impl Function {
+    pub fn body(&self) -> &Chunk {
+        &self.body
+    }
+
     pub fn call(
         self,
         _type_arguments: Option<Vec<Type>>,

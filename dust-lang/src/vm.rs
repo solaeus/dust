@@ -482,7 +482,7 @@ impl Vm {
         }
     }
 
-    fn pop(&mut self, position: Span) -> Result<Value, VmError> {
+    fn _pop(&mut self, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.pop() {
             let value = register.ok_or(VmError::EmptyRegister {
                 index: self.register_stack.len().saturating_sub(1),

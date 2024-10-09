@@ -3,7 +3,10 @@ use std::fmt::{self, Debug, Display, Formatter};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Value};
+use crate::{
+    value::ValueKind, AnnotatedError, Function, Identifier, Instruction, Operation, Span, Type,
+    Value,
+};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
@@ -214,18 +217,20 @@ impl Chunk {
     pub fn declare_local(
         &mut self,
         identifier: Identifier,
-        mutable: bool,
+        r#type: Option<Type>,
+        is_mutable: bool,
         register_index: u8,
         position: Span,
     ) -> Result<u8, ChunkError> {
         let starting_length = self.locals.len();
 
         if starting_length + 1 > (u8::MAX as usize) {
-            Err(ChunkError::IdentifierOverflow { position })
+            Err(ChunkError::LocalOverflow { position })
         } else {
             self.locals.push(Local::new(
                 identifier,
-                mutable,
+                r#type,
+                is_mutable,
                 self.scope_depth,
                 Some(register_index),
             ));
@@ -308,6 +313,7 @@ impl PartialEq for Chunk {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
     pub identifier: Identifier,
+    pub r#type: Option<Type>,
     pub is_mutable: bool,
     pub depth: usize,
     pub register_index: Option<u8>,
@@ -316,12 +322,14 @@ pub struct Local {
 impl Local {
     pub fn new(
         identifier: Identifier,
+        r#type: Option<Type>,
         mutable: bool,
         depth: usize,
         register_index: Option<u8>,
     ) -> Self {
         Self {
             identifier,
+            r#type,
             is_mutable: mutable,
             depth,
             register_index,
@@ -334,6 +342,7 @@ pub struct ChunkDisassembler<'a> {
     chunk: &'a Chunk,
     width: Option<usize>,
     styled: bool,
+    indent: usize,
 }
 
 impl<'a> ChunkDisassembler<'a> {
@@ -357,8 +366,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Locals",
         "------",
-        "INDEX IDENTIFIER MUTABLE DEPTH REGISTER",
-        "----- ---------- ------- ----- --------",
+        "INDEX IDENTIFIER TYPE     MUTABLE DEPTH REGISTER",
+        "----- ---------- -------- ------- ----- --------",
     ];
 
     /// The default width of the disassembly output. To correctly align the output, this should
@@ -375,6 +384,7 @@ impl<'a> ChunkDisassembler<'a> {
             chunk,
             width: None,
             styled: false,
+            indent: 0,
         }
     }
 
@@ -386,6 +396,12 @@ impl<'a> ChunkDisassembler<'a> {
 
     pub fn styled(&mut self, styled: bool) -> &mut Self {
         self.styled = styled;
+
+        self
+    }
+
+    pub fn indent(&mut self, indent: usize) -> &mut Self {
+        self.indent = indent;
 
         self
     }
@@ -402,9 +418,16 @@ impl<'a> ChunkDisassembler<'a> {
         };
 
         let mut disassembly = String::with_capacity(self.predict_length());
+        let mut push_line = |line: &str| {
+            for _ in 0..self.indent {
+                disassembly.push_str("    ");
+            }
+
+            disassembly.push_str(line);
+        };
         let name_line = style(center(self.name));
 
-        disassembly.push_str(&name_line);
+        push_line(&name_line);
 
         let info_line = center(&format!(
             "{} instructions, {} constants, {} locals",
@@ -420,10 +443,10 @@ impl<'a> ChunkDisassembler<'a> {
             }
         };
 
-        disassembly.push_str(&styled_info_line);
+        push_line(&styled_info_line);
 
         for line in Self::INSTRUCTION_HEADER {
-            disassembly.push_str(&style(center(line)));
+            push_line(&style(center(line)));
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
@@ -454,11 +477,11 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
             );
 
-            disassembly.push_str(&center(&instruction_display));
+            push_line(&center(&instruction_display));
         }
 
         for line in Self::CONSTANT_HEADER {
-            disassembly.push_str(&style(center(line)));
+            push_line(&style(center(line)));
         }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
@@ -474,17 +497,34 @@ impl<'a> ChunkDisassembler<'a> {
                 format!("{index:<5} {value_display:<trucated_length$}")
             };
 
-            disassembly.push_str(&center(&constant_display));
+            push_line(&center(&constant_display));
+
+            if let Some(chunk) = value_option.as_ref().and_then(|value| match value {
+                Value::Raw(value_data) => value_data.as_function().map(|function| function.body()),
+                Value::Reference(arc) => arc.as_function().map(|function| function.body()),
+                Value::Mutable(arc) => todo!(),
+            }) {
+                let mut function_disassembler = chunk.disassembler("function");
+
+                function_disassembler
+                    .styled(self.styled)
+                    .indent(self.indent + 1);
+
+                let function_disassembly = function_disassembler.disassemble();
+
+                push_line(&function_disassembly);
+            }
         }
 
         for line in Self::LOCAL_HEADER {
-            disassembly.push_str(&style(center(line)));
+            push_line(&style(center(line)));
         }
 
         for (
             index,
             Local {
                 identifier,
+                r#type,
                 depth,
                 register_index,
                 is_mutable: mutable,
@@ -496,11 +536,15 @@ impl<'a> ChunkDisassembler<'a> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "empty".to_string());
             let identifier_display = identifier.as_str();
+            let type_display = r#type
+                .as_ref()
+                .map(|r#type| r#type.to_string())
+                .unwrap_or("unknown".to_string());
             let local_display = format!(
-                "{index:<5} {identifier_display:10} {mutable:7} {depth:<5} {register_display:8}"
+                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_display:8}"
             );
 
-            disassembly.push_str(&center(&local_display));
+            push_line(&center(&local_display));
         }
 
         let expected_length = self.predict_length();
@@ -573,7 +617,7 @@ pub enum ChunkError {
         index: usize,
         position: Span,
     },
-    IdentifierOverflow {
+    LocalOverflow {
         position: Span,
     },
     IdentifierNotFound {
@@ -594,8 +638,8 @@ impl AnnotatedError for ChunkError {
             ChunkError::ConstantOverflow { .. } => "Constant overflow",
             ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             ChunkError::InstructionUnderflow { .. } => "Instruction underflow",
-            ChunkError::LocalIndexOutOfBounds { .. } => "Identifier index out of bounds",
-            ChunkError::IdentifierOverflow { .. } => "Identifier overflow",
+            ChunkError::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
+            ChunkError::LocalOverflow { .. } => "Local overflow",
             ChunkError::IdentifierNotFound { .. } => "Identifier not found",
         }
     }
@@ -611,13 +655,13 @@ impl AnnotatedError for ChunkError {
             }
             ChunkError::InstructionUnderflow { .. } => None,
             ChunkError::LocalIndexOutOfBounds { index, .. } => {
-                Some(format!("Identifier index: {}", index))
+                Some(format!("Local index: {}", index))
             }
             ChunkError::IdentifierNotFound { identifier, .. } => {
                 Some(format!("Identifier: {}", identifier))
             }
-            ChunkError::IdentifierOverflow { .. } => Some("Identifier overflow".to_string()),
-            ChunkError::ConstantOverflow { .. } => Some("Constant overflow".to_string()),
+            ChunkError::LocalOverflow { .. } => None,
+            ChunkError::ConstantOverflow { .. } => None,
         }
     }
 
@@ -629,7 +673,7 @@ impl AnnotatedError for ChunkError {
             ChunkError::IdentifierNotFound { position, .. } => *position,
             ChunkError::InstructionUnderflow { position, .. } => *position,
             ChunkError::LocalIndexOutOfBounds { position, .. } => *position,
-            ChunkError::IdentifierOverflow { position, .. } => *position,
+            ChunkError::LocalOverflow { position, .. } => *position,
             ChunkError::ConstantOverflow { position, .. } => *position,
         }
     }

@@ -93,6 +93,10 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    pub fn skip_to(&mut self, position: usize) {
+        self.position = position;
+    }
+
     /// Produce the next token.
     pub fn next_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
         self.skip_whitespace();
@@ -539,6 +543,7 @@ impl<'src> Lexer<'src> {
             "loop" => Token::Loop,
             "map" => Token::Map,
             "mut" => Token::Mut,
+            "str" => Token::Str,
             "struct" => Token::Struct,
             "true" => Token::Boolean("true"),
             "while" => Token::While,
