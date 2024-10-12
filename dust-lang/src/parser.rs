@@ -123,8 +123,8 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn allow(&mut self, allowed: TokenKind) -> Result<bool, ParseError> {
-        if self.current_token.kind() == allowed {
+    fn allow(&mut self, allowed: Token) -> Result<bool, ParseError> {
+        if self.current_token == allowed {
             self.advance()?;
 
             Ok(true)
@@ -133,12 +133,12 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<(), ParseError> {
-        if self.current_token.kind() == expected {
+    fn expect(&mut self, expected: Token) -> Result<(), ParseError> {
+        if self.current_token == expected {
             self.advance()
         } else {
             Err(ParseError::ExpectedToken {
-                expected,
+                expected: expected.kind(),
                 found: self.current_token.to_owned(),
                 position: self.current_position,
             })
@@ -289,7 +289,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_grouped(&mut self, _: Allowed) -> Result<(), ParseError> {
-        self.allow(TokenKind::LeftParenthesis)?;
+        self.allow(Token::LeftParenthesis)?;
         self.parse_statement(
             Allowed {
                 assignment: false,
@@ -298,7 +298,7 @@ impl<'src> Parser<'src> {
             },
             Context::None,
         )?;
-        self.expect(TokenKind::RightParenthesis)?;
+        self.expect(Token::RightParenthesis)?;
 
         self.parsed_expression = true;
 
@@ -417,7 +417,7 @@ impl<'src> Parser<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator.kind());
+        let rule = ParseRule::from(&operator);
 
         if let TokenKind::PlusEqual
         | TokenKind::MinusEqual
@@ -547,7 +547,7 @@ impl<'src> Parser<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator.kind());
+        let rule = ParseRule::from(&operator);
 
         self.advance()?;
         self.parse(
@@ -618,11 +618,11 @@ impl<'src> Parser<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator.kind());
+        let rule = ParseRule::from(&operator);
 
-        let instruction = match operator.kind() {
-            TokenKind::DoubleAmpersand => Instruction::test(left_instruction.a(), false),
-            TokenKind::DoublePipe => Instruction::test(left_instruction.a(), true),
+        let instruction = match operator {
+            Token::DoubleAmpersand => Instruction::test(left_instruction.a(), false),
+            Token::DoublePipe => Instruction::test(left_instruction.a(), true),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
@@ -664,7 +664,7 @@ impl<'src> Parser<'src> {
 
         let local_index = self.parse_identifier_from(token, start_position)?;
 
-        if self.allow(TokenKind::Equal)? {
+        if self.allow(Token::Equal)? {
             if !allowed.assignment {
                 return Err(ParseError::InvalidAssignmentTarget {
                     found: self.current_token.to_owned(),
@@ -775,7 +775,7 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.chunk.begin_scope();
 
-        while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
+        while !self.allow(Token::RightCurlyBrace)? && !self.is_eof() {
             self.parse_statement(allowed, Context::None)?;
         }
 
@@ -791,7 +791,7 @@ impl<'src> Parser<'src> {
 
         let start_register = self.current_register;
 
-        while !self.allow(TokenKind::RightSquareBrace)? && !self.is_eof() {
+        while !self.allow(Token::RightSquareBrace)? && !self.is_eof() {
             let next_register = self.current_register;
 
             self.parse_statement(
@@ -814,7 +814,7 @@ impl<'src> Parser<'src> {
                 );
             }
 
-            self.allow(TokenKind::Comma)?;
+            self.allow(Token::Comma)?;
         }
 
         let end_register = self.current_register - 1;
@@ -874,7 +874,7 @@ impl<'src> Parser<'src> {
             self.emit_instruction(load_constant, load_constant_position);
         }
 
-        if self.allow(TokenKind::Else)? {
+        if self.allow(Token::Else)? {
             if let Token::If = self.current_token {
                 self.parse_if(allowed)?;
             }
@@ -955,7 +955,7 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let has_semicolon = self.allow(TokenKind::Semicolon)?;
+        let has_semicolon = self.allow(Token::Semicolon)?;
 
         if !has_semicolon && self.parsed_expression && allowed.implicit_return {
             self.emit_instruction(Instruction::r#return(true), self.current_position);
@@ -1012,7 +1012,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let is_mutable = self.allow(TokenKind::Mut)?;
+        let is_mutable = self.allow(Token::Mut)?;
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
@@ -1025,7 +1025,7 @@ impl<'src> Parser<'src> {
                 position,
             });
         };
-        let r#type = if self.allow(TokenKind::Colon)? {
+        let r#type = if self.allow(Token::Colon)? {
             let r#type = self.parse_type_from(self.current_token, self.current_position)?;
 
             self.advance()?;
@@ -1036,7 +1036,7 @@ impl<'src> Parser<'src> {
         };
         let register = self.current_register;
 
-        self.expect(TokenKind::Equal)?;
+        self.expect(Token::Equal)?;
 
         self.parse_statement(
             Allowed {
@@ -1069,11 +1069,11 @@ impl<'src> Parser<'src> {
         let function_start = self.current_position.0;
         let mut function_parser = Parser::new(self.lexer)?;
 
-        function_parser.expect(TokenKind::LeftParenthesis)?;
+        function_parser.expect(Token::LeftParenthesis)?;
 
         while function_parser.current_token != Token::RightParenthesis {
             let start = function_parser.current_position.0;
-            let is_mutable = function_parser.allow(TokenKind::Mut)?;
+            let is_mutable = function_parser.allow(Token::Mut)?;
             let parameter = if let Token::Identifier(text) = function_parser.current_token {
                 function_parser.advance()?;
 
@@ -1086,7 +1086,7 @@ impl<'src> Parser<'src> {
                 });
             };
 
-            function_parser.expect(TokenKind::Colon)?;
+            function_parser.expect(Token::Colon)?;
 
             let r#type = function_parser.parse_type_from(
                 function_parser.current_token,
@@ -1110,11 +1110,11 @@ impl<'src> Parser<'src> {
                 Span(start, end),
             )?;
             function_parser.increment_register()?;
-            function_parser.allow(TokenKind::Comma)?;
+            function_parser.allow(Token::Comma)?;
         }
 
         function_parser.advance()?;
-        function_parser.expect(TokenKind::LeftCurlyBrace)?;
+        function_parser.expect(Token::LeftCurlyBrace)?;
 
         while function_parser.current_token != Token::RightCurlyBrace {
             function_parser.parse_statement(
@@ -1146,7 +1146,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), ParseError> {
-        if let Some(prefix_parser) = ParseRule::from(&self.current_token.kind()).prefix {
+        if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
             log::debug!(
                 "{} is {precedence} prefix",
                 self.current_token.to_string().bold(),
@@ -1155,7 +1155,7 @@ impl<'src> Parser<'src> {
             prefix_parser(self, allowed)?;
         }
 
-        let mut infix_rule = ParseRule::from(&self.current_token.kind());
+        let mut infix_rule = ParseRule::from(&self.current_token);
 
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
@@ -1176,7 +1176,7 @@ impl<'src> Parser<'src> {
                 break;
             }
 
-            infix_rule = ParseRule::from(&self.current_token.kind());
+            infix_rule = ParseRule::from(&self.current_token);
         }
 
         Ok(())
@@ -1247,227 +1247,232 @@ struct ParseRule<'a> {
     pub precedence: Precedence,
 }
 
-impl From<&TokenKind> for ParseRule<'_> {
-    fn from(token_kind: &TokenKind) -> Self {
+impl From<&Token<'_>> for ParseRule<'_> {
+    fn from(token_kind: &Token) -> Self {
         match token_kind {
-            TokenKind::Async => todo!(),
-            TokenKind::Bang => ParseRule {
+            Token::Async => todo!(),
+            Token::Bang => ParseRule {
                 prefix: Some(Parser::parse_unary),
                 infix: None,
                 precedence: Precedence::Unary,
             },
-            TokenKind::BangEqual => ParseRule {
+            Token::BangEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
-            TokenKind::Bool => todo!(),
-            TokenKind::Boolean => ParseRule {
+            Token::Bool => todo!(),
+            Token::Boolean(_) => ParseRule {
                 prefix: Some(Parser::parse_boolean),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Break => todo!(),
-            TokenKind::Byte => ParseRule {
+            Token::Break => todo!(),
+            Token::Byte(_) => ParseRule {
                 prefix: Some(Parser::parse_byte),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Character => ParseRule {
+            Token::Character(_) => ParseRule {
                 prefix: Some(Parser::parse_character),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Colon => todo!(),
-            TokenKind::Comma => ParseRule {
+            Token::Colon => todo!(),
+            Token::Comma => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Dot => todo!(),
-            TokenKind::DoubleAmpersand => ParseRule {
+            Token::Dot => todo!(),
+            Token::DoubleAmpersand => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::LogicalAnd,
             },
-            TokenKind::DoubleEqual => ParseRule {
+            Token::DoubleEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
-            TokenKind::DoublePipe => ParseRule {
+            Token::DoublePipe => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::LogicalOr,
             },
-            TokenKind::DoubleDot => todo!(),
-            TokenKind::Eof => ParseRule {
+            Token::DoubleDot => todo!(),
+            Token::Eof => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Equal => ParseRule {
+            Token::Equal => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Else => ParseRule {
+            Token::Else => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Float => ParseRule {
+            Token::Float(_) => ParseRule {
                 prefix: Some(Parser::parse_float),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::FloatKeyword => todo!(),
-            TokenKind::Fn => ParseRule {
+            Token::FloatKeyword => todo!(),
+            Token::Fn => ParseRule {
                 prefix: Some(Parser::parse_function),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Greater => ParseRule {
+            Token::Greater => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
-            TokenKind::GreaterEqual => ParseRule {
+            Token::GreaterEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
-            TokenKind::Identifier => ParseRule {
+            Token::Identifier(_) => ParseRule {
                 prefix: Some(Parser::parse_variable),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::If => ParseRule {
+            Token::If => ParseRule {
                 prefix: Some(Parser::parse_if),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Int => todo!(),
-            TokenKind::Integer => ParseRule {
+            Token::Int => todo!(),
+            Token::Integer(_) => ParseRule {
                 prefix: Some(Parser::parse_integer),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::LeftCurlyBrace => ParseRule {
+            Token::LeftCurlyBrace => ParseRule {
                 prefix: Some(Parser::parse_block),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::LeftParenthesis => ParseRule {
+            Token::LeftParenthesis => ParseRule {
                 prefix: Some(Parser::parse_grouped),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::LeftSquareBrace => ParseRule {
+            Token::LeftSquareBrace => ParseRule {
                 prefix: Some(Parser::parse_list),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Less => ParseRule {
+            Token::Less => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
-            TokenKind::LessEqual => ParseRule {
+            Token::LessEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
-            TokenKind::Let => ParseRule {
+            Token::Let => ParseRule {
                 prefix: Some(Parser::parse_let_statement),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Loop => todo!(),
-            TokenKind::Map => todo!(),
-            TokenKind::Minus => ParseRule {
+            Token::Loop => todo!(),
+            Token::Map => todo!(),
+            Token::Minus => ParseRule {
                 prefix: Some(Parser::parse_unary),
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
-            TokenKind::MinusEqual => ParseRule {
+            Token::MinusEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Mut => ParseRule {
+            Token::Mut => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Percent => ParseRule {
+            Token::Percent => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
-            TokenKind::Plus => ParseRule {
+            Token::PercentEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_math_binary),
+                precedence: Precedence::Assignment,
+            },
+            Token::Plus => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Term,
             },
-            TokenKind::PlusEqual => ParseRule {
+            Token::PlusEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Return => ParseRule {
+            Token::Return => ParseRule {
                 prefix: Some(Parser::parse_return),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::RightCurlyBrace => ParseRule {
+            Token::RightCurlyBrace => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::RightParenthesis => ParseRule {
+            Token::RightParenthesis => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::RightSquareBrace => ParseRule {
+            Token::RightSquareBrace => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Semicolon => ParseRule {
+            Token::Semicolon => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Slash => ParseRule {
+            Token::Slash => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
-            TokenKind::SlashEqual => ParseRule {
+            Token::SlashEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Star => ParseRule {
+            Token::Star => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Factor,
             },
-            TokenKind::StarEqual => ParseRule {
+            Token::StarEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Str => todo!(),
-            TokenKind::String => ParseRule {
+            Token::Str => todo!(),
+            Token::String(_) => ParseRule {
                 prefix: Some(Parser::parse_string),
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Struct => todo!(),
-            TokenKind::While => ParseRule {
+            Token::Struct => todo!(),
+            Token::While => ParseRule {
                 prefix: Some(Parser::parse_while),
                 infix: None,
                 precedence: Precedence::None,
