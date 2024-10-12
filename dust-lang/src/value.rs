@@ -60,7 +60,7 @@ impl Value {
     }
 
     pub fn function(body: Chunk) -> Self {
-        Value::Primitive(Primitive::Function(Function { body }))
+        Value::Primitive(Primitive::Function(Function { chunk: body }))
     }
 
     pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
@@ -286,7 +286,7 @@ impl From<&str> for Value {
 
 impl Clone for Value {
     fn clone(&self) -> Self {
-        log::trace!("Cloning value {:?}", self);
+        log::trace!("Cloning value {self}");
 
         match self {
             Value::Primitive(data) => Value::Primitive(data.clone()),
@@ -643,7 +643,7 @@ impl Ord for Primitive {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Function {
-    pub body: Chunk,
+    pub chunk: Chunk,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -303,14 +303,7 @@ impl<'src> Parser<'src> {
 
     fn parse_grouped(&mut self, _: Allowed) -> Result<(), ParseError> {
         self.allow(Token::LeftParenthesis)?;
-        self.parse_statement(
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-            Context::None,
-        )?;
+        self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
 
         self.parsed_expression = true;
@@ -323,14 +316,7 @@ impl<'src> Parser<'src> {
         let operator_position = self.current_position;
 
         self.advance()?;
-        self.parse_statement(
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-            Context::None,
-        )?;
+        self.parse_expression()?;
 
         let (previous_instruction, previous_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -394,11 +380,7 @@ impl<'src> Parser<'src> {
                 let local = self.chunk.get_local(local_index, self.current_position)?;
                 is_mutable_local = local.is_mutable;
 
-                if let Some(index) = local.register_index {
-                    index
-                } else {
-                    instruction.a()
-                }
+                local.register_index
             }
             Operation::LoadConstant => {
                 is_constant = true;
@@ -705,32 +687,23 @@ impl<'src> Parser<'src> {
                 });
             }
 
-            self.parse_statement(
-                Allowed {
-                    assignment: false,
-                    explicit_return: true,
-                    implicit_return: false,
-                },
-                Context::Assignment,
-            )?;
+            self.parse_expression()?;
 
             let (mut previous_instruction, previous_position) =
                 self.chunk.pop_instruction(self.current_position)?;
 
             if previous_instruction.operation().is_math() {
-                let previous_register = self
+                let register_index = self
                     .chunk
                     .get_local(local_index, start_position)?
                     .register_index;
 
-                if let Some(register_index) = previous_register {
-                    log::trace!("Condensing SET_LOCAL to binary math expression");
+                log::trace!("Condensing SET_LOCAL to binary math expression");
 
-                    previous_instruction.set_a(register_index);
-                    self.emit_instruction(previous_instruction, self.current_position);
+                previous_instruction.set_a(register_index);
+                self.emit_instruction(previous_instruction, self.current_position);
 
-                    return Ok(());
-                }
+                return Ok(());
             }
 
             self.emit_instruction(previous_instruction, previous_position);
@@ -815,14 +788,7 @@ impl<'src> Parser<'src> {
         while !self.allow(Token::RightSquareBrace)? && !self.is_eof() {
             let next_register = self.current_register;
 
-            self.parse_statement(
-                Allowed {
-                    assignment: false,
-                    explicit_return: false,
-                    implicit_return: false,
-                },
-                Context::None,
-            )?;
+            self.parse_expression()?;
 
             if let Operation::LoadConstant = self.chunk.get_last_operation()? {
                 self.increment_register()?;
@@ -853,21 +819,10 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_if(&mut self, allowed: Allowed) -> Result<(), ParseError> {
-        let length = self.chunk.len();
-        let expression_allowed = Allowed {
-            assignment: false,
-            explicit_return: false,
-            implicit_return: false,
-        };
-        let block_allowed = Allowed {
-            assignment: allowed.assignment,
-            explicit_return: allowed.explicit_return,
-            implicit_return: false,
-        };
-
         self.advance()?;
-        self.parse_statement(expression_allowed, Context::None)?;
+        self.parse_expression()?;
 
+        let length = self.chunk.len();
         let is_explicit_boolean =
             matches!(self.previous_token, Token::Boolean(_)) && length == self.chunk.len() - 1;
 
@@ -877,6 +832,12 @@ impl<'src> Parser<'src> {
                 self.current_position,
             );
         }
+
+        let block_allowed = Allowed {
+            assignment: allowed.assignment,
+            explicit_return: allowed.explicit_return,
+            implicit_return: false,
+        };
 
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(block_allowed)?;
@@ -917,14 +878,7 @@ impl<'src> Parser<'src> {
 
         let jump_start = self.chunk.len();
 
-        self.parse_statement(
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-            Context::None,
-        )?;
+        self.parse_expression()?;
         self.parse_block(Allowed {
             assignment: true,
             explicit_return: allowed.explicit_return,
@@ -986,6 +940,17 @@ impl<'src> Parser<'src> {
         }
 
         Ok(())
+    }
+
+    fn parse_expression(&mut self) -> Result<(), ParseError> {
+        self.parse(
+            Precedence::None,
+            Allowed {
+                assignment: false,
+                explicit_return: false,
+                implicit_return: false,
+            },
+        )
     }
 
     fn parse_return(&mut self, allowed: Allowed) -> Result<(), ParseError> {
@@ -1120,7 +1085,8 @@ impl<'src> Parser<'src> {
             function_parser.advance()?;
 
             let end = function_parser.current_position.1;
-            let local_index = function_parser.chunk.declare_local(
+
+            function_parser.chunk.declare_local(
                 parameter,
                 Some(r#type),
                 is_mutable,
@@ -1128,11 +1094,6 @@ impl<'src> Parser<'src> {
                 Span(start, end),
             )?;
 
-            function_parser.chunk.define_local(
-                local_index,
-                function_parser.current_register,
-                Span(start, end),
-            )?;
             function_parser.increment_register()?;
             function_parser.allow(Token::Comma)?;
         }
@@ -1165,6 +1126,46 @@ impl<'src> Parser<'src> {
         self.emit_constant(function, Span(function_start, function_end))?;
 
         self.parsed_expression = true;
+
+        Ok(())
+    }
+
+    fn parse_call(&mut self) -> Result<(), ParseError> {
+        self.advance()?;
+
+        let function_register = self.current_register;
+        let mut argument_count = 0;
+
+        while !self.allow(Token::RightParenthesis)? {
+            if argument_count > 0 {
+                self.expect(Token::Comma)?;
+            }
+
+            let register = self.current_register;
+
+            self.parse(
+                Precedence::None,
+                Allowed {
+                    assignment: false,
+                    explicit_return: false,
+                    implicit_return: false,
+                },
+            )?;
+
+            if self.current_register == register {
+                return Err(ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            }
+
+            argument_count += 1;
+        }
+
+        self.emit_instruction(
+            Instruction::call(function_register, argument_count),
+            self.current_position,
+        );
 
         Ok(())
     }
@@ -1384,8 +1385,8 @@ impl From<&Token<'_>> for ParseRule<'_> {
             },
             Token::LeftParenthesis => ParseRule {
                 prefix: Some(Parser::parse_grouped),
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Parser::parse_call),
+                precedence: Precedence::Call,
             },
             Token::LeftSquareBrace => ParseRule {
                 prefix: Some(Parser::parse_list),

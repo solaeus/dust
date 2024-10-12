@@ -227,7 +227,7 @@ impl Chunk {
                 r#type,
                 is_mutable,
                 self.scope_depth,
-                Some(register_index),
+                register_index,
             ));
 
             Ok(starting_length as u8)
@@ -249,7 +249,7 @@ impl Chunk {
 
         log::debug!("Define local {}", local.identifier);
 
-        local.register_index = Some(register_index);
+        local.register_index = register_index;
 
         Ok(())
     }
@@ -309,7 +309,7 @@ pub struct Local {
     pub r#type: Option<Type>,
     pub is_mutable: bool,
     pub depth: usize,
-    pub register_index: Option<u8>,
+    pub register_index: u8,
 }
 
 impl Local {
@@ -318,7 +318,7 @@ impl Local {
         r#type: Option<Type>,
         mutable: bool,
         depth: usize,
-        register_index: Option<u8>,
+        register_index: u8,
     ) -> Self {
         Self {
             identifier,
@@ -499,17 +499,13 @@ impl<'a> ChunkDisassembler<'a> {
             },
         ) in self.chunk.locals.iter().enumerate()
         {
-            let register_display = register_index
-                .as_ref()
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "empty".to_string());
             let identifier_display = identifier.as_str();
             let type_display = r#type
                 .as_ref()
                 .map(|r#type| r#type.to_string())
                 .unwrap_or("unknown".to_string());
             let local_display = format!(
-                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_display:8}"
+                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_index:8}"
             );
 
             push(&local_display, false);
@@ -541,7 +537,7 @@ impl<'a> ChunkDisassembler<'a> {
                 value_option.as_ref().and_then(|value| match value {
                     Value::Primitive(value_data) => value_data.as_function().map(|function| {
                         function
-                            .body
+                            .chunk
                             .disassembler("function")
                             .styled(self.styled)
                             .indent(self.indent + 1)

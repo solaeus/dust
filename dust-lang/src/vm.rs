@@ -7,7 +7,6 @@ use crate::{
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = parse(source)?;
-
     let mut vm = Vm::new(chunk);
 
     vm.run()
@@ -30,10 +29,6 @@ impl Vm {
             chunk,
             stack: Vec::new(),
         }
-    }
-
-    pub fn take_chunk(self) -> Chunk {
-        self.chunk
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
@@ -131,14 +126,7 @@ impl Vm {
                     let to_register = instruction.a();
                     let local_index = instruction.b();
                     let local = self.chunk.get_local(local_index, position)?;
-                    let from_register =
-                        local
-                            .register_index
-                            .ok_or_else(|| VmError::UndefinedVariable {
-                                identifier: local.identifier.clone(),
-                                position,
-                            })?;
-                    let value = self.take(from_register, to_register, position)?;
+                    let value = self.take(local.register_index, to_register, position)?;
 
                     self.set(to_register, value, position)?;
                 }
@@ -380,11 +368,38 @@ impl Vm {
 
                     self.ip = new_ip;
                 }
+                Operation::Call => {
+                    let function_index = instruction.a();
+                    let argument_count = instruction.b();
+                    let function = if let Value::Primitive(Primitive::Function(function)) =
+                        self.get(function_index, position)?.clone()
+                    {
+                        function
+                    } else {
+                        todo!()
+                    };
+                    let mut function_vm = Vm::new(function.chunk);
+                    let first_argument_index = function_index + 1;
+                    let last_argument_index = first_argument_index + argument_count;
+
+                    for argument_index in first_argument_index..=last_argument_index {
+                        let argument = self.empty(argument_index, position)?;
+
+                        function_vm.stack.push(Register::Value(argument));
+                    }
+
+                    let return_value = function_vm.run()?;
+
+                    if let Some(value) = return_value {
+                        self.set(function_index, value, position)?;
+                    }
+                }
                 Operation::Return => {
                     let should_return_value = instruction.b_as_boolean();
+                    let top_of_stack = (self.stack.len() - 1) as u8;
 
                     return if should_return_value {
-                        let value = self.empty(self.stack.len() - 1, position)?;
+                        let value = self.empty(top_of_stack, position)?;
 
                         Ok(Some(value))
                     } else {
@@ -507,7 +522,9 @@ impl Vm {
         }
     }
 
-    fn empty(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+    fn empty(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
+        let index = index as usize;
+
         if index >= self.stack.len() {
             return Err(VmError::RegisterIndexOutOfBounds { position });
         }
@@ -517,7 +534,7 @@ impl Vm {
         match register {
             Register::Value(value) => Ok(value),
             Register::Pointer(register_index) => {
-                let value = self.empty(register_index as usize, position)?;
+                let value = self.empty(register_index, position)?;
 
                 Ok(value)
             }

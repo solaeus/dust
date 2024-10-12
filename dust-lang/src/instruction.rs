@@ -208,6 +208,15 @@ impl Instruction {
         instruction
     }
 
+    pub fn call(function_index: u8, argument_count: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Call as u32);
+
+        instruction.set_a(function_index);
+        instruction.set_b(argument_count);
+
+        instruction
+    }
+
     pub fn r#return(should_return_value: bool) -> Instruction {
         let mut instruction = Instruction(Operation::Return as u32);
 
@@ -572,6 +581,25 @@ impl Instruction {
 
                 None
             }
+            Operation::Call => {
+                let function_index = self.a();
+                let argument_count = self.b();
+                let last_argument = function_index + argument_count;
+
+                let mut output = format!("R{function_index}(");
+
+                for register in function_index..last_argument {
+                    if register != last_argument - 1 {
+                        output.push_str(", ");
+                    }
+
+                    output.push_str(&format!("R{}", register));
+                }
+
+                output.push(')');
+
+                Some(output)
+            }
             Operation::Return => None,
         };
 
@@ -777,6 +805,15 @@ mod tests {
         assert_eq!(instruction.operation(), Operation::Jump);
         assert_eq!(instruction.b(), 4);
         assert!(instruction.c_as_boolean());
+    }
+
+    #[test]
+    fn call() {
+        let instruction = Instruction::call(4, 1);
+
+        assert_eq!(instruction.operation(), Operation::Call);
+        assert_eq!(instruction.a(), 4);
+        assert_eq!(instruction.b(), 1);
     }
 
     #[test]

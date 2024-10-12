@@ -39,7 +39,7 @@ fn add_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(1), Value::integer(2)],
-            vec![Local::new(Identifier::new("a"), None, true, 0, Some(0))]
+            vec![Local::new(Identifier::new("a"), None, true, 0, 0)]
         ))
     );
 
@@ -105,11 +105,11 @@ fn block_scope() {
                 Value::integer(1)
             ],
             vec![
-                Local::new(Identifier::new("a"), None, false, 0, Some(0)),
-                Local::new(Identifier::new("b"), None, false, 1, Some(1)),
-                Local::new(Identifier::new("c"), None, false, 2, Some(2)),
-                Local::new(Identifier::new("d"), None, false, 1, Some(3)),
-                Local::new(Identifier::new("e"), None, false, 0, Some(4)),
+                Local::new(Identifier::new("a"), None, false, 0, 0),
+                Local::new(Identifier::new("b"), None, false, 1, 1),
+                Local::new(Identifier::new("c"), None, false, 2, 2),
+                Local::new(Identifier::new("d"), None, false, 1, 3),
+                Local::new(Identifier::new("e"), None, false, 0, 4),
             ]
         )),
     );
@@ -148,7 +148,7 @@ fn define_local() {
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
             ],
             vec![Value::integer(42)],
-            vec![Local::new(Identifier::new("x"), None, false, 0, Some(0))]
+            vec![Local::new(Identifier::new("x"), None, false, 0, 0)]
         )),
     );
 
@@ -197,7 +197,7 @@ fn divide_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(2), Value::integer(2)],
-            vec![Local::new(Identifier::new("a"), None, true, 0, Some(0))]
+            vec![Local::new(Identifier::new("a"), None, true, 0, 0)]
         ))
     );
 
@@ -261,7 +261,7 @@ fn equality_assignment_long() {
                 (Instruction::r#return(true), Span(44, 44)),
             ],
             vec![Value::integer(4), Value::integer(4)],
-            vec![Local::new(Identifier::new("a"), None, false, 0, Some(0))]
+            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
         )),
     );
 
@@ -290,7 +290,7 @@ fn equality_assignment_short() {
                 (Instruction::r#return(true), Span(16, 16)),
             ],
             vec![Value::integer(4), Value::integer(4)],
-            vec![Local::new(Identifier::new("a"), None, false, 0, Some(0))]
+            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
         )),
     );
 
@@ -664,7 +664,7 @@ fn multiply_assign() {
                 (Instruction::r#return(true), Span(23, 23))
             ],
             vec![Value::integer(2), Value::integer(3)],
-            vec![Local::new(Identifier::new("a"), None, true, 0, Some(0)),]
+            vec![Local::new(Identifier::new("a"), None, true, 0, 0),]
         ))
     );
 
@@ -803,7 +803,7 @@ fn set_local() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(41), Value::integer(42)],
-            vec![Local::new(Identifier::new("x"), None, true, 0, Some(0)),]
+            vec![Local::new(Identifier::new("x"), None, true, 0, 0)]
         )),
     );
 
@@ -852,7 +852,7 @@ fn subtract_assign() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(42), Value::integer(2)],
-            vec![Local::new(Identifier::new("x"), None, true, 0, Some(0)),]
+            vec![Local::new(Identifier::new("x"), None, true, 0, 0)]
         )),
     );
 
@@ -879,8 +879,8 @@ fn variable_and() {
             ],
             vec![],
             vec![
-                Local::new(Identifier::new("a"), None, false, 0, Some(0)),
-                Local::new(Identifier::new("b"), None, false, 0, Some(1)),
+                Local::new(Identifier::new("a"), None, false, 0, 0),
+                Local::new(Identifier::new("b"), None, false, 0, 1),
             ]
         ))
     );
@@ -909,7 +909,7 @@ fn r#while() {
                 (Instruction::r#return(true), Span(42, 42)),
             ],
             vec![Value::integer(0), Value::integer(5), Value::integer(1),],
-            vec![Local::new(Identifier::new("x"), None, true, 0, Some(0)),]
+            vec![Local::new(Identifier::new("x"), None, true, 0, 0),]
         )),
     );
 

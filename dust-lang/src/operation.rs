@@ -28,7 +28,8 @@ const NEGATE: u8 = 0b0001_0010;
 const NOT: u8 = 0b0001_0011;
 
 const JUMP: u8 = 0b0001_0100;
-const RETURN: u8 = 0b0001_0101;
+const CALL: u8 = 0b0001_0101;
+const RETURN: u8 = 0b0001_0110;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -68,6 +69,7 @@ pub enum Operation {
 
     // Control flow
     Jump = JUMP as isize,
+    Call = CALL as isize,
     Return = RETURN as isize,
 }
 
@@ -119,6 +121,7 @@ impl From<u8> for Operation {
             NEGATE => Operation::Negate,
             NOT => Operation::Not,
             JUMP => Operation::Jump,
+            CALL => Operation::Call,
             RETURN => Operation::Return,
             _ => {
                 if cfg!(test) {
@@ -155,6 +158,7 @@ impl From<Operation> for u8 {
             Operation::Negate => NEGATE,
             Operation::Not => NOT,
             Operation::Jump => JUMP,
+            Operation::Call => CALL,
             Operation::Return => RETURN,
         }
     }
@@ -184,6 +188,7 @@ impl Display for Operation {
             Operation::Negate => write!(f, "NEGATE"),
             Operation::Not => write!(f, "NOT"),
             Operation::Jump => write!(f, "JUMP"),
+            Operation::Call => write!(f, "CALL"),
             Operation::Return => write!(f, "RETURN"),
         }
     }
