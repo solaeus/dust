@@ -215,13 +215,7 @@ impl Chunk {
         register_index: u8,
         position: Span,
     ) -> Result<u8, ChunkError> {
-        log::debug!(
-            "Declaring local: {:?} {:?} {:?} {:?}",
-            identifier,
-            r#type,
-            is_mutable,
-            register_index
-        );
+        log::debug!("Declare local {identifier}");
 
         let starting_length = self.locals.len();
 
@@ -252,6 +246,8 @@ impl Chunk {
                 position,
             }
         })?;
+
+        log::debug!("Define local {}", local.identifier);
 
         local.register_index = Some(register_index);
 

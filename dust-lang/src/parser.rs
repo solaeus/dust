@@ -553,6 +553,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
+        if let [Some(Operation::Jump), Some(Operation::Equal) | Some(Operation::Less) | Some(Operation::LessEqual)] =
+            self.chunk.get_last_n_operations()
+        {
+            return Err(ParseError::CannotChainComparison {
+                position: self.current_position,
+            });
+        }
+
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let (push_back_left, left_is_constant, _, left) =
@@ -1499,6 +1507,9 @@ impl From<&Token<'_>> for ParseRule<'_> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
+    CannotChainComparison {
+        position: Span,
+    },
     CannotMutateImmutableVariable {
         identifier: Identifier,
         position: Span,
@@ -1565,6 +1576,7 @@ impl AnnotatedError for ParseError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::CannotChainComparison { .. } => "Cannot chain comparison",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedToken { .. } => "Expected a specific token",
@@ -1584,6 +1596,9 @@ impl AnnotatedError for ParseError {
 
     fn details(&self) -> Option<String> {
         match self {
+            Self::CannotChainComparison { .. } => {
+                Some("Cannot chain comparison operations".to_string())
+            }
             Self::CannotMutateImmutableVariable { identifier, .. } => {
                 Some(format!("Cannot mutate immutable variable {identifier}"))
             }
@@ -1633,6 +1648,7 @@ impl AnnotatedError for ParseError {
 
     fn position(&self) -> Span {
         match self {
+            Self::CannotChainComparison { position } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
