@@ -1,5 +1,4 @@
 mod chunk;
-mod constructor;
 mod dust_error;
 mod identifier;
 mod instruction;
@@ -14,7 +13,6 @@ mod vm;
 use std::fmt::Display;
 
 pub use chunk::{Chunk, ChunkDisassembler, ChunkError, Local};
-pub use constructor::Constructor;
 pub use dust_error::{AnnotatedError, DustError};
 pub use identifier::Identifier;
 pub use instruction::Instruction;
@@ -23,7 +21,7 @@ pub use operation::Operation;
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use token::{Token, TokenKind, TokenOwned};
-pub use value::{Enum, Function, Struct, Value, ValueError};
+pub use value::{Function, Value, ValueError};
 pub use vm::{run, Vm, VmError};
 
 use serde::{Deserialize, Serialize};

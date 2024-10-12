@@ -506,14 +506,7 @@ fn list() {
         )),
     );
 
-    assert_eq!(
-        run(source),
-        Ok(Some(Value::list(vec![
-            Value::integer(1),
-            Value::integer(2),
-            Value::integer(3)
-        ])))
-    );
+    assert_eq!(run(source), Ok(Some(Value::list(0, 2))));
 }
 
 #[test]
@@ -553,13 +546,7 @@ fn list_with_complex_expression() {
         )),
     );
 
-    assert_eq!(
-        run(source),
-        Ok(Some(Value::list(vec![
-            Value::integer(1),
-            Value::integer(-15)
-        ])))
-    );
+    assert_eq!(run(source), Ok(Some(Value::list(0, 3))));
 }
 
 #[test]
@@ -591,14 +578,7 @@ fn list_with_simple_expression() {
         )),
     );
 
-    assert_eq!(
-        run(source),
-        Ok(Some(Value::list(vec![
-            Value::integer(1),
-            Value::integer(5),
-            Value::integer(4)
-        ])))
-    );
+    assert_eq!(run(source), Ok(Some(Value::list(0, 2))));
 }
 
 #[test]

@@ -526,7 +526,10 @@ impl<'a> ChunkDisassembler<'a> {
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
             let value_display = value_option
                 .as_ref()
-                .map(|value| value.to_string())
+                .map(|value| match value {
+                    Value::Primitive(value_data) => value_data.to_string(),
+                    Value::Object(_) => "object".to_string(),
+                })
                 .unwrap_or("empty".to_string());
             let trucated_length = 8;
             let with_elipsis = trucated_length - 3;
@@ -540,35 +543,16 @@ impl<'a> ChunkDisassembler<'a> {
 
             if let Some(function_disassembly) =
                 value_option.as_ref().and_then(|value| match value {
-                    Value::Raw(value_data) => value_data.as_function().map(|function| {
+                    Value::Primitive(value_data) => value_data.as_function().map(|function| {
                         function
-                            .body()
+                            .body
                             .disassembler("function")
                             .styled(self.styled)
                             .indent(self.indent + 1)
                             .width(self.width)
                             .disassemble()
                     }),
-                    Value::Reference(arc) => arc.as_function().map(|function| {
-                        function
-                            .body()
-                            .disassembler("function")
-                            .styled(self.styled)
-                            .indent(self.indent + 1)
-                            .width(self.width)
-                            .disassemble()
-                    }),
-                    Value::Mutable(rw_lock) => {
-                        rw_lock.read().unwrap().as_function().map(|function| {
-                            function
-                                .body()
-                                .disassembler("function")
-                                .styled(self.styled)
-                                .indent(self.indent + 1)
-                                .width(self.width)
-                                .disassemble()
-                        })
-                    }
+                    Value::Object(_) => None,
                 })
             {
                 push(&function_disassembly, false);

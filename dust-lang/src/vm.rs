@@ -1,8 +1,8 @@
 use std::mem::replace;
 
 use crate::{
-    parse, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, Operation, Span,
-    Value, ValueError,
+    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
+    Operation, Span, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -116,20 +116,9 @@ impl Vm {
                     let to_register = instruction.a();
                     let first_register = instruction.b();
                     let last_register = instruction.c();
-                    let length = last_register - first_register + 1;
-                    let mut list = Vec::with_capacity(length as usize);
+                    let value = Value::list(first_register, last_register);
 
-                    for register_index in first_register..=last_register {
-                        let value = match self.take(register_index, to_register, position) {
-                            Ok(value) => value,
-                            Err(VmError::EmptyRegister { .. }) => continue,
-                            Err(error) => return Err(error),
-                        };
-
-                        list.push(value);
-                    }
-
-                    self.set(to_register, Value::list(list), position)?;
+                    self.set(to_register, value, position)?;
                 }
                 Operation::DefineLocal => {
                     let from_register = instruction.a();
@@ -211,10 +200,14 @@ impl Vm {
                     let register = instruction.a();
                     let test_value = instruction.c_as_boolean();
                     let value = self.get(register, position)?;
-                    let boolean = value.as_boolean().ok_or_else(|| VmError::ExpectedBoolean {
-                        found: value.clone(),
-                        position,
-                    })?;
+                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) = value {
+                        *boolean
+                    } else {
+                        return Err(VmError::ExpectedBoolean {
+                            found: value.clone(),
+                            position,
+                        });
+                    };
 
                     if boolean != test_value {
                         self.ip += 1;
@@ -226,12 +219,14 @@ impl Vm {
                     let test_value = instruction.c_as_boolean();
                     let borrowed_value = self.get(argument, position)?;
                     let boolean =
-                        borrowed_value
-                            .as_boolean()
-                            .ok_or_else(|| VmError::ExpectedBoolean {
+                        if let Value::Primitive(Primitive::Boolean(boolean)) = borrowed_value {
+                            *boolean
+                        } else {
+                            return Err(VmError::ExpectedBoolean {
                                 found: borrowed_value.clone(),
                                 position,
-                            })?;
+                            });
+                        };
 
                     if boolean == test_value {
                         let value = self.take(argument, to_register, position)?;
@@ -248,15 +243,18 @@ impl Vm {
                     );
 
                     let (left, right) = get_arguments(self, instruction, position)?;
-
-                    let boolean = left
+                    let equal_result = left
                         .equal(right)
-                        .map_err(|error| VmError::Value { error, position })?
-                        .as_boolean()
-                        .ok_or_else(|| VmError::ExpectedBoolean {
-                            found: left.clone(),
-                            position,
-                        })?;
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let boolean =
+                        if let Value::Primitive(Primitive::Boolean(boolean)) = equal_result {
+                            boolean
+                        } else {
+                            return Err(VmError::ExpectedBoolean {
+                                found: equal_result.clone(),
+                                position,
+                            });
+                        };
                     let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
@@ -281,14 +279,18 @@ impl Vm {
                     );
 
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let boolean = left
+                    let less_result = left
                         .less_than(right)
-                        .map_err(|error| VmError::Value { error, position })?
-                        .as_boolean()
-                        .ok_or_else(|| VmError::ExpectedBoolean {
-                            found: left.clone(),
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) = less_result
+                    {
+                        boolean
+                    } else {
+                        return Err(VmError::ExpectedBoolean {
+                            found: less_result.clone(),
                             position,
-                        })?;
+                        });
+                    };
                     let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
@@ -313,14 +315,19 @@ impl Vm {
                     );
 
                     let (left, right) = get_arguments(self, instruction, position)?;
-                    let boolean = left
+                    let less_or_equal_result = left
                         .less_than_or_equal(right)
-                        .map_err(|error| VmError::Value { error, position })?
-                        .as_boolean()
-                        .ok_or_else(|| VmError::ExpectedBoolean {
-                            found: left.clone(),
+                        .map_err(|error| VmError::Value { error, position })?;
+                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) =
+                        less_or_equal_result
+                    {
+                        boolean
+                    } else {
+                        return Err(VmError::ExpectedBoolean {
+                            found: less_or_equal_result.clone(),
                             position,
-                        })?;
+                        });
+                    };
                     let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
@@ -457,7 +464,7 @@ impl Vm {
         })
     }
 
-    fn get(&self, index: u8, position: Span) -> Result<&Value, VmError> {
+    pub fn get(&self, index: u8, position: Span) -> Result<&Value, VmError> {
         let index = index as usize;
         let register = self
             .stack

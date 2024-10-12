@@ -394,7 +394,7 @@ impl Instruction {
 
                 let constant = if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
-                        Ok(constant) => constant.to_string(),
+                        Ok(value) => value.to_string(),
                         Err(error) => format!("{error:?}"),
                     }
                 } else {

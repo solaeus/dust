@@ -17,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Constructor, Identifier};
+use crate::Identifier;
 
 /// Description of a kind of value.
 ///
@@ -486,12 +486,6 @@ impl StructType {
             StructType::Unit { name } => name,
             StructType::Tuple { name, .. } => name,
             StructType::Fields { name, .. } => name,
-        }
-    }
-
-    pub fn constructor(&self) -> Constructor {
-        Constructor {
-            struct_type: self.clone(),
         }
     }
 }
