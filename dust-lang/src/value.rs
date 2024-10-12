@@ -67,8 +67,12 @@ impl Value {
         Value::Primitive(Primitive::Integer(into_i64.into()))
     }
 
-    pub fn list(start: u8, end: u8) -> Self {
-        Value::Object(Object::List { start, end })
+    pub fn list(start: u8, end: u8, item_type: Type) -> Self {
+        Value::Object(Object::List {
+            start,
+            end,
+            item_type,
+        })
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
@@ -78,7 +82,18 @@ impl Value {
     pub fn r#type(&self) -> Type {
         match self {
             Value::Primitive(data) => data.r#type(),
-            Value::Object(object) => todo!(),
+            Value::Object(Object::List {
+                start,
+                end,
+                item_type,
+            }) => {
+                let length = (end - start + 1) as usize;
+
+                Type::List {
+                    length,
+                    item_type: Box::new(item_type.clone()),
+                }
+            }
         }
     }
 
@@ -843,13 +858,13 @@ impl Ord for RangeValue {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Object {
-    List { start: u8, end: u8 },
+    List { start: u8, end: u8, item_type: Type },
 }
 
 impl Object {
     fn display(&self, vm: &Vm, position: Span) -> Result<String, ValueError> {
         match self {
-            Object::List { start, end } => {
+            Object::List { start, end, .. } => {
                 let mut display = String::from("[");
                 let (start, end) = (*start, *end);
 

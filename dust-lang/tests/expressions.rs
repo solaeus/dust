@@ -506,7 +506,7 @@ fn list() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::list(0, 2))));
+    assert_eq!(run(source), Ok(Some(Value::list(0, 2, Type::Integer))));
 }
 
 #[test]
@@ -546,7 +546,7 @@ fn list_with_complex_expression() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::list(0, 3))));
+    assert_eq!(run(source), Ok(Some(Value::list(0, 3, Type::Integer))));
 }
 
 #[test]
@@ -578,7 +578,7 @@ fn list_with_simple_expression() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::list(0, 2))));
+    assert_eq!(run(source), Ok(Some(Value::list(0, 2, Type::Integer))));
 }
 
 #[test]

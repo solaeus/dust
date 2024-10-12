@@ -116,7 +116,8 @@ impl Vm {
                     let to_register = instruction.a();
                     let first_register = instruction.b();
                     let last_register = instruction.c();
-                    let value = Value::list(first_register, last_register);
+                    let item_type = self.get(first_register, position)?.r#type();
+                    let value = Value::list(first_register, last_register, item_type);
 
                     self.set(to_register, value, position)?;
                 }
@@ -137,7 +138,6 @@ impl Vm {
                                 identifier: local.identifier.clone(),
                                 position,
                             })?;
-
                     let value = self.take(from_register, to_register, position)?;
 
                     self.set(to_register, value, position)?;

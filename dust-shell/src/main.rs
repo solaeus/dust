@@ -45,22 +45,22 @@ fn main() {
 
     if let Some(command) = &args.command {
         if args.parse {
-            parse_and_display_errors(command, args.styled);
+            parse_and_display(command, args.styled);
         } else {
-            run_and_display_errors(command);
+            run_and_display(command);
         }
     } else if let Some(path) = &args.path {
         let source = read_to_string(path).expect("Failed to read file");
 
         if args.parse {
-            parse_and_display_errors(&source, args.styled);
+            parse_and_display(&source, args.styled);
         } else {
-            run_and_display_errors(&source);
+            run_and_display(&source);
         }
     }
 }
 
-fn parse_and_display_errors(source: &str, pretty_print: bool) {
+fn parse_and_display(source: &str, pretty_print: bool) {
     match parse(source) {
         Ok(chunk) => println!(
             "{}",
@@ -75,7 +75,7 @@ fn parse_and_display_errors(source: &str, pretty_print: bool) {
     }
 }
 
-fn run_and_display_errors(source: &str) {
+fn run_and_display(source: &str) {
     match run(source) {
         Ok(Some(value)) => println!("{}", value),
         Ok(_) => {}
