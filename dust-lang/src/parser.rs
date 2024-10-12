@@ -1119,7 +1119,7 @@ impl<'src> Parser<'src> {
         self.current_token = function_parser.current_token;
         self.current_position = function_parser.current_position;
 
-        let function = Value::function(function_parser.take_chunk());
+        let function = Value::function(function_parser.chunk);
         let function_end = self.current_position.1;
 
         self.lexer.skip_to(function_end);
