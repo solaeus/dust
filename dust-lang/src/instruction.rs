@@ -208,8 +208,12 @@ impl Instruction {
         instruction
     }
 
-    pub fn r#return() -> Instruction {
-        Instruction(Operation::Return as u32)
+    pub fn r#return(should_return_value: bool) -> Instruction {
+        let mut instruction = Instruction(Operation::Return as u32);
+
+        instruction.set_b(if should_return_value { 1 } else { 0 });
+
+        instruction
     }
 
     pub fn operation(&self) -> Operation {
@@ -777,8 +781,9 @@ mod tests {
 
     #[test]
     fn r#return() {
-        let instruction = Instruction::r#return();
+        let instruction = Instruction::r#return(true);
 
         assert_eq!(instruction.operation(), Operation::Return);
+        assert!(instruction.b_as_boolean());
     }
 }

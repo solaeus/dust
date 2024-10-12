@@ -41,6 +41,7 @@ pub struct Parser<'src> {
     current_position: Span,
     previous_token: Token<'src>,
     previous_position: Span,
+    parsed_expression: bool,
 }
 
 impl<'src> Parser<'src> {
@@ -61,6 +62,7 @@ impl<'src> Parser<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
+            parsed_expression: false,
         })
     }
 
@@ -184,6 +186,8 @@ impl<'src> Parser<'src> {
             position,
         );
 
+        self.parsed_expression = true;
+
         Ok(())
     }
 
@@ -203,6 +207,8 @@ impl<'src> Parser<'src> {
             self.emit_constant(value, position)?;
         }
 
+        self.parsed_expression = true;
+
         Ok(())
     }
 
@@ -216,6 +222,8 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
         }
+
+        self.parsed_expression = true;
 
         Ok(())
     }
@@ -237,6 +245,8 @@ impl<'src> Parser<'src> {
             self.emit_constant(value, position)?;
         }
 
+        self.parsed_expression = true;
+
         Ok(())
     }
 
@@ -257,6 +267,8 @@ impl<'src> Parser<'src> {
             self.emit_constant(value, position)?;
         }
 
+        self.parsed_expression = true;
+
         Ok(())
     }
 
@@ -271,6 +283,8 @@ impl<'src> Parser<'src> {
             self.emit_constant(value, position)?;
         }
 
+        self.parsed_expression = true;
+
         Ok(())
     }
 
@@ -284,7 +298,11 @@ impl<'src> Parser<'src> {
             },
             Context::None,
         )?;
-        self.expect(TokenKind::RightParenthesis)
+        self.expect(TokenKind::RightParenthesis)?;
+
+        self.parsed_expression = true;
+
+        Ok(())
     }
 
     fn parse_unary(&mut self, _: Allowed) -> Result<(), ParseError> {
@@ -344,6 +362,8 @@ impl<'src> Parser<'src> {
         }
 
         self.emit_instruction(instruction, operator_position);
+
+        self.parsed_expression = true;
 
         Ok(())
     }
@@ -439,16 +459,16 @@ impl<'src> Parser<'src> {
             current
         };
 
-        let mut new_instruction = match operator.kind() {
-            TokenKind::Plus => Instruction::add(register, left, right),
-            TokenKind::PlusEqual => Instruction::add(register, left, right),
-            TokenKind::Minus => Instruction::subtract(register, left, right),
-            TokenKind::MinusEqual => Instruction::subtract(register, left, right),
-            TokenKind::Star => Instruction::multiply(register, left, right),
-            TokenKind::StarEqual => Instruction::multiply(register, left, right),
-            TokenKind::Slash => Instruction::divide(register, left, right),
-            TokenKind::SlashEqual => Instruction::divide(register, left, right),
-            TokenKind::Percent => Instruction::modulo(register, left, right),
+        let (mut new_instruction, is_expression) = match operator.kind() {
+            TokenKind::Plus => (Instruction::add(register, left, right), true),
+            TokenKind::PlusEqual => (Instruction::add(register, left, right), false),
+            TokenKind::Minus => (Instruction::subtract(register, left, right), true),
+            TokenKind::MinusEqual => (Instruction::subtract(register, left, right), false),
+            TokenKind::Star => (Instruction::multiply(register, left, right), true),
+            TokenKind::StarEqual => (Instruction::multiply(register, left, right), false),
+            TokenKind::Slash => (Instruction::divide(register, left, right), true),
+            TokenKind::SlashEqual => (Instruction::divide(register, left, right), false),
+            TokenKind::Percent => (Instruction::modulo(register, left, right), true),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -467,6 +487,8 @@ impl<'src> Parser<'src> {
                 })
             }
         };
+
+        self.parsed_expression = is_expression;
 
         if left_is_constant {
             new_instruction.set_b_is_constant();
@@ -549,6 +571,7 @@ impl<'src> Parser<'src> {
             Token::LessEqual => Instruction::less_equal(true, left.saturating_sub(1), right),
             Token::Greater => Instruction::less_equal(false, left.saturating_sub(1), right),
             Token::GreaterEqual => Instruction::less(false, left.saturating_sub(1), right),
+
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -564,6 +587,8 @@ impl<'src> Parser<'src> {
                 })
             }
         };
+
+        self.parsed_expression = true;
 
         if left_is_constant {
             instruction.set_b_is_constant();
@@ -625,6 +650,8 @@ impl<'src> Parser<'src> {
         self.emit_instruction(instruction, operator_position);
         self.emit_instruction(Instruction::jump(1, true), operator_position);
         self.emit_instruction(right_instruction, right_position);
+
+        self.parsed_expression = true;
 
         Ok(())
     }
@@ -690,11 +717,15 @@ impl<'src> Parser<'src> {
                 Instruction::set_local(self.current_register, local_index),
                 start_position,
             );
+
+            self.parsed_expression = false;
         } else {
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
+
+            self.parsed_expression = true;
         }
 
         Ok(())
@@ -793,6 +824,9 @@ impl<'src> Parser<'src> {
             Instruction::load_list(self.current_register, start_register, end_register),
             Span(start, end),
         );
+        self.increment_register()?;
+
+        self.parsed_expression = true;
 
         Ok(())
     }
@@ -847,7 +881,11 @@ impl<'src> Parser<'src> {
 
             if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(block_allowed)?;
+
+                self.parsed_expression = true;
             }
+        } else {
+            self.parsed_expression = false;
         }
 
         Ok(())
@@ -888,6 +926,8 @@ impl<'src> Parser<'src> {
         self.chunk
             .insert_instruction(jump_end, jump_back, self.current_position);
 
+        self.parsed_expression = false;
+
         Ok(())
     }
 
@@ -915,11 +955,10 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let is_expression = self.chunk.get_last_instruction()?.0.is_expression();
         let has_semicolon = self.allow(TokenKind::Semicolon)?;
 
-        if !has_semicolon && is_expression && allowed.implicit_return {
-            self.emit_instruction(Instruction::r#return(), self.current_position);
+        if !has_semicolon && self.parsed_expression && allowed.implicit_return {
+            self.emit_instruction(Instruction::r#return(true), self.current_position);
         }
 
         Ok(())
@@ -936,7 +975,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        if !matches!(
+        let has_return_value = if !matches!(
             self.current_token,
             Token::Semicolon | Token::RightCurlyBrace
         ) {
@@ -948,11 +987,17 @@ impl<'src> Parser<'src> {
                 },
                 Context::None,
             )?;
-        }
+
+            true
+        } else {
+            false
+        };
 
         let end = self.current_position.1;
 
-        self.emit_instruction(Instruction::r#return(), Span(start, end));
+        self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
+
+        self.parsed_expression = false;
 
         Ok(())
     }
@@ -1014,6 +1059,8 @@ impl<'src> Parser<'src> {
             Instruction::define_local(register, local_index, is_mutable),
             position,
         );
+
+        self.parsed_expression = false;
 
         Ok(())
     }
@@ -1092,6 +1139,8 @@ impl<'src> Parser<'src> {
 
         self.lexer.skip_to(function_end);
         self.emit_constant(function, Span(function_start, function_end))?;
+
+        self.parsed_expression = true;
 
         Ok(())
     }

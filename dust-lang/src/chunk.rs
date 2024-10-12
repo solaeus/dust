@@ -36,10 +36,6 @@ impl Chunk {
         }
     }
 
-    pub fn scope_depth(&self) -> usize {
-        self.scope_depth
-    }
-
     pub fn len(&self) -> usize {
         self.instructions.len()
     }
@@ -55,7 +51,7 @@ impl Chunk {
     ) -> Result<&(Instruction, Span), ChunkError> {
         self.instructions
             .get(offset)
-            .ok_or(ChunkError::CodeIndexOfBounds { offset, position })
+            .ok_or(ChunkError::InstructionIndexOfBounds { offset, position })
     }
 
     pub fn remove_instruction(&mut self, index: usize) -> (Instruction, Span) {
@@ -410,7 +406,7 @@ impl<'a> ChunkDisassembler<'a> {
     pub fn disassemble(&self) -> String {
         let mut disassembly = String::with_capacity(self.predict_length());
         let indent = "│  ".repeat(self.indent);
-        let top_border = "┌".to_string() + &"─".repeat(self.width) + "┐";
+        let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
 
         disassembly.push_str(&indent);
         disassembly.push_str(&top_border);
@@ -418,9 +414,13 @@ impl<'a> ChunkDisassembler<'a> {
 
         let center_and_style = |line: &str, style: bool| {
             if style {
-                format!("│{line:^width$}│", line = line.bold(), width = self.width)
+                format!(
+                    "│{line:^width$}│",
+                    line = line.bold(),
+                    width = self.width - 2
+                )
             } else {
-                format!("│{line:^width$}│", width = self.width)
+                format!("│{line:^width$}│", width = self.width - 2)
             }
         };
         let mut push = |line: &str, style: bool| {
@@ -576,7 +576,7 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         let indent = "│  ".repeat(self.indent);
-        let bottom_border = "└".to_string() + &"─".repeat(self.width) + "┘";
+        let bottom_border = "└".to_string() + &"─".repeat(self.width - 2) + "┘";
 
         disassembly.push_str(&indent);
         disassembly.push_str(&bottom_border);
@@ -628,7 +628,7 @@ impl<'a> ChunkDisassembler<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChunkError {
-    CodeIndexOfBounds {
+    InstructionIndexOfBounds {
         offset: usize,
         position: Span,
     },
@@ -666,7 +666,7 @@ impl AnnotatedError for ChunkError {
 
     fn description(&self) -> &'static str {
         match self {
-            ChunkError::CodeIndexOfBounds { .. } => "Code index out of bounds",
+            ChunkError::InstructionIndexOfBounds { .. } => "Instruction index out of bounds",
             ChunkError::ConstantAlreadyUsed { .. } => "Constant already used",
             ChunkError::ConstantOverflow { .. } => "Constant overflow",
             ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
@@ -679,7 +679,9 @@ impl AnnotatedError for ChunkError {
 
     fn details(&self) -> Option<String> {
         match self {
-            ChunkError::CodeIndexOfBounds { offset, .. } => Some(format!("Code index: {}", offset)),
+            ChunkError::InstructionIndexOfBounds { offset, .. } => {
+                Some(format!("Instruction index: {}", offset))
+            }
             ChunkError::ConstantAlreadyUsed { index, .. } => {
                 Some(format!("Constant index: {}", index))
             }
@@ -700,7 +702,7 @@ impl AnnotatedError for ChunkError {
 
     fn position(&self) -> Span {
         match self {
-            ChunkError::CodeIndexOfBounds { position, .. } => *position,
+            ChunkError::InstructionIndexOfBounds { position, .. } => *position,
             ChunkError::ConstantAlreadyUsed { position, .. } => *position,
             ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
             ChunkError::IdentifierNotFound { position, .. } => *position,
