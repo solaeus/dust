@@ -1,55 +1,81 @@
+use std::mem::replace;
+
 use colored::{ColoredString, Colorize, CustomColor};
 
-use crate::{lex, Token};
+use crate::{DustError, LexError, Lexer, Token};
+
+pub fn format(source: &str, line_numbers: bool, colored: bool) -> Result<String, DustError> {
+    let lexer = Lexer::new(source);
+    let formatted = Formatter::new(lexer)
+        .line_numbers(line_numbers)
+        .colored(colored)
+        .format()
+        .map_err(|error| DustError::Lex { error, source })?;
+
+    Ok(formatted)
+}
 
 #[derive(Debug)]
 pub struct Formatter<'src> {
-    source: &'src str,
-    lines: Vec<(String, LineKind, usize)>,
+    lexer: Lexer<'src>,
+    output_lines: Vec<(String, LineKind, usize)>,
     next_line: String,
     indent: usize,
+
+    current_token: Token<'src>,
+    previous_token: Token<'src>,
+
+    // Options
+    line_numbers: bool,
+    colored: bool,
 }
 
 impl<'src> Formatter<'src> {
-    pub fn new(source: &'src str) -> Self {
+    pub fn new(mut lexer: Lexer<'src>) -> Self {
+        let (current_token, _) = lexer.next_token().unwrap();
+
         Self {
-            source,
-            lines: Vec::new(),
+            lexer,
+            output_lines: Vec::new(),
             next_line: String::new(),
             indent: 0,
+            current_token,
+            previous_token: Token::Eof,
+            line_numbers: false,
+            colored: false,
         }
     }
 
-    pub fn footer(&mut self, footer: &'src str) -> &mut Self {
-        self.source = footer;
+    pub fn line_numbers(mut self, line_numbers: bool) -> Self {
+        self.line_numbers = line_numbers;
 
         self
     }
 
-    pub fn format(&mut self) -> String {
-        let tokens = match lex(self.source) {
-            Ok(tokens) => tokens,
-            Err(error) => return format!("{}", error),
-        };
+    pub fn colored(mut self, colored: bool) -> Self {
+        self.colored = colored;
+
+        self
+    }
+
+    pub fn format(&mut self) -> Result<String, LexError> {
         let mut line_kind = LineKind::Empty;
 
-        for (token, _) in tokens {
+        self.advance()?;
+
+        while self.current_token != Token::Eof {
             use Token::*;
 
-            match token {
+            if self.current_token.is_expression() && line_kind != LineKind::Assignment {
+                line_kind = LineKind::Expression;
+            }
+
+            match self.current_token {
                 Boolean(boolean) => {
                     self.push_colored(boolean.red());
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 Byte(byte) => {
                     self.push_colored(byte.green());
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 Character(character) => {
                     self.push_colored(
@@ -57,49 +83,29 @@ impl<'src> Formatter<'src> {
                             .to_string()
                             .custom_color(CustomColor::new(225, 150, 150)),
                     );
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 Float(float) => {
                     self.push_colored(float.yellow());
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 Identifier(identifier) => {
                     self.push_colored(identifier.blue());
                     self.next_line.push(' ');
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 Integer(integer) => {
                     self.push_colored(integer.cyan());
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 String(string) => {
                     self.push_colored(string.magenta());
-
-                    if line_kind != LineKind::Assignment {
-                        line_kind = LineKind::Expression;
-                    }
                 }
                 LeftCurlyBrace => {
-                    self.next_line.push_str(token.as_str());
+                    self.next_line.push_str(self.current_token.as_str());
                     self.commit_line(LineKind::OpenBlock);
 
                     self.indent += 1;
                 }
                 RightCurlyBrace => {
                     self.commit_line(LineKind::CloseBlock);
-                    self.next_line.push_str(token.as_str());
+                    self.next_line.push_str(self.current_token.as_str());
 
                     self.indent -= 1;
                 }
@@ -108,22 +114,21 @@ impl<'src> Formatter<'src> {
                         line_kind = LineKind::Statement;
                     }
 
-                    self.next_line.push_str(token.as_str());
+                    self.next_line.push_str(self.current_token.as_str());
                     self.commit_line(line_kind);
                 }
                 Let => {
                     line_kind = LineKind::Assignment;
 
-                    self.push_colored(token.as_str().bold());
+                    self.push_colored(self.current_token.as_str().bold());
                     self.next_line.push(' ');
                 }
                 Break | Loop | Return | While => {
                     line_kind = LineKind::Statement;
 
-                    self.push_colored(token.as_str().bold());
+                    self.push_colored(self.current_token.as_str().bold());
                     self.next_line.push(' ');
                 }
-                Eof => continue,
                 token => {
                     self.next_line.push_str(token.as_str());
                     self.next_line.push(' ');
@@ -134,11 +139,9 @@ impl<'src> Formatter<'src> {
         let mut previous_index = 0;
         let mut current_index = 1;
 
-        while current_index < self.lines.len() {
-            let (_, previous, _) = &self.lines[previous_index];
-            let (_, current, _) = &self.lines[current_index];
-
-            println!("{:?} {:?}", previous, current);
+        while current_index < self.output_lines.len() {
+            let (_, previous, _) = &self.output_lines[previous_index];
+            let (_, current, _) = &self.output_lines[current_index];
 
             match (previous, current) {
                 (LineKind::Empty, _)
@@ -147,7 +150,7 @@ impl<'src> Formatter<'src> {
                 | (_, LineKind::CloseBlock) => {}
                 (left, right) if left == right => {}
                 _ => {
-                    self.lines
+                    self.output_lines
                         .insert(current_index, ("".to_string(), LineKind::Empty, 0));
                 }
             }
@@ -157,22 +160,42 @@ impl<'src> Formatter<'src> {
         }
 
         let formatted = String::with_capacity(
-            self.lines
+            self.output_lines
                 .iter()
                 .fold(0, |total, (line, _, _)| total + line.len()),
         );
 
-        self.lines
-            .iter()
-            .enumerate()
-            .fold(formatted, |acc, (index, (line, _, indent))| {
+        Ok(self.output_lines.iter().enumerate().fold(
+            formatted,
+            |acc, (index, (line, _, indent))| {
+                let index = if index == 0 {
+                    format!("{:<3}| ", index + 1).dimmed()
+                } else {
+                    format!("\n{:<3}| ", index + 1).dimmed()
+                };
                 let left_pad = "    ".repeat(*indent);
 
-                if index == 0 {
-                    return format!("{:<3}| {}{}", index + 1, left_pad, line);
-                }
-                format!("{}\n{:<3}| {}{}", acc, index + 1, left_pad, line)
-            })
+                format!("{}{}{}{}", acc, index, left_pad, line)
+            },
+        ))
+    }
+
+    fn advance(&mut self) -> Result<(), LexError> {
+        if self.lexer.is_eof() {
+            return Ok(());
+        }
+
+        let (new_token, position) = self.lexer.next_token()?;
+
+        log::info!(
+            "Parsing {} at {}",
+            new_token.to_string().bold(),
+            position.to_string()
+        );
+
+        self.previous_token = replace(&mut self.current_token, new_token);
+
+        Ok(())
     }
 
     fn push_colored(&mut self, colored: ColoredString) {
@@ -180,7 +203,7 @@ impl<'src> Formatter<'src> {
     }
 
     fn commit_line(&mut self, line_kind: LineKind) {
-        self.lines
+        self.output_lines
             .push((self.next_line.clone(), line_kind, self.indent));
         self.next_line.clear();
     }
@@ -188,11 +211,12 @@ impl<'src> Formatter<'src> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LineKind {
-    Assignment,
-    FunctionCall,
-    Statement,
-    Expression,
     Empty,
+    Assignment,
+    Expression,
+    Statement,
     OpenBlock,
     CloseBlock,
+    Call,
+    Primary,
 }

@@ -213,6 +213,25 @@ fn empty() {
 }
 
 #[test]
+fn empty_list() {
+    let source = "[]";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_list(0, 0, 0), Span(0, 2)),
+                (Instruction::r#return(true), Span(2, 2)),
+            ],
+            vec![],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::list(0, 0, Type::Any))));
+}
+
+#[test]
 fn equal() {
     let source = "1 == 2";
 

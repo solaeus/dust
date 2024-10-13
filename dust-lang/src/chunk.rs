@@ -273,18 +273,35 @@ impl Display for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk").styled(true).disassemble()
+            self.disassembler("Dust Program").styled(true).disassemble()
         )
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.disassembler("Chunk").styled(false).disassemble()
-        )
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        if cfg!(debug_assertions) {
+            write!(
+                f,
+                "\n{}\n",
+                self.disassembler(&format!("Dust Program 0x{timestamp:x}"))
+                    .styled(false)
+                    .disassemble()
+            )
+        } else {
+            write!(
+                f,
+                "{}",
+                self.disassembler(&format!("Dust Program 0x{timestamp:x}"))
+                    .styled(false)
+                    .disassemble()
+            )
+        }
     }
 }
 
@@ -385,12 +402,6 @@ impl<'a> ChunkDisassembler<'a> {
 
     pub fn styled(&mut self, styled: bool) -> &mut Self {
         self.styled = styled;
-
-        self
-    }
-
-    pub fn indent(&mut self, indent: usize) -> &mut Self {
-        self.indent = indent;
 
         self
     }
@@ -624,15 +635,13 @@ impl<'a> ChunkDisassembler<'a> {
 
             if let Some(function_disassembly) =
                 value_option.as_ref().and_then(|value| match value {
-                    Value::Function(function) => Some(
-                        function
-                            .chunk()
-                            .disassembler("function")
-                            .styled(self.styled)
-                            .width(self.width)
-                            .indent(self.indent + 1)
-                            .disassemble(),
-                    ),
+                    Value::Function(function) => Some({
+                        let mut disassembler = function.chunk().disassembler("function");
+                        disassembler.indent = self.indent + 1;
+
+                        disassembler.styled(self.styled);
+                        disassembler.disassemble()
+                    }),
                     Value::Primitive(_) => None,
                     Value::Object(_) => None,
                 })

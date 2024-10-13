@@ -8,7 +8,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::AnnotatedError, Span, Token};
+use crate::{dust_error::AnnotatedError, DustError, Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///
@@ -30,21 +30,19 @@ use crate::{dust_error::AnnotatedError, Span, Token};
 ///     ]
 /// );
 /// ```
-pub fn lex<'chars, 'src: 'chars>(
+pub fn lex<'tokens, 'src: 'tokens>(
     source: &'src str,
-) -> Result<Vec<(Token<'chars>, Span)>, LexError> {
+) -> Result<Vec<(Token<'src>, Span)>, DustError> {
     let mut lexer = Lexer::new(source);
     let mut tokens = Vec::new();
 
-    loop {
-        let (token, span) = lexer.next_token()?;
-        let is_eof = matches!(token, Token::Eof);
+    while !lexer.is_eof() {
+        let (token, span) = lexer
+            .next_token()
+            .map_err(|error| DustError::Lex { error, source })?;
+        let length = tokens.len();
 
-        tokens.push((token, span));
-
-        if is_eof {
-            break;
-        }
+        tokens[length] = (token, span);
     }
 
     Ok(tokens)
@@ -99,6 +97,10 @@ impl<'src> Lexer<'src> {
 
     pub fn source(&self) -> &'src str {
         self.source
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.position >= self.source.len()
     }
 
     pub fn skip_to(&mut self, position: usize) {

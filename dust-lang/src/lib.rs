@@ -15,7 +15,7 @@ use std::fmt::Display;
 
 pub use chunk::{Chunk, ChunkDisassembler, ChunkError, Local};
 pub use dust_error::{AnnotatedError, DustError};
-pub use formatter::Formatter;
+pub use formatter::{format, Formatter};
 pub use identifier::Identifier;
 pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};

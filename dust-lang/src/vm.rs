@@ -2,7 +2,7 @@ use std::{cmp::Ordering, mem::replace};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
-    Operation, Span, Value, ValueError,
+    Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -111,7 +111,13 @@ impl Vm {
                     let to_register = instruction.a();
                     let first_register = instruction.b();
                     let last_register = instruction.c();
-                    let item_type = self.get(first_register, position)?.r#type();
+
+                    let is_empty = to_register == first_register && first_register == last_register;
+                    let item_type = if is_empty {
+                        Type::Any
+                    } else {
+                        self.get(first_register, position)?.r#type()
+                    };
                     let value = Value::list(first_register, last_register, item_type);
 
                     self.set(to_register, value, position)?;
@@ -685,7 +691,7 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::RegisterIndexOutOfBounds { index, .. } => {
-                Some(format!("R{index} does not exist at this time"))
+                Some(format!("Register {index} does not exist"))
             }
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("{identifier} is not in scope"))

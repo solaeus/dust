@@ -654,6 +654,10 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let local_index = self.parse_identifier_from(token, start_position)?;
+        let to_register = self
+            .chunk
+            .get_local(local_index, start_position)?
+            .register_index;
 
         if self.allow(Token::Equal)? {
             if !allowed.assignment {
@@ -699,11 +703,12 @@ impl<'src> Parser<'src> {
                 Instruction::set_local(self.current_register, local_index),
                 start_position,
             );
+            self.increment_register()?;
 
             self.parsed_expression = false;
         } else {
             self.emit_instruction(
-                Instruction::get_local(self.current_register, local_index),
+                Instruction::get_local(to_register, local_index),
                 self.previous_position,
             );
 
@@ -792,7 +797,7 @@ impl<'src> Parser<'src> {
             self.allow(Token::Comma)?;
         }
 
-        let end_register = self.current_register - 1;
+        let end_register = self.current_register.saturating_sub(1);
         let end = self.current_position.1;
 
         self.emit_instruction(

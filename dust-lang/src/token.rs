@@ -4,9 +4,10 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 /// Source code token.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub enum Token<'src> {
     // End of file
+    #[default]
     Eof,
 
     // Hard-coded values
