@@ -14,6 +14,9 @@ struct Cli {
     format: bool,
 
     #[arg(short, long)]
+    no_run: bool,
+
+    #[arg(short, long)]
     parse: bool,
 
     #[arg(short, long)]
@@ -63,7 +66,7 @@ fn main() {
         format_source(source);
     }
 
-    if !args.format && !args.parse {
+    if !args.no_run {
         run_source(source);
     }
 }

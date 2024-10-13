@@ -86,21 +86,6 @@ impl<'src> Formatter<'src> {
             }
         }
 
-        let renderer = Renderer::styled();
-        let mut snippet = Snippet::source(&formatted).fold(false);
-
-        if let Some(origin) = self.origin {
-            snippet = snippet.origin(origin);
-        }
-
-        let mut message = Level::Info.title("Formatted source").snippet(snippet);
-
-        if let Some(footer) = self.footer {
-            message = message.footer(Level::Note.title("Footer").snippet(Snippet::source(footer)));
-        }
-
-        let formatted = renderer.info(Style::new()).render(message).to_string();
-
         formatted
     }
 }
