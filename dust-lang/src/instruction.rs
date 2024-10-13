@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Operation, Span};
+use crate::{Chunk, Operation};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Instruction(u32);
@@ -208,11 +208,11 @@ impl Instruction {
         instruction
     }
 
-    pub fn call(function_index: u8, argument_count: u8) -> Instruction {
+    pub fn call(to_register: u8, function_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Call as u32);
 
-        instruction.set_a(function_index);
-        instruction.set_b(argument_count);
+        instruction.set_a(to_register);
+        instruction.set_b(function_index);
 
         instruction
     }
@@ -286,8 +286,8 @@ impl Instruction {
         self
     }
 
-    pub fn set_a(&mut self, destination: u8) {
-        self.0 |= (destination as u32) << 24;
+    pub fn set_a(&mut self, to_register: u8) {
+        self.0 |= (to_register as u32) << 24;
     }
 
     pub fn set_b(&mut self, argument: u8) {
@@ -404,14 +404,14 @@ impl Instruction {
                 Some(format!("R{register_index} = C{constant_index} {jump}",))
             }
             Operation::LoadList => {
-                let destination = self.a();
+                let to_register = self.a();
                 let first_index = self.b();
                 let last_index = self.c();
 
-                Some(format!("R{destination} = [R{first_index}..=R{last_index}]",))
+                Some(format!("R{to_register} = [R{first_index}..=R{last_index}]",))
             }
             Operation::DefineLocal => {
-                let destination = self.a();
+                let to_register = self.a();
                 let local_index = self.b();
                 let identifier_display = if let Some(chunk) = chunk {
                     match chunk.get_identifier(local_index) {
@@ -424,7 +424,7 @@ impl Instruction {
                 let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
                 Some(format!(
-                    "L{local_index} = R{destination} {mutable_display} {identifier_display}"
+                    "L{local_index} = R{to_register} {mutable_display} {identifier_display}"
                 ))
             }
             Operation::GetLocal => {
@@ -451,55 +451,55 @@ impl Instruction {
                 ))
             }
             Operation::Add => {
-                let destination = self.a();
+                let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
                 Some(format!(
-                    "R{destination} = {first_argument} + {second_argument}",
+                    "R{to_register} = {first_argument} + {second_argument}",
                 ))
             }
             Operation::Subtract => {
-                let destination = self.a();
+                let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
                 Some(format!(
-                    "R{destination} = {first_argument} - {second_argument}",
+                    "R{to_register} = {first_argument} - {second_argument}",
                 ))
             }
             Operation::Multiply => {
-                let destination = self.a();
+                let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
                 Some(format!(
-                    "R{destination} = {first_argument} * {second_argument}",
+                    "R{to_register} = {first_argument} * {second_argument}",
                 ))
             }
             Operation::Divide => {
-                let destination = self.a();
+                let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
                 Some(format!(
-                    "R{destination} = {first_argument} / {second_argument}",
+                    "R{to_register} = {first_argument} / {second_argument}",
                 ))
             }
             Operation::Modulo => {
-                let destination = self.a();
+                let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
                 Some(format!(
-                    "R{destination} = {first_argument} % {second_argument}",
+                    "R{to_register} = {first_argument} % {second_argument}",
                 ))
             }
             Operation::Test => {
-                let destination = self.a();
+                let to_register = self.a();
                 let test_value = self.c_as_boolean();
 
                 jump_offset = Some(1);
 
-                Some(format!("if R{destination} != {test_value} {{ JUMP }}",))
+                Some(format!("if R{to_register} != {test_value} {{ JUMP }}",))
             }
             Operation::TestSet => {
-                let destination = self.a();
+                let to_register = self.a();
                 let argument = format!("R{}", self.b());
                 let test_value = self.c_as_boolean();
                 let bang = if test_value { "" } else { "!" };
@@ -507,7 +507,7 @@ impl Instruction {
                 jump_offset = Some(1);
 
                 Some(format!(
-                    "if {bang}R{destination} {{ R{destination} = R{argument} }}",
+                    "if {bang}R{to_register} {{ R{to_register} = R{argument} }}",
                 ))
             }
             Operation::Equal => {
@@ -539,24 +539,24 @@ impl Instruction {
                 ))
             }
             Operation::Negate => {
-                let destination = self.a();
+                let to_register = self.a();
                 let argument = if self.b_is_constant() {
                     format!("C{}", self.b())
                 } else {
                     format!("R{}", self.b())
                 };
 
-                Some(format!("R{destination} = -{argument}"))
+                Some(format!("R{to_register} = -{argument}"))
             }
             Operation::Not => {
-                let destination = self.a();
+                let to_register = self.a();
                 let argument = if self.b_is_constant() {
                     format!("C{}", self.b())
                 } else {
                     format!("R{}", self.b())
                 };
 
-                Some(format!("R{destination} = !{argument}"))
+                Some(format!("R{to_register} = !{argument}"))
             }
             Operation::Jump => {
                 let offset = self.b() as isize;
@@ -571,14 +571,12 @@ impl Instruction {
                 None
             }
             Operation::Call => {
-                let function_index = self.a();
-                let argument_count = self.b();
-                let first_argument = function_index + 1;
-                let last_argument = function_index + argument_count;
+                let to_register = self.a();
+                let function_index = self.b();
 
                 let mut output = format!("R{function_index}(");
 
-                for register in first_argument..=last_argument {
+                for register in function_index + 1..to_register {
                     output.push_str(&format!("R{}", register));
                 }
 
@@ -795,11 +793,11 @@ mod tests {
 
     #[test]
     fn call() {
-        let instruction = Instruction::call(4, 1);
+        let instruction = Instruction::call(4, 3);
 
         assert_eq!(instruction.operation(), Operation::Call);
         assert_eq!(instruction.a(), 4);
-        assert_eq!(instruction.b(), 1);
+        assert_eq!(instruction.b(), 3);
     }
 
     #[test]

@@ -4,6 +4,8 @@
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
 
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{dust_error::AnnotatedError, Span, Token};
@@ -667,6 +669,18 @@ impl AnnotatedError for LexError {
             Self::UnexpectedCharacter { position, .. } => Span(*position, *position),
             Self::UnexpectedEndOfFile { position } => Span(*position, *position),
         }
+    }
+}
+
+impl Display for LexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.description())?;
+
+        if let Some(details) = self.details() {
+            write!(f, ": {}", details)?;
+        }
+
+        Ok(())
     }
 }
 

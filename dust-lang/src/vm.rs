@@ -368,8 +368,8 @@ impl Vm {
                     self.ip = new_ip;
                 }
                 Operation::Call => {
-                    let function_index = instruction.a();
-                    let argument_count = instruction.b();
+                    let to_register = instruction.a();
+                    let function_index = instruction.b();
                     let value = self.get(function_index, position)?.clone();
                     let function = if let Value::Function(function) = value {
                         function
@@ -380,13 +380,12 @@ impl Vm {
                         });
                     };
                     let mut function_vm = Vm::new(function.take_chunk());
-                    let first_argument_index = function_index + 1;
-                    let last_argument_index = first_argument_index + argument_count - 1;
 
-                    for argument_index in first_argument_index..=last_argument_index {
+                    for argument_index in function_index + 1..to_register {
                         let argument = self.get(argument_index, position)?.clone();
+                        let top_of_stack = function_vm.stack.len() as u8;
 
-                        function_vm.stack.push(Register::Value(argument));
+                        function_vm.set(top_of_stack, argument, position)?;
                     }
 
                     let return_value = function_vm.run()?;

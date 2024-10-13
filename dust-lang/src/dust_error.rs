@@ -32,7 +32,7 @@ impl<'src> DustError<'src> {
                     .unwrap_or_else(|| "While running this code".to_string());
                 let message = Level::Error.title(&label).snippet(
                     Snippet::source(source)
-                        .fold(true)
+                        .fold(false)
                         .annotation(Level::Error.span(position.0..position.1).label(&details)),
                 );
 
@@ -46,7 +46,7 @@ impl<'src> DustError<'src> {
                     .unwrap_or_else(|| "While parsing this code".to_string());
                 let message = Level::Error.title(&label).snippet(
                     Snippet::source(source)
-                        .fold(true)
+                        .fold(false)
                         .annotation(Level::Error.span(position.0..position.1).label(&details)),
                 );
 

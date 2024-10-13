@@ -1,12 +1,10 @@
-use std::{
-    f32::DIGITS,
-    fmt::{self, Debug, Display, Formatter},
-};
+use std::fmt::{self, Debug, Display};
 
 use colored::Colorize;
+use rayon::{iter::ParallelIterator, str::ParallelString};
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Type, Value};
+use crate::{AnnotatedError, Formatter, Identifier, Instruction, Operation, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
@@ -281,7 +279,7 @@ impl Default for Chunk {
 }
 
 impl Display for Chunk {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{}",
@@ -291,7 +289,7 @@ impl Display for Chunk {
 }
 
 impl Debug for Chunk {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{}",
@@ -448,6 +446,7 @@ impl<'a> ChunkDisassembler<'a> {
             } else {
                 line_characters.iter().collect::<String>()
             };
+            let length_before_content = disassembly.chars().count();
 
             for _ in 0..indent {
                 disassembly.push_str("│   ");
@@ -461,10 +460,18 @@ impl<'a> ChunkDisassembler<'a> {
             disassembly.push_str(&content);
             disassembly.push_str(&" ".repeat(right_pad_length));
 
+            let length_after_content = disassembly.chars().count();
+            let line_length = length_after_content - length_before_content;
+
+            if line_length < content_width - 1 {
+                disassembly.push_str(&" ".repeat(content_width - line_length));
+            }
+
             if add_border {
                 disassembly.push('│');
             }
 
+            disassembly.push_str(&line_length.to_string());
             disassembly.push('\n');
 
             if !remainder.is_empty() {
@@ -480,6 +487,7 @@ impl<'a> ChunkDisassembler<'a> {
                 );
             }
         }
+
         let push_header = |header: &str, disassembly: &mut String| {
             push(
                 header,
@@ -526,19 +534,6 @@ impl<'a> ChunkDisassembler<'a> {
 
         push_border(&top_border, &mut disassembly);
         push_header(self.name, &mut disassembly);
-
-        if let Some(source) = self.source {
-            push(
-                &source.split_whitespace().collect::<Vec<&str>>().join(" "),
-                &mut disassembly,
-                self.width,
-                self.indent,
-                false,
-                false,
-                true,
-                true,
-            )
-        }
 
         let info_line = format!(
             "{} instructions, {} constants, {} locals",
@@ -657,6 +652,12 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         push_border(&bottom_border, &mut disassembly);
+
+        if let Some(source) = self.source {
+            let formatted = Formatter::new(source).origin(self.name).format();
+
+            disassembly.push_str(&formatted);
+        }
 
         let expected_length = self.predict_length();
         let actual_length = disassembly.len();

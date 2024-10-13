@@ -437,14 +437,7 @@ impl<'src> Parser<'src> {
         }
 
         self.advance()?;
-        self.parse(
-            rule.precedence.increment(),
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-        )?;
+        self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -562,14 +555,7 @@ impl<'src> Parser<'src> {
         let rule = ParseRule::from(&operator);
 
         self.advance()?;
-        self.parse(
-            rule.precedence.increment(),
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-        )?;
+        self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -646,14 +632,7 @@ impl<'src> Parser<'src> {
 
         self.increment_register()?;
         self.advance()?;
-        self.parse(
-            rule.precedence.increment(),
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-                implicit_return: false,
-            },
-        )?;
+        self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
@@ -916,7 +895,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self, allowed: Allowed, context: Context) -> Result<(), ParseError> {
-        self.parse(Precedence::None, allowed)?;
+        self.parse(
+            Precedence::None,
+            Allowed {
+                assignment: true,
+                explicit_return: true,
+                implicit_return: true,
+            },
+        )?;
 
         let previous_instructions = self.chunk.get_last_n_instructions();
 
@@ -954,6 +940,17 @@ impl<'src> Parser<'src> {
     fn parse_expression(&mut self) -> Result<(), ParseError> {
         self.parse(
             Precedence::None,
+            Allowed {
+                assignment: false,
+                explicit_return: false,
+                implicit_return: false,
+            },
+        )
+    }
+
+    fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), ParseError> {
+        self.parse(
+            precedence.increment(),
             Allowed {
                 assignment: false,
                 explicit_return: false,
@@ -1160,26 +1157,21 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let function_register = self.current_register;
-        let mut argument_count = 0;
 
         self.increment_register()?;
 
         while !self.allow(Token::RightParenthesis)? {
-            if argument_count > 0 {
-                self.expect(Token::Comma)?;
-            }
-
             self.parse_expression()?;
-
-            argument_count += 1;
+            self.allow(Token::Comma)?;
         }
 
         let end = self.current_position.1;
 
         self.emit_instruction(
-            Instruction::call(function_register, argument_count),
+            Instruction::call(self.current_register, function_register),
             Span(start, end),
         );
+        self.increment_register()?;
 
         self.parsed_expression = true;
 
