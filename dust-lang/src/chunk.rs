@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Formatter, Identifier, Instruction, Operation, Span, Type, Value};
+use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
@@ -514,6 +514,7 @@ impl<'a> ChunkDisassembler<'a> {
         };
         let push_function_disassembly = |function_disassembly: &str, disassembly: &mut String| {
             disassembly.push_str(function_disassembly);
+            disassembly.push('\n');
         };
         let mut disassembly = String::new();
         let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
@@ -656,6 +657,7 @@ impl<'a> ChunkDisassembler<'a> {
             );
         }
 
+        disassembly.pop(); // Remove the last newline character
         disassembly
     }
 
