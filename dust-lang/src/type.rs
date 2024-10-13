@@ -191,20 +191,17 @@ impl Type {
             }
             (
                 Type::Function(FunctionType {
-                    name: left_name,
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
                 }),
                 Type::Function(FunctionType {
-                    name: right_name,
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
                 }),
             ) => {
-                if left_name != right_name
-                    || left_return != right_return
+                if left_return != right_return
                     || left_type_parameters != right_type_parameters
                     || left_value_parameters != right_value_parameters
                 {
@@ -419,7 +416,6 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub name: Identifier,
     pub type_parameters: Option<Vec<Identifier>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
     pub return_type: Option<Box<Type>>,
@@ -433,11 +429,11 @@ impl Display for FunctionType {
             write!(f, "<")?;
 
             for (index, type_parameter) in type_parameters.iter().enumerate() {
-                write!(f, "{type_parameter}")?;
-
-                if index != type_parameters.len() - 1 {
+                if index > 0 {
                     write!(f, ", ")?;
                 }
+
+                write!(f, "{type_parameter}")?;
             }
 
             write!(f, ">")?;
@@ -447,11 +443,11 @@ impl Display for FunctionType {
 
         if let Some(value_parameters) = &self.value_parameters {
             for (index, (identifier, r#type)) in value_parameters.iter().enumerate() {
-                write!(f, "{identifier}: {type}")?;
-
-                if index != value_parameters.len() - 1 {
+                if index > 0 {
                     write!(f, ", ")?;
                 }
+
+                write!(f, "{identifier}: {type}")?;
             }
         }
 

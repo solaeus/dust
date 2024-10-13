@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    mem::replace,
+    mem::{replace, take},
     num::{ParseFloatError, ParseIntError},
 };
 
@@ -8,8 +8,8 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, LexError, Lexer,
-    Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
+    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -36,12 +36,17 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
 pub struct Parser<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
+
     current_register: u8,
+
     current_token: Token<'src>,
     current_position: Span,
+
     previous_token: Token<'src>,
     previous_position: Span,
+
     parsed_expression: bool,
+    latest_value_type: Option<Type>,
 }
 
 impl<'src> Parser<'src> {
@@ -63,6 +68,7 @@ impl<'src> Parser<'src> {
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
             parsed_expression: false,
+            latest_value_type: None,
         })
     }
 
@@ -142,6 +148,8 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
+        self.latest_value_type = Some(value.r#type());
+
         let constant_index = self.chunk.push_constant(value, position)?;
 
         self.emit_instruction(
@@ -165,6 +173,7 @@ impl<'src> Parser<'src> {
                 position,
             );
 
+            self.latest_value_type = Some(Type::Boolean);
             self.parsed_expression = true;
 
             Ok(())
@@ -954,34 +963,26 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_return(&mut self, allowed: Allowed) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-
         if !allowed.explicit_return {
             return Err(ParseError::UnexpectedReturn {
                 position: self.current_position,
             });
         }
 
+        let start = self.current_position.0;
+
         self.advance()?;
 
-        let has_return_value = if !matches!(
+        let has_return_value = if matches!(
             self.current_token,
             Token::Semicolon | Token::RightCurlyBrace
         ) {
-            self.parse_statement(
-                Allowed {
-                    assignment: false,
-                    explicit_return: false,
-                    implicit_return: false,
-                },
-                Context::None,
-            )?;
+            false
+        } else {
+            self.parse_expression()?;
 
             true
-        } else {
-            false
         };
-
         let end = self.current_position.1;
 
         self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
@@ -1060,6 +1061,8 @@ impl<'src> Parser<'src> {
 
         function_parser.expect(Token::LeftParenthesis)?;
 
+        let mut value_parameters: Option<Vec<(Identifier, Type)>> = None;
+
         while function_parser.current_token != Token::RightParenthesis {
             let start = function_parser.current_position.0;
             let is_mutable = function_parser.allow(Token::Mut)?;
@@ -1085,6 +1088,12 @@ impl<'src> Parser<'src> {
             function_parser.advance()?;
 
             let end = function_parser.current_position.1;
+
+            if let Some(value_parameters) = value_parameters.as_mut() {
+                value_parameters.push((parameter.clone(), r#type.clone()));
+            } else {
+                value_parameters = Some(vec![(parameter.clone(), r#type.clone())]);
+            };
 
             function_parser.chunk.declare_local(
                 parameter,
@@ -1119,7 +1128,13 @@ impl<'src> Parser<'src> {
         self.current_token = function_parser.current_token;
         self.current_position = function_parser.current_position;
 
-        let function = Value::function(function_parser.chunk);
+        let return_type = take(&mut self.latest_value_type).map(Box::new);
+        let function_type = FunctionType {
+            type_parameters: None,
+            value_parameters,
+            return_type,
+        };
+        let function = Value::function(function_parser.chunk, function_type);
         let function_end = self.current_position.1;
 
         self.lexer.skip_to(function_end);
@@ -1131,6 +1146,17 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_call(&mut self) -> Result<(), ParseError> {
+        let last_instruction = self.chunk.get_last_instruction()?.0;
+
+        if !last_instruction.is_expression() {
+            return Err(ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            });
+        }
+
+        let start = self.current_position.0;
+
         self.advance()?;
 
         let function_register = self.current_register;
@@ -1143,14 +1169,7 @@ impl<'src> Parser<'src> {
 
             let register = self.current_register;
 
-            self.parse(
-                Precedence::None,
-                Allowed {
-                    assignment: false,
-                    explicit_return: false,
-                    implicit_return: false,
-                },
-            )?;
+            self.parse_expression()?;
 
             if self.current_register == register {
                 return Err(ParseError::ExpectedExpression {
@@ -1162,10 +1181,14 @@ impl<'src> Parser<'src> {
             argument_count += 1;
         }
 
+        let end = self.current_position.1;
+
         self.emit_instruction(
             Instruction::call(function_register, argument_count),
-            self.current_position,
+            Span(start, end),
         );
+
+        self.parsed_expression = true;
 
         Ok(())
     }

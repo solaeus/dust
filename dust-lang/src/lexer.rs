@@ -95,6 +95,10 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    pub fn source(&self) -> &'src str {
+        self.source
+    }
+
     pub fn skip_to(&mut self, position: usize) {
         self.position = position;
     }

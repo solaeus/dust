@@ -60,13 +60,14 @@ fn main() {
     }
 }
 
-fn parse_and_display(source: &str, pretty_print: bool) {
+fn parse_and_display(source: &str, styled: bool) {
     match parse(source) {
         Ok(chunk) => println!(
             "{}",
             chunk
                 .disassembler("Dust CLI Input")
-                .styled(pretty_print)
+                .source(source)
+                .styled(styled)
                 .disassemble()
         ),
         Err(error) => {

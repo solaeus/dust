@@ -31,7 +31,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{Chunk, RangeableType, Span, Type, Vm, VmError};
+use crate::{Chunk, FunctionType, RangeableType, Span, Type, Vm, VmError};
 
 /// Dust value representation
 ///
@@ -39,6 +39,7 @@ use crate::{Chunk, RangeableType, Span, Type, Vm, VmError};
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Value {
     Primitive(Primitive),
+    Function(Function),
     Object(Object),
 }
 
@@ -59,8 +60,11 @@ impl Value {
         Value::Primitive(Primitive::Float(value))
     }
 
-    pub fn function(body: Chunk) -> Self {
-        Value::Primitive(Primitive::Function(Function { chunk: body }))
+    pub fn function(body: Chunk, r#type: FunctionType) -> Self {
+        Value::Primitive(Primitive::Function(Function {
+            chunk: body,
+            r#type: Type::Function(r#type),
+        }))
     }
 
     pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
@@ -79,9 +83,14 @@ impl Value {
         Value::Primitive(Primitive::String(to_string.to_string()))
     }
 
+    pub fn is_function(&self) -> bool {
+        matches!(self, Value::Function(_))
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             Value::Primitive(data) => data.r#type(),
+            Value::Function(function) => function.r#type().clone(),
             Value::Object(Object::List {
                 start,
                 end,
@@ -231,6 +240,7 @@ impl Value {
     pub fn display(&self, vm: &Vm, position: Span) -> Result<String, ValueError> {
         match self {
             Value::Primitive(primitive) => Ok(primitive.to_string()),
+            Value::Function(function) => Ok(function.to_string()),
             Value::Object(object) => object.display(vm, position),
         }
     }
@@ -290,6 +300,7 @@ impl Clone for Value {
 
         match self {
             Value::Primitive(data) => Value::Primitive(data.clone()),
+            Value::Function(function) => Value::Function(function.clone()),
             Value::Object(object) => Value::Object(object.clone()),
         }
     }
@@ -299,7 +310,8 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Value::Primitive(primitive) => write!(f, "{primitive}"),
-            Value::Object(_) => write!(f, "object"),
+            Value::Function(function) => write!(f, "{function}"),
+            Value::Object(object) => write!(f, "{object}"),
         }
     }
 }
@@ -308,6 +320,7 @@ impl Serialize for Value {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Value::Primitive(data) => data.serialize(serializer),
+            Value::Function(function) => function.serialize(serializer),
             Value::Object(object) => object.serialize(serializer),
         }
     }
@@ -371,7 +384,7 @@ impl Primitive {
             Primitive::Boolean(_) => Type::Boolean,
             Primitive::Byte(_) => Type::Byte,
             Primitive::Character(_) => Type::Character,
-            Primitive::Function(Function { .. }) => todo!(),
+            Primitive::Function(Function { r#type, .. }) => r#type.clone(),
             Primitive::Float(_) => Type::Float,
             Primitive::Integer(_) => Type::Integer,
             Primitive::Range(range) => range.r#type(),
@@ -643,7 +656,32 @@ impl Ord for Primitive {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Function {
-    pub chunk: Chunk,
+    chunk: Chunk,
+    r#type: Type,
+}
+
+impl Function {
+    pub fn new(chunk: Chunk, r#type: Type) -> Self {
+        Self { chunk, r#type }
+    }
+
+    pub fn chunk(&self) -> &Chunk {
+        &self.chunk
+    }
+
+    pub fn take_chunk(self) -> Chunk {
+        self.chunk
+    }
+
+    pub fn r#type(&self) -> &Type {
+        &self.r#type
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.r#type)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -894,6 +932,16 @@ impl Object {
     }
 }
 
+impl Display for Object {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Object::List { start, end, .. } => {
+                write!(f, "List [R{}..=R{}]", start, end)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueError {
     CannotAdd(Value, Value),
@@ -918,6 +966,7 @@ impl Display for ValueError {
         let get_value_display = |value: &Value| -> String {
             match value {
                 Value::Primitive(primitive) => primitive.to_string(),
+                Value::Function(function) => function.to_string(),
                 Value::Object(_) => "Object".to_string(),
             }
         };

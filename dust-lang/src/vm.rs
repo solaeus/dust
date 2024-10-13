@@ -378,11 +378,11 @@ impl Vm {
                     } else {
                         todo!()
                     };
-                    let mut function_vm = Vm::new(function.chunk);
+                    let mut function_vm = Vm::new(function.take_chunk());
                     let first_argument_index = function_index + 1;
                     let last_argument_index = first_argument_index + argument_count;
 
-                    for argument_index in first_argument_index..=last_argument_index {
+                    for argument_index in first_argument_index..last_argument_index {
                         let argument = self.empty(argument_index, position)?;
 
                         function_vm.stack.push(Register::Value(argument));
@@ -392,13 +392,15 @@ impl Vm {
 
                     if let Some(value) = return_value {
                         self.set(function_index, value, position)?;
+                    } else {
+                        self.empty(function_index, position)?;
                     }
                 }
                 Operation::Return => {
                     let should_return_value = instruction.b_as_boolean();
-                    let top_of_stack = (self.stack.len() - 1) as u8;
 
                     return if should_return_value {
+                        let top_of_stack = (self.stack.len() - 1) as u8;
                         let value = self.empty(top_of_stack, position)?;
 
                         Ok(Some(value))

@@ -132,6 +132,10 @@ impl Chunk {
         operations
     }
 
+    pub fn constants(&self) -> &[Option<Value>] {
+        &self.constants
+    }
+
     pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
         let index = index as usize;
 
@@ -333,6 +337,7 @@ impl Local {
 pub struct ChunkDisassembler<'a> {
     name: &'a str,
     chunk: &'a Chunk,
+    source: Option<&'a str>,
     width: usize,
     styled: bool,
     indent: usize,
@@ -375,10 +380,17 @@ impl<'a> ChunkDisassembler<'a> {
         Self {
             name,
             chunk,
+            source: None,
             width: Self::default_width(),
             styled: false,
             indent: 0,
         }
+    }
+
+    pub fn source(&mut self, source: &'a str) -> &mut Self {
+        self.source = Some(source);
+
+        self
     }
 
     pub fn width(&mut self, width: usize) -> &mut Self {
@@ -438,6 +450,17 @@ impl<'a> ChunkDisassembler<'a> {
         };
 
         push(self.name, self.styled);
+
+        if let Some(source) = self.source {
+            let length = if source.len() < self.width {
+                source.len() - 2
+            } else {
+                self.width - 2
+            };
+            let source_line = format!("\"{}\"", &source[..length]).dimmed();
+
+            push(&source_line, false);
+        }
 
         let info_line = format!(
             "{} instructions, {} constants, {} locals",
@@ -518,10 +541,7 @@ impl<'a> ChunkDisassembler<'a> {
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
             let value_display = value_option
                 .as_ref()
-                .map(|value| match value {
-                    Value::Primitive(value_data) => value_data.to_string(),
-                    Value::Object(_) => "object".to_string(),
-                })
+                .map(|value| value.to_string())
                 .unwrap_or("empty".to_string());
             let trucated_length = 8;
             let with_elipsis = trucated_length - 3;
@@ -535,15 +555,16 @@ impl<'a> ChunkDisassembler<'a> {
 
             if let Some(function_disassembly) =
                 value_option.as_ref().and_then(|value| match value {
-                    Value::Primitive(value_data) => value_data.as_function().map(|function| {
+                    Value::Function(function) => Some(
                         function
-                            .chunk
+                            .chunk()
                             .disassembler("function")
                             .styled(self.styled)
                             .indent(self.indent + 1)
                             .width(self.width)
-                            .disassemble()
-                    }),
+                            .disassemble(),
+                    ),
+                    Value::Primitive(_) => None,
                     Value::Object(_) => None,
                 })
             {
