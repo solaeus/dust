@@ -517,7 +517,7 @@ impl<'src> Parser<'src> {
             ]
         };
 
-        while let Ok(operation) = self.chunk.get_last_operation() {
+        while let Ok(operation) = self.chunk.get_last_operation(operator_position) {
             if operation.is_math() {
                 let (instruction, position) = self.chunk.pop_instruction(self.current_position)?;
 
@@ -778,7 +778,7 @@ impl<'src> Parser<'src> {
 
             self.parse_expression()?;
 
-            if let Operation::LoadConstant = self.chunk.get_last_operation()? {
+            if let Operation::LoadConstant = self.chunk.get_last_operation(self.current_position)? {
                 self.increment_register()?;
             }
 
@@ -831,7 +831,7 @@ impl<'src> Parser<'src> {
             self.parse_block(block_allowed)?;
         }
 
-        let last_operation = self.chunk.get_last_operation()?;
+        let last_operation = self.chunk.get_last_operation(self.current_position)?;
 
         if let (Operation::LoadConstant | Operation::LoadBoolean, Token::Else) =
             (last_operation, self.current_token)
@@ -927,10 +927,16 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let returned = self.chunk.get_last_operation()? == Operation::Return;
+        let end_of_statement = matches!(self.current_token, Token::Eof | Token::RightCurlyBrace);
         let has_semicolon = self.allow(Token::Semicolon)?;
+        let returned = self.chunk.get_last_operation(self.current_position)? == Operation::Return;
 
-        if allowed.implicit_return && self.parsed_expression && !returned && !has_semicolon {
+        if allowed.implicit_return
+            && self.parsed_expression
+            && end_of_statement
+            && !has_semicolon
+            && !returned
+        {
             self.emit_instruction(Instruction::r#return(true), self.current_position);
         }
 
@@ -1043,7 +1049,7 @@ impl<'src> Parser<'src> {
             .declare_local(identifier, r#type, is_mutable, register, position)?;
 
         self.emit_instruction(
-            Instruction::define_local(register, local_index, is_mutable),
+            Instruction::define_local(self.current_register - 1, local_index, is_mutable),
             position,
         );
 
@@ -1143,7 +1149,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_call(&mut self) -> Result<(), ParseError> {
-        let last_instruction = self.chunk.get_last_instruction()?.0;
+        let last_instruction = self.chunk.get_last_instruction(self.current_position)?.0;
 
         if !last_instruction.is_expression() {
             return Err(ParseError::ExpectedExpression {
@@ -1178,10 +1184,73 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn expect_expression(&mut self, _: Allowed) -> Result<(), ParseError> {
+        match self.current_token {
+            Token::Boolean(_)
+            | Token::Byte(_)
+            | Token::Character(_)
+            | Token::Float(_)
+            | Token::Identifier(_)
+            | Token::Integer(_)
+            | Token::String(_)
+            | Token::Break
+            | Token::If
+            | Token::Return
+            | Token::Map
+            | Token::Loop
+            | Token::Struct
+            | Token::BangEqual
+            | Token::DoubleAmpersand
+            | Token::DoubleEqual
+            | Token::DoublePipe
+            | Token::Equal
+            | Token::Greater
+            | Token::GreaterEqual
+            | Token::LeftCurlyBrace
+            | Token::LeftParenthesis
+            | Token::LeftSquareBrace
+            | Token::Less
+            | Token::LessEqual
+            | Token::Minus
+            | Token::MinusEqual
+            | Token::Percent
+            | Token::PercentEqual
+            | Token::Plus
+            | Token::PlusEqual
+            | Token::Slash
+            | Token::SlashEqual
+            | Token::Star
+            | Token::StarEqual => Ok(()),
+            Token::Eof
+            | Token::Async
+            | Token::Bool
+            | Token::Else
+            | Token::FloatKeyword
+            | Token::Fn
+            | Token::Int
+            | Token::Let
+            | Token::Mut
+            | Token::Str
+            | Token::While
+            | Token::Bang
+            | Token::Colon
+            | Token::Comma
+            | Token::Dot
+            | Token::DoubleDot
+            | Token::RightCurlyBrace
+            | Token::RightParenthesis
+            | Token::RightSquareBrace
+            | Token::Semicolon => Err(ParseError::ExpectedExpression {
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            }),
+        }
+    }
+
     fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), ParseError> {
         if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
             log::debug!(
-                "{} is {precedence} prefix",
+                "{} is prefix with precedence {precedence}",
                 self.current_token.to_string().bold(),
             );
 
@@ -1193,7 +1262,7 @@ impl<'src> Parser<'src> {
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
                 log::debug!(
-                    "{} is {precedence} infix",
+                    "{} is infix with precedence {precedence}",
                     self.current_token.to_string().bold(),
                 );
 
@@ -1294,7 +1363,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: Some(Parser::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
-            Token::Bool => todo!(),
+            Token::Bool => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Boolean(_) => ParseRule {
                 prefix: Some(Parser::parse_boolean),
                 infix: None,
@@ -1311,13 +1384,21 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Colon => todo!(),
+            Token::Colon => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Comma => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Dot => todo!(),
+            Token::Dot => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::DoubleAmpersand => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_logical_binary),
@@ -1333,7 +1414,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::LogicalOr,
             },
-            Token::DoubleDot => todo!(),
+            Token::DoubleDot => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Eof => ParseRule {
                 prefix: None,
                 infix: None,
@@ -1354,7 +1439,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::FloatKeyword => todo!(),
+            Token::FloatKeyword => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Fn => ParseRule {
                 prefix: Some(Parser::parse_function),
                 infix: None,
@@ -1380,7 +1469,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Int => todo!(),
+            Token::Int => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Integer(_) => ParseRule {
                 prefix: Some(Parser::parse_integer),
                 infix: None,
@@ -1414,7 +1507,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
             Token::Let => ParseRule {
                 prefix: Some(Parser::parse_let_statement),
                 infix: None,
-                precedence: Precedence::None,
+                precedence: Precedence::Assignment,
             },
             Token::Loop => todo!(),
             Token::Map => todo!(),
@@ -1474,7 +1567,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: None,
+                prefix: Some(Parser::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -1498,7 +1591,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
-            Token::Str => todo!(),
+            Token::Str => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::String(_) => ParseRule {
                 prefix: Some(Parser::parse_string),
                 infix: None,
