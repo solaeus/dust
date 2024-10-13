@@ -460,7 +460,6 @@ impl<'a> ChunkDisassembler<'a> {
                 disassembly.push('│');
             }
 
-            disassembly.push_str(&line_length.to_string());
             disassembly.push('\n');
 
             if !remainder.is_empty() {
@@ -641,12 +640,6 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         push_border(&bottom_border, &mut disassembly);
-
-        if let Some(source) = self.source {
-            let formatted = Formatter::new(source).origin(self.name).format();
-
-            disassembly.push_str(&formatted);
-        }
 
         let expected_length = self.predict_length();
         let actual_length = disassembly.len();

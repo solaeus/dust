@@ -2,13 +2,16 @@ use std::{fs::read_to_string, io::Write};
 
 use clap::Parser;
 use colored::Colorize;
-use dust_lang::{parse, run};
+use dust_lang::{parse, run, Formatter};
 use log::Level;
 
 #[derive(Parser)]
 struct Cli {
     #[arg(short, long)]
     command: Option<String>,
+
+    #[arg(short, long)]
+    format: bool,
 
     #[arg(short, long)]
     parse: bool,
@@ -43,24 +46,33 @@ fn main() {
 
     let args = Cli::parse();
 
-    if let Some(command) = &args.command {
-        if args.parse {
-            parse_and_display(command, args.styled);
-        } else {
-            run_and_display(command);
-        }
-    } else if let Some(path) = &args.path {
-        let source = read_to_string(path).expect("Failed to read file");
+    let source = if let Some(path) = &args.path {
+        &read_to_string(path).expect("Failed to read file")
+    } else if let Some(command) = &args.command {
+        command
+    } else {
+        eprintln!("No input provided");
+        return;
+    };
 
-        if args.parse {
-            parse_and_display(&source, args.styled);
-        } else {
-            run_and_display(&source);
-        }
+    if args.parse {
+        parse_source(source, args.styled);
+    }
+
+    if args.format {
+        format_source(source);
+    }
+
+    if !args.format && !args.parse {
+        run_source(source);
     }
 }
 
-fn parse_and_display(source: &str, styled: bool) {
+fn format_source(source: &str) {
+    println!("{}", Formatter::new(source).format())
+}
+
+fn parse_source(source: &str, styled: bool) {
     match parse(source) {
         Ok(chunk) => println!(
             "{}",
@@ -76,7 +88,7 @@ fn parse_and_display(source: &str, styled: bool) {
     }
 }
 
-fn run_and_display(source: &str) {
+fn run_source(source: &str) {
     match run(source) {
         Ok(Some(value)) => println!("{}", value),
         Ok(_) => {}
