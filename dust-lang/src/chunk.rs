@@ -1,7 +1,6 @@
 use std::fmt::{self, Debug, Display};
 
 use colored::Colorize;
-use rayon::{iter::ParallelIterator, str::ParallelString};
 use serde::{Deserialize, Serialize};
 
 use crate::{AnnotatedError, Formatter, Identifier, Instruction, Operation, Span, Type, Value};
@@ -84,14 +83,11 @@ impl Chunk {
         Ok((instruction, position))
     }
 
-    pub fn get_last_n_instructions<const N: usize>(&self) -> [Option<&(Instruction, Span)>; N] {
+    pub fn get_last_n_instructions<const N: usize>(&self) -> [Option<(&Instruction, &Span)>; N] {
         let mut instructions = [None; N];
 
-        for i in 0..N {
-            let index = self.instructions.len().saturating_sub(i + 1);
-            let instruction = self.instructions.get(index);
-
-            instructions[i] = instruction;
+        for (index, (instruction, position)) in self.instructions.iter().rev().enumerate().take(N) {
+            instructions[index] = Some((instruction, position));
         }
 
         instructions
@@ -119,15 +115,8 @@ impl Chunk {
     pub fn get_last_n_operations<const N: usize>(&self) -> [Option<Operation>; N] {
         let mut operations = [None; N];
 
-        for i in 0..N {
-            let index = self.instructions.len().saturating_sub(i + 1);
-
-            let operation = self
-                .instructions
-                .get(index)
-                .map(|(instruction, _)| instruction.operation());
-
-            operations[i] = operation;
+        for (index, (instruction, _)) in self.instructions.iter().rev().enumerate().take(N) {
+            operations[index] = Some(instruction.operation());
         }
 
         operations
