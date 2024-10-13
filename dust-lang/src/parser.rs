@@ -1159,8 +1159,10 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let function_register = self.current_register - 1;
+        let function_register = self.current_register;
         let mut argument_count = 0;
+
+        self.increment_register()?;
 
         while !self.allow(Token::RightParenthesis)? {
             if argument_count > 0 {

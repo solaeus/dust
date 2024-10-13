@@ -382,9 +382,9 @@ impl Vm {
                     };
                     let mut function_vm = Vm::new(function.take_chunk());
                     let first_argument_index = function_index + 1;
-                    let last_argument_index = first_argument_index + argument_count;
+                    let last_argument_index = first_argument_index + argument_count - 1;
 
-                    for argument_index in first_argument_index..last_argument_index {
+                    for argument_index in first_argument_index..=last_argument_index {
                         let argument = self.empty(argument_index, position)?;
 
                         function_vm.stack.push(Register::Value(argument));

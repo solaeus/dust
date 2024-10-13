@@ -573,15 +573,12 @@ impl Instruction {
             Operation::Call => {
                 let function_index = self.a();
                 let argument_count = self.b();
+                let first_argument = function_index + 1;
                 let last_argument = function_index + argument_count;
 
                 let mut output = format!("R{function_index}(");
 
-                for register in function_index..last_argument {
-                    if register != last_argument - 1 {
-                        output.push_str(", ");
-                    }
-
+                for register in first_argument..=last_argument {
                     output.push_str(&format!("R{}", register));
                 }
 
