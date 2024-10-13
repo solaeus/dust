@@ -1,8 +1,8 @@
 use std::mem::replace;
 
 use crate::{
-    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
-    Operation, Span, Value, ValueError,
+    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Function, Identifier,
+    Instruction, Operation, Span, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -371,7 +371,7 @@ impl Vm {
                 Operation::Call => {
                     let function_index = instruction.a();
                     let argument_count = instruction.b();
-                    let function = if let Value::Primitive(Primitive::Function(function)) =
+                    let function = if let Value::Function(function) =
                         self.get(function_index, position)?.clone()
                     {
                         function

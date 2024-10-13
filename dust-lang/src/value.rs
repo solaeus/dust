@@ -61,10 +61,10 @@ impl Value {
     }
 
     pub fn function(body: Chunk, r#type: FunctionType) -> Self {
-        Value::Primitive(Primitive::Function(Function {
+        Value::Function(Function {
             chunk: body,
             r#type: Type::Function(r#type),
-        }))
+        })
     }
 
     pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
@@ -372,7 +372,6 @@ pub enum Primitive {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(Function),
     Integer(i64),
     Range(RangeValue),
     String(String),
@@ -384,21 +383,12 @@ impl Primitive {
             Primitive::Boolean(_) => Type::Boolean,
             Primitive::Byte(_) => Type::Byte,
             Primitive::Character(_) => Type::Character,
-            Primitive::Function(Function { r#type, .. }) => r#type.clone(),
             Primitive::Float(_) => Type::Float,
             Primitive::Integer(_) => Type::Integer,
             Primitive::Range(range) => range.r#type(),
             Primitive::String(string) => Type::String {
                 length: Some(string.len()),
             },
-        }
-    }
-
-    pub fn as_function(&self) -> Option<&Function> {
-        if let Primitive::Function(function) = self {
-            Some(function)
-        } else {
-            None
         }
     }
 
@@ -601,9 +591,6 @@ impl Display for Primitive {
 
                 Ok(())
             }
-            Primitive::Function(Function { .. }) => {
-                write!(f, "function")
-            }
             Primitive::Integer(integer) => write!(f, "{integer}"),
             Primitive::Range(range_value) => {
                 write!(f, "{range_value}")
@@ -642,8 +629,6 @@ impl Ord for Primitive {
                 }
             }
             (Primitive::Float(_), _) => Ordering::Greater,
-            (Primitive::Function(left), Primitive::Function(right)) => left.cmp(right),
-            (Primitive::Function(_), _) => Ordering::Greater,
             (Primitive::Integer(left), Primitive::Integer(right)) => left.cmp(right),
             (Primitive::Integer(_), _) => Ordering::Greater,
             (Primitive::Range(left), Primitive::Range(right)) => left.cmp(right),

@@ -543,9 +543,9 @@ impl<'a> ChunkDisassembler<'a> {
                 .as_ref()
                 .map(|value| value.to_string())
                 .unwrap_or("empty".to_string());
-            let trucated_length = 8;
-            let with_elipsis = trucated_length - 3;
-            let constant_display = if value_display.len() > with_elipsis {
+            let trucated_length = value_display.len().min(self.width - 2);
+            let with_elipsis = trucated_length.saturating_sub(3);
+            let constant_display = if with_elipsis > self.width - 2 {
                 format!("{index:<5} {value_display:.<trucated_length$.with_elipsis$}")
             } else {
                 format!("{index:<5} {value_display:<trucated_length$}")
