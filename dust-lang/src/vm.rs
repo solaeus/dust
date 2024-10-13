@@ -1,4 +1,4 @@
-use std::mem::replace;
+use std::{cmp::Ordering, mem::replace};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
@@ -126,9 +126,8 @@ impl Vm {
                     let to_register = instruction.a();
                     let local_index = instruction.b();
                     let local = self.chunk.get_local(local_index, position)?;
-                    let value = self.take(local.register_index, to_register, position)?;
 
-                    self.set(to_register, value, position)?;
+                    self.set_pointer(to_register, local.register_index, position)?;
                 }
                 Operation::SetLocal => {
                     let register = instruction.a();
@@ -385,7 +384,7 @@ impl Vm {
                     let last_argument_index = first_argument_index + argument_count - 1;
 
                     for argument_index in first_argument_index..=last_argument_index {
-                        let argument = self.empty(argument_index, position)?;
+                        let argument = self.get(argument_index, position)?.clone();
 
                         function_vm.stack.push(Register::Value(argument));
                     }
@@ -416,35 +415,71 @@ impl Vm {
         Ok(None)
     }
 
-    fn set(&mut self, index: u8, value: Value, position: Span) -> Result<(), VmError> {
+    fn set(&mut self, to_register: u8, value: Value, position: Span) -> Result<(), VmError> {
         let length = self.stack.len();
-        let index = index as usize;
+        let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
             return Err(VmError::StackOverflow { position });
         }
 
-        if index == length {
-            log::trace!("Push register {index} with value {value}");
+        match to_register.cmp(&length) {
+            Ordering::Less => {
+                log::trace!("Replace R{to_register} with {value}");
 
-            self.stack.push(Register::Value(value));
+                self.stack[to_register] = Register::Value(value);
 
-            return Ok(());
+                Ok(())
+            }
+            Ordering::Equal => {
+                log::trace!("Push R{to_register} with {value}");
+
+                self.stack.push(Register::Value(value));
+
+                Ok(())
+            }
+            Ordering::Greater => Err(VmError::SkippedRegister {
+                index: to_register,
+                length,
+                position,
+            }),
+        }
+    }
+
+    fn set_pointer(
+        &mut self,
+        to_register: u8,
+        from_register: u8,
+        position: Span,
+    ) -> Result<(), VmError> {
+        let length = self.stack.len();
+        let to_register = to_register as usize;
+
+        if length == Self::STACK_LIMIT {
+            return Err(VmError::StackOverflow { position });
         }
 
-        if index < length {
-            log::trace!("Replace register {index} with value {value}");
+        match to_register.cmp(&length) {
+            Ordering::Less => {
+                log::trace!("Replace R{to_register} with R{from_register}");
 
-            self.stack[index] = Register::Value(value);
+                self.stack[to_register] = Register::Pointer(from_register);
 
-            return Ok(());
+                Ok(())
+            }
+            Ordering::Equal => {
+                log::trace!("Push R{to_register} with R{from_register}");
+
+                self.stack.push(Register::Pointer(from_register));
+
+                Ok(())
+            }
+            Ordering::Greater => Err(VmError::SkippedRegister {
+                index: to_register,
+                length,
+                position,
+            }),
         }
-
-        Err(VmError::SkippedRegister {
-            index,
-            length: self.stack.len(),
-            position,
-        })
     }
 
     fn set_constant(
@@ -488,7 +523,7 @@ impl Vm {
         let register = self
             .stack
             .get(index)
-            .ok_or_else(|| VmError::RegisterIndexOutOfBounds { position })?;
+            .ok_or_else(|| VmError::RegisterIndexOutOfBounds { index, position })?;
 
         match register {
             Register::Value(value) => Ok(value),
@@ -530,7 +565,7 @@ impl Vm {
         let index = index as usize;
 
         if index >= self.stack.len() {
-            return Err(VmError::RegisterIndexOutOfBounds { position });
+            return Err(VmError::RegisterIndexOutOfBounds { index, position });
         }
 
         let register = replace(&mut self.stack[index], Register::Empty);
@@ -587,6 +622,7 @@ pub enum VmError {
         position: Span,
     },
     RegisterIndexOutOfBounds {
+        index: usize,
         position: Span,
     },
     InvalidInstruction {
@@ -649,6 +685,9 @@ impl AnnotatedError for VmError {
         match self {
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
+            Self::RegisterIndexOutOfBounds { index, .. } => {
+                Some(format!("R{index} does not exist at this time"))
+            }
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("{identifier} is not in scope"))
             }
@@ -664,7 +703,7 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
-            Self::RegisterIndexOutOfBounds { position } => *position,
+            Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::InvalidInstruction { position, .. } => *position,
             Self::SkippedRegister { position, .. } => *position,
             Self::StackUnderflow { position } => *position,

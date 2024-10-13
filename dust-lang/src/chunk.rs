@@ -529,7 +529,7 @@ impl<'a> ChunkDisassembler<'a> {
 
         if let Some(source) = self.source {
             push(
-                &source.replace("\n", ""),
+                &source.split_whitespace().collect::<Vec<&str>>().join(" "),
                 &mut disassembly,
                 self.width,
                 self.indent,

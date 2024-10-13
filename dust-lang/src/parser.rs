@@ -1170,7 +1170,6 @@ impl<'src> Parser<'src> {
             }
 
             self.parse_expression()?;
-            self.increment_register()?;
 
             argument_count += 1;
         }
