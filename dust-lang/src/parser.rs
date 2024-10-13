@@ -1185,65 +1185,13 @@ impl<'src> Parser<'src> {
     }
 
     fn expect_expression(&mut self, _: Allowed) -> Result<(), ParseError> {
-        match self.current_token {
-            Token::Boolean(_)
-            | Token::Byte(_)
-            | Token::Character(_)
-            | Token::Float(_)
-            | Token::Identifier(_)
-            | Token::Integer(_)
-            | Token::String(_)
-            | Token::Break
-            | Token::If
-            | Token::Return
-            | Token::Map
-            | Token::Loop
-            | Token::Struct
-            | Token::BangEqual
-            | Token::DoubleAmpersand
-            | Token::DoubleEqual
-            | Token::DoublePipe
-            | Token::Equal
-            | Token::Greater
-            | Token::GreaterEqual
-            | Token::LeftCurlyBrace
-            | Token::LeftParenthesis
-            | Token::LeftSquareBrace
-            | Token::Less
-            | Token::LessEqual
-            | Token::Minus
-            | Token::MinusEqual
-            | Token::Percent
-            | Token::PercentEqual
-            | Token::Plus
-            | Token::PlusEqual
-            | Token::Slash
-            | Token::SlashEqual
-            | Token::Star
-            | Token::StarEqual => Ok(()),
-            Token::Eof
-            | Token::Async
-            | Token::Bool
-            | Token::Else
-            | Token::FloatKeyword
-            | Token::Fn
-            | Token::Int
-            | Token::Let
-            | Token::Mut
-            | Token::Str
-            | Token::While
-            | Token::Bang
-            | Token::Colon
-            | Token::Comma
-            | Token::Dot
-            | Token::DoubleDot
-            | Token::RightCurlyBrace
-            | Token::RightParenthesis
-            | Token::RightSquareBrace
-            | Token::Semicolon => Err(ParseError::ExpectedExpression {
+        if self.current_token.is_expression() {
+            Ok(())
+        } else {
+            Err(ParseError::ExpectedExpression {
                 found: self.current_token.to_owned(),
                 position: self.current_position,
-            }),
+            })
         }
     }
 

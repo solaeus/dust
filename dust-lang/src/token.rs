@@ -311,6 +311,48 @@ impl<'src> Token<'src> {
             Token::While => TokenKind::While,
         }
     }
+
+    /// Returns true if the token yields a value, begins an expression or is an expression operator.
+    pub fn is_expression(&self) -> bool {
+        matches!(
+            self,
+            Token::Boolean(_)
+                | Token::Byte(_)
+                | Token::Character(_)
+                | Token::Float(_)
+                | Token::Identifier(_)
+                | Token::Integer(_)
+                | Token::String(_)
+                | Token::Break
+                | Token::If
+                | Token::Return
+                | Token::Map
+                | Token::Loop
+                | Token::Struct
+                | Token::BangEqual
+                | Token::DoubleAmpersand
+                | Token::DoubleEqual
+                | Token::DoublePipe
+                | Token::Equal
+                | Token::Greater
+                | Token::GreaterEqual
+                | Token::LeftCurlyBrace
+                | Token::LeftParenthesis
+                | Token::LeftSquareBrace
+                | Token::Less
+                | Token::LessEqual
+                | Token::Minus
+                | Token::MinusEqual
+                | Token::Percent
+                | Token::PercentEqual
+                | Token::Plus
+                | Token::PlusEqual
+                | Token::Slash
+                | Token::SlashEqual
+                | Token::Star
+                | Token::StarEqual
+        )
+    }
 }
 
 impl<'src> Display for Token<'src> {
