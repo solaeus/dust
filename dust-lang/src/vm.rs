@@ -1,8 +1,8 @@
 use std::mem::replace;
 
 use crate::{
-    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Function, Identifier,
-    Instruction, Operation, Span, Value, ValueError,
+    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
+    Operation, Span, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -371,12 +371,14 @@ impl Vm {
                 Operation::Call => {
                     let function_index = instruction.a();
                     let argument_count = instruction.b();
-                    let function = if let Value::Function(function) =
-                        self.get(function_index, position)?.clone()
-                    {
+                    let value = self.get(function_index, position)?.clone();
+                    let function = if let Value::Function(function) = value {
                         function
                     } else {
-                        todo!()
+                        return Err(VmError::ExpectedFunction {
+                            found: value,
+                            position,
+                        });
                     };
                     let mut function_vm = Vm::new(function.take_chunk());
                     let first_argument_index = function_index + 1;
@@ -580,6 +582,10 @@ pub enum VmError {
         found: Value,
         position: Span,
     },
+    ExpectedFunction {
+        found: Value,
+        position: Span,
+    },
     RegisterIndexOutOfBounds {
         position: Span,
     },
@@ -627,6 +633,7 @@ impl AnnotatedError for VmError {
             Self::CannotMutateImmutableLocal { .. } => "Cannot mutate immutable variable",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
+            Self::ExpectedFunction { .. } => "Expected function",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::SkippedRegister { .. } => "Skipped register",
@@ -641,6 +648,7 @@ impl AnnotatedError for VmError {
     fn details(&self) -> Option<String> {
         match self {
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
+            Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("{identifier} is not in scope"))
             }
@@ -655,6 +663,7 @@ impl AnnotatedError for VmError {
             Self::CannotMutateImmutableLocal { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
+            Self::ExpectedFunction { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position } => *position,
             Self::InvalidInstruction { position, .. } => *position,
             Self::SkippedRegister { position, .. } => *position,

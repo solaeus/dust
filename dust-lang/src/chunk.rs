@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    f32::DIGITS,
+    fmt::{self, Debug, Display, Formatter},
+};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -344,24 +347,17 @@ pub struct ChunkDisassembler<'a> {
 }
 
 impl<'a> ChunkDisassembler<'a> {
-    const INSTRUCTION_HEADER: [&'static str; 5] = [
-        "",
+    const INSTRUCTION_HEADER: [&'static str; 4] = [
         "Instructions",
         "------------",
         "INDEX BYTECODE OPERATION       INFO                      JUMP     POSITION",
         "----- -------- --------------- ------------------------- -------- --------",
     ];
 
-    const CONSTANT_HEADER: [&'static str; 5] = [
-        "",
-        "Constants",
-        "---------",
-        "INDEX   VALUE  ",
-        "----- ---------",
-    ];
+    const CONSTANT_HEADER: [&'static str; 4] =
+        ["Constants", "---------", "INDEX VALUE", "----- -----"];
 
-    const LOCAL_HEADER: [&'static str; 5] = [
-        "",
+    const LOCAL_HEADER: [&'static str; 4] = [
         "Locals",
         "------",
         "INDEX IDENTIFIER TYPE     MUTABLE DEPTH REGISTER",
@@ -371,7 +367,7 @@ impl<'a> ChunkDisassembler<'a> {
     /// The default width of the disassembly output. To correctly align the output, this should
     /// return the width of the longest line that the disassembler is guaranteed to produce.
     pub fn default_width() -> usize {
-        let longest_line = Self::INSTRUCTION_HEADER[4];
+        let longest_line = Self::INSTRUCTION_HEADER[3];
 
         longest_line.chars().count().max(80)
     }
@@ -412,54 +408,136 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let mut disassembly = String::with_capacity(self.predict_length());
-        let indent = "│  ".repeat(self.indent);
-        let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
+        #[allow(clippy::too_many_arguments)]
+        fn push(
+            text: &str,
+            disassembly: &mut String,
+            width: usize,
+            indent: usize,
+            center: bool,
+            style_bold: bool,
+            style_dim: bool,
+            add_border: bool,
+        ) {
+            let characters = text.chars().collect::<Vec<char>>();
+            let content_width = if add_border { width - 2 } else { width };
+            let (line_characters, remainder) = characters
+                .split_at_checked(content_width)
+                .unwrap_or((characters.as_slice(), &[]));
+            let (left_pad_length, right_pad_length) = {
+                let extra_space = content_width.saturating_sub(characters.len());
 
-        disassembly.push_str(&indent);
-        disassembly.push_str(&top_border);
-        disassembly.push('\n');
-
-        let center_and_style = |line: &str, style: bool| {
-            if style {
-                format!(
-                    "│{line:^width$}│",
-                    line = line.bold(),
-                    width = self.width - 2
-                )
+                if center {
+                    (extra_space / 2, extra_space / 2 + extra_space % 2)
+                } else {
+                    (0, extra_space)
+                }
+            };
+            let content = if style_bold {
+                line_characters
+                    .iter()
+                    .collect::<String>()
+                    .bold()
+                    .to_string()
+            } else if style_dim {
+                line_characters
+                    .iter()
+                    .collect::<String>()
+                    .dimmed()
+                    .to_string()
             } else {
-                format!("│{line:^width$}│", width = self.width - 2)
-            }
-        };
-        let mut push = |line: &str, style: bool| {
-            if line.lines().count() > 1 {
-                disassembly.push_str(line);
-                disassembly.push('\n');
+                line_characters.iter().collect::<String>()
+            };
 
-                return;
+            for _ in 0..indent {
+                disassembly.push_str("│   ");
             }
 
-            for _ in 0..self.indent {
-                disassembly.push_str("│  ");
+            if add_border {
+                disassembly.push('│');
             }
 
-            let line = center_and_style(line, style);
+            disassembly.push_str(&" ".repeat(left_pad_length));
+            disassembly.push_str(&content);
+            disassembly.push_str(&" ".repeat(right_pad_length));
 
-            disassembly.push_str(&line);
+            if add_border {
+                disassembly.push('│');
+            }
+
             disassembly.push('\n');
-        };
 
-        push(self.name, self.styled);
+            if !remainder.is_empty() {
+                push(
+                    remainder.iter().collect::<String>().as_str(),
+                    disassembly,
+                    width,
+                    indent,
+                    center,
+                    style_bold,
+                    style_dim,
+                    add_border,
+                );
+            }
+        }
+        let push_header = |header: &str, disassembly: &mut String| {
+            push(
+                header,
+                disassembly,
+                self.width,
+                self.indent,
+                true,
+                self.styled,
+                false,
+                true,
+            );
+        };
+        let push_details = |details: &str, disassembly: &mut String| {
+            push(
+                details,
+                disassembly,
+                self.width,
+                self.indent,
+                true,
+                false,
+                false,
+                true,
+            );
+        };
+        let push_border = |border: &str, disassembly: &mut String| {
+            push(
+                border,
+                disassembly,
+                self.width,
+                self.indent,
+                false,
+                false,
+                false,
+                false,
+            )
+        };
+        let push_function_disassembly = |function_disassembly: &str, disassembly: &mut String| {
+            disassembly.push_str(function_disassembly);
+        };
+        let mut disassembly = String::new();
+        let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
+        let section_border = "│".to_string() + &"┈".repeat(self.width - 2) + "│";
+        let bottom_border = "└".to_string() + &"─".repeat(self.width - 2) + "┘";
+
+        push_border(&top_border, &mut disassembly);
+        push_header(self.name, &mut disassembly);
 
         if let Some(source) = self.source {
-            let length = if source.len() < self.width {
-                source.len() - 2
-            } else {
-                self.width - 2
-            };
-            let source_line = format!("\"{}\"", &source[..length]).dimmed();
-
-            push(&source_line, false);
+            push(
+                &source.replace("\n", ""),
+                &mut disassembly,
+                self.width,
+                self.indent,
+                false,
+                false,
+                true,
+                true,
+            )
         }
 
         let info_line = format!(
@@ -467,13 +545,21 @@ impl<'a> ChunkDisassembler<'a> {
             self.chunk.instructions.len(),
             self.chunk.constants.len(),
             self.chunk.locals.len()
-        )
-        .dimmed();
+        );
 
-        push(&info_line, false);
+        push(
+            &info_line,
+            &mut disassembly,
+            self.width,
+            self.indent,
+            true,
+            false,
+            false,
+            true,
+        );
 
-        for line in Self::INSTRUCTION_HEADER {
-            push(line, self.styled);
+        for line in &Self::INSTRUCTION_HEADER {
+            push_header(line, &mut disassembly);
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
@@ -504,11 +590,13 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
             );
 
-            push(&instruction_display, false);
+            push_details(&instruction_display, &mut disassembly);
         }
 
-        for line in Self::LOCAL_HEADER {
-            push(line, self.styled);
+        push_border(&section_border, &mut disassembly);
+
+        for line in &Self::LOCAL_HEADER {
+            push_header(line, &mut disassembly);
         }
 
         for (
@@ -531,11 +619,13 @@ impl<'a> ChunkDisassembler<'a> {
                 "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {depth:<5} {register_index:8}"
             );
 
-            push(&local_display, false);
+            push_details(&local_display, &mut disassembly);
         }
 
-        for line in Self::CONSTANT_HEADER {
-            push(line, self.styled);
+        push_border(&section_border, &mut disassembly);
+
+        for line in &Self::CONSTANT_HEADER {
+            push_header(line, &mut disassembly);
         }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
@@ -543,15 +633,9 @@ impl<'a> ChunkDisassembler<'a> {
                 .as_ref()
                 .map(|value| value.to_string())
                 .unwrap_or("empty".to_string());
-            let trucated_length = value_display.len().min(self.width - 2);
-            let with_elipsis = trucated_length.saturating_sub(3);
-            let constant_display = if with_elipsis > self.width - 2 {
-                format!("{index:<5} {value_display:.<trucated_length$.with_elipsis$}")
-            } else {
-                format!("{index:<5} {value_display:<trucated_length$}")
-            };
+            let constant_display = format!("{index:<5} {value_display:<5}");
 
-            push(&constant_display, false);
+            push_details(&constant_display, &mut disassembly);
 
             if let Some(function_disassembly) =
                 value_option.as_ref().and_then(|value| match value {
@@ -560,23 +644,19 @@ impl<'a> ChunkDisassembler<'a> {
                             .chunk()
                             .disassembler("function")
                             .styled(self.styled)
-                            .indent(self.indent + 1)
                             .width(self.width)
+                            .indent(self.indent + 1)
                             .disassemble(),
                     ),
                     Value::Primitive(_) => None,
                     Value::Object(_) => None,
                 })
             {
-                push(&function_disassembly, false);
+                push_function_disassembly(&function_disassembly, &mut disassembly);
             }
         }
 
-        let indent = "│  ".repeat(self.indent);
-        let bottom_border = "└".to_string() + &"─".repeat(self.width - 2) + "┘";
-
-        disassembly.push_str(&indent);
-        disassembly.push_str(&bottom_border);
+        push_border(&bottom_border, &mut disassembly);
 
         let expected_length = self.predict_length();
         let actual_length = disassembly.len();
@@ -589,7 +669,7 @@ impl<'a> ChunkDisassembler<'a> {
 
         if self.styled && expected_length > actual_length {
             log::debug!(
-                "Chunk disassembly was not optimized correctly, expected string length to be at least{expected_length}, got {actual_length}",
+                "Chunk disassembly was not optimized correctly, expected string length to be at least {expected_length}, got {actual_length}",
             );
         }
 

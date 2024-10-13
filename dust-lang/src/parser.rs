@@ -1159,7 +1159,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let function_register = self.current_register;
+        let function_register = self.current_register - 1;
         let mut argument_count = 0;
 
         while !self.allow(Token::RightParenthesis)? {
@@ -1167,16 +1167,8 @@ impl<'src> Parser<'src> {
                 self.expect(Token::Comma)?;
             }
 
-            let register = self.current_register;
-
             self.parse_expression()?;
-
-            if self.current_register == register {
-                return Err(ParseError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                });
-            }
+            self.increment_register()?;
 
             argument_count += 1;
         }

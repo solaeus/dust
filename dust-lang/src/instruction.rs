@@ -401,18 +401,7 @@ impl Instruction {
                     ""
                 };
 
-                let constant = if let Some(chunk) = chunk {
-                    match chunk.get_constant(constant_index, Span(0, 0)) {
-                        Ok(value) => value.to_string(),
-                        Err(error) => format!("{error:?}"),
-                    }
-                } else {
-                    "???".to_string()
-                };
-
-                Some(format!(
-                    "R{register_index} = C{constant_index} ({constant}) {jump}",
-                ))
+                Some(format!("R{register_index} = C{constant_index} {jump}",))
             }
             Operation::LoadList => {
                 let destination = self.a();
