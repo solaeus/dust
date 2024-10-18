@@ -36,13 +36,17 @@ pub fn lex<'tokens, 'src: 'tokens>(
     let mut lexer = Lexer::new(source);
     let mut tokens = Vec::new();
 
-    while !lexer.is_eof() {
+    loop {
         let (token, span) = lexer
             .next_token()
             .map_err(|error| DustError::Lex { error, source })?;
-        let length = tokens.len();
+        let is_eof = matches!(token, Token::Eof);
 
-        tokens[length] = (token, span);
+        tokens.push((token, span));
+
+        if is_eof {
+            break;
+        }
     }
 
     Ok(tokens)
