@@ -19,14 +19,11 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
 
     while !parser.is_eof() {
         parser
-            .parse_statement(
-                Allowed {
-                    assignment: true,
-                    explicit_return: false,
-                    implicit_return: true,
-                },
-                Context::None,
-            )
+            .parse_statement(Allowed {
+                assignment: true,
+                explicit_return: false,
+                implicit_return: true,
+            })
             .map_err(|error| DustError::Parse { error, source })?;
     }
 
@@ -940,7 +937,7 @@ impl<'src> Parser<'src> {
 
         self.commit_current_statement();
         self.chunk
-            .insert_instruction(jump_end, jump_back, self.current_position);
+            .push_instruction(jump_back, self.current_position);
 
         Ok(())
     }

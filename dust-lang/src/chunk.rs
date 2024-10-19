@@ -57,16 +57,8 @@ impl Chunk {
             .ok_or(ChunkError::InstructionIndexOfBounds { offset, position })
     }
 
-    pub fn remove_instruction(&mut self, index: usize) -> (Instruction, Span) {
-        self.instructions.remove(index)
-    }
-
     pub fn push_instruction(&mut self, instruction: Instruction, position: Span) {
         self.instructions.push((instruction, position));
-    }
-
-    pub fn insert_instruction(&mut self, index: usize, instruction: Instruction, position: Span) {
-        self.instructions.insert(index, (instruction, position));
     }
 
     pub fn take_constants(self) -> Vec<Value> {
