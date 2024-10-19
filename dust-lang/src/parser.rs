@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    mem::{replace, take},
+    mem::replace,
     num::{ParseFloatError, ParseIntError},
 };
 

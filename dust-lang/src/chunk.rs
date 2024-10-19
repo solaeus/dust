@@ -11,7 +11,7 @@ use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Type, Valu
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     instructions: Vec<(Instruction, Span)>,
-    constants: Vec<Option<Value>>,
+    constants: Vec<Value>,
     locals: Vec<Local>,
     scope_depth: usize,
 }
@@ -33,7 +33,7 @@ impl Chunk {
     ) -> Self {
         Self {
             instructions,
-            constants: constants.into_iter().map(Some).collect(),
+            constants,
             locals,
             scope_depth: 0,
         }
@@ -126,8 +126,8 @@ impl Chunk {
         operations
     }
 
-    pub fn constants(&self) -> &[Option<Value>] {
-        &self.constants
+    pub fn take_constants(self) -> Vec<Value> {
+        self.constants
     }
 
     pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
@@ -136,21 +136,6 @@ impl Chunk {
         self.constants
             .get(index)
             .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
-            .and_then(|value| {
-                value
-                    .as_ref()
-                    .ok_or(ChunkError::ConstantAlreadyUsed { index, position })
-            })
-    }
-
-    pub fn take_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
-        let index = index as usize;
-
-        self.constants
-            .get_mut(index)
-            .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds { index, position })?
-            .take()
-            .ok_or(ChunkError::ConstantAlreadyUsed { index, position })
     }
 
     pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
@@ -159,7 +144,7 @@ impl Chunk {
         if starting_length + 1 > (u8::MAX as usize) {
             Err(ChunkError::ConstantOverflow { position })
         } else {
-            self.constants.push(Some(value));
+            self.constants.push(value);
 
             Ok(starting_length as u8)
         }
@@ -518,7 +503,6 @@ impl<'a> ChunkDisassembler<'a> {
         };
         let push_function_disassembly = |function_disassembly: &str, disassembly: &mut String| {
             disassembly.push_str(function_disassembly);
-            disassembly.push('\n');
         };
         let mut disassembly = String::new();
         let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
@@ -616,28 +600,22 @@ impl<'a> ChunkDisassembler<'a> {
             push_header(line, &mut disassembly);
         }
 
-        for (index, value_option) in self.chunk.constants.iter().enumerate() {
-            let value_display = value_option
-                .as_ref()
-                .map(|value| value.to_string())
-                .unwrap_or("empty".to_string());
-            let constant_display = format!("{index:<5} {value_display:<5}");
+        for (index, value) in self.chunk.constants.iter().enumerate() {
+            let constant_display = format!("{index:<5} {value:<5}");
 
             push_details(&constant_display, &mut disassembly);
 
-            if let Some(function_disassembly) =
-                value_option.as_ref().and_then(|value| match value {
-                    Value::Function(function) => Some({
-                        let mut disassembler = function.chunk().disassembler("function");
-                        disassembler.indent = self.indent + 1;
+            if let Some(function_disassembly) = match value {
+                Value::Function(function) => Some({
+                    let mut disassembler = function.chunk().disassembler("function");
+                    disassembler.indent = self.indent + 1;
 
-                        disassembler.styled(self.styled);
-                        disassembler.disassemble()
-                    }),
-                    Value::Primitive(_) => None,
-                    Value::Object(_) => None,
-                })
-            {
+                    disassembler.styled(self.styled);
+                    disassembler.disassemble()
+                }),
+                Value::Primitive(_) => None,
+                Value::Object(_) => None,
+            } {
                 push_function_disassembly(&function_disassembly, &mut disassembly);
             }
         }

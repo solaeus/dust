@@ -65,13 +65,7 @@ impl Vm {
             );
 
             match instruction.operation() {
-                Operation::Move => {
-                    let to_register = instruction.a();
-                    let from_register = instruction.b();
-                    let value = self.take(from_register, to_register, position)?;
-
-                    self.set(to_register, value, position)?;
-                }
+                Operation::Move => todo!(),
                 Operation::Close => {
                     let from_register = instruction.b();
                     let to_register = instruction.c();
@@ -206,29 +200,7 @@ impl Vm {
                         self.ip += 1;
                     }
                 }
-                Operation::TestSet => {
-                    let to_register = instruction.a();
-                    let argument = instruction.b();
-                    let test_value = instruction.c_as_boolean();
-                    let borrowed_value = self.get(argument, position)?;
-                    let boolean =
-                        if let Value::Primitive(Primitive::Boolean(boolean)) = borrowed_value {
-                            *boolean
-                        } else {
-                            return Err(VmError::ExpectedBoolean {
-                                found: borrowed_value.clone(),
-                                position,
-                            });
-                        };
-
-                    if boolean == test_value {
-                        let value = self.take(argument, to_register, position)?;
-
-                        self.set(to_register, value, position)?;
-                    } else {
-                        self.ip += 1;
-                    }
-                }
+                Operation::TestSet => todo!(),
                 Operation::Equal => {
                     debug_assert_eq!(
                         self.chunk.get_instruction(self.ip, position)?.0.operation(),
@@ -398,8 +370,6 @@ impl Vm {
 
                     if let Some(value) = return_value {
                         self.set(function_index, value, position)?;
-                    } else {
-                        self.empty(function_index, position)?;
                     }
                 }
                 Operation::Return => {
@@ -430,14 +400,14 @@ impl Vm {
 
         match to_register.cmp(&length) {
             Ordering::Less => {
-                log::trace!("Replace R{to_register} with {value}");
+                log::trace!("Change R{to_register} to {value}");
 
                 self.stack[to_register] = Register::Value(value);
 
                 Ok(())
             }
             Ordering::Equal => {
-                log::trace!("Push R{to_register} with {value}");
+                log::trace!("Set R{to_register} to {value}");
 
                 self.stack.push(Register::Value(value));
 
@@ -466,14 +436,14 @@ impl Vm {
 
         match to_register.cmp(&length) {
             Ordering::Less => {
-                log::trace!("Replace R{to_register} with R{from_register}");
+                log::trace!("Change R{to_register} to R{from_register}");
 
                 self.stack[to_register] = Register::Pointer(from_register);
 
                 Ok(())
             }
             Ordering::Equal => {
-                log::trace!("Push R{to_register} with R{from_register}");
+                log::trace!("Set R{to_register} to R{from_register}");
 
                 self.stack.push(Register::Pointer(from_register));
 
@@ -501,7 +471,7 @@ impl Vm {
         }
 
         if index == length {
-            log::trace!("Push register {index} with constant {constant_index}");
+            log::trace!("Change register {index} to C{constant_index}");
 
             self.stack.push(Register::Constant(constant_index));
 
@@ -509,7 +479,7 @@ impl Vm {
         }
 
         if index < length {
-            log::trace!("Replace register {index} with constant {constant_index}");
+            log::trace!("Set register {index} to C{constant_index}");
 
             self.stack[index] = Register::Constant(constant_index);
 
@@ -546,27 +516,7 @@ impl Vm {
         }
     }
 
-    fn take(&mut self, index: u8, point_to: u8, position: Span) -> Result<Value, VmError> {
-        let index = index as usize;
-        let register = replace(&mut self.stack[index], Register::Pointer(point_to));
-
-        match register {
-            Register::Value(value) => Ok(value),
-            Register::Pointer(register_index) => {
-                let value = self.take(register_index, point_to, position)?;
-
-                Ok(value)
-            }
-            Register::Constant(constant_index) => {
-                let value = self.chunk.take_constant(constant_index, position)?;
-
-                Ok(value)
-            }
-            Register::Empty => Err(VmError::EmptyRegister { index, position }),
-        }
-    }
-
-    fn empty(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
+    fn empty(mut self, index: u8, position: Span) -> Result<Value, VmError> {
         let index = index as usize;
 
         if index >= self.stack.len() {
@@ -583,7 +533,7 @@ impl Vm {
                 Ok(value)
             }
             Register::Constant(constant_index) => {
-                let value = self.chunk.take_constant(constant_index, position)?;
+                let value = self.chunk.take_constants().remove(constant_index as usize);
 
                 Ok(value)
             }
