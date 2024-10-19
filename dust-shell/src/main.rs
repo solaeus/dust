@@ -17,11 +17,11 @@ struct Cli {
 
     /// Whether to output line numbers in formatted source code
     #[arg(long)]
-    format_line_numbers: bool,
+    format_line_numbers: Option<bool>,
 
     /// Whether to output colors in formatted source code
     #[arg(long)]
-    format_colored: bool,
+    format_colored: Option<bool>,
 
     /// Whether to output the disassembled chunk
     #[arg(short, long)]
@@ -29,7 +29,7 @@ struct Cli {
 
     /// Whether to style the disassembled chunk
     #[arg(long)]
-    style_disassembly: bool,
+    style_disassembly: Option<bool>,
 
     #[arg(short, long)]
     log: Option<LevelFilter>,
@@ -77,11 +77,16 @@ fn main() {
     };
 
     if args.format {
-        format_source(source, args.format_line_numbers, args.format_colored);
+        let line_numbers = args.format_line_numbers.unwrap_or(true);
+        let colored = args.format_colored.unwrap_or(true);
+
+        format_source(source, line_numbers, colored);
     }
 
     if args.parse {
-        parse_source(source, args.style_disassembly);
+        let style = args.style_disassembly.unwrap_or(true);
+
+        parse_source(source, style);
     }
 
     if args.format || args.parse {
