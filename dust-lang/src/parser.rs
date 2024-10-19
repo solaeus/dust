@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
-    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    Lexer, Local, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -654,10 +654,10 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let local_index = self.parse_identifier_from(token, start_position)?;
-        let to_register = self
+        let is_mutable = self
             .chunk
             .get_local(local_index, start_position)?
-            .register_index;
+            .is_mutable;
 
         if self.allow(Token::Equal)? {
             if !allowed.assignment {
@@ -666,11 +666,6 @@ impl<'src> Parser<'src> {
                     position: self.current_position,
                 });
             }
-
-            let is_mutable = self
-                .chunk
-                .get_local(local_index, start_position)?
-                .is_mutable;
 
             if !is_mutable {
                 return Err(ParseError::CannotMutateImmutableVariable {
@@ -700,15 +695,14 @@ impl<'src> Parser<'src> {
 
             self.emit_instruction(previous_instruction, previous_position);
             self.emit_instruction(
-                Instruction::set_local(self.current_register, local_index),
+                Instruction::set_local(previous_instruction.a(), local_index),
                 start_position,
             );
-            self.increment_register()?;
 
             self.parsed_expression = false;
         } else {
             self.emit_instruction(
-                Instruction::get_local(to_register, local_index),
+                Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
 

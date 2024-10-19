@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug, Display};
+use std::{
+    fmt::{self, Debug, Display},
+    path::PathBuf,
+};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -280,27 +283,16 @@ impl Display for Chunk {
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let executable = std::env::current_exe().unwrap_or_else(|_| PathBuf::new());
+        let disassembly = self
+            .disassembler(&executable.to_string_lossy())
+            .styled(false)
+            .disassemble();
 
         if cfg!(debug_assertions) {
-            write!(
-                f,
-                "\n{}\n",
-                self.disassembler(&format!("Dust Program 0x{timestamp:x}"))
-                    .styled(false)
-                    .disassemble()
-            )
+            write!(f, "\n{}", disassembly)
         } else {
-            write!(
-                f,
-                "{}",
-                self.disassembler(&format!("Dust Program 0x{timestamp:x}"))
-                    .styled(false)
-                    .disassemble()
-            )
+            write!(f, "{}", disassembly)
         }
     }
 }

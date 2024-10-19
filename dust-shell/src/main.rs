@@ -2,7 +2,7 @@ use std::{fs::read_to_string, io::Write};
 
 use clap::Parser;
 use colored::Colorize;
-use dust_lang::{format, parse, run, Chunk, DustError, Vm};
+use dust_lang::{format, parse, run};
 use log::Level;
 
 #[derive(Parser)]
@@ -22,10 +22,6 @@ struct Cli {
     /// Whether to output colors in formatted source code
     #[arg(short = 'o', long)]
     format_colored: bool,
-
-    /// Whether to run the source code
-    #[arg(short, long)]
-    no_run: bool,
 
     /// Whether to output the disassembled chunk
     #[arg(short, long)]
@@ -72,40 +68,6 @@ fn main() {
         return;
     };
 
-    if !args.no_run {
-        if args.format {
-            format_source(source, args.format_line_numbers, args.format_colored);
-        }
-
-        let run_result = if args.parse {
-            let chunk = parse(source).unwrap();
-            let disassembly = chunk
-                .disassembler("Dust CLI Input")
-                .source(source)
-                .styled(args.style_disassembly)
-                .disassemble();
-
-            println!("{}", disassembly);
-
-            let mut vm = Vm::new(chunk);
-
-            vm.run()
-                .map_err(|error| DustError::Runtime { error, source })
-        } else {
-            run(source)
-        };
-
-        match run_result {
-            Ok(Some(value)) => println!("{}", value),
-            Ok(_) => {}
-            Err(error) => {
-                eprintln!("{}", error.report());
-            }
-        }
-
-        return;
-    }
-
     if args.format {
         format_source(source, args.format_line_numbers, args.format_colored);
     }
@@ -113,9 +75,15 @@ fn main() {
     if args.parse {
         parse_source(source, args.style_disassembly);
     }
+
+    if args.format || args.parse {
+        return;
+    }
+
+    run_source(source);
 }
 
-pub fn format_source(source: &str, line_numbers: bool, colored: bool) {
+fn format_source(source: &str, line_numbers: bool, colored: bool) {
     log::info!("Formatting source");
 
     match format(source, line_numbers, colored) {
@@ -126,19 +94,29 @@ pub fn format_source(source: &str, line_numbers: bool, colored: bool) {
     }
 }
 
-fn parse_source(source: &str, styled: bool) -> Option<Chunk> {
-    parse(source)
-        .inspect(|chunk| {
+fn parse_source(source: &str, styled: bool) {
+    match parse(source) {
+        Ok(chunk) => {
             let disassembly = chunk
                 .disassembler("Dust CLI Input")
                 .source(source)
                 .styled(styled)
                 .disassemble();
 
-            println!("{disassembly}",);
-        })
-        .inspect_err(|error| {
+            println!("{}", disassembly);
+        }
+        Err(error) => {
             eprintln!("{}", error.report());
-        })
-        .ok()
+        }
+    }
+}
+
+fn run_source(source: &str) {
+    match run(source) {
+        Ok(Some(value)) => println!("{}", value),
+        Ok(None) => {}
+        Err(error) => {
+            eprintln!("{}", error.report());
+        }
+    }
 }
