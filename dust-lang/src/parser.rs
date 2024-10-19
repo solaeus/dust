@@ -183,21 +183,6 @@ impl<'src> Parser<'src> {
         let constant_index = self.chunk.push_constant(value, position)?;
         let register = self.next_register();
 
-        if let Some(instruction) = self
-            .current_statement
-            .last()
-            .map(|(instruction, _)| instruction)
-        {
-            if let Operation::LoadConstant = instruction.operation() {
-                self.push_instruction(
-                    Instruction::load_constant(instruction.a(), constant_index, false),
-                    position,
-                );
-
-                return Ok(());
-            }
-        }
-
         self.push_instruction(
             Instruction::load_constant(register, constant_index, false),
             position,
@@ -1201,10 +1186,9 @@ impl<'src> Parser<'src> {
         }
 
         let start = self.current_position.0;
+        let function_register = last_instruction.a();
 
         self.advance()?;
-
-        let function_register = self.next_register();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
@@ -1212,10 +1196,11 @@ impl<'src> Parser<'src> {
         }
 
         let end = self.current_position.1;
-        let register = self.next_register();
+        let argument_count = self.next_register() - function_register - 1;
+        let to_register = self.next_register();
 
         self.push_instruction(
-            Instruction::call(register, function_register),
+            Instruction::call(to_register, function_register, argument_count),
             Span(start, end),
         );
 

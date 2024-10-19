@@ -347,8 +347,9 @@ impl Vm {
                 }
                 Operation::Call => {
                     let to_register = instruction.a();
-                    let function_index = instruction.b();
-                    let value = self.get(function_index, position)?.clone();
+                    let function_register = instruction.b();
+                    let argument_count = instruction.c();
+                    let value = self.get(function_register, position)?.clone();
                     let function = if let Value::Function(function) = value {
                         function
                     } else {
@@ -358,8 +359,11 @@ impl Vm {
                         });
                     };
                     let mut function_vm = Vm::new(function.take_chunk());
+                    let first_argument_index = function_register + 1;
 
-                    for argument_index in function_index + 1..to_register {
+                    for argument_index in
+                        first_argument_index..first_argument_index + argument_count
+                    {
                         let argument = self.get(argument_index, position)?.clone();
                         let top_of_stack = function_vm.stack.len() as u8;
 
@@ -369,7 +373,7 @@ impl Vm {
                     let return_value = function_vm.run()?;
 
                     if let Some(value) = return_value {
-                        self.set(function_index, value, position)?;
+                        self.set(to_register, value, position)?;
                     }
                 }
                 Operation::Return => {

@@ -7,7 +7,7 @@ const LOAD_BOOLEAN: u8 = 0b0000_0010;
 const LOAD_CONSTANT: u8 = 0b0000_0011;
 const LOAD_LIST: u8 = 0b0000_0100;
 
-const DECLARE_LOCAL: u8 = 0b0000_0101;
+const DEFINE_LOCAL: u8 = 0b0000_0101;
 const GET_LOCAL: u8 = 0b0000_0110;
 const SET_LOCAL: u8 = 0b0000_0111;
 
@@ -43,22 +43,22 @@ pub enum Operation {
     LoadList = LOAD_LIST as isize,
 
     // Variables
-    DefineLocal = DECLARE_LOCAL as isize,
+    DefineLocal = DEFINE_LOCAL as isize,
     GetLocal = GET_LOCAL as isize,
     SetLocal = SET_LOCAL as isize,
 
-    // Binary operations
+    // Binary math
     Add = ADD as isize,
     Subtract = SUBTRACT as isize,
     Multiply = MULTIPLY as isize,
     Divide = DIVIDE as isize,
     Modulo = MODULO as isize,
 
-    // Logical operations
+    // Binary logic
     Test = TEST as isize,
     TestSet = TEST_SET as isize,
 
-    // Relational operations
+    // Binary comparison
     Equal = EQUAL as isize,
     Less = LESS as isize,
     LessEqual = LESS_EQUAL as isize,
@@ -105,7 +105,7 @@ impl From<u8> for Operation {
             LOAD_BOOLEAN => Operation::LoadBoolean,
             LOAD_CONSTANT => Operation::LoadConstant,
             LOAD_LIST => Operation::LoadList,
-            DECLARE_LOCAL => Operation::DefineLocal,
+            DEFINE_LOCAL => Operation::DefineLocal,
             GET_LOCAL => Operation::GetLocal,
             SET_LOCAL => Operation::SetLocal,
             ADD => Operation::Add,
@@ -142,7 +142,7 @@ impl From<Operation> for u8 {
             Operation::LoadBoolean => LOAD_BOOLEAN,
             Operation::LoadConstant => LOAD_CONSTANT,
             Operation::LoadList => LOAD_LIST,
-            Operation::DefineLocal => DECLARE_LOCAL,
+            Operation::DefineLocal => DEFINE_LOCAL,
             Operation::GetLocal => GET_LOCAL,
             Operation::SetLocal => SET_LOCAL,
             Operation::Add => ADD,

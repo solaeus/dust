@@ -347,6 +347,52 @@ fn function() {
 }
 
 #[test]
+fn function_call() {
+    let source = "fn(a: int, b: int) -> int { a + b }(1, 2)";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(0, 36)),
+                (Instruction::load_constant(1, 1, false), Span(36, 37)),
+                (Instruction::load_constant(2, 2, false), Span(39, 40)),
+                (Instruction::call(3, 0, 2), Span(35, 41)),
+                (Instruction::r#return(true), Span(41, 41)),
+            ],
+            vec![
+                Value::function(
+                    Chunk::with_data(
+                        vec![
+                            (Instruction::add(2, 0, 1), Span(30, 31)),
+                            (Instruction::r#return(true), Span(34, 35)),
+                        ],
+                        vec![],
+                        vec![
+                            Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
+                            Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                        ]
+                    ),
+                    FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![
+                            (Identifier::new("a"), Type::Integer),
+                            (Identifier::new("b"), Type::Integer)
+                        ]),
+                        return_type: Some(Box::new(Type::Integer)),
+                    }
+                ),
+                Value::integer(1),
+                Value::integer(2)
+            ],
+            vec![]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(3))));
+}
+
+#[test]
 fn greater() {
     let source = "1 > 2";
 
@@ -416,7 +462,7 @@ fn if_else_expression() {
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2, true), Span(12, 13)),
-                (Instruction::load_constant(0, 3, false), Span(23, 24)),
+                (Instruction::load_constant(1, 3, false), Span(23, 24)),
                 (Instruction::r#return(true), Span(26, 26)),
             ],
             vec![

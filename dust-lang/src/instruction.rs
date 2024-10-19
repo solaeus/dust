@@ -208,11 +208,12 @@ impl Instruction {
         instruction
     }
 
-    pub fn call(to_register: u8, function_index: u8) -> Instruction {
+    pub fn call(to_register: u8, function_register: u8, argument_count: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Call as u32);
 
         instruction.set_a(to_register);
-        instruction.set_b(function_index);
+        instruction.set_b(function_register);
+        instruction.set_c(argument_count);
 
         instruction
     }
@@ -557,11 +558,19 @@ impl Instruction {
             }
             Operation::Call => {
                 let to_register = self.a();
-                let function_index = self.b();
+                let function_register = self.b();
+                let argument_count = self.c();
 
-                let mut output = format!("R{function_index}(");
+                let mut output = format!("R{to_register} = R{function_register}(");
+                let first_argument = function_register + 1;
 
-                for register in function_index + 1..to_register {
+                for (index, register) in
+                    (first_argument..first_argument + argument_count).enumerate()
+                {
+                    if index > 0 {
+                        output.push_str(", ");
+                    }
+
                     output.push_str(&format!("R{}", register));
                 }
 
@@ -778,11 +787,12 @@ mod tests {
 
     #[test]
     fn call() {
-        let instruction = Instruction::call(4, 3);
+        let instruction = Instruction::call(1, 3, 4);
 
         assert_eq!(instruction.operation(), Operation::Call);
-        assert_eq!(instruction.a(), 4);
+        assert_eq!(instruction.a(), 1);
         assert_eq!(instruction.b(), 3);
+        assert_eq!(instruction.c(), 4);
     }
 
     #[test]
