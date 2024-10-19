@@ -644,49 +644,9 @@ impl<'a> ChunkDisassembler<'a> {
 
         push_border(&bottom_border, &mut disassembly);
 
-        let expected_length = self.predict_length();
-        let actual_length = disassembly.len();
+        let _ = disassembly.trim_end_matches('\n');
 
-        if !self.styled && expected_length != actual_length {
-            log::debug!(
-                "Chunk disassembly was not optimized correctly, expected string length {expected_length}, got {actual_length}",
-            );
-        }
-
-        if self.styled && expected_length > actual_length {
-            log::debug!(
-                "Chunk disassembly was not optimized correctly, expected string length to be at least {expected_length}, got {actual_length}",
-            );
-        }
-
-        disassembly.pop(); // Remove the last newline character
         disassembly
-    }
-
-    /// Predicts the capacity of the disassembled output. This is used to pre-allocate the string
-    /// buffer to avoid reallocations.
-    ///
-    /// The capacity is calculated as follows:
-    ///     - Get the number of static lines, i.e. lines that are always present in the disassembly
-    ///     - Get the number of dynamic lines, i.e. lines that are generated from the chunk
-    ///     - Add an one to the width to account for the newline character
-    ///     - Multiply the total number of lines by the width of the disassembly output
-    ///
-    /// The result is accurate only if the output is not styled. Otherwise the extra bytes added by
-    /// the ANSI escape codes will make the result too low. It still works as a lower bound in that
-    /// case.
-    fn predict_length(&self) -> usize {
-        const EXTRA_LINES: usize = 2; // There is one info line and one empty line after the name
-
-        let static_line_count = Self::INSTRUCTION_HEADER.len()
-            + Self::CONSTANT_HEADER.len()
-            + Self::LOCAL_HEADER.len()
-            + EXTRA_LINES;
-        let dynamic_line_count =
-            self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
-        let total_line_count = static_line_count + dynamic_line_count;
-
-        total_line_count * self.width
     }
 }
 

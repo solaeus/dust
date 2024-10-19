@@ -7,7 +7,7 @@ use crate::{
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = parse(source)?;
-    let mut vm = Vm::new(chunk);
+    let vm = Vm::new(chunk);
 
     vm.run()
         .map_err(|error| DustError::Runtime { error, source })
@@ -31,7 +31,7 @@ impl Vm {
         }
     }
 
-    pub fn run(&mut self) -> Result<Option<Value>, VmError> {
+    pub fn run(mut self) -> Result<Option<Value>, VmError> {
         // DRY helper to get constant or register values for binary operations
         fn get_arguments(
             vm: &mut Vm,
@@ -150,7 +150,7 @@ impl Vm {
                     self.chunk.define_local(local_index, register, position)?;
                 }
                 Operation::Add => {
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let sum = left
                         .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -158,7 +158,7 @@ impl Vm {
                     self.set(instruction.a(), sum, position)?;
                 }
                 Operation::Subtract => {
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let difference = left
                         .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -166,7 +166,7 @@ impl Vm {
                     self.set(instruction.a(), difference, position)?;
                 }
                 Operation::Multiply => {
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let product = left
                         .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -174,7 +174,7 @@ impl Vm {
                     self.set(instruction.a(), product, position)?;
                 }
                 Operation::Divide => {
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let quotient = left
                         .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -182,7 +182,7 @@ impl Vm {
                     self.set(instruction.a(), quotient, position)?;
                 }
                 Operation::Modulo => {
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let remainder = left
                         .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -235,7 +235,7 @@ impl Vm {
                         Operation::Jump
                     );
 
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let equal_result = left
                         .equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -271,7 +271,7 @@ impl Vm {
                         Operation::Jump
                     );
 
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let less_result = left
                         .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
@@ -307,7 +307,7 @@ impl Vm {
                         Operation::Jump
                     );
 
-                    let (left, right) = get_arguments(self, instruction, position)?;
+                    let (left, right) = get_arguments(&mut self, instruction, position)?;
                     let less_or_equal_result = left
                         .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
