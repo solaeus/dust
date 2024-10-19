@@ -217,6 +217,4 @@ pub enum LineKind {
     Statement,
     OpenBlock,
     CloseBlock,
-    Call,
-    Primary,
 }

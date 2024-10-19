@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
-    Lexer, Local, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
