@@ -3,7 +3,7 @@ use std::{fs::read_to_string, io::Write};
 use clap::Parser;
 use colored::Colorize;
 use dust_lang::{format, parse, run};
-use log::Level;
+use log::{Level, LevelFilter};
 
 #[derive(Parser)]
 struct Cli {
@@ -16,11 +16,11 @@ struct Cli {
     format: bool,
 
     /// Whether to output line numbers in formatted source code
-    #[arg(short = 'l', long)]
+    #[arg(long)]
     format_line_numbers: bool,
 
     /// Whether to output colors in formatted source code
-    #[arg(short = 'o', long)]
+    #[arg(long)]
     format_colored: bool,
 
     /// Whether to output the disassembled chunk
@@ -28,36 +28,44 @@ struct Cli {
     parse: bool,
 
     /// Whether to style the disassembled chunk
-    #[arg(short, long)]
+    #[arg(long)]
     style_disassembly: bool,
+
+    #[arg(short, long)]
+    log: Option<LevelFilter>,
 
     /// Path to a source code file
     path: Option<String>,
 }
 
 fn main() {
-    env_logger::builder()
-        .parse_env("DUST_LOG")
-        .format(|buf, record| {
-            let level_display = match record.level() {
-                Level::Info => "INFO".bold().white(),
-                Level::Debug => "DEBUG".bold().blue(),
-                Level::Warn => "WARN".bold().yellow(),
-                Level::Error => "ERROR".bold().red(),
-                Level::Trace => "TRACE".bold().purple(),
-            };
-            let module = record
-                .module_path()
-                .map(|path| path.split("::").last().unwrap_or(path))
-                .unwrap_or("unknown")
-                .dimmed();
-            let display = format!("{level_display:5} {module:^6} {args}", args = record.args());
-
-            writeln!(buf, "{display}")
-        })
-        .init();
-
     let args = Cli::parse();
+    let mut logger = env_logger::builder();
+
+    logger.format(|buf, record| {
+        let level_display = match record.level() {
+            Level::Info => "INFO".bold().white(),
+            Level::Debug => "DEBUG".bold().blue(),
+            Level::Warn => "WARN".bold().yellow(),
+            Level::Error => "ERROR".bold().red(),
+            Level::Trace => "TRACE".bold().purple(),
+        };
+        let module = record
+            .module_path()
+            .map(|path| path.split("::").last().unwrap_or(path))
+            .unwrap_or("unknown")
+            .dimmed();
+        let display = format!("{level_display:5} {module:^6} {args}", args = record.args());
+
+        writeln!(buf, "{display}")
+    });
+
+    if let Some(level) = args.log {
+        logger.filter_level(level).init();
+    } else {
+        logger.parse_env("DUST_LOG").init();
+    }
+
     let source = if let Some(path) = &args.path {
         &read_to_string(path).expect("Failed to read file")
     } else if let Some(command) = &args.command {
