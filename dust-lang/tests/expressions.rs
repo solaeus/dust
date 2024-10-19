@@ -347,6 +347,58 @@ fn function() {
 }
 
 #[test]
+fn function_declaration() {
+    let source = "fn add (a: int, b: int) -> int { a + b }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0, false), Span(0, 40)),
+                (Instruction::define_local(0, 0, false), Span(3, 6)),
+            ],
+            vec![Value::function(
+                Chunk::with_data(
+                    vec![
+                        (Instruction::add(2, 0, 1), Span(35, 36)),
+                        (Instruction::r#return(true), Span(39, 40)),
+                    ],
+                    vec![],
+                    vec![
+                        Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
+                        Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                    ]
+                ),
+                FunctionType {
+                    type_parameters: None,
+                    value_parameters: Some(vec![
+                        (Identifier::new("a"), Type::Integer),
+                        (Identifier::new("b"), Type::Integer)
+                    ]),
+                    return_type: Some(Box::new(Type::Integer)),
+                },
+            )],
+            vec![Local::new(
+                Identifier::new("add"),
+                Some(Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: Some(vec![
+                        (Identifier::new("a"), Type::Integer),
+                        (Identifier::new("b"), Type::Integer)
+                    ]),
+                    return_type: Some(Box::new(Type::Integer)),
+                })),
+                false,
+                0,
+                0
+            ),],
+        )),
+    );
+
+    assert_eq!(run(source), Ok(None));
+}
+
+#[test]
 fn function_call() {
     let source = "fn(a: int, b: int) -> int { a + b }(1, 2)";
 

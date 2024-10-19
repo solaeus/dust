@@ -135,7 +135,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn push_instruction(&mut self, instruction: Instruction, position: Span) {
+    fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
         log::debug!(
             "Emitting {} at {}",
             instruction.operation().to_string().bold(),
@@ -183,7 +183,7 @@ impl<'src> Parser<'src> {
         let constant_index = self.chunk.push_constant(value, position)?;
         let register = self.next_register();
 
-        self.push_instruction(
+        self.emit_instruction(
             Instruction::load_constant(register, constant_index, false),
             position,
         );
@@ -212,7 +212,7 @@ impl<'src> Parser<'src> {
                 self.next_register()
             };
 
-            self.push_instruction(
+            self.emit_instruction(
                 Instruction::load_boolean(register, boolean, false),
                 position,
             );
@@ -380,7 +380,7 @@ impl<'src> Parser<'src> {
         };
 
         if push_back {
-            self.push_instruction(previous_instruction, previous_position);
+            self.emit_instruction(previous_instruction, previous_position);
         }
 
         let register = self.next_register();
@@ -400,7 +400,7 @@ impl<'src> Parser<'src> {
             instruction.set_b_is_constant();
         }
 
-        self.push_instruction(instruction, operator_position);
+        self.emit_instruction(instruction, operator_position);
 
         Ok(())
     }
@@ -454,7 +454,7 @@ impl<'src> Parser<'src> {
             self.handle_binary_argument(&left_instruction)?;
 
         if push_back_left {
-            self.push_instruction(left_instruction, left_position);
+            self.emit_instruction(left_instruction, left_position);
         }
 
         let operator = self.current_token;
@@ -486,7 +486,7 @@ impl<'src> Parser<'src> {
             self.handle_binary_argument(&right_instruction)?;
 
         if push_back_right {
-            self.push_instruction(right_instruction, right_position);
+            self.emit_instruction(right_instruction, right_position);
         }
 
         let register = if left_is_mutable_local {
@@ -534,7 +534,7 @@ impl<'src> Parser<'src> {
             new_instruction.set_c_is_constant();
         }
 
-        self.push_instruction(new_instruction, operator_position);
+        self.emit_instruction(new_instruction, operator_position);
 
         Ok(())
     }
@@ -609,22 +609,22 @@ impl<'src> Parser<'src> {
         }
 
         if push_back_left {
-            self.push_instruction(left_instruction, left_position);
+            self.emit_instruction(left_instruction, left_position);
         }
 
         if push_back_right {
-            self.push_instruction(right_instruction, right_position);
+            self.emit_instruction(right_instruction, right_position);
         }
 
         let register = self.next_register();
 
-        self.push_instruction(instruction, operator_position);
-        self.push_instruction(Instruction::jump(1, true), operator_position);
-        self.push_instruction(
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
+        self.emit_instruction(
             Instruction::load_boolean(register, true, true),
             operator_position,
         );
-        self.push_instruction(
+        self.emit_instruction(
             Instruction::load_boolean(register, false, false),
             operator_position,
         );
@@ -658,9 +658,9 @@ impl<'src> Parser<'src> {
         };
 
         self.advance()?;
-        self.push_instruction(left_instruction, left_position);
-        self.push_instruction(instruction, operator_position);
-        self.push_instruction(Instruction::jump(1, true), operator_position);
+        self.emit_instruction(left_instruction, left_position);
+        self.emit_instruction(instruction, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
         Ok(())
@@ -712,22 +712,22 @@ impl<'src> Parser<'src> {
                 log::trace!("Condensing SET_LOCAL to binary math expression");
 
                 previous_instruction.set_a(register_index);
-                self.push_instruction(previous_instruction, self.current_position);
+                self.emit_instruction(previous_instruction, self.current_position);
 
                 return Ok(());
             }
 
             let register = self.next_register();
 
-            self.push_instruction(previous_instruction, previous_position);
-            self.push_instruction(
+            self.emit_instruction(previous_instruction, previous_position);
+            self.emit_instruction(
                 Instruction::set_local(register, local_index),
                 start_position,
             );
         } else {
             let register = self.next_register();
 
-            self.push_instruction(
+            self.emit_instruction(
                 Instruction::get_local(register, local_index),
                 self.previous_position,
             );
@@ -805,7 +805,7 @@ impl<'src> Parser<'src> {
             let actual_register = self.next_register() - 1;
 
             if expected_register < actual_register {
-                self.push_instruction(
+                self.emit_instruction(
                     Instruction::close(expected_register, actual_register),
                     self.current_position,
                 );
@@ -818,7 +818,7 @@ impl<'src> Parser<'src> {
         let end_register = to_register.saturating_sub(1);
         let end = self.current_position.1;
 
-        self.push_instruction(
+        self.emit_instruction(
             Instruction::load_list(to_register, start_register, end_register),
             Span(start, end),
         );
@@ -866,7 +866,7 @@ impl<'src> Parser<'src> {
 
             load_constant.set_c_to_boolean(true);
 
-            self.push_instruction(load_constant, load_constant_position);
+            self.emit_instruction(load_constant, load_constant_position);
         }
 
         if self.allow(Token::Else)? {
@@ -937,7 +937,11 @@ impl<'src> Parser<'src> {
             },
         )?;
 
-        let parsed_expression = !self.current_statement.is_empty();
+        let parsed_expression = self
+            .current_statement
+            .last()
+            .map(|(instruction, _)| instruction.yields_value())
+            .unwrap_or(false);
         let end_of_statement = matches!(
             self.current_token,
             Token::Eof | Token::RightCurlyBrace | Token::Semicolon
@@ -955,7 +959,7 @@ impl<'src> Parser<'src> {
             && !has_semicolon
             && !returned
         {
-            self.push_instruction(Instruction::r#return(true), self.current_position);
+            self.emit_instruction(Instruction::r#return(true), self.current_position);
             self.commit_current_statement();
         }
 
@@ -1007,7 +1011,7 @@ impl<'src> Parser<'src> {
         };
         let end = self.current_position.1;
 
-        self.push_instruction(Instruction::r#return(has_return_value), Span(start, end));
+        self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
         self.commit_current_statement();
 
         Ok(())
@@ -1055,7 +1059,7 @@ impl<'src> Parser<'src> {
             .declare_local(identifier, r#type, is_mutable, register, position)?;
         let register = self.next_register().saturating_sub(1);
 
-        self.push_instruction(
+        self.emit_instruction(
             Instruction::define_local(register, local_index, is_mutable),
             position,
         );
@@ -1067,6 +1071,15 @@ impl<'src> Parser<'src> {
     fn parse_function(&mut self, _: Allowed) -> Result<(), ParseError> {
         let function_start = self.current_position.0;
         let mut function_parser = Parser::new(self.lexer)?;
+        let identifier = if let Token::Identifier(text) = function_parser.current_token {
+            let position = function_parser.current_position;
+
+            function_parser.advance()?;
+
+            Some((Identifier::new(text), position))
+        } else {
+            None
+        };
 
         function_parser.expect(Token::LeftParenthesis)?;
 
@@ -1161,11 +1174,30 @@ impl<'src> Parser<'src> {
             value_parameters,
             return_type,
         };
-        let function = Value::function(function_parser.chunk, function_type);
+        let function = Value::function(function_parser.chunk, function_type.clone());
         let function_end = self.current_position.1;
 
         self.lexer.skip_to(function_end);
-        self.emit_constant(function, Span(function_start, function_end))?;
+
+        if let Some((identifier, identifier_position)) = identifier {
+            let register = self.next_register();
+            let local_index = self.chunk.declare_local(
+                identifier,
+                Some(Type::Function(function_type)),
+                false,
+                register,
+                Span(function_start, function_end),
+            )?;
+
+            self.emit_constant(function, Span(function_start, function_end))?;
+            self.emit_instruction(
+                Instruction::define_local(register, local_index, false),
+                identifier_position,
+            );
+            self.commit_current_statement();
+        } else {
+            self.emit_constant(function, Span(function_start, function_end))?;
+        }
 
         Ok(())
     }
@@ -1196,10 +1228,10 @@ impl<'src> Parser<'src> {
         }
 
         let end = self.current_position.1;
-        let argument_count = self.next_register() - function_register - 1;
         let to_register = self.next_register();
+        let argument_count = to_register - function_register - 1;
 
-        self.push_instruction(
+        self.emit_instruction(
             Instruction::call(to_register, function_register, argument_count),
             Span(start, end),
         );
