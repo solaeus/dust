@@ -38,6 +38,7 @@ pub enum Token<'src> {
     While,
 
     // Symbols
+    ArrowThin,
     BangEqual,
     Bang,
     Colon,
@@ -84,6 +85,7 @@ impl<'src> Token<'src> {
             Token::Integer(text) => text.len(),
             Token::String(text) => text.len() + 2,
             Token::Async => 5,
+            Token::ArrowThin => 2,
             Token::Bool => 4,
             Token::Break => 5,
             Token::Else => 4,
@@ -144,6 +146,7 @@ impl<'src> Token<'src> {
             Token::Integer(text) => text,
             Token::String(text) => text,
             Token::Async => "async",
+            Token::ArrowThin => "->",
             Token::Bool => "bool",
             Token::Break => "break",
             Token::Else => "else",
@@ -195,6 +198,7 @@ impl<'src> Token<'src> {
 
     pub fn to_owned(&self) -> TokenOwned {
         match self {
+            Token::ArrowThin => TokenOwned::ArrowThin,
             Token::Async => TokenOwned::Async,
             Token::BangEqual => TokenOwned::BangEqual,
             Token::Bang => TokenOwned::Bang,
@@ -255,6 +259,7 @@ impl<'src> Token<'src> {
 
     pub fn kind(&self) -> TokenKind {
         match self {
+            Token::ArrowThin => TokenKind::ArrowThin,
             Token::Async => TokenKind::Async,
             Token::BangEqual => TokenKind::BangEqual,
             Token::Bang => TokenKind::Bang,
@@ -359,6 +364,7 @@ impl<'src> Token<'src> {
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Token::ArrowThin => write!(f, "->"),
             Token::Async => write!(f, "async"),
             Token::BangEqual => write!(f, "!="),
             Token::Bang => write!(f, "!"),
@@ -436,6 +442,7 @@ pub enum TokenOwned {
     String(String),
 
     // Keywords
+    Async,
     Bool,
     Break,
     Else,
@@ -452,7 +459,7 @@ pub enum TokenOwned {
     While,
 
     // Symbols
-    Async,
+    ArrowThin,
     Bang,
     BangEqual,
     Colon,
@@ -490,6 +497,7 @@ pub enum TokenOwned {
 impl Display for TokenOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenOwned::ArrowThin => Token::ArrowThin.fmt(f),
             TokenOwned::Async => Token::Async.fmt(f),
             TokenOwned::Bang => Token::Bang.fmt(f),
             TokenOwned::BangEqual => Token::BangEqual.fmt(f),
@@ -581,6 +589,7 @@ pub enum TokenKind {
     While,
 
     // Symbols
+    ArrowThin,
     BangEqual,
     Bang,
     Colon,
@@ -619,6 +628,7 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenKind::ArrowThin => Token::ArrowThin.fmt(f),
             TokenKind::Async => Token::Async.fmt(f),
             TokenKind::Bang => Token::Bang.fmt(f),
             TokenKind::BangEqual => Token::BangEqual.fmt(f),

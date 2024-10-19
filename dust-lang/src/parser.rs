@@ -1111,6 +1111,20 @@ impl<'src> Parser<'src> {
         }
 
         function_parser.advance()?;
+
+        let return_type = if function_parser.allow(Token::ArrowThin)? {
+            let r#type = function_parser.parse_type_from(
+                function_parser.current_token,
+                function_parser.current_position,
+            )?;
+
+            function_parser.advance()?;
+
+            Some(Box::new(r#type))
+        } else {
+            None
+        };
+
         function_parser.expect(Token::LeftCurlyBrace)?;
 
         while function_parser.current_token != Token::RightCurlyBrace {
@@ -1131,7 +1145,6 @@ impl<'src> Parser<'src> {
         self.current_token = function_parser.current_token;
         self.current_position = function_parser.current_position;
 
-        let return_type = take(&mut self.latest_value_type).map(Box::new);
         let function_type = FunctionType {
             type_parameters: None,
             value_parameters,
@@ -1300,6 +1313,11 @@ struct ParseRule<'a> {
 impl From<&Token<'_>> for ParseRule<'_> {
     fn from(token: &Token) -> Self {
         match token {
+            Token::ArrowThin => ParseRule {
+                prefix: Some(Parser::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Async => todo!(),
             Token::Bang => ParseRule {
                 prefix: Some(Parser::parse_unary),

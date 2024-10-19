@@ -125,6 +125,10 @@ impl<'src> Lexer<'src> {
                         self.position += 2;
 
                         (Token::MinusEqual, Span(self.position - 2, self.position))
+                    } else if let Some('>') = second_char {
+                        self.position += 2;
+
+                        (Token::ArrowThin, Span(self.position - 2, self.position))
                     } else if let Some('0'..='9') = second_char {
                         self.lex_numeric()?
                     } else if "-Infinity" == self.peek_chars(9) {

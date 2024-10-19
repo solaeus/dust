@@ -317,6 +317,36 @@ fn equality_assignment_short() {
 }
 
 #[test]
+fn function() {
+    let source = "fn(a: int, b: int) -> int { a + b }";
+
+    assert_eq!(
+        run(source),
+        Ok(Some(Value::function(
+            Chunk::with_data(
+                vec![
+                    (Instruction::add(2, 0, 1), Span(30, 31)),
+                    (Instruction::r#return(true), Span(34, 35)),
+                ],
+                vec![],
+                vec![
+                    Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
+                    Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                ]
+            ),
+            FunctionType {
+                type_parameters: None,
+                value_parameters: Some(vec![
+                    (Identifier::new("a"), Type::Integer),
+                    (Identifier::new("b"), Type::Integer)
+                ]),
+                return_type: Some(Box::new(Type::Integer)),
+            }
+        )))
+    );
+}
+
+#[test]
 fn greater() {
     let source = "1 > 2";
 
