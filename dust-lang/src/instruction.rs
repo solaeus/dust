@@ -318,36 +318,21 @@ impl Instruction {
         self
     }
 
-    pub fn is_expression(&self) -> bool {
-        let operation = self.operation();
-
-        if operation.is_math() {
-            return if !self.b_is_constant() {
-                self.a() != self.b()
-            } else if !self.c_is_constant() {
-                self.a() != self.c()
-            } else {
-                true
-            };
-        }
-
+    pub fn yields_value(&self) -> bool {
         matches!(
-            operation,
-            Operation::Not
-                | Operation::Negate
-                | Operation::Equal
-                | Operation::Less
-                | Operation::LessEqual
-                | Operation::Add
-                | Operation::Subtract
-                | Operation::Multiply
+            self.operation(),
+            Operation::Add
+                | Operation::Call
                 | Operation::Divide
-                | Operation::Modulo
-                | Operation::Test
                 | Operation::GetLocal
                 | Operation::LoadBoolean
                 | Operation::LoadConstant
                 | Operation::LoadList
+                | Operation::Modulo
+                | Operation::Multiply
+                | Operation::Negate
+                | Operation::Not
+                | Operation::Subtract
         )
     }
 

@@ -6,7 +6,7 @@ use std::{
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Identifier, Instruction, Operation, Span, Type, Value};
+use crate::{AnnotatedError, Identifier, Instruction, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
@@ -67,63 +67,6 @@ impl Chunk {
 
     pub fn insert_instruction(&mut self, index: usize, instruction: Instruction, position: Span) {
         self.instructions.insert(index, (instruction, position));
-    }
-
-    pub fn pop_instruction(&mut self, position: Span) -> Result<(Instruction, Span), ChunkError> {
-        self.instructions
-            .pop()
-            .ok_or(ChunkError::InstructionUnderflow { position })
-    }
-
-    pub fn get_last_instruction(
-        &self,
-        position: Span,
-    ) -> Result<(&Instruction, &Span), ChunkError> {
-        let (instruction, position) = self
-            .instructions
-            .last()
-            .ok_or_else(|| ChunkError::InstructionUnderflow { position })?;
-
-        Ok((instruction, position))
-    }
-
-    pub fn get_last_n_instructions<const N: usize>(&self) -> [Option<(&Instruction, &Span)>; N] {
-        let mut instructions = [None; N];
-
-        for (index, (instruction, position)) in self.instructions.iter().rev().enumerate().take(N) {
-            instructions[index] = Some((instruction, position));
-        }
-
-        instructions
-    }
-
-    pub fn find_last_instruction(&mut self, operation: Operation) -> Option<usize> {
-        self.instructions
-            .iter()
-            .enumerate()
-            .rev()
-            .find_map(|(index, (instruction, _))| {
-                if instruction.operation() == operation {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
-    }
-
-    pub fn get_last_operation(&self, position: Span) -> Result<Operation, ChunkError> {
-        self.get_last_instruction(position)
-            .map(|(instruction, _)| instruction.operation())
-    }
-
-    pub fn get_last_n_operations<const N: usize>(&self) -> [Option<Operation>; N] {
-        let mut operations = [None; N];
-
-        for (index, (instruction, _)) in self.instructions.iter().rev().enumerate().take(N) {
-            operations[index] = Some(instruction.operation());
-        }
-
-        operations
     }
 
     pub fn take_constants(self) -> Vec<Value> {
@@ -634,18 +577,11 @@ pub enum ChunkError {
         offset: usize,
         position: Span,
     },
-    ConstantAlreadyUsed {
-        index: usize,
-        position: Span,
-    },
     ConstantOverflow {
         position: Span,
     },
     ConstantIndexOutOfBounds {
         index: usize,
-        position: Span,
-    },
-    InstructionUnderflow {
         position: Span,
     },
     LocalIndexOutOfBounds {
@@ -669,10 +605,8 @@ impl AnnotatedError for ChunkError {
     fn description(&self) -> &'static str {
         match self {
             ChunkError::InstructionIndexOfBounds { .. } => "Instruction index out of bounds",
-            ChunkError::ConstantAlreadyUsed { .. } => "Constant already used",
             ChunkError::ConstantOverflow { .. } => "Constant overflow",
             ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
-            ChunkError::InstructionUnderflow { .. } => "Instruction underflow",
             ChunkError::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             ChunkError::LocalOverflow { .. } => "Local overflow",
             ChunkError::IdentifierNotFound { .. } => "Identifier not found",
@@ -684,13 +618,9 @@ impl AnnotatedError for ChunkError {
             ChunkError::InstructionIndexOfBounds { offset, .. } => {
                 Some(format!("Instruction index: {}", offset))
             }
-            ChunkError::ConstantAlreadyUsed { index, .. } => {
-                Some(format!("Constant index: {}", index))
-            }
             ChunkError::ConstantIndexOutOfBounds { index, .. } => {
                 Some(format!("Constant index: {}", index))
             }
-            ChunkError::InstructionUnderflow { .. } => None,
             ChunkError::LocalIndexOutOfBounds { index, .. } => {
                 Some(format!("Local index: {}", index))
             }
@@ -705,10 +635,8 @@ impl AnnotatedError for ChunkError {
     fn position(&self) -> Span {
         match self {
             ChunkError::InstructionIndexOfBounds { position, .. } => *position,
-            ChunkError::ConstantAlreadyUsed { position, .. } => *position,
             ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
             ChunkError::IdentifierNotFound { position, .. } => *position,
-            ChunkError::InstructionUnderflow { position, .. } => *position,
             ChunkError::LocalIndexOutOfBounds { position, .. } => *position,
             ChunkError::LocalOverflow { position, .. } => *position,
             ChunkError::ConstantOverflow { position, .. } => *position,
