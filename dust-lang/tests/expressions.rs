@@ -818,7 +818,7 @@ fn set_local() {
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (Instruction::load_constant(1, 1, false), Span(20, 22)),
                 (Instruction::set_local(1, 0), Span(16, 17)),
-                (Instruction::get_local(1, 0), Span(24, 25)),
+                (Instruction::get_local(2, 0), Span(24, 25)),
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(41), Value::integer(42)],

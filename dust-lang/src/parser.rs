@@ -695,9 +695,10 @@ impl<'src> Parser<'src> {
 
             self.emit_instruction(previous_instruction, previous_position);
             self.emit_instruction(
-                Instruction::set_local(previous_instruction.a(), local_index),
+                Instruction::set_local(self.current_register, local_index),
                 start_position,
             );
+            self.increment_register()?;
 
             self.parsed_expression = false;
         } else {
