@@ -54,6 +54,14 @@ impl Instruction {
         instruction
     }
 
+    pub fn load_self(to_register: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::LoadSelf as u32);
+
+        instruction.set_a(to_register);
+
+        instruction
+    }
+
     pub fn define_local(to_register: u8, local_index: u8, is_mutable: bool) -> Instruction {
         let mut instruction = Instruction(Operation::DefineLocal as u32);
 
@@ -329,6 +337,7 @@ impl Instruction {
                 | Operation::LoadBoolean
                 | Operation::LoadConstant
                 | Operation::LoadList
+                | Operation::LoadSelf
                 | Operation::Modulo
                 | Operation::Multiply
                 | Operation::Negate
@@ -395,6 +404,19 @@ impl Instruction {
                 let last_index = self.c();
 
                 Some(format!("R{to_register} = [R{first_index}..=R{last_index}]",))
+            }
+            Operation::LoadSelf => {
+                let to_register = self.a();
+                let name = chunk
+                    .map(|chunk| {
+                        chunk
+                            .name()
+                            .map(|idenifier| idenifier.as_str())
+                            .unwrap_or("self")
+                    })
+                    .unwrap();
+
+                Some(format!("R{to_register} = {name}"))
             }
             Operation::DefineLocal => {
                 let to_register = self.a();
@@ -641,6 +663,24 @@ mod tests {
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());
         assert!(instruction.c_as_boolean());
+    }
+
+    #[test]
+    fn load_list() {
+        let instruction = Instruction::load_list(0, 1, 2);
+
+        assert_eq!(instruction.operation(), Operation::LoadList);
+        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.b(), 1);
+        assert_eq!(instruction.c(), 2);
+    }
+
+    #[test]
+    fn load_self() {
+        let instruction = Instruction::load_self(10);
+
+        assert_eq!(instruction.operation(), Operation::LoadSelf);
+        assert_eq!(instruction.a(), 10);
     }
 
     #[test]

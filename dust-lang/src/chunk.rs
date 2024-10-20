@@ -137,24 +137,20 @@ impl Chunk {
             .map(|local| &local.identifier)
     }
 
-    pub fn get_local_index(
-        &self,
-        identifier: &Identifier,
-        position: Span,
-    ) -> Result<u8, ChunkError> {
+    pub fn get_local_index(&self, identifier_text: &str, position: Span) -> Result<u8, ChunkError> {
         self.locals
             .iter()
             .enumerate()
             .rev()
             .find_map(|(index, local)| {
-                if &local.identifier == identifier {
+                if local.identifier.as_str() == identifier_text {
                     Some(index as u8)
                 } else {
                     None
                 }
             })
             .ok_or(ChunkError::IdentifierNotFound {
-                identifier: identifier.clone(),
+                identifier: Identifier::new(identifier_text),
                 position,
             })
     }

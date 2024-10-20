@@ -673,7 +673,43 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let local_index = self.parse_identifier_from(token, start_position)?;
+        let local_index = if let Token::Identifier(text) = token {
+            if let Ok(local_index) = self.chunk.get_local_index(text, start_position) {
+                local_index
+            } else if let Some(name) = self.chunk.name() {
+                if name.as_str() == text {
+                    let register = self.next_register();
+
+                    self.emit_instruction(Instruction::load_self(register), start_position);
+
+                    self.chunk.declare_local(
+                        Identifier::new(text),
+                        None,
+                        false,
+                        register,
+                        start_position,
+                    )?;
+
+                    return Ok(());
+                } else {
+                    return Err(ParseError::UndeclaredVariable {
+                        identifier: Identifier::new(text),
+                        position: start_position,
+                    });
+                }
+            } else {
+                return Err(ParseError::UndeclaredVariable {
+                    identifier: Identifier::new(text),
+                    position: start_position,
+                });
+            }
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: start_position,
+            });
+        };
         let is_mutable = self
             .chunk
             .get_local(local_index, start_position)?
@@ -735,27 +771,6 @@ impl<'src> Parser<'src> {
         }
 
         Ok(())
-    }
-
-    fn parse_identifier_from(&mut self, token: Token, position: Span) -> Result<u8, ParseError> {
-        if let Token::Identifier(text) = token {
-            let identifier = Identifier::new(text);
-
-            if let Ok(local_index) = self.chunk.get_local_index(&identifier, position) {
-                Ok(local_index)
-            } else {
-                Err(ParseError::UndeclaredVariable {
-                    identifier,
-                    position,
-                })
-            }
-        } else {
-            Err(ParseError::ExpectedToken {
-                expected: TokenKind::Identifier,
-                found: self.current_token.to_owned(),
-                position,
-            })
-        }
     }
 
     fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, ParseError> {

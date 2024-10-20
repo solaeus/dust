@@ -1,8 +1,8 @@
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
-    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction,
-    Operation, Span, Type, Value, ValueError,
+    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
+    Identifier, Instruction, Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -113,6 +113,19 @@ impl Vm {
                         self.get(first_register, position)?.r#type()
                     };
                     let value = Value::list(first_register, last_register, item_type);
+
+                    self.set(to_register, value, position)?;
+                }
+                Operation::LoadSelf => {
+                    let to_register = instruction.a();
+                    let value = Value::function(
+                        self.chunk.clone(),
+                        FunctionType {
+                            type_parameters: None,
+                            value_parameters: None,
+                            return_type: None,
+                        },
+                    );
 
                     self.set(to_register, value, position)?;
                 }

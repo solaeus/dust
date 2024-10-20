@@ -6,30 +6,31 @@ const CLOSE: u8 = 0b000_0001;
 const LOAD_BOOLEAN: u8 = 0b0000_0010;
 const LOAD_CONSTANT: u8 = 0b0000_0011;
 const LOAD_LIST: u8 = 0b0000_0100;
+const LOAD_SELF: u8 = 0b0000_0101;
 
-const DEFINE_LOCAL: u8 = 0b0000_0101;
-const GET_LOCAL: u8 = 0b0000_0110;
-const SET_LOCAL: u8 = 0b0000_0111;
+const DEFINE_LOCAL: u8 = 0b0000_0110;
+const GET_LOCAL: u8 = 0b0000_0111;
+const SET_LOCAL: u8 = 0b0000_1000;
 
-const ADD: u8 = 0b0000_1000;
-const SUBTRACT: u8 = 0b0000_1001;
-const MULTIPLY: u8 = 0b0000_1010;
-const DIVIDE: u8 = 0b0000_1011;
-const MODULO: u8 = 0b0000_1100;
+const ADD: u8 = 0b0000_1001;
+const SUBTRACT: u8 = 0b0000_1010;
+const MULTIPLY: u8 = 0b0000_1011;
+const DIVIDE: u8 = 0b0000_1100;
+const MODULO: u8 = 0b0000_1101;
 
-const TEST: u8 = 0b0000_1101;
-const TEST_SET: u8 = 0b0000_1110;
+const TEST: u8 = 0b0000_1110;
+const TEST_SET: u8 = 0b0000_1111;
 
-const EQUAL: u8 = 0b0000_1111;
-const LESS: u8 = 0b0001_0000;
-const LESS_EQUAL: u8 = 0b0001_0001;
+const EQUAL: u8 = 0b0001_0000;
+const LESS: u8 = 0b0001_0001;
+const LESS_EQUAL: u8 = 0b0001_0010;
 
-const NEGATE: u8 = 0b0001_0010;
-const NOT: u8 = 0b0001_0011;
+const NEGATE: u8 = 0b0001_0011;
+const NOT: u8 = 0b0001_0100;
 
-const JUMP: u8 = 0b0001_0100;
-const CALL: u8 = 0b0001_0101;
-const RETURN: u8 = 0b0001_0110;
+const JUMP: u8 = 0b0001_0101;
+const CALL: u8 = 0b0001_0110;
+const RETURN: u8 = 0b0001_0111;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -41,6 +42,7 @@ pub enum Operation {
     LoadBoolean = LOAD_BOOLEAN as isize,
     LoadConstant = LOAD_CONSTANT as isize,
     LoadList = LOAD_LIST as isize,
+    LoadSelf = LOAD_SELF as isize,
 
     // Variables
     DefineLocal = DEFINE_LOCAL as isize,
@@ -105,6 +107,7 @@ impl From<u8> for Operation {
             LOAD_BOOLEAN => Operation::LoadBoolean,
             LOAD_CONSTANT => Operation::LoadConstant,
             LOAD_LIST => Operation::LoadList,
+            LOAD_SELF => Operation::LoadSelf,
             DEFINE_LOCAL => Operation::DefineLocal,
             GET_LOCAL => Operation::GetLocal,
             SET_LOCAL => Operation::SetLocal,
@@ -142,6 +145,7 @@ impl From<Operation> for u8 {
             Operation::LoadBoolean => LOAD_BOOLEAN,
             Operation::LoadConstant => LOAD_CONSTANT,
             Operation::LoadList => LOAD_LIST,
+            Operation::LoadSelf => LOAD_SELF,
             Operation::DefineLocal => DEFINE_LOCAL,
             Operation::GetLocal => GET_LOCAL,
             Operation::SetLocal => SET_LOCAL,
@@ -172,6 +176,7 @@ impl Display for Operation {
             Operation::LoadBoolean => write!(f, "LOAD_BOOLEAN"),
             Operation::LoadConstant => write!(f, "LOAD_CONSTANT"),
             Operation::LoadList => write!(f, "LOAD_LIST"),
+            Operation::LoadSelf => write!(f, "LOAD_SELF"),
             Operation::DefineLocal => write!(f, "DEFINE_LOCAL"),
             Operation::GetLocal => write!(f, "GET_LOCAL"),
             Operation::SetLocal => write!(f, "SET_LOCAL"),
