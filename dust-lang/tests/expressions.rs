@@ -59,7 +59,7 @@ fn and() {
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, false), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(4), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
             ],
@@ -258,7 +258,7 @@ fn equal() {
                         .set_c_is_constant(),
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::jump(3), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -286,7 +286,7 @@ fn equality_assignment_long() {
                         .set_c_is_constant(),
                     Span(13, 15)
                 ),
-                (Instruction::jump(1, true), Span(13, 15)),
+                (Instruction::jump(3), Span(13, 15)),
                 (Instruction::load_boolean(0, true, true), Span(20, 24)),
                 (Instruction::load_boolean(0, false, false), Span(34, 39)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -316,7 +316,7 @@ fn equality_assignment_short() {
                         .set_c_is_constant(),
                     Span(10, 12)
                 ),
-                (Instruction::jump(1, true), Span(10, 12)),
+                (Instruction::jump(3), Span(10, 12)),
                 (Instruction::load_boolean(0, true, true), Span(10, 12)),
                 (Instruction::load_boolean(0, false, false), Span(10, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -479,7 +479,7 @@ fn greater() {
                         .set_c_is_constant(),
                     Span(2, 3)
                 ),
-                (Instruction::jump(1, true), Span(2, 3)),
+                (Instruction::jump(3), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -507,7 +507,7 @@ fn greater_than_or_equal() {
                         .set_c_is_constant(),
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::jump(3), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -521,7 +521,54 @@ fn greater_than_or_equal() {
 }
 
 #[test]
-fn if_else_expression() {
+fn if_else_complex() {
+    let source = "
+        if 1 == 1 {
+            1; 2; 3; 4;
+        } else {
+            1; 2; 3; 4;
+        }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            None,
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(9, 11)
+                ),
+                (Instruction::jump(7), Span(9, 11)),
+                (Instruction::load_constant(0, 0, false), Span(9, 11)),
+                (Instruction::load_constant(1, 1, false), Span(9, 11)),
+                (Instruction::load_constant(2, 2, false), Span(9, 11)),
+                (Instruction::load_constant(3, 3, false), Span(9, 11)),
+                (Instruction::jump(11), Span(9, 11)),
+                (Instruction::load_constant(0, 0, false), Span(9, 11)),
+                (Instruction::load_constant(1, 1, false), Span(9, 11)),
+                (Instruction::load_constant(2, 2, false), Span(9, 11)),
+                (Instruction::load_constant(3, 3, false), Span(9, 11)),
+                (Instruction::r#return(true), Span(11, 11)),
+            ],
+            vec![
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4)
+            ],
+            vec![]
+        ))
+    )
+}
+
+#[test]
+fn if_else_simple() {
     let source = "if 1 == 1 { 2 } else { 3 }";
 
     assert_eq!(
@@ -535,7 +582,7 @@ fn if_else_expression() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(3), Span(5, 7)),
                 (Instruction::load_constant(0, 2, true), Span(12, 13)),
                 (Instruction::load_constant(1, 3, false), Span(23, 24)),
                 (Instruction::r#return(true), Span(26, 26)),
@@ -568,7 +615,7 @@ fn if_expression_false() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(3), Span(5, 7)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(2)],
@@ -594,7 +641,7 @@ fn if_expression_true() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(3), Span(5, 7)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
             ],
             vec![Value::integer(1), Value::integer(1), Value::integer(2)],
@@ -620,7 +667,7 @@ fn less_than() {
                         .set_c_is_constant(),
                     Span(2, 3)
                 ),
-                (Instruction::jump(1, true), Span(2, 3)),
+                (Instruction::jump(3), Span(2, 3)),
                 (Instruction::load_boolean(0, true, true), Span(2, 3)),
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -648,7 +695,7 @@ fn less_than_or_equal() {
                         .set_c_is_constant(),
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::jump(3), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -907,7 +954,7 @@ fn not_equal() {
                         .set_c_is_constant(),
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Span(2, 4)),
+                (Instruction::jump(3), Span(2, 4)),
                 (Instruction::load_boolean(0, true, true), Span(2, 4)),
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -931,7 +978,7 @@ fn or() {
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, true), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(4), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
             ],
@@ -1062,7 +1109,7 @@ fn variable_and() {
                 (Instruction::define_local(1, 1, false), Span(18, 19)),
                 (Instruction::get_local(2, 0), Span(29, 30)),
                 (Instruction::test(2, false), Span(31, 33)),
-                (Instruction::jump(1, true), Span(31, 33)),
+                (Instruction::jump(8), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
@@ -1092,9 +1139,9 @@ fn r#while() {
                     *Instruction::less(true, 0, 1).set_c_is_constant(),
                     Span(23, 24)
                 ),
-                (Instruction::jump(2, true), Span(41, 42)),
+                (Instruction::jump(7), Span(23, 24)),
                 (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
-                (Instruction::jump(3, false), Span(41, 42)),
+                (Instruction::jump(2), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),
                 (Instruction::r#return(true), Span(42, 42)),
             ],

@@ -58,10 +58,7 @@ impl Vm {
                 self.ip - 1,
                 position,
                 instruction.operation(),
-                instruction
-                    .disassembly_info(Some(&self.chunk))
-                    .0
-                    .unwrap_or_default()
+                instruction.disassembly_info(Some(&self.chunk))
             );
 
             match instruction.operation() {
@@ -348,15 +345,9 @@ impl Vm {
                     self.set(instruction.a(), not, position)?;
                 }
                 Operation::Jump => {
-                    let offset = instruction.b();
-                    let is_positive = instruction.c_as_boolean();
-                    let new_ip = if is_positive {
-                        self.ip + offset as usize
-                    } else {
-                        self.ip - (offset + 1) as usize
-                    };
+                    let jump_to = instruction.b();
 
-                    self.ip = new_ip;
+                    self.ip = jump_to as usize;
                 }
                 Operation::Call => {
                     let to_register = instruction.a();

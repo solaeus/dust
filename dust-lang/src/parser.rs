@@ -171,6 +171,31 @@ impl<'src> Parser<'src> {
         Some(operations)
     }
 
+    fn get_last_jump_mut(&mut self) -> Option<&mut Instruction> {
+        self.current_statement
+            .iter_mut()
+            .rev()
+            .find_map(|(instruction, _)| {
+                if let Operation::Jump = instruction.operation() {
+                    Some(instruction)
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                self.chunk
+                    .instructions_mut()
+                    .iter_mut()
+                    .find_map(|(instruction, _)| {
+                        if let Operation::Jump = instruction.operation() {
+                            Some(instruction)
+                        } else {
+                            None
+                        }
+                    })
+            })
+    }
+
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
         let constant_index = self.chunk.push_constant(value, position)?;
         let register = self.next_register();
@@ -620,7 +645,10 @@ impl<'src> Parser<'src> {
         let register = self.next_register();
 
         self.emit_instruction(instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
+
+        let jump_to = (self.chunk.len() + self.current_statement.len() + 2) as u8;
+
+        self.emit_instruction(Instruction::jump(jump_to), operator_position);
         self.emit_instruction(
             Instruction::load_boolean(register, true, true),
             operator_position,
@@ -661,7 +689,10 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.emit_instruction(left_instruction, left_position);
         self.emit_instruction(instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
+
+        let jump_to = (self.chunk.len() + self.current_statement.len() + 2) as u8;
+
+        self.emit_instruction(Instruction::jump(jump_to), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
         Ok(())
@@ -863,6 +894,12 @@ impl<'src> Parser<'src> {
             self.parse_block(block_allowed)?;
         }
 
+        let if_end = self.chunk.len() + self.current_statement.len();
+
+        if let Some(if_jump) = self.get_last_jump_mut() {
+            if_jump.set_b(if_end as u8);
+        }
+
         let last_operation = self
             .current_statement
             .last()
@@ -891,6 +928,22 @@ impl<'src> Parser<'src> {
 
             if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(block_allowed)?;
+                self.commit_current_statement();
+
+                let else_end = (self.chunk.len() + self.current_statement.len()) as u8;
+
+                if let Operation::LoadBoolean | Operation::LoadConstant = self
+                    .chunk
+                    .get_instruction(if_end, self.current_position)
+                    .map(|(instruction, _)| instruction.operation())?
+                {
+                } else {
+                    self.chunk.insert_instruction(
+                        if_end,
+                        Instruction::jump(else_end + 1),
+                        self.current_position,
+                    )?;
+                }
 
                 return Ok(());
             }
@@ -908,6 +961,9 @@ impl<'src> Parser<'src> {
 
     fn parse_while(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         self.advance()?;
+
+        let jump_start = (self.chunk.len() + self.current_statement.len()) as u8;
+
         self.parse_expression()?;
 
         if let Some(
@@ -916,10 +972,7 @@ impl<'src> Parser<'src> {
         {
             self.current_statement.pop();
             self.current_statement.pop();
-            self.current_statement.pop();
         }
-
-        let jump_start = self.chunk.len() + self.current_statement.len();
 
         self.parse_block(Allowed {
             assignment: true,
@@ -927,18 +980,16 @@ impl<'src> Parser<'src> {
             implicit_return: false,
         })?;
 
-        let jump_end = self.chunk.len() + self.current_statement.len();
-        let jump_distance = jump_end.abs_diff(jump_start) as u8 + 1;
-        let jump_back = Instruction::jump(jump_distance + 1, false);
+        let jump_end = (self.chunk.len() + self.current_statement.len()) as u8;
+
+        if let Some(jump) = self.get_last_jump_mut() {
+            jump.set_b(jump_end + 1);
+        }
+
+        let jump_back = Instruction::jump(jump_start);
 
         self.emit_instruction(jump_back, self.current_position);
         self.commit_current_statement();
-
-        self.chunk.insert_instruction(
-            jump_start,
-            Instruction::jump(jump_distance, true),
-            self.current_position,
-        )?;
 
         Ok(())
     }
@@ -956,6 +1007,7 @@ impl<'src> Parser<'src> {
         let parsed_expression = self
             .current_statement
             .last()
+            .or_else(|| self.chunk.instructions().last())
             .map(|(instruction, _)| instruction.yields_value())
             .unwrap_or(false);
         let end_of_statement = matches!(

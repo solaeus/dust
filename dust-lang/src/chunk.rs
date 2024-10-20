@@ -59,6 +59,10 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
+    pub fn instructions(&self) -> &[(Instruction, Span)] {
+        &self.instructions
+    }
+
     pub fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Span)> {
         &mut self.instructions
     }
@@ -282,8 +286,8 @@ impl<'a> ChunkDisassembler<'a> {
     const INSTRUCTION_HEADER: [&'static str; 4] = [
         "Instructions",
         "------------",
-        "INDEX BYTECODE OPERATION       INFO                 JUMP     POSITION     ",
-        "----- -------- --------------- -------------------- -------- -------------",
+        "INDEX BYTECODE OPERATION       INFO                      POSITION     ",
+        "----- -------- --------------- ------------------------- -------------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 4] =
@@ -495,30 +499,10 @@ impl<'a> ChunkDisassembler<'a> {
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
-            let (info, jump_offset) = instruction.disassembly_info(Some(self.chunk));
-            let info = if let Some(info) = info {
-                info
-            } else {
-                " ".to_string()
-            };
-            let jump_offset = if let Some(jump_offset) = jump_offset {
-                let index = index as isize;
-                let jump_index = {
-                    if jump_offset > 0 {
-                        index + (jump_offset + 1)
-                    } else {
-                        index + jump_offset
-                    }
-                };
-
-                format!("{index} -> {jump_index}")
-            } else {
-                " ".to_string()
-            };
+            let info = instruction.disassembly_info(Some(self.chunk));
             let bytecode = u32::from(instruction);
-            let instruction_display = format!(
-                "{index:<5} {bytecode:<08X} {operation:15} {info:20} {jump_offset:8} {position:13}"
-            );
+            let instruction_display =
+                format!("{index:<5} {bytecode:<08X} {operation:15} {info:25} {position:13}");
 
             push_details(&instruction_display, &mut disassembly);
         }

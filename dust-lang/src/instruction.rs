@@ -207,11 +207,10 @@ impl Instruction {
         instruction
     }
 
-    pub fn jump(offset: u8, is_positive: bool) -> Instruction {
+    pub fn jump(jump_to: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Jump as u32);
 
-        instruction.set_b(offset);
-        instruction.set_c(if is_positive { 1 } else { 0 });
+        instruction.set_b(jump_to);
 
         instruction
     }
@@ -346,7 +345,7 @@ impl Instruction {
         )
     }
 
-    pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> (Option<String>, Option<isize>) {
+    pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> String {
         let format_arguments = || {
             let first_argument = if self.b_is_constant() {
                 format!("C{}", self.b())
@@ -361,49 +360,43 @@ impl Instruction {
 
             (first_argument, second_argument)
         };
-        let mut jump_offset = None;
 
-        let info = match self.operation() {
-            Operation::Move => Some(format!("R{} = R{}", self.a(), self.b())),
+        match self.operation() {
+            Operation::Move => format!("R{} = R{}", self.a(), self.b()),
             Operation::Close => {
                 let from_register = self.b();
                 let to_register = self.c().saturating_sub(1);
 
-                Some(format!("R{from_register}..=R{to_register}"))
+                format!("R{from_register}..=R{to_register}")
             }
             Operation::LoadBoolean => {
                 let to_register = self.a();
                 let boolean = self.b_as_boolean();
                 let jump = self.c_as_boolean();
-                let info = if jump {
-                    jump_offset = Some(1);
 
-                    format!("R{to_register} = {boolean} && JUMP")
+                if jump {
+                    format!("R{to_register} = {boolean} && SKIP")
                 } else {
                     format!("R{to_register} = {boolean}")
-                };
-
-                Some(info)
+                }
             }
             Operation::LoadConstant => {
                 let register_index = self.a();
                 let constant_index = self.b();
-                let jump = if self.c_as_boolean() {
-                    jump_offset = Some(1);
+                let jump = self.c_as_boolean();
 
-                    "&& JUMP"
+                if jump {
+                    format!("R{register_index} = C{constant_index} && SKIP")
                 } else {
-                    ""
-                };
-
-                Some(format!("R{register_index} = C{constant_index} {jump}",))
+                    format!("R{register_index} = C{constant_index}")
+                }
             }
             Operation::LoadList => {
                 let to_register = self.a();
                 let first_index = self.b();
                 let last_index = self.c();
 
-                Some(format!("R{to_register} = [R{first_index}..=R{last_index}]",))
+                format!("R{to_register} = [R{first_index}..=R{last_index}]",)
             }
             Operation::LoadSelf => {
                 let to_register = self.a();
@@ -416,7 +409,7 @@ impl Instruction {
                     })
                     .unwrap();
 
-                Some(format!("R{to_register} = {name}"))
+                format!("R{to_register} = {name}")
             }
             Operation::DefineLocal => {
                 let to_register = self.a();
@@ -431,14 +424,12 @@ impl Instruction {
                 };
                 let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
-                Some(format!(
-                    "L{local_index} = R{to_register} {mutable_display} {identifier_display}"
-                ))
+                format!("L{local_index} = R{to_register} {mutable_display} {identifier_display}")
             }
             Operation::GetLocal => {
                 let local_index = self.b();
 
-                Some(format!("R{} = L{}", self.a(), local_index))
+                format!("R{} = L{}", self.a(), local_index)
             }
             Operation::SetLocal => {
                 let local_index = self.b();
@@ -451,60 +442,43 @@ impl Instruction {
                     "???".to_string()
                 };
 
-                Some(format!(
-                    "L{} = R{} {}",
-                    local_index,
-                    self.a(),
-                    identifier_display
-                ))
+                format!("L{} = R{} {}", local_index, self.a(), identifier_display)
             }
             Operation::Add => {
                 let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
-                Some(format!(
-                    "R{to_register} = {first_argument} + {second_argument}",
-                ))
+                format!("R{to_register} = {first_argument} + {second_argument}",)
             }
             Operation::Subtract => {
                 let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
-                Some(format!(
-                    "R{to_register} = {first_argument} - {second_argument}",
-                ))
+                format!("R{to_register} = {first_argument} - {second_argument}",)
             }
             Operation::Multiply => {
                 let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
-                Some(format!(
-                    "R{to_register} = {first_argument} * {second_argument}",
-                ))
+                format!("R{to_register} = {first_argument} * {second_argument}",)
             }
             Operation::Divide => {
                 let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
-                Some(format!(
-                    "R{to_register} = {first_argument} / {second_argument}",
-                ))
+                format!("R{to_register} = {first_argument} / {second_argument}",)
             }
             Operation::Modulo => {
                 let to_register = self.a();
                 let (first_argument, second_argument) = format_arguments();
 
-                Some(format!(
-                    "R{to_register} = {first_argument} % {second_argument}",
-                ))
+                format!("R{to_register} = {first_argument} % {second_argument}",)
             }
             Operation::Test => {
                 let to_register = self.a();
                 let test_value = self.c_as_boolean();
 
-                jump_offset = Some(1);
-
-                Some(format!("if R{to_register} != {test_value} {{ JUMP }}",))
+                format!("if R{to_register} != {test_value} {{ SKIP }}")
             }
             Operation::TestSet => {
                 let to_register = self.a();
@@ -512,39 +486,26 @@ impl Instruction {
                 let test_value = self.c_as_boolean();
                 let bang = if test_value { "" } else { "!" };
 
-                jump_offset = Some(1);
-
-                Some(format!(
-                    "if {bang}R{to_register} {{ R{to_register} = R{argument} }}",
-                ))
+                format!("if {bang}R{to_register} {{ R{to_register} = R{argument} }}",)
             }
             Operation::Equal => {
                 let comparison_symbol = if self.a_as_boolean() { "==" } else { "!=" };
 
                 let (first_argument, second_argument) = format_arguments();
-                jump_offset = Some(1);
 
-                Some(format!(
-                    "if {first_argument} {comparison_symbol} {second_argument} {{ JUMP }}",
-                ))
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
             }
             Operation::Less => {
                 let comparison_symbol = if self.a_as_boolean() { "<" } else { ">=" };
                 let (first_argument, second_argument) = format_arguments();
-                jump_offset = Some(1);
 
-                Some(format!(
-                    "if {first_argument} {comparison_symbol} {second_argument}",
-                ))
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
             }
             Operation::LessEqual => {
                 let comparison_symbol = if self.a_as_boolean() { "<=" } else { ">" };
                 let (first_argument, second_argument) = format_arguments();
-                jump_offset = Some(1);
 
-                Some(format!(
-                    "if {first_argument} {comparison_symbol} {second_argument}",
-                ))
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
             }
             Operation::Negate => {
                 let to_register = self.a();
@@ -554,7 +515,7 @@ impl Instruction {
                     format!("R{}", self.b())
                 };
 
-                Some(format!("R{to_register} = -{argument}"))
+                format!("R{to_register} = -{argument}")
             }
             Operation::Not => {
                 let to_register = self.a();
@@ -564,19 +525,12 @@ impl Instruction {
                     format!("R{}", self.b())
                 };
 
-                Some(format!("R{to_register} = !{argument}"))
+                format!("R{to_register} = !{argument}")
             }
             Operation::Jump => {
-                let offset = self.b() as isize;
-                let is_positive = self.c_as_boolean();
+                let jump_to = self.b();
 
-                if is_positive {
-                    jump_offset = Some(offset);
-                } else {
-                    jump_offset = Some(-offset);
-                }
-
-                None
+                format!("JUMP TO {jump_to}")
             }
             Operation::Call => {
                 let to_register = self.a();
@@ -598,12 +552,18 @@ impl Instruction {
 
                 output.push(')');
 
-                Some(output)
+                output
             }
-            Operation::Return => None,
-        };
+            Operation::Return => {
+                let should_return_value = self.b_as_boolean();
 
-        (info, jump_offset)
+                if should_return_value {
+                    "->".to_string()
+                } else {
+                    "".to_string()
+                }
+            }
+        }
     }
 }
 
@@ -818,11 +778,10 @@ mod tests {
 
     #[test]
     fn jump() {
-        let instruction = Instruction::jump(4, true);
+        let instruction = Instruction::jump(4);
 
         assert_eq!(instruction.operation(), Operation::Jump);
         assert_eq!(instruction.b(), 4);
-        assert!(instruction.c_as_boolean());
     }
 
     #[test]
