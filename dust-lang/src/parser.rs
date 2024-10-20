@@ -9,8 +9,8 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
-    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    instruction, operation, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier,
+    Instruction, LexError, Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -27,7 +27,7 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
             .map_err(|error| DustError::Parse { error, source })?;
     }
 
-    Ok(parser.take_chunk())
+    Ok(parser.finish())
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize)]
@@ -70,7 +70,7 @@ impl<'src> Parser<'src> {
         })
     }
 
-    pub fn take_chunk(self) -> Chunk {
+    pub fn finish(self) -> Chunk {
         log::info!("End chunk");
 
         self.chunk
@@ -172,11 +172,33 @@ impl<'src> Parser<'src> {
     }
 
     fn get_previous_jump_mut(&mut self) -> Option<&mut Instruction> {
-        self.current_statement
+        let staged_jump = self
+            .current_statement
             .iter_mut()
             .rev()
-            .find(|(instruction, _)| matches!(instruction.operation(), Operation::Jump))
-            .map(|(instruction, _)| instruction)
+            .find_map(|(instruction, _)| {
+                if matches!(instruction.operation(), Operation::Jump) {
+                    Some(instruction)
+                } else {
+                    None
+                }
+            });
+
+        if staged_jump.is_some() {
+            staged_jump
+        } else {
+            self.chunk
+                .instructions_mut()
+                .iter_mut()
+                .rev()
+                .find_map(|(instruction, _)| {
+                    if matches!(instruction.operation(), Operation::Jump) {
+                        Some(instruction)
+                    } else {
+                        None
+                    }
+                })
+        }
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
@@ -435,7 +457,7 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back = true;
 
-                instruction.a()
+                self.next_register()
             }
         };
 
@@ -495,17 +517,17 @@ impl<'src> Parser<'src> {
             self.next_register()
         };
 
-        let mut new_instruction = match operator.kind() {
-            TokenKind::Plus => Instruction::add(register, left, right),
-            TokenKind::PlusEqual => Instruction::add(register, left, right),
-            TokenKind::Minus => Instruction::subtract(register, left, right),
-            TokenKind::MinusEqual => Instruction::subtract(register, left, right),
-            TokenKind::Star => Instruction::multiply(register, left, right),
-            TokenKind::StarEqual => Instruction::multiply(register, left, right),
-            TokenKind::Slash => Instruction::divide(register, left, right),
-            TokenKind::SlashEqual => Instruction::divide(register, left, right),
-            TokenKind::Percent => Instruction::modulo(register, left, right),
-            TokenKind::PercentEqual => Instruction::modulo(register, left, right),
+        let mut new_instruction = match operator {
+            Token::Plus => Instruction::add(register, left, right),
+            Token::PlusEqual => Instruction::add(register, left, right),
+            Token::Minus => Instruction::subtract(register, left, right),
+            Token::MinusEqual => Instruction::subtract(register, left, right),
+            Token::Star => Instruction::multiply(register, left, right),
+            Token::StarEqual => Instruction::multiply(register, left, right),
+            Token::Slash => Instruction::divide(register, left, right),
+            Token::SlashEqual => Instruction::divide(register, left, right),
+            Token::Percent => Instruction::modulo(register, left, right),
+            Token::PercentEqual => Instruction::modulo(register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: &[
@@ -535,6 +557,15 @@ impl<'src> Parser<'src> {
         }
 
         self.emit_instruction(new_instruction, operator_position);
+
+        if let Token::PlusEqual
+        | Token::MinusEqual
+        | Token::StarEqual
+        | Token::SlashEqual
+        | Token::PercentEqual = operator
+        {
+            self.commit_current_statement();
+        }
 
         Ok(())
     }
@@ -577,12 +608,12 @@ impl<'src> Parser<'src> {
             self.handle_binary_argument(&right_instruction)?;
 
         let mut instruction = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left.saturating_sub(1), right),
-            Token::BangEqual => Instruction::equal(false, left.saturating_sub(1), right),
-            Token::Less => Instruction::less(true, left.saturating_sub(1), right),
-            Token::LessEqual => Instruction::less_equal(true, left.saturating_sub(1), right),
-            Token::Greater => Instruction::less_equal(false, left.saturating_sub(1), right),
-            Token::GreaterEqual => Instruction::less(false, left.saturating_sub(1), right),
+            Token::DoubleEqual => Instruction::equal(true, left, right),
+            Token::BangEqual => Instruction::equal(false, left, right),
+            Token::Less => Instruction::less(true, left, right),
+            Token::LessEqual => Instruction::less_equal(true, left, right),
+            Token::Greater => Instruction::less_equal(false, left, right),
+            Token::GreaterEqual => Instruction::less(false, left, right),
 
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
@@ -800,7 +831,6 @@ impl<'src> Parser<'src> {
             let expected_register = self.next_register();
 
             self.parse_expression()?;
-            self.commit_current_statement();
 
             let actual_register = self.next_register() - 1;
 
@@ -893,9 +923,6 @@ impl<'src> Parser<'src> {
 
     fn parse_while(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         self.advance()?;
-
-        let jump_start = self.chunk.len() + self.current_statement.len();
-
         self.parse_expression()?;
 
         if let Some(
@@ -904,7 +931,10 @@ impl<'src> Parser<'src> {
         {
             self.current_statement.pop();
             self.current_statement.pop();
+            self.current_statement.pop();
         }
+
+        let jump_start = self.chunk.len() + self.current_statement.len();
 
         self.parse_block(Allowed {
             assignment: true,
@@ -913,16 +943,17 @@ impl<'src> Parser<'src> {
         })?;
 
         let jump_end = self.chunk.len() + self.current_statement.len();
-        let jump_distance = jump_end.abs_diff(jump_start) as u8;
-        let jump_back = Instruction::jump(jump_distance, false);
+        let jump_distance = jump_end.abs_diff(jump_start) as u8 + 1;
+        let jump_back = Instruction::jump(jump_distance + 1, false);
 
-        if let Some(jump_over) = self.get_previous_jump_mut() {
-            *jump_over = Instruction::jump(jump_distance - 1, true);
-        }
-
+        self.emit_instruction(jump_back, self.current_position);
         self.commit_current_statement();
-        self.chunk
-            .push_instruction(jump_back, self.current_position);
+
+        self.chunk.insert_instruction(
+            jump_start,
+            Instruction::jump(jump_distance, true),
+            self.current_position,
+        )?;
 
         Ok(())
     }
@@ -1223,7 +1254,19 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         while !self.allow(Token::RightParenthesis)? {
+            let expected_register = self.next_register();
+
             self.parse_expression()?;
+
+            let actual_register = self.next_register() - 1;
+
+            if expected_register < actual_register {
+                self.emit_instruction(
+                    Instruction::close(expected_register, actual_register),
+                    self.current_position,
+                );
+            }
+
             self.allow(Token::Comma)?;
         }
 

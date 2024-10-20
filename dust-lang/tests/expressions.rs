@@ -1049,7 +1049,7 @@ fn r#while() {
                     *Instruction::less(true, 0, 1).set_c_is_constant(),
                     Span(23, 24)
                 ),
-                (Instruction::jump(2, true), Span(23, 24)),
+                (Instruction::jump(2, true), Span(41, 42)),
                 (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
                 (Instruction::jump(3, false), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),

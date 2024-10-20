@@ -121,7 +121,7 @@ impl Value {
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotSubtract(self.clone(), other.clone())),
         };
         let difference = left
             .subtract(right)
@@ -133,7 +133,7 @@ impl Value {
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         };
         let product = left
             .multiply(right)
@@ -145,7 +145,7 @@ impl Value {
     pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotDivide(self.clone(), other.clone())),
         };
         let quotient = left
             .divide(right)
@@ -157,7 +157,7 @@ impl Value {
     pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotModulo(self.clone(), other.clone())),
         };
         let remainder = left
             .modulo(right)
@@ -169,7 +169,7 @@ impl Value {
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
         Ok(Value::boolean(left < right))
@@ -178,18 +178,16 @@ impl Value {
     pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
-        left.less_than_or_equal(right)
-            .ok_or_else(|| ValueError::CannotLessThanOrEqual(self.clone(), other.clone()))
-            .map(Value::Primitive)
+        Ok(Value::boolean(left <= right))
     }
 
     pub fn equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
         Ok(Value::boolean(left == right))
@@ -198,7 +196,7 @@ impl Value {
     pub fn not_equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
             (Value::Primitive(left), Value::Primitive(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
         Ok(Value::boolean(left != right))
@@ -931,13 +929,12 @@ impl Display for Object {
 pub enum ValueError {
     CannotAdd(Value, Value),
     CannotAnd(Value, Value),
+    CannotCompare(Value, Value),
     CannotDisplay {
         value: Value,
         vm_error: Box<VmError>,
     },
     CannotDivide(Value, Value),
-    CannotLessThan(Value, Value),
-    CannotLessThanOrEqual(Value, Value),
     CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
     CannotNegate(Value),
@@ -973,6 +970,12 @@ impl Display for ValueError {
                     left_display, right_display
                 )
             }
+            ValueError::CannotCompare(left, right) => {
+                let left_display = get_value_display(left);
+                let right_display = get_value_display(right);
+
+                write!(f, "Cannot compare {} and {}", left_display, right_display)
+            }
             ValueError::CannotDisplay { value, vm_error } => {
                 let value_display = get_value_display(value);
 
@@ -983,18 +986,6 @@ impl Display for ValueError {
                 let right_display = get_value_display(right);
 
                 write!(f, "Cannot divide {} by {}", left_display, right_display)
-            }
-            ValueError::CannotLessThan(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot compare {} and {}", left_display, right_display)
-            }
-            ValueError::CannotLessThanOrEqual(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot compare {} and {}", left_display, right_display)
             }
             ValueError::CannotModulo(left, right) => {
                 let left_display = get_value_display(left);

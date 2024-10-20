@@ -364,7 +364,11 @@ impl Vm {
                     for argument_index in
                         first_argument_index..first_argument_index + argument_count
                     {
-                        let argument = self.get(argument_index, position)?.clone();
+                        let argument = match self.get(argument_index, position) {
+                            Ok(value) => value.clone(),
+                            Err(VmError::EmptyRegister { .. }) => continue,
+                            Err(error) => return Err(error),
+                        };
                         let top_of_stack = function_vm.stack.len() as u8;
 
                         function_vm.set(top_of_stack, argument, position)?;

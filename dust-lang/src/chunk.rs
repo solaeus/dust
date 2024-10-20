@@ -47,6 +47,10 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
+    pub fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Span)> {
+        &mut self.instructions
+    }
+
     pub fn get_instruction(
         &self,
         offset: usize,
@@ -59,6 +63,24 @@ impl Chunk {
 
     pub fn push_instruction(&mut self, instruction: Instruction, position: Span) {
         self.instructions.push((instruction, position));
+    }
+
+    pub fn insert_instruction(
+        &mut self,
+        index: usize,
+        instruction: Instruction,
+        position: Span,
+    ) -> Result<(), ChunkError> {
+        if index > self.instructions.len() {
+            Err(ChunkError::InstructionIndexOfBounds {
+                offset: index,
+                position,
+            })
+        } else {
+            self.instructions.insert(index, (instruction, position));
+
+            Ok(())
+        }
     }
 
     pub fn take_constants(self) -> Vec<Value> {
@@ -267,8 +289,8 @@ impl<'a> ChunkDisassembler<'a> {
     const INSTRUCTION_HEADER: [&'static str; 4] = [
         "Instructions",
         "------------",
-        "INDEX BYTECODE OPERATION       INFO                      JUMP     POSITION",
-        "----- -------- --------------- ------------------------- -------- --------",
+        "INDEX BYTECODE OPERATION       INFO                 JUMP     POSITION     ",
+        "----- -------- --------------- -------------------- -------- -------------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 4] =
@@ -494,7 +516,7 @@ impl<'a> ChunkDisassembler<'a> {
             };
             let bytecode = u32::from(instruction);
             let instruction_display = format!(
-                "{index:<5} {bytecode:<08X} {operation:15} {info:25} {jump_offset:8} {position:8}"
+                "{index:<5} {bytecode:<08X} {operation:15} {info:20} {jump_offset:8} {position:13}"
             );
 
             push_details(&instruction_display, &mut disassembly);
