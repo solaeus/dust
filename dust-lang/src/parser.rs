@@ -25,6 +25,7 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
                 implicit_return: true,
             })
             .map_err(|error| DustError::Parse { error, source })?;
+        parser.commit_current_statement();
     }
 
     Ok(parser.finish())
@@ -36,6 +37,7 @@ pub struct Parser<'src> {
     chunk: Chunk,
 
     current_statement: Vec<(Instruction, Span)>,
+    current_is_expression: bool,
     minimum_register: u8,
 
     current_token: Token<'src>,
@@ -61,6 +63,7 @@ impl<'src> Parser<'src> {
             lexer,
             chunk: Chunk::new(None),
             current_statement: Vec::new(),
+            current_is_expression: false,
             minimum_register: 0,
             current_token,
             current_position,
@@ -145,7 +148,9 @@ impl<'src> Parser<'src> {
         self.current_statement.push((instruction, position));
     }
 
-    fn commit_current_statement(&mut self) {
+    fn commit_current_statement(&mut self) -> Result<(), ParseError> {
+        self.parse_implicit_return()?;
+
         let next_register = self.next_register();
 
         for (instruction, position) in self.current_statement.drain(..) {
@@ -153,6 +158,9 @@ impl<'src> Parser<'src> {
         }
 
         self.minimum_register = next_register;
+        self.current_is_expression = false;
+
+        Ok(())
     }
 
     fn get_statement_operations<const COUNT: usize>(&self) -> Option<[(Operation, Span); COUNT]> {
@@ -234,6 +242,8 @@ impl<'src> Parser<'src> {
                 position,
             );
 
+            self.current_is_expression = true;
+
             Ok(())
         } else {
             Err(ParseError::ExpectedToken {
@@ -256,6 +266,8 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
+            self.current_is_expression = true;
+
             Ok(())
         } else {
             Err(ParseError::ExpectedToken {
@@ -275,6 +287,8 @@ impl<'src> Parser<'src> {
             let value = Value::character(character);
 
             self.emit_constant(value, position)?;
+
+            self.current_is_expression = true;
 
             Ok(())
         } else {
@@ -302,6 +316,8 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
+            self.current_is_expression = true;
+
             Ok(())
         } else {
             Err(ParseError::ExpectedToken {
@@ -328,6 +344,8 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
+            self.current_is_expression = true;
+
             Ok(())
         } else {
             Err(ParseError::ExpectedToken {
@@ -348,6 +366,8 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
+            self.current_is_expression = true;
+
             Ok(())
         } else {
             Err(ParseError::ExpectedToken {
@@ -362,6 +382,8 @@ impl<'src> Parser<'src> {
         self.allow(Token::LeftParenthesis)?;
         self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
+
+        self.current_is_expression = true;
 
         Ok(())
     }
@@ -418,6 +440,8 @@ impl<'src> Parser<'src> {
         }
 
         self.emit_instruction(instruction, operator_position);
+
+        self.current_is_expression = true;
 
         Ok(())
     }
@@ -559,7 +583,9 @@ impl<'src> Parser<'src> {
         | Token::SlashEqual
         | Token::PercentEqual = operator
         {
-            self.commit_current_statement();
+            self.current_is_expression = false;
+        } else {
+            self.current_is_expression = true;
         }
 
         Ok(())
@@ -658,6 +684,8 @@ impl<'src> Parser<'src> {
             operator_position,
         );
 
+        self.current_is_expression = true;
+
         Ok(())
     }
 
@@ -695,6 +723,8 @@ impl<'src> Parser<'src> {
         self.emit_instruction(Instruction::jump(jump_to), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
+        self.current_is_expression = true;
+
         Ok(())
     }
 
@@ -720,6 +750,8 @@ impl<'src> Parser<'src> {
                         register,
                         start_position,
                     )?;
+
+                    self.current_is_expression = true;
 
                     return Ok(());
                 } else {
@@ -792,6 +824,8 @@ impl<'src> Parser<'src> {
                 Instruction::set_local(register, local_index),
                 start_position,
             );
+
+            self.current_is_expression = false;
         } else {
             let register = self.next_register();
 
@@ -799,6 +833,8 @@ impl<'src> Parser<'src> {
                 Instruction::get_local(register, local_index),
                 self.previous_position,
             );
+
+            self.current_is_expression = true;
         }
 
         Ok(())
@@ -869,6 +905,8 @@ impl<'src> Parser<'src> {
             Span(start, end),
         );
 
+        self.current_is_expression = true;
+
         Ok(())
     }
 
@@ -892,33 +930,18 @@ impl<'src> Parser<'src> {
 
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(block_allowed)?;
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::LeftCurlyBrace,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
         }
 
-        let if_end = self.chunk.len() + self.current_statement.len();
+        let if_block_end = self.current_statement.len();
 
         if let Some(if_jump) = self.get_last_jump_mut() {
-            if_jump.set_b(if_end as u8);
-        }
-
-        let last_operation = self
-            .current_statement
-            .last()
-            .map(|(instruction, _)| instruction.operation());
-
-        if let (Some(Operation::LoadConstant) | Some(Operation::LoadBoolean), Token::Else) =
-            (last_operation, self.current_token)
-        {
-            let (mut load_constant, load_constant_position) = self
-                .current_statement
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
-
-            load_constant.set_c_to_boolean(true);
-
-            self.emit_instruction(load_constant, load_constant_position);
+            if_jump.set_b(if_block_end as u8);
         }
 
         if self.allow(Token::Else)? {
@@ -928,22 +951,37 @@ impl<'src> Parser<'src> {
 
             if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(block_allowed)?;
-                self.commit_current_statement();
 
-                let else_end = (self.chunk.len() + self.current_statement.len()) as u8;
+                let else_end = self.current_statement.len();
 
-                if let Operation::LoadBoolean | Operation::LoadConstant = self
-                    .chunk
-                    .get_instruction(if_end, self.current_position)
-                    .map(|(instruction, _)| instruction.operation())?
-                {
+                if else_end - if_block_end > 1 {
+                    self.current_statement.insert(
+                        if_block_end,
+                        (
+                            Instruction::jump((else_end + 1) as u8),
+                            self.current_position,
+                        ),
+                    );
                 } else {
-                    self.chunk.insert_instruction(
-                        if_end,
-                        Instruction::jump(else_end + 1),
-                        self.current_position,
-                    )?;
+                    self.current_statement
+                        .iter_mut()
+                        .rev()
+                        .filter(|(instruction, _)| {
+                            matches!(
+                                instruction.operation(),
+                                Operation::LoadBoolean | Operation::LoadConstant
+                            )
+                        })
+                        .nth(1)
+                        .map(|(instruction, _)| instruction.set_c_to_boolean(true));
                 }
+
+                self.current_is_expression = self
+                    .current_statement
+                    .last()
+                    .map_or(false, |(instruction, _)| instruction.yields_value());
+
+                self.commit_current_statement()?;
 
                 return Ok(());
             }
@@ -955,7 +993,10 @@ impl<'src> Parser<'src> {
             });
         }
 
-        self.commit_current_statement();
+        self.current_is_expression = false;
+
+        self.commit_current_statement()?;
+
         Ok(())
     }
 
@@ -989,47 +1030,15 @@ impl<'src> Parser<'src> {
         let jump_back = Instruction::jump(jump_start);
 
         self.emit_instruction(jump_back, self.current_position);
-        self.commit_current_statement();
+        self.commit_current_statement()?;
+
+        self.current_is_expression = false;
 
         Ok(())
     }
 
     fn parse_statement(&mut self, allowed: Allowed) -> Result<(), ParseError> {
-        self.parse(
-            Precedence::None,
-            Allowed {
-                assignment: true,
-                explicit_return: true,
-                implicit_return: true,
-            },
-        )?;
-
-        let parsed_expression = self
-            .current_statement
-            .last()
-            .or_else(|| self.chunk.instructions().last())
-            .map(|(instruction, _)| instruction.yields_value())
-            .unwrap_or(false);
-        let end_of_statement = matches!(
-            self.current_token,
-            Token::Eof | Token::RightCurlyBrace | Token::Semicolon
-        );
-        let has_semicolon = self.allow(Token::Semicolon)?;
-        let returned = self
-            .current_statement
-            .last()
-            .map(|(instruction, _)| matches!(instruction.operation(), Operation::Return))
-            .unwrap_or(false);
-
-        if allowed.implicit_return
-            && parsed_expression
-            && end_of_statement
-            && !has_semicolon
-            && !returned
-        {
-            self.emit_instruction(Instruction::r#return(true), self.current_position);
-            self.commit_current_statement();
-        }
+        self.parse(Precedence::None, allowed)?;
 
         Ok(())
     }
@@ -1080,7 +1089,33 @@ impl<'src> Parser<'src> {
         let end = self.current_position.1;
 
         self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
-        self.commit_current_statement();
+
+        self.current_is_expression = false;
+
+        self.commit_current_statement()?;
+
+        Ok(())
+    }
+
+    fn parse_implicit_return(&mut self) -> Result<(), ParseError> {
+        if !self.current_is_expression {
+            return Ok(());
+        }
+
+        let end_of_statement = matches!(
+            self.current_token,
+            Token::Eof | Token::RightCurlyBrace | Token::Semicolon
+        );
+        let has_semicolon = self.allow(Token::Semicolon)?;
+        let returned = self
+            .current_statement
+            .last()
+            .map(|(instruction, _)| matches!(instruction.operation(), Operation::Return))
+            .unwrap_or(false);
+
+        if end_of_statement && !has_semicolon && !returned {
+            self.emit_instruction(Instruction::r#return(true), self.current_position);
+        }
 
         Ok(())
     }
@@ -1131,7 +1166,10 @@ impl<'src> Parser<'src> {
             Instruction::define_local(register, local_index, is_mutable),
             position,
         );
-        self.commit_current_statement();
+
+        self.current_is_expression = false;
+
+        self.commit_current_statement()?;
 
         Ok(())
     }
@@ -1230,6 +1268,7 @@ impl<'src> Parser<'src> {
                 explicit_return: true,
                 implicit_return: true,
             })?;
+            function_parser.commit_current_statement()?;
         }
 
         function_parser.advance()?;
@@ -1264,9 +1303,14 @@ impl<'src> Parser<'src> {
                 Instruction::define_local(register, local_index, false),
                 identifier_position,
             );
-            self.commit_current_statement();
+
+            self.current_is_expression = false;
+
+            self.commit_current_statement()?;
         } else {
             self.emit_constant(function, Span(function_start, function_end))?;
+
+            self.current_is_expression = true;
         }
 
         Ok(())
@@ -1318,7 +1362,15 @@ impl<'src> Parser<'src> {
             Span(start, end),
         );
 
+        self.current_is_expression = true;
+
         Ok(())
+    }
+
+    fn parse_semicolon(&mut self, _: Allowed) -> Result<(), ParseError> {
+        self.current_is_expression = false;
+
+        self.advance()
     }
 
     fn expect_expression(&mut self, _: Allowed) -> Result<(), ParseError> {
@@ -1657,7 +1709,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Parser::parse_semicolon),
                 infix: None,
                 precedence: Precedence::None,
             },
