@@ -111,7 +111,7 @@ fn parse_source(source: &str, styled: bool) {
     match parse(source) {
         Ok(chunk) => {
             let disassembly = chunk
-                .disassembler("Dust CLI Input")
+                .disassembler()
                 .source(source)
                 .styled(styled)
                 .disassemble();

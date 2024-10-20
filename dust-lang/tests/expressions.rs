@@ -7,6 +7,7 @@ fn add() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::add(0, 0, 1)
@@ -31,6 +32,7 @@ fn add_assign() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -53,6 +55,7 @@ fn and() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, false), Span(5, 7)),
@@ -85,6 +88,7 @@ fn block_scope() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(17, 18)),
                 (Instruction::define_local(0, 0, false), Span(13, 14)),
@@ -124,6 +128,7 @@ fn constant() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2))
@@ -143,6 +148,7 @@ fn define_local() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(8, 10)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -162,6 +168,7 @@ fn divide() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::divide(0, 0, 1)
@@ -186,6 +193,7 @@ fn divide_assign() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -208,7 +216,10 @@ fn divide_assign() {
 fn empty() {
     let source = "";
 
-    assert_eq!(parse(source), Ok(Chunk::with_data(vec![], vec![], vec![])),);
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(None, vec![], vec![], vec![]))
+    );
     assert_eq!(run(source), Ok(None));
 }
 
@@ -219,6 +230,7 @@ fn empty_list() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_list(0, 0, 0), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2)),
@@ -238,6 +250,7 @@ fn equal() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -265,6 +278,7 @@ fn equality_assignment_long() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -294,6 +308,7 @@ fn equality_assignment_short() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -324,6 +339,7 @@ fn function() {
         run(source),
         Ok(Some(Value::function(
             Chunk::with_data(
+                None,
                 vec![
                     (Instruction::add(2, 0, 1), Span(30, 31)),
                     (Instruction::r#return(true), Span(34, 35)),
@@ -353,12 +369,14 @@ fn function_declaration() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 40)),
                 (Instruction::define_local(0, 0, false), Span(3, 6)),
             ],
             vec![Value::function(
                 Chunk::with_data(
+                    None,
                     vec![
                         (Instruction::add(2, 0, 1), Span(35, 36)),
                         (Instruction::r#return(true), Span(39, 40)),
@@ -405,6 +423,7 @@ fn function_call() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 36)),
                 (Instruction::load_constant(1, 1, false), Span(36, 37)),
@@ -415,6 +434,7 @@ fn function_call() {
             vec![
                 Value::function(
                     Chunk::with_data(
+                        None,
                         vec![
                             (Instruction::add(2, 0, 1), Span(30, 31)),
                             (Instruction::r#return(true), Span(34, 35)),
@@ -451,6 +471,7 @@ fn greater() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::less_equal(false, 0, 1)
@@ -478,6 +499,7 @@ fn greater_than_or_equal() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::less(false, 0, 1)
@@ -505,6 +527,7 @@ fn if_else_expression() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -537,6 +560,7 @@ fn if_expression_false() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -562,6 +586,7 @@ fn if_expression_true() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -587,6 +612,7 @@ fn less_than() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::less(true, 0, 1)
@@ -614,6 +640,7 @@ fn less_than_or_equal() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::less_equal(true, 0, 1)
@@ -641,6 +668,7 @@ fn list() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (Instruction::load_constant(1, 1, false), Span(4, 5)),
@@ -663,6 +691,7 @@ fn list_with_complex_expression() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
@@ -703,6 +732,7 @@ fn list_with_simple_expression() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
@@ -735,6 +765,7 @@ fn math_operator_precedence() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::add(0, 0, 1)
@@ -776,6 +807,7 @@ fn multiply() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::multiply(0, 0, 1)
@@ -800,6 +832,7 @@ fn multiply_assign() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -825,6 +858,7 @@ fn negate() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -844,6 +878,7 @@ fn not() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_boolean(0, true, false), Span(1, 5)),
                 (Instruction::not(1, 0), Span(0, 1)),
@@ -864,6 +899,7 @@ fn not_equal() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::equal(false, 0, 1)
@@ -891,6 +927,7 @@ fn or() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, true), Span(5, 7)),
@@ -913,6 +950,7 @@ fn parentheses_precedence() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::add(0, 0, 1)
@@ -941,6 +979,7 @@ fn set_local() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -964,6 +1003,7 @@ fn subtract() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (
                     *Instruction::subtract(0, 0, 1)
@@ -988,6 +1028,7 @@ fn subtract_assign() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -1013,6 +1054,7 @@ fn variable_and() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_boolean(0, true, false), Span(8, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -1042,6 +1084,7 @@ fn r#while() {
     assert_eq!(
         parse(source),
         Ok(Chunk::with_data(
+            None,
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),

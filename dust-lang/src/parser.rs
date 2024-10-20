@@ -9,8 +9,8 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    instruction, operation, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier,
-    Instruction, LexError, Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
+    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -59,7 +59,7 @@ impl<'src> Parser<'src> {
 
         Ok(Parser {
             lexer,
-            chunk: Chunk::new(),
+            chunk: Chunk::new(None),
             current_statement: Vec::new(),
             minimum_register: 0,
             current_token,
@@ -169,36 +169,6 @@ impl<'src> Parser<'src> {
         }
 
         Some(operations)
-    }
-
-    fn get_previous_jump_mut(&mut self) -> Option<&mut Instruction> {
-        let staged_jump = self
-            .current_statement
-            .iter_mut()
-            .rev()
-            .find_map(|(instruction, _)| {
-                if matches!(instruction.operation(), Operation::Jump) {
-                    Some(instruction)
-                } else {
-                    None
-                }
-            });
-
-        if staged_jump.is_some() {
-            staged_jump
-        } else {
-            self.chunk
-                .instructions_mut()
-                .iter_mut()
-                .rev()
-                .find_map(|(instruction, _)| {
-                    if matches!(instruction.operation(), Operation::Jump) {
-                        Some(instruction)
-                    } else {
-                        None
-                    }
-                })
-        }
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
@@ -1104,10 +1074,12 @@ impl<'src> Parser<'src> {
         let mut function_parser = Parser::new(self.lexer)?;
         let identifier = if let Token::Identifier(text) = function_parser.current_token {
             let position = function_parser.current_position;
+            let identifier = Identifier::new(text);
 
             function_parser.advance()?;
+            function_parser.chunk.set_name(identifier.clone());
 
-            Some((Identifier::new(text), position))
+            Some((identifier, position))
         } else {
             None
         };

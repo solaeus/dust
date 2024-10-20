@@ -1,6 +1,6 @@
 use std::{
+    env::current_exe,
     fmt::{self, Debug, Display},
-    path::PathBuf,
 };
 
 use colored::Colorize;
@@ -10,6 +10,7 @@ use crate::{AnnotatedError, Identifier, Instruction, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
+    name: Option<Identifier>,
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
     locals: Vec<Local>,
@@ -17,8 +18,9 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new() -> Self {
+    pub fn new(name: Option<Identifier>) -> Self {
         Self {
+            name,
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
@@ -27,16 +29,26 @@ impl Chunk {
     }
 
     pub fn with_data(
+        name: Option<Identifier>,
         instructions: Vec<(Instruction, Span)>,
         constants: Vec<Value>,
         locals: Vec<Local>,
     ) -> Self {
         Self {
+            name,
             instructions,
             constants,
             locals,
             scope_depth: 0,
         }
+    }
+
+    pub fn name(&self) -> Option<&Identifier> {
+        self.name.as_ref()
+    }
+
+    pub fn set_name(&mut self, name: Identifier) {
+        self.name = Some(name);
     }
 
     pub fn len(&self) -> usize {
@@ -202,34 +214,20 @@ impl Chunk {
         self.scope_depth -= 1;
     }
 
-    pub fn disassembler<'a>(&'a self, name: &'a str) -> ChunkDisassembler<'a> {
-        ChunkDisassembler::new(name, self)
-    }
-}
-
-impl Default for Chunk {
-    fn default() -> Self {
-        Self::new()
+    pub fn disassembler(&self) -> ChunkDisassembler {
+        ChunkDisassembler::new(self)
     }
 }
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.disassembler("Dust Program").styled(true).disassemble()
-        )
+        write!(f, "{}", self.disassembler().styled(true).disassemble())
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let executable = std::env::current_exe().unwrap_or_else(|_| PathBuf::new());
-        let disassembly = self
-            .disassembler(&executable.to_string_lossy())
-            .styled(false)
-            .disassemble();
+        let disassembly = self.disassembler().styled(false).disassemble();
 
         if cfg!(debug_assertions) {
             write!(f, "\n{}", disassembly)
@@ -277,7 +275,6 @@ impl Local {
 }
 
 pub struct ChunkDisassembler<'a> {
-    name: &'a str,
     chunk: &'a Chunk,
     source: Option<&'a str>,
     width: usize,
@@ -311,9 +308,8 @@ impl<'a> ChunkDisassembler<'a> {
         longest_line.chars().count().max(80)
     }
 
-    pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
+    pub fn new(chunk: &'a Chunk) -> Self {
         Self {
-            name,
             chunk,
             source: None,
             width: Self::default_width(),
@@ -465,9 +461,18 @@ impl<'a> ChunkDisassembler<'a> {
         let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
         let section_border = "│".to_string() + &"┈".repeat(self.width - 2) + "│";
         let bottom_border = "└".to_string() + &"─".repeat(self.width - 2) + "┘";
+        let name_display = self
+            .chunk
+            .name()
+            .map(|identifier| identifier.to_string())
+            .unwrap_or_else(|| {
+                current_exe()
+                    .map(|path| path.to_string_lossy().to_string())
+                    .unwrap_or("Chunk Disassembly".to_string())
+            });
 
         push_border(&top_border, &mut disassembly);
-        push_header(self.name, &mut disassembly);
+        push_header(&name_display, &mut disassembly);
 
         let info_line = format!(
             "{} instructions, {} constants, {} locals",
@@ -564,7 +569,7 @@ impl<'a> ChunkDisassembler<'a> {
 
             if let Some(function_disassembly) = match value {
                 Value::Function(function) => Some({
-                    let mut disassembler = function.chunk().disassembler("function");
+                    let mut disassembler = function.chunk().disassembler();
                     disassembler.indent = self.indent + 1;
 
                     disassembler.styled(self.styled);
