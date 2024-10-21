@@ -22,10 +22,11 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
             .parse_statement(Allowed {
                 assignment: true,
                 explicit_return: false,
-                implicit_return: true,
             })
             .map_err(|error| DustError::Parse { error, source })?;
-        parser.commit_current_statement();
+        parser
+            .commit_staged()
+            .map_err(|error| DustError::Parse { error, source })?;
     }
 
     Ok(parser.finish())
@@ -36,7 +37,7 @@ pub struct Parser<'src> {
     lexer: Lexer<'src>,
     chunk: Chunk,
 
-    current_statement: Vec<(Instruction, Span)>,
+    staged_instructions: Vec<(Instruction, Span)>,
     current_is_expression: bool,
     minimum_register: u8,
 
@@ -62,7 +63,7 @@ impl<'src> Parser<'src> {
         Ok(Parser {
             lexer,
             chunk: Chunk::new(None),
-            current_statement: Vec::new(),
+            staged_instructions: Vec::new(),
             current_is_expression: false,
             minimum_register: 0,
             current_token,
@@ -84,7 +85,7 @@ impl<'src> Parser<'src> {
     }
 
     fn next_register(&mut self) -> u8 {
-        self.current_statement
+        self.staged_instructions
             .iter()
             .rev()
             .find_map(|(instruction, _)| {
@@ -145,15 +146,30 @@ impl<'src> Parser<'src> {
             position.to_string()
         );
 
-        self.current_statement.push((instruction, position));
+        self.staged_instructions.push((instruction, position));
     }
 
-    fn commit_current_statement(&mut self) -> Result<(), ParseError> {
+    fn commit_staged(&mut self) -> Result<(), ParseError> {
+        if self.staged_instructions.len() == 4
+            && self.staged_instructions[0].0.operation().is_comparison()
+            && matches!(self.staged_instructions[1].0.operation(), Operation::Jump)
+            && matches!(
+                self.staged_instructions[2].0.operation(),
+                Operation::LoadBoolean | Operation::LoadConstant
+            )
+            && matches!(
+                self.staged_instructions[3].0.operation(),
+                Operation::LoadBoolean | Operation::LoadConstant
+            )
+        {
+            self.staged_instructions[2].0.set_c_to_boolean(true);
+        }
+
         self.parse_implicit_return()?;
 
         let next_register = self.next_register();
 
-        for (instruction, position) in self.current_statement.drain(..) {
+        for (instruction, position) in self.staged_instructions.drain(..) {
             self.chunk.push_instruction(instruction, position);
         }
 
@@ -164,14 +180,18 @@ impl<'src> Parser<'src> {
     }
 
     fn get_statement_operations<const COUNT: usize>(&self) -> Option<[(Operation, Span); COUNT]> {
-        if self.current_statement.len() < COUNT {
+        if self.staged_instructions.len() < COUNT {
             return None;
         }
 
         let mut operations = [(Operation::Return, Span(0, 0)); COUNT];
 
-        for (index, (instruction, position)) in
-            self.current_statement.iter().rev().enumerate().take(COUNT)
+        for (index, (instruction, position)) in self
+            .staged_instructions
+            .iter()
+            .rev()
+            .enumerate()
+            .take(COUNT)
         {
             operations[index] = (instruction.operation(), *position);
         }
@@ -180,7 +200,7 @@ impl<'src> Parser<'src> {
     }
 
     fn get_last_jump_mut(&mut self) -> Option<&mut Instruction> {
-        self.current_statement
+        self.staged_instructions
             .iter_mut()
             .rev()
             .find_map(|(instruction, _)| {
@@ -224,7 +244,7 @@ impl<'src> Parser<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
             let register = if let Some(instruction) = self
-                .current_statement
+                .staged_instructions
                 .last()
                 .map(|(instruction, _)| instruction)
             {
@@ -396,7 +416,7 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         let (previous_instruction, previous_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -485,7 +505,7 @@ impl<'src> Parser<'src> {
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -517,7 +537,7 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -602,7 +622,7 @@ impl<'src> Parser<'src> {
         }
 
         let (left_instruction, left_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -619,7 +639,7 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -672,7 +692,7 @@ impl<'src> Parser<'src> {
 
         self.emit_instruction(instruction, operator_position);
 
-        let jump_to = (self.chunk.len() + self.current_statement.len() + 2) as u8;
+        let jump_to = (self.chunk.len() + self.staged_instructions.len() + 2) as u8;
 
         self.emit_instruction(Instruction::jump(jump_to), operator_position);
         self.emit_instruction(
@@ -691,7 +711,7 @@ impl<'src> Parser<'src> {
 
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
         let (left_instruction, left_position) =
-            self.current_statement
+            self.staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -718,7 +738,7 @@ impl<'src> Parser<'src> {
         self.emit_instruction(left_instruction, left_position);
         self.emit_instruction(instruction, operator_position);
 
-        let jump_to = (self.chunk.len() + self.current_statement.len() + 2) as u8;
+        let jump_to = (self.chunk.len() + self.staged_instructions.len() + 2) as u8;
 
         self.emit_instruction(Instruction::jump(jump_to), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
@@ -796,7 +816,7 @@ impl<'src> Parser<'src> {
             self.parse_expression()?;
 
             let (mut previous_instruction, previous_position) = self
-                .current_statement
+                .staged_instructions
                 .pop()
                 .ok_or_else(|| ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -918,14 +938,13 @@ impl<'src> Parser<'src> {
             [(Operation::LoadBoolean, _), (Operation::LoadBoolean, _), (Operation::Jump, _), (Operation::Equal | Operation::Less | Operation::LessEqual, _)],
         ) = self.get_statement_operations()
         {
-            self.current_statement.pop();
-            self.current_statement.pop();
+            self.staged_instructions.pop();
+            self.staged_instructions.pop();
         }
 
         let block_allowed = Allowed {
             assignment: allowed.assignment,
             explicit_return: allowed.explicit_return,
-            implicit_return: false,
         };
 
         if let Token::LeftCurlyBrace = self.current_token {
@@ -938,64 +957,61 @@ impl<'src> Parser<'src> {
             });
         }
 
-        let if_block_end = self.current_statement.len();
+        let if_block_index = self.staged_instructions.len();
+        let if_block_end = (self.chunk.len() + if_block_index) as u8;
 
         if let Some(if_jump) = self.get_last_jump_mut() {
-            if_jump.set_b(if_block_end as u8);
+            if_jump.set_b(if_block_end);
         }
 
         if self.allow(Token::Else)? {
             if let Token::If = self.current_token {
-                return self.parse_if(allowed);
-            }
+                self.parse_if(allowed)?;
 
-            if let Token::LeftCurlyBrace = self.current_token {
+                let if_block_index = self.staged_instructions.len();
+                let if_block_end = (self.chunk.len() + if_block_index) as u8;
+
+                if let Some(if_jump) = self.get_last_jump_mut() {
+                    if_jump.set_b(if_block_end + 1);
+                }
+            } else if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(block_allowed)?;
 
-                let else_end = self.current_statement.len();
+                let else_end = self.chunk.len() + self.staged_instructions.len();
 
-                if else_end - if_block_end > 1 {
-                    self.current_statement.insert(
-                        if_block_end,
+                if else_end - if_block_index > 1 {
+                    self.staged_instructions.insert(
+                        if_block_index,
                         (
                             Instruction::jump((else_end + 1) as u8),
                             self.current_position,
                         ),
                     );
-                } else {
-                    self.current_statement
-                        .iter_mut()
-                        .rev()
-                        .filter(|(instruction, _)| {
-                            matches!(
-                                instruction.operation(),
-                                Operation::LoadBoolean | Operation::LoadConstant
-                            )
-                        })
-                        .nth(1)
-                        .map(|(instruction, _)| instruction.set_c_to_boolean(true));
                 }
 
                 self.current_is_expression = self
-                    .current_statement
+                    .staged_instructions
                     .last()
                     .map_or(false, |(instruction, _)| instruction.yields_value());
 
-                self.commit_current_statement()?;
-
-                return Ok(());
+                self.commit_staged()?;
+            } else {
+                return Err(ParseError::ExpectedTokenMultiple {
+                    expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
+                    found: self.current_token.to_owned(),
+                    position: self.current_position,
+                });
             }
 
-            return Err(ParseError::ExpectedTokenMultiple {
-                expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            });
+            self.current_is_expression = self
+                .staged_instructions
+                .last()
+                .map_or(false, |(instruction, _)| instruction.yields_value());
+        } else {
+            self.current_is_expression = false;
         }
 
-        self.current_is_expression = false;
-
-        self.commit_current_statement()?;
+        self.commit_staged()?;
 
         Ok(())
     }
@@ -1003,7 +1019,7 @@ impl<'src> Parser<'src> {
     fn parse_while(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         self.advance()?;
 
-        let jump_start = (self.chunk.len() + self.current_statement.len()) as u8;
+        let jump_start = (self.chunk.len() + self.staged_instructions.len()) as u8;
 
         self.parse_expression()?;
 
@@ -1011,17 +1027,16 @@ impl<'src> Parser<'src> {
             [(Operation::LoadBoolean, _), (Operation::LoadBoolean, _), (Operation::Jump, _), (Operation::Equal | Operation::Less | Operation::LessEqual, _)],
         ) = self.get_statement_operations()
         {
-            self.current_statement.pop();
-            self.current_statement.pop();
+            self.staged_instructions.pop();
+            self.staged_instructions.pop();
         }
 
         self.parse_block(Allowed {
             assignment: true,
             explicit_return: allowed.explicit_return,
-            implicit_return: false,
         })?;
 
-        let jump_end = (self.chunk.len() + self.current_statement.len()) as u8;
+        let jump_end = (self.chunk.len() + self.staged_instructions.len()) as u8;
 
         if let Some(jump) = self.get_last_jump_mut() {
             jump.set_b(jump_end + 1);
@@ -1030,7 +1045,7 @@ impl<'src> Parser<'src> {
         let jump_back = Instruction::jump(jump_start);
 
         self.emit_instruction(jump_back, self.current_position);
-        self.commit_current_statement()?;
+        self.commit_staged()?;
 
         self.current_is_expression = false;
 
@@ -1049,7 +1064,6 @@ impl<'src> Parser<'src> {
             Allowed {
                 assignment: false,
                 explicit_return: false,
-                implicit_return: false,
             },
         )
     }
@@ -1060,7 +1074,6 @@ impl<'src> Parser<'src> {
             Allowed {
                 assignment: false,
                 explicit_return: false,
-                implicit_return: false,
             },
         )
     }
@@ -1092,7 +1105,7 @@ impl<'src> Parser<'src> {
 
         self.current_is_expression = false;
 
-        self.commit_current_statement()?;
+        self.commit_staged()?;
 
         Ok(())
     }
@@ -1108,7 +1121,7 @@ impl<'src> Parser<'src> {
         );
         let has_semicolon = self.allow(Token::Semicolon)?;
         let returned = self
-            .current_statement
+            .staged_instructions
             .last()
             .map(|(instruction, _)| matches!(instruction.operation(), Operation::Return))
             .unwrap_or(false);
@@ -1169,7 +1182,7 @@ impl<'src> Parser<'src> {
 
         self.current_is_expression = false;
 
-        self.commit_current_statement()?;
+        self.commit_staged()?;
 
         Ok(())
     }
@@ -1266,9 +1279,8 @@ impl<'src> Parser<'src> {
             function_parser.parse_statement(Allowed {
                 assignment: true,
                 explicit_return: true,
-                implicit_return: true,
             })?;
-            function_parser.commit_current_statement()?;
+            function_parser.commit_staged()?;
         }
 
         function_parser.advance()?;
@@ -1306,7 +1318,7 @@ impl<'src> Parser<'src> {
 
             self.current_is_expression = false;
 
-            self.commit_current_statement()?;
+            self.commit_staged()?;
         } else {
             self.emit_constant(function, Span(function_start, function_end))?;
 
@@ -1317,7 +1329,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_call(&mut self) -> Result<(), ParseError> {
-        let (last_instruction, _) = self.current_statement.last().copied().ok_or_else(|| {
+        let (last_instruction, _) = self.staged_instructions.last().copied().ok_or_else(|| {
             ParseError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
@@ -1473,7 +1485,6 @@ pub enum Context {
 struct Allowed {
     pub assignment: bool,
     pub explicit_return: bool,
-    pub implicit_return: bool,
 }
 
 type PrefixFunction<'a> = fn(&mut Parser<'a>, Allowed) -> Result<(), ParseError>;

@@ -425,11 +425,21 @@ impl Vm {
 
                 Ok(())
             }
-            Ordering::Greater => Err(VmError::SkippedRegister {
-                index: to_register,
-                length,
-                position,
-            }),
+            Ordering::Greater => {
+                let difference = to_register - length;
+
+                for index in 0..difference {
+                    log::trace!("Set R{index} to empty");
+
+                    self.stack.push(Register::Empty);
+                }
+
+                log::trace!("Set R{to_register} to {value}");
+
+                self.stack.push(Register::Value(value));
+
+                Ok(())
+            }
         }
     }
 
@@ -461,48 +471,68 @@ impl Vm {
 
                 Ok(())
             }
-            Ordering::Greater => Err(VmError::SkippedRegister {
-                index: to_register,
-                length,
-                position,
-            }),
+            Ordering::Greater => {
+                let difference = to_register - length;
+
+                for index in 0..difference {
+                    log::trace!("Set R{index} to empty");
+
+                    self.stack.push(Register::Empty);
+                }
+
+                log::trace!("Set R{to_register} to R{from_register}");
+
+                self.stack.push(Register::Pointer(from_register));
+
+                Ok(())
+            }
         }
     }
 
     fn set_constant(
         &mut self,
-        index: u8,
+        to_register: u8,
         constant_index: u8,
         position: Span,
     ) -> Result<(), VmError> {
         let length = self.stack.len();
-        let index = index as usize;
+        let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
             return Err(VmError::StackOverflow { position });
         }
 
-        if index == length {
-            log::trace!("Change register {index} to C{constant_index}");
+        match to_register.cmp(&length) {
+            Ordering::Less => {
+                log::trace!("Change R{to_register} to C{constant_index}");
 
-            self.stack.push(Register::Constant(constant_index));
+                self.stack[to_register] = Register::Constant(constant_index);
 
-            return Ok(());
+                Ok(())
+            }
+            Ordering::Equal => {
+                log::trace!("Set R{to_register} to C{constant_index}");
+
+                self.stack.push(Register::Constant(constant_index));
+
+                Ok(())
+            }
+            Ordering::Greater => {
+                let difference = to_register - length;
+
+                for index in 0..difference {
+                    log::trace!("Set R{index} to empty");
+
+                    self.stack.push(Register::Empty);
+                }
+
+                log::trace!("Set R{to_register} to C{constant_index}");
+
+                self.stack.push(Register::Constant(constant_index));
+
+                Ok(())
+            }
         }
-
-        if index < length {
-            log::trace!("Set register {index} to C{constant_index}");
-
-            self.stack[index] = Register::Constant(constant_index);
-
-            return Ok(());
-        }
-
-        Err(VmError::SkippedRegister {
-            index,
-            length: self.stack.len(),
-            position,
-        })
     }
 
     pub fn get(&self, index: u8, position: Span) -> Result<&Value, VmError> {
@@ -596,11 +626,6 @@ pub enum VmError {
         instruction: Instruction,
         position: Span,
     },
-    SkippedRegister {
-        index: usize,
-        length: usize,
-        position: Span,
-    },
     StackOverflow {
         position: Span,
     },
@@ -639,7 +664,6 @@ impl AnnotatedError for VmError {
             Self::ExpectedFunction { .. } => "Expected function",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
-            Self::SkippedRegister { .. } => "Skipped register",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndefinedVariable { .. } => "Undefined variable",
@@ -672,7 +696,6 @@ impl AnnotatedError for VmError {
             Self::ExpectedFunction { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::InvalidInstruction { position, .. } => *position,
-            Self::SkippedRegister { position, .. } => *position,
             Self::StackUnderflow { position } => *position,
             Self::StackOverflow { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
