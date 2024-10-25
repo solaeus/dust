@@ -586,7 +586,7 @@ fn if_else_simple() {
                 ),
                 (Instruction::jump(3), Span(5, 7)),
                 (Instruction::load_constant(0, 2, true), Span(12, 13)),
-                (Instruction::load_constant(1, 3, false), Span(23, 24)),
+                (Instruction::load_constant(0, 3, false), Span(23, 24)),
                 (Instruction::r#return(true), Span(26, 26)),
             ],
             vec![

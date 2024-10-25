@@ -6,6 +6,10 @@ use crate::{Chunk, Operation};
 pub struct Instruction(u32);
 
 impl Instruction {
+    pub fn with_operation(operation: Operation) -> Instruction {
+        Instruction(operation as u32)
+    }
+
     pub fn r#move(to_register: u8, from_register: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Move as u32);
 
