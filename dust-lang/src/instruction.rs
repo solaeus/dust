@@ -211,10 +211,11 @@ impl Instruction {
         instruction
     }
 
-    pub fn jump(jump_to: u8) -> Instruction {
+    pub fn jump(jump_offset: u8, is_positive: bool) -> Instruction {
         let mut instruction = Instruction(Operation::Jump as u32);
 
-        instruction.set_b(jump_to);
+        instruction.set_b(jump_offset);
+        instruction.set_c_to_boolean(is_positive);
 
         instruction
     }
@@ -557,9 +558,14 @@ impl Instruction {
                 format!("R{to_register} = !{argument}")
             }
             Operation::Jump => {
-                let jump_to = self.b();
+                let jump_distance = self.b();
+                let is_positive = self.c_as_boolean();
 
-                format!("JUMP TO {jump_to}")
+                if is_positive {
+                    format!("JUMP +{jump_distance}")
+                } else {
+                    format!("JUMP -{jump_distance}")
+                }
             }
             Operation::Call => {
                 let to_register = self.a();
@@ -839,10 +845,12 @@ mod tests {
 
     #[test]
     fn jump() {
-        let instruction = Instruction::jump(4);
+        let instruction = Instruction::jump(4, true);
 
         assert_eq!(instruction.operation(), Operation::Jump);
+
         assert_eq!(instruction.b(), 4);
+        assert!(instruction.c_as_boolean());
     }
 
     #[test]

@@ -81,13 +81,13 @@ impl Vm {
                 Operation::LoadBoolean => {
                     let to_register = instruction.a();
                     let boolean = instruction.b_as_boolean();
-                    let skip = instruction.c_as_boolean();
+                    let jump = instruction.c_as_boolean();
                     let value = Value::boolean(boolean);
 
                     self.set(to_register, value, position)?;
 
-                    if skip {
-                        self.ip += 1;
+                    if jump {
+                        self.jump_to_ip(self.ip + 1);
                     }
                 }
                 Operation::LoadConstant => {
@@ -98,7 +98,7 @@ impl Vm {
                     self.set_constant(to_register, from_constant, position)?;
 
                     if jump {
-                        self.ip += 1;
+                        self.jump_to_ip(self.ip + 1);
                     }
                 }
                 Operation::LoadList => {
@@ -247,7 +247,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.ip = new_ip;
+                        self.jump_to_ip(new_ip);
                     }
                 }
                 Operation::Less => {
@@ -283,7 +283,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.ip = new_ip;
+                        self.jump_to_ip(new_ip);
                     }
                 }
                 Operation::LessEqual => {
@@ -320,7 +320,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.ip = new_ip;
+                        self.jump_to_ip(new_ip);
                     }
                 }
                 Operation::Negate => {
@@ -348,9 +348,15 @@ impl Vm {
                     self.set(instruction.a(), not, position)?;
                 }
                 Operation::Jump => {
-                    let jump_to = instruction.b();
+                    let jump_distance = instruction.b();
+                    let is_positive = instruction.c_as_boolean();
+                    let new_ip = if is_positive {
+                        self.ip + jump_distance as usize
+                    } else {
+                        self.ip - jump_distance as usize
+                    };
 
-                    self.ip = jump_to as usize;
+                    self.jump_to_ip(new_ip);
                 }
                 Operation::Call => {
                     let to_register = instruction.a();
@@ -416,6 +422,24 @@ impl Vm {
         }
 
         Ok(None)
+    }
+
+    fn jump_to_ip(&mut self, new_ip: usize) {
+        let final_index = self.chunk.len() - 1;
+
+        if new_ip > final_index {
+            let last_operation = self
+                .chunk
+                .instructions()
+                .last()
+                .map(|(instruction, _)| instruction.operation());
+
+            if let Some(Operation::Return) = last_operation {
+                self.ip = final_index;
+            }
+        } else {
+            self.ip = new_ip;
+        }
     }
 
     fn set(&mut self, to_register: u8, value: Value, position: Span) -> Result<(), VmError> {

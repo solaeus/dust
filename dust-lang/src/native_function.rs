@@ -555,18 +555,37 @@ pub enum NativeFunctionError {
 
 impl AnnotatedError for NativeFunctionError {
     fn title() -> &'static str {
-        todo!()
+        "Native Function Error"
     }
 
     fn description(&self) -> &'static str {
-        todo!()
+        match self {
+            NativeFunctionError::ExpectedArgumentCount { .. } => {
+                "Expected a different number of arguments"
+            }
+            NativeFunctionError::Panic { .. } => "Explicit panic",
+            NativeFunctionError::Parse { .. } => "Failed to parse value",
+            NativeFunctionError::Io { .. } => "I/O error",
+        }
     }
 
     fn details(&self) -> Option<String> {
-        todo!()
+        match self {
+            NativeFunctionError::ExpectedArgumentCount {
+                expected, found, ..
+            } => Some(format!("Expected {} arguments, found {}", expected, found)),
+            NativeFunctionError::Panic { message, .. } => message.clone(),
+            NativeFunctionError::Parse { error, .. } => Some(format!("{}", error)),
+            NativeFunctionError::Io { error, .. } => Some(format!("{}", error)),
+        }
     }
 
     fn position(&self) -> Span {
-        todo!()
+        match self {
+            NativeFunctionError::ExpectedArgumentCount { position, .. } => *position,
+            NativeFunctionError::Panic { position, .. } => *position,
+            NativeFunctionError::Parse { position, .. } => *position,
+            NativeFunctionError::Io { position, .. } => *position,
+        }
     }
 }
