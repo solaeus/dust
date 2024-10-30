@@ -18,7 +18,7 @@ pub use formatter::{format, Formatter};
 pub use identifier::Identifier;
 pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
-pub use native_function::NativeFunction;
+pub use native_function::{NativeFunction, NativeFunctionError};
 pub use operation::Operation;
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};

@@ -24,10 +24,10 @@ fn panic() {
     assert_eq!(
         run(source),
         Err(DustError::Runtime {
-            error: VmError::Panic {
+            error: VmError::NativeFunction(NativeFunctionError::Panic {
                 message: Some("Goodbye world! 42".to_string()),
                 position: Span(0, 27)
-            },
+            }),
             source
         })
     )

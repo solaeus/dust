@@ -1,8 +1,9 @@
-use std::{cmp::Ordering, io, mem::replace};
+use std::{cmp::Ordering, mem::replace};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
-    Identifier, Instruction, NativeFunction, Operation, Span, Type, Value, ValueError,
+    Identifier, Instruction, NativeFunction, NativeFunctionError, Operation, Span, Type, Value,
+    ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -636,10 +637,6 @@ pub enum VmError {
         found: Value,
         position: Span,
     },
-    Panic {
-        message: Option<String>,
-        position: Span,
-    },
     RegisterIndexOutOfBounds {
         index: usize,
         position: Span,
@@ -660,11 +657,8 @@ pub enum VmError {
     },
 
     // Wrappers for foreign errors
+    NativeFunction(NativeFunctionError),
     Chunk(ChunkError),
-    Io {
-        error: io::ErrorKind,
-        position: Span,
-    },
     Value {
         error: ValueError,
         position: Span,
@@ -688,14 +682,13 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
-            Self::Panic { .. } => "Explicit Panic",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndefinedVariable { .. } => "Undefined variable",
             Self::Chunk(error) => error.description(),
-            Self::Io { .. } => "I/O error",
+            Self::NativeFunction(error) => error.description(),
             Self::Value { .. } => "Value error",
         }
     }
@@ -704,7 +697,6 @@ impl AnnotatedError for VmError {
         match self {
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
-            Self::Panic { message, .. } => message.clone(),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
             }
@@ -712,7 +704,7 @@ impl AnnotatedError for VmError {
                 Some(format!("{identifier} is not in scope"))
             }
             Self::Chunk(error) => error.details(),
-            Self::Io { error, .. } => Some(error.to_string()),
+            Self::NativeFunction(error) => error.details(),
             Self::Value { error, .. } => Some(error.to_string()),
             _ => None,
         }
@@ -724,14 +716,13 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
-            Self::Panic { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::InvalidInstruction { position, .. } => *position,
             Self::StackUnderflow { position } => *position,
             Self::StackOverflow { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::Chunk(error) => error.position(),
-            Self::Io { position, .. } => *position,
+            Self::NativeFunction(error) => error.position(),
             Self::Value { position, .. } => *position,
         }
     }

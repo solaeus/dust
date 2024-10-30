@@ -1,11 +1,12 @@
 use std::{
     fmt::{self, Display, Formatter},
     io::{self, stdin, stdout, Write},
+    string::{self},
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instruction, Primitive, Span, Value, Vm, VmError};
+use crate::{AnnotatedError, Instruction, Primitive, Span, Value, Vm, VmError};
 
 const PANIC: u8 = 0b0000_0000;
 
@@ -252,7 +253,10 @@ impl NativeFunction {
                     Some(message)
                 };
 
-                return Err(VmError::Panic { message, position });
+                return Err(VmError::NativeFunction(NativeFunctionError::Panic {
+                    message,
+                    position,
+                }));
             }
 
             // Type conversion
@@ -321,12 +325,12 @@ impl NativeFunction {
             NativeFunction::ReadLine => {
                 let mut buffer = String::new();
 
-                stdin()
-                    .read_line(&mut buffer)
-                    .map_err(|io_error| VmError::Io {
+                stdin().read_line(&mut buffer).map_err(|io_error| {
+                    VmError::NativeFunction(NativeFunctionError::Io {
                         error: io_error.kind(),
                         position,
-                    })?;
+                    })
+                })?;
 
                 buffer = buffer.trim_end_matches('\n').to_string();
 
@@ -335,9 +339,11 @@ impl NativeFunction {
             NativeFunction::Write => {
                 let to_register = instruction.a();
                 let mut stdout = stdout();
-                let map_err = |io_error: io::Error| VmError::Io {
-                    error: io_error.kind(),
-                    position,
+                let map_err = |io_error: io::Error| {
+                    VmError::NativeFunction(NativeFunctionError::Io {
+                        error: io_error.kind(),
+                        position,
+                    })
                 };
 
                 let first_argument = to_register.saturating_sub(argument_count);
@@ -359,9 +365,11 @@ impl NativeFunction {
             }
             NativeFunction::WriteLine => {
                 let mut stdout = stdout();
-                let map_err = |io_error: io::Error| VmError::Io {
-                    error: io_error.kind(),
-                    position,
+                let map_err = |io_error: io::Error| {
+                    VmError::NativeFunction(NativeFunctionError::Io {
+                        error: io_error.kind(),
+                        position,
+                    })
                 };
 
                 let first_argument = to_register.saturating_sub(argument_count);
@@ -521,5 +529,44 @@ impl From<NativeFunction> for u8 {
 impl Display for NativeFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NativeFunctionError {
+    ExpectedArgumentCount {
+        expected: usize,
+        found: usize,
+        position: Span,
+    },
+    Panic {
+        message: Option<String>,
+        position: Span,
+    },
+    Parse {
+        error: string::ParseError,
+        position: Span,
+    },
+    Io {
+        error: io::ErrorKind,
+        position: Span,
+    },
+}
+
+impl AnnotatedError for NativeFunctionError {
+    fn title() -> &'static str {
+        todo!()
+    }
+
+    fn description(&self) -> &'static str {
+        todo!()
+    }
+
+    fn details(&self) -> Option<String> {
+        todo!()
+    }
+
+    fn position(&self) -> Span {
+        todo!()
     }
 }
