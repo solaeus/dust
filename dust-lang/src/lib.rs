@@ -23,7 +23,7 @@ pub use operation::Operation;
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use token::{Token, TokenKind, TokenOwned};
-pub use value::{Function, Value, ValueError};
+pub use value::{Function, Primitive, Value, ValueError};
 pub use vm::{run, Vm, VmError};
 
 use std::fmt::Display;

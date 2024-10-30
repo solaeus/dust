@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    io::{self, stdout, Write},
-    mem::replace,
-};
+use std::{cmp::Ordering, io, mem::replace};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
@@ -391,98 +387,12 @@ impl Vm {
                     }
                 }
                 Operation::CallNative => {
-                    let to_register = instruction.a();
                     let native_function = NativeFunction::from(instruction.b());
-                    let argument_count = instruction.c();
-                    let return_value = match native_function {
-                        NativeFunction::Panic => {
-                            let message = if argument_count == 0 {
-                                None
-                            } else {
-                                let mut message = String::new();
-
-                                for argument_index in 0..argument_count {
-                                    if argument_index != 0 {
-                                        message.push(' ');
-                                    }
-
-                                    let argument = self.get(argument_index, position)?;
-
-                                    message.push_str(&argument.to_string());
-                                }
-
-                                Some(message)
-                            };
-
-                            return Err(VmError::Panic { message, position });
-                        }
-                        NativeFunction::ToString => {
-                            let mut string = String::new();
-
-                            for argument_index in 0..argument_count {
-                                let argument = self.get(argument_index, position)?;
-
-                                string.push_str(&argument.to_string());
-                            }
-
-                            Some(Value::Primitive(Primitive::String(string)))
-                        }
-                        NativeFunction::Write => {
-                            let to_register = instruction.a();
-                            let mut stdout = stdout();
-                            let map_err = |io_error: io::Error| VmError::Io {
-                                error: io_error.kind(),
-                                position,
-                            };
-
-                            let first_argument = to_register.saturating_sub(argument_count);
-                            let last_argument = to_register.saturating_sub(1);
-
-                            for argument_index in first_argument..=last_argument {
-                                if argument_index != first_argument {
-                                    stdout.write(b" ").map_err(map_err)?;
-                                }
-
-                                let argument_string =
-                                    self.get(argument_index, position)?.to_string();
-
-                                stdout
-                                    .write_all(argument_string.as_bytes())
-                                    .map_err(map_err)?;
-                            }
-
-                            None
-                        }
-                        NativeFunction::WriteLine => {
-                            let mut stdout = stdout();
-                            let map_err = |io_error: io::Error| VmError::Io {
-                                error: io_error.kind(),
-                                position,
-                            };
-
-                            let first_argument = to_register.saturating_sub(argument_count);
-                            let last_argument = to_register.saturating_sub(1);
-
-                            for argument_index in first_argument..=last_argument {
-                                if argument_index != 0 {
-                                    stdout.write(b" ").map_err(map_err)?;
-                                }
-
-                                let argument_string =
-                                    self.get(argument_index, position)?.to_string();
-
-                                stdout
-                                    .write_all(argument_string.as_bytes())
-                                    .map_err(map_err)?;
-                            }
-
-                            stdout.write(b"\n").map_err(map_err)?;
-
-                            None
-                        }
-                    };
+                    let return_value = native_function.call(instruction, &self, position)?;
 
                     if let Some(value) = return_value {
+                        let to_register = instruction.a();
+
                         self.set(to_register, value, position)?;
                     }
                 }

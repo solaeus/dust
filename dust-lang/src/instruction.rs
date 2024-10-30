@@ -581,12 +581,7 @@ impl Instruction {
                 let to_register = self.a();
                 let native_function = NativeFunction::from(self.b());
                 let argument_count = self.c();
-                let native_function_name = match native_function {
-                    NativeFunction::Panic => "PANIC",
-                    NativeFunction::ToString => "TO_STRING",
-                    NativeFunction::Write => "WRITE",
-                    NativeFunction::WriteLine => "WRITE_LINE",
-                };
+                let native_function_name = native_function.as_str();
 
                 let mut output = format!("R{to_register} = {native_function_name}(");
 
