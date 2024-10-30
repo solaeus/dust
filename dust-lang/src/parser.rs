@@ -1101,7 +1101,7 @@ impl<'src> Parser<'src> {
             self.allow(Token::Comma)?;
         }
 
-        let end = self.current_position.1;
+        let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
         self.current_is_expression = native_function.returns_value();

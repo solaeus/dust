@@ -346,11 +346,10 @@ impl Instruction {
     }
 
     pub fn yields_value(&self) -> bool {
-        matches!(
+        if matches!(
             self.operation(),
             Operation::Add
                 | Operation::Call
-                | Operation::CallNative
                 | Operation::Divide
                 | Operation::GetLocal
                 | Operation::LoadBoolean
@@ -362,7 +361,17 @@ impl Instruction {
                 | Operation::Negate
                 | Operation::Not
                 | Operation::Subtract
-        )
+        ) {
+            return true;
+        }
+
+        if matches!(self.operation(), Operation::CallNative) {
+            let native_function = NativeFunction::from(self.b());
+
+            return native_function.returns_value();
+        }
+
+        false
     }
 
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> String {
@@ -582,11 +591,12 @@ impl Instruction {
                 let native_function = NativeFunction::from(self.b());
                 let argument_count = self.c();
                 let mut output = String::new();
+                let native_function_name = native_function.as_str();
 
                 if native_function.returns_value() {
-                    let native_function_name = native_function.as_str();
-
                     output.push_str(&format!("R{} = {}(", to_register, native_function_name));
+                } else {
+                    output.push_str(&format!("{}(", native_function_name));
                 }
 
                 if argument_count != 0 {
@@ -601,9 +611,7 @@ impl Instruction {
                     }
                 }
 
-                if native_function.returns_value() {
-                    output.push(')');
-                }
+                output.push(')');
 
                 output
             }
