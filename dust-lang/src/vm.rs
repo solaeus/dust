@@ -2,7 +2,7 @@ use std::{cmp::Ordering, mem::replace};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
-    Identifier, Instruction, Operation, Span, Type, Value, ValueError,
+    Identifier, Instruction, NativeFunction, Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -386,6 +386,50 @@ impl Vm {
                         self.set(to_register, value, position)?;
                     }
                 }
+                Operation::CallNative => {
+                    let to_register = instruction.a();
+                    let native_function = NativeFunction::from(instruction.b());
+                    let argument_count = instruction.c();
+                    let return_value = match native_function {
+                        NativeFunction::Panic => {
+                            let message = if argument_count == 0 {
+                                None
+                            } else {
+                                let mut message = String::new();
+
+                                for argument_index in 0..argument_count {
+                                    if argument_index != 0 {
+                                        message.push(' ');
+                                    }
+
+                                    let argument = self.get(argument_index, position)?;
+
+                                    message.push_str(&argument.to_string());
+                                }
+
+                                Some(message)
+                            };
+
+                            return Err(VmError::Panic { message, position });
+                        }
+                        NativeFunction::ToString => {
+                            let mut string = String::new();
+
+                            for argument_index in 0..argument_count {
+                                let argument = self.get(argument_index, position)?;
+
+                                string.push_str(&argument.to_string());
+                            }
+
+                            Some(Value::Primitive(Primitive::String(string)))
+                        }
+                        NativeFunction::WriteLine => todo!(),
+                    };
+
+                    if let Some(value) = return_value {
+                        self.set(to_register, value, position)?;
+                    }
+                }
                 Operation::Return => {
                     let should_return_value = instruction.b_as_boolean();
 
@@ -626,6 +670,10 @@ pub enum VmError {
         found: Value,
         position: Span,
     },
+    Panic {
+        message: Option<String>,
+        position: Span,
+    },
     RegisterIndexOutOfBounds {
         index: usize,
         position: Span,
@@ -670,6 +718,7 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
+            Self::Panic { .. } => "Explicit Panic",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::StackOverflow { .. } => "Stack overflow",
@@ -684,6 +733,7 @@ impl AnnotatedError for VmError {
         match self {
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
+            Self::Panic { message, .. } => message.clone(),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
             }
@@ -702,6 +752,7 @@ impl AnnotatedError for VmError {
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
+            Self::Panic { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::InvalidInstruction { position, .. } => *position,
             Self::StackUnderflow { position } => *position,

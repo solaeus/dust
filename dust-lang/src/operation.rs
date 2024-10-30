@@ -30,7 +30,8 @@ const NOT: u8 = 0b0001_0100;
 
 const JUMP: u8 = 0b0001_0101;
 const CALL: u8 = 0b0001_0110;
-const RETURN: u8 = 0b0001_0111;
+const CALL_NATIVE: u8 = 0b0001_0111;
+const RETURN: u8 = 0b0001_1000;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
@@ -72,6 +73,7 @@ pub enum Operation {
     // Control flow
     Jump = JUMP as isize,
     Call = CALL as isize,
+    CallNative = CALL_NATIVE as isize,
     Return = RETURN as isize,
 }
 
@@ -125,6 +127,7 @@ impl From<u8> for Operation {
             NOT => Operation::Not,
             JUMP => Operation::Jump,
             CALL => Operation::Call,
+            CALL_NATIVE => Operation::CallNative,
             RETURN => Operation::Return,
             _ => {
                 if cfg!(test) {
@@ -163,6 +166,7 @@ impl From<Operation> for u8 {
             Operation::Not => NOT,
             Operation::Jump => JUMP,
             Operation::Call => CALL,
+            Operation::CallNative => CALL_NATIVE,
             Operation::Return => RETURN,
         }
     }
@@ -194,6 +198,7 @@ impl Display for Operation {
             Operation::Not => write!(f, "NOT"),
             Operation::Jump => write!(f, "JUMP"),
             Operation::Call => write!(f, "CALL"),
+            Operation::CallNative => write!(f, "CALL_NATIVE"),
             Operation::Return => write!(f, "RETURN"),
         }
     }

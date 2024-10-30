@@ -32,6 +32,7 @@ pub enum Token<'src> {
     Loop,
     Map,
     Mut,
+    Panic,
     Return,
     Str,
     Struct,
@@ -119,6 +120,7 @@ impl<'src> Token<'src> {
             Token::LessEqual => 2,
             Token::Minus => 1,
             Token::MinusEqual => 2,
+            Token::Panic => 5,
             Token::Percent => 1,
             Token::PercentEqual => 2,
             Token::Plus => 1,
@@ -180,6 +182,7 @@ impl<'src> Token<'src> {
             Token::LessEqual => "<=",
             Token::Minus => "-",
             Token::MinusEqual => "-=",
+            Token::Panic => "panic",
             Token::Percent => "%",
             Token::PercentEqual => "%=",
             Token::Plus => "+",
@@ -237,6 +240,7 @@ impl<'src> Token<'src> {
             Token::Minus => TokenOwned::Minus,
             Token::MinusEqual => TokenOwned::MinusEqual,
             Token::Mut => TokenOwned::Mut,
+            Token::Panic => TokenOwned::Panic,
             Token::Percent => TokenOwned::Percent,
             Token::PercentEqual => TokenOwned::PercentEqual,
             Token::Plus => TokenOwned::Plus,
@@ -298,6 +302,7 @@ impl<'src> Token<'src> {
             Token::Minus => TokenKind::Minus,
             Token::MinusEqual => TokenKind::MinusEqual,
             Token::Mut => TokenKind::Mut,
+            Token::Panic => TokenKind::Panic,
             Token::Percent => TokenKind::Percent,
             Token::PercentEqual => TokenKind::PercentEqual,
             Token::Plus => TokenKind::Plus,
@@ -351,6 +356,7 @@ impl<'src> Token<'src> {
                 | Token::MinusEqual
                 | Token::Percent
                 | Token::PercentEqual
+                | Token::Panic
                 | Token::Plus
                 | Token::PlusEqual
                 | Token::Slash
@@ -403,6 +409,7 @@ impl<'src> Display for Token<'src> {
             Token::Minus => write!(f, "-"),
             Token::MinusEqual => write!(f, "-="),
             Token::Mut => write!(f, "mut"),
+            Token::Panic => write!(f, "panic"),
             Token::Percent => write!(f, "%"),
             Token::PercentEqual => write!(f, "%="),
             Token::Plus => write!(f, "+"),
@@ -454,6 +461,7 @@ pub enum TokenOwned {
     Loop,
     Map,
     Mut,
+    Panic,
     Return,
     Str,
     While,
@@ -536,6 +544,7 @@ impl Display for TokenOwned {
             TokenOwned::Minus => Token::Minus.fmt(f),
             TokenOwned::MinusEqual => Token::MinusEqual.fmt(f),
             TokenOwned::Mut => Token::Mut.fmt(f),
+            TokenOwned::Panic => Token::Panic.fmt(f),
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::PercentEqual => Token::PercentEqual.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
@@ -584,6 +593,7 @@ pub enum TokenKind {
     Let,
     Loop,
     Map,
+    Panic,
     Return,
     Str,
     While,
@@ -667,6 +677,7 @@ impl Display for TokenKind {
             TokenKind::Minus => Token::Minus.fmt(f),
             TokenKind::MinusEqual => Token::MinusEqual.fmt(f),
             TokenKind::Mut => Token::Mut.fmt(f),
+            TokenKind::Panic => Token::Panic.fmt(f),
             TokenKind::Percent => Token::Percent.fmt(f),
             TokenKind::PercentEqual => Token::PercentEqual.fmt(f),
             TokenKind::Plus => Token::Plus.fmt(f),

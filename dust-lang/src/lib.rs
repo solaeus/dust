@@ -4,6 +4,7 @@ mod formatter;
 mod identifier;
 mod instruction;
 mod lexer;
+mod native_function;
 mod operation;
 mod parser;
 mod token;
@@ -11,20 +12,21 @@ mod r#type;
 mod value;
 mod vm;
 
-use std::fmt::Display;
-
 pub use chunk::{Chunk, ChunkDisassembler, ChunkError, Local};
 pub use dust_error::{AnnotatedError, DustError};
 pub use formatter::{format, Formatter};
 pub use identifier::Identifier;
 pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
+pub use native_function::NativeFunction;
 pub use operation::Operation;
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Function, Value, ValueError};
 pub use vm::{run, Vm, VmError};
+
+use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 

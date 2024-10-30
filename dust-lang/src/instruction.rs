@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Operation};
+use crate::{Chunk, NativeFunction, Operation};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Instruction(u32);
@@ -229,6 +229,21 @@ impl Instruction {
         instruction
     }
 
+    pub fn call_native(
+        to_register: u8,
+        native_fn: NativeFunction,
+        argument_count: u8,
+    ) -> Instruction {
+        let mut instruction = Instruction(Operation::CallNative as u32);
+        let native_fn_byte = native_fn as u8;
+
+        instruction.set_a(to_register);
+        instruction.set_b(native_fn_byte);
+        instruction.set_c(argument_count);
+
+        instruction
+    }
+
     pub fn r#return(should_return_value: bool) -> Instruction {
         let mut instruction = Instruction(Operation::Return as u32);
 
@@ -335,6 +350,7 @@ impl Instruction {
             self.operation(),
             Operation::Add
                 | Operation::Call
+                | Operation::CallNative
                 | Operation::Divide
                 | Operation::GetLocal
                 | Operation::LoadBoolean
@@ -542,16 +558,47 @@ impl Instruction {
                 let argument_count = self.c();
 
                 let mut output = format!("R{to_register} = R{function_register}(");
-                let first_argument = function_register + 1;
 
-                for (index, register) in
-                    (first_argument..first_argument + argument_count).enumerate()
-                {
-                    if index > 0 {
-                        output.push_str(", ");
+                if argument_count != 0 {
+                    let first_argument = function_register + 1;
+
+                    for (index, register) in
+                        (first_argument..first_argument + argument_count).enumerate()
+                    {
+                        if index > 0 {
+                            output.push_str(", ");
+                        }
+
+                        output.push_str(&format!("R{}", register));
                     }
+                }
 
-                    output.push_str(&format!("R{}", register));
+                output.push(')');
+
+                output
+            }
+            Operation::CallNative => {
+                let to_register = self.a();
+                let native_function = NativeFunction::from(self.b());
+                let argument_count = self.c();
+                let native_function_name = match native_function {
+                    NativeFunction::Panic => "PANIC",
+                    NativeFunction::ToString => "TO_STRING",
+                    NativeFunction::WriteLine => "WRITE_LINE",
+                };
+
+                let mut output = format!("R{to_register} = {native_function_name}(");
+
+                if argument_count != 0 {
+                    let first_argument = to_register.saturating_sub(argument_count);
+
+                    for (index, register) in (first_argument..to_register).enumerate() {
+                        if index > 0 {
+                            output.push_str(", ");
+                        }
+
+                        output.push_str(&format!("R{}", register));
+                    }
                 }
 
                 output.push(')');

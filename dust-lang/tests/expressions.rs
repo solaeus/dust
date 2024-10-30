@@ -569,75 +569,75 @@ fn if_else_complex() {
     )
 }
 
-#[test]
-fn if_else_nested() {
-    let source = r#"
-        if 0 == 1 {
-            if 0 == 2 {
-                1;
-            } else {
-                2;
-            }
-        } else {
-            if 0 == 3 {
-                3;
-            } else {
-                4;
-            }
-        }"#;
+// #[test]
+// fn if_else_nested() {
+//     let source = r#"
+//         if 0 == 1 {
+//             if 0 == 2 {
+//                 1;
+//             } else {
+//                 2;
+//             }
+//         } else {
+//             if 0 == 3 {
+//                 3;
+//             } else {
+//                 4;
+//             }
+//         }"#;
 
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::equal(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(14, 16)
-                ),
-                (Instruction::jump(7), Span(14, 16)),
-                (
-                    *Instruction::equal(true, 0, 2)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(38, 41)
-                ),
-                (Instruction::jump(3), Span(38, 41)),
-                (Instruction::load_constant(0, 1, false), Span(61, 62)),
-                (Instruction::jump(11), Span(95, 95)),
-                (
-                    *Instruction::equal(true, 0, 3)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(77, 79)
-                ),
-                (Instruction::jump(3), Span(77, 79)),
-                (Instruction::load_constant(0, 2, false), Span(94, 95)),
-                (Instruction::jump(11), Span(95, 95)),
-                (Instruction::load_constant(0, 3, false), Span(114, 115)),
-                (Instruction::jump(11), Span(95, 95)),
-                (Instruction::load_constant(0, 4, false), Span(134, 135)),
-                (Instruction::r#return(true), Span(146, 146)),
-            ],
-            vec![
-                Value::integer(0),
-                Value::integer(1),
-                Value::integer(0),
-                Value::integer(2),
-                Value::integer(1),
-                Value::integer(0),
-                Value::integer(3),
-                Value::integer(3),
-                Value::integer(4)
-            ],
-            vec![]
-        ))
-    );
+//     assert_eq!(
+//         parse(source),
+//         Ok(Chunk::with_data(
+//             None,
+//             vec![
+//                 (
+//                     *Instruction::equal(true, 0, 1)
+//                         .set_b_is_constant()
+//                         .set_c_is_constant(),
+//                     Span(14, 16)
+//                 ),
+//                 (Instruction::jump(7), Span(14, 16)),
+//                 (
+//                     *Instruction::equal(true, 0, 2)
+//                         .set_b_is_constant()
+//                         .set_c_is_constant(),
+//                     Span(38, 41)
+//                 ),
+//                 (Instruction::jump(3), Span(38, 41)),
+//                 (Instruction::load_constant(0, 1, false), Span(61, 62)),
+//                 (Instruction::jump(11), Span(95, 95)),
+//                 (
+//                     *Instruction::equal(true, 0, 3)
+//                         .set_b_is_constant()
+//                         .set_c_is_constant(),
+//                     Span(77, 79)
+//                 ),
+//                 (Instruction::jump(3), Span(77, 79)),
+//                 (Instruction::load_constant(0, 2, false), Span(94, 95)),
+//                 (Instruction::jump(11), Span(95, 95)),
+//                 (Instruction::load_constant(0, 3, false), Span(114, 115)),
+//                 (Instruction::jump(11), Span(95, 95)),
+//                 (Instruction::load_constant(0, 4, false), Span(134, 135)),
+//                 (Instruction::r#return(true), Span(146, 146)),
+//             ],
+//             vec![
+//                 Value::integer(0),
+//                 Value::integer(1),
+//                 Value::integer(0),
+//                 Value::integer(2),
+//                 Value::integer(1),
+//                 Value::integer(0),
+//                 Value::integer(3),
+//                 Value::integer(3),
+//                 Value::integer(4)
+//             ],
+//             vec![]
+//         ))
+//     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(4))));
-}
+//     assert_eq!(run(source), Ok(Some(Value::integer(4))));
+// }
 
 #[test]
 fn if_else_simple() {

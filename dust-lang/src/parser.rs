@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
-    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    Lexer, NativeFunction, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -1058,6 +1058,42 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_panic(&mut self, _: Allowed) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let start_register = self.next_register();
+
+        self.advance()?;
+
+        if self.allow(Token::LeftParenthesis)? {
+            while !self.allow(Token::RightParenthesis)? {
+                let expected_register = self.next_register();
+
+                self.parse_expression()?;
+
+                let actual_register = self.next_register() - 1;
+
+                if expected_register < actual_register {
+                    self.emit_instruction(
+                        Instruction::close(expected_register, actual_register),
+                        self.current_position,
+                    );
+                }
+
+                self.allow(Token::Comma)?;
+            }
+        }
+
+        let end = self.current_position.1;
+        let to_register = self.next_register();
+        let argument_count = to_register - start_register;
+
+        self.emit_instruction(
+            Instruction::call_native(to_register, NativeFunction::Panic, argument_count),
+            Span(start, end),
+        );
+        Ok(())
+    }
+
     fn parse_statement(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         self.parse(Precedence::None, allowed)?;
 
@@ -1352,8 +1388,8 @@ impl<'src> Parser<'src> {
             });
         }
 
-        let start = self.current_position.0;
         let function_register = last_instruction.a();
+        let start = self.current_position.0;
 
         self.advance()?;
 
@@ -1689,6 +1725,11 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
+            },
+            Token::Panic => ParseRule {
+                prefix: Some(Parser::parse_panic),
+                infix: None,
+                precedence: Precedence::Call,
             },
             Token::Percent => ParseRule {
                 prefix: None,

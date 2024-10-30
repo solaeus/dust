@@ -152,14 +152,16 @@ impl<'src> Lexer<'src> {
                     if let Some(c) = self.peek_char() {
                         self.position += 1;
 
-                        if let Some('\'') = self.peek_char() {
+                        let peek = self.peek_char();
+
+                        if let Some('\'') = peek {
                             self.position += 1;
 
                             (Token::Character(c), Span(self.position - 3, self.position))
                         } else {
                             return Err(LexError::ExpectedCharacter {
                                 expected: '\'',
-                                actual: c,
+                                actual: peek.unwrap_or('\0'),
                                 position: self.position,
                             });
                         }
@@ -561,6 +563,7 @@ impl<'src> Lexer<'src> {
             "loop" => Token::Loop,
             "map" => Token::Map,
             "mut" => Token::Mut,
+            "panic" => Token::Panic,
             "return" => Token::Return,
             "str" => Token::Str,
             "struct" => Token::Struct,
