@@ -428,52 +428,55 @@ impl Vm {
                             Some(Value::Primitive(Primitive::String(string)))
                         }
                         NativeFunction::Write => {
+                            let to_register = instruction.a();
                             let mut stdout = stdout();
+                            let map_err = |io_error: io::Error| VmError::Io {
+                                error: io_error.kind(),
+                                position,
+                            };
 
-                            for argument_index in 0..argument_count {
-                                if argument_index != 0 {
-                                    stdout.write(b" ").map_err(|io_error| VmError::Io {
-                                        error: io_error.kind(),
-                                        position,
-                                    })?;
+                            let first_argument = to_register.saturating_sub(argument_count);
+                            let last_argument = to_register.saturating_sub(1);
+
+                            for argument_index in first_argument..=last_argument {
+                                if argument_index != first_argument {
+                                    stdout.write(b" ").map_err(map_err)?;
                                 }
 
-                                let argument = self.get(argument_index, position)?;
+                                let argument_string =
+                                    self.get(argument_index, position)?.to_string();
 
-                                write!(stdout, "{}", argument).map_err(|io_error| VmError::Io {
-                                    error: io_error.kind(),
-                                    position,
-                                })?;
+                                stdout
+                                    .write_all(argument_string.as_bytes())
+                                    .map_err(map_err)?;
                             }
 
                             None
                         }
                         NativeFunction::WriteLine => {
                             let mut stdout = stdout();
+                            let map_err = |io_error: io::Error| VmError::Io {
+                                error: io_error.kind(),
+                                position,
+                            };
 
-                            for argument_index in 0..argument_count {
+                            let first_argument = to_register.saturating_sub(argument_count);
+                            let last_argument = to_register.saturating_sub(1);
+
+                            for argument_index in first_argument..=last_argument {
                                 if argument_index != 0 {
-                                    stdout.write(b" ").map_err(|io_error| VmError::Io {
-                                        error: io_error.kind(),
-                                        position,
-                                    })?;
+                                    stdout.write(b" ").map_err(map_err)?;
                                 }
 
                                 let argument_string =
                                     self.get(argument_index, position)?.to_string();
 
-                                stdout.write_all(argument_string.as_bytes()).map_err(
-                                    |io_error| VmError::Io {
-                                        error: io_error.kind(),
-                                        position,
-                                    },
-                                )?;
+                                stdout
+                                    .write_all(argument_string.as_bytes())
+                                    .map_err(map_err)?;
                             }
 
-                            stdout.write(b"\n").map_err(|io_error| VmError::Io {
-                                error: io_error.kind(),
-                                position,
-                            })?;
+                            stdout.write(b"\n").map_err(map_err)?;
 
                             None
                         }
