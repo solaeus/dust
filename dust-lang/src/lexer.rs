@@ -563,15 +563,11 @@ impl<'src> Lexer<'src> {
             "loop" => Token::Loop,
             "map" => Token::Map,
             "mut" => Token::Mut,
-            "panic" => Token::Panic,
             "return" => Token::Return,
             "str" => Token::Str,
             "struct" => Token::Struct,
-            "to_string" => Token::ToString,
             "true" => Token::Boolean("true"),
             "while" => Token::While,
-            "write" => Token::Write,
-            "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
         };
 
@@ -1258,7 +1254,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::WriteLine, Span(0, 10)),
+                (Token::Identifier("write_line"), Span(0, 10)),
                 (Token::LeftParenthesis, Span(10, 11)),
                 (Token::String("Hello, world!"), Span(11, 26)),
                 (Token::RightParenthesis, Span(26, 27)),

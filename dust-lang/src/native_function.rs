@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    io::{self, stdout, Write},
+    io::{self, stdin, stdout, Write},
 };
 
 use serde::{Deserialize, Serialize};
@@ -128,62 +128,101 @@ pub enum NativeFunction {
     Write = WRITE as isize,
 }
 
-impl NativeFunction {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            NativeFunction::Panic => "panic",
-            NativeFunction::Parse => "parse",
-            NativeFunction::ToByte => "to_byte",
-            NativeFunction::ToFloat => "to_float",
-            NativeFunction::ToInteger => "to_integer",
-            NativeFunction::ToString => "to_string",
-            NativeFunction::All => "all",
-            NativeFunction::Any => "any",
-            NativeFunction::Append => "append",
-            NativeFunction::Contains => "contains",
-            NativeFunction::Find => "find",
-            NativeFunction::Flatten => "flatten",
-            NativeFunction::Get => "get",
-            NativeFunction::IndexOf => "index_of",
-            NativeFunction::Join => "join",
-            NativeFunction::Length => "length",
-            NativeFunction::Map => "map",
-            NativeFunction::Prepend => "prepend",
-            NativeFunction::Reduce => "reduce",
-            NativeFunction::Remove => "remove",
-            NativeFunction::Reverse => "reverse",
-            NativeFunction::Set => "set",
-            NativeFunction::Slice => "slice",
-            NativeFunction::Sort => "sort",
-            NativeFunction::Split => "split",
-            NativeFunction::Unzip => "unzip",
-            NativeFunction::Zip => "zip",
-            NativeFunction::CharAt => "char_at",
-            NativeFunction::CharCodeAt => "char_code_at",
-            NativeFunction::Chars => "chars",
-            NativeFunction::EndsWith => "ends_with",
-            NativeFunction::Format => "format",
-            NativeFunction::Includes => "includes",
-            NativeFunction::Match => "match",
-            NativeFunction::PadEnd => "pad_end",
-            NativeFunction::PadStart => "pad_start",
-            NativeFunction::Repeat => "repeat",
-            NativeFunction::Replace => "replace",
-            NativeFunction::SplitAt => "split_at",
-            NativeFunction::SplitLines => "split_lines",
-            NativeFunction::SplitWhitespace => "split_whitespace",
-            NativeFunction::StartsWith => "starts_with",
-            NativeFunction::ToLowerCase => "to_lower_case",
-            NativeFunction::ToUpperCase => "to_upper_case",
-            NativeFunction::Trim => "trim",
-            NativeFunction::TrimEnd => "trim_end",
-            NativeFunction::TrimStart => "trim_start",
-            NativeFunction::ReadLine => "read_line",
-            NativeFunction::WriteLine => "write_line",
-            NativeFunction::Write => "write",
-        }
-    }
+macro_rules! impl_from_str_for_native_function {
+    ($(($name:ident, $str:expr, $returns_value:expr)),*) => {
+        impl NativeFunction {
+            pub fn as_str(&self) -> &'static str {
+                match self {
+                    $(
+                        NativeFunction::$name => $str,
+                    )*
+                }
+            }
 
+            #[allow(clippy::should_implement_trait)]
+            pub fn from_str(string: &str) -> Option<Self> {
+                match string {
+                    $(
+                        $str => Some(NativeFunction::$name),
+                    )*
+                    _ => None,
+                }
+            }
+
+            pub fn returns_value(&self) -> bool {
+                match self {
+                    $(
+                        NativeFunction::$name => $returns_value,
+                    )*
+                }
+            }
+        }
+    };
+}
+
+// Use the macro to implement From<&str> for NativeFunction
+impl_from_str_for_native_function! {
+    (Panic, "panic", false),
+
+    // Type conversion
+    (Parse, "parse", true),
+    (ToByte, "to_byte", true),
+    (ToFloat, "to_float", true),
+    (ToInteger, "to_integer", true),
+    (ToString, "to_string", true),
+
+    // List
+    (All, "all", true),
+    (Any, "any", true),
+    (Append, "append", true),
+    (Contains, "contains", true),
+    (Find, "find", true),
+    (Flatten, "flatten", true),
+    (Get, "get", true),
+    (IndexOf, "index_of", true),
+    (Join, "join", true),
+    (Length, "length", true),
+    (Map, "map", true),
+    (Prepend, "prepend", true),
+    (Reduce, "reduce", true),
+    (Remove, "remove", true),
+    (Reverse, "reverse", true),
+    (Set, "set", true),
+    (Slice, "slice", true),
+    (Sort, "sort", true),
+    (Split, "split", true),
+    (Unzip, "unzip", true),
+    (Zip, "zip", true),
+
+    // String
+    (CharAt, "char_at", true),
+    (CharCodeAt, "char_code_at", true),
+    (Chars, "chars", true),
+    (EndsWith, "ends_with", true),
+    (Format, "format", true),
+    (Includes, "includes", true),
+    (Match, "match", true),
+    (PadEnd, "pad_end", true),
+    (PadStart, "pad_start", true),
+    (Repeat, "repeat", true),
+    (Replace, "replace", true),
+    (SplitAt, "split_at", true),
+    (SplitLines, "split_lines", true),
+    (SplitWhitespace, "split_whitespace", true),
+    (StartsWith, "starts_with", true),
+    (ToLowerCase, "to_lower_case", true),
+    (ToUpperCase, "to_upper_case", true),
+    (Trim, "trim", true),
+    (TrimEnd, "trim_end", true),
+    (TrimStart, "trim_start", true),
+
+    // I/O
+    (ReadLine, "read_line", true),
+    (WriteLine, "write_line", false),
+    (Write, "write", false)
+}
+
+impl NativeFunction {
     pub fn call(
         &self,
         instruction: Instruction,
@@ -279,7 +318,20 @@ impl NativeFunction {
             NativeFunction::TrimStart => todo!(),
 
             // I/O
-            NativeFunction::ReadLine => todo!(),
+            NativeFunction::ReadLine => {
+                let mut buffer = String::new();
+
+                stdin()
+                    .read_line(&mut buffer)
+                    .map_err(|io_error| VmError::Io {
+                        error: io_error.kind(),
+                        position,
+                    })?;
+
+                buffer = buffer.trim_end_matches('\n').to_string();
+
+                Some(Value::Primitive(Primitive::String(buffer)))
+            }
             NativeFunction::Write => {
                 let to_register = instruction.a();
                 let mut stdout = stdout();

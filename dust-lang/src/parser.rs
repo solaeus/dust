@@ -749,8 +749,6 @@ impl<'src> Parser<'src> {
         let token = self.current_token;
         let start_position = self.current_position;
 
-        self.advance()?;
-
         let local_index = if let Token::Identifier(text) = token {
             if let Ok(local_index) = self.chunk.get_local_index(text, start_position) {
                 local_index
@@ -771,17 +769,25 @@ impl<'src> Parser<'src> {
                     self.current_is_expression = true;
 
                     return Ok(());
+                }
+
+                return if NativeFunction::from_str(text).is_some() {
+                    self.parse_native_call(allowed)
                 } else {
-                    return Err(ParseError::UndeclaredVariable {
+                    Err(ParseError::UndeclaredVariable {
                         identifier: Identifier::new(text),
                         position: start_position,
-                    });
-                }
+                    })
+                };
             } else {
-                return Err(ParseError::UndeclaredVariable {
-                    identifier: Identifier::new(text),
-                    position: start_position,
-                });
+                return if NativeFunction::from_str(text).is_some() {
+                    self.parse_native_call(allowed)
+                } else {
+                    Err(ParseError::UndeclaredVariable {
+                        identifier: Identifier::new(text),
+                        position: start_position,
+                    })
+                };
             }
         } else {
             return Err(ParseError::ExpectedToken {
@@ -790,6 +796,9 @@ impl<'src> Parser<'src> {
                 position: start_position,
             });
         };
+
+        self.advance()?;
+
         let is_mutable = self
             .chunk
             .get_local(local_index, start_position)?
@@ -1059,45 +1068,43 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_native_call(&mut self, _: Allowed) -> Result<(), ParseError> {
-        let native_function = match self.current_token {
-            Token::Panic => NativeFunction::Panic,
-            Token::ToString => NativeFunction::ToString,
-            Token::Write => NativeFunction::Write,
-            Token::WriteLine => NativeFunction::WriteLine,
-            _ => {
-                unreachable!()
-            }
+        let native_function = if let Token::Identifier(text) = self.current_token {
+            NativeFunction::from_str(text).unwrap()
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
         };
-        let is_expression = self.current_token.is_expression();
-
         let start = self.current_position.0;
         let start_register = self.next_register();
 
         self.advance()?;
 
-        if self.allow(Token::LeftParenthesis)? {
-            while !self.allow(Token::RightParenthesis)? {
-                let expected_register = self.next_register();
+        self.expect(Token::LeftParenthesis)?;
 
-                self.parse_expression()?;
+        while !self.allow(Token::RightParenthesis)? {
+            let expected_register = self.next_register();
 
-                let actual_register = self.next_register() - 1;
+            self.parse_expression()?;
 
-                if expected_register < actual_register {
-                    self.emit_instruction(
-                        Instruction::close(expected_register, actual_register),
-                        self.current_position,
-                    );
-                }
+            let actual_register = self.next_register() - 1;
 
-                self.allow(Token::Comma)?;
+            if expected_register < actual_register {
+                self.emit_instruction(
+                    Instruction::close(expected_register, actual_register),
+                    self.current_position,
+                );
             }
+
+            self.allow(Token::Comma)?;
         }
 
         let end = self.current_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
-        self.current_is_expression = is_expression;
+        self.current_is_expression = native_function.returns_value();
 
         self.emit_instruction(
             Instruction::call_native(to_register, native_function, argument_count),
@@ -1738,11 +1745,6 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Panic => ParseRule {
-                prefix: Some(Parser::parse_native_call),
-                infix: None,
-                precedence: Precedence::Call,
-            },
             Token::Percent => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
@@ -1819,25 +1821,10 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Struct => todo!(),
-            Token::ToString => ParseRule {
-                prefix: Some(Parser::parse_native_call),
-                infix: None,
-                precedence: Precedence::Call,
-            },
             Token::While => ParseRule {
                 prefix: Some(Parser::parse_while),
                 infix: None,
                 precedence: Precedence::None,
-            },
-            Token::Write => ParseRule {
-                prefix: Some(Parser::parse_native_call),
-                infix: None,
-                precedence: Precedence::Call,
-            },
-            Token::WriteLine => ParseRule {
-                prefix: Some(Parser::parse_native_call),
-                infix: None,
-                precedence: Precedence::Call,
             },
         }
     }

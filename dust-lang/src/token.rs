@@ -47,15 +47,10 @@ define_tokens! {
     Loop,
     Map,
     Mut,
-    Panic,
     Return,
     Str,
     Struct,
-    ToString,
     While,
-    Write,
-
-    WriteLine,
 
     // Symbols
     ArrowThin,
@@ -119,10 +114,7 @@ impl<'src> Token<'src> {
             Token::Mut => 3,
             Token::Str => 3,
             Token::Struct => 6,
-            Token::ToString => 8,
             Token::While => 5,
-            Token::Write => 5,
-            Token::WriteLine => 10,
             Token::BangEqual => 2,
             Token::Bang => 1,
             Token::Colon => 1,
@@ -142,7 +134,6 @@ impl<'src> Token<'src> {
             Token::LessEqual => 2,
             Token::Minus => 1,
             Token::MinusEqual => 2,
-            Token::Panic => 5,
             Token::Percent => 1,
             Token::PercentEqual => 2,
             Token::Plus => 1,
@@ -184,7 +175,6 @@ impl<'src> Token<'src> {
             Token::Mut => "mut",
             Token::Str => "str",
             Token::Struct => "struct",
-            Token::ToString => "to_string",
             Token::While => "while",
             Token::BangEqual => "!=",
             Token::Bang => "!",
@@ -205,7 +195,6 @@ impl<'src> Token<'src> {
             Token::LessEqual => "<=",
             Token::Minus => "-",
             Token::MinusEqual => "-=",
-            Token::Panic => "panic",
             Token::Percent => "%",
             Token::PercentEqual => "%=",
             Token::Plus => "+",
@@ -219,8 +208,6 @@ impl<'src> Token<'src> {
             Token::SlashEqual => "/=",
             Token::Star => "*",
             Token::StarEqual => "*=",
-            Token::Write => "write",
-            Token::WriteLine => "write_line",
         }
     }
 
@@ -265,7 +252,6 @@ impl<'src> Token<'src> {
             Token::Minus => TokenOwned::Minus,
             Token::MinusEqual => TokenOwned::MinusEqual,
             Token::Mut => TokenOwned::Mut,
-            Token::Panic => TokenOwned::Panic,
             Token::Percent => TokenOwned::Percent,
             Token::PercentEqual => TokenOwned::PercentEqual,
             Token::Plus => TokenOwned::Plus,
@@ -282,10 +268,7 @@ impl<'src> Token<'src> {
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
-            Token::ToString => TokenOwned::ToString,
             Token::While => TokenOwned::While,
-            Token::Write => TokenOwned::Write,
-            Token::WriteLine => TokenOwned::WriteLine,
         }
     }
 
@@ -330,7 +313,6 @@ impl<'src> Token<'src> {
             Token::Minus => TokenKind::Minus,
             Token::MinusEqual => TokenKind::MinusEqual,
             Token::Mut => TokenKind::Mut,
-            Token::Panic => TokenKind::Panic,
             Token::Percent => TokenKind::Percent,
             Token::PercentEqual => TokenKind::PercentEqual,
             Token::Plus => TokenKind::Plus,
@@ -346,11 +328,8 @@ impl<'src> Token<'src> {
             Token::SlashEqual => TokenKind::SlashEqual,
             Token::Str => TokenKind::Str,
             Token::String(_) => TokenKind::String,
-            Token::ToString => TokenKind::ToString,
             Token::Struct => TokenKind::Struct,
             Token::While => TokenKind::While,
-            Token::Write => TokenKind::Write,
-            Token::WriteLine => TokenKind::WriteLine,
         }
     }
 
@@ -393,7 +372,6 @@ impl<'src> Token<'src> {
                 | Token::SlashEqual
                 | Token::Star
                 | Token::StarEqual
-                | Token::ToString
         )
     }
 }
@@ -440,7 +418,6 @@ impl<'src> Display for Token<'src> {
             Token::Minus => write!(f, "-"),
             Token::MinusEqual => write!(f, "-="),
             Token::Mut => write!(f, "mut"),
-            Token::Panic => write!(f, "panic"),
             Token::Percent => write!(f, "%"),
             Token::PercentEqual => write!(f, "%="),
             Token::Plus => write!(f, "+"),
@@ -456,11 +433,8 @@ impl<'src> Display for Token<'src> {
             Token::StarEqual => write!(f, "*="),
             Token::Str => write!(f, "str"),
             Token::String(value) => write!(f, "{value}"),
-            Token::ToString => write!(f, "to_string"),
             Token::Struct => write!(f, "struct"),
             Token::While => write!(f, "while"),
-            Token::Write => write!(f, "write"),
-            Token::WriteLine => write!(f, "write_line"),
         }
     }
 }
@@ -495,13 +469,9 @@ pub enum TokenOwned {
     Loop,
     Map,
     Mut,
-    Panic,
     Return,
     Str,
-    ToString,
     While,
-    Write,
-    WriteLine,
 
     // Symbols
     ArrowThin,
@@ -581,7 +551,6 @@ impl Display for TokenOwned {
             TokenOwned::Minus => Token::Minus.fmt(f),
             TokenOwned::MinusEqual => Token::MinusEqual.fmt(f),
             TokenOwned::Mut => Token::Mut.fmt(f),
-            TokenOwned::Panic => Token::Panic.fmt(f),
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::PercentEqual => Token::PercentEqual.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
@@ -598,10 +567,7 @@ impl Display for TokenOwned {
             TokenOwned::Str => Token::Str.fmt(f),
             TokenOwned::String(string) => Token::String(string).fmt(f),
             TokenOwned::Struct => Token::Struct.fmt(f),
-            TokenOwned::ToString => Token::ToString.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
-            TokenOwned::Write => Token::Write.fmt(f),
-            TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }
@@ -648,7 +614,6 @@ impl Display for TokenKind {
             TokenKind::Minus => Token::Minus.fmt(f),
             TokenKind::MinusEqual => Token::MinusEqual.fmt(f),
             TokenKind::Mut => Token::Mut.fmt(f),
-            TokenKind::Panic => Token::Panic.fmt(f),
             TokenKind::Percent => Token::Percent.fmt(f),
             TokenKind::PercentEqual => Token::PercentEqual.fmt(f),
             TokenKind::Plus => Token::Plus.fmt(f),
@@ -665,10 +630,7 @@ impl Display for TokenKind {
             TokenKind::SlashEqual => Token::SlashEqual.fmt(f),
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
-            TokenKind::ToString => Token::ToString.fmt(f),
             TokenKind::While => Token::While.fmt(f),
-            TokenKind::Write => Token::Write.fmt(f),
-            TokenKind::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }

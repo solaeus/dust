@@ -581,9 +581,13 @@ impl Instruction {
                 let to_register = self.a();
                 let native_function = NativeFunction::from(self.b());
                 let argument_count = self.c();
-                let native_function_name = native_function.as_str();
+                let mut output = String::new();
 
-                let mut output = format!("R{to_register} = {native_function_name}(");
+                if native_function.returns_value() {
+                    let native_function_name = native_function.as_str();
+
+                    output.push_str(&format!("R{} = {}(", to_register, native_function_name));
+                }
 
                 if argument_count != 0 {
                     let first_argument = to_register.saturating_sub(argument_count);
@@ -597,7 +601,9 @@ impl Instruction {
                     }
                 }
 
-                output.push(')');
+                if native_function.returns_value() {
+                    output.push(')');
+                }
 
                 output
             }
