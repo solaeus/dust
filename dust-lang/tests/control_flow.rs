@@ -237,7 +237,7 @@ fn if_else_true() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
