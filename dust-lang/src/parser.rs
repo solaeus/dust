@@ -44,8 +44,6 @@ pub struct Parser<'src> {
 
     previous_token: Token<'src>,
     previous_position: Span,
-
-    parsed_expression: bool,
 }
 
 impl<'src> Parser<'src> {
@@ -68,7 +66,6 @@ impl<'src> Parser<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
-            parsed_expression: false,
         })
     }
 
@@ -150,7 +147,7 @@ impl<'src> Parser<'src> {
         self.chunk.push_instruction(instruction, position);
     }
 
-    fn end_statement(&mut self) {
+    fn optimize_statement(&mut self) {
         if let Some(
             [Operation::LoadBoolean | Operation::LoadConstant, Operation::LoadBoolean | Operation::LoadConstant, Operation::Jump, Operation::Equal | Operation::Less | Operation::LessEqual],
         ) = self.get_end_of_statement()
@@ -177,10 +174,6 @@ impl<'src> Parser<'src> {
             second_loader_new.set_c_to_boolean(second_loader.c_is_constant());
 
             *second_loader = second_loader_new;
-
-            let jump = instructions.next().unwrap();
-
-            jump.set_b(jump.b() - 1);
         }
 
         self.current_statement_length = 0;
@@ -848,7 +841,7 @@ impl<'src> Parser<'src> {
                 Instruction::set_local(register, local_index),
                 start_position,
             );
-            self.end_statement();
+            self.optimize_statement();
 
             self.current_is_expression = false;
         } else {
@@ -1023,7 +1016,7 @@ impl<'src> Parser<'src> {
             .last()
             .map_or(false, |(instruction, _)| instruction.yields_value());
 
-        self.end_statement();
+        self.optimize_statement();
 
         Ok(())
     }
@@ -1058,7 +1051,7 @@ impl<'src> Parser<'src> {
         let jump_back = Instruction::jump(jump_start);
 
         self.emit_instruction(jump_back, self.current_position);
-        self.end_statement();
+        self.optimize_statement();
 
         self.current_is_expression = false;
 
@@ -1121,7 +1114,7 @@ impl<'src> Parser<'src> {
         let end = self.current_position.1;
 
         self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
-        self.end_statement();
+        self.optimize_statement();
 
         self.current_is_expression = false;
 
@@ -1198,7 +1191,7 @@ impl<'src> Parser<'src> {
             Instruction::define_local(register, local_index, is_mutable),
             position,
         );
-        self.end_statement();
+        self.optimize_statement();
 
         self.current_is_expression = false;
 
@@ -1331,12 +1324,12 @@ impl<'src> Parser<'src> {
                 Instruction::define_local(register, local_index, false),
                 identifier_position,
             );
-            self.end_statement();
+            self.optimize_statement();
 
             self.current_is_expression = false;
         } else {
             self.emit_constant(function, Span(function_start, function_end))?;
-            self.end_statement();
+            self.optimize_statement();
 
             self.current_is_expression = true;
         }
@@ -1398,7 +1391,7 @@ impl<'src> Parser<'src> {
     fn parse_semicolon(&mut self, _: Allowed) -> Result<(), ParseError> {
         self.current_is_expression = false;
 
-        self.end_statement();
+        self.optimize_statement();
         self.advance()
     }
 
