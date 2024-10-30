@@ -1058,7 +1058,18 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_panic(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_native_call(&mut self, _: Allowed) -> Result<(), ParseError> {
+        let native_function = match self.current_token {
+            Token::Panic => NativeFunction::Panic,
+            Token::ToString => NativeFunction::ToString,
+            Token::Write => NativeFunction::Write,
+            Token::WriteLine => NativeFunction::WriteLine,
+            _ => {
+                unreachable!()
+            }
+        };
+        let is_expression = self.current_token.is_expression();
+
         let start = self.current_position.0;
         let start_register = self.next_register();
 
@@ -1086,9 +1097,10 @@ impl<'src> Parser<'src> {
         let end = self.current_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
+        self.current_is_expression = is_expression;
 
         self.emit_instruction(
-            Instruction::call_native(to_register, NativeFunction::Panic, argument_count),
+            Instruction::call_native(to_register, native_function, argument_count),
             Span(start, end),
         );
         Ok(())
@@ -1727,7 +1739,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Panic => ParseRule {
-                prefix: Some(Parser::parse_panic),
+                prefix: Some(Parser::parse_native_call),
                 infix: None,
                 precedence: Precedence::Call,
             },
@@ -1807,10 +1819,25 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Struct => todo!(),
+            Token::ToString => ParseRule {
+                prefix: Some(Parser::parse_native_call),
+                infix: None,
+                precedence: Precedence::Call,
+            },
             Token::While => ParseRule {
                 prefix: Some(Parser::parse_while),
                 infix: None,
                 precedence: Precedence::None,
+            },
+            Token::Write => ParseRule {
+                prefix: Some(Parser::parse_native_call),
+                infix: None,
+                precedence: Precedence::Call,
+            },
+            Token::WriteLine => ParseRule {
+                prefix: Some(Parser::parse_native_call),
+                infix: None,
+                precedence: Precedence::Call,
             },
         }
     }

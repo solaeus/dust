@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, mem::replace};
+use std::{
+    cmp::Ordering,
+    io::{self, stdout, Write},
+    mem::replace,
+};
 
 use crate::{
     parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
@@ -423,7 +427,56 @@ impl Vm {
 
                             Some(Value::Primitive(Primitive::String(string)))
                         }
-                        NativeFunction::WriteLine => todo!(),
+                        NativeFunction::Write => {
+                            let mut stdout = stdout();
+
+                            for argument_index in 0..argument_count {
+                                if argument_index != 0 {
+                                    stdout.write(b" ").map_err(|io_error| VmError::Io {
+                                        error: io_error.kind(),
+                                        position,
+                                    })?;
+                                }
+
+                                let argument = self.get(argument_index, position)?;
+
+                                write!(stdout, "{}", argument).map_err(|io_error| VmError::Io {
+                                    error: io_error.kind(),
+                                    position,
+                                })?;
+                            }
+
+                            None
+                        }
+                        NativeFunction::WriteLine => {
+                            let mut stdout = stdout();
+
+                            for argument_index in 0..argument_count {
+                                if argument_index != 0 {
+                                    stdout.write(b" ").map_err(|io_error| VmError::Io {
+                                        error: io_error.kind(),
+                                        position,
+                                    })?;
+                                }
+
+                                let argument_string =
+                                    self.get(argument_index, position)?.to_string();
+
+                                stdout.write_all(argument_string.as_bytes()).map_err(
+                                    |io_error| VmError::Io {
+                                        error: io_error.kind(),
+                                        position,
+                                    },
+                                )?;
+                            }
+
+                            stdout.write(b"\n").map_err(|io_error| VmError::Io {
+                                error: io_error.kind(),
+                                position,
+                            })?;
+
+                            None
+                        }
                     };
 
                     if let Some(value) = return_value {
@@ -695,6 +748,10 @@ pub enum VmError {
 
     // Wrappers for foreign errors
     Chunk(ChunkError),
+    Io {
+        error: io::ErrorKind,
+        position: Span,
+    },
     Value {
         error: ValueError,
         position: Span,
@@ -725,6 +782,7 @@ impl AnnotatedError for VmError {
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndefinedVariable { .. } => "Undefined variable",
             Self::Chunk(error) => error.description(),
+            Self::Io { .. } => "I/O error",
             Self::Value { .. } => "Value error",
         }
     }
@@ -741,6 +799,7 @@ impl AnnotatedError for VmError {
                 Some(format!("{identifier} is not in scope"))
             }
             Self::Chunk(error) => error.details(),
+            Self::Io { error, .. } => Some(error.to_string()),
             Self::Value { error, .. } => Some(error.to_string()),
             _ => None,
         }
@@ -759,6 +818,7 @@ impl AnnotatedError for VmError {
             Self::StackOverflow { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::Chunk(error) => error.position(),
+            Self::Io { position, .. } => *position,
             Self::Value { position, .. } => *position,
         }
     }

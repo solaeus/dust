@@ -3,13 +3,28 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-/// Source code token.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Default, Serialize, Deserialize)]
-pub enum Token<'src> {
-    // End of file
-    #[default]
-    Eof,
+macro_rules! define_tokens {
+    ($($variant:ident $(($data_type:ty))?),+ $(,)?) => {
+        #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Default, Serialize, Deserialize)]
+        pub enum Token<'src> {
+            #[default]
+            Eof,
+            $(
+                $variant $(($data_type))?,
+            )*
+        }
 
+        #[derive(Debug, PartialEq, Clone)]
+        pub enum TokenKind {
+            Eof,
+            $(
+                $variant,
+            )*
+        }
+    };
+}
+
+define_tokens! {
     // Hard-coded values
     Boolean(&'src str),
     Byte(&'src str),
@@ -36,7 +51,11 @@ pub enum Token<'src> {
     Return,
     Str,
     Struct,
+    ToString,
     While,
+    Write,
+
+    WriteLine,
 
     // Symbols
     ArrowThin,
@@ -100,7 +119,10 @@ impl<'src> Token<'src> {
             Token::Mut => 3,
             Token::Str => 3,
             Token::Struct => 6,
+            Token::ToString => 8,
             Token::While => 5,
+            Token::Write => 5,
+            Token::WriteLine => 10,
             Token::BangEqual => 2,
             Token::Bang => 1,
             Token::Colon => 1,
@@ -162,6 +184,7 @@ impl<'src> Token<'src> {
             Token::Mut => "mut",
             Token::Str => "str",
             Token::Struct => "struct",
+            Token::ToString => "to_string",
             Token::While => "while",
             Token::BangEqual => "!=",
             Token::Bang => "!",
@@ -196,6 +219,8 @@ impl<'src> Token<'src> {
             Token::SlashEqual => "/=",
             Token::Star => "*",
             Token::StarEqual => "*=",
+            Token::Write => "write",
+            Token::WriteLine => "write_line",
         }
     }
 
@@ -257,7 +282,10 @@ impl<'src> Token<'src> {
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
+            Token::ToString => TokenOwned::ToString,
             Token::While => TokenOwned::While,
+            Token::Write => TokenOwned::Write,
+            Token::WriteLine => TokenOwned::WriteLine,
         }
     }
 
@@ -318,8 +346,11 @@ impl<'src> Token<'src> {
             Token::SlashEqual => TokenKind::SlashEqual,
             Token::Str => TokenKind::Str,
             Token::String(_) => TokenKind::String,
+            Token::ToString => TokenKind::ToString,
             Token::Struct => TokenKind::Struct,
             Token::While => TokenKind::While,
+            Token::Write => TokenKind::Write,
+            Token::WriteLine => TokenKind::WriteLine,
         }
     }
 
@@ -356,13 +387,13 @@ impl<'src> Token<'src> {
                 | Token::MinusEqual
                 | Token::Percent
                 | Token::PercentEqual
-                | Token::Panic
                 | Token::Plus
                 | Token::PlusEqual
                 | Token::Slash
                 | Token::SlashEqual
                 | Token::Star
                 | Token::StarEqual
+                | Token::ToString
         )
     }
 }
@@ -425,8 +456,11 @@ impl<'src> Display for Token<'src> {
             Token::StarEqual => write!(f, "*="),
             Token::Str => write!(f, "str"),
             Token::String(value) => write!(f, "{value}"),
+            Token::ToString => write!(f, "to_string"),
             Token::Struct => write!(f, "struct"),
             Token::While => write!(f, "while"),
+            Token::Write => write!(f, "write"),
+            Token::WriteLine => write!(f, "write_line"),
         }
     }
 }
@@ -464,7 +498,10 @@ pub enum TokenOwned {
     Panic,
     Return,
     Str,
+    ToString,
     While,
+    Write,
+    WriteLine,
 
     // Symbols
     ArrowThin,
@@ -561,78 +598,12 @@ impl Display for TokenOwned {
             TokenOwned::Str => Token::Str.fmt(f),
             TokenOwned::String(string) => Token::String(string).fmt(f),
             TokenOwned::Struct => Token::Struct.fmt(f),
+            TokenOwned::ToString => Token::ToString.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
+            TokenOwned::Write => Token::Write.fmt(f),
+            TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }
     }
-}
-
-/// Token representation that holds no data.
-#[derive(Debug, PartialEq, Clone)]
-pub enum TokenKind {
-    Eof,
-
-    Identifier,
-
-    // Hard-coded values
-    Boolean,
-    Byte,
-    Character,
-    Float,
-    Integer,
-    String,
-
-    // Keywords
-    Async,
-    Bool,
-    Break,
-    Else,
-    FloatKeyword,
-    Fn,
-    If,
-    Int,
-    Let,
-    Loop,
-    Map,
-    Panic,
-    Return,
-    Str,
-    While,
-
-    // Symbols
-    ArrowThin,
-    BangEqual,
-    Bang,
-    Colon,
-    Comma,
-    Dot,
-    DoubleAmpersand,
-    DoubleDot,
-    DoubleEqual,
-    DoublePipe,
-    Equal,
-    Greater,
-    GreaterEqual,
-    LeftCurlyBrace,
-    LeftParenthesis,
-    LeftSquareBrace,
-    Less,
-    LessEqual,
-    Minus,
-    MinusEqual,
-    Mut,
-    Percent,
-    PercentEqual,
-    Plus,
-    PlusEqual,
-    RightCurlyBrace,
-    RightParenthesis,
-    RightSquareBrace,
-    Semicolon,
-    Star,
-    StarEqual,
-    Struct,
-    Slash,
-    SlashEqual,
 }
 
 impl Display for TokenKind {
@@ -694,7 +665,10 @@ impl Display for TokenKind {
             TokenKind::SlashEqual => Token::SlashEqual.fmt(f),
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
+            TokenKind::ToString => Token::ToString.fmt(f),
             TokenKind::While => Token::While.fmt(f),
+            TokenKind::Write => Token::Write.fmt(f),
+            TokenKind::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }

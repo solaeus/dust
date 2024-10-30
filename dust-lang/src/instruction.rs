@@ -584,6 +584,7 @@ impl Instruction {
                 let native_function_name = match native_function {
                     NativeFunction::Panic => "PANIC",
                     NativeFunction::ToString => "TO_STRING",
+                    NativeFunction::Write => "WRITE",
                     NativeFunction::WriteLine => "WRITE_LINE",
                 };
 
