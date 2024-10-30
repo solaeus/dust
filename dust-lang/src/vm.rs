@@ -18,6 +18,7 @@ pub struct Vm {
     ip: usize,
     chunk: Chunk,
     stack: Vec<Register>,
+    last_assigned_register: Option<u8>,
 }
 
 impl Vm {
@@ -28,6 +29,7 @@ impl Vm {
             ip: 0,
             chunk,
             stack: Vec::new(),
+            last_assigned_register: None,
         }
     }
 
@@ -387,14 +389,17 @@ impl Vm {
                 Operation::Return => {
                     let should_return_value = instruction.b_as_boolean();
 
-                    return if should_return_value {
-                        let top_of_stack = (self.stack.len() - 1) as u8;
-                        let value = self.empty(top_of_stack, position)?;
+                    if !should_return_value {
+                        return Ok(None);
+                    }
 
-                        Ok(Some(value))
+                    if let Some(register) = self.last_assigned_register {
+                        let value = self.empty(register, position)?;
+
+                        return Ok(Some(value));
                     } else {
-                        Ok(None)
-                    };
+                        return Err(VmError::StackUnderflow { position });
+                    }
                 }
             }
         }
@@ -404,6 +409,7 @@ impl Vm {
 
     fn set(&mut self, to_register: u8, value: Value, position: Span) -> Result<(), VmError> {
         let length = self.stack.len();
+        self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
@@ -450,6 +456,7 @@ impl Vm {
         position: Span,
     ) -> Result<(), VmError> {
         let length = self.stack.len();
+        self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
@@ -496,6 +503,7 @@ impl Vm {
         position: Span,
     ) -> Result<(), VmError> {
         let length = self.stack.len();
+        self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {

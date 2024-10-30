@@ -173,28 +173,17 @@ impl<'src> Parser<'src> {
             second_loader_new.set_a(first_loader.a());
             second_loader_new.set_b(second_loader.b());
             second_loader_new.set_c(second_loader.c());
-
-            if second_loader.b_is_constant() {
-                second_loader_new.set_b_is_constant();
-            }
-
-            if second_loader.c_is_constant() {
-                second_loader_new.set_c_is_constant();
-            }
+            second_loader_new.set_b_to_boolean(second_loader.b_is_constant());
+            second_loader_new.set_c_to_boolean(second_loader.c_is_constant());
 
             *second_loader = second_loader_new;
+
+            let jump = instructions.next().unwrap();
+
+            jump.set_b(jump.b() - 1);
         }
 
         self.current_statement_length = 0;
-    }
-
-    fn get_statement_instructions(&self) -> impl Iterator<Item = &Instruction> {
-        self.chunk
-            .instructions()
-            .iter()
-            .rev()
-            .take(self.current_statement_length)
-            .map(|(instruction, _)| instruction)
     }
 
     fn get_last_value_operation(&self) -> Option<Operation> {
