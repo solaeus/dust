@@ -492,7 +492,6 @@ impl<'src> Parser<'src> {
 
                 instruction.b()
             }
-            Operation::LoadBoolean => instruction.a(),
             Operation::Close => {
                 return Err(ParseError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -502,7 +501,11 @@ impl<'src> Parser<'src> {
             _ => {
                 push_back = true;
 
-                self.next_register()
+                if instruction.yields_value() {
+                    instruction.a()
+                } else {
+                    self.next_register()
+                }
             }
         };
 
