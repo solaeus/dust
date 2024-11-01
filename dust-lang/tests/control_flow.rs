@@ -308,7 +308,7 @@ fn if_else_true() {
 }
 
 #[test]
-fn if_expression_false() {
+fn if_false() {
     let source = "if 1 == 2 { 2 }";
 
     assert_eq!(
@@ -324,6 +324,7 @@ fn if_expression_false() {
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::r#return(false), Span(15, 15))
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(2)],
             vec![]
@@ -334,7 +335,7 @@ fn if_expression_false() {
 }
 
 #[test]
-fn if_expression_true() {
+fn if_true() {
     let source = "if 1 == 1 { 2 }";
 
     assert_eq!(
@@ -350,6 +351,7 @@ fn if_expression_true() {
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::r#return(false), Span(15, 15))
             ],
             vec![Value::integer(1), Value::integer(1), Value::integer(2)],
             vec![]

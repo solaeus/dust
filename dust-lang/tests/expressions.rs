@@ -77,6 +77,7 @@ fn block_scope() {
                 (Instruction::define_local(3, 3, false), Span(125, 126)),
                 (Instruction::load_constant(4, 4, false), Span(158, 159)),
                 (Instruction::define_local(4, 4, false), Span(154, 155)),
+                (Instruction::r#return(false), Span(165, 165))
             ],
             vec![
                 Value::integer(0),
@@ -129,6 +130,7 @@ fn define_local() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(8, 10)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
+                (Instruction::r#return(false), Span(11, 11))
             ],
             vec![Value::integer(42)],
             vec![Local::new(Identifier::new("x"), None, false, 0, 0)]
@@ -195,7 +197,12 @@ fn empty() {
 
     assert_eq!(
         parse(source),
-        Ok(Chunk::with_data(None, vec![], vec![], vec![]))
+        Ok(Chunk::with_data(
+            None,
+            vec![(Instruction::r#return(false), Span(0, 0))],
+            vec![],
+            vec![]
+        ))
     );
     assert_eq!(run(source), Ok(None));
 }
@@ -262,6 +269,7 @@ fn function_declaration() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 40)),
                 (Instruction::define_local(0, 0, false), Span(3, 6)),
+                (Instruction::r#return(false), Span(40, 40))
             ],
             vec![Value::function(
                 Chunk::with_data(

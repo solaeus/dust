@@ -92,7 +92,7 @@ impl Vm {
                     self.set(to_register, value, position)?;
 
                     if jump {
-                        self.jump_to_ip(self.ip + 1);
+                        self.ip += 1;
                     }
                 }
                 Operation::LoadConstant => {
@@ -103,7 +103,7 @@ impl Vm {
                     self.set_constant(to_register, from_constant, position)?;
 
                     if jump {
-                        self.jump_to_ip(self.ip + 1);
+                        self.ip += 1
                     }
                 }
                 Operation::LoadList => {
@@ -252,7 +252,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.jump_to_ip(new_ip);
+                        self.ip = new_ip;
                     }
                 }
                 Operation::Less => {
@@ -288,7 +288,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.jump_to_ip(new_ip);
+                        self.ip = new_ip;
                     }
                 }
                 Operation::LessEqual => {
@@ -325,7 +325,7 @@ impl Vm {
                             self.ip - jump_distance as usize
                         };
 
-                        self.jump_to_ip(new_ip);
+                        self.ip = new_ip;
                     }
                 }
                 Operation::Negate => {
@@ -360,8 +360,7 @@ impl Vm {
                     } else {
                         self.ip - jump_distance as usize - 1
                     };
-
-                    self.jump_to_ip(new_ip);
+                    self.ip = new_ip;
                 }
                 Operation::Call => {
                     let to_register = instruction.a();
@@ -427,24 +426,6 @@ impl Vm {
         }
 
         Ok(None)
-    }
-
-    fn jump_to_ip(&mut self, new_ip: usize) {
-        let final_index = self.chunk.len() - 1;
-
-        if new_ip > final_index {
-            let last_operation = self
-                .chunk
-                .instructions()
-                .last()
-                .map(|(instruction, _)| instruction.operation());
-
-            if let Some(Operation::Return) = last_operation {
-                self.ip = final_index;
-            }
-        } else {
-            self.ip = new_ip;
-        }
     }
 
     fn set(&mut self, to_register: u8, value: Value, position: Span) -> Result<(), VmError> {
@@ -632,6 +613,10 @@ impl Vm {
     }
 
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
+        if self.ip >= self.chunk.len() {
+            self.ip = self.chunk.len() - 1;
+        }
+
         let current = self.chunk.get_instruction(self.ip, position)?;
 
         self.ip += 1;

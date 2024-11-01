@@ -20,7 +20,7 @@ pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
 pub use native_function::{NativeFunction, NativeFunctionError};
 pub use operation::Operation;
-pub use parser::{parse, ParseError, Parser};
+pub use parser::{parse, ParseError};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Function, Primitive, Value, ValueError};

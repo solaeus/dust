@@ -17,7 +17,7 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer).map_err(|error| DustError::Parse { error, source })?;
 
-    while !parser.is_eof() {
+    loop {
         parser
             .parse_statement(Allowed {
                 assignment: true,
@@ -25,13 +25,17 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
                 implicit_return: true,
             })
             .map_err(|error| DustError::Parse { error, source })?;
+
+        if parser.is_eof() {
+            break;
+        }
     }
 
     Ok(parser.finish())
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize)]
-pub struct Parser<'src> {
+struct Parser<'src> {
     lexer: Lexer<'src>,
     chunk: Chunk,
 
@@ -1256,6 +1260,10 @@ impl<'src> Parser<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), ParseError> {
         if !self.current_is_expression {
+            if self.is_eof() {
+                self.emit_instruction(Instruction::r#return(false), self.current_position);
+            }
+
             return Ok(());
         }
 
@@ -1273,6 +1281,8 @@ impl<'src> Parser<'src> {
 
         if end_of_statement && !has_semicolon && !returned {
             self.emit_instruction(Instruction::r#return(true), self.current_position);
+        } else if self.is_eof() {
+            self.emit_instruction(Instruction::r#return(false), self.current_position);
         }
 
         Ok(())
