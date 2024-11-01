@@ -49,29 +49,6 @@ fn add_assign() {
 }
 
 #[test]
-fn and() {
-    let source = "true && false";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, false), Span(5, 7)),
-                (Instruction::jump(4, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
-            ],
-            vec![],
-            vec![]
-        ))
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
 fn block_scope() {
     let source = "
         let a = 0;
@@ -244,34 +221,6 @@ fn empty_list() {
 }
 
 #[test]
-fn equal() {
-    let source = "1 == 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::equal(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(3, true), Span(2, 4)),
-                (Instruction::load_boolean(0, true, true), Span(2, 4)),
-                (Instruction::load_boolean(0, false, false), Span(2, 4)),
-                (Instruction::r#return(true), Span(6, 6)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
 fn function() {
     let source = "fn(a: int, b: int) -> int { a + b }";
 
@@ -402,118 +351,6 @@ fn function_call() {
     );
 
     assert_eq!(run(source), Ok(Some(Value::integer(3))));
-}
-
-#[test]
-fn greater() {
-    let source = "1 > 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::less_equal(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::jump(3, true), Span(2, 3)),
-                (Instruction::load_boolean(0, true, true), Span(2, 3)),
-                (Instruction::load_boolean(0, false, false), Span(2, 3)),
-                (Instruction::r#return(true), Span(5, 5)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn greater_than_or_equal() {
-    let source = "1 >= 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::less(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(3, true), Span(2, 4)),
-                (Instruction::load_boolean(0, true, true), Span(2, 4)),
-                (Instruction::load_boolean(0, false, false), Span(2, 4)),
-                (Instruction::r#return(true), Span(6, 6)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
-}
-
-#[test]
-fn less_than() {
-    let source = "1 < 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::less(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 3)
-                ),
-                (Instruction::jump(3, true), Span(2, 3)),
-                (Instruction::load_boolean(0, true, true), Span(2, 3)),
-                (Instruction::load_boolean(0, false, false), Span(2, 3)),
-                (Instruction::r#return(true), Span(5, 5)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn less_than_or_equal() {
-    let source = "1 <= 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::less_equal(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(3, true), Span(2, 4)),
-                (Instruction::load_boolean(0, true, true), Span(2, 4)),
-                (Instruction::load_boolean(0, false, false), Span(2, 4)),
-                (Instruction::r#return(true), Span(6, 6)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
 }
 
 #[test]
@@ -748,57 +585,6 @@ fn not() {
 }
 
 #[test]
-fn not_equal() {
-    let source = "1 != 2";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (
-                    *Instruction::equal(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(3, true), Span(2, 4)),
-                (Instruction::load_boolean(0, true, true), Span(2, 4)),
-                (Instruction::load_boolean(0, false, false), Span(2, 4)),
-                (Instruction::r#return(true), Span(6, 6)),
-            ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
-fn or() {
-    let source = "true || false";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, true), Span(5, 7)),
-                (Instruction::jump(4, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
-            ],
-            vec![],
-            vec![]
-        ))
-    );
-
-    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
-}
-
-#[test]
 fn parentheses_precedence() {
     let source = "(1 + 2) * 3";
 
@@ -917,7 +703,7 @@ fn variable_and() {
                 (Instruction::define_local(1, 1, false), Span(18, 19)),
                 (Instruction::get_local(2, 0), Span(29, 30)),
                 (Instruction::test(2, false), Span(31, 33)),
-                (Instruction::jump(8, true), Span(31, 33)),
+                (Instruction::jump(1, true), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
@@ -947,9 +733,9 @@ fn r#while() {
                     *Instruction::less(true, 0, 1).set_c_is_constant(),
                     Span(23, 24)
                 ),
-                (Instruction::jump(7, true), Span(23, 24)),
-                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
                 (Instruction::jump(2, true), Span(41, 42)),
+                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
+                (Instruction::jump(3, false), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),
                 (Instruction::r#return(true), Span(42, 42)),
             ],

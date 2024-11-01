@@ -11,7 +11,7 @@ while count <= 15 {
 	} else if divides_by_5 {
 		"buzz"
 	} else {
-		string(count)
+		to_string(count)
 	}
 
 	write_line(output)

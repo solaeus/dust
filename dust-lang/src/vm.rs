@@ -353,7 +353,7 @@ impl Vm {
                     let new_ip = if is_positive {
                         self.ip + jump_distance as usize
                     } else {
-                        self.ip - jump_distance as usize
+                        self.ip - jump_distance as usize - 1
                     };
 
                     self.jump_to_ip(new_ip);

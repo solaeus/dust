@@ -1092,7 +1092,7 @@ impl<'src> Parser<'src> {
     fn parse_while(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         self.advance()?;
 
-        let jump_start = self.chunk.len() as u8;
+        let expression_start = self.chunk.len() as u8;
 
         self.parse_expression()?;
 
@@ -1102,7 +1102,10 @@ impl<'src> Parser<'src> {
         {
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
+            self.chunk.instructions_mut().pop();
         }
+
+        let block_start = self.chunk.len();
 
         self.parse_block(Allowed {
             assignment: true,
@@ -1110,13 +1113,16 @@ impl<'src> Parser<'src> {
             implicit_return: false,
         })?;
 
-        if let Some(jump) = self.get_last_jump_mut() {
-            jump.set_b(jump.b() + 1);
-        }
+        let block_end = self.chunk.len() as u8;
 
-        let jump_end = self.chunk.len() as u8;
-        let jump_distance = jump_end - jump_start;
-        let jump_back = Instruction::jump(jump_distance, false);
+        self.chunk.insert_instruction(
+            block_start,
+            Instruction::jump(block_end - block_start as u8 + 1, true),
+            self.current_position,
+        )?;
+
+        let jump_back_distance = block_end - expression_start + 1;
+        let jump_back = Instruction::jump(jump_back_distance, false);
 
         self.emit_instruction(jump_back, self.current_position);
         self.optimize_statement();
