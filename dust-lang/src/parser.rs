@@ -1003,11 +1003,21 @@ impl<'src> Parser<'src> {
 
         if let Token::Else = self.current_token {
             let else_start = self.chunk.len();
+            let if_last_register = self.next_register().saturating_sub(1);
 
             self.parse_else(allowed, block_allowed)?;
 
+            let else_last_register = self.next_register().saturating_sub(1);
             let else_end = self.chunk.len();
             let jump_distance = (else_end - else_start) as u8;
+
+            if if_last_register < else_last_register {
+                self.emit_instruction(
+                    Instruction::r#move(else_last_register, if_last_register),
+                    self.current_position,
+                );
+            }
+
             self.current_is_expression = if_block_is_expression
                 && self
                     .chunk

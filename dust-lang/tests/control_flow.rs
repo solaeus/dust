@@ -61,6 +61,70 @@ fn equality_assignment_short() {
 }
 
 #[test]
+fn if_else_assigment() {
+    let source = r#"
+        let a = if 4 == 4 {
+            1; 2; 3; 4;
+            42
+        } else {
+            1; 2; 3; 4;
+            panic()
+        };
+        a"#;
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            None,
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(22, 24)
+                ),
+                (Instruction::jump(5, true), Span(22, 24)),
+                (Instruction::load_constant(0, 2, false), Span(41, 42)),
+                (Instruction::load_constant(1, 3, false), Span(44, 45)),
+                (Instruction::load_constant(2, 4, false), Span(47, 48)),
+                (Instruction::load_constant(3, 5, false), Span(50, 51)),
+                (Instruction::load_constant(4, 6, false), Span(65, 67)),
+                (Instruction::jump(6, true), Span(138, 139)),
+                (Instruction::jump(5, true), Span(138, 139)),
+                (Instruction::load_constant(5, 7, false), Span(97, 98)),
+                (Instruction::load_constant(6, 8, false), Span(100, 101)),
+                (Instruction::load_constant(7, 9, false), Span(103, 104)),
+                (Instruction::load_constant(8, 10, false), Span(106, 107)),
+                (
+                    Instruction::call_native(9, NativeFunction::Panic, 0),
+                    Span(121, 128)
+                ),
+                (Instruction::r#move(8, 4), Span(138, 139)),
+                (Instruction::define_local(8, 0, false), Span(13, 14)),
+                (Instruction::get_local(9, 0), Span(148, 149)),
+                (Instruction::r#return(true), Span(149, 149)),
+            ],
+            vec![
+                Value::integer(4),
+                Value::integer(4),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+                Value::integer(42),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(4),
+            ],
+            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(42))));
+}
+
+#[test]
 fn if_else_complex() {
     let source = "
         if 1 == 1 {
@@ -91,6 +155,7 @@ fn if_else_complex() {
                 (Instruction::load_constant(5, 7, false), Span(77, 78)),
                 (Instruction::load_constant(6, 8, false), Span(80, 81)),
                 (Instruction::load_constant(7, 9, false), Span(83, 84)),
+                (Instruction::r#move(7, 3), Span(95, 95)),
                 (Instruction::r#return(true), Span(95, 95)),
             ],
             vec![

@@ -65,7 +65,12 @@ impl Vm {
             );
 
             match instruction.operation() {
-                Operation::Move => todo!(),
+                Operation::Move => {
+                    let to_register = instruction.a();
+                    let from_register = instruction.b();
+
+                    self.set_pointer(to_register, from_register, position)?;
+                }
                 Operation::Close => {
                     let from_register = instruction.b();
                     let to_register = instruction.c();
