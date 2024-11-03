@@ -15,7 +15,7 @@ fn panic() {
                     Instruction::call_native(2, NativeFunction::Panic, 2),
                     Span(0, 27)
                 ),
-                (Instruction::r#return(false), Span(27, 27))
+                (Instruction::r#return(true), Span(27, 27))
             ],
             vec![Value::string("Goodbye world!"), Value::integer(42)],
             vec![]

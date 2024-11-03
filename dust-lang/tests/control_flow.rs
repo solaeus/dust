@@ -99,9 +99,9 @@ fn if_else_assigment() {
                     Instruction::call_native(9, NativeFunction::Panic, 0),
                     Span(121, 128)
                 ),
-                (Instruction::r#move(8, 4), Span(138, 139)),
-                (Instruction::define_local(8, 0, false), Span(13, 14)),
-                (Instruction::get_local(9, 0), Span(148, 149)),
+                (Instruction::r#move(9, 4), Span(138, 139)),
+                (Instruction::define_local(9, 0, false), Span(13, 14)),
+                (Instruction::get_local(10, 0), Span(148, 149)),
                 (Instruction::r#return(true), Span(149, 149)),
             ],
             vec![
@@ -156,7 +156,7 @@ fn if_else_complex() {
                 (Instruction::load_constant(6, 8, false), Span(80, 81)),
                 (Instruction::load_constant(7, 9, false), Span(83, 84)),
                 (Instruction::r#move(7, 3), Span(95, 95)),
-                (Instruction::r#return(true), Span(95, 95)),
+                (Instruction::r#return(false), Span(95, 95)),
             ],
             vec![
                 Value::integer(1),
@@ -172,7 +172,9 @@ fn if_else_complex() {
             ],
             vec![]
         ))
-    )
+    );
+
+    assert_eq!(run(source), Ok(None));
 }
 
 // #[test]
@@ -265,7 +267,8 @@ fn if_else_false() {
                     Instruction::call_native(0, NativeFunction::Panic, 0),
                     Span(12, 19)
                 ),
-                (Instruction::load_constant(0, 2, true), Span(29, 31)),
+                (Instruction::load_constant(1, 2, true), Span(29, 31)),
+                (Instruction::r#move(1, 0), Span(33, 33)),
                 (Instruction::r#return(true), Span(33, 33)),
             ],
             vec![Value::integer(1), Value::integer(2), Value::integer(42)],
@@ -297,6 +300,7 @@ fn if_else_true() {
                     Instruction::call_native(1, NativeFunction::Panic, 0),
                     Span(24, 31)
                 ),
+                (Instruction::r#move(1, 0), Span(33, 33)),
                 (Instruction::r#return(true), Span(33, 33))
             ],
             vec![Value::integer(1), Value::integer(1), Value::integer(42)],
