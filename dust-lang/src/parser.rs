@@ -1401,7 +1401,7 @@ impl<'src> Parser<'src> {
 
             let register = value_parameters
                 .as_ref()
-                .map(|values| values.len() as u8 - 1)
+                .map(|values| values.len() as u8)
                 .unwrap_or(0);
             let (_, identifier_index) = function_parser.declare_local(
                 parameter,
@@ -1449,7 +1449,7 @@ impl<'src> Parser<'src> {
             value_parameters,
             return_type,
         };
-        let function = Value::function(function_parser.chunk, function_type.clone());
+        let function = Value::function(function_parser.finish(), function_type.clone());
         let function_end = self.current_position.1;
 
         self.lexer.skip_to(function_end);

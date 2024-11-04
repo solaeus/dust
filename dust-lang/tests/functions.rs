@@ -13,68 +13,19 @@ fn function() {
                     (Instruction::add(2, 0, 1), Span(30, 31)),
                     (Instruction::r#return(true), Span(35, 35)),
                 ],
-                vec![],
+                vec![Value::string("a"), Value::string("b"),],
                 vec![
                     Local::new(0, Some(Type::Integer), false, 0, 0),
-                    Local::new(0, Some(Type::Integer), false, 0, 1)
+                    Local::new(1, Some(Type::Integer), false, 0, 1)
                 ]
             ),
             FunctionType {
                 type_parameters: None,
-                value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
+                value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
                 return_type: Some(Box::new(Type::Integer)),
             }
         )))
     );
-}
-
-#[test]
-fn function_declaration() {
-    let source = "fn add (a: int, b: int) -> int { a + b }";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (Instruction::load_constant(0, 0, false), Span(0, 40)),
-                (Instruction::define_local(0, 0, false), Span(3, 6)),
-                (Instruction::r#return(false), Span(40, 40))
-            ],
-            vec![Value::function(
-                Chunk::with_data(
-                    None,
-                    vec![
-                        (Instruction::add(2, 0, 1), Span(35, 36)),
-                        (Instruction::r#return(true), Span(40, 40)),
-                    ],
-                    vec![],
-                    vec![
-                        Local::new(0, Some(Type::Integer), false, 0, 0),
-                        Local::new(0, Some(Type::Integer), false, 0, 1)
-                    ]
-                ),
-                FunctionType {
-                    type_parameters: None,
-                    value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
-                    return_type: Some(Box::new(Type::Integer)),
-                },
-            )],
-            vec![Local::new(
-                0,
-                Some(Type::Function(FunctionType {
-                    type_parameters: None,
-                    value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
-                    return_type: Some(Box::new(Type::Integer)),
-                })),
-                false,
-                0,
-                0
-            ),],
-        )),
-    );
-
-    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -100,15 +51,15 @@ fn function_call() {
                             (Instruction::add(2, 0, 1), Span(30, 31)),
                             (Instruction::r#return(true), Span(35, 36)),
                         ],
-                        vec![],
+                        vec![Value::string("a"), Value::string("b"),],
                         vec![
                             Local::new(0, Some(Type::Integer), false, 0, 0),
-                            Local::new(0, Some(Type::Integer), false, 0, 1)
+                            Local::new(1, Some(Type::Integer), false, 0, 1)
                         ]
                     ),
                     FunctionType {
                         type_parameters: None,
-                        value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
                         return_type: Some(Box::new(Type::Integer)),
                     }
                 ),
@@ -120,4 +71,56 @@ fn function_call() {
     );
 
     assert_eq!(run(source), Ok(Some(Value::integer(3))));
+}
+
+#[test]
+fn function_declaration() {
+    let source = "fn add (a: int, b: int) -> int { a + b }";
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            None,
+            vec![
+                (Instruction::load_constant(0, 1, false), Span(0, 40)),
+                (Instruction::define_local(0, 0, false), Span(3, 6)),
+                (Instruction::r#return(false), Span(40, 40))
+            ],
+            vec![
+                Value::string("add"),
+                Value::function(
+                    Chunk::with_data(
+                        None,
+                        vec![
+                            (Instruction::add(2, 0, 1), Span(35, 36)),
+                            (Instruction::r#return(true), Span(40, 40)),
+                        ],
+                        vec![Value::string("a"), Value::string("b")],
+                        vec![
+                            Local::new(0, Some(Type::Integer), false, 0, 0),
+                            Local::new(1, Some(Type::Integer), false, 0, 1)
+                        ]
+                    ),
+                    FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Some(Box::new(Type::Integer)),
+                    },
+                )
+            ],
+            vec![Local::new(
+                0,
+                Some(Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                    return_type: Some(Box::new(Type::Integer)),
+                })),
+                false,
+                0,
+                0
+            ),],
+        )),
+    );
+
+    assert_eq!(run(source), Ok(None));
 }

@@ -36,12 +36,12 @@ fn add_assign() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
-                (*Instruction::add(0, 0, 1).set_c_is_constant(), Span(17, 19)),
+                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(17, 19)),
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
-            vec![Value::integer(1), Value::integer(2)],
-            vec![Local::new(0, None, true, 0, 0)]
+            vec![Value::integer(1), Value::string("a"), Value::integer(2)],
+            vec![Local::new(1, None, true, 0, 0)]
         ))
     );
 
@@ -81,8 +81,8 @@ fn define_local() {
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::r#return(false), Span(11, 11))
             ],
-            vec![Value::integer(42)],
-            vec![Local::new(0, None, false, 0, 0)]
+            vec![Value::integer(42), Value::string("x")],
+            vec![Local::new(1, None, false, 0, 0)]
         )),
     );
 
@@ -132,8 +132,8 @@ fn divide_assign() {
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
-            vec![Value::integer(2)],
-            vec![Local::new(0, None, true, 0, 0)]
+            vec![Value::integer(2), Value::string("a")],
+            vec![Local::new(1, None, true, 0, 0)]
         ))
     );
 
@@ -352,14 +352,14 @@ fn multiply_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::multiply(0, 0, 1).set_c_is_constant(),
+                    *Instruction::multiply(0, 0, 2).set_c_is_constant(),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(22, 23)),
                 (Instruction::r#return(true), Span(23, 23))
             ],
-            vec![Value::integer(2), Value::integer(3)],
-            vec![Local::new(0, None, true, 0, 0),]
+            vec![Value::integer(2), Value::string("a"), Value::integer(3)],
+            vec![Local::new(1, None, true, 0, 0),]
         ))
     );
 
@@ -447,13 +447,13 @@ fn set_local() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
-                (Instruction::load_constant(1, 1, false), Span(20, 22)),
+                (Instruction::load_constant(1, 2, false), Span(20, 22)),
                 (Instruction::set_local(1, 0), Span(16, 17)),
                 (Instruction::get_local(2, 0), Span(24, 25)),
                 (Instruction::r#return(true), Span(25, 25)),
             ],
-            vec![Value::integer(41), Value::integer(42)],
-            vec![Local::new(0, None, true, 0, 0)]
+            vec![Value::integer(41), Value::string("x"), Value::integer(42)],
+            vec![Local::new(1, None, true, 0, 0)]
         )),
     );
 
@@ -497,14 +497,14 @@ fn subtract_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::subtract(0, 0, 1).set_c_is_constant(),
+                    *Instruction::subtract(0, 0, 2).set_c_is_constant(),
                     Span(18, 20)
                 ),
                 (Instruction::get_local(1, 0), Span(24, 25)),
                 (Instruction::r#return(true), Span(25, 25)),
             ],
-            vec![Value::integer(42), Value::integer(2)],
-            vec![Local::new(0, None, true, 0, 0)]
+            vec![Value::integer(42), Value::string("x"), Value::integer(2)],
+            vec![Local::new(1, None, true, 0, 0)]
         )),
     );
 
@@ -530,10 +530,10 @@ fn variable_and() {
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
-            vec![],
+            vec![Value::string("a"), Value::string("b"),],
             vec![
                 Local::new(0, None, false, 0, 0),
-                Local::new(0, None, false, 0, 1),
+                Local::new(1, None, false, 0, 1),
             ]
         ))
     );
@@ -553,17 +553,22 @@ fn r#while() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::less(true, 0, 1).set_c_is_constant(),
+                    *Instruction::less(true, 0, 2).set_c_is_constant(),
                     Span(23, 24)
                 ),
                 (Instruction::jump(2, true), Span(41, 42)),
-                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(39, 40)),
+                (*Instruction::add(0, 0, 3).set_c_is_constant(), Span(39, 40)),
                 (Instruction::jump(3, false), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),
                 (Instruction::r#return(true), Span(42, 42)),
             ],
-            vec![Value::integer(0), Value::integer(5), Value::integer(1),],
-            vec![Local::new(0, None, true, 0, 0),]
+            vec![
+                Value::integer(0),
+                Value::string("x"),
+                Value::integer(5),
+                Value::integer(1),
+            ],
+            vec![Local::new(1, None, true, 0, 0),]
         )),
     );
 
