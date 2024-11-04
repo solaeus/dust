@@ -17,8 +17,6 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::Identifier;
-
 /// Description of a kind of value.
 ///
 /// See the [module documentation](index.html) for more information.
@@ -32,7 +30,7 @@ pub enum Type {
     Float,
     Function(FunctionType),
     Generic {
-        identifier: Identifier,
+        identifier_index: u8,
         concrete_type: Option<Box<Type>>,
     },
     Integer,
@@ -45,7 +43,7 @@ pub enum Type {
         item_type: Box<Type>,
     },
     Map {
-        pairs: HashMap<Identifier, Type>,
+        pairs: HashMap<u8, Type>,
     },
     Number,
     Range {
@@ -230,47 +228,6 @@ impl Type {
             expected: self.clone(),
         })
     }
-
-    pub fn has_field(&self, field: &Identifier) -> bool {
-        match field.as_str() {
-            "to_string" => true,
-            "length" => {
-                matches!(
-                    self,
-                    Type::List { .. }
-                        | Type::ListOf { .. }
-                        | Type::ListEmpty
-                        | Type::Map { .. }
-                        | Type::String { .. }
-                )
-            }
-            "is_even" | "is_odd" => matches!(self, Type::Integer | Type::Float),
-            _ => match self {
-                Type::Struct(StructType::Fields { fields, .. }) => fields.contains_key(field),
-                Type::Map { pairs } => pairs.contains_key(field),
-                _ => false,
-            },
-        }
-    }
-
-    pub fn get_field_type(&self, field: &Identifier) -> Option<Type> {
-        match field.as_str() {
-            "length" => match self {
-                Type::List { .. } => Some(Type::Integer),
-                Type::ListOf { .. } => Some(Type::Integer),
-                Type::ListEmpty => Some(Type::Integer),
-                Type::Map { .. } => Some(Type::Integer),
-                Type::String { .. } => Some(Type::Integer),
-                _ => None,
-            },
-            "is_even" | "is_odd" => Some(Type::Boolean),
-            _ => match self {
-                Type::Struct(StructType::Fields { fields, .. }) => fields.get(field).cloned(),
-                Type::Map { pairs } => pairs.get(field).cloned(),
-                _ => None,
-            },
-        }
-    }
 }
 
 impl Display for Type {
@@ -285,7 +242,10 @@ impl Display for Type {
             Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Generic { concrete_type, .. } => {
                 match concrete_type.clone().map(|r#box| *r#box) {
-                    Some(Type::Generic { identifier, .. }) => write!(f, "{identifier}"),
+                    Some(Type::Generic {
+                        identifier_index: identifier,
+                        ..
+                    }) => write!(f, "{identifier}"),
                     Some(concrete_type) => write!(f, "implied to be {concrete_type}"),
                     None => write!(f, "unknown"),
                 }
@@ -416,8 +376,8 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Option<Vec<Identifier>>,
-    pub value_parameters: Option<Vec<(Identifier, Type)>>,
+    pub type_parameters: Option<Vec<u8>>,
+    pub value_parameters: Option<Vec<(u8, Type)>>,
     pub return_type: Option<Box<Type>>,
 }
 
@@ -463,25 +423,17 @@ impl Display for FunctionType {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum StructType {
-    Unit {
-        name: Identifier,
-    },
-    Tuple {
-        name: Identifier,
-        fields: Vec<Type>,
-    },
-    Fields {
-        name: Identifier,
-        fields: HashMap<Identifier, Type>,
-    },
+    Unit { name: u8 },
+    Tuple { name: u8, fields: Vec<Type> },
+    Fields { name: u8, fields: HashMap<u8, Type> },
 }
 
 impl StructType {
-    pub fn name(&self) -> &Identifier {
+    pub fn name(&self) -> u8 {
         match self {
-            StructType::Unit { name } => name,
-            StructType::Tuple { name, .. } => name,
-            StructType::Fields { name, .. } => name,
+            StructType::Unit { name } => *name,
+            StructType::Tuple { name, .. } => *name,
+            StructType::Fields { name, .. } => *name,
         }
     }
 }
@@ -583,7 +535,7 @@ impl Ord for StructType {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumType {
-    pub name: Identifier,
+    pub name: u8,
     pub variants: Vec<StructType>,
 }
 

@@ -1,9 +1,8 @@
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
-    parse, value::Primitive, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
-    Identifier, Instruction, NativeFunction, NativeFunctionError, Operation, Span, Type, Value,
-    ValueError,
+    parse, value::Primitive, AnnotatedError, Chunk, DustError, FunctionType, Instruction, Local,
+    NativeFunction, NativeFunctionError, Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -42,14 +41,24 @@ impl Vm {
             position: Span,
         ) -> Result<(&Value, &Value), VmError> {
             let left = if instruction.b_is_constant() {
-                vm.chunk.get_constant(instruction.b(), position)?
+                vm.chunk.get_constant(instruction.b()).ok_or_else(|| {
+                    VmError::ConstantIndexOutOfBounds {
+                        index: instruction.b() as usize,
+                        position,
+                    }
+                })?
             } else {
-                vm.get(instruction.b(), position)?
+                vm.get_register(instruction.b(), position)?
             };
             let right = if instruction.c_is_constant() {
-                vm.chunk.get_constant(instruction.c(), position)?
+                vm.chunk.get_constant(instruction.c()).ok_or_else(|| {
+                    VmError::ConstantIndexOutOfBounds {
+                        index: instruction.c() as usize,
+                        position,
+                    }
+                })?
             } else {
-                vm.get(instruction.c(), position)?
+                vm.get_register(instruction.c(), position)?
             };
 
             Ok((left, right))
@@ -89,7 +98,7 @@ impl Vm {
                     let jump = instruction.c_as_boolean();
                     let value = Value::boolean(boolean);
 
-                    self.set(to_register, value, position)?;
+                    self.set_register(to_register, value, position)?;
 
                     if jump {
                         self.ip += 1;
@@ -115,11 +124,11 @@ impl Vm {
                     let item_type = if is_empty {
                         Type::Any
                     } else {
-                        self.get(first_register, position)?.r#type()
+                        self.get_register(first_register, position)?.r#type()
                     };
                     let value = Value::list(first_register, last_register, item_type);
 
-                    self.set(to_register, value, position)?;
+                    self.set_register(to_register, value, position)?;
                 }
                 Operation::LoadSelf => {
                     let to_register = instruction.a();
@@ -132,34 +141,37 @@ impl Vm {
                         },
                     );
 
-                    self.set(to_register, value, position)?;
+                    self.set_register(to_register, value, position)?;
                 }
                 Operation::DefineLocal => {
                     let from_register = instruction.a();
                     let to_local = instruction.b();
 
-                    self.chunk.define_local(to_local, from_register, position)?;
+                    self.define_local(to_local, from_register, position)?;
                 }
                 Operation::GetLocal => {
                     let to_register = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.chunk.get_local(local_index, position)?;
+                    let local = self.get_local(local_index, position)?;
 
                     self.set_pointer(to_register, local.register_index, position)?;
                 }
                 Operation::SetLocal => {
                     let register = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.chunk.get_local(local_index, position)?;
+                    let local = self.get_local(local_index, position)?;
 
                     if !local.is_mutable {
                         return Err(VmError::CannotMutateImmutableLocal {
-                            identifier: local.identifier.clone(),
+                            identifier: self
+                                .chunk
+                                .get_identifier(local.identifier_index)
+                                .unwrap_or_else(|| "unknown".to_string()),
                             position,
                         });
                     }
 
-                    self.chunk.define_local(local_index, register, position)?;
+                    self.define_local(local_index, register, position)?;
                 }
                 Operation::Add => {
                     let (left, right) = get_arguments(&mut self, instruction, position)?;
@@ -167,7 +179,7 @@ impl Vm {
                         .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), sum, position)?;
+                    self.set_register(instruction.a(), sum, position)?;
                 }
                 Operation::Subtract => {
                     let (left, right) = get_arguments(&mut self, instruction, position)?;
@@ -175,7 +187,7 @@ impl Vm {
                         .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), difference, position)?;
+                    self.set_register(instruction.a(), difference, position)?;
                 }
                 Operation::Multiply => {
                     let (left, right) = get_arguments(&mut self, instruction, position)?;
@@ -183,7 +195,7 @@ impl Vm {
                         .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), product, position)?;
+                    self.set_register(instruction.a(), product, position)?;
                 }
                 Operation::Divide => {
                     let (left, right) = get_arguments(&mut self, instruction, position)?;
@@ -191,7 +203,7 @@ impl Vm {
                         .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), quotient, position)?;
+                    self.set_register(instruction.a(), quotient, position)?;
                 }
                 Operation::Modulo => {
                     let (left, right) = get_arguments(&mut self, instruction, position)?;
@@ -199,12 +211,12 @@ impl Vm {
                         .modulo(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), remainder, position)?;
+                    self.set_register(instruction.a(), remainder, position)?;
                 }
                 Operation::Test => {
                     let register = instruction.a();
                     let test_value = instruction.c_as_boolean();
-                    let value = self.get(register, position)?;
+                    let value = self.get_register(register, position)?;
                     let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) = value {
                         *boolean
                     } else {
@@ -221,7 +233,7 @@ impl Vm {
                 Operation::TestSet => todo!(),
                 Operation::Equal => {
                     debug_assert_eq!(
-                        self.chunk.get_instruction(self.ip, position)?.0.operation(),
+                        self.get_instruction(self.ip, position)?.0.operation(),
                         Operation::Jump
                     );
 
@@ -243,7 +255,7 @@ impl Vm {
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let (jump, _) = *self.chunk.get_instruction(self.ip, position)?;
+                        let (jump, _) = self.get_instruction(self.ip, position)?;
                         let jump_distance = jump.a();
                         let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
@@ -257,7 +269,7 @@ impl Vm {
                 }
                 Operation::Less => {
                     debug_assert_eq!(
-                        self.chunk.get_instruction(self.ip, position)?.0.operation(),
+                        self.get_instruction(self.ip, position)?.0.operation(),
                         Operation::Jump
                     );
 
@@ -279,7 +291,7 @@ impl Vm {
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump = self.chunk.get_instruction(self.ip, position)?.0;
+                        let jump = self.get_instruction(self.ip, position)?.0;
                         let jump_distance = jump.a();
                         let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
@@ -293,7 +305,7 @@ impl Vm {
                 }
                 Operation::LessEqual => {
                     debug_assert_eq!(
-                        self.chunk.get_instruction(self.ip, position)?.0.operation(),
+                        self.get_instruction(self.ip, position)?.0.operation(),
                         Operation::Jump
                     );
 
@@ -316,7 +328,7 @@ impl Vm {
                     if boolean == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump = self.chunk.get_instruction(self.ip, position)?.0;
+                        let jump = self.get_instruction(self.ip, position)?.0;
                         let jump_distance = jump.a();
                         let is_positive = jump.b_as_boolean();
                         let new_ip = if is_positive {
@@ -330,27 +342,37 @@ impl Vm {
                 }
                 Operation::Negate => {
                     let value = if instruction.b_is_constant() {
-                        self.chunk.get_constant(instruction.b(), position)?
+                        self.chunk.get_constant(instruction.b()).ok_or_else(|| {
+                            VmError::ConstantIndexOutOfBounds {
+                                index: instruction.b() as usize,
+                                position,
+                            }
+                        })?
                     } else {
-                        self.get(instruction.b(), position)?
+                        self.get_register(instruction.b(), position)?
                     };
                     let negated = value
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), negated, position)?;
+                    self.set_register(instruction.a(), negated, position)?;
                 }
                 Operation::Not => {
                     let value = if instruction.b_is_constant() {
-                        self.chunk.get_constant(instruction.b(), position)?
+                        self.chunk.get_constant(instruction.b()).ok_or_else(|| {
+                            VmError::ConstantIndexOutOfBounds {
+                                index: instruction.b() as usize,
+                                position,
+                            }
+                        })?
                     } else {
-                        self.get(instruction.b(), position)?
+                        self.get_register(instruction.b(), position)?
                     };
                     let not = value
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.set(instruction.a(), not, position)?;
+                    self.set_register(instruction.a(), not, position)?;
                 }
                 Operation::Jump => {
                     let jump_distance = instruction.b();
@@ -366,7 +388,7 @@ impl Vm {
                     let to_register = instruction.a();
                     let function_register = instruction.b();
                     let argument_count = instruction.c();
-                    let value = self.get(function_register, position)?.clone();
+                    let value = self.get_register(function_register, position)?.clone();
                     let function = if let Value::Function(function) = value {
                         function
                     } else {
@@ -381,20 +403,20 @@ impl Vm {
                     for argument_index in
                         first_argument_index..first_argument_index + argument_count
                     {
-                        let argument = match self.get(argument_index, position) {
+                        let argument = match self.get_register(argument_index, position) {
                             Ok(value) => value.clone(),
                             Err(VmError::EmptyRegister { .. }) => continue,
                             Err(error) => return Err(error),
                         };
                         let top_of_stack = function_vm.stack.len() as u8;
 
-                        function_vm.set(top_of_stack, argument, position)?;
+                        function_vm.set_register(top_of_stack, argument, position)?;
                     }
 
                     let return_value = function_vm.run()?;
 
                     if let Some(value) = return_value {
-                        self.set(to_register, value, position)?;
+                        self.set_register(to_register, value, position)?;
                     }
                 }
                 Operation::CallNative => {
@@ -404,7 +426,7 @@ impl Vm {
                     if let Some(value) = return_value {
                         let to_register = instruction.a();
 
-                        self.set(to_register, value, position)?;
+                        self.set_register(to_register, value, position)?;
                     }
                 }
                 Operation::Return => {
@@ -415,7 +437,7 @@ impl Vm {
                     }
 
                     if let Some(register) = self.last_assigned_register {
-                        let value = self.empty(register, position)?;
+                        let value = self.empty_register(register, position)?;
 
                         return Ok(Some(value));
                     } else {
@@ -428,7 +450,12 @@ impl Vm {
         Ok(None)
     }
 
-    fn set(&mut self, to_register: u8, value: Value, position: Span) -> Result<(), VmError> {
+    fn set_register(
+        &mut self,
+        to_register: u8,
+        value: Value,
+        position: Span,
+    ) -> Result<(), VmError> {
         let length = self.stack.len();
         self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
@@ -564,7 +591,7 @@ impl Vm {
         }
     }
 
-    pub fn get(&self, index: u8, position: Span) -> Result<&Value, VmError> {
+    pub fn get_register(&self, index: u8, position: Span) -> Result<&Value, VmError> {
         let index = index as usize;
         let register = self
             .stack
@@ -573,21 +600,19 @@ impl Vm {
 
         match register {
             Register::Value(value) => Ok(value),
-            Register::Pointer(register_index) => {
-                let value = self.get(*register_index, position)?;
-
-                Ok(value)
-            }
-            Register::Constant(constant_index) => {
-                let value = self.chunk.get_constant(*constant_index, position)?;
-
-                Ok(value)
-            }
+            Register::Pointer(register_index) => self.get_register(*register_index, position),
+            Register::Constant(constant_index) => self
+                .chunk
+                .get_constant(*constant_index)
+                .ok_or_else(|| VmError::ConstantIndexOutOfBounds {
+                    index: *constant_index as usize,
+                    position,
+                }),
             Register::Empty => Err(VmError::EmptyRegister { index, position }),
         }
     }
 
-    fn empty(mut self, index: u8, position: Span) -> Result<Value, VmError> {
+    fn empty_register(mut self, index: u8, position: Span) -> Result<Value, VmError> {
         let index = index as usize;
 
         if index >= self.stack.len() {
@@ -599,7 +624,7 @@ impl Vm {
         match register {
             Register::Value(value) => Ok(value),
             Register::Pointer(register_index) => {
-                let value = self.empty(register_index, position)?;
+                let value = self.empty_register(register_index, position)?;
 
                 Ok(value)
             }
@@ -617,11 +642,61 @@ impl Vm {
             self.ip = self.chunk.len() - 1;
         }
 
-        let current = self.chunk.get_instruction(self.ip, position)?;
+        let current = self.chunk.instructions().get(self.ip).ok_or_else(|| {
+            VmError::InstructionIndexOutOfBounds {
+                index: self.ip,
+                position,
+            }
+        })?;
 
         self.ip += 1;
 
         Ok(current)
+    }
+
+    fn define_local(
+        &mut self,
+        local_index: u8,
+        register_index: u8,
+        position: Span,
+    ) -> Result<(), VmError> {
+        let local = self
+            .chunk
+            .locals_mut()
+            .get_mut(local_index as usize)
+            .ok_or_else(|| VmError::LocalIndexOutOfBounds {
+                index: local_index as usize,
+                position,
+            })?;
+
+        log::debug!("Define local L{}", local_index);
+
+        local.register_index = register_index;
+
+        Ok(())
+    }
+
+    fn get_local(&self, local_index: u8, position: Span) -> Result<&Local, VmError> {
+        let local_index = local_index as usize;
+
+        self.chunk
+            .locals()
+            .get(local_index)
+            .ok_or_else(|| VmError::LocalIndexOutOfBounds {
+                index: local_index,
+                position,
+            })
+    }
+
+    fn get_instruction(
+        &self,
+        index: usize,
+        position: Span,
+    ) -> Result<&(Instruction, Span), VmError> {
+        self.chunk
+            .instructions()
+            .get(index)
+            .ok_or_else(|| VmError::InstructionIndexOutOfBounds { index, position })
     }
 }
 
@@ -636,7 +711,7 @@ enum Register {
 #[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
     CannotMutateImmutableLocal {
-        identifier: Identifier,
+        identifier: String,
         position: Span,
     },
     EmptyRegister {
@@ -651,7 +726,19 @@ pub enum VmError {
         found: Value,
         position: Span,
     },
+    ConstantIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
     RegisterIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
+    InstructionIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
+    LocalIndexOutOfBounds {
         index: usize,
         position: Span,
     },
@@ -666,23 +753,16 @@ pub enum VmError {
         position: Span,
     },
     UndefinedVariable {
-        identifier: Identifier,
+        identifier: String,
         position: Span,
     },
 
     // Wrappers for foreign errors
     NativeFunction(NativeFunctionError),
-    Chunk(ChunkError),
     Value {
         error: ValueError,
         position: Span,
     },
-}
-
-impl From<ChunkError> for VmError {
-    fn from(error: ChunkError) -> Self {
-        Self::Chunk(error)
-    }
 }
 
 impl AnnotatedError for VmError {
@@ -693,15 +773,17 @@ impl AnnotatedError for VmError {
     fn description(&self) -> &'static str {
         match self {
             Self::CannotMutateImmutableLocal { .. } => "Cannot mutate immutable variable",
+            Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
+            Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
             Self::InvalidInstruction { .. } => "Invalid instruction",
+            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndefinedVariable { .. } => "Undefined variable",
-            Self::Chunk(error) => error.description(),
             Self::NativeFunction(error) => error.description(),
             Self::Value { .. } => "Value error",
         }
@@ -709,15 +791,23 @@ impl AnnotatedError for VmError {
 
     fn details(&self) -> Option<String> {
         match self {
+            Self::ConstantIndexOutOfBounds { index, .. } => {
+                Some(format!("Constant C{index} does not exist"))
+            }
             Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
             }
+            Self::InstructionIndexOutOfBounds { index, .. } => {
+                Some(format!("Instruction {index} does not exist"))
+            }
+            Self::LocalIndexOutOfBounds { index, .. } => {
+                Some(format!("Local L{index} does not exist"))
+            }
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("{identifier} is not in scope"))
             }
-            Self::Chunk(error) => error.details(),
             Self::NativeFunction(error) => error.details(),
             Self::Value { error, .. } => Some(error.to_string()),
             _ => None,
@@ -727,15 +817,17 @@ impl AnnotatedError for VmError {
     fn position(&self) -> Span {
         match self {
             Self::CannotMutateImmutableLocal { position, .. } => *position,
+            Self::ConstantIndexOutOfBounds { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
+            Self::InstructionIndexOutOfBounds { position, .. } => *position,
             Self::InvalidInstruction { position, .. } => *position,
+            Self::LocalIndexOutOfBounds { position, .. } => *position,
             Self::StackUnderflow { position } => *position,
             Self::StackOverflow { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
-            Self::Chunk(error) => error.position(),
             Self::NativeFunction(error) => error.position(),
             Self::Value { position, .. } => *position,
         }

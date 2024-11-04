@@ -83,6 +83,14 @@ impl Value {
         Value::Primitive(Primitive::String(to_string.to_string()))
     }
 
+    pub fn as_string(&self) -> Option<&String> {
+        if let Value::Primitive(Primitive::String(string)) = self {
+            Some(string)
+        } else {
+            None
+        }
+    }
+
     pub fn is_function(&self) -> bool {
         matches!(self, Value::Function(_))
     }
@@ -894,7 +902,7 @@ impl Object {
                         display.push_str(", ");
                     }
 
-                    let value_display = match vm.get(register, position) {
+                    let value_display = match vm.get_register(register, position) {
                         Ok(value) => value.display(vm, position)?,
                         Err(error) => {
                             return Err(ValueError::CannotDisplay {

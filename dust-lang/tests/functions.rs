@@ -15,16 +15,13 @@ fn function() {
                 ],
                 vec![],
                 vec![
-                    Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
-                    Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                    Local::new(0, Some(Type::Integer), false, 0, 0),
+                    Local::new(0, Some(Type::Integer), false, 0, 1)
                 ]
             ),
             FunctionType {
                 type_parameters: None,
-                value_parameters: Some(vec![
-                    (Identifier::new("a"), Type::Integer),
-                    (Identifier::new("b"), Type::Integer)
-                ]),
+                value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
                 return_type: Some(Box::new(Type::Integer)),
             }
         )))
@@ -53,27 +50,21 @@ fn function_declaration() {
                     ],
                     vec![],
                     vec![
-                        Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
-                        Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                        Local::new(0, Some(Type::Integer), false, 0, 0),
+                        Local::new(0, Some(Type::Integer), false, 0, 1)
                     ]
                 ),
                 FunctionType {
                     type_parameters: None,
-                    value_parameters: Some(vec![
-                        (Identifier::new("a"), Type::Integer),
-                        (Identifier::new("b"), Type::Integer)
-                    ]),
+                    value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
                     return_type: Some(Box::new(Type::Integer)),
                 },
             )],
             vec![Local::new(
-                Identifier::new("add"),
+                0,
                 Some(Type::Function(FunctionType {
                     type_parameters: None,
-                    value_parameters: Some(vec![
-                        (Identifier::new("a"), Type::Integer),
-                        (Identifier::new("b"), Type::Integer)
-                    ]),
+                    value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
                     return_type: Some(Box::new(Type::Integer)),
                 })),
                 false,
@@ -111,16 +102,13 @@ fn function_call() {
                         ],
                         vec![],
                         vec![
-                            Local::new(Identifier::new("a"), Some(Type::Integer), false, 0, 0),
-                            Local::new(Identifier::new("b"), Some(Type::Integer), false, 0, 1)
+                            Local::new(0, Some(Type::Integer), false, 0, 0),
+                            Local::new(0, Some(Type::Integer), false, 0, 1)
                         ]
                     ),
                     FunctionType {
                         type_parameters: None,
-                        value_parameters: Some(vec![
-                            (Identifier::new("a"), Type::Integer),
-                            (Identifier::new("b"), Type::Integer)
-                        ]),
+                        value_parameters: Some(vec![(0, Type::Integer), (0, Type::Integer)]),
                         return_type: Some(Box::new(Type::Integer)),
                     }
                 ),

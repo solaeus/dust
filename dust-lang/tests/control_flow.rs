@@ -23,7 +23,7 @@ fn equality_assignment_long() {
                 (Instruction::r#return(true), Span(44, 44)),
             ],
             vec![Value::integer(4)],
-            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
+            vec![Local::new(0, None, false, 0, 0)]
         )),
     );
 
@@ -53,7 +53,7 @@ fn equality_assignment_short() {
                 (Instruction::r#return(true), Span(16, 16)),
             ],
             vec![Value::integer(4)],
-            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
+            vec![Local::new(0, None, false, 0, 0)]
         )),
     );
 
@@ -111,7 +111,7 @@ fn if_else_assigment() {
                 Value::integer(3),
                 Value::integer(42),
             ],
-            vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
+            vec![Local::new(0, None, false, 0, 0)]
         )),
     );
 

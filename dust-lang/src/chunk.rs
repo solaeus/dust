@@ -6,11 +6,11 @@ use std::{
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Identifier, Instruction, Span, Type, Value};
+use crate::{Instruction, Span, Type, Value};
 
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
-    name: Option<Identifier>,
+    name: Option<String>,
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
     locals: Vec<Local>,
@@ -18,7 +18,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(name: Option<Identifier>) -> Self {
+    pub fn new(name: Option<String>) -> Self {
         Self {
             name,
             instructions: Vec::new(),
@@ -29,7 +29,7 @@ impl Chunk {
     }
 
     pub fn with_data(
-        name: Option<Identifier>,
+        name: Option<String>,
         instructions: Vec<(Instruction, Span)>,
         constants: Vec<Value>,
         locals: Vec<Local>,
@@ -43,11 +43,11 @@ impl Chunk {
         }
     }
 
-    pub fn name(&self) -> Option<&Identifier> {
+    pub fn name(&self) -> Option<&String> {
         self.name.as_ref()
     }
 
-    pub fn set_name(&mut self, name: Identifier) {
+    pub fn set_name(&mut self, name: String) {
         self.name = Some(name);
     }
 
@@ -59,7 +59,19 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
-    pub fn instructions(&self) -> &[(Instruction, Span)] {
+    pub fn constants(&self) -> &Vec<Value> {
+        &self.constants
+    }
+
+    pub fn constants_mut(&mut self) -> &mut Vec<Value> {
+        &mut self.constants
+    }
+
+    pub fn take_constants(self) -> Vec<Value> {
+        self.constants
+    }
+
+    pub fn instructions(&self) -> &Vec<(Instruction, Span)> {
         &self.instructions
     }
 
@@ -67,151 +79,42 @@ impl Chunk {
         &mut self.instructions
     }
 
-    pub fn get_instruction(
-        &self,
-        offset: usize,
-        position: Span,
-    ) -> Result<&(Instruction, Span), ChunkError> {
-        self.instructions
-            .get(offset)
-            .ok_or(ChunkError::InstructionIndexOfBounds { offset, position })
+    pub fn locals(&self) -> &Vec<Local> {
+        &self.locals
     }
 
-    pub fn push_instruction(&mut self, instruction: Instruction, position: Span) {
-        self.instructions.push((instruction, position));
+    pub fn locals_mut(&mut self) -> &mut Vec<Local> {
+        &mut self.locals
     }
 
-    pub fn insert_instruction(
-        &mut self,
-        index: usize,
-        instruction: Instruction,
-        position: Span,
-    ) -> Result<(), ChunkError> {
-        if index > self.instructions.len() {
-            Err(ChunkError::InstructionIndexOfBounds {
-                offset: index,
-                position,
-            })
-        } else {
-            self.instructions.insert(index, (instruction, position));
-
-            Ok(())
-        }
+    pub fn scope_depth(&self) -> usize {
+        self.scope_depth
     }
 
-    pub fn take_constants(self) -> Vec<Value> {
-        self.constants
+    pub fn get_constant(&self, index: u8) -> Option<&Value> {
+        self.constants.get(index as usize)
     }
 
-    pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
-        let index = index as usize;
-
-        self.constants
-            .get(index)
-            .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
-    }
-
-    pub fn push_or_get_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
+    pub fn push_or_get_constant(&mut self, value: Value) -> u8 {
         if let Some(index) = self
             .constants
             .iter()
             .position(|constant| constant == &value)
         {
-            return Ok(index as u8);
+            return index as u8;
         }
 
-        let starting_length = self.constants.len();
+        self.constants.push(value);
 
-        if starting_length + 1 > (u8::MAX as usize) {
-            Err(ChunkError::ConstantOverflow { position })
-        } else {
-            self.constants.push(value);
-
-            Ok(starting_length as u8)
-        }
+        (self.constants.len() - 1) as u8
     }
 
-    pub fn locals(&self) -> &[Local] {
-        &self.locals
-    }
-
-    pub fn get_local(&self, index: u8, position: Span) -> Result<&Local, ChunkError> {
-        let index = index as usize;
-
-        self.locals
-            .get(index)
-            .ok_or(ChunkError::LocalIndexOutOfBounds { index, position })
-    }
-
-    pub fn get_identifier(&self, index: u8) -> Option<&Identifier> {
-        self.locals
-            .get(index as usize)
-            .map(|local| &local.identifier)
-    }
-
-    pub fn get_local_index(&self, identifier_text: &str, position: Span) -> Result<u8, ChunkError> {
-        self.locals
-            .iter()
-            .enumerate()
-            .rev()
-            .find_map(|(index, local)| {
-                if local.identifier.as_str() == identifier_text {
-                    Some(index as u8)
-                } else {
-                    None
-                }
-            })
-            .ok_or(ChunkError::IdentifierNotFound {
-                identifier: Identifier::new(identifier_text),
-                position,
-            })
-    }
-
-    pub fn declare_local(
-        &mut self,
-        identifier: Identifier,
-        r#type: Option<Type>,
-        is_mutable: bool,
-        register_index: u8,
-        position: Span,
-    ) -> Result<u8, ChunkError> {
-        log::debug!("Declare local {identifier}");
-
-        let starting_length = self.locals.len();
-
-        if starting_length + 1 > (u8::MAX as usize) {
-            Err(ChunkError::LocalOverflow { position })
-        } else {
-            self.locals.push(Local::new(
-                identifier,
-                r#type,
-                is_mutable,
-                self.scope_depth,
-                register_index,
-            ));
-
-            Ok(starting_length as u8)
-        }
-    }
-
-    pub fn define_local(
-        &mut self,
-        local_index: u8,
-        register_index: u8,
-        position: Span,
-    ) -> Result<(), ChunkError> {
-        let local = self.locals.get_mut(local_index as usize).ok_or_else(|| {
-            ChunkError::LocalIndexOutOfBounds {
-                index: local_index as usize,
-                position,
-            }
-        })?;
-
-        log::debug!("Define local {}", local.identifier);
-
-        local.register_index = register_index;
-
-        Ok(())
+    pub fn get_identifier(&self, local_index: u8) -> Option<String> {
+        self.locals.get(local_index as usize).and_then(|local| {
+            self.constants
+                .get(local.identifier_index as usize)
+                .map(|value| value.to_string())
+        })
     }
 
     pub fn begin_scope(&mut self) {
@@ -257,7 +160,7 @@ impl PartialEq for Chunk {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
-    pub identifier: Identifier,
+    pub identifier_index: u8,
     pub r#type: Option<Type>,
     pub is_mutable: bool,
     pub depth: usize,
@@ -266,14 +169,14 @@ pub struct Local {
 
 impl Local {
     pub fn new(
-        identifier: Identifier,
+        identifier_index: u8,
         r#type: Option<Type>,
         mutable: bool,
         depth: usize,
         register_index: u8,
     ) -> Self {
         Self {
-            identifier,
+            identifier_index,
             r#type,
             is_mutable: mutable,
             depth,
@@ -524,7 +427,7 @@ impl<'a> ChunkDisassembler<'a> {
         for (
             index,
             Local {
-                identifier,
+                identifier_index,
                 r#type,
                 depth,
                 register_index,
@@ -532,7 +435,12 @@ impl<'a> ChunkDisassembler<'a> {
             },
         ) in self.chunk.locals.iter().enumerate()
         {
-            let identifier_display = identifier.as_str();
+            let identifier_display = self
+                .chunk
+                .constants
+                .get(*identifier_index as usize)
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type
                 .as_ref()
                 .map(|r#type| r#type.to_string())
@@ -575,78 +483,5 @@ impl<'a> ChunkDisassembler<'a> {
         let _ = disassembly.trim_end_matches('\n');
 
         disassembly
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ChunkError {
-    InstructionIndexOfBounds {
-        offset: usize,
-        position: Span,
-    },
-    ConstantOverflow {
-        position: Span,
-    },
-    ConstantIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    LocalIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    LocalOverflow {
-        position: Span,
-    },
-    IdentifierNotFound {
-        identifier: Identifier,
-        position: Span,
-    },
-}
-
-impl AnnotatedError for ChunkError {
-    fn title() -> &'static str {
-        "Chunk Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            ChunkError::InstructionIndexOfBounds { .. } => "Instruction index out of bounds",
-            ChunkError::ConstantOverflow { .. } => "Constant overflow",
-            ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
-            ChunkError::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
-            ChunkError::LocalOverflow { .. } => "Local overflow",
-            ChunkError::IdentifierNotFound { .. } => "Identifier not found",
-        }
-    }
-
-    fn details(&self) -> Option<String> {
-        match self {
-            ChunkError::InstructionIndexOfBounds { offset, .. } => {
-                Some(format!("Instruction index: {}", offset))
-            }
-            ChunkError::ConstantIndexOutOfBounds { index, .. } => {
-                Some(format!("Constant index: {}", index))
-            }
-            ChunkError::LocalIndexOutOfBounds { index, .. } => {
-                Some(format!("Local index: {}", index))
-            }
-            ChunkError::IdentifierNotFound { identifier, .. } => {
-                Some(format!("Identifier: {}", identifier))
-            }
-            ChunkError::LocalOverflow { .. } => None,
-            ChunkError::ConstantOverflow { .. } => None,
-        }
-    }
-
-    fn position(&self) -> Span {
-        match self {
-            ChunkError::InstructionIndexOfBounds { position, .. } => *position,
-            ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
-            ChunkError::IdentifierNotFound { position, .. } => *position,
-            ChunkError::LocalIndexOutOfBounds { position, .. } => *position,
-            ChunkError::LocalOverflow { position, .. } => *position,
-            ChunkError::ConstantOverflow { position, .. } => *position,
-        }
     }
 }

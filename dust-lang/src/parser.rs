@@ -9,8 +9,8 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Identifier, Instruction, LexError,
-    Lexer, NativeFunction, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    AnnotatedError, Chunk, DustError, FunctionType, Instruction, LexError, Lexer, Local,
+    NativeFunction, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -107,6 +107,67 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn get_local(&self, index: u8) -> Result<&Local, ParseError> {
+        let index = index as usize;
+
+        self.chunk
+            .locals()
+            .get(index)
+            .ok_or(ParseError::LocalIndexOutOfBounds {
+                index,
+                position: self.current_position,
+            })
+    }
+
+    fn get_local_index(&self, identifier_text: &str) -> Result<u8, ParseError> {
+        self.chunk
+            .locals()
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(index, local)| {
+                let identifier = self
+                    .chunk
+                    .constants()
+                    .get(local.identifier_index as usize)?
+                    .as_string()?;
+
+                if identifier == identifier_text {
+                    Some(index as u8)
+                } else {
+                    None
+                }
+            })
+            .ok_or(ParseError::UndeclaredVariable {
+                identifier: identifier_text.to_string(),
+                position: self.current_position,
+            })
+    }
+
+    pub fn declare_local(
+        &mut self,
+        identifier: &str,
+        r#type: Option<Type>,
+        is_mutable: bool,
+        register_index: u8,
+    ) -> (u8, u8) {
+        log::debug!("Declare local {identifier}");
+
+        let scope_depth = self.chunk.scope_depth();
+        let identifier = Value::string(identifier);
+        let identifier_index = self.chunk.push_or_get_constant(identifier);
+
+        self.chunk.locals_mut().push(Local::new(
+            identifier_index,
+            r#type,
+            is_mutable,
+            scope_depth,
+            register_index,
+        ));
+
+        (self.chunk.locals().len() as u8 - 1, identifier_index)
+    }
+
     fn allow(&mut self, allowed: Token) -> Result<bool, ParseError> {
         if self.current_token == allowed {
             self.advance()?;
@@ -138,7 +199,7 @@ impl<'src> Parser<'src> {
 
         self.current_statement_length += 1;
 
-        self.chunk.push_instruction(instruction, position);
+        self.chunk.instructions_mut().push((instruction, position));
     }
 
     fn optimize_statement(&mut self) {
@@ -236,7 +297,7 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
-        let constant_index = self.chunk.push_or_get_constant(value, position)?;
+        let constant_index = self.chunk.push_or_get_constant(value);
         let register = self.next_register();
 
         self.emit_instruction(
@@ -476,7 +537,7 @@ impl<'src> Parser<'src> {
         let argument = match instruction.operation() {
             Operation::GetLocal => {
                 let local_index = instruction.b();
-                let local = self.chunk.get_local(local_index, self.current_position)?;
+                let local = self.get_local(local_index)?;
                 is_mutable_local = local.is_mutable;
 
                 local.register_index
@@ -754,25 +815,17 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_variable(&mut self, allowed: Allowed) -> Result<(), ParseError> {
-        let token = self.current_token;
         let start_position = self.current_position;
 
-        let local_index = if let Token::Identifier(text) = token {
-            if let Ok(local_index) = self.chunk.get_local_index(text, start_position) {
+        let local_index = if let Token::Identifier(text) = self.current_token {
+            if let Ok(local_index) = self.get_local_index(text) {
                 local_index
             } else if let Some(name) = self.chunk.name() {
                 if name.as_str() == text {
                     let register = self.next_register();
 
                     self.emit_instruction(Instruction::load_self(register), start_position);
-
-                    self.chunk.declare_local(
-                        Identifier::new(text),
-                        None,
-                        false,
-                        register,
-                        start_position,
-                    )?;
+                    self.declare_local(text, None, false, register);
 
                     self.current_is_expression = true;
 
@@ -783,7 +836,7 @@ impl<'src> Parser<'src> {
                     self.parse_native_call(allowed)
                 } else {
                     Err(ParseError::UndeclaredVariable {
-                        identifier: Identifier::new(text),
+                        identifier: text.to_string(),
                         position: start_position,
                     })
                 };
@@ -792,7 +845,7 @@ impl<'src> Parser<'src> {
                     self.parse_native_call(allowed)
                 } else {
                     Err(ParseError::UndeclaredVariable {
-                        identifier: Identifier::new(text),
+                        identifier: text.to_string(),
                         position: start_position,
                     })
                 };
@@ -807,12 +860,9 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let is_mutable = self
-            .chunk
-            .get_local(local_index, start_position)?
-            .is_mutable;
-
         if self.allow(Token::Equal)? {
+            let is_mutable = self.get_local(local_index)?.is_mutable;
+
             if !allowed.assignment {
                 return Err(ParseError::InvalidAssignmentTarget {
                     found: self.current_token.to_owned(),
@@ -822,7 +872,7 @@ impl<'src> Parser<'src> {
 
             if !is_mutable {
                 return Err(ParseError::CannotMutateImmutableVariable {
-                    identifier: self.chunk.get_identifier(local_index).cloned().unwrap(),
+                    identifier: self.chunk.get_identifier(local_index).unwrap(),
                     position: start_position,
                 });
             }
@@ -838,10 +888,7 @@ impl<'src> Parser<'src> {
                 })?;
 
             if previous_instruction.operation().is_math() {
-                let register_index = self
-                    .chunk
-                    .get_local(local_index, start_position)?
-                    .register_index;
+                let register_index = self.get_local(local_index)?.register_index;
 
                 log::trace!("Condensing SET_LOCAL to binary math expression");
 
@@ -1019,18 +1066,22 @@ impl<'src> Parser<'src> {
                 if let Some(skippable) = self.get_last_jumpable_mut() {
                     skippable.set_c_to_boolean(true);
                 } else {
-                    self.chunk.insert_instruction(
+                    self.chunk.instructions_mut().insert(
                         else_start,
-                        Instruction::jump(jump_distance, true),
-                        self.current_position,
-                    )?;
+                        (
+                            Instruction::jump(jump_distance, true),
+                            self.current_position,
+                        ),
+                    );
                 }
             } else {
-                self.chunk.insert_instruction(
+                self.chunk.instructions_mut().insert(
                     else_start,
-                    Instruction::jump(jump_distance, true),
-                    self.current_position,
-                )?;
+                    (
+                        Instruction::jump(jump_distance, true),
+                        self.current_position,
+                    ),
+                );
             }
         } else {
             self.current_is_expression = false;
@@ -1054,11 +1105,13 @@ impl<'src> Parser<'src> {
             if else_end - if_block_end > 1 {
                 let jump_distance = (else_end - if_block_end) as u8;
 
-                self.chunk.insert_instruction(
+                self.chunk.instructions_mut().insert(
                     if_block_end,
-                    Instruction::jump(jump_distance, true),
-                    self.current_position,
-                )?;
+                    (
+                        Instruction::jump(jump_distance, true),
+                        self.current_position,
+                    ),
+                );
             }
         } else {
             return Err(ParseError::ExpectedTokenMultiple {
@@ -1096,11 +1149,13 @@ impl<'src> Parser<'src> {
 
         let block_end = self.chunk.len() as u8;
 
-        self.chunk.insert_instruction(
+        self.chunk.instructions_mut().insert(
             block_start,
-            Instruction::jump(block_end - block_start as u8 + 1, true),
-            self.current_position,
-        )?;
+            (
+                Instruction::jump(block_end - block_start as u8 + 1, true),
+                self.current_position,
+            ),
+        );
 
         let jump_back_distance = block_end - expression_start + 1;
         let jump_back = Instruction::jump(jump_back_distance, false);
@@ -1267,7 +1322,7 @@ impl<'src> Parser<'src> {
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Identifier::new(text)
+            text
         } else {
             return Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -1289,9 +1344,7 @@ impl<'src> Parser<'src> {
         self.expect(Token::Equal)?;
         self.parse_expression()?;
 
-        let local_index = self
-            .chunk
-            .declare_local(identifier, r#type, is_mutable, register, position)?;
+        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, register);
         let register = self.next_register().saturating_sub(1);
 
         self.emit_instruction(
@@ -1310,27 +1363,25 @@ impl<'src> Parser<'src> {
         let mut function_parser = Parser::new(self.lexer)?;
         let identifier = if let Token::Identifier(text) = function_parser.current_token {
             let position = function_parser.current_position;
-            let identifier = Identifier::new(text);
 
             function_parser.advance()?;
-            function_parser.chunk.set_name(identifier.clone());
+            function_parser.chunk.set_name(text.to_string());
 
-            Some((identifier, position))
+            Some((text, position))
         } else {
             None
         };
 
         function_parser.expect(Token::LeftParenthesis)?;
 
-        let mut value_parameters: Option<Vec<(Identifier, Type)>> = None;
+        let mut value_parameters: Option<Vec<(u8, Type)>> = None;
 
         while function_parser.current_token != Token::RightParenthesis {
-            let start = function_parser.current_position.0;
             let is_mutable = function_parser.allow(Token::Mut)?;
             let parameter = if let Token::Identifier(text) = function_parser.current_token {
                 function_parser.advance()?;
 
-                Identifier::new(text)
+                text
             } else {
                 return Err(ParseError::ExpectedToken {
                     expected: TokenKind::Identifier,
@@ -1348,26 +1399,22 @@ impl<'src> Parser<'src> {
 
             function_parser.advance()?;
 
-            let end = function_parser.current_position.1;
-
-            if let Some(value_parameters) = value_parameters.as_mut() {
-                value_parameters.push((parameter.clone(), r#type.clone()));
-            } else {
-                value_parameters = Some(vec![(parameter.clone(), r#type.clone())]);
-            };
-
             let register = value_parameters
                 .as_ref()
                 .map(|values| values.len() as u8 - 1)
                 .unwrap_or(0);
-
-            function_parser.chunk.declare_local(
+            let (_, identifier_index) = function_parser.declare_local(
                 parameter,
-                Some(r#type),
+                Some(r#type.clone()),
                 is_mutable,
                 register,
-                Span(start, end),
-            )?;
+            );
+
+            if let Some(value_parameters) = value_parameters.as_mut() {
+                value_parameters.push((identifier_index, r#type));
+            } else {
+                value_parameters = Some(vec![(identifier_index, r#type)]);
+            };
 
             function_parser.minimum_register += 1;
 
@@ -1409,13 +1456,12 @@ impl<'src> Parser<'src> {
 
         if let Some((identifier, identifier_position)) = identifier {
             let register = self.next_register();
-            let local_index = self.chunk.declare_local(
+            let (local_index, _) = self.declare_local(
                 identifier,
                 Some(Type::Function(function_type)),
                 false,
                 register,
-                Span(function_start, function_end),
-            )?;
+            );
 
             self.emit_constant(function, Span(function_start, function_end))?;
             self.emit_instruction(
@@ -1867,17 +1913,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    CannotChainComparison {
-        position: Span,
-    },
-    CannotMutateImmutableVariable {
-        identifier: Identifier,
-        position: Span,
-    },
-    ExpectedExpression {
-        found: TokenOwned,
-        position: Span,
-    },
+    // Token errors
     ExpectedToken {
         expected: TokenKind,
         found: TokenOwned,
@@ -1888,19 +1924,42 @@ pub enum ParseError {
         found: TokenOwned,
         position: Span,
     },
+
+    // Expression errors
+    CannotChainComparison {
+        position: Span,
+    },
+    ExpectedExpression {
+        found: TokenOwned,
+        position: Span,
+    },
+
+    // Variable errors
+    CannotMutateImmutableVariable {
+        identifier: String,
+        position: Span,
+    },
     ExpectedMutableVariable {
         found: TokenOwned,
         position: Span,
     },
+    UndeclaredVariable {
+        identifier: String,
+        position: Span,
+    },
+
+    // Statement errors
     InvalidAssignmentTarget {
         found: TokenOwned,
         position: Span,
     },
-    UndeclaredVariable {
-        identifier: Identifier,
+    UnexpectedReturn {
         position: Span,
     },
-    UnexpectedReturn {
+
+    // Chunk errors
+    LocalIndexOutOfBounds {
+        index: usize,
         position: Span,
     },
     RegisterOverflow {
@@ -1911,7 +1970,6 @@ pub enum ParseError {
     },
 
     // Wrappers around foreign errors
-    Chunk(ChunkError),
     Lex(LexError),
     ParseFloatError {
         error: ParseFloatError,
@@ -1921,12 +1979,6 @@ pub enum ParseError {
         error: ParseIntError,
         position: Span,
     },
-}
-
-impl From<ChunkError> for ParseError {
-    fn from(error: ChunkError) -> Self {
-        Self::Chunk(error)
-    }
 }
 
 impl AnnotatedError for ParseError {
@@ -1939,18 +1991,18 @@ impl AnnotatedError for ParseError {
             Self::CannotChainComparison { .. } => "Cannot chain comparison",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
             Self::ExpectedExpression { .. } => "Expected an expression",
+            Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
-            Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
-            Self::UndeclaredVariable { .. } => "Undeclared variable",
-            Self::UnexpectedReturn { .. } => "Unexpected return",
-            Self::RegisterOverflow { .. } => "Register overflow",
-            Self::RegisterUnderflow { .. } => "Register underflow",
+            Self::Lex(error) => error.description(),
+            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
-            Self::Chunk(error) => error.description(),
-            Self::Lex(error) => error.description(),
+            Self::RegisterOverflow { .. } => "Register overflow",
+            Self::RegisterUnderflow { .. } => "Register underflow",
+            Self::UndeclaredVariable { .. } => "Undeclared variable",
+            Self::UnexpectedReturn { .. } => "Unexpected return",
         }
     }
 
@@ -1993,16 +2045,18 @@ impl AnnotatedError for ParseError {
             Self::InvalidAssignmentTarget { found, .. } => {
                 Some(format!("Invalid assignment target, found {found}"))
             }
+            Self::Lex(error) => error.details(),
+            Self::LocalIndexOutOfBounds { index, .. } => {
+                Some(format!("Local index {index} out of bounds"))
+            }
+            Self::ParseFloatError { error, .. } => Some(error.to_string()),
+            Self::ParseIntError { error, .. } => Some(error.to_string()),
+            Self::RegisterOverflow { .. } => None,
+            Self::RegisterUnderflow { .. } => None,
             Self::UndeclaredVariable { identifier, .. } => {
                 Some(format!("Undeclared variable {identifier}"))
             }
             Self::UnexpectedReturn { .. } => None,
-            Self::RegisterOverflow { .. } => None,
-            Self::RegisterUnderflow { .. } => None,
-            Self::ParseFloatError { error, .. } => Some(error.to_string()),
-            Self::ParseIntError { error, .. } => Some(error.to_string()),
-            Self::Chunk(error) => error.details(),
-            Self::Lex(error) => error.details(),
         }
     }
 
@@ -2011,18 +2065,18 @@ impl AnnotatedError for ParseError {
             Self::CannotChainComparison { position } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
+            Self::ExpectedMutableVariable { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
-            Self::ExpectedMutableVariable { position, .. } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
-            Self::UndeclaredVariable { position, .. } => *position,
-            Self::UnexpectedReturn { position } => *position,
-            Self::RegisterOverflow { position } => *position,
-            Self::RegisterUnderflow { position } => *position,
+            Self::Lex(error) => error.position(),
+            Self::LocalIndexOutOfBounds { position, .. } => *position,
             Self::ParseFloatError { position, .. } => *position,
             Self::ParseIntError { position, .. } => *position,
-            Self::Chunk(error) => error.position(),
-            Self::Lex(error) => error.position(),
+            Self::RegisterOverflow { position } => *position,
+            Self::RegisterUnderflow { position } => *position,
+            Self::UndeclaredVariable { position, .. } => *position,
+            Self::UnexpectedReturn { position } => *position,
         }
     }
 }

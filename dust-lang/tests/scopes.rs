@@ -50,11 +50,11 @@ fn block_scope() {
                 Value::integer(2),
             ],
             vec![
-                Local::new(Identifier::new("a"), None, false, 0, 0),
-                Local::new(Identifier::new("b"), None, false, 1, 1),
-                Local::new(Identifier::new("c"), None, false, 2, 2),
-                Local::new(Identifier::new("d"), None, false, 1, 3),
-                Local::new(Identifier::new("e"), None, false, 0, 4),
+                Local::new(0, None, false, 0, 0),
+                Local::new(0, None, false, 1, 1),
+                Local::new(0, None, false, 2, 2),
+                Local::new(0, None, false, 1, 3),
+                Local::new(0, None, false, 0, 4),
             ]
         )),
     );

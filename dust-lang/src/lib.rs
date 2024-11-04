@@ -1,7 +1,6 @@
 mod chunk;
 mod dust_error;
 mod formatter;
-mod identifier;
 mod instruction;
 mod lexer;
 mod native_function;
@@ -12,10 +11,9 @@ mod r#type;
 mod value;
 mod vm;
 
-pub use chunk::{Chunk, ChunkDisassembler, ChunkError, Local};
+pub use chunk::{Chunk, ChunkDisassembler, Local};
 pub use dust_error::{AnnotatedError, DustError};
 pub use formatter::{format, Formatter};
-pub use identifier::Identifier;
 pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
 pub use native_function::{NativeFunction, NativeFunctionError};

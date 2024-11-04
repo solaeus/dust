@@ -174,7 +174,7 @@ impl NativeFunction {
                             message.push(' ');
                         }
 
-                        let argument = vm.get(argument_index, position)?;
+                        let argument = vm.get_register(argument_index, position)?;
 
                         message.push_str(&argument.to_string());
                     }
@@ -197,7 +197,7 @@ impl NativeFunction {
                 let mut string = String::new();
 
                 for argument_index in 0..argument_count {
-                    let argument = vm.get(argument_index, position)?;
+                    let argument = vm.get_register(argument_index, position)?;
 
                     string.push_str(&argument.to_string());
                 }
@@ -238,7 +238,7 @@ impl NativeFunction {
                         stdout.write(b" ").map_err(map_err)?;
                     }
 
-                    let argument_string = vm.get(argument_index, position)?.to_string();
+                    let argument_string = vm.get_register(argument_index, position)?.to_string();
 
                     stdout
                         .write_all(argument_string.as_bytes())
@@ -264,7 +264,7 @@ impl NativeFunction {
                         stdout.write(b" ").map_err(map_err)?;
                     }
 
-                    let argument_string = vm.get(argument_index, position)?.to_string();
+                    let argument_string = vm.get_register(argument_index, position)?.to_string();
 
                     stdout
                         .write_all(argument_string.as_bytes())
