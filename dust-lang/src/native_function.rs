@@ -134,23 +134,22 @@ impl_from_str_for_native_function! {
     (TrimStart, 47_u8, "trim_start", true),
 
     // I/O
+    // Read
     (Read, 48_u8, "read", true),
     (ReadFile, 49_u8, "read_file", true),
     (ReadLine, 50_u8, "read_line", true),
-    (ReadTo, 51_u8, "read_until", false),
-    (ReadUntil, 52_u8, "read_to", false),
-    (WriteLine, 53_u8, "write_line", false),
-    (Write, 54_u8, "write", false),
+    (ReadTo, 51_u8, "read_to", false),
+    (ReadUntil, 52_u8, "read_until", true),
+    // Write
+    (AppendFile, 53_u8, "append_file", false),
+    (PrependFile, 54_u8, "prepend_file", false),
+    (Write, 55_u8, "write", false),
+    (WriteFile, 56_u8, "write_file", false),
+    (WriteLine, 57_u8, "write_line", false),
 
     // Random
-    (Random, 55_u8, "random", true),
-    (RandomByte, 56_u8, "random_byte", true),
-    (RandomBytes, 57_u8, "random_bytes", true),
-    (RandomChar, 58_u8, "random_char", true),
-    (RandomFloat, 59_u8, "random_float", true),
-    (RandomInteger, 60_u8, "random_integer", true),
-    (RandomRange, 61_u8, "random_range", true),
-    (RandomString, 62_u8, "random_string", true)
+    (Random, 58_u8, "random", true),
+    (RandomInRange, 59_u8, "random_in_range", true)
 }
 
 impl NativeFunction {
