@@ -236,7 +236,7 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
-        let constant_index = self.chunk.push_constant(value, position)?;
+        let constant_index = self.chunk.push_or_get_constant(value, position)?;
         let register = self.next_register();
 
         self.emit_instruction(
@@ -960,7 +960,6 @@ impl<'src> Parser<'src> {
         let block_allowed = Allowed {
             assignment: allowed.assignment,
             explicit_return: allowed.explicit_return,
-            implicit_return: false,
         };
 
         if let Token::LeftCurlyBrace = self.current_token {
@@ -1093,7 +1092,6 @@ impl<'src> Parser<'src> {
         self.parse_block(Allowed {
             assignment: true,
             explicit_return: allowed.explicit_return,
-            implicit_return: false,
         })?;
 
         let block_end = self.chunk.len() as u8;
@@ -1166,7 +1164,6 @@ impl<'src> Parser<'src> {
             self.parse_statement(Allowed {
                 assignment: true,
                 explicit_return: false,
-                implicit_return: true,
             })?;
 
             if self.is_eof() || self.allow(Token::RightCurlyBrace)? {
@@ -1195,7 +1192,6 @@ impl<'src> Parser<'src> {
             Allowed {
                 assignment: false,
                 explicit_return: false,
-                implicit_return: false,
             },
         )
     }
@@ -1206,7 +1202,6 @@ impl<'src> Parser<'src> {
             Allowed {
                 assignment: false,
                 explicit_return: false,
-                implicit_return: false,
             },
         )
     }
@@ -1591,7 +1586,6 @@ pub enum Context {
 struct Allowed {
     pub assignment: bool,
     pub explicit_return: bool,
-    pub implicit_return: bool,
 }
 
 type PrefixFunction<'a> = fn(&mut Parser<'a>, Allowed) -> Result<(), ParseError>;

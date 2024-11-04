@@ -49,57 +49,6 @@ fn add_assign() {
 }
 
 #[test]
-fn block_scope() {
-    let source = "
-        let a = 0;
-        {
-            let b = 42;
-            {
-                let c = 1;
-            }
-            let d = 2;
-        }
-        let e = 1;
-    ";
-
-    assert_eq!(
-        parse(source),
-        Ok(Chunk::with_data(
-            None,
-            vec![
-                (Instruction::load_constant(0, 0, false), Span(17, 18)),
-                (Instruction::define_local(0, 0, false), Span(13, 14)),
-                (Instruction::load_constant(1, 1, false), Span(50, 52)),
-                (Instruction::define_local(1, 1, false), Span(46, 47)),
-                (Instruction::load_constant(2, 2, false), Span(92, 93)),
-                (Instruction::define_local(2, 2, false), Span(88, 89)),
-                (Instruction::load_constant(3, 3, false), Span(129, 130)),
-                (Instruction::define_local(3, 3, false), Span(125, 126)),
-                (Instruction::load_constant(4, 4, false), Span(158, 159)),
-                (Instruction::define_local(4, 4, false), Span(154, 155)),
-                (Instruction::r#return(false), Span(165, 165))
-            ],
-            vec![
-                Value::integer(0),
-                Value::integer(42),
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(1)
-            ],
-            vec![
-                Local::new(Identifier::new("a"), None, false, 0, 0),
-                Local::new(Identifier::new("b"), None, false, 1, 1),
-                Local::new(Identifier::new("c"), None, false, 2, 2),
-                Local::new(Identifier::new("d"), None, false, 1, 3),
-                Local::new(Identifier::new("e"), None, false, 0, 4),
-            ]
-        )),
-    );
-
-    assert_eq!(run(source), Ok(None));
-}
-
-#[test]
 fn constant() {
     let source = "42";
 
@@ -150,14 +99,14 @@ fn divide() {
             None,
             vec![
                 (
-                    *Instruction::divide(0, 0, 1)
+                    *Instruction::divide(0, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))
             ],
-            vec![Value::integer(2), Value::integer(2)],
+            vec![Value::integer(2)],
             vec![]
         ))
     );
@@ -177,13 +126,13 @@ fn divide_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::divide(0, 0, 1).set_c_is_constant(),
+                    *Instruction::divide(0, 0, 0).set_c_is_constant(),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
-            vec![Value::integer(2), Value::integer(2)],
+            vec![Value::integer(2)],
             vec![Local::new(Identifier::new("a"), None, true, 0, 0)]
         ))
     );

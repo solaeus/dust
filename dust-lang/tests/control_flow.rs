@@ -10,7 +10,7 @@ fn equality_assignment_long() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(13, 15)
@@ -22,7 +22,7 @@ fn equality_assignment_long() {
                 (Instruction::get_local(1, 0), Span(43, 44)),
                 (Instruction::r#return(true), Span(44, 44)),
             ],
-            vec![Value::integer(4), Value::integer(4)],
+            vec![Value::integer(4)],
             vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
         )),
     );
@@ -40,7 +40,7 @@ fn equality_assignment_short() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(10, 12)
@@ -52,7 +52,7 @@ fn equality_assignment_short() {
                 (Instruction::get_local(1, 0), Span(15, 16)),
                 (Instruction::r#return(true), Span(16, 16)),
             ],
-            vec![Value::integer(4), Value::integer(4)],
+            vec![Value::integer(4)],
             vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
         )),
     );
@@ -78,23 +78,23 @@ fn if_else_assigment() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(22, 24)
                 ),
                 (Instruction::jump(5, true), Span(22, 24)),
-                (Instruction::load_constant(0, 2, false), Span(41, 42)),
-                (Instruction::load_constant(1, 3, false), Span(44, 45)),
-                (Instruction::load_constant(2, 4, false), Span(47, 48)),
-                (Instruction::load_constant(3, 5, false), Span(50, 51)),
-                (Instruction::load_constant(4, 6, false), Span(65, 67)),
+                (Instruction::load_constant(0, 1, false), Span(41, 42)),
+                (Instruction::load_constant(1, 2, false), Span(44, 45)),
+                (Instruction::load_constant(2, 3, false), Span(47, 48)),
+                (Instruction::load_constant(3, 0, false), Span(50, 51)),
+                (Instruction::load_constant(4, 4, false), Span(65, 67)),
                 (Instruction::jump(6, true), Span(138, 139)),
                 (Instruction::jump(5, true), Span(138, 139)),
-                (Instruction::load_constant(5, 7, false), Span(97, 98)),
-                (Instruction::load_constant(6, 8, false), Span(100, 101)),
-                (Instruction::load_constant(7, 9, false), Span(103, 104)),
-                (Instruction::load_constant(8, 10, false), Span(106, 107)),
+                (Instruction::load_constant(5, 1, false), Span(97, 98)),
+                (Instruction::load_constant(6, 2, false), Span(100, 101)),
+                (Instruction::load_constant(7, 3, false), Span(103, 104)),
+                (Instruction::load_constant(8, 0, false), Span(106, 107)),
                 (
                     Instruction::call_native(9, NativeFunction::Panic, 0),
                     Span(121, 128)
@@ -106,16 +106,10 @@ fn if_else_assigment() {
             ],
             vec![
                 Value::integer(4),
-                Value::integer(4),
                 Value::integer(1),
                 Value::integer(2),
                 Value::integer(3),
-                Value::integer(4),
                 Value::integer(42),
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3),
-                Value::integer(4),
             ],
             vec![Local::new(Identifier::new("a"), None, false, 0, 0)]
         )),
@@ -139,36 +133,30 @@ fn if_else_complex() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(14, 16)
                 ),
                 (Instruction::jump(5, true), Span(14, 16)),
-                (Instruction::load_constant(0, 2, false), Span(33, 34)),
-                (Instruction::load_constant(1, 3, false), Span(36, 37)),
-                (Instruction::load_constant(2, 4, false), Span(39, 40)),
-                (Instruction::load_constant(3, 5, false), Span(42, 43)),
+                (Instruction::load_constant(0, 0, false), Span(33, 34)),
+                (Instruction::load_constant(1, 1, false), Span(36, 37)),
+                (Instruction::load_constant(2, 2, false), Span(39, 40)),
+                (Instruction::load_constant(3, 3, false), Span(42, 43)),
                 (Instruction::jump(5, true), Span(95, 95)),
                 (Instruction::jump(4, true), Span(95, 95)),
-                (Instruction::load_constant(4, 6, false), Span(74, 75)),
-                (Instruction::load_constant(5, 7, false), Span(77, 78)),
-                (Instruction::load_constant(6, 8, false), Span(80, 81)),
-                (Instruction::load_constant(7, 9, false), Span(83, 84)),
+                (Instruction::load_constant(4, 0, false), Span(74, 75)),
+                (Instruction::load_constant(5, 1, false), Span(77, 78)),
+                (Instruction::load_constant(6, 2, false), Span(80, 81)),
+                (Instruction::load_constant(7, 3, false), Span(83, 84)),
                 (Instruction::r#move(7, 3), Span(95, 95)),
                 (Instruction::r#return(false), Span(95, 95)),
             ],
             vec![
                 Value::integer(1),
-                Value::integer(1),
-                Value::integer(1),
                 Value::integer(2),
                 Value::integer(3),
                 Value::integer(4),
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3),
-                Value::integer(4)
             ],
             vec![]
         ))
@@ -289,13 +277,13 @@ fn if_else_true() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 2, true), Span(12, 14)),
+                (Instruction::load_constant(0, 1, true), Span(12, 14)),
                 (
                     Instruction::call_native(1, NativeFunction::Panic, 0),
                     Span(24, 31)
@@ -303,7 +291,7 @@ fn if_else_true() {
                 (Instruction::r#move(1, 0), Span(33, 33)),
                 (Instruction::r#return(true), Span(33, 33))
             ],
-            vec![Value::integer(1), Value::integer(1), Value::integer(42)],
+            vec![Value::integer(1), Value::integer(42)],
             vec![]
         )),
     );
@@ -327,10 +315,10 @@ fn if_false() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::load_constant(0, 1, false), Span(12, 13)),
                 (Instruction::r#return(false), Span(15, 15))
             ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(2)],
+            vec![Value::integer(1), Value::integer(2)],
             vec![]
         )),
     );
@@ -348,16 +336,16 @@ fn if_true() {
             None,
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
+                    *Instruction::equal(true, 0, 0)
                         .set_b_is_constant()
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_constant(0, 2, false), Span(12, 13)),
+                (Instruction::load_constant(0, 1, false), Span(12, 13)),
                 (Instruction::r#return(false), Span(15, 15))
             ],
-            vec![Value::integer(1), Value::integer(1), Value::integer(2)],
+            vec![Value::integer(1), Value::integer(2)],
             vec![]
         )),
     );

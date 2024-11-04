@@ -111,7 +111,15 @@ impl Chunk {
             .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
     }
 
-    pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
+    pub fn push_or_get_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
+        if let Some(index) = self
+            .constants
+            .iter()
+            .position(|constant| constant == &value)
+        {
+            return Ok(index as u8);
+        }
+
         let starting_length = self.constants.len();
 
         if starting_length + 1 > (u8::MAX as usize) {

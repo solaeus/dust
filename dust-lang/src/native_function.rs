@@ -79,7 +79,7 @@ impl_from_str_for_native_function! {
     (Assert, 0_u8, "assert", false),
     (AssertEqual, 1_u8, "assert_equal", false),
     (AssertNotEqual, 2_u8, "assert_not_equal", false),
-    (Panic, 3_u8, "panic", false),
+    (Panic, 3_u8, "panic", true),
 
     // Type conversion
     (Parse, 4_u8, "parse", true),
