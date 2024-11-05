@@ -80,51 +80,41 @@ fn main() {
         let line_numbers = args.format_line_numbers.unwrap_or(true);
         let colored = args.format_colored.unwrap_or(true);
 
-        format_source(source, line_numbers, colored);
+        log::info!("Formatting source");
+
+        match format(source, line_numbers, colored) {
+            Ok(formatted) => println!("{}", formatted),
+            Err(error) => {
+                eprintln!("{}", error.report());
+            }
+        }
     }
 
     if args.parse {
-        let style = args.style_disassembly.unwrap_or(true);
+        let styled = args.style_disassembly.unwrap_or(true);
 
-        parse_source(source, style);
+        log::info!("Parsing source");
+
+        match parse(source) {
+            Ok(chunk) => {
+                let disassembly = chunk
+                    .disassembler()
+                    .source(source)
+                    .styled(styled)
+                    .disassemble();
+
+                println!("{}", disassembly);
+            }
+            Err(error) => {
+                eprintln!("{}", error.report());
+            }
+        }
     }
 
     if args.format || args.parse {
         return;
     }
 
-    run_source(source);
-}
-
-fn format_source(source: &str, line_numbers: bool, colored: bool) {
-    log::info!("Formatting source");
-
-    match format(source, line_numbers, colored) {
-        Ok(formatted) => println!("{}", formatted),
-        Err(error) => {
-            eprintln!("{}", error.report());
-        }
-    }
-}
-
-fn parse_source(source: &str, styled: bool) {
-    match parse(source) {
-        Ok(chunk) => {
-            let disassembly = chunk
-                .disassembler()
-                .source(source)
-                .styled(styled)
-                .disassemble();
-
-            println!("{}", disassembly);
-        }
-        Err(error) => {
-            eprintln!("{}", error.report());
-        }
-    }
-}
-
-fn run_source(source: &str) {
     match run(source) {
         Ok(Some(value)) => println!("{}", value),
         Ok(None) => {}
