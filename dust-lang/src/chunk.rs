@@ -1,6 +1,7 @@
 use std::{
     env::current_exe,
     fmt::{self, Debug, Display},
+    rc::Weak,
 };
 
 use colored::Colorize;
@@ -14,7 +15,8 @@ pub struct Chunk {
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
     locals: Vec<Local>,
-    scope_depth: usize,
+    current_scope: Scope,
+    block_count: usize,
 }
 
 impl Chunk {
@@ -24,7 +26,8 @@ impl Chunk {
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
-            scope_depth: 0,
+            current_scope: Scope::default(),
+            block_count: 0,
         }
     }
 
@@ -39,7 +42,8 @@ impl Chunk {
             instructions,
             constants,
             locals,
-            scope_depth: 0,
+            current_scope: Scope::default(),
+            block_count: 0,
         }
     }
 
@@ -87,8 +91,8 @@ impl Chunk {
         &mut self.locals
     }
 
-    pub fn scope_depth(&self) -> usize {
-        self.scope_depth
+    pub fn current_scope(&self) -> Scope {
+        self.current_scope
     }
 
     pub fn get_constant(&self, index: u8) -> Option<&Value> {
@@ -118,11 +122,19 @@ impl Chunk {
     }
 
     pub fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.current_scope.depth += 1;
+        self.current_scope.block = self.block_count;
     }
 
     pub fn end_scope(&mut self) {
-        self.scope_depth -= 1;
+        self.current_scope.depth -= 1;
+
+        if self.current_scope.depth == 0 {
+            self.block_count += 1;
+            self.current_scope.block = 0;
+        } else {
+            self.current_scope.block = self.block_count;
+        };
     }
 
     pub fn disassembler(&self) -> ChunkDisassembler {
@@ -163,7 +175,7 @@ pub struct Local {
     pub identifier_index: u8,
     pub r#type: Option<Type>,
     pub is_mutable: bool,
-    pub depth: usize,
+    pub scope: Scope,
     pub register_index: u8,
 }
 
@@ -172,16 +184,36 @@ impl Local {
         identifier_index: u8,
         r#type: Option<Type>,
         mutable: bool,
-        depth: usize,
+        scope: Scope,
         register_index: u8,
     ) -> Self {
         Self {
             identifier_index,
             r#type,
             is_mutable: mutable,
-            depth,
+            scope,
             register_index,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Scope {
+    /// The level of block nesting.
+    pub depth: usize,
+    /// The nth top-level block in the chunk.
+    pub block: usize,
+}
+
+impl Scope {
+    pub fn new(depth: usize, block: usize) -> Self {
+        Self { depth, block }
+    }
+}
+
+impl Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.depth, self.block)
     }
 }
 
@@ -207,7 +239,7 @@ impl<'a> ChunkDisassembler<'a> {
     const LOCAL_HEADER: [&'static str; 4] = [
         "Locals",
         "------",
-        "INDEX IDENTIFIER TYPE     MUTABLE DEPTH REGISTER",
+        "INDEX IDENTIFIER TYPE     MUTABLE SCOPE REGISTER",
         "----- ---------- -------- ------- ----- --------",
     ];
 
@@ -429,7 +461,7 @@ impl<'a> ChunkDisassembler<'a> {
             Local {
                 identifier_index,
                 r#type,
-                depth,
+                scope: depth,
                 register_index,
                 is_mutable: mutable,
             },

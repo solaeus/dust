@@ -41,7 +41,7 @@ fn add_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(1), Value::string("a"), Value::integer(2)],
-            vec![Local::new(1, None, true, 0, 0)]
+            vec![Local::new(1, None, true, Scope::default(), 0)]
         ))
     );
 
@@ -82,7 +82,7 @@ fn define_local() {
                 (Instruction::r#return(false), Span(11, 11))
             ],
             vec![Value::integer(42), Value::string("x")],
-            vec![Local::new(1, None, false, 0, 0)]
+            vec![Local::new(1, None, false, Scope::default(), 0)]
         )),
     );
 
@@ -133,7 +133,7 @@ fn divide_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(2), Value::string("a")],
-            vec![Local::new(1, None, true, 0, 0)]
+            vec![Local::new(1, None, true, Scope::default(), 0)]
         ))
     );
 
@@ -359,7 +359,7 @@ fn multiply_assign() {
                 (Instruction::r#return(true), Span(23, 23))
             ],
             vec![Value::integer(2), Value::string("a"), Value::integer(3)],
-            vec![Local::new(1, None, true, 0, 0),]
+            vec![Local::new(1, None, true, Scope::default(), 0),]
         ))
     );
 
@@ -453,7 +453,7 @@ fn set_local() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(41), Value::string("x"), Value::integer(42)],
-            vec![Local::new(1, None, true, 0, 0)]
+            vec![Local::new(1, None, true, Scope::default(), 0)]
         )),
     );
 
@@ -504,7 +504,7 @@ fn subtract_assign() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(42), Value::string("x"), Value::integer(2)],
-            vec![Local::new(1, None, true, 0, 0)]
+            vec![Local::new(1, None, true, Scope::default(), 0)]
         )),
     );
 
@@ -532,8 +532,8 @@ fn variable_and() {
             ],
             vec![Value::string("a"), Value::string("b"),],
             vec![
-                Local::new(0, None, false, 0, 0),
-                Local::new(1, None, false, 0, 1),
+                Local::new(0, None, false, Scope::default(), 0),
+                Local::new(1, None, false, Scope::default(), 1),
             ]
         ))
     );
@@ -568,7 +568,7 @@ fn r#while() {
                 Value::integer(5),
                 Value::integer(1),
             ],
-            vec![Local::new(1, None, true, 0, 0),]
+            vec![Local::new(1, None, true, Scope::default(), 0),]
         )),
     );
 

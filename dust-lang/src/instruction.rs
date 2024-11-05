@@ -454,7 +454,7 @@ impl Instruction {
                 };
                 let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
-                format!("L{local_index} = R{to_register} {mutable_display} {identifier_display}")
+                format!("R{to_register} = L{local_index} {mutable_display} {identifier_display}")
             }
             Operation::GetLocal => {
                 let local_index = self.b();

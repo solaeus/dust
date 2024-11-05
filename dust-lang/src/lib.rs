@@ -11,7 +11,7 @@ mod r#type;
 mod value;
 mod vm;
 
-pub use chunk::{Chunk, ChunkDisassembler, Local};
+pub use chunk::{Chunk, ChunkDisassembler, Local, Scope};
 pub use dust_error::{AnnotatedError, DustError};
 pub use formatter::{format, Formatter};
 pub use instruction::Instruction;

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AnnotatedError, Chunk, DustError, FunctionType, Instruction, LexError, Lexer, Local,
-    NativeFunction, Operation, Span, Token, TokenKind, TokenOwned, Type, Value,
+    NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -149,11 +149,11 @@ impl<'src> Parser<'src> {
         identifier: &str,
         r#type: Option<Type>,
         is_mutable: bool,
+        scope: Scope,
         register_index: u8,
     ) -> (u8, u8) {
         log::debug!("Declare local {identifier}");
 
-        let scope_depth = self.chunk.scope_depth();
         let identifier = Value::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
 
@@ -161,7 +161,7 @@ impl<'src> Parser<'src> {
             identifier_index,
             r#type,
             is_mutable,
-            scope_depth,
+            scope,
             register_index,
         ));
 
@@ -823,9 +823,10 @@ impl<'src> Parser<'src> {
             } else if let Some(name) = self.chunk.name() {
                 if name.as_str() == text {
                     let register = self.next_register();
+                    let scope = self.chunk.current_scope();
 
                     self.emit_instruction(Instruction::load_self(register), start_position);
-                    self.declare_local(text, None, false, register);
+                    self.declare_local(text, None, false, scope, register);
 
                     self.current_is_expression = true;
 
@@ -1317,6 +1318,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
+        let scope = self.chunk.current_scope();
         let is_mutable = self.allow(Token::Mut)?;
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
@@ -1344,7 +1346,7 @@ impl<'src> Parser<'src> {
         self.expect(Token::Equal)?;
         self.parse_expression()?;
 
-        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, register);
+        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, scope, register);
         let register = self.next_register().saturating_sub(1);
 
         self.emit_instruction(
@@ -1403,10 +1405,12 @@ impl<'src> Parser<'src> {
                 .as_ref()
                 .map(|values| values.len() as u8)
                 .unwrap_or(0);
+            let scope = function_parser.chunk.current_scope();
             let (_, identifier_index) = function_parser.declare_local(
                 parameter,
                 Some(r#type.clone()),
                 is_mutable,
+                scope,
                 register,
             );
 
@@ -1456,10 +1460,12 @@ impl<'src> Parser<'src> {
 
         if let Some((identifier, identifier_position)) = identifier {
             let register = self.next_register();
+            let scope = self.chunk.current_scope();
             let (local_index, _) = self.declare_local(
                 identifier,
                 Some(Type::Function(function_type)),
                 false,
+                scope,
                 register,
             );
 
