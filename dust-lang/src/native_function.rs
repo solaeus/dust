@@ -6,10 +6,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, Instruction, Primitive, Span, Value, Vm, VmError};
+use crate::{AnnotatedError, FunctionType, Instruction, Primitive, Span, Type, Value, Vm, VmError};
 
 macro_rules! impl_from_str_for_native_function {
-    ($(($name:ident, $byte:literal, $str:expr, $returns_value:expr)),*) => {
+    ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub enum NativeFunction {
             $(
@@ -36,10 +36,10 @@ macro_rules! impl_from_str_for_native_function {
                 }
             }
 
-            pub fn returns_value(&self) -> bool {
+            pub fn r#type(&self) -> FunctionType {
                 match self {
                     $(
-                        NativeFunction::$name => $returns_value,
+                        NativeFunction::$name => $type,
                     )*
                 }
             }
@@ -76,80 +76,134 @@ macro_rules! impl_from_str_for_native_function {
 
 impl_from_str_for_native_function! {
     // Assertion
-    (Assert, 0_u8, "assert", false),
-    (AssertEqual, 1_u8, "assert_equal", false),
-    (AssertNotEqual, 2_u8, "assert_not_equal", false),
-    (Panic, 3_u8, "panic", true),
+    (
+        Assert,
+        0_u8,
+        "assert",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: None,
+            return_type: None
+        }
+    ),
+    // (AssertEqual, 1_u8, "assert_equal", false),
+    // (AssertNotEqual, 2_u8, "assert_not_equal", false),
+    (
+        Panic,
+        3_u8,
+        "panic",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: None,
+            return_type: Some(Box::new(Type::Any))
+        }
+    ),
 
-    // Type conversion
-    (Parse, 4_u8, "parse", true),
-    (ToByte, 5_u8, "to_byte", true),
-    (ToFloat, 6_u8, "to_float", true),
-    (ToInteger, 7_u8, "to_integer", true),
-    (ToString, 8_u8, "to_string", true),
+    // // Type conversion
+    // (Parse, 4_u8, "parse", true),
+    // (ToByte, 5_u8, "to_byte", true),
+    // (ToFloat, 6_u8, "to_float", true),
+    // (ToInteger, 7_u8, "to_integer", true),
+    (
+        ToString,
+        8_u8,
+        "to_string",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: Some(vec![(0, Type::Any)]),
+            return_type: Some(Box::new(Type::String { length: None }))
+        }
+    ),
 
-    // List and string
-    (All, 9_u8, "all", true),
-    (Any, 10_u8, "any", true),
-    (Append, 11_u8, "append", false),
-    (Contains, 12_u8, "contains", true),
-    (Dedup, 13_u8, "dedup", false),
-    (EndsWith, 14_u8, "ends_with", true),
-    (Find, 15_u8, "find", true),
-    (Get, 16_u8, "get", true),
-    (IndexOf, 17_u8, "index_of", true),
-    (Length, 18_u8, "length", true),
-    (Prepend, 19_u8, "prepend", false),
-    (Replace, 20_u8, "replace", false),
-    (Set, 21_u8, "set", false),
-    (StartsWith, 22_u8, "starts_with", true),
-    (Slice, 23_u8, "slice", true),
-    (Sort, 24_u8, "sort", false),
-    (Split, 25_u8, "split", true),
+    // // List and string
+    // (All, 9_u8, "all", true),
+    // (Any, 10_u8, "any", true),
+    // (Append, 11_u8, "append", false),
+    // (Contains, 12_u8, "contains", true),
+    // (Dedup, 13_u8, "dedup", false),
+    // (EndsWith, 14_u8, "ends_with", true),
+    // (Find, 15_u8, "find", true),
+    // (Get, 16_u8, "get", true),
+    // (IndexOf, 17_u8, "index_of", true),
+    // (Length, 18_u8, "length", true),
+    // (Prepend, 19_u8, "prepend", false),
+    // (Replace, 20_u8, "replace", false),
+    // (Set, 21_u8, "set", false),
+    // (StartsWith, 22_u8, "starts_with", true),
+    // (Slice, 23_u8, "slice", true),
+    // (Sort, 24_u8, "sort", false),
+    // (Split, 25_u8, "split", true),
 
-    // List
-    (Flatten, 26_u8, "flatten", false),
-    (Join, 27_u8, "join", true),
-    (Map, 28_u8, "map", true),
-    (Reduce, 29_u8, "reduce", true),
-    (Remove, 30_u8, "remove", false),
-    (Reverse, 31_u8, "reverse", false),
-    (Unzip, 32_u8, "unzip", true),
-    (Zip, 33_u8, "zip", true),
+    // // List
+    // (Flatten, 26_u8, "flatten", false),
+    // (Join, 27_u8, "join", true),
+    // (Map, 28_u8, "map", true),
+    // (Reduce, 29_u8, "reduce", true),
+    // (Remove, 30_u8, "remove", false),
+    // (Reverse, 31_u8, "reverse", false),
+    // (Unzip, 32_u8, "unzip", true),
+    // (Zip, 33_u8, "zip", true),
 
-    // String
-    (Bytes, 34_u8, "bytes", true),
-    (CharAt, 35_u8, "char_at", true),
-    (CharCodeAt, 36_u8, "char_code_at", true),
-    (Chars, 37_u8, "chars", true),
-    (Format, 38_u8, "format", true),
-    (Repeat, 39_u8, "repeat", true),
-    (SplitAt, 40_u8, "split_at", true),
-    (SplitLines, 41_u8, "split_lines", true),
-    (SplitWhitespace, 42_u8, "split_whitespace", true),
-    (ToLowerCase, 43_u8, "to_lower_case", true),
-    (ToUpperCase, 44_u8, "to_upper_case", true),
-    (Trim, 45_u8, "trim", true),
-    (TrimEnd, 46_u8, "trim_end", true),
-    (TrimStart, 47_u8, "trim_start", true),
+    // // String
+    // (Bytes, 34_u8, "bytes", true),
+    // (CharAt, 35_u8, "char_at", true),
+    // (CharCodeAt, 36_u8, "char_code_at", true),
+    // (Chars, 37_u8, "chars", true),
+    // (Format, 38_u8, "format", true),
+    // (Repeat, 39_u8, "repeat", true),
+    // (SplitAt, 40_u8, "split_at", true),
+    // (SplitLines, 41_u8, "split_lines", true),
+    // (SplitWhitespace, 42_u8, "split_whitespace", true),
+    // (ToLowerCase, 43_u8, "to_lower_case", true),
+    // (ToUpperCase, 44_u8, "to_upper_case", true),
+    // (Trim, 45_u8, "trim", true),
+    // (TrimEnd, 46_u8, "trim_end", true),
+    // (TrimStart, 47_u8, "trim_start", true),
 
-    // I/O
-    // Read
-    (Read, 48_u8, "read", true),
-    (ReadFile, 49_u8, "read_file", true),
-    (ReadLine, 50_u8, "read_line", true),
-    (ReadTo, 51_u8, "read_to", false),
-    (ReadUntil, 52_u8, "read_until", true),
-    // Write
-    (AppendFile, 53_u8, "append_file", false),
-    (PrependFile, 54_u8, "prepend_file", false),
-    (Write, 55_u8, "write", false),
-    (WriteFile, 56_u8, "write_file", false),
-    (WriteLine, 57_u8, "write_line", false),
+    // // I/O
+    // // Read
+    // (Read, 48_u8, "read", true),
+    // (ReadFile, 49_u8, "read_file", true),
+    (
+        ReadLine,
+        50_u8,
+        "read_line",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: None,
+            return_type: Some(Box::new(Type::String { length: None }))
+        }
+    ),
+    // (ReadTo, 51_u8, "read_to", false),
+    // (ReadUntil, 52_u8, "read_until", true),
+    // // Write
+    // (AppendFile, 53_u8, "append_file", false),
+    // (PrependFile, 54_u8, "prepend_file", false),
+    (
+        Write,
+        55_u8,
+        "write",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: Some(vec![(0, Type::String { length: None })]),
+            return_type: None
+        }
+    ),
+    // (WriteFile, 56_u8, "write_file", false),
+    (
+        WriteLine,
+        57_u8,
+        "write_line",
+        FunctionType {
+            type_parameters: None,
+            value_parameters: Some(vec![(0, Type::String { length: None })]),
+            return_type: None
+        }
+    )
 
-    // Random
-    (Random, 58_u8, "random", true),
-    (RandomInRange, 59_u8, "random_in_range", true)
+    // // Random
+    // (Random, 58_u8, "random", true),
+    // (RandomInRange, 59_u8, "random_in_range", true)
 }
 
 impl NativeFunction {
@@ -189,10 +243,6 @@ impl NativeFunction {
             }
 
             // Type conversion
-            NativeFunction::Parse => todo!(),
-            NativeFunction::ToByte => todo!(),
-            NativeFunction::ToFloat => todo!(),
-            NativeFunction::ToInteger => todo!(),
             NativeFunction::ToString => {
                 let mut string = String::new();
 

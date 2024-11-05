@@ -369,7 +369,7 @@ impl Instruction {
         if matches!(self.operation(), Operation::CallNative) {
             let native_function = NativeFunction::from(self.b());
 
-            return native_function.returns_value();
+            return native_function.r#type().return_type.is_some();
         }
 
         false
@@ -599,7 +599,7 @@ impl Instruction {
                 let mut output = String::new();
                 let native_function_name = native_function.as_str();
 
-                if native_function.returns_value() {
+                if native_function.r#type().return_type.is_some() {
                     output.push_str(&format!("R{} = {}(", to_register, native_function_name));
                 } else {
                     output.push_str(&format!("{}(", native_function_name));

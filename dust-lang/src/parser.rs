@@ -1205,7 +1205,7 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
-        self.current_is_expression = native_function.returns_value();
+        self.current_is_expression = native_function.r#type().return_type.is_some();
 
         self.emit_instruction(
             Instruction::call_native(to_register, native_function, argument_count),
