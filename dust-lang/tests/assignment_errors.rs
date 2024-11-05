@@ -1,7 +1,7 @@
 use dust_lang::*;
 
 #[test]
-fn add_assign_expects_variable() {
+fn add_assign_expects_mutable_variable() {
     let source = "1 += 2";
 
     assert_eq!(
@@ -17,7 +17,7 @@ fn add_assign_expects_variable() {
 }
 
 #[test]
-fn divide_assign_expects_variable() {
+fn divide_assign_expects_mutable_variable() {
     let source = "1 -= 2";
 
     assert_eq!(
@@ -33,7 +33,7 @@ fn divide_assign_expects_variable() {
 }
 
 #[test]
-fn multiply_assign_expects_variable() {
+fn multiply_assign_expects_mutable_variable() {
     let source = "1 *= 2";
 
     assert_eq!(
@@ -49,7 +49,7 @@ fn multiply_assign_expects_variable() {
 }
 
 #[test]
-fn subtract_assign_expects_variable() {
+fn subtract_assign_expects_mutable_variable() {
     let source = "1 -= 2";
 
     assert_eq!(

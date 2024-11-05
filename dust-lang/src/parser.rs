@@ -234,6 +234,16 @@ impl<'src> Parser<'src> {
         self.current_statement_length = 0;
     }
 
+    fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), ParseError> {
+        self.chunk
+            .instructions_mut()
+            .pop()
+            .ok_or_else(|| ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            })
+    }
+
     fn get_last_value_operation(&self) -> Option<Operation> {
         self.chunk
             .instructions()
@@ -475,15 +485,7 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        let (previous_instruction, previous_position) = self
-            .chunk
-            .instructions_mut()
-            .pop()
-            .ok_or_else(|| ParseError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })?;
-
+        let (previous_instruction, previous_position) = self.pop_last_instruction()?;
         let (push_back, is_constant, argument) = {
             match previous_instruction.operation() {
                 Operation::GetLocal => (false, false, previous_instruction.a()),
@@ -601,14 +603,7 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        let (right_instruction, right_position) =
-            self.chunk
-                .instructions_mut()
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
+        let (right_instruction, right_position) = self.pop_last_instruction()?;
         let (push_back_right, right_is_constant, _, right) =
             self.handle_binary_argument(&right_instruction)?;
 
@@ -775,15 +770,7 @@ impl<'src> Parser<'src> {
 
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
         let start_length = self.chunk.len();
-        let (left_instruction, left_position) =
-            self.chunk
-                .instructions_mut()
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
-
+        let (left_instruction, left_position) = self.pop_last_instruction()?;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -961,7 +948,7 @@ impl<'src> Parser<'src> {
         self.chunk.begin_scope();
 
         while !self.allow(Token::RightCurlyBrace)? && !self.is_eof() {
-            self.parse_statement(allowed)?;
+            self.parse(Precedence::None, allowed)?;
         }
 
         self.chunk.end_scope();
@@ -1231,26 +1218,19 @@ impl<'src> Parser<'src> {
 
     fn parse_top_level(&mut self) -> Result<(), ParseError> {
         loop {
-            self.parse_statement(Allowed {
-                assignment: true,
-                explicit_return: false,
-            })?;
+            self.parse(
+                Precedence::None,
+                Allowed {
+                    assignment: true,
+                    explicit_return: false,
+                },
+            )?;
 
             if self.is_eof() || self.allow(Token::RightCurlyBrace)? {
                 self.parse_implicit_return()?;
 
                 break;
             }
-        }
-
-        Ok(())
-    }
-
-    fn parse_statement(&mut self, allowed: Allowed) -> Result<(), ParseError> {
-        self.parse(Precedence::None, allowed)?;
-
-        if self.allow(Token::Semicolon)? {
-            self.current_is_expression = false;
         }
 
         Ok(())
@@ -1263,7 +1243,16 @@ impl<'src> Parser<'src> {
                 assignment: false,
                 explicit_return: false,
             },
-        )
+        )?;
+
+        if !self.current_is_expression || self.chunk.is_empty() {
+            return Err(ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.current_position,
+            });
+        }
+
+        Ok(())
     }
 
     fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), ParseError> {
@@ -1502,12 +1491,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_call(&mut self) -> Result<(), ParseError> {
-        let (last_instruction, _) = self.chunk.instructions().last().copied().ok_or_else(|| {
-            ParseError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            }
-        })?;
+        let (last_instruction, _) =
+            self.chunk
+                .instructions()
+                .last()
+                .ok_or_else(|| ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
 
         if !last_instruction.yields_value() {
             return Err(ParseError::ExpectedExpression {
@@ -1552,15 +1543,19 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_semicolon(&mut self, _: Allowed) -> Result<(), ParseError> {
+        self.advance()?;
+
+        self.current_is_expression = false;
+
+        Ok(())
+    }
+
     fn expect_expression(&mut self, _: Allowed) -> Result<(), ParseError> {
-        if self.current_token.is_expression() {
-            Ok(())
-        } else {
-            Err(ParseError::ExpectedExpression {
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            })
-        }
+        Err(ParseError::ExpectedExpression {
+            found: self.current_token.to_owned(),
+            position: self.current_position,
+        })
     }
 
     fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), ParseError> {
@@ -1887,7 +1882,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Parser::parse_semicolon),
                 infix: None,
                 precedence: Precedence::None,
             },
