@@ -56,9 +56,9 @@ fn block_scope() {
             ],
             vec![
                 Local::new(1, None, false, Scope::new(0, 0), 0),
-                Local::new(3, None, false, Scope::new(1, 0), 1),
-                Local::new(5, None, false, Scope::new(2, 0), 2),
-                Local::new(7, None, false, Scope::new(1, 0), 3),
+                Local::new(3, None, false, Scope::new(1, 1), 1),
+                Local::new(5, None, false, Scope::new(2, 2), 2),
+                Local::new(7, None, false, Scope::new(1, 1), 3),
                 Local::new(8, None, false, Scope::new(0, 0), 4),
             ]
         )),
@@ -128,13 +128,13 @@ fn multiple_block_scopes() {
             ],
             vec![
                 Local::new(1, None, false, Scope::new(0, 0), 0),
-                Local::new(3, None, false, Scope::new(1, 0), 1),
-                Local::new(5, None, false, Scope::new(2, 0), 2),
-                Local::new(7, None, false, Scope::new(1, 0), 3),
+                Local::new(3, None, false, Scope::new(1, 1), 1),
+                Local::new(5, None, false, Scope::new(2, 2), 2),
+                Local::new(7, None, false, Scope::new(1, 1), 3),
                 Local::new(8, None, false, Scope::new(0, 0), 4),
-                Local::new(3, None, false, Scope::new(1, 1), 5),
-                Local::new(5, None, false, Scope::new(2, 1), 6),
-                Local::new(7, None, false, Scope::new(1, 1), 7),
+                Local::new(3, None, false, Scope::new(1, 3), 5),
+                Local::new(5, None, false, Scope::new(2, 4), 6),
+                Local::new(7, None, false, Scope::new(1, 3), 7),
                 Local::new(9, None, false, Scope::new(0, 0), 8),
             ]
         )),
@@ -142,46 +142,103 @@ fn multiple_block_scopes() {
 
     assert_eq!(run(source), Ok(None));
 }
-// #[test]
-// fn disallow_access_to_child_scope() {
-//     let source = r#"
-//         {
-//             let x = 1;
-//         }
-//         x
-//     "#;
 
-//     assert_eq!(
-//         run(source),
-//         Err(DustError::Parse {
-//             error: ParseError::Chunk(ChunkError::LocalOutOfScope {
-//                 identifier: Identifier::new("x"),
-//                 position: Span(52, 53)
-//             }),
-//             source
-//         })
-//     );
-// }
+#[test]
+fn disallow_access_to_child_scope() {
+    let source = r#"
+        {
+            let x = 1;
+        }
+        x
+    "#;
 
-// #[test]
-// fn disallow_access_to_sibling_scope() {
-//     let source = r#"
-//         {
-//             let x = 1;
-//         }
-//         {
-//             x
-//         }
-//     "#;
+    assert_eq!(
+        run(source),
+        Err(DustError::Parse {
+            error: ParseError::VariableOutOfScope {
+                identifier: "x".to_string(),
+                position: Span(52, 53),
+                variable_scope: Scope::new(1, 1),
+                access_scope: Scope::new(0, 0),
+            },
+            source
+        })
+    );
+}
 
-//     assert_eq!(
-//         run(source),
-//         Err(DustError::Parse {
-//             error: ParseError::Chunk(ChunkError::LocalOutOfScope {
-//                 identifier: Identifier::new("x"),
-//                 position: Span(52, 53)
-//             }),
-//             source
-//         })
-//     );
-// }
+#[test]
+fn disallow_access_to_child_scope_nested() {
+    let source = r#"
+        {
+            {
+                let x = 1;
+            }
+            x
+        }
+    "#;
+
+    assert_eq!(
+        run(source),
+        Err(DustError::Parse {
+            error: ParseError::VariableOutOfScope {
+                identifier: "x".to_string(),
+                position: Span(78, 79),
+                variable_scope: Scope::new(2, 2),
+                access_scope: Scope::new(1, 1),
+            },
+            source
+        })
+    );
+}
+
+#[test]
+fn disallow_access_to_sibling_scope() {
+    let source = r#"
+        {
+            let x = 1;
+        }
+        {
+            x
+        }
+    "#;
+
+    assert_eq!(
+        run(source),
+        Err(DustError::Parse {
+            error: ParseError::VariableOutOfScope {
+                identifier: "x".to_string(),
+                variable_scope: Scope::new(1, 1),
+                access_scope: Scope::new(1, 2),
+                position: Span(66, 67),
+            },
+            source
+        })
+    );
+}
+
+#[test]
+fn disallow_access_to_sibling_scope_nested() {
+    let source = r#"
+        {
+            {
+                let x = 1;
+            }
+            {
+                x
+            }
+        }
+    "#;
+
+    assert_eq!(
+        run(source),
+        Err(DustError::Parse {
+            error: ParseError::VariableOutOfScope {
+                identifier: "x".to_string(),
+                variable_scope: Scope::new(2, 2),
+                access_scope: Scope::new(2, 3),
+                position: Span(96, 97),
+            },
+            source
+        })
+    );
+}

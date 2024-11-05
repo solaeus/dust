@@ -861,9 +861,23 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        if self.allow(Token::Equal)? {
-            let is_mutable = self.get_local(local_index)?.is_mutable;
+        let (is_mutable, local_scope) = {
+            let local = self.get_local(local_index)?;
 
+            (local.is_mutable, local.scope)
+        };
+        let current_scope = self.chunk.current_scope();
+
+        if !current_scope.contains(&local_scope) {
+            return Err(ParseError::VariableOutOfScope {
+                identifier: self.chunk.get_identifier(local_index).unwrap(),
+                position: start_position,
+                variable_scope: local_scope,
+                access_scope: current_scope,
+            });
+        }
+
+        if self.allow(Token::Equal)? {
             if !allowed.assignment {
                 return Err(ParseError::InvalidAssignmentTarget {
                     found: self.current_token.to_owned(),
@@ -1953,6 +1967,12 @@ pub enum ParseError {
         identifier: String,
         position: Span,
     },
+    VariableOutOfScope {
+        identifier: String,
+        variable_scope: Scope,
+        access_scope: Scope,
+        position: Span,
+    },
 
     // Statement errors
     InvalidAssignmentTarget {
@@ -2009,6 +2029,7 @@ impl AnnotatedError for ParseError {
             Self::RegisterUnderflow { .. } => "Register underflow",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UnexpectedReturn { .. } => "Unexpected return",
+            Self::VariableOutOfScope { .. } => "Variable out of scope",
         }
     }
 
@@ -2063,6 +2084,9 @@ impl AnnotatedError for ParseError {
                 Some(format!("Undeclared variable {identifier}"))
             }
             Self::UnexpectedReturn { .. } => None,
+            Self::VariableOutOfScope { identifier, .. } => {
+                Some(format!("Variable {identifier} is out of scope"))
+            }
         }
     }
 
@@ -2083,6 +2107,7 @@ impl AnnotatedError for ParseError {
             Self::RegisterUnderflow { position } => *position,
             Self::UndeclaredVariable { position, .. } => *position,
             Self::UnexpectedReturn { position } => *position,
+            Self::VariableOutOfScope { position, .. } => *position,
         }
     }
 }

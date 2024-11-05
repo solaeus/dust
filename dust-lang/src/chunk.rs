@@ -1,7 +1,7 @@
 use std::{
+    cmp::Ordering,
     env::current_exe,
     fmt::{self, Debug, Display},
-    rc::Weak,
 };
 
 use colored::Colorize;
@@ -12,11 +12,13 @@ use crate::{Instruction, Span, Type, Value};
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     name: Option<String>,
+
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
     locals: Vec<Local>,
+
     current_scope: Scope,
-    block_count: usize,
+    scope_index: u8,
 }
 
 impl Chunk {
@@ -27,7 +29,7 @@ impl Chunk {
             constants: Vec::new(),
             locals: Vec::new(),
             current_scope: Scope::default(),
-            block_count: 0,
+            scope_index: 0,
         }
     }
 
@@ -43,7 +45,7 @@ impl Chunk {
             constants,
             locals,
             current_scope: Scope::default(),
-            block_count: 0,
+            scope_index: 0,
         }
     }
 
@@ -122,19 +124,19 @@ impl Chunk {
     }
 
     pub fn begin_scope(&mut self) {
+        self.scope_index += 1;
+        self.current_scope.width = self.scope_index;
         self.current_scope.depth += 1;
-        self.current_scope.block = self.block_count;
     }
 
     pub fn end_scope(&mut self) {
         self.current_scope.depth -= 1;
 
         if self.current_scope.depth == 0 {
-            self.block_count += 1;
-            self.current_scope.block = 0;
+            self.current_scope.width = 0;
         } else {
-            self.current_scope.block = self.block_count;
-        };
+            self.current_scope.width -= 1;
+        }
     }
 
     pub fn disassembler(&self) -> ChunkDisassembler {
@@ -200,20 +202,28 @@ impl Local {
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Scope {
     /// The level of block nesting.
-    pub depth: usize,
-    /// The nth top-level block in the chunk.
-    pub block: usize,
+    pub depth: u8,
+    /// The nth scope in the block.
+    pub width: u8,
 }
 
 impl Scope {
-    pub fn new(depth: usize, block: usize) -> Self {
-        Self { depth, block }
+    pub fn new(depth: u8, width: u8) -> Self {
+        Self { depth, width }
+    }
+
+    pub fn contains(&self, other: &Self) -> bool {
+        match self.depth.cmp(&other.depth) {
+            Ordering::Less => false,
+            Ordering::Greater => self.width >= other.width,
+            Ordering::Equal => self.width == other.width,
+        }
     }
 }
 
 impl Display for Scope {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.depth, self.block)
+        write!(f, "({}, {})", self.depth, self.width)
     }
 }
 
