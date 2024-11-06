@@ -222,10 +222,15 @@ impl<'src> Parser<'src> {
     }
 
     fn optimize_statement(&mut self) {
-        if let Some(
-            [Operation::LoadBoolean | Operation::LoadConstant, Operation::LoadBoolean | Operation::LoadConstant, Operation::Jump, Operation::Equal | Operation::Less | Operation::LessEqual],
-        ) = self.get_end_of_statement()
-        {
+        if matches!(
+            self.get_end_of_statement(),
+            Some([
+                Operation::LoadBoolean | Operation::LoadConstant,
+                Operation::LoadBoolean | Operation::LoadConstant,
+                Operation::Jump,
+                Operation::Equal | Operation::Less | Operation::LessEqual
+            ],)
+        ) {
             log::trace!("Optimizing boolean comparison");
 
             let mut instructions = self
@@ -1017,10 +1022,15 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        if let Some(
-            [Operation::LoadBoolean, Operation::LoadBoolean, Operation::Jump, Operation::Equal | Operation::Less | Operation::LessEqual],
-        ) = self.get_end_of_statement()
-        {
+        if matches!(
+            self.get_end_of_statement(),
+            Some([
+                Operation::LoadBoolean,
+                Operation::LoadBoolean,
+                Operation::Jump,
+                Operation::Equal | Operation::Less | Operation::LessEqual
+            ],)
+        ) {
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
         }
@@ -1152,10 +1162,15 @@ impl<'src> Parser<'src> {
 
         self.parse_expression()?;
 
-        if let Some(
-            [Operation::LoadBoolean, Operation::LoadBoolean, Operation::Jump, Operation::Equal | Operation::Less | Operation::LessEqual],
-        ) = self.get_end_of_statement()
-        {
+        if matches!(
+            self.get_end_of_statement(),
+            Some([
+                Operation::LoadBoolean,
+                Operation::LoadBoolean,
+                Operation::Jump,
+                Operation::Equal | Operation::Less | Operation::LessEqual
+            ],)
+        ) {
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
