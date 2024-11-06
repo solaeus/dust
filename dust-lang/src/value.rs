@@ -114,63 +114,92 @@ impl Value {
     }
 
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
+        use ConcreteValue::*;
+        use Value::*;
+
+        let sum = match (self, other) {
+            (Concrete(Byte(left)), Concrete(Byte(right))) => {
+                Value::byte(left.saturating_add(*right))
+            }
+            (Concrete(Float(left)), Concrete(Float(right))) => Value::float(left + right),
+            (Concrete(Integer(left)), Concrete(Integer(right))) => {
+                Value::integer(left.saturating_add(*right))
+            }
+            (Concrete(String(left)), Concrete(String(right))) => {
+                Value::string(format!("{}{}", left, right))
+            }
             _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
         };
-        let sum = left
-            .add(right)
-            .ok_or_else(|| ValueError::CannotAdd(self.clone(), other.clone()))?;
 
-        Ok(Value::Concrete(sum))
+        Ok(sum)
     }
 
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
+        use ConcreteValue::*;
+        use Value::*;
+
+        let different = match (self, other) {
+            (Concrete(Byte(left)), Concrete(Byte(right))) => {
+                Value::byte(left.saturating_sub(*right))
+            }
+            (Concrete(Float(left)), Concrete(Float(right))) => Value::float(left - right),
+            (Concrete(Integer(left)), Concrete(Integer(right))) => {
+                Value::integer(left.saturating_sub(*right))
+            }
             _ => return Err(ValueError::CannotSubtract(self.clone(), other.clone())),
         };
-        let difference = left
-            .subtract(right)
-            .ok_or_else(|| ValueError::CannotSubtract(self.clone(), other.clone()))?;
 
-        Ok(Value::Concrete(difference))
+        Ok(different)
     }
 
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
-            _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
-        };
-        let product = left
-            .multiply(right)
-            .ok_or_else(|| ValueError::CannotMultiply(self.clone(), other.clone()))?;
+        use ConcreteValue::*;
+        use Value::*;
 
-        Ok(Value::Concrete(product))
+        let product = match (self, other) {
+            (Concrete(Byte(left)), Concrete(Byte(right))) => {
+                Value::byte(left.saturating_mul(*right))
+            }
+            (Concrete(Float(left)), Concrete(Float(right))) => Value::float(left * right),
+            (Concrete(Integer(left)), Concrete(Integer(right))) => {
+                Value::integer(left.saturating_mul(*right))
+            }
+            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+        };
+
+        Ok(product)
     }
 
     pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
+        use ConcreteValue::*;
+        use Value::*;
+
+        let product = match (self, other) {
+            (Concrete(Byte(left)), Concrete(Byte(right))) => {
+                Value::byte(left.saturating_div(*right))
+            }
+            (Concrete(Float(left)), Concrete(Float(right))) => Value::float(left / right),
+            (Concrete(Integer(left)), Concrete(Integer(right))) => {
+                Value::integer(left.saturating_div(*right))
+            }
             _ => return Err(ValueError::CannotDivide(self.clone(), other.clone())),
         };
-        let quotient = left
-            .divide(right)
-            .ok_or_else(|| ValueError::CannotDivide(self.clone(), other.clone()))?;
 
-        Ok(Value::Concrete(quotient))
+        Ok(product)
     }
 
     pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
+        use ConcreteValue::*;
+        use Value::*;
+
+        let product = match (self, other) {
+            (Concrete(Byte(left)), Concrete(Byte(right))) => Value::byte(left % right),
+            (Concrete(Float(left)), Concrete(Float(right))) => Value::float(left % right),
+            (Concrete(Integer(left)), Concrete(Integer(right))) => Value::integer(left % right),
             _ => return Err(ValueError::CannotModulo(self.clone(), other.clone())),
         };
-        let remainder = left
-            .modulo(right)
-            .ok_or_else(|| ValueError::CannotModulo(self.clone(), other.clone()))?;
 
-        Ok(Value::Concrete(remainder))
+        Ok(product)
     }
 
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
@@ -200,46 +229,31 @@ impl Value {
         Ok(Value::boolean(left == right))
     }
 
-    pub fn not_equal(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
-            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
-        };
-
-        Ok(Value::boolean(left != right))
-    }
-
     pub fn negate(&self) -> Result<Value, ValueError> {
-        let data = match self {
-            Value::Concrete(data) => data,
+        use ConcreteValue::*;
+        use Value::*;
+
+        let negated = match self {
+            Concrete(Integer(integer)) => Value::integer(-integer),
+            Concrete(Float(float)) => Value::float(-float),
             _ => return Err(ValueError::CannotNot(self.clone())),
         };
 
-        data.negate()
-            .ok_or_else(|| ValueError::CannotNot(self.clone()))
-            .map(Value::Concrete)
+        Ok(negated)
     }
 
     pub fn not(&self) -> Result<Value, ValueError> {
-        let data = match self {
-            Value::Concrete(data) => data,
+        use ConcreteValue::*;
+        use Value::*;
+
+        let not = match self {
+            Concrete(Boolean(boolean)) => Value::boolean(!boolean),
+            Concrete(Byte(byte)) => Value::byte(!byte),
+            Concrete(Integer(integer)) => Value::integer(!integer),
             _ => return Err(ValueError::CannotNot(self.clone())),
         };
 
-        data.not()
-            .ok_or_else(|| ValueError::CannotNot(self.clone()))
-            .map(Value::Concrete)
-    }
-
-    pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
-        let (left, right) = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
-        };
-
-        left.and(right)
-            .ok_or_else(|| ValueError::CannotAnd(self.clone(), other.clone()))
-            .map(Value::Concrete)
+        Ok(not)
     }
 
     pub fn to_concrete(self, vm: &mut Vm, position: Span) -> Result<Value, VmError> {
@@ -374,179 +388,6 @@ impl ConcreteValue {
                 | ConcreteValue::Character(_)
                 | ConcreteValue::Byte(_)
         )
-    }
-
-    pub fn add(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
-                Some(ConcreteValue::Byte(left.saturating_add(*right)))
-            }
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Float(left + right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Integer(left.saturating_add(*right)))
-            }
-            (ConcreteValue::String(left), ConcreteValue::String(right)) => {
-                Some(ConcreteValue::String(format!("{}{}", left, right)))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn subtract(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
-                Some(ConcreteValue::Byte(left.saturating_sub(*right)))
-            }
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Float(left - right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Integer(left.saturating_sub(*right)))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn multiply(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
-                Some(ConcreteValue::Byte(left.saturating_mul(*right)))
-            }
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Float(left * right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Integer(left.saturating_mul(*right)))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn divide(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
-                Some(ConcreteValue::Byte(left.saturating_div(*right)))
-            }
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Float(left / right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Integer(left.saturating_div(*right)))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn modulo(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Float(left % right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Integer(left % right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn less_than(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Boolean(left < right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Boolean(left < right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn less_than_or_equal(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Boolean(left <= right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Boolean(left <= right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn greater_than(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Boolean(left > right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Boolean(left > right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn greater_than_or_equal(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
-                Some(ConcreteValue::Boolean(left >= right))
-            }
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                Some(ConcreteValue::Boolean(left >= right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn and(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Boolean(left), ConcreteValue::Boolean(right)) => {
-                Some(ConcreteValue::Boolean(*left && *right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn or(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
-        match (self, other) {
-            (ConcreteValue::Boolean(left), ConcreteValue::Boolean(right)) => {
-                Some(ConcreteValue::Boolean(*left || *right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn is_even(&self) -> Option<ConcreteValue> {
-        match self {
-            ConcreteValue::Integer(integer) => Some(ConcreteValue::Boolean(integer % 2 == 0)),
-            ConcreteValue::Float(float) => Some(ConcreteValue::Boolean(float % 2.0 == 0.0)),
-            _ => None,
-        }
-    }
-
-    pub fn is_odd(&self) -> Option<ConcreteValue> {
-        match self {
-            ConcreteValue::Integer(integer) => Some(ConcreteValue::Boolean(integer % 2 != 0)),
-            ConcreteValue::Float(float) => Some(ConcreteValue::Boolean(float % 2.0 != 0.0)),
-            _ => None,
-        }
-    }
-
-    pub fn negate(&self) -> Option<ConcreteValue> {
-        match self {
-            ConcreteValue::Byte(value) => Some(ConcreteValue::Byte(!value)),
-            ConcreteValue::Float(value) => Some(ConcreteValue::Float(-value)),
-            ConcreteValue::Integer(value) => Some(ConcreteValue::Integer(-value)),
-            _ => None,
-        }
-    }
-
-    pub fn not(&self) -> Option<ConcreteValue> {
-        match self {
-            ConcreteValue::Boolean(value) => Some(ConcreteValue::Boolean(!value)),
-            _ => None,
-        }
     }
 }
 
