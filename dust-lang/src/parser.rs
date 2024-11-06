@@ -13,8 +13,9 @@ use std::{
 use colored::Colorize;
 
 use crate::{
-    optimize, AnnotatedError, Chunk, DustError, FunctionType, Instruction, LexError, Lexer, Local,
-    NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type, Value,
+    optimize, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction, LexError,
+    Lexer, Local, NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type,
+    Value,
 };
 
 /// Parses the input and returns a chunk.
@@ -127,13 +128,10 @@ impl<'src> Parser<'src> {
     }
 
     fn get_local(&self, index: u8) -> Result<&Local, ParseError> {
-        let index = index as usize;
-
         self.chunk
-            .locals()
-            .get(index)
-            .ok_or(ParseError::LocalIndexOutOfBounds {
-                index,
+            .get_local(index)
+            .map_err(|error| ParseError::Chunk {
+                error,
                 position: self.current_position,
             })
     }
@@ -1882,7 +1880,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {
     // Token errors
     ExpectedToken {
@@ -1934,19 +1932,11 @@ pub enum ParseError {
         position: Span,
     },
 
-    // Chunk errors
-    LocalIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    RegisterOverflow {
-        position: Span,
-    },
-    RegisterUnderflow {
-        position: Span,
-    },
-
     // Wrappers around foreign errors
+    Chunk {
+        error: ChunkError,
+        position: Span,
+    },
     Lex(LexError),
     ParseFloatError {
         error: ParseFloatError,
@@ -1967,17 +1957,15 @@ impl AnnotatedError for ParseError {
         match self {
             Self::CannotChainComparison { .. } => "Cannot chain comparison",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
+            Self::Chunk { .. } => "Chunk error",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::Lex(error) => error.description(),
-            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
-            Self::RegisterOverflow { .. } => "Register overflow",
-            Self::RegisterUnderflow { .. } => "Register underflow",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UnexpectedReturn { .. } => "Unexpected return",
             Self::VariableOutOfScope { .. } => "Variable out of scope",
@@ -1992,6 +1980,7 @@ impl AnnotatedError for ParseError {
             Self::CannotMutateImmutableVariable { identifier, .. } => {
                 Some(format!("Cannot mutate immutable variable {identifier}"))
             }
+            Self::Chunk { error, .. } => Some(error.to_string()),
             Self::ExpectedExpression { found, .. } => Some(format!("Found {found}")),
             Self::ExpectedToken {
                 expected, found, ..
@@ -2024,13 +2013,9 @@ impl AnnotatedError for ParseError {
                 Some(format!("Invalid assignment target, found {found}"))
             }
             Self::Lex(error) => error.details(),
-            Self::LocalIndexOutOfBounds { index, .. } => {
-                Some(format!("Local index {index} out of bounds"))
-            }
+
             Self::ParseFloatError { error, .. } => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
-            Self::RegisterOverflow { .. } => None,
-            Self::RegisterUnderflow { .. } => None,
             Self::UndeclaredVariable { identifier, .. } => {
                 Some(format!("Undeclared variable {identifier}"))
             }
@@ -2045,17 +2030,15 @@ impl AnnotatedError for ParseError {
         match self {
             Self::CannotChainComparison { position } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
+            Self::Chunk { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedMutableVariable { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
             Self::Lex(error) => error.position(),
-            Self::LocalIndexOutOfBounds { position, .. } => *position,
             Self::ParseFloatError { position, .. } => *position,
             Self::ParseIntError { position, .. } => *position,
-            Self::RegisterOverflow { position } => *position,
-            Self::RegisterUnderflow { position } => *position,
             Self::UndeclaredVariable { position, .. } => *position,
             Self::UnexpectedReturn { position } => *position,
             Self::VariableOutOfScope { position, .. } => *position,

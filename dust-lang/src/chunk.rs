@@ -37,7 +37,7 @@
 use std::{
     cmp::Ordering,
     env::current_exe,
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 use colored::Colorize;
@@ -127,6 +127,12 @@ impl Chunk {
         &mut self.instructions
     }
 
+    pub fn get_instruction(&self, index: usize) -> Result<&(Instruction, Span), ChunkError> {
+        self.instructions
+            .get(index)
+            .ok_or(ChunkError::InstructionIndexOutOfBounds { index })
+    }
+
     pub fn locals(&self) -> &Vec<Local> {
         &self.locals
     }
@@ -135,12 +141,32 @@ impl Chunk {
         &mut self.locals
     }
 
+    pub fn get_local(&self, index: u8) -> Result<&Local, ChunkError> {
+        self.locals
+            .get(index as usize)
+            .ok_or(ChunkError::LocalIndexOutOfBounds {
+                index: index as usize,
+            })
+    }
+
+    pub fn get_local_mut(&mut self, index: u8) -> Result<&mut Local, ChunkError> {
+        self.locals
+            .get_mut(index as usize)
+            .ok_or(ChunkError::LocalIndexOutOfBounds {
+                index: index as usize,
+            })
+    }
+
     pub fn current_scope(&self) -> Scope {
         self.current_scope
     }
 
-    pub fn get_constant(&self, index: u8) -> Option<&Value> {
-        self.constants.get(index as usize)
+    pub fn get_constant(&self, index: u8) -> Result<&Value, ChunkError> {
+        self.constants
+            .get(index as usize)
+            .ok_or(ChunkError::ConstantIndexOutOfBounds {
+                index: index as usize,
+            })
     }
 
     pub fn push_or_get_constant(&mut self, value: Value) -> u8 {
@@ -178,6 +204,14 @@ impl Chunk {
             self.current_scope.index = 0;
         } else {
             self.current_scope.index -= 1;
+        }
+    }
+
+    pub fn expect_not_poisoned(&self) -> Result<(), ChunkError> {
+        if self.is_poisoned {
+            Err(ChunkError::PoisonedChunk)
+        } else {
+            Ok(())
         }
     }
 
@@ -650,5 +684,30 @@ impl<'a> ChunkDisassembler<'a> {
         let _ = self.output.trim_end_matches('\n');
 
         self.output
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ChunkError {
+    ConstantIndexOutOfBounds { index: usize },
+    InstructionIndexOutOfBounds { index: usize },
+    LocalIndexOutOfBounds { index: usize },
+    PoisonedChunk,
+}
+
+impl Display for ChunkError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ChunkError::ConstantIndexOutOfBounds { index } => {
+                write!(f, "Constant index {} out of bounds", index)
+            }
+            ChunkError::InstructionIndexOutOfBounds { index } => {
+                write!(f, "Instruction index {} out of bounds", index)
+            }
+            ChunkError::LocalIndexOutOfBounds { index } => {
+                write!(f, "Local index {} out of bounds", index)
+            }
+            ChunkError::PoisonedChunk => write!(f, "Chunk is poisoned"),
+        }
     }
 }

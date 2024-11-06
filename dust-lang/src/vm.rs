@@ -2,8 +2,9 @@
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
-    parse, value::ConcreteValue, AnnotatedError, Chunk, DustError, FunctionType, Instruction,
-    Local, NativeFunction, NativeFunctionError, Operation, Span, Type, Value, ValueError,
+    parse, value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
+    Instruction, Local, NativeFunction, NativeFunctionError, Operation, Span, Type, Value,
+    ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -45,22 +46,12 @@ impl Vm {
             position: Span,
         ) -> Result<(&Value, &Value), VmError> {
             let left = if instruction.b_is_constant() {
-                vm.chunk.get_constant(instruction.b()).ok_or_else(|| {
-                    VmError::ConstantIndexOutOfBounds {
-                        index: instruction.b() as usize,
-                        position,
-                    }
-                })?
+                vm.get_constant(instruction.b(), position)?
             } else {
                 vm.get_register(instruction.b(), position)?
             };
             let right = if instruction.c_is_constant() {
-                vm.chunk.get_constant(instruction.c()).ok_or_else(|| {
-                    VmError::ConstantIndexOutOfBounds {
-                        index: instruction.c() as usize,
-                        position,
-                    }
-                })?
+                vm.get_constant(instruction.c(), position)?
             } else {
                 vm.get_register(instruction.c(), position)?
             };
@@ -336,12 +327,7 @@ impl Vm {
                 }
                 Operation::Negate => {
                     let value = if instruction.b_is_constant() {
-                        self.chunk.get_constant(instruction.b()).ok_or_else(|| {
-                            VmError::ConstantIndexOutOfBounds {
-                                index: instruction.b() as usize,
-                                position,
-                            }
-                        })?
+                        self.get_constant(instruction.b(), position)?
                     } else {
                         self.get_register(instruction.b(), position)?
                     };
@@ -353,12 +339,7 @@ impl Vm {
                 }
                 Operation::Not => {
                     let value = if instruction.b_is_constant() {
-                        self.chunk.get_constant(instruction.b()).ok_or_else(|| {
-                            VmError::ConstantIndexOutOfBounds {
-                                index: instruction.b() as usize,
-                                position,
-                            }
-                        })?
+                        self.get_constant(instruction.b(), position)?
                     } else {
                         self.get_register(instruction.b(), position)?
                     };
@@ -588,6 +569,12 @@ impl Vm {
         }
     }
 
+    fn get_constant(&self, index: u8, position: Span) -> Result<&Value, VmError> {
+        self.chunk
+            .get_constant(index)
+            .map_err(|error| VmError::Chunk { error, position })
+    }
+
     pub fn get_register(&self, index: u8, position: Span) -> Result<&Value, VmError> {
         let index = index as usize;
         let register = self
@@ -598,13 +585,7 @@ impl Vm {
         match register {
             Register::Value(value) => Ok(value),
             Register::Pointer(register_index) => self.get_register(*register_index, position),
-            Register::Constant(constant_index) => self
-                .chunk
-                .get_constant(*constant_index)
-                .ok_or_else(|| VmError::ConstantIndexOutOfBounds {
-                    index: *constant_index as usize,
-                    position,
-                }),
+            Register::Constant(constant_index) => self.get_constant(*constant_index, position),
             Register::Empty => Err(VmError::EmptyRegister { index, position }),
         }
     }
@@ -640,24 +621,19 @@ impl Vm {
     }
 
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
-        if self.chunk.is_poisoned {
-            return Err(VmError::PoisonedChunk { position });
+        self.chunk
+            .expect_not_poisoned()
+            .map_err(|error| VmError::Chunk { error, position })?;
+
+        let max_ip = self.chunk.len() - 1;
+
+        if self.ip > max_ip {
+            return self.get_instruction(max_ip, position);
+        } else {
+            self.ip += 1;
         }
 
-        if self.ip >= self.chunk.len() {
-            self.ip = self.chunk.len() - 1;
-        }
-
-        let current = self.chunk.instructions().get(self.ip).ok_or_else(|| {
-            VmError::InstructionIndexOutOfBounds {
-                index: self.ip,
-                position,
-            }
-        })?;
-
-        self.ip += 1;
-
-        Ok(current)
+        self.get_instruction(self.ip - 1, position)
     }
 
     fn define_local(
@@ -668,12 +644,8 @@ impl Vm {
     ) -> Result<(), VmError> {
         let local = self
             .chunk
-            .locals_mut()
-            .get_mut(local_index as usize)
-            .ok_or_else(|| VmError::LocalIndexOutOfBounds {
-                index: local_index as usize,
-                position,
-            })?;
+            .get_local_mut(local_index)
+            .map_err(|error| VmError::Chunk { error, position })?;
 
         log::debug!("Define local L{}", local_index);
 
@@ -683,15 +655,9 @@ impl Vm {
     }
 
     fn get_local(&self, local_index: u8, position: Span) -> Result<&Local, VmError> {
-        let local_index = local_index as usize;
-
         self.chunk
-            .locals()
-            .get(local_index)
-            .ok_or_else(|| VmError::LocalIndexOutOfBounds {
-                index: local_index,
-                position,
-            })
+            .get_local(local_index)
+            .map_err(|error| VmError::Chunk { error, position })
     }
 
     fn get_instruction(
@@ -700,9 +666,8 @@ impl Vm {
         position: Span,
     ) -> Result<&(Instruction, Span), VmError> {
         self.chunk
-            .instructions()
-            .get(index)
-            .ok_or_else(|| VmError::InstructionIndexOutOfBounds { index, position })
+            .get_instruction(index)
+            .map_err(|error| VmError::Chunk { error, position })
     }
 }
 
@@ -714,7 +679,7 @@ enum Register {
     Constant(u8),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
     // Stack errors
     StackOverflow { position: Span },
@@ -724,17 +689,12 @@ pub enum VmError {
     EmptyRegister { index: usize, position: Span },
     RegisterIndexOutOfBounds { index: usize, position: Span },
 
-    // Chunk errors
-    ConstantIndexOutOfBounds { index: usize, position: Span },
-    InstructionIndexOutOfBounds { index: usize, position: Span },
-    LocalIndexOutOfBounds { index: usize, position: Span },
-    PoisonedChunk { position: Span },
-
     // Execution errors
     ExpectedBoolean { found: Value, position: Span },
     ExpectedFunction { found: Value, position: Span },
 
     // Wrappers for foreign errors
+    Chunk { error: ChunkError, position: Span },
     NativeFunction(NativeFunctionError),
     Value { error: ValueError, position: Span },
 }
@@ -746,14 +706,11 @@ impl AnnotatedError for VmError {
 
     fn description(&self) -> &'static str {
         match self {
-            Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
+            Self::Chunk { .. } => "Chunk error",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
-            Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
-            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             Self::NativeFunction(error) => error.description(),
-            Self::PoisonedChunk { .. } => "Poisoned chunk",
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
@@ -763,19 +720,11 @@ impl AnnotatedError for VmError {
 
     fn details(&self) -> Option<String> {
         match self {
-            Self::ConstantIndexOutOfBounds { index, .. } => {
-                Some(format!("Constant C{index} does not exist"))
-            }
+            Self::Chunk { error, .. } => Some(error.to_string()),
             Self::EmptyRegister { index, .. } => Some(format!("Register R{index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
-            }
-            Self::InstructionIndexOutOfBounds { index, .. } => {
-                Some(format!("Instruction {index} does not exist"))
-            }
-            Self::LocalIndexOutOfBounds { index, .. } => {
-                Some(format!("Local L{index} does not exist"))
             }
             Self::NativeFunction(error) => error.details(),
             Self::Value { error, .. } => Some(error.to_string()),
@@ -785,14 +734,11 @@ impl AnnotatedError for VmError {
 
     fn position(&self) -> Span {
         match self {
-            Self::ConstantIndexOutOfBounds { position, .. } => *position,
+            Self::Chunk { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
-            Self::InstructionIndexOutOfBounds { position, .. } => *position,
-            Self::LocalIndexOutOfBounds { position, .. } => *position,
             Self::NativeFunction(error) => error.position(),
-            Self::PoisonedChunk { position } => *position,
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::StackOverflow { position } => *position,
             Self::StackUnderflow { position } => *position,

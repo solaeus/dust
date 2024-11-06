@@ -14,7 +14,7 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use crate::chunk::{Chunk, ChunkDisassembler, Local, Scope};
+pub use crate::chunk::{Chunk, ChunkDisassembler, ChunkError, Local, Scope};
 pub use crate::dust_error::{AnnotatedError, DustError};
 pub use crate::formatter::{format, Formatter};
 pub use crate::instruction::Instruction;
