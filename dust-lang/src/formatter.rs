@@ -1,8 +1,9 @@
+//! Formatting tools
 use std::mem::replace;
 
 use colored::{ColoredString, Colorize, CustomColor};
 
-use crate::{DustError, LexError, Lexer, Token};
+use crate::{DustError, LexError, Lexer, ParseError, Token};
 
 pub fn format(source: &str, line_numbers: bool, colored: bool) -> Result<String, DustError> {
     let lexer = Lexer::new(source);
@@ -10,7 +11,10 @@ pub fn format(source: &str, line_numbers: bool, colored: bool) -> Result<String,
         .line_numbers(line_numbers)
         .colored(colored)
         .format()
-        .map_err(|error| DustError::Lex { error, source })?;
+        .map_err(|error| DustError::Parse {
+            error: ParseError::Lex(error),
+            source,
+        })?;
 
     Ok(formatted)
 }

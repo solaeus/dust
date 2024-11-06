@@ -1,13 +1,13 @@
+//! Top-level Dust errors.use annotate_snippets::{Level, Renderer, Snippet};
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{vm::VmError, LexError, ParseError, Span};
+use crate::{vm::VmError, ParseError, Span};
 
+/// A top-level error that can occur during the execution of Dust code.
+///
+/// This error can display nicely formatted messages with source code annotations.
 #[derive(Debug, PartialEq)]
 pub enum DustError<'src> {
-    Lex {
-        error: LexError,
-        source: &'src str,
-    },
     Parse {
         error: ParseError,
         source: &'src str,
@@ -52,7 +52,6 @@ impl<'src> DustError<'src> {
 
                 report.push_str(&renderer.render(message).to_string());
             }
-            _ => todo!(),
         }
 
         report

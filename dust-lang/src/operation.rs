@@ -1,3 +1,9 @@
+//! Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.
+//!
+//! !!! Warning !!!
+//! The byte values of the operations matter. The seventh and eighth bits must be zero so that the
+//! [Instruction][crate::Instruction] type can use them as flags.
+
 use std::fmt::{self, Display, Formatter};
 
 const MOVE: u8 = 0b0000_0000;
@@ -33,6 +39,9 @@ const CALL: u8 = 0b0001_0110;
 const CALL_NATIVE: u8 = 0b0001_0111;
 const RETURN: u8 = 0b0001_1000;
 
+/// Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.)
+///
+/// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
     // Stack manipulation

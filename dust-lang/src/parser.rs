@@ -1,3 +1,8 @@
+//! Parsing tools and errors
+//!
+//! This module provides two lexing options:
+//! - [`parse`], which parsers the entire input and returns a chunk
+//! - [`Parser`], which parsers the input a token at a time while assembling a chunk
 use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
@@ -13,6 +18,17 @@ use crate::{
     NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
+/// Parses the input and returns a chunk.
+///
+/// # Example
+///
+/// ```
+/// # use dust_lang::parse;
+/// let source = "40 + 2 == 42";
+/// let chunk = parse(source).unwrap();
+///
+/// assert_eq!(chunk.len(), 6);
+/// ```
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer).map_err(|error| DustError::Parse { error, source })?;
@@ -24,6 +40,9 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
     Ok(parser.finish())
 }
 
+/// Low-level tool for parsing the input a token at a time while assembling a chunk.
+///
+/// See the [`parse`] function an example of how to create and use a Parser.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize)]
 struct Parser<'src> {
     lexer: Lexer<'src>,

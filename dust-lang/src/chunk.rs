@@ -1,3 +1,14 @@
+//! In-memory representation of a Dust program or function.
+//!
+//! A chunk consists of a sequence of instructions and their positions, a list of constants, and a
+//! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
+//! belong to a named function.
+//!
+//! # Disassembly
+//!
+//! Chunks can be disassembled into a human-readable format using the `disassemble` method. The
+//! output is designed to be displayed in a terminal and is styled for readability.
+
 use std::{
     cmp::Ordering,
     env::current_exe,
@@ -9,6 +20,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Instruction, Span, Type, Value};
 
+/// In-memory representation of a Dust program or function.
+///
+/// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     name: Option<String>,
@@ -125,7 +139,7 @@ impl Chunk {
 
     pub fn begin_scope(&mut self) {
         self.scope_index += 1;
-        self.current_scope.width = self.scope_index;
+        self.current_scope.index = self.scope_index;
         self.current_scope.depth += 1;
     }
 
@@ -133,9 +147,9 @@ impl Chunk {
         self.current_scope.depth -= 1;
 
         if self.current_scope.depth == 0 {
-            self.current_scope.width = 0;
+            self.current_scope.index = 0;
         } else {
-            self.current_scope.width -= 1;
+            self.current_scope.index -= 1;
         }
     }
 
@@ -206,26 +220,29 @@ pub struct Scope {
     /// The level of block nesting.
     pub depth: u8,
     /// The nth scope in the chunk.
-    pub width: u8,
+    pub index: u8,
 }
 
 impl Scope {
-    pub fn new(depth: u8, width: u8) -> Self {
-        Self { depth, width }
+    pub fn new(index: u8, width: u8) -> Self {
+        Self {
+            depth: index,
+            index: width,
+        }
     }
 
     pub fn contains(&self, other: &Self) -> bool {
         match self.depth.cmp(&other.depth) {
             Ordering::Less => false,
-            Ordering::Greater => self.width >= other.width,
-            Ordering::Equal => self.width == other.width,
+            Ordering::Greater => self.index >= other.index,
+            Ordering::Equal => self.index == other.index,
         }
     }
 }
 
 impl Display for Scope {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.depth, self.width)
+        write!(f, "({}, {})", self.depth, self.index)
     }
 }
 

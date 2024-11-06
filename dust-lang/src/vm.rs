@@ -1,3 +1,4 @@
+//! Virtual machine and errors
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
@@ -13,6 +14,9 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
         .map_err(|error| DustError::Runtime { error, source })
 }
 
+/// Dust virtual machine.
+///
+/// See the [module-level documentation](index.html) for more information.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Vm {
     ip: usize,

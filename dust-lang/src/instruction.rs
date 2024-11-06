@@ -1,7 +1,24 @@
+//! An operation and its arguments for the Dust virtual machine.
+//!
+//! Each instruction is a 32-bit unsigned integer that is divided into five fields:
+//! - Bits 0-6: The operation code.
+//! - Bit 7: A flag indicating whether the B argument is a constant.
+//! - Bit 8: A flag indicating whether the C argument is a constant.
+//! - Bits 9-16: The A argument.
+//! - Bits 17-24: The B argument.
+//! - Bits 25-32: The C argument.
+//!
+//! Be careful when working with instructions directly. When modifying an instruction, be sure to
+//! account for the fact that setting the A, B, or C arguments to 0 will have no effect. It is
+//! usually best to remove instructions and insert new ones in their place instead of mutating them.
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Chunk, NativeFunction, Operation};
 
+/// An operation and its arguments for the Dust virtual machine.
+///
+/// See the [module-level documentation](index.html) for more information.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Instruction(u32);
 

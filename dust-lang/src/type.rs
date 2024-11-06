@@ -1,14 +1,4 @@
-//! Value types.
-//!
-//! Most types are concrete and specific, the exceptions are the Generic and Any types.
-//!
-//! Generic types are temporary placeholders that describe a type that will be defined later. The
-//! interpreter should use the analysis phase to enforce that all Generic types have a concrete
-//! type assigned to them before the program is run.
-//!
-//! The Any type is used in cases where a value's type does not matter. For example, the standard
-//! library's "length" function does not care about the type of item in the list, only the list
-//! itself. So the input is defined as `[any]`, i.e. `Type::ListOf(Box::new(Type::Any))`.
+//! Value types and conflict handling.
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -18,8 +8,6 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 /// Description of a kind of value.
-///
-/// See the [module documentation](index.html) for more information.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Type {
     Any,

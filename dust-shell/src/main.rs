@@ -7,7 +7,7 @@ use log::{Level, LevelFilter};
 
 #[derive(Parser)]
 struct Cli {
-    /// Source code send via command line
+    /// Source code sent via command line
     #[arg(short, long)]
     command: Option<String>,
 
@@ -31,6 +31,7 @@ struct Cli {
     #[arg(long)]
     style_disassembly: Option<bool>,
 
+    /// Log level
     #[arg(short, long)]
     log: Option<LevelFilter>,
 

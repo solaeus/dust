@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 
 macro_rules! define_tokens {
     ($($variant:ident $(($data_type:ty))?),+ $(,)?) => {
+        /// Source token.
+        ///
+        /// This is a borrowed type, i.e. some variants contain references to the source text.
         #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Default, Serialize, Deserialize)]
         pub enum Token<'src> {
             #[default]
@@ -15,6 +18,9 @@ macro_rules! define_tokens {
         }
 
         #[derive(Debug, PartialEq, Clone)]
+        /// Data-less representation of a source token.
+        ///
+        /// If a [Token] borrows from the source text, its TokenKind omits the data.
         pub enum TokenKind {
             Eof,
             $(
@@ -439,9 +445,9 @@ impl<'src> Display for Token<'src> {
     }
 }
 
-/// Owned version of `Token`, which owns all the strings.
+/// Owned representation of a source token.
 ///
-/// This is used for errors.
+/// If a [Token] borrows from the source text, its TokenOwned omits the data.
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenOwned {
     Eof,

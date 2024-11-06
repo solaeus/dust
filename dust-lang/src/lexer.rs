@@ -1,4 +1,4 @@
-//! Lexing tools.
+//! Lexing tools and errors
 //!
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
@@ -8,9 +8,9 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::AnnotatedError, DustError, Span, Token};
+use crate::{dust_error::AnnotatedError, DustError, ParseError, Span, Token};
 
-/// Lexes the input and return a vector of tokens and their positions.
+/// Lexes the input and returns a vector of tokens and their positions.
 ///
 /// # Examples
 /// ```
@@ -37,9 +37,10 @@ pub fn lex<'tokens, 'src: 'tokens>(
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer
-            .next_token()
-            .map_err(|error| DustError::Lex { error, source })?;
+        let (token, span) = lexer.next_token().map_err(|error| DustError::Parse {
+            error: ParseError::Lex(error),
+            source,
+        })?;
         let is_eof = matches!(token, Token::Eof);
 
         tokens.push((token, span));
@@ -54,36 +55,7 @@ pub fn lex<'tokens, 'src: 'tokens>(
 
 /// Low-level tool for lexing a single token at a time.
 ///
-/// # Examples
-/// ```
-/// # use dust_lang::*;
-/// let input = "x = 1 + 2";
-/// let mut lexer = Lexer::new(input);
-/// let mut tokens = Vec::new();
-///
-/// loop {
-///     let (token, span) = lexer.next_token().unwrap();
-///     let is_eof = matches!(token, Token::Eof);
-///
-///     tokens.push((token, span));
-///
-///     if is_eof {
-///         break;
-///     }
-/// }
-///
-/// assert_eq!(
-///     tokens,
-///     [
-///         (Token::Identifier("x"), Span(0, 1)),
-///         (Token::Equal, Span(2, 3)),
-///         (Token::Integer("1"), Span(4, 5)),
-///         (Token::Plus, Span(6, 7)),
-///         (Token::Integer("2"), Span(8, 9)),
-///         (Token::Eof, Span(9, 9)),
-///     ]
-/// )
-/// ```
+/// See the [`lex`] function for an example of how to create and use a Lexer.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Lexer<'src> {
     source: &'src str,

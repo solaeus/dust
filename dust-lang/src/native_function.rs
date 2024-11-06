@@ -1,3 +1,7 @@
+//! Built-in functions that implement extended functionality.
+//!
+//! Native functions are used either to implement features that are not possible to implement in
+//! Dust itself or that are more efficient to implement in Rust.
 use std::{
     fmt::{self, Display, Formatter},
     io::{self, stdin, stdout, Write},
@@ -10,6 +14,9 @@ use crate::{AnnotatedError, FunctionType, Instruction, Primitive, Span, Type, Va
 
 macro_rules! impl_from_str_for_native_function {
     ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
+        /// A dust-native function.
+        ///
+        /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub enum NativeFunction {
             $(
