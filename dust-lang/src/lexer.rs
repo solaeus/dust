@@ -8,7 +8,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::AnnotatedError, DustError, ParseError, Span, Token};
+use crate::{dust_error::AnnotatedError, CompileError, DustError, Span, Token};
 
 /// Lexes the input and returns a vector of tokens and their positions.
 ///
@@ -37,8 +37,8 @@ pub fn lex<'tokens, 'src: 'tokens>(
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer.next_token().map_err(|error| DustError::Parse {
-            error: ParseError::Lex(error),
+        let (token, span) = lexer.next_token().map_err(|error| DustError::Compile {
+            error: CompileError::Lex(error),
             source,
         })?;
         let is_eof = matches!(token, Token::Eof);

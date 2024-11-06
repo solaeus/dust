@@ -5,7 +5,7 @@ fn constant() {
     let source = "42";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -25,7 +25,7 @@ fn empty() {
     let source = "";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![(Instruction::r#return(false), Span(0, 0))],
@@ -41,7 +41,7 @@ fn parentheses_precedence() {
     let source = "(1 + 2) * 3";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

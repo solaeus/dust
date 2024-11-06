@@ -33,7 +33,7 @@ fn function_call() {
     let source = "fn(a: int, b: int) -> int { a + b }(1, 2)";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -78,7 +78,7 @@ fn function_declaration() {
     let source = "fn add (a: int, b: int) -> int { a + b }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

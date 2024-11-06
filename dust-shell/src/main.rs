@@ -2,7 +2,7 @@ use std::{fs::read_to_string, io::Write};
 
 use clap::Parser;
 use colored::Colorize;
-use dust_lang::{format, parse, run};
+use dust_lang::{compile, format, run};
 use log::{Level, LevelFilter};
 
 #[derive(Parser)]
@@ -96,7 +96,7 @@ fn main() {
 
         log::info!("Parsing source");
 
-        match parse(source) {
+        match compile(source) {
             Ok(chunk) => {
                 let disassembly = chunk
                     .disassembler()

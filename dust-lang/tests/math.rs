@@ -5,7 +5,7 @@ fn add() {
     let source = "1 + 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -30,7 +30,7 @@ fn add_assign() {
     let source = "let mut a = 1; a += 2; a";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -53,9 +53,9 @@ fn add_assign_expects_mutable_variable() {
     let source = "1 += 2";
 
     assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedMutableVariable {
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
             },
@@ -85,7 +85,7 @@ fn divide() {
     let source = "2 / 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -110,7 +110,7 @@ fn divide_assign() {
     let source = "let mut a = 2; a /= 2; a";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -136,9 +136,9 @@ fn divide_assign_expects_mutable_variable() {
     let source = "1 -= 2";
 
     assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedMutableVariable {
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
             },
@@ -152,7 +152,7 @@ fn math_operator_precedence() {
     let source = "1 + 2 - 3 * 4 / 5";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -194,7 +194,7 @@ fn multiply() {
     let source = "1 * 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -219,7 +219,7 @@ fn multiply_assign() {
     let source = "let mut a = 2; a *= 3 a";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -245,9 +245,9 @@ fn multiply_assign_expects_mutable_variable() {
     let source = "1 *= 2";
 
     assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedMutableVariable {
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
             },
@@ -261,7 +261,7 @@ fn subtract() {
     let source = "1 - 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -286,7 +286,7 @@ fn subtract_assign() {
     let source = "let mut x = 42; x -= 2; x";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -312,9 +312,9 @@ fn subtract_assign_expects_mutable_variable() {
     let source = "1 -= 2";
 
     assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedMutableVariable {
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
             },

@@ -2,13 +2,13 @@
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
-    parse, value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
+    compile, value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
     Instruction, Local, NativeFunction, NativeFunctionError, Operation, Span, Type, Value,
     ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
-    let chunk = parse(source)?;
+    let chunk = compile(source)?;
     let vm = Vm::new(chunk);
 
     vm.run()

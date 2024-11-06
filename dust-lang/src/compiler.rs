@@ -1,8 +1,8 @@
-//! Parsing tools and errors
+//! Compilation tools and errors
 //!
-//! This module provides two lexing options:
-//! - [`parse`], which parsers the entire input and returns a chunk
-//! - [`Parser`], which parsers the input a token at a time while assembling a chunk
+//! This module provides two compilation options:
+//! - [`compile`], which compiles the entire input and returns a chunk
+//! - [`Compiler`], which compiles the input a token at a time while assembling a chunk
 use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
@@ -18,36 +18,37 @@ use crate::{
     Value,
 };
 
-/// Parses the input and returns a chunk.
+/// Compiles the input and returns a chunk.
 ///
 /// # Example
 ///
 /// ```
-/// # use dust_lang::parse;
+/// # use dust_lang::compile;
 /// let source = "40 + 2 == 42";
-/// let chunk = parse(source).unwrap();
+/// let chunk = compile(source).unwrap();
 ///
 /// assert_eq!(chunk.len(), 6);
 /// ```
-pub fn parse(source: &str) -> Result<Chunk, DustError> {
+pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut parser = Parser::new(lexer).map_err(|error| DustError::Parse { error, source })?;
+    let mut compiler =
+        Compiler::new(lexer).map_err(|error| DustError::Compile { error, source })?;
 
-    parser
+    compiler
         .parse_top_level()
-        .map_err(|error| DustError::Parse { error, source })?;
+        .map_err(|error| DustError::Compile { error, source })?;
 
-    Ok(parser.finish())
+    Ok(compiler.finish())
 }
 
-/// Low-level tool for parsing the input a token at a time while assembling a chunk.
+/// Low-level tool for compiling the input a token at a time while assembling a chunk.
 ///
-/// See the [`parse`] function an example of how to create and use a Parser.
+/// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
-struct Parser<'src> {
+pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
-    optimization_count: u16,
+    optimization_count: usize,
 
     previous_is_expression: bool,
     minimum_register: u8,
@@ -59,8 +60,8 @@ struct Parser<'src> {
     previous_position: Span,
 }
 
-impl<'src> Parser<'src> {
-    pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
+impl<'src> Compiler<'src> {
+    pub fn new(mut lexer: Lexer<'src>) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
         let chunk = Chunk::new(None);
 
@@ -70,7 +71,7 @@ impl<'src> Parser<'src> {
             current_position.to_string()
         );
 
-        Ok(Parser {
+        Ok(Compiler {
             chunk,
             lexer,
             optimization_count: 0,
@@ -84,7 +85,7 @@ impl<'src> Parser<'src> {
     }
 
     pub fn finish(self) -> Chunk {
-        log::info!("End chunk");
+        log::info!("End chunk with {} optimizations", self.optimization_count);
 
         self.chunk
     }
@@ -108,7 +109,7 @@ impl<'src> Parser<'src> {
             .unwrap_or(self.minimum_register)
     }
 
-    fn advance(&mut self) -> Result<(), ParseError> {
+    fn advance(&mut self) -> Result<(), CompileError> {
         if self.is_eof() {
             return Ok(());
         }
@@ -127,16 +128,16 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn get_local(&self, index: u8) -> Result<&Local, ParseError> {
+    fn get_local(&self, index: u8) -> Result<&Local, CompileError> {
         self.chunk
             .get_local(index)
-            .map_err(|error| ParseError::Chunk {
+            .map_err(|error| CompileError::Chunk {
                 error,
                 position: self.current_position,
             })
     }
 
-    fn get_local_index(&self, identifier_text: &str) -> Result<u8, ParseError> {
+    fn get_local_index(&self, identifier_text: &str) -> Result<u8, CompileError> {
         self.chunk
             .locals()
             .iter()
@@ -155,7 +156,7 @@ impl<'src> Parser<'src> {
                     None
                 }
             })
-            .ok_or(ParseError::UndeclaredVariable {
+            .ok_or(CompileError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
                 position: self.current_position,
             })
@@ -185,7 +186,7 @@ impl<'src> Parser<'src> {
         (self.chunk.locals().len() as u8 - 1, identifier_index)
     }
 
-    fn allow(&mut self, allowed: Token) -> Result<bool, ParseError> {
+    fn allow(&mut self, allowed: Token) -> Result<bool, CompileError> {
         if self.current_token == allowed {
             self.advance()?;
 
@@ -195,11 +196,11 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn expect(&mut self, expected: Token) -> Result<(), ParseError> {
+    fn expect(&mut self, expected: Token) -> Result<(), CompileError> {
         if self.current_token == expected {
             self.advance()
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: expected.kind(),
                 found: self.current_token.to_owned(),
                 position: self.current_position,
@@ -217,11 +218,11 @@ impl<'src> Parser<'src> {
         self.chunk.instructions_mut().push((instruction, position));
     }
 
-    fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), ParseError> {
+    fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), CompileError> {
         self.chunk
             .instructions_mut()
             .pop()
-            .ok_or_else(|| ParseError::ExpectedExpression {
+            .ok_or_else(|| CompileError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
             })
@@ -265,7 +266,7 @@ impl<'src> Parser<'src> {
             })
     }
 
-    fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), ParseError> {
+    fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), CompileError> {
         let constant_index = self.chunk.push_or_get_constant(value);
         let register = self.next_register();
 
@@ -277,7 +278,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_boolean(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_boolean(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Boolean(text) = self.current_token {
@@ -295,7 +296,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::Boolean,
                 found: self.current_token.to_owned(),
                 position,
@@ -303,14 +304,14 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_byte(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_byte(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Byte(text) = self.current_token {
             self.advance()?;
 
             let byte = u8::from_str_radix(&text[2..], 16)
-                .map_err(|error| ParseError::ParseIntError { error, position })?;
+                .map_err(|error| CompileError::ParseIntError { error, position })?;
             let value = Value::byte(byte);
 
             self.emit_constant(value, position)?;
@@ -319,7 +320,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::Byte,
                 found: self.current_token.to_owned(),
                 position,
@@ -327,7 +328,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_character(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_character(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Character(character) = self.current_token {
@@ -341,7 +342,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::Character,
                 found: self.current_token.to_owned(),
                 position,
@@ -349,7 +350,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_float(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_float(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Float(text) = self.current_token {
@@ -357,7 +358,7 @@ impl<'src> Parser<'src> {
 
             let float = text
                 .parse::<f64>()
-                .map_err(|error| ParseError::ParseFloatError {
+                .map_err(|error| CompileError::ParseFloatError {
                     error,
                     position: self.previous_position,
                 })?;
@@ -369,7 +370,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::Float,
                 found: self.current_token.to_owned(),
                 position,
@@ -377,7 +378,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_integer(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_integer(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Integer(text) = self.current_token {
@@ -385,7 +386,7 @@ impl<'src> Parser<'src> {
 
             let integer = text
                 .parse::<i64>()
-                .map_err(|error| ParseError::ParseIntError {
+                .map_err(|error| CompileError::ParseIntError {
                     error,
                     position: self.previous_position,
                 })?;
@@ -397,7 +398,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::Integer,
                 found: self.current_token.to_owned(),
                 position,
@@ -405,7 +406,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_string(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_string(&mut self, _: Allowed) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::String(text) = self.current_token {
@@ -419,7 +420,7 @@ impl<'src> Parser<'src> {
 
             Ok(())
         } else {
-            Err(ParseError::ExpectedToken {
+            Err(CompileError::ExpectedToken {
                 expected: TokenKind::String,
                 found: self.current_token.to_owned(),
                 position,
@@ -427,7 +428,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_grouped(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_grouped(&mut self, _: Allowed) -> Result<(), CompileError> {
         self.allow(Token::LeftParenthesis)?;
         self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
@@ -437,7 +438,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_unary(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_unary(&mut self, _: Allowed) -> Result<(), CompileError> {
         let operator = self.current_token;
         let operator_position = self.current_position;
 
@@ -451,7 +452,7 @@ impl<'src> Parser<'src> {
                 Operation::LoadConstant => (false, true, previous_instruction.a()),
                 Operation::LoadBoolean => (true, false, previous_instruction.a()),
                 Operation::Close => {
-                    return Err(ParseError::ExpectedExpression {
+                    return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     });
@@ -469,7 +470,7 @@ impl<'src> Parser<'src> {
             TokenKind::Bang => Instruction::not(register, argument),
             TokenKind::Minus => Instruction::negate(register, argument),
             _ => {
-                return Err(ParseError::ExpectedTokenMultiple {
+                return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::Bang, TokenKind::Minus],
                     found: operator.to_owned(),
                     position: operator_position,
@@ -491,7 +492,7 @@ impl<'src> Parser<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
-    ) -> Result<(bool, bool, bool, u8), ParseError> {
+    ) -> Result<(bool, bool, bool, u8), CompileError> {
         let mut push_back = false;
         let mut is_constant = false;
         let mut is_mutable_local = false;
@@ -509,7 +510,7 @@ impl<'src> Parser<'src> {
                 instruction.b()
             }
             Operation::Close => {
-                return Err(ParseError::ExpectedExpression {
+                return Err(CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 });
@@ -528,15 +529,14 @@ impl<'src> Parser<'src> {
         Ok((push_back, is_constant, is_mutable_local, argument))
     }
 
-    fn parse_math_binary(&mut self) -> Result<(), ParseError> {
+    fn parse_math_binary(&mut self) -> Result<(), CompileError> {
         let (left_instruction, left_position) =
-            self.chunk
-                .instructions_mut()
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
+            self.chunk.instructions_mut().pop().ok_or_else(|| {
+                CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                })?;
+                }
+            })?;
         let (push_back_left, left_is_constant, left_is_mutable_local, left) =
             self.handle_binary_argument(&left_instruction)?;
 
@@ -552,7 +552,7 @@ impl<'src> Parser<'src> {
             operator
         {
             if !left_is_mutable_local {
-                return Err(ParseError::ExpectedMutableVariable {
+                return Err(CompileError::ExpectedMutableVariable {
                     found: self.previous_token.to_owned(),
                     position: left_position,
                 });
@@ -588,7 +588,7 @@ impl<'src> Parser<'src> {
             Token::Percent => Instruction::modulo(register, left, right),
             Token::PercentEqual => Instruction::modulo(register, left, right),
             _ => {
-                return Err(ParseError::ExpectedTokenMultiple {
+                return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
                         TokenKind::Plus,
                         TokenKind::PlusEqual,
@@ -631,23 +631,22 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
+    fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
         if let Some(Operation::Equal | Operation::Less | Operation::LessEqual) =
             self.get_last_value_operation()
         {
-            return Err(ParseError::CannotChainComparison {
+            return Err(CompileError::CannotChainComparison {
                 position: self.current_position,
             });
         }
 
         let (left_instruction, left_position) =
-            self.chunk
-                .instructions_mut()
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
+            self.chunk.instructions_mut().pop().ok_or_else(|| {
+                CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                })?;
+                }
+            })?;
         let (push_back_left, left_is_constant, _, left) =
             self.handle_binary_argument(&left_instruction)?;
 
@@ -659,13 +658,12 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) =
-            self.chunk
-                .instructions_mut()
-                .pop()
-                .ok_or_else(|| ParseError::ExpectedExpression {
+            self.chunk.instructions_mut().pop().ok_or_else(|| {
+                CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                })?;
+                }
+            })?;
         let (push_back_right, right_is_constant, _, right) =
             self.handle_binary_argument(&right_instruction)?;
 
@@ -677,7 +675,7 @@ impl<'src> Parser<'src> {
             Token::Greater => Instruction::less_equal(false, left, right),
             Token::GreaterEqual => Instruction::less(false, left, right),
             _ => {
-                return Err(ParseError::ExpectedTokenMultiple {
+                return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
                         TokenKind::DoubleEqual,
                         TokenKind::BangEqual,
@@ -727,7 +725,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
+    fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
         let start_length = self.chunk.len();
         let (left_instruction, left_position) = self.pop_last_instruction()?;
         let operator = self.current_token;
@@ -738,7 +736,7 @@ impl<'src> Parser<'src> {
             Token::DoubleAmpersand => Instruction::test(left_instruction.a(), false),
             Token::DoublePipe => Instruction::test(left_instruction.a(), true),
             _ => {
-                return Err(ParseError::ExpectedTokenMultiple {
+                return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
                     found: operator.to_owned(),
                     position: operator_position,
@@ -760,14 +758,14 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_variable(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse_variable(&mut self, allowed: Allowed) -> Result<(), CompileError> {
         let start_position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
             text
         } else {
-            return Err(ParseError::ExpectedToken {
+            return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: self.current_token.to_owned(),
                 position: start_position,
@@ -788,7 +786,7 @@ impl<'src> Parser<'src> {
 
             return Ok(());
         } else {
-            return Err(ParseError::UndeclaredVariable {
+            return Err(CompileError::UndeclaredVariable {
                 identifier: identifier.to_string(),
                 position: start_position,
             });
@@ -802,7 +800,7 @@ impl<'src> Parser<'src> {
         let current_scope = self.chunk.current_scope();
 
         if !current_scope.contains(&local_scope) {
-            return Err(ParseError::VariableOutOfScope {
+            return Err(CompileError::VariableOutOfScope {
                 identifier: self.chunk.get_identifier(local_index).unwrap(),
                 position: start_position,
                 variable_scope: local_scope,
@@ -812,14 +810,14 @@ impl<'src> Parser<'src> {
 
         if self.allow(Token::Equal)? {
             if !allowed.assignment {
-                return Err(ParseError::InvalidAssignmentTarget {
+                return Err(CompileError::InvalidAssignmentTarget {
                     found: self.current_token.to_owned(),
                     position: self.current_position,
                 });
             }
 
             if !is_mutable {
-                return Err(ParseError::CannotMutateImmutableVariable {
+                return Err(CompileError::CannotMutateImmutableVariable {
                     identifier: self.chunk.get_identifier(local_index).unwrap(),
                     position: start_position,
                 });
@@ -829,7 +827,7 @@ impl<'src> Parser<'src> {
 
             let (mut previous_instruction, previous_position) =
                 self.chunk.instructions_mut().pop().ok_or_else(|| {
-                    ParseError::ExpectedExpression {
+                    CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     }
@@ -869,13 +867,13 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, ParseError> {
+    fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, CompileError> {
         match token {
             Token::Bool => Ok(Type::Boolean),
             Token::FloatKeyword => Ok(Type::Float),
             Token::Int => Ok(Type::Integer),
             Token::Str => Ok(Type::String { length: None }),
-            _ => Err(ParseError::ExpectedTokenMultiple {
+            _ => Err(CompileError::ExpectedTokenMultiple {
                 expected: &[
                     TokenKind::Bool,
                     TokenKind::FloatKeyword,
@@ -888,7 +886,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_block(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_block(&mut self, _: Allowed) -> Result<(), CompileError> {
         self.advance()?;
         self.chunk.begin_scope();
 
@@ -907,7 +905,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_list(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_list(&mut self, _: Allowed) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -944,7 +942,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_if(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse_if(&mut self, allowed: Allowed) -> Result<(), CompileError> {
         self.advance()?;
         self.parse_expression()?;
 
@@ -968,7 +966,7 @@ impl<'src> Parser<'src> {
         if let Token::LeftCurlyBrace = self.current_token {
             self.parse_block(allowed)?;
         } else {
-            return Err(ParseError::ExpectedToken {
+            return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftCurlyBrace,
                 found: self.current_token.to_owned(),
                 position: self.current_position,
@@ -1000,7 +998,7 @@ impl<'src> Parser<'src> {
             if let Token::LeftCurlyBrace = self.current_token {
                 self.parse_block(allowed)?;
             } else {
-                return Err(ParseError::ExpectedTokenMultiple {
+                return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
                     found: self.current_token.to_owned(),
                     position: self.current_position,
@@ -1060,7 +1058,7 @@ impl<'src> Parser<'src> {
                 &mut self.chunk.instructions_mut()[start..]
             };
 
-            optimize(possible_comparison_statement);
+            self.optimization_count += optimize(possible_comparison_statement);
         }
 
         let else_last_register = self.next_register().saturating_sub(1);
@@ -1075,7 +1073,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_while(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse_while(&mut self, allowed: Allowed) -> Result<(), CompileError> {
         self.advance()?;
 
         let expression_start = self.chunk.len() as u8;
@@ -1123,7 +1121,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_native_call(&mut self, function: NativeFunction) -> Result<(), ParseError> {
+    fn parse_native_call(&mut self, function: NativeFunction) -> Result<(), CompileError> {
         let start = self.previous_position.0;
         let start_register = self.next_register();
 
@@ -1158,7 +1156,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_top_level(&mut self) -> Result<(), ParseError> {
+    fn parse_top_level(&mut self) -> Result<(), CompileError> {
         loop {
             self.parse(
                 Precedence::None,
@@ -1178,7 +1176,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_expression(&mut self) -> Result<(), ParseError> {
+    fn parse_expression(&mut self) -> Result<(), CompileError> {
         self.parse(
             Precedence::None,
             Allowed {
@@ -1188,7 +1186,7 @@ impl<'src> Parser<'src> {
         )?;
 
         if !self.previous_is_expression || self.chunk.is_empty() {
-            return Err(ParseError::ExpectedExpression {
+            return Err(CompileError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.current_position,
             });
@@ -1197,7 +1195,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), ParseError> {
+    fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), CompileError> {
         self.parse(
             precedence.increment(),
             Allowed {
@@ -1207,9 +1205,9 @@ impl<'src> Parser<'src> {
         )
     }
 
-    fn parse_return_statement(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse_return_statement(&mut self, allowed: Allowed) -> Result<(), CompileError> {
         if !allowed.explicit_return {
-            return Err(ParseError::UnexpectedReturn {
+            return Err(CompileError::UnexpectedReturn {
                 position: self.current_position,
             });
         }
@@ -1237,7 +1235,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_implicit_return(&mut self) -> Result<(), ParseError> {
+    fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if self.allow(Token::Semicolon)? {
             self.emit_instruction(Instruction::r#return(false), self.current_position);
         } else {
@@ -1250,9 +1248,9 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_let_statement(&mut self, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse_let_statement(&mut self, allowed: Allowed) -> Result<(), CompileError> {
         if !allowed.assignment {
-            return Err(ParseError::ExpectedExpression {
+            return Err(CompileError::ExpectedExpression {
                 found: self.current_token.to_owned(),
                 position: self.current_position,
             });
@@ -1268,7 +1266,7 @@ impl<'src> Parser<'src> {
 
             text
         } else {
-            return Err(ParseError::ExpectedToken {
+            return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: self.current_token.to_owned(),
                 position,
@@ -1301,53 +1299,53 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_function(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_function(&mut self, _: Allowed) -> Result<(), CompileError> {
         let function_start = self.current_position.0;
-        let mut function_parser = Parser::new(self.lexer)?;
-        let identifier = if let Token::Identifier(text) = function_parser.current_token {
-            let position = function_parser.current_position;
+        let mut function_compiler = Compiler::new(self.lexer)?;
+        let identifier = if let Token::Identifier(text) = function_compiler.current_token {
+            let position = function_compiler.current_position;
 
-            function_parser.advance()?;
-            function_parser.chunk.set_name(text.to_string());
+            function_compiler.advance()?;
+            function_compiler.chunk.set_name(text.to_string());
 
             Some((text, position))
         } else {
             None
         };
 
-        function_parser.expect(Token::LeftParenthesis)?;
+        function_compiler.expect(Token::LeftParenthesis)?;
 
         let mut value_parameters: Option<Vec<(u8, Type)>> = None;
 
-        while function_parser.current_token != Token::RightParenthesis {
-            let is_mutable = function_parser.allow(Token::Mut)?;
-            let parameter = if let Token::Identifier(text) = function_parser.current_token {
-                function_parser.advance()?;
+        while function_compiler.current_token != Token::RightParenthesis {
+            let is_mutable = function_compiler.allow(Token::Mut)?;
+            let parameter = if let Token::Identifier(text) = function_compiler.current_token {
+                function_compiler.advance()?;
 
                 text
             } else {
-                return Err(ParseError::ExpectedToken {
+                return Err(CompileError::ExpectedToken {
                     expected: TokenKind::Identifier,
-                    found: function_parser.current_token.to_owned(),
-                    position: function_parser.current_position,
+                    found: function_compiler.current_token.to_owned(),
+                    position: function_compiler.current_position,
                 });
             };
 
-            function_parser.expect(Token::Colon)?;
+            function_compiler.expect(Token::Colon)?;
 
-            let r#type = function_parser.parse_type_from(
-                function_parser.current_token,
-                function_parser.current_position,
+            let r#type = function_compiler.parse_type_from(
+                function_compiler.current_token,
+                function_compiler.current_position,
             )?;
 
-            function_parser.advance()?;
+            function_compiler.advance()?;
 
             let register = value_parameters
                 .as_ref()
                 .map(|values| values.len() as u8)
                 .unwrap_or(0);
-            let scope = function_parser.chunk.current_scope();
-            let (_, identifier_index) = function_parser.declare_local(
+            let scope = function_compiler.chunk.current_scope();
+            let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
                 Some(r#type.clone()),
                 is_mutable,
@@ -1361,40 +1359,40 @@ impl<'src> Parser<'src> {
                 value_parameters = Some(vec![(identifier_index, r#type)]);
             };
 
-            function_parser.minimum_register += 1;
+            function_compiler.minimum_register += 1;
 
-            function_parser.allow(Token::Comma)?;
+            function_compiler.allow(Token::Comma)?;
         }
 
-        function_parser.advance()?;
+        function_compiler.advance()?;
 
-        let return_type = if function_parser.allow(Token::ArrowThin)? {
-            let r#type = function_parser.parse_type_from(
-                function_parser.current_token,
-                function_parser.current_position,
+        let return_type = if function_compiler.allow(Token::ArrowThin)? {
+            let r#type = function_compiler.parse_type_from(
+                function_compiler.current_token,
+                function_compiler.current_position,
             )?;
 
-            function_parser.advance()?;
+            function_compiler.advance()?;
 
             Some(Box::new(r#type))
         } else {
             None
         };
 
-        function_parser.expect(Token::LeftCurlyBrace)?;
-        function_parser.parse_top_level()?;
+        function_compiler.expect(Token::LeftCurlyBrace)?;
+        function_compiler.parse_top_level()?;
 
-        self.previous_token = function_parser.previous_token;
-        self.previous_position = function_parser.previous_position;
-        self.current_token = function_parser.current_token;
-        self.current_position = function_parser.current_position;
+        self.previous_token = function_compiler.previous_token;
+        self.previous_position = function_compiler.previous_position;
+        self.current_token = function_compiler.current_token;
+        self.current_position = function_compiler.current_position;
 
         let function_type = FunctionType {
             type_parameters: None,
             value_parameters,
             return_type,
         };
-        let function = Value::function(function_parser.finish(), function_type.clone());
+        let function = Value::function(function_compiler.finish(), function_type.clone());
         let function_end = self.current_position.1;
 
         self.lexer.skip_to(function_end);
@@ -1426,18 +1424,18 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_call(&mut self) -> Result<(), ParseError> {
+    fn parse_call(&mut self) -> Result<(), CompileError> {
         let (last_instruction, _) =
             self.chunk
                 .instructions()
                 .last()
-                .ok_or_else(|| ParseError::ExpectedExpression {
+                .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
 
         if !last_instruction.yields_value() {
-            return Err(ParseError::ExpectedExpression {
+            return Err(CompileError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
             });
@@ -1479,7 +1477,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_semicolon(&mut self, _: Allowed) -> Result<(), ParseError> {
+    fn parse_semicolon(&mut self, _: Allowed) -> Result<(), CompileError> {
         self.advance()?;
 
         self.previous_is_expression = false;
@@ -1487,14 +1485,14 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn expect_expression(&mut self, _: Allowed) -> Result<(), ParseError> {
-        Err(ParseError::ExpectedExpression {
+    fn expect_expression(&mut self, _: Allowed) -> Result<(), CompileError> {
+        Err(CompileError::ExpectedExpression {
             found: self.current_token.to_owned(),
             position: self.current_position,
         })
     }
 
-    fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), ParseError> {
+    fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), CompileError> {
         if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
             log::debug!(
                 "{} is prefix with precedence {precedence}",
@@ -1514,7 +1512,7 @@ impl<'src> Parser<'src> {
                 );
 
                 if !allowed.assignment && self.current_token == Token::Equal {
-                    return Err(ParseError::InvalidAssignmentTarget {
+                    return Err(CompileError::InvalidAssignmentTarget {
                         found: self.current_token.to_owned(),
                         position: self.current_position,
                     });
@@ -1579,8 +1577,8 @@ struct Allowed {
     pub explicit_return: bool,
 }
 
-type PrefixFunction<'a> = fn(&mut Parser<'a>, Allowed) -> Result<(), ParseError>;
-type InfixFunction<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
+type PrefixFunction<'a> = fn(&mut Compiler<'a>, Allowed) -> Result<(), CompileError>;
+type InfixFunction<'a> = fn(&mut Compiler<'a>) -> Result<(), CompileError>;
 
 #[derive(Debug, Clone, Copy)]
 struct ParseRule<'a> {
@@ -1593,44 +1591,44 @@ impl From<&Token<'_>> for ParseRule<'_> {
     fn from(token: &Token) -> Self {
         match token {
             Token::ArrowThin => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Async => todo!(),
             Token::Bang => ParseRule {
-                prefix: Some(Parser::parse_unary),
+                prefix: Some(Compiler::parse_unary),
                 infix: None,
                 precedence: Precedence::Unary,
             },
             Token::BangEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
             Token::Bool => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Boolean(_) => ParseRule {
-                prefix: Some(Parser::parse_boolean),
+                prefix: Some(Compiler::parse_boolean),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Break => todo!(),
             Token::Byte(_) => ParseRule {
-                prefix: Some(Parser::parse_byte),
+                prefix: Some(Compiler::parse_byte),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Character(_) => ParseRule {
-                prefix: Some(Parser::parse_character),
+                prefix: Some(Compiler::parse_character),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Colon => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -1640,27 +1638,27 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Dot => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::DoubleAmpersand => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_logical_binary),
+                infix: Some(Compiler::parse_logical_binary),
                 precedence: Precedence::LogicalAnd,
             },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Equality,
             },
             Token::DoublePipe => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_logical_binary),
+                infix: Some(Compiler::parse_logical_binary),
                 precedence: Precedence::LogicalOr,
             },
             Token::DoubleDot => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -1680,90 +1678,90 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Float(_) => ParseRule {
-                prefix: Some(Parser::parse_float),
+                prefix: Some(Compiler::parse_float),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::FloatKeyword => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Fn => ParseRule {
-                prefix: Some(Parser::parse_function),
+                prefix: Some(Compiler::parse_function),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Greater => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::GreaterEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::Identifier(_) => ParseRule {
-                prefix: Some(Parser::parse_variable),
+                prefix: Some(Compiler::parse_variable),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::If => ParseRule {
-                prefix: Some(Parser::parse_if),
+                prefix: Some(Compiler::parse_if),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Int => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Integer(_) => ParseRule {
-                prefix: Some(Parser::parse_integer),
+                prefix: Some(Compiler::parse_integer),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::LeftCurlyBrace => ParseRule {
-                prefix: Some(Parser::parse_block),
+                prefix: Some(Compiler::parse_block),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::LeftParenthesis => ParseRule {
-                prefix: Some(Parser::parse_grouped),
-                infix: Some(Parser::parse_call),
+                prefix: Some(Compiler::parse_grouped),
+                infix: Some(Compiler::parse_call),
                 precedence: Precedence::Call,
             },
             Token::LeftSquareBrace => ParseRule {
-                prefix: Some(Parser::parse_list),
+                prefix: Some(Compiler::parse_list),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Less => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::LessEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Compiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::Let => ParseRule {
-                prefix: Some(Parser::parse_let_statement),
+                prefix: Some(Compiler::parse_let_statement),
                 infix: None,
                 precedence: Precedence::Assignment,
             },
             Token::Loop => todo!(),
             Token::Map => todo!(),
             Token::Minus => ParseRule {
-                prefix: Some(Parser::parse_unary),
-                infix: Some(Parser::parse_math_binary),
+                prefix: Some(Compiler::parse_unary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Term,
             },
             Token::MinusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Mut => ParseRule {
@@ -1773,26 +1771,26 @@ impl From<&Token<'_>> for ParseRule<'_> {
             },
             Token::Percent => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::PercentEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Plus => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Term,
             },
             Token::PlusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Return => ParseRule {
-                prefix: Some(Parser::parse_return_statement),
+                prefix: Some(Compiler::parse_return_statement),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -1812,43 +1810,43 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Parser::parse_semicolon),
+                prefix: Some(Compiler::parse_semicolon),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Slash => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::SlashEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Star => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::StarEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Str => ParseRule {
-                prefix: Some(Parser::expect_expression),
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::String(_) => ParseRule {
-                prefix: Some(Parser::parse_string),
+                prefix: Some(Compiler::parse_string),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Struct => todo!(),
             Token::While => ParseRule {
-                prefix: Some(Parser::parse_while),
+                prefix: Some(Compiler::parse_while),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -1857,7 +1855,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ParseError {
+pub enum CompileError {
     // Token errors
     ExpectedToken {
         expected: TokenKind,
@@ -1924,9 +1922,9 @@ pub enum ParseError {
     },
 }
 
-impl AnnotatedError for ParseError {
+impl AnnotatedError for CompileError {
     fn title() -> &'static str {
-        "Parse Error"
+        "Compilation Error"
     }
 
     fn description(&self) -> &'static str {
@@ -2022,7 +2020,7 @@ impl AnnotatedError for ParseError {
     }
 }
 
-impl From<LexError> for ParseError {
+impl From<LexError> for CompileError {
     fn from(error: LexError) -> Self {
         Self::Lex(error)
     }

@@ -5,7 +5,7 @@ fn negate() {
     let source = "-(42)";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -25,7 +25,7 @@ fn not() {
     let source = "!true";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

@@ -1,15 +1,15 @@
-//! Top-level Dust errors.use annotate_snippets::{Level, Renderer, Snippet};
+//! Top-level Dust errors with source code annotations.
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{vm::VmError, ParseError, Span};
+use crate::{vm::VmError, CompileError, Span};
 
 /// A top-level error that can occur during the execution of Dust code.
 ///
 /// This error can display nicely formatted messages with source code annotations.
 #[derive(Debug, PartialEq)]
 pub enum DustError<'src> {
-    Parse {
-        error: ParseError,
+    Compile {
+        error: CompileError,
         source: &'src str,
     },
     Runtime {
@@ -26,7 +26,7 @@ impl<'src> DustError<'src> {
         match self {
             DustError::Runtime { error, source } => {
                 let position = error.position();
-                let label = format!("Runtime error: {}", error.description());
+                let label = format!("{}: {}", VmError::title(), error.description());
                 let details = error
                     .details()
                     .unwrap_or_else(|| "While running this code".to_string());
@@ -38,9 +38,9 @@ impl<'src> DustError<'src> {
 
                 report.push_str(&renderer.render(message).to_string());
             }
-            DustError::Parse { error, source } => {
+            DustError::Compile { error, source } => {
                 let position = error.position();
-                let label = format!("Parse error: {}", error.description());
+                let label = format!("{}: {}", CompileError::title(), error.description());
                 let details = error
                     .details()
                     .unwrap_or_else(|| "While parsing this code".to_string());

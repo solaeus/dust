@@ -5,7 +5,7 @@ fn r#while() {
     let source = "let mut x = 0; while x < 5 { x = x + 1 } x";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

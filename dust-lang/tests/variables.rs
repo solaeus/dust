@@ -5,7 +5,7 @@ fn define_local() {
     let source = "let x = 42;";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -26,9 +26,9 @@ fn let_statement_expects_identifier() {
     let source = "let 1 = 2";
 
     assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedToken {
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: Token::Integer("1").to_owned(),
                 position: Span(4, 5)
@@ -43,7 +43,7 @@ fn set_local() {
     let source = "let mut x = 41; x = 42; x";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

@@ -5,7 +5,7 @@ fn panic() {
     let source = "panic(\"Goodbye world!\", 42)";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -39,7 +39,7 @@ fn to_string() {
     let source = "to_string(42)";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

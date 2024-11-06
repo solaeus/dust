@@ -5,7 +5,7 @@ fn empty_list() {
     let source = "[]";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -25,7 +25,7 @@ fn list() {
     let source = "[1, 2, 3]";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -55,7 +55,7 @@ fn list_with_complex_expression() {
     let source = "[1, 2 + 3 - 4 * 5]";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -102,7 +102,7 @@ fn list_with_simple_expression() {
     let source = "[1, 2 + 3, 4]";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

@@ -5,7 +5,7 @@ fn and() {
     let source = "true && false";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -28,7 +28,7 @@ fn or() {
     let source = "true || false";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -51,7 +51,7 @@ fn variable_and() {
     let source = "let a = true; let b = false; a && b";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

@@ -5,7 +5,7 @@ fn equal() {
     let source = "1 == 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -33,7 +33,7 @@ fn greater() {
     let source = "1 > 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -61,7 +61,7 @@ fn greater_than_or_equal() {
     let source = "1 >= 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -89,7 +89,7 @@ fn less_than() {
     let source = "1 < 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -117,7 +117,7 @@ fn less_than_or_equal() {
     let source = "1 <= 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -145,7 +145,7 @@ fn not_equal() {
     let source = "1 != 2";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

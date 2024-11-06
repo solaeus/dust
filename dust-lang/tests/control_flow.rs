@@ -5,7 +5,7 @@ fn equality_assignment_long() {
     let source = "let a = if 4 == 4 { true } else { false }; a";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -35,7 +35,7 @@ fn equality_assignment_short() {
     let source = "let a = 4 == 4 a";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -73,7 +73,7 @@ fn if_else_assigment_false() {
         a"#;
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -131,7 +131,7 @@ fn if_else_assigment_true() {
         a"#;
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -186,7 +186,7 @@ fn if_else_complex() {
         }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -297,7 +297,7 @@ fn if_else_false() {
     let source = "if 1 == 2 { panic() } else { 42 }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -329,7 +329,7 @@ fn if_else_true() {
     let source = "if 1 == 1 { 42 } else { panic() }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -361,7 +361,7 @@ fn if_false() {
     let source = "if 1 == 2 { 2 }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![
@@ -388,7 +388,7 @@ fn if_true() {
     let source = "if 1 == 1 { 2 }";
 
     assert_eq!(
-        parse(source),
+        compile(source),
         Ok(Chunk::with_data(
             None,
             vec![

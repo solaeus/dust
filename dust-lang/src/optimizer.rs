@@ -6,8 +6,8 @@ type MapToOperation = fn(&(Instruction, Span)) -> Operation;
 
 type OperationIter<'iter> = Map<Iter<'iter, (Instruction, Span)>, MapToOperation>;
 
-pub fn optimize(instructions: &mut [(Instruction, Span)]) {
-    Optimizer::new(instructions).optimize();
+pub fn optimize(instructions: &mut [(Instruction, Span)]) -> usize {
+    Optimizer::new(instructions).optimize()
 }
 
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -24,7 +24,9 @@ impl<'chunk> Optimizer<'chunk> {
         self.instructions = instructions;
     }
 
-    pub fn optimize(&mut self) {
+    pub fn optimize(&mut self) -> usize {
+        let mut optimizations = 0;
+
         if matches!(
             self.get_operations(),
             Some([
@@ -35,7 +37,11 @@ impl<'chunk> Optimizer<'chunk> {
             ])
         ) {
             self.optimize_comparison();
+
+            optimizations += 1;
         }
+
+        optimizations
     }
 
     fn optimize_comparison(&mut self) {
