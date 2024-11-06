@@ -11,10 +11,9 @@ use std::{
 };
 
 use colored::Colorize;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    AnnotatedError, Chunk, DustError, FunctionType, Instruction, LexError, Lexer, Local,
+    optimize, AnnotatedError, Chunk, DustError, FunctionType, Instruction, LexError, Lexer, Local,
     NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type, Value,
 };
 
@@ -43,12 +42,13 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
 /// Low-level tool for parsing the input a token at a time while assembling a chunk.
 ///
 /// See the [`parse`] function an example of how to create and use a Parser.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 struct Parser<'src> {
-    lexer: Lexer<'src>,
     chunk: Chunk,
+    lexer: Lexer<'src>,
+    optimization_count: u16,
 
-    current_is_expression: bool,
+    previous_is_expression: bool,
     minimum_register: u8,
 
     current_token: Token<'src>,
@@ -61,6 +61,7 @@ struct Parser<'src> {
 impl<'src> Parser<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
         let (current_token, current_position) = lexer.next_token()?;
+        let chunk = Chunk::new(None);
 
         log::info!(
             "Begin chunk with {} at {}",
@@ -69,9 +70,10 @@ impl<'src> Parser<'src> {
         );
 
         Ok(Parser {
+            chunk,
             lexer,
-            chunk: Chunk::new(None),
-            current_is_expression: false,
+            optimization_count: 0,
+            previous_is_expression: false,
             minimum_register: 0,
             current_token,
             current_position,
@@ -217,41 +219,6 @@ impl<'src> Parser<'src> {
         self.chunk.instructions_mut().push((instruction, position));
     }
 
-    fn optimize_statement(&mut self) {
-        if matches!(
-            self.get_last_instructions(),
-            Some([
-                Operation::LoadBoolean | Operation::LoadConstant,
-                Operation::LoadBoolean | Operation::LoadConstant,
-                Operation::Jump,
-                Operation::Equal | Operation::Less | Operation::LessEqual
-            ],)
-        ) {
-            log::trace!("Optimizing boolean comparison");
-
-            let mut instructions = self
-                .chunk
-                .instructions_mut()
-                .iter_mut()
-                .rev()
-                .map(|(instruction, _)| instruction);
-            let second_loader = instructions.next().unwrap();
-            let first_loader = instructions.next().unwrap();
-
-            first_loader.set_c_to_boolean(true);
-
-            let mut second_loader_new = Instruction::with_operation(second_loader.operation());
-
-            second_loader_new.set_a(first_loader.a());
-            second_loader_new.set_b(second_loader.b());
-            second_loader_new.set_c(second_loader.c());
-            second_loader_new.set_b_to_boolean(second_loader.b_is_constant());
-            second_loader_new.set_c_to_boolean(second_loader.c_is_constant());
-
-            *second_loader = second_loader_new;
-        }
-    }
-
     fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), ParseError> {
         self.chunk
             .instructions_mut()
@@ -339,7 +306,7 @@ impl<'src> Parser<'src> {
                 position,
             );
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -363,7 +330,7 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -385,7 +352,7 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -413,7 +380,7 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -441,7 +408,7 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -463,7 +430,7 @@ impl<'src> Parser<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             Ok(())
         } else {
@@ -480,7 +447,7 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -531,7 +498,7 @@ impl<'src> Parser<'src> {
 
         self.emit_instruction(instruction, operator_position);
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -671,9 +638,9 @@ impl<'src> Parser<'src> {
         | Token::SlashEqual
         | Token::PercentEqual = operator
         {
-            self.current_is_expression = false;
+            self.previous_is_expression = false;
         } else {
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
         }
 
         Ok(())
@@ -770,7 +737,7 @@ impl<'src> Parser<'src> {
             operator_position,
         );
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -803,7 +770,7 @@ impl<'src> Parser<'src> {
         self.emit_instruction(Instruction::jump(jump_distance, true), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -832,7 +799,7 @@ impl<'src> Parser<'src> {
             self.emit_instruction(Instruction::load_self(register), start_position);
             self.declare_local(identifier, None, false, scope, register);
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
 
             return Ok(());
         } else {
@@ -901,9 +868,8 @@ impl<'src> Parser<'src> {
                 Instruction::set_local(register, local_index),
                 start_position,
             );
-            self.optimize_statement();
 
-            self.current_is_expression = false;
+            self.previous_is_expression = false;
         } else {
             let register = self.next_register();
 
@@ -912,7 +878,7 @@ impl<'src> Parser<'src> {
                 self.previous_position,
             );
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
         }
 
         Ok(())
@@ -982,7 +948,7 @@ impl<'src> Parser<'src> {
             Span(start, end),
         );
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -1047,7 +1013,16 @@ impl<'src> Parser<'src> {
             let if_last_register = self.next_register().saturating_sub(1);
 
             self.parse_else(allowed, block_allowed)?;
-            self.optimize_statement();
+
+            if self.chunk.len() >= 4 {
+                let possible_comparison_statement = {
+                    let start = self.chunk.len() - 4;
+
+                    &mut self.chunk.instructions_mut()[start..]
+                };
+
+                optimize(possible_comparison_statement);
+            }
 
             let else_last_register = self.next_register().saturating_sub(1);
             let else_end = self.chunk.len();
@@ -1060,7 +1035,7 @@ impl<'src> Parser<'src> {
                 );
             }
 
-            self.current_is_expression = if_block_is_expression && self.current_is_expression;
+            self.previous_is_expression = if_block_is_expression && self.previous_is_expression;
 
             if jump_distance == 1 {
                 if let Some(skippable) = self.get_last_jumpable_mut() {
@@ -1084,7 +1059,7 @@ impl<'src> Parser<'src> {
                 );
             }
         } else {
-            self.current_is_expression = false;
+            self.previous_is_expression = false;
         }
 
         Ok(())
@@ -1166,9 +1141,8 @@ impl<'src> Parser<'src> {
         let jump_back = Instruction::jump(jump_back_distance, false);
 
         self.emit_instruction(jump_back, self.current_position);
-        self.optimize_statement();
 
-        self.current_is_expression = false;
+        self.previous_is_expression = false;
 
         Ok(())
     }
@@ -1199,7 +1173,7 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
-        self.current_is_expression = function.r#type().return_type.is_some();
+        self.previous_is_expression = function.r#type().return_type.is_some();
 
         self.emit_instruction(
             Instruction::call_native(to_register, function, argument_count),
@@ -1237,7 +1211,7 @@ impl<'src> Parser<'src> {
             },
         )?;
 
-        if !self.current_is_expression || self.chunk.is_empty() {
+        if !self.previous_is_expression || self.chunk.is_empty() {
             return Err(ParseError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.current_position,
@@ -1281,9 +1255,8 @@ impl<'src> Parser<'src> {
         let end = self.current_position.1;
 
         self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
-        self.optimize_statement();
 
-        self.current_is_expression = false;
+        self.previous_is_expression = false;
 
         Ok(())
     }
@@ -1295,7 +1268,7 @@ impl<'src> Parser<'src> {
             self.emit_instruction(Instruction::r#return(false), self.current_position);
         } else {
             self.emit_instruction(
-                Instruction::r#return(self.current_is_expression),
+                Instruction::r#return(self.previous_is_expression),
                 self.current_position,
             );
         }
@@ -1348,9 +1321,8 @@ impl<'src> Parser<'src> {
             Instruction::define_local(register, local_index, is_mutable),
             position,
         );
-        self.optimize_statement();
 
-        self.current_is_expression = false;
+        self.previous_is_expression = false;
 
         Ok(())
     }
@@ -1469,14 +1441,12 @@ impl<'src> Parser<'src> {
                 Instruction::define_local(register, local_index, false),
                 identifier_position,
             );
-            self.optimize_statement();
 
-            self.current_is_expression = false;
+            self.previous_is_expression = false;
         } else {
             self.emit_constant(function, Span(function_start, function_end))?;
-            self.optimize_statement();
 
-            self.current_is_expression = true;
+            self.previous_is_expression = true;
         }
 
         Ok(())
@@ -1530,7 +1500,7 @@ impl<'src> Parser<'src> {
             Span(start, end),
         );
 
-        self.current_is_expression = true;
+        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -1538,7 +1508,7 @@ impl<'src> Parser<'src> {
     fn parse_semicolon(&mut self, _: Allowed) -> Result<(), ParseError> {
         self.advance()?;
 
-        self.current_is_expression = false;
+        self.previous_is_expression = false;
 
         Ok(())
     }
@@ -1627,12 +1597,6 @@ impl Display for Precedence {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Context {
-    None,
-    Assignment,
 }
 
 #[derive(Debug, Clone, Copy)]
