@@ -48,7 +48,6 @@ struct Parser<'src> {
     lexer: Lexer<'src>,
     chunk: Chunk,
 
-    current_statement_length: usize,
     current_is_expression: bool,
     minimum_register: u8,
 
@@ -72,7 +71,6 @@ impl<'src> Parser<'src> {
         Ok(Parser {
             lexer,
             chunk: Chunk::new(None),
-            current_statement_length: 0,
             current_is_expression: false,
             minimum_register: 0,
             current_token,
@@ -216,14 +214,12 @@ impl<'src> Parser<'src> {
             position.to_string()
         );
 
-        self.current_statement_length += 1;
-
         self.chunk.instructions_mut().push((instruction, position));
     }
 
     fn optimize_statement(&mut self) {
         if matches!(
-            self.get_end_of_statement(),
+            self.get_last_instructions(),
             Some([
                 Operation::LoadBoolean | Operation::LoadConstant,
                 Operation::LoadBoolean | Operation::LoadConstant,
@@ -254,8 +250,6 @@ impl<'src> Parser<'src> {
 
             *second_loader = second_loader_new;
         }
-
-        self.current_statement_length = 0;
     }
 
     fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), ParseError> {
@@ -272,22 +266,11 @@ impl<'src> Parser<'src> {
         self.chunk
             .instructions()
             .iter()
-            .rev()
-            .take(self.current_statement_length)
-            .find_map(|(instruction, _)| {
-                if instruction.yields_value() {
-                    Some(instruction.operation())
-                } else {
-                    None
-                }
-            })
+            .last()
+            .map(|(instruction, _)| instruction.operation())
     }
 
-    fn get_end_of_statement<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        if self.current_statement_length < COUNT {
-            return None;
-        }
-
+    fn get_last_instructions<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
         let mut operations = [Operation::Return; COUNT];
 
         for (index, (instruction, _)) in self
@@ -1023,7 +1006,7 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_end_of_statement(),
+            self.get_last_instructions(),
             Some([
                 Operation::LoadBoolean,
                 Operation::LoadBoolean,
@@ -1163,7 +1146,7 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_end_of_statement(),
+            self.get_last_instructions(),
             Some([
                 Operation::LoadBoolean,
                 Operation::LoadBoolean,
