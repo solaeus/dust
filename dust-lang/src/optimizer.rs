@@ -1,3 +1,4 @@
+//! Tools used by the compiler to optimize a chunk's bytecode.
 use std::{iter::Map, slice::Iter};
 
 use crate::{Instruction, Operation, Span};
@@ -6,24 +7,24 @@ type MapToOperation = fn(&(Instruction, Span)) -> Operation;
 
 type OperationIter<'iter> = Map<Iter<'iter, (Instruction, Span)>, MapToOperation>;
 
+/// Performs optimizations on a subset of instructions.
 pub fn optimize(instructions: &mut [(Instruction, Span)]) -> usize {
     Optimizer::new(instructions).optimize()
 }
 
+/// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Optimizer<'chunk> {
     instructions: &'chunk mut [(Instruction, Span)],
 }
 
 impl<'chunk> Optimizer<'chunk> {
+    /// Creates a new optimizer with a mutable reference to some of a chunk's instructions.
     pub fn new(instructions: &'chunk mut [(Instruction, Span)]) -> Self {
         Self { instructions }
     }
 
-    pub fn set_instructions(&mut self, instructions: &'chunk mut [(Instruction, Span)]) {
-        self.instructions = instructions;
-    }
-
+    /// Potentially mutates the instructions to optimize them.
     pub fn optimize(&mut self) -> usize {
         let mut optimizations = 0;
 
@@ -44,6 +45,13 @@ impl<'chunk> Optimizer<'chunk> {
         optimizations
     }
 
+    /// Optimizes a comparison operation.
+    ///
+    /// The instructions must be in the following order:
+    ///     - `Operation::Equal | Operation::Less | Operation::LessEqual`
+    ///     - `Operation::Jump`
+    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
+    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
     fn optimize_comparison(&mut self) {
         log::debug!("Optimizing comparison");
 

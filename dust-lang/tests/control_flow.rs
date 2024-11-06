@@ -23,7 +23,16 @@ fn equality_assignment_long() {
                 (Instruction::r#return(true), Span(44, 44)),
             ],
             vec![Value::integer(4), Value::string("a")],
-            vec![Local::new(1, None, false, Scope { depth: 0, index: 0 }, 0)]
+            vec![Local::new(
+                1,
+                None,
+                false,
+                Scope {
+                    depth: 0,
+                    block_index: 0
+                },
+                0
+            )]
         )),
     );
 

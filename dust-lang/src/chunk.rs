@@ -58,7 +58,7 @@ pub struct Chunk {
     locals: Vec<Local>,
 
     current_scope: Scope,
-    scope_index: u8,
+    block_index: u8,
 }
 
 impl Chunk {
@@ -70,7 +70,7 @@ impl Chunk {
             constants: Vec::new(),
             locals: Vec::new(),
             current_scope: Scope::default(),
-            scope_index: 0,
+            block_index: 0,
         }
     }
 
@@ -87,7 +87,7 @@ impl Chunk {
             constants,
             locals,
             current_scope: Scope::default(),
-            scope_index: 0,
+            block_index: 0,
         }
     }
 
@@ -192,8 +192,8 @@ impl Chunk {
     }
 
     pub fn begin_scope(&mut self) {
-        self.scope_index += 1;
-        self.current_scope.index = self.scope_index;
+        self.block_index += 1;
+        self.current_scope.block_index = self.block_index;
         self.current_scope.depth += 1;
     }
 
@@ -201,9 +201,9 @@ impl Chunk {
         self.current_scope.depth -= 1;
 
         if self.current_scope.depth == 0 {
-            self.current_scope.index = 0;
+            self.current_scope.block_index = 0;
         } else {
-            self.current_scope.index -= 1;
+            self.current_scope.block_index -= 1;
         }
     }
 
@@ -334,16 +334,27 @@ impl PartialEq for Chunk {
     }
 }
 
+/// A scoped variable.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
+    /// The index of the identifier in the constants table.
     pub identifier_index: u8,
+
+    /// The expected type of the local's value.
     pub r#type: Option<Type>,
+
+    /// Whether the local is mutable.
     pub is_mutable: bool,
+
+    /// Scope where the variable was declared.
     pub scope: Scope,
+
+    /// Expected location of a local's value.
     pub register_index: u8,
 }
 
 impl Local {
+    /// Creates a new Local instance.
     pub fn new(
         identifier_index: u8,
         r#type: Option<Type>,
@@ -361,41 +372,48 @@ impl Local {
     }
 }
 
+/// Variable locality, as defined by its depth and block index.
+///
+/// The `block index` is a unique identifier for a block within a chunk. It is used to differentiate
+/// between blocks that are not nested together but have the same depth, i.e. sibling scopes. If the
+/// `block_index` is 0, then the scope is the root scope of the chunk. The `block_index` is always 0
+/// when the `depth` is 0. See [Chunk::begin_scope][] and [Chunk::end_scope][] to see how scopes are
+/// incremented and decremented.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Scope {
-    /// The level of block nesting.
+    /// Level of block nesting.
     pub depth: u8,
-    /// The nth scope in the chunk.
-    pub index: u8,
+    /// Index of the block in the chunk.
+    pub block_index: u8,
 }
 
 impl Scope {
-    pub fn new(index: u8, width: u8) -> Self {
-        Self {
-            depth: index,
-            index: width,
-        }
+    pub fn new(depth: u8, block_index: u8) -> Self {
+        Self { depth, block_index }
     }
 
     pub fn contains(&self, other: &Self) -> bool {
         match self.depth.cmp(&other.depth) {
             Ordering::Less => false,
-            Ordering::Greater => self.index >= other.index,
-            Ordering::Equal => self.index == other.index,
+            Ordering::Greater => self.block_index >= other.block_index,
+            Ordering::Equal => self.block_index == other.block_index,
         }
     }
 }
 
 impl Display for Scope {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.depth, self.index)
+        write!(f, "({}, {})", self.depth, self.block_index)
     }
 }
 
+/// Builder that constructs a human-readable representation of a chunk.
 pub struct ChunkDisassembler<'a> {
     output: String,
     chunk: &'a Chunk,
     source: Option<&'a str>,
+
+    // Options
     width: usize,
     styled: bool,
     indent: usize,
@@ -405,8 +423,8 @@ impl<'a> ChunkDisassembler<'a> {
     const INSTRUCTION_HEADER: [&'static str; 4] = [
         "Instructions",
         "------------",
-        "INDEX BYTECODE OPERATION     INFO                      TYPE      POSITION   ",
-        "----- -------- ------------- ------------------------- --------- -----------",
+        " i  BYTECODE OPERATION             INFO               TYPE        POSITION  ",
+        "--- -------- ------------- -------------------- --------------- ------------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 4] = [
@@ -419,8 +437,8 @@ impl<'a> ChunkDisassembler<'a> {
     const LOCAL_HEADER: [&'static str; 4] = [
         "Locals",
         "------",
-        "INDEX IDENTIFIER TYPE     MUTABLE SCOPE   REGISTER",
-        "----- ---------- -------- ------- ------- --------",
+        "INDEX IDENTIFIER TYPE       MUTABLE SCOPE   REGISTER",
+        "----- ---------- ---------- ------- ------- --------",
     ];
 
     /// The default width of the disassembly output. To correctly align the output, this should
@@ -558,6 +576,10 @@ impl<'a> ChunkDisassembler<'a> {
         self.push(border, false, false, false, false);
     }
 
+    fn push_empty(&mut self) {
+        self.push("", false, false, false, true);
+    }
+
     pub fn disassemble(mut self) -> String {
         let top_border = "┌".to_string() + &"─".repeat(self.width - 2) + "┐";
         let section_border = "│".to_string() + &"┈".repeat(self.width - 2) + "│";
@@ -576,6 +598,17 @@ impl<'a> ChunkDisassembler<'a> {
         self.push_border(&top_border);
         self.push_header(&name_display);
 
+        if let Some(source) = self.source {
+            self.push_empty();
+            self.push_details(
+                &source
+                    .replace("  ", "")
+                    .replace("\n\n", " ")
+                    .replace('\n', " "),
+            );
+            self.push_empty();
+        }
+
         let info_line = format!(
             "{} instructions, {} constants, {} locals, returns {}",
             self.chunk.instructions.len(),
@@ -587,24 +620,33 @@ impl<'a> ChunkDisassembler<'a> {
                 .unwrap_or("none".to_string())
         );
 
-        self.push(&info_line, true, false, false, true);
+        self.push(&info_line, true, false, true, true);
+        self.push_empty();
 
         for line in &Self::INSTRUCTION_HEADER {
             self.push_header(line);
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
-            let bytecode = u32::from(instruction);
+            let bytecode = format!("{:02X}", u32::from(instruction));
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info(self.chunk);
             let type_display = instruction
                 .yielded_type(self.chunk)
-                .map(|r#type| r#type.to_string())
+                .map(|r#type| {
+                    let type_string = r#type.to_string();
+
+                    if type_string.len() > 15 {
+                        format!("{type_string:.12}...")
+                    } else {
+                        type_string
+                    }
+                })
                 .unwrap_or(String::with_capacity(0));
             let position = position.to_string();
 
             let instruction_display = format!(
-                "{index:<5} {bytecode:08X} {operation:13} {info:25} {type_display:9} {position:11}"
+                "{index:^3} {bytecode:>8} {operation:13} {info:20} {type_display:^15} {position:12}"
             );
 
             self.push_details(&instruction_display);
@@ -635,10 +677,18 @@ impl<'a> ChunkDisassembler<'a> {
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type
                 .as_ref()
-                .map(|r#type| r#type.to_string())
+                .map(|r#type| {
+                    let type_string = r#type.to_string();
+
+                    if type_string.len() > 10 {
+                        format!("{type_string:.7}...")
+                    } else {
+                        type_string
+                    }
+                })
                 .unwrap_or("unknown".to_string());
             let local_display = format!(
-                "{index:<5} {identifier_display:10} {type_display:8} {mutable:7} {scope:7} {register_index:8}"
+                "{index:<5} {identifier_display:10} {type_display:10} {mutable:7} {scope:7} {register_index:8}"
             );
 
             self.push_details(&local_display);
