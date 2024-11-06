@@ -18,7 +18,7 @@ use std::{
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{Instruction, Span, Type, Value};
+use crate::{Instruction, Operation, Span, Type, Value};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -174,13 +174,43 @@ impl Chunk {
             return local_type;
         }
 
-        self.instructions.iter().find_map(|(instruction, _)| {
-            if instruction.yields_value() && instruction.a() == register_index {
-                instruction.yielded_type(self)
-            } else {
-                None
-            }
-        })
+        self.instructions
+            .iter()
+            .enumerate()
+            .find_map(|(index, (instruction, _))| {
+                if let Operation::LoadList = instruction.operation() {
+                    if instruction.a() == register_index {
+                        let mut length = (instruction.c() - instruction.b() + 1) as usize;
+                        let mut item_type = Type::Any;
+                        let distance_to_end = self.len() - index;
+
+                        for (instruction, _) in self
+                            .instructions()
+                            .iter()
+                            .rev()
+                            .skip(distance_to_end)
+                            .take(length)
+                        {
+                            if let Operation::Close = instruction.operation() {
+                                length -= (instruction.c() - instruction.b()) as usize;
+                            } else if let Type::Any = item_type {
+                                item_type = instruction.yielded_type(self).unwrap_or(Type::Any);
+                            }
+                        }
+
+                        return Some(Type::List {
+                            item_type: Box::new(item_type),
+                            length,
+                        });
+                    }
+                }
+
+                if instruction.yields_value() && instruction.a() == register_index {
+                    instruction.yielded_type(self)
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn return_type(&self) -> Option<Type> {

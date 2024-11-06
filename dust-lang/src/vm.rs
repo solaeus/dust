@@ -123,12 +123,19 @@ impl Vm {
                     let to_register = instruction.a();
                     let first_register = instruction.b();
                     let last_register = instruction.c();
-
                     let is_empty = to_register == first_register && first_register == last_register;
                     let item_type = if is_empty {
                         Type::Any
                     } else {
-                        self.get_register(first_register, position)?.r#type()
+                        let register_range = (first_register as usize)..=(last_register as usize);
+
+                        self.stack[register_range]
+                            .iter()
+                            .find_map(|register| match register {
+                                Register::Value(value) => Some(value.r#type()),
+                                _ => None,
+                            })
+                            .unwrap_or(Type::Any)
                     };
                     let value = Value::list(first_register, last_register, item_type);
 

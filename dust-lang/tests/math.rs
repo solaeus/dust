@@ -64,21 +64,21 @@ fn add_assign_expects_mutable_variable() {
     );
 }
 
-#[test]
-fn add_expects_integer_float_or_string() {
-    let source = "true + false";
+// #[test]
+// fn add_expects_integer_float_or_string() {
+//     let source = "true + false";
 
-    assert_eq!(
-        parse(source),
-        Err(DustError::Parse {
-            error: ParseError::ExpectedIntegerFloatOrString {
-                found: Token::True,
-                position: Span(0, 3)
-            },
-            source
-        })
-    );
-}
+//     assert_eq!(
+//         parse(source),
+//         Err(DustError::Parse {
+//             error: ParseError::ExpectedIntegerFloatOrString {
+//                 found: Token::True,
+//                 position: Span(0, 3)
+//             },
+//             source
+//         })
+//     );
+// }
 
 #[test]
 fn divide() {

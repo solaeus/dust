@@ -406,6 +406,8 @@ impl Instruction {
                     chunk.get_register_type(self.b())
                 }
             }
+            LoadConstant => chunk.get_constant_type(self.b()),
+            LoadList => chunk.get_register_type(self.a()),
             GetLocal => chunk.get_local_type(self.b()),
             CallNative => {
                 let native_function = NativeFunction::from(self.b());
