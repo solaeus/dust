@@ -15,7 +15,7 @@ fn equality_assignment_long() {
                         .set_c_is_constant(),
                     Span(13, 15)
                 ),
-                (Instruction::jump(1, true), Span(13, 15)),
+                (Instruction::jump(1, true), Span(18, 19)),
                 (Instruction::load_boolean(0, true, true), Span(20, 24)),
                 (Instruction::load_boolean(0, false, false), Span(34, 39)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -61,7 +61,65 @@ fn equality_assignment_short() {
 }
 
 #[test]
-fn if_else_assigment() {
+fn if_else_assigment_false() {
+    let source = r#"
+        let a = if 4 == 3 {
+            1; 2; 3; 4;
+            panic()
+        } else {
+            1; 2; 3; 4;
+            42
+        };
+        a"#;
+
+    assert_eq!(
+        parse(source),
+        Ok(Chunk::with_data(
+            None,
+            vec![
+                (
+                    *Instruction::equal(true, 0, 1)
+                        .set_b_is_constant()
+                        .set_c_is_constant(),
+                    Span(22, 24)
+                ),
+                (Instruction::jump(6, true), Span(27, 28)),
+                (Instruction::load_constant(0, 2, false), Span(41, 42)),
+                (Instruction::load_constant(1, 3, false), Span(44, 45)),
+                (Instruction::load_constant(2, 1, false), Span(47, 48)),
+                (Instruction::load_constant(3, 0, false), Span(50, 51)),
+                (
+                    Instruction::call_native(4, NativeFunction::Panic, 0),
+                    Span(65, 72)
+                ),
+                (Instruction::jump(5, true), Span(138, 139)),
+                (Instruction::load_constant(5, 2, false), Span(102, 103)),
+                (Instruction::load_constant(6, 3, false), Span(105, 106)),
+                (Instruction::load_constant(7, 1, false), Span(108, 109)),
+                (Instruction::load_constant(8, 0, false), Span(111, 112)),
+                (Instruction::load_constant(9, 4, false), Span(126, 128)),
+                (Instruction::r#move(9, 4), Span(138, 139)),
+                (Instruction::define_local(9, 0, false), Span(13, 14)),
+                (Instruction::get_local(10, 0), Span(148, 149)),
+                (Instruction::r#return(true), Span(149, 149)),
+            ],
+            vec![
+                Value::integer(4),
+                Value::integer(3),
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(42),
+                Value::string("a")
+            ],
+            vec![Local::new(5, None, false, Scope::default(), 0)]
+        )),
+    );
+
+    assert_eq!(run(source), Ok(Some(Value::integer(42))));
+}
+
+#[test]
+fn if_else_assigment_true() {
     let source = r#"
         let a = if 4 == 4 {
             1; 2; 3; 4;
@@ -83,13 +141,12 @@ fn if_else_assigment() {
                         .set_c_is_constant(),
                     Span(22, 24)
                 ),
-                (Instruction::jump(5, true), Span(22, 24)),
+                (Instruction::jump(6, true), Span(27, 28)),
                 (Instruction::load_constant(0, 1, false), Span(41, 42)),
                 (Instruction::load_constant(1, 2, false), Span(44, 45)),
                 (Instruction::load_constant(2, 3, false), Span(47, 48)),
                 (Instruction::load_constant(3, 0, false), Span(50, 51)),
                 (Instruction::load_constant(4, 4, false), Span(65, 67)),
-                (Instruction::jump(6, true), Span(138, 139)),
                 (Instruction::jump(5, true), Span(138, 139)),
                 (Instruction::load_constant(5, 1, false), Span(97, 98)),
                 (Instruction::load_constant(6, 2, false), Span(100, 101)),
@@ -139,12 +196,11 @@ fn if_else_complex() {
                         .set_c_is_constant(),
                     Span(14, 16)
                 ),
-                (Instruction::jump(5, true), Span(14, 16)),
+                (Instruction::jump(5, true), Span(19, 20)),
                 (Instruction::load_constant(0, 0, false), Span(33, 34)),
                 (Instruction::load_constant(1, 1, false), Span(36, 37)),
                 (Instruction::load_constant(2, 2, false), Span(39, 40)),
                 (Instruction::load_constant(3, 3, false), Span(42, 43)),
-                (Instruction::jump(5, true), Span(95, 95)),
                 (Instruction::jump(4, true), Span(95, 95)),
                 (Instruction::load_constant(4, 0, false), Span(74, 75)),
                 (Instruction::load_constant(5, 1, false), Span(77, 78)),
@@ -251,7 +307,7 @@ fn if_else_false() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(10, 11)),
                 (
                     Instruction::call_native(0, NativeFunction::Panic, 0),
                     Span(12, 19)
@@ -283,7 +339,7 @@ fn if_else_true() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(10, 11)),
                 (Instruction::load_constant(0, 1, true), Span(12, 14)),
                 (
                     Instruction::call_native(1, NativeFunction::Panic, 0),
@@ -315,7 +371,7 @@ fn if_false() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(10, 11)),
                 (Instruction::load_constant(0, 1, false), Span(12, 13)),
                 (Instruction::r#return(false), Span(15, 15))
             ],
@@ -342,7 +398,7 @@ fn if_true() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(5, 7)),
+                (Instruction::jump(1, true), Span(10, 11)),
                 (Instruction::load_constant(0, 1, false), Span(12, 13)),
                 (Instruction::r#return(false), Span(15, 15))
             ],

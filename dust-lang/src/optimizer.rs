@@ -39,7 +39,7 @@ impl<'chunk> Optimizer<'chunk> {
     }
 
     fn optimize_comparison(&mut self) {
-        log::trace!("Optimizing comparison");
+        log::debug!("Optimizing comparison");
 
         let first_loader_register = {
             let first_loader = &mut self.instructions[2].0;
