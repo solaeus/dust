@@ -72,8 +72,14 @@ impl Vm {
                 Operation::Move => {
                     let to_register = instruction.a();
                     let from_register = instruction.b();
+                    let from_register_has_value = self
+                        .stack
+                        .get(from_register as usize)
+                        .is_some_and(|register| !matches!(register, Register::Empty));
 
-                    self.set_pointer(to_register, from_register, position)?;
+                    if from_register_has_value {
+                        self.set_pointer(to_register, from_register, position)?;
+                    }
                 }
                 Operation::Close => {
                     let from_register = instruction.b();
@@ -434,8 +440,9 @@ impl Vm {
         value: Value,
         position: Span,
     ) -> Result<(), VmError> {
-        let length = self.stack.len();
         self.last_assigned_register = Some(to_register);
+
+        let length = self.stack.len();
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
@@ -481,8 +488,9 @@ impl Vm {
         from_register: u8,
         position: Span,
     ) -> Result<(), VmError> {
-        let length = self.stack.len();
         self.last_assigned_register = Some(to_register);
+
+        let length = self.stack.len();
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
@@ -528,8 +536,9 @@ impl Vm {
         constant_index: u8,
         position: Span,
     ) -> Result<(), VmError> {
-        let length = self.stack.len();
         self.last_assigned_register = Some(to_register);
+
+        let length = self.stack.len();
         let to_register = to_register as usize;
 
         if length == Self::STACK_LIMIT {
@@ -598,26 +607,31 @@ impl Vm {
         }
 
         let register = replace(&mut self.stack[index], Register::Empty);
-
-        match register {
-            Register::Value(value) => Ok(value),
-            Register::Pointer(register_index) => {
-                let value = self.empty_register(register_index, position)?;
-
-                Ok(value)
-            }
+        let value = match register {
+            Register::Value(value) => value,
+            Register::Pointer(register_index) => self.empty_register(register_index, position)?,
             Register::Constant(constant_index) => {
-                let constants = &mut self.chunk.constants_mut();
+                let constant_index = constant_index as usize;
 
-                constants.push(Value::integer(0));
+                if constant_index >= self.chunk.constants().len() {
+                    return Err(VmError::Chunk {
+                        error: ChunkError::ConstantIndexOutOfBounds {
+                            index: constant_index,
+                        },
+                        position,
+                    });
+                }
 
-                let value = constants.swap_remove(constant_index as usize);
-                self.chunk.is_poisoned = true;
+                let constant = &mut self.chunk.constants_mut()[constant_index];
 
-                Ok(value)
+                replace(constant, Value::integer(0))
             }
-            Register::Empty => Err(VmError::EmptyRegister { index, position }),
-        }
+            Register::Empty => return Err(VmError::EmptyRegister { index, position }),
+        };
+
+        self.chunk.is_poisoned = true;
+
+        Ok(value)
     }
 
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
