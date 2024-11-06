@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AnnotatedError, FunctionType, Instruction, Primitive, Span, Type, Value, Vm, VmError};
 
-macro_rules! impl_from_str_for_native_function {
+macro_rules! define_native_function {
     ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
         /// A dust-native function.
         ///
@@ -81,7 +81,7 @@ macro_rules! impl_from_str_for_native_function {
     };
 }
 
-impl_from_str_for_native_function! {
+define_native_function! {
     // Assertion
     (
         Assert,

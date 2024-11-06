@@ -6,84 +6,83 @@
 
 use std::fmt::{self, Display, Formatter};
 
-const MOVE: u8 = 0b0000_0000;
-const CLOSE: u8 = 0b000_0001;
+macro_rules! define_operation {
+    ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
+        /// Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.)
+        ///
+        /// See the [module-level documentation](index.html) for more information.
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub enum Operation {
+            $(
+                $name = $byte as isize,
+            )*
+        }
 
-const LOAD_BOOLEAN: u8 = 0b0000_0010;
-const LOAD_CONSTANT: u8 = 0b0000_0011;
-const LOAD_LIST: u8 = 0b0000_0100;
-const LOAD_SELF: u8 = 0b0000_0101;
+        impl From<u8> for Operation {
+            fn from(byte: u8) -> Self {
+                match byte {
+                    $(
+                        $byte => Operation::$name,
+                    )*
+                    _ => {
+                        if cfg!(test) {
+                            panic!("Invalid operation byte: {}", byte)
+                        } else {
+                            Operation::Return
+                        }
+                    }
+                }
+            }
+        }
 
-const DEFINE_LOCAL: u8 = 0b0000_0110;
-const GET_LOCAL: u8 = 0b0000_0111;
-const SET_LOCAL: u8 = 0b0000_1000;
+        impl From<Operation> for u8 {
+            fn from(operation: Operation) -> Self {
+                match operation {
+                    $(
+                        Operation::$name => $byte,
+                    )*
+                }
+            }
+        }
 
-const ADD: u8 = 0b0000_1001;
-const SUBTRACT: u8 = 0b0000_1010;
-const MULTIPLY: u8 = 0b0000_1011;
-const DIVIDE: u8 = 0b0000_1100;
-const MODULO: u8 = 0b0000_1101;
+        impl Display for Operation {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                match self {
+                    $(
+                        Operation::$name => write!(f, "{}", $str),
+                    )*
+                }
+            }
+        }
+    }
+}
 
-const TEST: u8 = 0b0000_1110;
-const TEST_SET: u8 = 0b0000_1111;
-
-const EQUAL: u8 = 0b0001_0000;
-const LESS: u8 = 0b0001_0001;
-const LESS_EQUAL: u8 = 0b0001_0010;
-
-const NEGATE: u8 = 0b0001_0011;
-const NOT: u8 = 0b0001_0100;
-
-const JUMP: u8 = 0b0001_0101;
-const CALL: u8 = 0b0001_0110;
-const CALL_NATIVE: u8 = 0b0001_0111;
-const RETURN: u8 = 0b0001_1000;
-
-/// Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.)
-///
-/// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Operation {
-    // Stack manipulation
-    Move = MOVE as isize,
-    Close = CLOSE as isize,
-
-    // Value loading
-    LoadBoolean = LOAD_BOOLEAN as isize,
-    LoadConstant = LOAD_CONSTANT as isize,
-    LoadList = LOAD_LIST as isize,
-    LoadSelf = LOAD_SELF as isize,
-
-    // Variables
-    DefineLocal = DEFINE_LOCAL as isize,
-    GetLocal = GET_LOCAL as isize,
-    SetLocal = SET_LOCAL as isize,
-
-    // Binary math
-    Add = ADD as isize,
-    Subtract = SUBTRACT as isize,
-    Multiply = MULTIPLY as isize,
-    Divide = DIVIDE as isize,
-    Modulo = MODULO as isize,
-
-    // Binary logic
-    Test = TEST as isize,
-    TestSet = TEST_SET as isize,
-
-    // Binary comparison
-    Equal = EQUAL as isize,
-    Less = LESS as isize,
-    LessEqual = LESS_EQUAL as isize,
-
-    // Unary operations
-    Negate = NEGATE as isize,
-    Not = NOT as isize,
-
-    // Control flow
-    Jump = JUMP as isize,
-    Call = CALL as isize,
-    CallNative = CALL_NATIVE as isize,
-    Return = RETURN as isize,
+define_operation! {
+    (Move, 0b0000_0000, "MOVE", None),
+    (Close, 0b000_0001, "CLOSE", None),
+    (LoadBoolean, 0b0000_0010, "LOAD_BOOLEAN", None),
+    (LoadConstant, 0b0000_0011, "LOAD_CONSTANT", None),
+    (LoadList, 0b0000_0100, "LOAD_LIST", None),
+    (LoadSelf, 0b0000_0101, "LOAD_SELF", None),
+    (DefineLocal, 0b0000_0110, "DEFINE_LOCAL", None),
+    (GetLocal, 0b0000_0111, "GET_LOCAL", None),
+    (SetLocal, 0b0000_1000, "SET_LOCAL", None),
+    (Add, 0b0000_1001, "ADD", None),
+    (Subtract, 0b0000_1010, "SUBTRACT", None),
+    (Multiply, 0b0000_1011, "MULTIPLY", None),
+    (Divide, 0b0000_1100, "DIVIDE", None),
+    (Modulo, 0b0000_1101, "MODULO", None),
+    (Test, 0b0000_1110, "TEST", None),
+    (TestSet, 0b0000_1111, "TEST_SET", None),
+    (Equal, 0b0001_0000, "EQUAL", None),
+    (Less, 0b0001_0001, "LESS", None),
+    (LessEqual, 0b0001_0010, "LESS_EQUAL", None),
+    (Negate, 0b0001_0011, "NEGATE", None),
+    (Not, 0b0001_0100, "NOT", None),
+    (Jump, 0b0001_0101, "JUMP", None),
+    (Call, 0b0001_0110, "CALL", None),
+    (CallNative, 0b0001_0111, "CALL_NATIVE", None),
+    (Return, 0b0001_1000, "RETURN", None)
 }
 
 impl Operation {
@@ -107,108 +106,5 @@ impl Operation {
 
     pub fn is_test(&self) -> bool {
         matches!(self, Operation::Test | Operation::TestSet)
-    }
-}
-
-impl From<u8> for Operation {
-    fn from(byte: u8) -> Self {
-        match byte {
-            MOVE => Operation::Move,
-            CLOSE => Operation::Close,
-            LOAD_BOOLEAN => Operation::LoadBoolean,
-            LOAD_CONSTANT => Operation::LoadConstant,
-            LOAD_LIST => Operation::LoadList,
-            LOAD_SELF => Operation::LoadSelf,
-            DEFINE_LOCAL => Operation::DefineLocal,
-            GET_LOCAL => Operation::GetLocal,
-            SET_LOCAL => Operation::SetLocal,
-            ADD => Operation::Add,
-            SUBTRACT => Operation::Subtract,
-            MULTIPLY => Operation::Multiply,
-            DIVIDE => Operation::Divide,
-            MODULO => Operation::Modulo,
-            TEST => Operation::Test,
-            TEST_SET => Operation::TestSet,
-            EQUAL => Operation::Equal,
-            LESS => Operation::Less,
-            LESS_EQUAL => Operation::LessEqual,
-            NEGATE => Operation::Negate,
-            NOT => Operation::Not,
-            JUMP => Operation::Jump,
-            CALL => Operation::Call,
-            CALL_NATIVE => Operation::CallNative,
-            RETURN => Operation::Return,
-            _ => {
-                if cfg!(test) {
-                    panic!("Invalid operation byte: {}", byte)
-                } else {
-                    Operation::Return
-                }
-            }
-        }
-    }
-}
-
-impl From<Operation> for u8 {
-    fn from(operation: Operation) -> Self {
-        match operation {
-            Operation::Move => MOVE,
-            Operation::Close => CLOSE,
-            Operation::LoadBoolean => LOAD_BOOLEAN,
-            Operation::LoadConstant => LOAD_CONSTANT,
-            Operation::LoadList => LOAD_LIST,
-            Operation::LoadSelf => LOAD_SELF,
-            Operation::DefineLocal => DEFINE_LOCAL,
-            Operation::GetLocal => GET_LOCAL,
-            Operation::SetLocal => SET_LOCAL,
-            Operation::Add => ADD,
-            Operation::Subtract => SUBTRACT,
-            Operation::Multiply => MULTIPLY,
-            Operation::Divide => DIVIDE,
-            Operation::Modulo => MODULO,
-            Operation::Test => TEST,
-            Operation::TestSet => TEST_SET,
-            Operation::Equal => EQUAL,
-            Operation::Less => LESS,
-            Operation::LessEqual => LESS_EQUAL,
-            Operation::Negate => NEGATE,
-            Operation::Not => NOT,
-            Operation::Jump => JUMP,
-            Operation::Call => CALL,
-            Operation::CallNative => CALL_NATIVE,
-            Operation::Return => RETURN,
-        }
-    }
-}
-
-impl Display for Operation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Operation::Move => write!(f, "MOVE"),
-            Operation::Close => write!(f, "CLOSE"),
-            Operation::LoadBoolean => write!(f, "LOAD_BOOLEAN"),
-            Operation::LoadConstant => write!(f, "LOAD_CONSTANT"),
-            Operation::LoadList => write!(f, "LOAD_LIST"),
-            Operation::LoadSelf => write!(f, "LOAD_SELF"),
-            Operation::DefineLocal => write!(f, "DEFINE_LOCAL"),
-            Operation::GetLocal => write!(f, "GET_LOCAL"),
-            Operation::SetLocal => write!(f, "SET_LOCAL"),
-            Operation::Add => write!(f, "ADD"),
-            Operation::Subtract => write!(f, "SUBTRACT"),
-            Operation::Multiply => write!(f, "MULTIPLY"),
-            Operation::Divide => write!(f, "DIVIDE"),
-            Operation::Modulo => write!(f, "MODULO"),
-            Operation::Test => write!(f, "TEST"),
-            Operation::TestSet => write!(f, "TEST_SET"),
-            Operation::Equal => write!(f, "EQUAL"),
-            Operation::Less => write!(f, "LESS"),
-            Operation::LessEqual => write!(f, "LESS_EQUAL"),
-            Operation::Negate => write!(f, "NEGATE"),
-            Operation::Not => write!(f, "NOT"),
-            Operation::Jump => write!(f, "JUMP"),
-            Operation::Call => write!(f, "CALL"),
-            Operation::CallNative => write!(f, "CALL_NATIVE"),
-            Operation::Return => write!(f, "RETURN"),
-        }
     }
 }
