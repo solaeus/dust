@@ -502,15 +502,11 @@ impl Vm {
                 log::trace!("Change R{to_register} to R{from_register}");
 
                 self.stack[to_register] = Register::Pointer(from_register);
-
-                Ok(())
             }
             Ordering::Equal => {
                 log::trace!("Set R{to_register} to R{from_register}");
 
                 self.stack.push(Register::Pointer(from_register));
-
-                Ok(())
             }
             Ordering::Greater => {
                 let difference = to_register - length;
@@ -524,10 +520,10 @@ impl Vm {
                 log::trace!("Set R{to_register} to R{from_register}");
 
                 self.stack.push(Register::Pointer(from_register));
-
-                Ok(())
             }
         }
+
+        Ok(())
     }
 
     fn set_constant(
@@ -550,15 +546,11 @@ impl Vm {
                 log::trace!("Change R{to_register} to C{constant_index}");
 
                 self.stack[to_register] = Register::Constant(constant_index);
-
-                Ok(())
             }
             Ordering::Equal => {
                 log::trace!("Set R{to_register} to C{constant_index}");
 
                 self.stack.push(Register::Constant(constant_index));
-
-                Ok(())
             }
             Ordering::Greater => {
                 let difference = to_register - length;
@@ -572,10 +564,10 @@ impl Vm {
                 log::trace!("Set R{to_register} to C{constant_index}");
 
                 self.stack.push(Register::Constant(constant_index));
-
-                Ok(())
             }
         }
+
+        Ok(())
     }
 
     fn get_constant(&self, index: u8, position: Span) -> Result<&Value, VmError> {
