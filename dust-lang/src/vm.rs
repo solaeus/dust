@@ -2,8 +2,8 @@
 use std::{cmp::Ordering, mem::replace};
 
 use crate::{
-    parse, value::Primitive, AnnotatedError, Chunk, DustError, FunctionType, Instruction, Local,
-    NativeFunction, NativeFunctionError, Operation, Span, Type, Value, ValueError,
+    parse, value::ConcreteValue, AnnotatedError, Chunk, DustError, FunctionType, Instruction,
+    Local, NativeFunction, NativeFunctionError, Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -121,23 +121,17 @@ impl Vm {
                 }
                 Operation::LoadList => {
                     let to_register = instruction.a();
-                    let first_register = instruction.b();
-                    let last_register = instruction.c();
-                    let is_empty = to_register == first_register && first_register == last_register;
-                    let item_type = if is_empty {
-                        Type::Any
-                    } else {
-                        let register_range = (first_register as usize)..=(last_register as usize);
-
-                        self.stack[register_range]
-                            .iter()
-                            .find_map(|register| match register {
-                                Register::Value(value) => Some(value.r#type()),
-                                _ => None,
-                            })
-                            .unwrap_or(Type::Any)
-                    };
-                    let value = Value::list(first_register, last_register, item_type);
+                    let start_register = instruction.b();
+                    let item_type = (start_register..to_register)
+                        .find_map(|register_index| {
+                            if let Ok(value) = self.get_register(register_index, position) {
+                                Some(value.r#type())
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(Type::Any);
+                    let value = Value::abstract_list(start_register, to_register, item_type);
 
                     self.set_register(to_register, value, position)?;
                 }
@@ -170,17 +164,6 @@ impl Vm {
                 Operation::SetLocal => {
                     let register = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.get_local(local_index, position)?;
-
-                    if !local.is_mutable {
-                        return Err(VmError::CannotMutateImmutableLocal {
-                            identifier: self
-                                .chunk
-                                .get_identifier(local.identifier_index)
-                                .unwrap_or_else(|| "unknown".to_string()),
-                            position,
-                        });
-                    }
 
                     self.define_local(local_index, register, position)?;
                 }
@@ -228,7 +211,7 @@ impl Vm {
                     let register = instruction.a();
                     let test_value = instruction.c_as_boolean();
                     let value = self.get_register(register, position)?;
-                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) = value {
+                    let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
                         *boolean
                     } else {
                         return Err(VmError::ExpectedBoolean {
@@ -253,7 +236,7 @@ impl Vm {
                         .equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
                     let boolean =
-                        if let Value::Primitive(Primitive::Boolean(boolean)) = equal_result {
+                        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = equal_result {
                             boolean
                         } else {
                             return Err(VmError::ExpectedBoolean {
@@ -288,15 +271,15 @@ impl Vm {
                     let less_result = left
                         .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
-                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) = less_result
-                    {
-                        boolean
-                    } else {
-                        return Err(VmError::ExpectedBoolean {
-                            found: less_result.clone(),
-                            position,
-                        });
-                    };
+                    let boolean =
+                        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = less_result {
+                            boolean
+                        } else {
+                            return Err(VmError::ExpectedBoolean {
+                                found: less_result.clone(),
+                                position,
+                            });
+                        };
                     let compare_to = instruction.a_as_boolean();
 
                     if boolean == compare_to {
@@ -324,7 +307,7 @@ impl Vm {
                     let less_or_equal_result = left
                         .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
-                    let boolean = if let Value::Primitive(Primitive::Boolean(boolean)) =
+                    let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) =
                         less_or_equal_result
                     {
                         boolean
@@ -400,7 +383,8 @@ impl Vm {
                     let function_register = instruction.b();
                     let argument_count = instruction.c();
                     let value = self.get_register(function_register, position)?.clone();
-                    let function = if let Value::Function(function) = value {
+                    let function = if let Value::Concrete(ConcreteValue::Function(function)) = value
+                    {
                         function
                     } else {
                         return Err(VmError::ExpectedFunction {
@@ -448,7 +432,9 @@ impl Vm {
                     }
 
                     if let Some(register) = self.last_assigned_register {
-                        let value = self.empty_register(register, position)?;
+                        let value = self
+                            .empty_register(register, position)?
+                            .to_concrete(&mut self, position)?;
 
                         return Ok(Some(value));
                     } else {
@@ -623,7 +609,7 @@ impl Vm {
         }
     }
 
-    fn empty_register(mut self, index: u8, position: Span) -> Result<Value, VmError> {
+    pub fn empty_register(&mut self, index: u8, position: Span) -> Result<Value, VmError> {
         let index = index as usize;
 
         if index >= self.stack.len() {
@@ -640,7 +626,12 @@ impl Vm {
                 Ok(value)
             }
             Register::Constant(constant_index) => {
-                let value = self.chunk.take_constants().remove(constant_index as usize);
+                let constants = &mut self.chunk.constants_mut();
+
+                constants.push(Value::integer(0));
+
+                let value = constants.swap_remove(constant_index as usize);
+                self.chunk.is_poisoned = true;
 
                 Ok(value)
             }
@@ -649,6 +640,10 @@ impl Vm {
     }
 
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
+        if self.chunk.is_poisoned {
+            return Err(VmError::PoisonedChunk { position });
+        }
+
         if self.ip >= self.chunk.len() {
             self.ip = self.chunk.len() - 1;
         }
@@ -721,59 +716,27 @@ enum Register {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
-    CannotMutateImmutableLocal {
-        identifier: String,
-        position: Span,
-    },
-    EmptyRegister {
-        index: usize,
-        position: Span,
-    },
-    ExpectedBoolean {
-        found: Value,
-        position: Span,
-    },
-    ExpectedFunction {
-        found: Value,
-        position: Span,
-    },
-    ConstantIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    RegisterIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    InstructionIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    LocalIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    InvalidInstruction {
-        instruction: Instruction,
-        position: Span,
-    },
-    StackOverflow {
-        position: Span,
-    },
-    StackUnderflow {
-        position: Span,
-    },
-    UndefinedVariable {
-        identifier: String,
-        position: Span,
-    },
+    // Stack errors
+    StackOverflow { position: Span },
+    StackUnderflow { position: Span },
+
+    // Register errors
+    EmptyRegister { index: usize, position: Span },
+    RegisterIndexOutOfBounds { index: usize, position: Span },
+
+    // Chunk errors
+    ConstantIndexOutOfBounds { index: usize, position: Span },
+    InstructionIndexOutOfBounds { index: usize, position: Span },
+    LocalIndexOutOfBounds { index: usize, position: Span },
+    PoisonedChunk { position: Span },
+
+    // Execution errors
+    ExpectedBoolean { found: Value, position: Span },
+    ExpectedFunction { found: Value, position: Span },
 
     // Wrappers for foreign errors
     NativeFunction(NativeFunctionError),
-    Value {
-        error: ValueError,
-        position: Span,
-    },
+    Value { error: ValueError, position: Span },
 }
 
 impl AnnotatedError for VmError {
@@ -783,19 +746,17 @@ impl AnnotatedError for VmError {
 
     fn description(&self) -> &'static str {
         match self {
-            Self::CannotMutateImmutableLocal { .. } => "Cannot mutate immutable variable",
             Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
-            Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
-            Self::InvalidInstruction { .. } => "Invalid instruction",
             Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
+            Self::NativeFunction(error) => error.description(),
+            Self::PoisonedChunk { .. } => "Poisoned chunk",
+            Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
-            Self::UndefinedVariable { .. } => "Undefined variable",
-            Self::NativeFunction(error) => error.description(),
             Self::Value { .. } => "Value error",
         }
     }
@@ -805,7 +766,7 @@ impl AnnotatedError for VmError {
             Self::ConstantIndexOutOfBounds { index, .. } => {
                 Some(format!("Constant C{index} does not exist"))
             }
-            Self::EmptyRegister { index, .. } => Some(format!("Register {index} is empty")),
+            Self::EmptyRegister { index, .. } => Some(format!("Register R{index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
@@ -816,9 +777,6 @@ impl AnnotatedError for VmError {
             Self::LocalIndexOutOfBounds { index, .. } => {
                 Some(format!("Local L{index} does not exist"))
             }
-            Self::UndefinedVariable { identifier, .. } => {
-                Some(format!("{identifier} is not in scope"))
-            }
             Self::NativeFunction(error) => error.details(),
             Self::Value { error, .. } => Some(error.to_string()),
             _ => None,
@@ -827,19 +785,17 @@ impl AnnotatedError for VmError {
 
     fn position(&self) -> Span {
         match self {
-            Self::CannotMutateImmutableLocal { position, .. } => *position,
             Self::ConstantIndexOutOfBounds { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
-            Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::InstructionIndexOutOfBounds { position, .. } => *position,
-            Self::InvalidInstruction { position, .. } => *position,
             Self::LocalIndexOutOfBounds { position, .. } => *position,
-            Self::StackUnderflow { position } => *position,
-            Self::StackOverflow { position } => *position,
-            Self::UndefinedVariable { position, .. } => *position,
             Self::NativeFunction(error) => error.position(),
+            Self::PoisonedChunk { position } => *position,
+            Self::RegisterIndexOutOfBounds { position, .. } => *position,
+            Self::StackOverflow { position } => *position,
+            Self::StackUnderflow { position } => *position,
             Self::Value { position, .. } => *position,
         }
     }

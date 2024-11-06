@@ -23,7 +23,7 @@ pub use crate::operation::Operation;
 pub use crate::parser::{parse, ParseError};
 pub use crate::r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use crate::token::{Token, TokenKind, TokenOwned};
-pub use crate::value::{Function, Primitive, Value, ValueError};
+pub use crate::value::{ConcreteValue, Function, Value, ValueError};
 pub use crate::vm::{run, Vm, VmError};
 
 use std::fmt::Display;

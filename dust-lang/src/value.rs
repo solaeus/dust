@@ -26,53 +26,53 @@ use std::{
     ops::{Range, RangeInclusive},
 };
 
-use serde::{
-    de::{self, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::{Chunk, FunctionType, RangeableType, Span, Type, Vm, VmError};
 
 /// Dust value representation
 ///
 /// See the [module-level documentation][self] for more.
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Value {
-    Primitive(Primitive),
-    Function(Function),
-    Object(Object),
+    Concrete(ConcreteValue),
+    Abstract(AbstractValue),
 }
 
 impl Value {
     pub fn boolean(value: bool) -> Self {
-        Value::Primitive(Primitive::Boolean(value))
+        Value::Concrete(ConcreteValue::Boolean(value))
     }
 
     pub fn byte(value: u8) -> Self {
-        Value::Primitive(Primitive::Byte(value))
+        Value::Concrete(ConcreteValue::Byte(value))
     }
 
     pub fn character(value: char) -> Self {
-        Value::Primitive(Primitive::Character(value))
+        Value::Concrete(ConcreteValue::Character(value))
     }
 
     pub fn float(value: f64) -> Self {
-        Value::Primitive(Primitive::Float(value))
+        Value::Concrete(ConcreteValue::Float(value))
     }
 
     pub fn function(body: Chunk, r#type: FunctionType) -> Self {
-        Value::Function(Function {
+        Value::Concrete(ConcreteValue::Function(Function {
             chunk: body,
             r#type: Type::Function(r#type),
-        })
+        }))
     }
 
     pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
-        Value::Primitive(Primitive::Integer(into_i64.into()))
+        Value::Concrete(ConcreteValue::Integer(into_i64.into()))
     }
 
-    pub fn list(start: u8, end: u8, item_type: Type) -> Self {
-        Value::Object(Object::List {
+    pub fn list<T: Into<Vec<Value>>>(items: T) -> Self {
+        Value::Concrete(ConcreteValue::List(items.into()))
+    }
+
+    pub fn abstract_list(start: u8, end: u8, item_type: Type) -> Self {
+        Value::Abstract(AbstractValue::List {
             start,
             end,
             item_type,
@@ -80,11 +80,11 @@ impl Value {
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
-        Value::Primitive(Primitive::String(to_string.to_string()))
+        Value::Concrete(ConcreteValue::String(to_string.to_string()))
     }
 
     pub fn as_string(&self) -> Option<&String> {
-        if let Value::Primitive(Primitive::String(string)) = self {
+        if let Value::Concrete(ConcreteValue::String(string)) = self {
             Some(string)
         } else {
             None
@@ -92,14 +92,13 @@ impl Value {
     }
 
     pub fn is_function(&self) -> bool {
-        matches!(self, Value::Function(_))
+        matches!(self, Value::Concrete(ConcreteValue::Function(_)))
     }
 
     pub fn r#type(&self) -> Type {
         match self {
-            Value::Primitive(data) => data.r#type(),
-            Value::Function(function) => function.r#type().clone(),
-            Value::Object(Object::List {
+            Value::Concrete(data) => data.r#type(),
+            Value::Abstract(AbstractValue::List {
                 start,
                 end,
                 item_type,
@@ -116,67 +115,67 @@ impl Value {
 
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
         };
         let sum = left
             .add(right)
             .ok_or_else(|| ValueError::CannotAdd(self.clone(), other.clone()))?;
 
-        Ok(Value::Primitive(sum))
+        Ok(Value::Concrete(sum))
     }
 
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotSubtract(self.clone(), other.clone())),
         };
         let difference = left
             .subtract(right)
             .ok_or_else(|| ValueError::CannotSubtract(self.clone(), other.clone()))?;
 
-        Ok(Value::Primitive(difference))
+        Ok(Value::Concrete(difference))
     }
 
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         };
         let product = left
             .multiply(right)
             .ok_or_else(|| ValueError::CannotMultiply(self.clone(), other.clone()))?;
 
-        Ok(Value::Primitive(product))
+        Ok(Value::Concrete(product))
     }
 
     pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotDivide(self.clone(), other.clone())),
         };
         let quotient = left
             .divide(right)
             .ok_or_else(|| ValueError::CannotDivide(self.clone(), other.clone()))?;
 
-        Ok(Value::Primitive(quotient))
+        Ok(Value::Concrete(quotient))
     }
 
     pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotModulo(self.clone(), other.clone())),
         };
         let remainder = left
             .modulo(right)
             .ok_or_else(|| ValueError::CannotModulo(self.clone(), other.clone()))?;
 
-        Ok(Value::Primitive(remainder))
+        Ok(Value::Concrete(remainder))
     }
 
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -185,7 +184,7 @@ impl Value {
 
     pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -194,7 +193,7 @@ impl Value {
 
     pub fn equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -203,7 +202,7 @@ impl Value {
 
     pub fn not_equal(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -212,42 +211,53 @@ impl Value {
 
     pub fn negate(&self) -> Result<Value, ValueError> {
         let data = match self {
-            Value::Primitive(data) => data,
+            Value::Concrete(data) => data,
             _ => return Err(ValueError::CannotNot(self.clone())),
         };
 
         data.negate()
             .ok_or_else(|| ValueError::CannotNot(self.clone()))
-            .map(Value::Primitive)
+            .map(Value::Concrete)
     }
 
     pub fn not(&self) -> Result<Value, ValueError> {
         let data = match self {
-            Value::Primitive(data) => data,
+            Value::Concrete(data) => data,
             _ => return Err(ValueError::CannotNot(self.clone())),
         };
 
         data.not()
             .ok_or_else(|| ValueError::CannotNot(self.clone()))
-            .map(Value::Primitive)
+            .map(Value::Concrete)
     }
 
     pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
         let (left, right) = match (self, other) {
-            (Value::Primitive(left), Value::Primitive(right)) => (left, right),
+            (Value::Concrete(left), Value::Concrete(right)) => (left, right),
             _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
         };
 
         left.and(right)
             .ok_or_else(|| ValueError::CannotAnd(self.clone(), other.clone()))
-            .map(Value::Primitive)
+            .map(Value::Concrete)
     }
 
-    pub fn display(&self, vm: &Vm, position: Span) -> Result<String, ValueError> {
+    pub fn to_concrete(self, vm: &mut Vm, position: Span) -> Result<Value, VmError> {
         match self {
-            Value::Primitive(primitive) => Ok(primitive.to_string()),
-            Value::Function(function) => Ok(function.to_string()),
-            Value::Object(object) => object.display(vm, position),
+            Value::Concrete(_) => Ok(self),
+            Value::Abstract(AbstractValue::List { start, end, .. }) => {
+                let mut items = Vec::new();
+
+                for register_index in start..end {
+                    let get_value = vm.empty_register(register_index, position);
+
+                    if let Ok(value) = get_value {
+                        items.push(value);
+                    }
+                }
+
+                Ok(Value::Concrete(ConcreteValue::List(items)))
+            }
         }
     }
 }
@@ -305,9 +315,8 @@ impl Clone for Value {
         log::trace!("Cloning value {self}");
 
         match self {
-            Value::Primitive(data) => Value::Primitive(data.clone()),
-            Value::Function(function) => Value::Function(function.clone()),
-            Value::Object(object) => Value::Object(object.clone()),
+            Value::Abstract(object) => Value::Abstract(object.clone()),
+            Value::Concrete(concrete) => Value::Concrete(concrete.clone()),
         }
     }
 }
@@ -315,84 +324,43 @@ impl Clone for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::Primitive(primitive) => write!(f, "{primitive}"),
-            Value::Function(function) => write!(f, "{function}"),
-            Value::Object(object) => write!(f, "{object}"),
+            Value::Abstract(object) => write!(f, "{object}"),
+            Value::Concrete(concrete) => write!(f, "{concrete}"),
         }
-    }
-}
-
-impl Serialize for Value {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Value::Primitive(data) => data.serialize(serializer),
-            Value::Function(function) => function.serialize(serializer),
-            Value::Object(object) => object.serialize(serializer),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct ValueVisitor;
-
-        impl<'de> Visitor<'de> for ValueVisitor {
-            type Value = Value;
-
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("a value")
-            }
-
-            fn visit_bool<E: de::Error>(self, value: bool) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::Boolean(value)))
-            }
-
-            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::Integer(value)))
-            }
-
-            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::Integer(value as i64)))
-            }
-
-            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::Float(value)))
-            }
-
-            fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::String(value.to_string())))
-            }
-
-            fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
-                Ok(Value::Primitive(Primitive::String(value)))
-            }
-        }
-
-        deserializer.deserialize_any(ValueVisitor)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub enum Primitive {
+pub enum ConcreteValue {
     Boolean(bool),
     Byte(u8),
     Character(char),
     Float(f64),
+    Function(Function),
     Integer(i64),
+    List(Vec<Value>),
     Range(RangeValue),
     String(String),
 }
 
-impl Primitive {
+impl ConcreteValue {
     pub fn r#type(&self) -> Type {
         match self {
-            Primitive::Boolean(_) => Type::Boolean,
-            Primitive::Byte(_) => Type::Byte,
-            Primitive::Character(_) => Type::Character,
-            Primitive::Float(_) => Type::Float,
-            Primitive::Integer(_) => Type::Integer,
-            Primitive::Range(range) => range.r#type(),
-            Primitive::String(string) => Type::String {
+            ConcreteValue::Boolean(_) => Type::Boolean,
+            ConcreteValue::Byte(_) => Type::Byte,
+            ConcreteValue::Character(_) => Type::Character,
+            ConcreteValue::Float(_) => Type::Float,
+            ConcreteValue::Function(Function { r#type, .. }) => r#type.clone(),
+            ConcreteValue::Integer(_) => Type::Integer,
+            ConcreteValue::List(list) => Type::List {
+                item_type: list
+                    .first()
+                    .map(|value| Box::new(value.r#type()))
+                    .unwrap_or_else(|| Box::new(Type::Any)),
+                length: list.len(),
+            },
+            ConcreteValue::Range(range) => range.r#type(),
+            ConcreteValue::String(string) => Type::String {
                 length: Some(string.len()),
             },
         }
@@ -401,194 +369,194 @@ impl Primitive {
     pub fn is_rangeable(&self) -> bool {
         matches!(
             self,
-            Primitive::Integer(_)
-                | Primitive::Float(_)
-                | Primitive::Character(_)
-                | Primitive::Byte(_)
+            ConcreteValue::Integer(_)
+                | ConcreteValue::Float(_)
+                | ConcreteValue::Character(_)
+                | ConcreteValue::Byte(_)
         )
     }
 
-    pub fn add(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn add(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Byte(left), Primitive::Byte(right)) => {
-                Some(Primitive::Byte(left.saturating_add(*right)))
+            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
+                Some(ConcreteValue::Byte(left.saturating_add(*right)))
             }
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Float(left + right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Float(left + right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Integer(left.saturating_add(*right)))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Integer(left.saturating_add(*right)))
             }
-            (Primitive::String(left), Primitive::String(right)) => {
-                Some(Primitive::String(format!("{}{}", left, right)))
+            (ConcreteValue::String(left), ConcreteValue::String(right)) => {
+                Some(ConcreteValue::String(format!("{}{}", left, right)))
             }
             _ => None,
         }
     }
 
-    pub fn subtract(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn subtract(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Byte(left), Primitive::Byte(right)) => {
-                Some(Primitive::Byte(left.saturating_sub(*right)))
+            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
+                Some(ConcreteValue::Byte(left.saturating_sub(*right)))
             }
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Float(left - right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Float(left - right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Integer(left.saturating_sub(*right)))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Integer(left.saturating_sub(*right)))
             }
             _ => None,
         }
     }
 
-    pub fn multiply(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn multiply(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Byte(left), Primitive::Byte(right)) => {
-                Some(Primitive::Byte(left.saturating_mul(*right)))
+            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
+                Some(ConcreteValue::Byte(left.saturating_mul(*right)))
             }
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Float(left * right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Float(left * right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Integer(left.saturating_mul(*right)))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Integer(left.saturating_mul(*right)))
             }
             _ => None,
         }
     }
 
-    pub fn divide(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn divide(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Byte(left), Primitive::Byte(right)) => {
-                Some(Primitive::Byte(left.saturating_div(*right)))
+            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => {
+                Some(ConcreteValue::Byte(left.saturating_div(*right)))
             }
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Float(left / right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Float(left / right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Integer(left.saturating_div(*right)))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Integer(left.saturating_div(*right)))
             }
             _ => None,
         }
     }
 
-    pub fn modulo(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn modulo(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Float(left % right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Float(left % right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Integer(left % right))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Integer(left % right))
             }
             _ => None,
         }
     }
 
-    pub fn less_than(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn less_than(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Boolean(left < right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Boolean(left < right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Boolean(left < right))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Boolean(left < right))
             }
             _ => None,
         }
     }
 
-    pub fn less_than_or_equal(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn less_than_or_equal(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Boolean(left <= right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Boolean(left <= right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Boolean(left <= right))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Boolean(left <= right))
             }
             _ => None,
         }
     }
 
-    pub fn greater_than(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn greater_than(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Boolean(left > right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Boolean(left > right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Boolean(left > right))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Boolean(left > right))
             }
             _ => None,
         }
     }
 
-    pub fn greater_than_or_equal(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn greater_than_or_equal(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Float(left), Primitive::Float(right)) => {
-                Some(Primitive::Boolean(left >= right))
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
+                Some(ConcreteValue::Boolean(left >= right))
             }
-            (Primitive::Integer(left), Primitive::Integer(right)) => {
-                Some(Primitive::Boolean(left >= right))
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
+                Some(ConcreteValue::Boolean(left >= right))
             }
             _ => None,
         }
     }
 
-    pub fn and(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn and(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Boolean(left), Primitive::Boolean(right)) => {
-                Some(Primitive::Boolean(*left && *right))
+            (ConcreteValue::Boolean(left), ConcreteValue::Boolean(right)) => {
+                Some(ConcreteValue::Boolean(*left && *right))
             }
             _ => None,
         }
     }
 
-    pub fn or(&self, other: &Primitive) -> Option<Primitive> {
+    pub fn or(&self, other: &ConcreteValue) -> Option<ConcreteValue> {
         match (self, other) {
-            (Primitive::Boolean(left), Primitive::Boolean(right)) => {
-                Some(Primitive::Boolean(*left || *right))
+            (ConcreteValue::Boolean(left), ConcreteValue::Boolean(right)) => {
+                Some(ConcreteValue::Boolean(*left || *right))
             }
             _ => None,
         }
     }
 
-    pub fn is_even(&self) -> Option<Primitive> {
+    pub fn is_even(&self) -> Option<ConcreteValue> {
         match self {
-            Primitive::Integer(integer) => Some(Primitive::Boolean(integer % 2 == 0)),
-            Primitive::Float(float) => Some(Primitive::Boolean(float % 2.0 == 0.0)),
+            ConcreteValue::Integer(integer) => Some(ConcreteValue::Boolean(integer % 2 == 0)),
+            ConcreteValue::Float(float) => Some(ConcreteValue::Boolean(float % 2.0 == 0.0)),
             _ => None,
         }
     }
 
-    pub fn is_odd(&self) -> Option<Primitive> {
+    pub fn is_odd(&self) -> Option<ConcreteValue> {
         match self {
-            Primitive::Integer(integer) => Some(Primitive::Boolean(integer % 2 != 0)),
-            Primitive::Float(float) => Some(Primitive::Boolean(float % 2.0 != 0.0)),
+            ConcreteValue::Integer(integer) => Some(ConcreteValue::Boolean(integer % 2 != 0)),
+            ConcreteValue::Float(float) => Some(ConcreteValue::Boolean(float % 2.0 != 0.0)),
             _ => None,
         }
     }
 
-    pub fn negate(&self) -> Option<Primitive> {
+    pub fn negate(&self) -> Option<ConcreteValue> {
         match self {
-            Primitive::Byte(value) => Some(Primitive::Byte(!value)),
-            Primitive::Float(value) => Some(Primitive::Float(-value)),
-            Primitive::Integer(value) => Some(Primitive::Integer(-value)),
+            ConcreteValue::Byte(value) => Some(ConcreteValue::Byte(!value)),
+            ConcreteValue::Float(value) => Some(ConcreteValue::Float(-value)),
+            ConcreteValue::Integer(value) => Some(ConcreteValue::Integer(-value)),
             _ => None,
         }
     }
 
-    pub fn not(&self) -> Option<Primitive> {
+    pub fn not(&self) -> Option<ConcreteValue> {
         match self {
-            Primitive::Boolean(value) => Some(Primitive::Boolean(!value)),
+            ConcreteValue::Boolean(value) => Some(ConcreteValue::Boolean(!value)),
             _ => None,
         }
     }
 }
 
-impl Display for Primitive {
+impl Display for ConcreteValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Primitive::Boolean(boolean) => write!(f, "{boolean}"),
-            Primitive::Byte(byte) => write!(f, "0x{byte:02x}"),
-            Primitive::Character(character) => write!(f, "{character}"),
-            Primitive::Float(float) => {
+            ConcreteValue::Boolean(boolean) => write!(f, "{boolean}"),
+            ConcreteValue::Byte(byte) => write!(f, "0x{byte:02x}"),
+            ConcreteValue::Character(character) => write!(f, "{character}"),
+            ConcreteValue::Float(float) => {
                 write!(f, "{float}")?;
 
                 if float.fract() == 0.0 {
@@ -597,33 +565,49 @@ impl Display for Primitive {
 
                 Ok(())
             }
-            Primitive::Integer(integer) => write!(f, "{integer}"),
-            Primitive::Range(range_value) => {
+            ConcreteValue::Function(Function { r#type, .. }) => {
+                write!(f, "{}", r#type)
+            }
+            ConcreteValue::Integer(integer) => write!(f, "{integer}"),
+            ConcreteValue::List(items) => {
+                write!(f, "[")?;
+
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{item}")?;
+                }
+
+                write!(f, "]")
+            }
+            ConcreteValue::Range(range_value) => {
                 write!(f, "{range_value}")
             }
-            Primitive::String(string) => write!(f, "{string}"),
+            ConcreteValue::String(string) => write!(f, "{string}"),
         }
     }
 }
 
-impl Eq for Primitive {}
+impl Eq for ConcreteValue {}
 
-impl PartialOrd for Primitive {
+impl PartialOrd for ConcreteValue {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Primitive {
+impl Ord for ConcreteValue {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Primitive::Boolean(left), Primitive::Boolean(right)) => left.cmp(right),
-            (Primitive::Boolean(_), _) => Ordering::Greater,
-            (Primitive::Byte(left), Primitive::Byte(right)) => left.cmp(right),
-            (Primitive::Byte(_), _) => Ordering::Greater,
-            (Primitive::Character(left), Primitive::Character(right)) => left.cmp(right),
-            (Primitive::Character(_), _) => Ordering::Greater,
-            (Primitive::Float(left), Primitive::Float(right)) => {
+            (ConcreteValue::Boolean(left), ConcreteValue::Boolean(right)) => left.cmp(right),
+            (ConcreteValue::Boolean(_), _) => Ordering::Greater,
+            (ConcreteValue::Byte(left), ConcreteValue::Byte(right)) => left.cmp(right),
+            (ConcreteValue::Byte(_), _) => Ordering::Greater,
+            (ConcreteValue::Character(left), ConcreteValue::Character(right)) => left.cmp(right),
+            (ConcreteValue::Character(_), _) => Ordering::Greater,
+            (ConcreteValue::Float(left), ConcreteValue::Float(right)) => {
                 if left.is_nan() && right.is_nan() {
                     Ordering::Equal
                 } else if left.is_nan() {
@@ -634,13 +618,17 @@ impl Ord for Primitive {
                     left.partial_cmp(right).unwrap()
                 }
             }
-            (Primitive::Float(_), _) => Ordering::Greater,
-            (Primitive::Integer(left), Primitive::Integer(right)) => left.cmp(right),
-            (Primitive::Integer(_), _) => Ordering::Greater,
-            (Primitive::Range(left), Primitive::Range(right)) => left.cmp(right),
-            (Primitive::Range(_), _) => Ordering::Greater,
-            (Primitive::String(left), Primitive::String(right)) => left.cmp(right),
-            (Primitive::String(_), _) => Ordering::Greater,
+            (ConcreteValue::Float(_), _) => Ordering::Greater,
+            (ConcreteValue::Function(left), ConcreteValue::Function(right)) => left.cmp(right),
+            (ConcreteValue::Function(_), _) => Ordering::Greater,
+            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => left.cmp(right),
+            (ConcreteValue::Integer(_), _) => Ordering::Greater,
+            (ConcreteValue::List(left), ConcreteValue::List(right)) => left.cmp(right),
+            (ConcreteValue::List(_), _) => Ordering::Greater,
+            (ConcreteValue::Range(left), ConcreteValue::Range(right)) => left.cmp(right),
+            (ConcreteValue::Range(_), _) => Ordering::Greater,
+            (ConcreteValue::String(left), ConcreteValue::String(right)) => left.cmp(right),
+            (ConcreteValue::String(_), _) => Ordering::Greater,
         }
     }
 }
@@ -885,48 +873,16 @@ impl Ord for RangeValue {
     }
 }
 
+/// Value representation that can be resolved to a concrete value by the VM.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Object {
+pub enum AbstractValue {
     List { start: u8, end: u8, item_type: Type },
 }
 
-impl Object {
-    fn display(&self, vm: &Vm, position: Span) -> Result<String, ValueError> {
-        match self {
-            Object::List { start, end, .. } => {
-                let mut display = String::from("[");
-                let (start, end) = (*start, *end);
-
-                for register in start..=end {
-                    if register > start {
-                        display.push_str(", ");
-                    }
-
-                    let value_display = match vm.get_register(register, position) {
-                        Ok(value) => value.display(vm, position)?,
-                        Err(error) => {
-                            return Err(ValueError::CannotDisplay {
-                                value: Value::Object(self.clone()),
-                                vm_error: Box::new(error),
-                            })
-                        }
-                    };
-
-                    display.push_str(&value_display);
-                }
-
-                display.push(']');
-
-                Ok(display)
-            }
-        }
-    }
-}
-
-impl Display for Object {
+impl Display for AbstractValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Object::List { start, end, .. } => {
+            AbstractValue::List { start, end, .. } => {
                 write!(f, "List [R{}..=R{}]", start, end)
             }
         }
@@ -938,10 +894,6 @@ pub enum ValueError {
     CannotAdd(Value, Value),
     CannotAnd(Value, Value),
     CannotCompare(Value, Value),
-    CannotDisplay {
-        value: Value,
-        vm_error: Box<VmError>,
-    },
     CannotDivide(Value, Value),
     CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
@@ -953,85 +905,36 @@ pub enum ValueError {
 
 impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let get_value_display = |value: &Value| -> String {
-            match value {
-                Value::Primitive(primitive) => primitive.to_string(),
-                Value::Function(function) => function.to_string(),
-                Value::Object(_) => "Object".to_string(),
-            }
-        };
-
         match self {
             ValueError::CannotAdd(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot add {} and {}", left_display, right_display)
+                write!(f, "Cannot add {left} and {right}")
             }
             ValueError::CannotAnd(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(
-                    f,
-                    "Cannot use logical and operation on {} and {}",
-                    left_display, right_display
-                )
+                write!(f, "Cannot use logical AND operation on {left} and {right}")
             }
             ValueError::CannotCompare(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot compare {} and {}", left_display, right_display)
-            }
-            ValueError::CannotDisplay { value, vm_error } => {
-                let value_display = get_value_display(value);
-
-                write!(f, "Cannot display {}: {:?}", value_display, vm_error)
+                write!(f, "Cannot compare {left} and {right}")
             }
             ValueError::CannotDivide(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot divide {} by {}", left_display, right_display)
+                write!(f, "Cannot divide {left} by {right}")
             }
             ValueError::CannotModulo(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot modulo {} by {}", left_display, right_display)
+                write!(f, "Cannot use modulo operation on {left} and {right}")
             }
             ValueError::CannotMultiply(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot multiply {} by {}", left_display, right_display)
+                write!(f, "Cannot multiply {left} by {right}")
             }
             ValueError::CannotNegate(value) => {
-                let value_display = get_value_display(value);
-
-                write!(f, "Cannot negate {}", value_display)
+                write!(f, "Cannot negate {value}")
             }
             ValueError::CannotNot(value) => {
-                let value_display = get_value_display(value);
-
-                write!(f, "Cannot use logical not operation on {}", value_display)
+                write!(f, "Cannot use logical NOT operation on {value}")
             }
             ValueError::CannotSubtract(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(f, "Cannot subtract {} from {}", right_display, left_display)
+                write!(f, "Cannot subtract {right} from {left}")
             }
             ValueError::CannotOr(left, right) => {
-                let left_display = get_value_display(left);
-                let right_display = get_value_display(right);
-
-                write!(
-                    f,
-                    "Cannot use logical or operation on {} and {}",
-                    left_display, right_display
-                )
+                write!(f, "Cannot use logical OR operation on {left} and {right}")
             }
         }
     }

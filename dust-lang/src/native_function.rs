@@ -10,7 +10,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, FunctionType, Instruction, Primitive, Span, Type, Value, Vm, VmError};
+use crate::{
+    AnnotatedError, ConcreteValue, FunctionType, Instruction, Span, Type, Value, Vm, VmError,
+};
 
 macro_rules! define_native_function {
     ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
@@ -259,7 +261,7 @@ impl NativeFunction {
                     string.push_str(&argument.to_string());
                 }
 
-                Some(Value::Primitive(Primitive::String(string)))
+                Some(Value::Concrete(ConcreteValue::String(string)))
             }
 
             // I/O
@@ -275,7 +277,7 @@ impl NativeFunction {
 
                 buffer = buffer.trim_end_matches('\n').to_string();
 
-                Some(Value::Primitive(Primitive::String(buffer)))
+                Some(Value::Concrete(ConcreteValue::String(buffer)))
             }
             NativeFunction::Write => {
                 let to_register = instruction.a();

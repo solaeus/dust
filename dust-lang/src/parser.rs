@@ -810,41 +810,10 @@ impl<'src> Parser<'src> {
 
     fn parse_variable(&mut self, allowed: Allowed) -> Result<(), ParseError> {
         let start_position = self.current_position;
+        let identifier = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
 
-        let local_index = if let Token::Identifier(text) = self.current_token {
-            if let Ok(local_index) = self.get_local_index(text) {
-                local_index
-            } else if let Some(name) = self.chunk.name() {
-                if name.as_str() == text {
-                    let register = self.next_register();
-                    let scope = self.chunk.current_scope();
-
-                    self.emit_instruction(Instruction::load_self(register), start_position);
-                    self.declare_local(text, None, false, scope, register);
-
-                    self.current_is_expression = true;
-
-                    return Ok(());
-                }
-
-                return if NativeFunction::from_str(text).is_some() {
-                    self.parse_native_call(allowed)
-                } else {
-                    Err(ParseError::UndeclaredVariable {
-                        identifier: text.to_string(),
-                        position: start_position,
-                    })
-                };
-            } else {
-                return if NativeFunction::from_str(text).is_some() {
-                    self.parse_native_call(allowed)
-                } else {
-                    Err(ParseError::UndeclaredVariable {
-                        identifier: text.to_string(),
-                        position: start_position,
-                    })
-                };
-            }
+            text
         } else {
             return Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -852,8 +821,26 @@ impl<'src> Parser<'src> {
                 position: start_position,
             });
         };
+        let local_index = if let Ok(local_index) = self.get_local_index(identifier) {
+            local_index
+        } else if let Some(native_function) = NativeFunction::from_str(identifier) {
+            return self.parse_native_call(native_function);
+        } else if Some(identifier) == self.chunk.name().map(|string| string.as_str()) {
+            let register = self.next_register();
+            let scope = self.chunk.current_scope();
 
-        self.advance()?;
+            self.emit_instruction(Instruction::load_self(register), start_position);
+            self.declare_local(identifier, None, false, scope, register);
+
+            self.current_is_expression = true;
+
+            return Ok(());
+        } else {
+            return Err(ParseError::UndeclaredVariable {
+                identifier: identifier.to_string(),
+                position: start_position,
+            });
+        };
 
         let (is_mutable, local_scope) = {
             let local = self.get_local(local_index)?;
@@ -988,11 +975,10 @@ impl<'src> Parser<'src> {
         }
 
         let to_register = self.next_register();
-        let end_register = to_register.saturating_sub(1);
         let end = self.current_position.1;
 
         self.emit_instruction(
-            Instruction::load_list(to_register, start_register, end_register),
+            Instruction::load_list(to_register, start_register),
             Span(start, end),
         );
 
@@ -1187,20 +1173,9 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_native_call(&mut self, _: Allowed) -> Result<(), ParseError> {
-        let native_function = if let Token::Identifier(text) = self.current_token {
-            NativeFunction::from_str(text).unwrap()
-        } else {
-            return Err(ParseError::ExpectedToken {
-                expected: TokenKind::Identifier,
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            });
-        };
-        let start = self.current_position.0;
+    fn parse_native_call(&mut self, function: NativeFunction) -> Result<(), ParseError> {
+        let start = self.previous_position.0;
         let start_register = self.next_register();
-
-        self.advance()?;
 
         self.expect(Token::LeftParenthesis)?;
 
@@ -1224,10 +1199,10 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
-        self.current_is_expression = native_function.r#type().return_type.is_some();
+        self.current_is_expression = function.r#type().return_type.is_some();
 
         self.emit_instruction(
-            Instruction::call_native(to_register, native_function, argument_count),
+            Instruction::call_native(to_register, function, argument_count),
             Span(start, end),
         );
         Ok(())

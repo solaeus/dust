@@ -7,7 +7,32 @@
 //! # Disassembly
 //!
 //! Chunks can be disassembled into a human-readable format using the `disassemble` method. The
-//! output is designed to be displayed in a terminal and is styled for readability.
+//! output is designed to be displayed in a terminal and can be styled for better readability.
+//!
+//! ```text
+//! ┌──────────────────────────────────────────────────────────────────────────────┐
+//! │           /var/home/jeff/Repositories/dust/target/debug/dust-shell           │
+//! │             3 instructions, 1 constants, 0 locals, returns none              │
+//! │                                 Instructions                                 │
+//! │                                 ------------                                 │
+//! │ INDEX BYTECODE OPERATION     INFO                      TYPE      POSITION    │
+//! │ ----- -------- ------------- ------------------------- --------- ----------- │
+//! │ 0     00000003 LOAD_CONSTANT R0 = C0                   str       (11, 26)    │
+//! │ 1     01390117 CALL_NATIVE   write_line(R0)                      (0, 27)     │
+//! │ 2     00000018 RETURN                                            (27, 27)    │
+//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
+//! │                                    Locals                                    │
+//! │                                    ------                                    │
+//! │              INDEX IDENTIFIER TYPE     MUTABLE SCOPE   REGISTER              │
+//! │              ----- ---------- -------- ------- ------- --------              │
+//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
+//! │                                  Constants                                   │
+//! │                                  ---------                                   │
+//! │                            INDEX      VALUE                                  │
+//! │                            ----- ---------------                             │
+//! │                            0      Hello, world!                              │
+//! └──────────────────────────────────────────────────────────────────────────────┘
+//! ```
 
 use std::{
     cmp::Ordering,
@@ -18,7 +43,7 @@ use std::{
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{Instruction, Operation, Span, Type, Value};
+use crate::{ConcreteValue, Instruction, Operation, Span, Type, Value};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -26,6 +51,7 @@ use crate::{Instruction, Operation, Span, Type, Value};
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     name: Option<String>,
+    pub is_poisoned: bool,
 
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
@@ -39,6 +65,7 @@ impl Chunk {
     pub fn new(name: Option<String>) -> Self {
         Self {
             name,
+            is_poisoned: false,
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
@@ -55,6 +82,7 @@ impl Chunk {
     ) -> Self {
         Self {
             name,
+            is_poisoned: false,
             instructions,
             constants,
             locals,
@@ -214,13 +242,27 @@ impl Chunk {
     }
 
     pub fn return_type(&self) -> Option<Type> {
-        self.instructions.iter().rev().find_map(|(instruction, _)| {
-            if instruction.yields_value() {
-                instruction.yielded_type(self)
-            } else {
-                None
-            }
-        })
+        let returns_value = self
+            .instructions()
+            .last()
+            .map(|(instruction, _)| {
+                debug_assert!(matches!(instruction.operation(), Operation::Return));
+
+                instruction.b_as_boolean()
+            })
+            .unwrap_or(false);
+
+        if returns_value {
+            self.instructions.iter().rev().find_map(|(instruction, _)| {
+                if instruction.yields_value() {
+                    instruction.yielded_type(self)
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        }
     }
 
     pub fn disassembler(&self) -> ChunkDisassembler {
@@ -333,8 +375,12 @@ impl<'a> ChunkDisassembler<'a> {
         "----- -------- ------------- ------------------------- --------- -----------",
     ];
 
-    const CONSTANT_HEADER: [&'static str; 4] =
-        ["Constants", "---------", "INDEX VALUE", "----- -----"];
+    const CONSTANT_HEADER: [&'static str; 4] = [
+        "Constants",
+        "---------",
+        "INDEX      VALUE     ",
+        "----- ---------------",
+    ];
 
     const LOCAL_HEADER: [&'static str; 4] = [
         "Locals",
@@ -571,12 +617,21 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         for (index, value) in self.chunk.constants.iter().enumerate() {
-            let constant_display = format!("{index:<5} {value:<5}");
+            let value_display = {
+                let value_string = value.to_string();
+
+                if value_string.len() > 15 {
+                    format!("{value_string:.12}...")
+                } else {
+                    value_string
+                }
+            };
+            let constant_display = format!("{index:<5} {value_display:^15}");
 
             self.push_details(&constant_display);
 
             if let Some(function_disassembly) = match value {
-                Value::Function(function) => Some({
+                Value::Concrete(ConcreteValue::Function(function)) => Some({
                     function
                         .chunk()
                         .disassembler()
@@ -584,8 +639,7 @@ impl<'a> ChunkDisassembler<'a> {
                         .indent(self.indent + 1)
                         .disassemble()
                 }),
-                Value::Primitive(_) => None,
-                Value::Object(_) => None,
+                _ => None,
             } {
                 self.output.push_str(&function_disassembly);
             }

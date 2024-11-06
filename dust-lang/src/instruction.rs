@@ -4,7 +4,7 @@
 //! - Bits 0-6: The operation code.
 //! - Bit 7: A flag indicating whether the B argument is a constant.
 //! - Bit 8: A flag indicating whether the C argument is a constant.
-//! - Bits 9-16: The A argument.
+//! - Bits 9-16: The A argument,
 //! - Bits 17-24: The B argument.
 //! - Bits 25-32: The C argument.
 //!
@@ -49,8 +49,8 @@ impl Instruction {
         let mut instruction = Instruction(Operation::LoadBoolean as u32);
 
         instruction.set_a(to_register);
-        instruction.set_b(if value { 1 } else { 0 });
-        instruction.set_c(if skip { 1 } else { 0 });
+        instruction.set_b_to_boolean(value);
+        instruction.set_c_to_boolean(skip);
 
         instruction
     }
@@ -65,12 +65,11 @@ impl Instruction {
         instruction
     }
 
-    pub fn load_list(to_register: u8, start_register: u8, end_register: u8) -> Instruction {
+    pub fn load_list(to_register: u8, start_register: u8) -> Instruction {
         let mut instruction = Instruction(Operation::LoadList as u32);
 
         instruction.set_a(to_register);
         instruction.set_b(start_register);
-        instruction.set_c(end_register);
 
         instruction
     }
@@ -183,7 +182,7 @@ impl Instruction {
     pub fn equal(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Equal as u32);
 
-        instruction.set_a(if comparison_boolean { 1 } else { 0 });
+        instruction.set_a_to_boolean(comparison_boolean);
         instruction.set_b(left_index);
         instruction.set_c(right_index);
 
@@ -193,7 +192,7 @@ impl Instruction {
     pub fn less(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::Less as u32);
 
-        instruction.set_a(if comparison_boolean { 1 } else { 0 });
+        instruction.set_a_to_boolean(comparison_boolean);
         instruction.set_b(left_index);
         instruction.set_c(right_index);
 
@@ -203,7 +202,7 @@ impl Instruction {
     pub fn less_equal(comparison_boolean: bool, left_index: u8, right_index: u8) -> Instruction {
         let mut instruction = Instruction(Operation::LessEqual as u32);
 
-        instruction.set_a(if comparison_boolean { 1 } else { 0 });
+        instruction.set_a_to_boolean(comparison_boolean);
         instruction.set_b(left_index);
         instruction.set_c(right_index);
 
@@ -265,7 +264,7 @@ impl Instruction {
     pub fn r#return(should_return_value: bool) -> Instruction {
         let mut instruction = Instruction(Operation::Return as u32);
 
-        instruction.set_b(if should_return_value { 1 } else { 0 });
+        instruction.set_b_to_boolean(should_return_value);
 
         instruction
     }
@@ -398,7 +397,7 @@ impl Instruction {
                     chunk.get_register_type(self.b())
                 }
             }
-            Equal | Less | LessEqual | Test | Not | LoadBoolean => Some(Type::Boolean),
+            LoadBoolean | Not => Some(Type::Boolean),
             Negate => {
                 if self.b_is_constant() {
                     chunk.get_constant_type(self.b())
@@ -725,12 +724,11 @@ mod tests {
 
     #[test]
     fn load_list() {
-        let instruction = Instruction::load_list(0, 1, 2);
+        let instruction = Instruction::load_list(0, 1);
 
         assert_eq!(instruction.operation(), Operation::LoadList);
         assert_eq!(instruction.a(), 0);
         assert_eq!(instruction.b(), 1);
-        assert_eq!(instruction.c(), 2);
     }
 
     #[test]
