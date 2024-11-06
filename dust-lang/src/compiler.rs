@@ -278,7 +278,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_boolean(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_boolean(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Boolean(text) = self.current_token {
@@ -304,7 +304,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_byte(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_byte(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Byte(text) = self.current_token {
@@ -328,7 +328,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_character(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_character(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Character(character) = self.current_token {
@@ -350,7 +350,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_float(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_float(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Float(text) = self.current_token {
@@ -378,7 +378,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_integer(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_integer(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Integer(text) = self.current_token {
@@ -406,7 +406,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_string(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_string(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::String(text) = self.current_token {
@@ -428,7 +428,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_grouped(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_grouped(&mut self) -> Result<(), CompileError> {
         self.allow(Token::LeftParenthesis)?;
         self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
@@ -438,7 +438,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_unary(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_unary(&mut self) -> Result<(), CompileError> {
         let operator = self.current_token;
         let operator_position = self.current_position;
 
@@ -758,7 +758,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_variable(&mut self, allowed: Allowed) -> Result<(), CompileError> {
+    fn parse_variable(&mut self) -> Result<(), CompileError> {
         let start_position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
@@ -809,13 +809,6 @@ impl<'src> Compiler<'src> {
         }
 
         if self.allow(Token::Equal)? {
-            if !allowed.assignment {
-                return Err(CompileError::InvalidAssignmentTarget {
-                    found: self.current_token.to_owned(),
-                    position: self.current_position,
-                });
-            }
-
             if !is_mutable {
                 return Err(CompileError::CannotMutateImmutableVariable {
                     identifier: self.chunk.get_identifier(local_index).unwrap(),
@@ -886,18 +879,12 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn parse_block(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_block(&mut self) -> Result<(), CompileError> {
         self.advance()?;
         self.chunk.begin_scope();
 
         while !self.allow(Token::RightCurlyBrace)? && !self.is_eof() {
-            self.parse(
-                Precedence::None,
-                Allowed {
-                    assignment: true,
-                    explicit_return: true,
-                },
-            )?;
+            self.parse(Precedence::None)?;
         }
 
         self.chunk.end_scope();
@@ -905,7 +892,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_list(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_list(&mut self) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -942,7 +929,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_if(&mut self, allowed: Allowed) -> Result<(), CompileError> {
+    fn parse_if(&mut self) -> Result<(), CompileError> {
         self.advance()?;
         self.parse_expression()?;
 
@@ -964,7 +951,7 @@ impl<'src> Compiler<'src> {
         let if_block_start_position = self.current_position;
 
         if let Token::LeftCurlyBrace = self.current_token {
-            self.parse_block(allowed)?;
+            self.parse_block()?;
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftCurlyBrace,
@@ -996,7 +983,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             if let Token::LeftCurlyBrace = self.current_token {
-                self.parse_block(allowed)?;
+                self.parse_block()?;
             } else {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
@@ -1073,7 +1060,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_while(&mut self, allowed: Allowed) -> Result<(), CompileError> {
+    fn parse_while(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
         let expression_start = self.chunk.len() as u8;
@@ -1096,10 +1083,7 @@ impl<'src> Compiler<'src> {
 
         let block_start = self.chunk.len();
 
-        self.parse_block(Allowed {
-            assignment: true,
-            explicit_return: allowed.explicit_return,
-        })?;
+        self.parse_block()?;
 
         let block_end = self.chunk.len() as u8;
 
@@ -1158,13 +1142,7 @@ impl<'src> Compiler<'src> {
 
     fn parse_top_level(&mut self) -> Result<(), CompileError> {
         loop {
-            self.parse(
-                Precedence::None,
-                Allowed {
-                    assignment: true,
-                    explicit_return: false,
-                },
-            )?;
+            self.parse(Precedence::None)?;
 
             if self.is_eof() || self.allow(Token::RightCurlyBrace)? {
                 self.parse_implicit_return()?;
@@ -1177,13 +1155,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_expression(&mut self) -> Result<(), CompileError> {
-        self.parse(
-            Precedence::None,
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-            },
-        )?;
+        self.parse(Precedence::None)?;
 
         if !self.previous_is_expression || self.chunk.is_empty() {
             return Err(CompileError::ExpectedExpression {
@@ -1196,22 +1168,10 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), CompileError> {
-        self.parse(
-            precedence.increment(),
-            Allowed {
-                assignment: false,
-                explicit_return: false,
-            },
-        )
+        self.parse(precedence.increment())
     }
 
-    fn parse_return_statement(&mut self, allowed: Allowed) -> Result<(), CompileError> {
-        if !allowed.explicit_return {
-            return Err(CompileError::UnexpectedReturn {
-                position: self.current_position,
-            });
-        }
-
+    fn parse_return_statement(&mut self) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -1248,14 +1208,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_let_statement(&mut self, allowed: Allowed) -> Result<(), CompileError> {
-        if !allowed.assignment {
-            return Err(CompileError::ExpectedExpression {
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            });
-        }
-
+    fn parse_let_statement(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
         let scope = self.chunk.current_scope();
@@ -1299,7 +1252,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_function(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_function(&mut self) -> Result<(), CompileError> {
         let function_start = self.current_position.0;
         let mut function_compiler = Compiler::new(self.lexer)?;
         let identifier = if let Token::Identifier(text) = function_compiler.current_token {
@@ -1477,7 +1430,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_semicolon(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn parse_semicolon(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
         self.previous_is_expression = false;
@@ -1485,21 +1438,21 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn expect_expression(&mut self, _: Allowed) -> Result<(), CompileError> {
+    fn expect_expression(&mut self) -> Result<(), CompileError> {
         Err(CompileError::ExpectedExpression {
             found: self.current_token.to_owned(),
             position: self.current_position,
         })
     }
 
-    fn parse(&mut self, precedence: Precedence, allowed: Allowed) -> Result<(), CompileError> {
+    fn parse(&mut self, precedence: Precedence) -> Result<(), CompileError> {
         if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
             log::debug!(
                 "{} is prefix with precedence {precedence}",
                 self.current_token.to_string().bold(),
             );
 
-            prefix_parser(self, allowed)?;
+            prefix_parser(self)?;
         }
 
         let mut infix_rule = ParseRule::from(&self.current_token);
@@ -1511,7 +1464,7 @@ impl<'src> Compiler<'src> {
                     self.current_token.to_string().bold(),
                 );
 
-                if !allowed.assignment && self.current_token == Token::Equal {
+                if self.current_token == Token::Equal {
                     return Err(CompileError::InvalidAssignmentTarget {
                         found: self.current_token.to_owned(),
                         position: self.current_position,
@@ -1530,6 +1483,7 @@ impl<'src> Compiler<'src> {
     }
 }
 
+/// Operator precedence levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
     None,
@@ -1571,19 +1525,13 @@ impl Display for Precedence {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Allowed {
-    pub assignment: bool,
-    pub explicit_return: bool,
-}
+type Parser<'a> = fn(&mut Compiler<'a>) -> Result<(), CompileError>;
 
-type PrefixFunction<'a> = fn(&mut Compiler<'a>, Allowed) -> Result<(), CompileError>;
-type InfixFunction<'a> = fn(&mut Compiler<'a>) -> Result<(), CompileError>;
-
+/// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
 struct ParseRule<'a> {
-    pub prefix: Option<PrefixFunction<'a>>,
-    pub infix: Option<InfixFunction<'a>>,
+    pub prefix: Option<Parser<'a>>,
+    pub infix: Option<Parser<'a>>,
     pub precedence: Precedence,
 }
 
@@ -1854,6 +1802,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
     }
 }
 
+/// Compilation errors
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompileError {
     // Token errors
@@ -1868,12 +1817,19 @@ pub enum CompileError {
         position: Span,
     },
 
-    // Expression errors
+    // Parsing errors
     CannotChainComparison {
         position: Span,
     },
     ExpectedExpression {
         found: TokenOwned,
+        position: Span,
+    },
+    InvalidAssignmentTarget {
+        found: TokenOwned,
+        position: Span,
+    },
+    UnexpectedReturn {
         position: Span,
     },
 
@@ -1894,15 +1850,6 @@ pub enum CompileError {
         identifier: String,
         variable_scope: Scope,
         access_scope: Scope,
-        position: Span,
-    },
-
-    // Statement errors
-    InvalidAssignmentTarget {
-        found: TokenOwned,
-        position: Span,
-    },
-    UnexpectedReturn {
         position: Span,
     },
 
