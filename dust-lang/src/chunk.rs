@@ -153,6 +153,46 @@ impl Chunk {
         }
     }
 
+    pub fn get_constant_type(&self, constant_index: u8) -> Option<Type> {
+        self.constants
+            .get(constant_index as usize)
+            .map(|value| value.r#type())
+    }
+
+    pub fn get_local_type(&self, local_index: u8) -> Option<Type> {
+        self.locals.get(local_index as usize)?.r#type.clone()
+    }
+
+    pub fn get_register_type(&self, register_index: u8) -> Option<Type> {
+        let local_type_option = self
+            .locals
+            .iter()
+            .find(|local| local.register_index == register_index)
+            .map(|local| local.r#type.clone());
+
+        if let Some(local_type) = local_type_option {
+            return local_type;
+        }
+
+        self.instructions.iter().find_map(|(instruction, _)| {
+            if instruction.yields_value() && instruction.a() == register_index {
+                instruction.yielded_type(self)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn return_type(&self) -> Option<Type> {
+        self.instructions.iter().rev().find_map(|(instruction, _)| {
+            if instruction.yields_value() {
+                instruction.yielded_type(self)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn disassembler(&self) -> ChunkDisassembler {
         ChunkDisassembler::new(self)
     }
@@ -259,8 +299,8 @@ impl<'a> ChunkDisassembler<'a> {
     const INSTRUCTION_HEADER: [&'static str; 4] = [
         "Instructions",
         "------------",
-        "INDEX BYTECODE OPERATION       INFO                      POSITION     ",
-        "----- -------- --------------- ------------------------- -------------",
+        "INDEX BYTECODE OPERATION     INFO                      TYPE      POSITION   ",
+        "----- -------- ------------- ------------------------- --------- -----------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 4] =
@@ -427,10 +467,14 @@ impl<'a> ChunkDisassembler<'a> {
         self.push_header(&name_display);
 
         let info_line = format!(
-            "{} instructions, {} constants, {} locals",
+            "{} instructions, {} constants, {} locals, returns {}",
             self.chunk.instructions.len(),
             self.chunk.constants.len(),
-            self.chunk.locals.len()
+            self.chunk.locals.len(),
+            self.chunk
+                .return_type()
+                .map(|r#type| r#type.to_string())
+                .unwrap_or("none".to_string())
         );
 
         self.push(&info_line, true, false, false, true);
@@ -440,12 +484,18 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         for (index, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
-            let position = position.to_string();
-            let operation = instruction.operation().to_string();
-            let info = instruction.disassembly_info(Some(self.chunk));
             let bytecode = u32::from(instruction);
-            let instruction_display =
-                format!("{index:<5} {bytecode:<08X} {operation:15} {info:25} {position:13}");
+            let operation = instruction.operation().to_string();
+            let info = instruction.disassembly_info(self.chunk);
+            let type_display = instruction
+                .yielded_type(self.chunk)
+                .map(|r#type| r#type.to_string())
+                .unwrap_or(String::with_capacity(0));
+            let position = position.to_string();
+
+            let instruction_display = format!(
+                "{index:<5} {bytecode:08X} {operation:13} {info:25} {type_display:9} {position:11}"
+            );
 
             self.push_details(&instruction_display);
         }

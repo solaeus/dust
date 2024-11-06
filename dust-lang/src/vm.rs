@@ -74,7 +74,7 @@ impl Vm {
                 self.ip - 1,
                 position,
                 instruction.operation(),
-                instruction.disassembly_info(Some(&self.chunk))
+                instruction.disassembly_info(&self.chunk)
             );
 
             match instruction.operation() {

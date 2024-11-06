@@ -14,7 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, NativeFunction, Operation};
+use crate::{Chunk, NativeFunction, Operation, Type};
 
 /// An operation and its arguments for the Dust virtual machine.
 ///
@@ -364,35 +364,59 @@ impl Instruction {
     }
 
     pub fn yields_value(&self) -> bool {
-        if matches!(
-            self.operation(),
+        match self.operation() {
             Operation::Add
-                | Operation::Call
-                | Operation::Divide
-                | Operation::GetLocal
-                | Operation::LoadBoolean
-                | Operation::LoadConstant
-                | Operation::LoadList
-                | Operation::LoadSelf
-                | Operation::Modulo
-                | Operation::Multiply
-                | Operation::Negate
-                | Operation::Not
-                | Operation::Subtract
-        ) {
-            return true;
+            | Operation::Call
+            | Operation::Divide
+            | Operation::GetLocal
+            | Operation::LoadBoolean
+            | Operation::LoadConstant
+            | Operation::LoadList
+            | Operation::LoadSelf
+            | Operation::Modulo
+            | Operation::Multiply
+            | Operation::Negate
+            | Operation::Not
+            | Operation::Subtract => true,
+            Operation::CallNative => {
+                let native_function = NativeFunction::from(self.b());
+
+                native_function.r#type().return_type.is_some()
+            }
+            _ => false,
         }
-
-        if matches!(self.operation(), Operation::CallNative) {
-            let native_function = NativeFunction::from(self.b());
-
-            return native_function.r#type().return_type.is_some();
-        }
-
-        false
     }
 
-    pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> String {
+    pub fn yielded_type(&self, chunk: &Chunk) -> Option<Type> {
+        use Operation::*;
+
+        match self.operation() {
+            Add | Divide | Modulo | Multiply | Subtract => {
+                if self.b_is_constant() {
+                    chunk.get_constant_type(self.b())
+                } else {
+                    chunk.get_register_type(self.b())
+                }
+            }
+            Equal | Less | LessEqual | Test | Not | LoadBoolean => Some(Type::Boolean),
+            Negate => {
+                if self.b_is_constant() {
+                    chunk.get_constant_type(self.b())
+                } else {
+                    chunk.get_register_type(self.b())
+                }
+            }
+            GetLocal => chunk.get_local_type(self.b()),
+            CallNative => {
+                let native_function = NativeFunction::from(self.b());
+
+                native_function.r#type().return_type.map(|boxed| *boxed)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn disassembly_info(&self, chunk: &Chunk) -> String {
         let format_arguments = || {
             let first_argument = if self.b_is_constant() {
                 format!("C{}", self.b())
@@ -448,26 +472,18 @@ impl Instruction {
             Operation::LoadSelf => {
                 let to_register = self.a();
                 let name = chunk
-                    .map(|chunk| {
-                        chunk
-                            .name()
-                            .map(|idenifier| idenifier.as_str())
-                            .unwrap_or("self")
-                    })
-                    .unwrap();
+                    .name()
+                    .map(|idenifier| idenifier.as_str())
+                    .unwrap_or("self");
 
                 format!("R{to_register} = {name}")
             }
             Operation::DefineLocal => {
                 let to_register = self.a();
                 let local_index = self.b();
-                let identifier_display = if let Some(chunk) = chunk {
-                    match chunk.get_identifier(local_index) {
-                        Some(identifier) => identifier.to_string(),
-                        None => "???".to_string(),
-                    }
-                } else {
-                    "???".to_string()
+                let identifier_display = match chunk.get_identifier(local_index) {
+                    Some(identifier) => identifier.to_string(),
+                    None => "???".to_string(),
                 };
                 let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
@@ -480,13 +496,9 @@ impl Instruction {
             }
             Operation::SetLocal => {
                 let local_index = self.b();
-                let identifier_display = if let Some(chunk) = chunk {
-                    match chunk.get_identifier(local_index) {
-                        Some(identifier) => identifier.to_string(),
-                        None => "???".to_string(),
-                    }
-                } else {
-                    "???".to_string()
+                let identifier_display = match chunk.get_identifier(local_index) {
+                    Some(identifier) => identifier.to_string(),
+                    None => "???".to_string(),
                 };
 
                 format!("L{} = R{} {}", local_index, self.a(), identifier_display)
