@@ -1,8 +1,11 @@
-use std::{fs::read_to_string, io::Write};
+use std::{
+    fs::read_to_string,
+    io::{stdout, Write},
+};
 
 use clap::Parser;
 use colored::Colorize;
-use dust_lang::{compile, format, run};
+use dust_lang::{compile, format, lex, output_token_list, run};
 use log::{Level, LevelFilter};
 
 #[derive(Parser)]
@@ -11,7 +14,7 @@ struct Cli {
     #[arg(short, long)]
     command: Option<String>,
 
-    /// Whether to output formatted source code
+    /// Whether to output formatted source code instead of running the program
     #[arg(short, long)]
     format: bool,
 
@@ -23,13 +26,17 @@ struct Cli {
     #[arg(long)]
     format_colored: Option<bool>,
 
-    /// Whether to output the disassembled chunk
+    /// Whether to output the disassembled chunk instead of running the program
     #[arg(short, long)]
     parse: bool,
 
     /// Whether to style the disassembled chunk
     #[arg(long)]
     style_disassembly: Option<bool>,
+
+    /// Whether to tokenize the source code instead of running the program
+    #[arg(short, long)]
+    tokenize: bool,
 
     /// Log level
     #[arg(short, long)]
@@ -78,10 +85,10 @@ fn main() {
     };
 
     if args.format {
+        log::info!("Formatting source");
+
         let line_numbers = args.format_line_numbers.unwrap_or(true);
         let colored = args.format_colored.unwrap_or(true);
-
-        log::info!("Formatting source");
 
         match format(source, line_numbers, colored) {
             Ok(formatted) => println!("{}", formatted),
@@ -91,10 +98,19 @@ fn main() {
         }
     }
 
-    if args.parse {
-        let styled = args.style_disassembly.unwrap_or(true);
+    if args.tokenize {
+        log::info!("Tokenizing source");
 
+        match lex(source) {
+            Ok(tokens) => output_token_list(&tokens, &mut stdout()),
+            Err(error) => eprintln!("{}", error.report()),
+        }
+    }
+
+    if args.parse {
         log::info!("Parsing source");
+
+        let styled = args.style_disassembly.unwrap_or(true);
 
         match compile(source) {
             Ok(chunk) => {
@@ -112,7 +128,7 @@ fn main() {
         }
     }
 
-    if args.format || args.parse {
+    if args.format || args.tokenize || args.parse {
         return;
     }
 

@@ -87,256 +87,10 @@ impl<'src> Lexer<'src> {
     pub fn next_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
         self.skip_whitespace();
 
-        let (token, span) = if let Some(c) = self.peek_char() {
-            match c {
-                '0'..='9' => self.lex_numeric()?,
-                '-' => {
-                    let second_char = self.peek_second_char();
+        let (token, span) = if let Some(character) = self.peek_char() {
+            let lexer = LexRule::from(&character).lexer;
 
-                    if let Some('=') = second_char {
-                        self.position += 2;
-
-                        (Token::MinusEqual, Span(self.position - 2, self.position))
-                    } else if let Some('>') = second_char {
-                        self.position += 2;
-
-                        (Token::ArrowThin, Span(self.position - 2, self.position))
-                    } else if let Some('0'..='9') = second_char {
-                        self.lex_numeric()?
-                    } else if "-Infinity" == self.peek_chars(9) {
-                        self.position += 9;
-
-                        (
-                            Token::Float("-Infinity"),
-                            Span(self.position - 9, self.position),
-                        )
-                    } else {
-                        self.position += 1;
-
-                        (Token::Minus, Span(self.position - 1, self.position))
-                    }
-                }
-                'a'..='z' | 'A'..='Z' => self.lex_alphanumeric()?,
-                '"' => self.lex_string()?,
-                '\'' => {
-                    self.position += 1;
-
-                    if let Some(c) = self.peek_char() {
-                        self.position += 1;
-
-                        let peek = self.peek_char();
-
-                        if let Some('\'') = peek {
-                            self.position += 1;
-
-                            (Token::Character(c), Span(self.position - 3, self.position))
-                        } else {
-                            return Err(LexError::ExpectedCharacter {
-                                expected: '\'',
-                                actual: peek.unwrap_or('\0'),
-                                position: self.position,
-                            });
-                        }
-                    } else {
-                        return Err(LexError::UnexpectedEndOfFile {
-                            position: self.position,
-                        });
-                    }
-                }
-                '+' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::PlusEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Plus, Span(self.position - 1, self.position))
-                    }
-                }
-                '*' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::StarEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Star, Span(self.position - 1, self.position))
-                    }
-                }
-                '(' => {
-                    self.position += 1;
-
-                    (
-                        Token::LeftParenthesis,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                ')' => {
-                    self.position += 1;
-
-                    (
-                        Token::RightParenthesis,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                '=' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::DoubleEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Equal, Span(self.position - 1, self.position))
-                    }
-                }
-                '[' => {
-                    self.position += 1;
-
-                    (
-                        Token::LeftSquareBrace,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                ']' => {
-                    self.position += 1;
-
-                    (
-                        Token::RightSquareBrace,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                ',' => {
-                    self.position += 1;
-
-                    (Token::Comma, Span(self.position - 1, self.position))
-                }
-                '.' => {
-                    if let Some('.') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::DoubleDot, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Dot, Span(self.position - 1, self.position))
-                    }
-                }
-                '>' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::GreaterEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Greater, Span(self.position - 1, self.position))
-                    }
-                }
-                '<' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::LessEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Less, Span(self.position - 1, self.position))
-                    }
-                }
-                '{' => {
-                    self.position += 1;
-
-                    (
-                        Token::LeftCurlyBrace,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                '}' => {
-                    self.position += 1;
-
-                    (
-                        Token::RightCurlyBrace,
-                        Span(self.position - 1, self.position),
-                    )
-                }
-                '/' => {
-                    if let Some('=') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::SlashEqual, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        (Token::Slash, Span(self.position - 1, self.position))
-                    }
-                }
-                '%' => {
-                    self.position += 1;
-
-                    (Token::Percent, Span(self.position - 1, self.position))
-                }
-                '&' => {
-                    if let Some('&') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (
-                            Token::DoubleAmpersand,
-                            Span(self.position - 2, self.position),
-                        )
-                    } else {
-                        self.position += 1;
-
-                        return Err(LexError::UnexpectedCharacter {
-                            actual: c,
-                            position: self.position,
-                        });
-                    }
-                }
-                ';' => {
-                    self.position += 1;
-
-                    (Token::Semicolon, Span(self.position - 1, self.position))
-                }
-                '|' => {
-                    if let Some('|') = self.peek_second_char() {
-                        self.position += 2;
-
-                        (Token::DoublePipe, Span(self.position - 2, self.position))
-                    } else {
-                        self.position += 1;
-
-                        return Err(LexError::UnexpectedCharacter {
-                            actual: c,
-                            position: self.position,
-                        });
-                    }
-                }
-                '!' => {
-                    self.position += 1;
-
-                    if let Some('=') = self.peek_char() {
-                        self.position += 1;
-
-                        (Token::BangEqual, Span(self.position - 2, self.position))
-                    } else {
-                        (Token::Bang, Span(self.position - 1, self.position))
-                    }
-                }
-                ':' => {
-                    self.position += 1;
-
-                    (Token::Colon, Span(self.position - 1, self.position))
-                }
-                _ => {
-                    return Err(LexError::UnexpectedCharacter {
-                        actual: c,
-                        position: self.position,
-                    });
-                }
-            }
+            lexer(self)?
         } else {
             (Token::Eof, Span(self.position, self.position))
         };
@@ -563,6 +317,23 @@ impl<'src> Lexer<'src> {
         let text = &self.source[start_pos + 1..self.position - 1];
 
         Ok((Token::String(text), Span(start_pos, self.position)))
+    }
+}
+
+type LexerFn<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
+
+pub struct LexRule<'src> {
+    lexer: LexerFn<'src>,
+}
+
+impl<'src> From<&char> for LexRule<'src> {
+    fn from(char: &char) -> Self {
+        match char {
+            '0'..='9' => LexRule {
+                lexer: Lexer::lex_numeric,
+            },
+            _ => panic!("Invalid character"),
+        }
     }
 }
 

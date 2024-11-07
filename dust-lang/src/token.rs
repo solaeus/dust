@@ -1,7 +1,25 @@
 //! Token, TokenOwned and TokenKind types.
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    io::Write,
+};
 
 use serde::{Deserialize, Serialize};
+
+use crate::Span;
+
+pub fn output_token_list<W: Write>(tokens: &[(Token, Span)], writer: &mut W) {
+    const HEADER: [&str; 2] = ["TOKEN        POSITION  ", "------------ ----------"];
+
+    writeln!(writer, "{}", HEADER[0]).unwrap();
+    writeln!(writer, "{}", HEADER[1]).unwrap();
+
+    for (token, position) in tokens {
+        let token = token.to_string();
+
+        writeln!(writer, "{token:<12} {position}").unwrap();
+    }
+}
 
 macro_rules! define_tokens {
     ($($variant:ident $(($data_type:ty))?),+ $(,)?) => {
