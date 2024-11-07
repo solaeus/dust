@@ -28,7 +28,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, FunctionType, RangeableType, Span, Type, Vm, VmError};
+use crate::{Chunk, FunctionType, RangeableType, Type};
 
 /// Dust value representation
 ///
@@ -254,25 +254,6 @@ impl Value {
         };
 
         Ok(not)
-    }
-
-    pub fn to_concrete(self, vm: &mut Vm, position: Span) -> Result<Value, VmError> {
-        match self {
-            Value::Concrete(_) => Ok(self),
-            Value::Abstract(AbstractValue::List { start, end, .. }) => {
-                let mut items = Vec::new();
-
-                for register_index in start..end {
-                    let get_value = vm.empty_register(register_index, position);
-
-                    if let Ok(value) = get_value {
-                        items.push(value);
-                    }
-                }
-
-                Ok(Value::Concrete(ConcreteValue::List(items)))
-            }
-        }
     }
 }
 

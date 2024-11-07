@@ -50,8 +50,8 @@ use crate::{Chunk, ConcreteValue, Local, Value};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i  BYTECODE OPERATION             INFO               TYPE         POSITION  ",
-    "--- -------- ------------- -------------------- ---------------- ------------",
+    " i  BYTECODE OPERATION             INFO               TYPE        POSITION ",
+    "--- -------- ------------- -------------------- ---------------- ----------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -277,7 +277,7 @@ impl<'a> Disassembler<'a> {
             let position = position.to_string();
 
             let instruction_display = format!(
-                "{index:^3} {bytecode:>8} {operation:13} {info:20} {type_display:^16} {position:12}"
+                "{index:^3} {bytecode:>8} {operation:13} {info:^20} {type_display:^16} {position:10}"
             );
 
             self.push_details(&instruction_display);

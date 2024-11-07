@@ -17,7 +17,7 @@ fn empty_list() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::list(vec![]))));
+    assert_eq!(run(source), Ok(Some(Value::abstract_list(0, 0, Type::Any))));
 }
 
 #[test]
@@ -35,18 +35,14 @@ fn list() {
                 (Instruction::load_list(3, 0), Span(0, 9)),
                 (Instruction::r#return(true), Span(9, 9)),
             ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(3),],
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
             vec![]
         )),
     );
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::list([
-            Value::integer(1),
-            Value::integer(2),
-            Value::integer(3)
-        ])))
+        Ok(Some(Value::abstract_list(0, 3, Type::Integer)))
     );
 }
 
@@ -90,10 +86,7 @@ fn list_with_complex_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::list([
-            Value::integer(1),
-            Value::integer(2 + 3 - 4 * 5)
-        ])))
+        Ok(Some(Value::abstract_list(0, 4, Type::Integer)))
     );
 }
 
@@ -129,10 +122,6 @@ fn list_with_simple_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::list([
-            Value::integer(1),
-            Value::integer(2 + 3),
-            Value::integer(4)
-        ])))
+        Ok(Some(Value::abstract_list(0, 3, Type::Integer)))
     );
 }
