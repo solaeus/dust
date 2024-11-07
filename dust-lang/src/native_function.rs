@@ -52,6 +52,14 @@ macro_rules! define_native_function {
                     )*
                 }
             }
+
+            pub fn returns_value(&self) -> bool {
+                match self {
+                    $(
+                        NativeFunction::$name => $type.return_type.is_some(),
+                    )*
+                }
+            }
         }
 
         impl From<u8> for NativeFunction {

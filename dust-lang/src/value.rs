@@ -344,6 +344,22 @@ impl Display for Value {
     }
 }
 
+/// Value representation that can be resolved to a concrete value by the VM.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum AbstractValue {
+    List { start: u8, end: u8, item_type: Type },
+}
+
+impl Display for AbstractValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            AbstractValue::List { start, end, .. } => {
+                write!(f, "List [R{}..=R{}]", start, end)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum ConcreteValue {
     Boolean(bool),
@@ -710,22 +726,6 @@ impl Ord for RangeValue {
                 }
             }
             (RangeValue::IntegerRangeInclusive(_), _) => Ordering::Greater,
-        }
-    }
-}
-
-/// Value representation that can be resolved to a concrete value by the VM.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum AbstractValue {
-    List { start: u8, end: u8, item_type: Type },
-}
-
-impl Display for AbstractValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            AbstractValue::List { start, end, .. } => {
-                write!(f, "List [R{}..=R{}]", start, end)
-            }
         }
     }
 }

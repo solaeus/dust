@@ -353,7 +353,7 @@ impl<'a> Disassembler<'a> {
                     .indent(self.indent + 1)
                     .disassemble();
 
-                self.push_details(&function_disassembly);
+                self.output.push_str(&function_disassembly);
             }
         }
 
