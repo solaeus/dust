@@ -9,15 +9,19 @@ use serde::{Deserialize, Serialize};
 use crate::Span;
 
 pub fn output_token_list<W: Write>(tokens: &[(Token, Span)], writer: &mut W) {
-    const HEADER: [&str; 2] = ["TOKEN        POSITION  ", "------------ ----------"];
+    const HEADER: [&str; 2] = [
+        "TOKEN        KIND       POSITION  ",
+        "------------ ---------- ----------",
+    ];
 
     writeln!(writer, "{}", HEADER[0]).unwrap();
     writeln!(writer, "{}", HEADER[1]).unwrap();
 
     for (token, position) in tokens {
+        let kind = token.kind().to_string();
         let token = token.to_string();
 
-        writeln!(writer, "{token:<12} {position}").unwrap();
+        writeln!(writer, "{token:<12} {kind:<10} {position}").unwrap();
     }
 }
 
@@ -90,9 +94,9 @@ define_tokens! {
     Equal,
     Greater,
     GreaterEqual,
-    LeftCurlyBrace,
+    LeftBrace,
+    LeftBracket,
     LeftParenthesis,
-    LeftSquareBrace,
     Less,
     LessEqual,
     Minus,
@@ -101,9 +105,9 @@ define_tokens! {
     PercentEqual,
     Plus,
     PlusEqual,
-    RightCurlyBrace,
+    RightBrace,
+    RightBracket,
     RightParenthesis,
-    RightSquareBrace,
     Semicolon,
     Slash,
     SlashEqual,
@@ -151,9 +155,9 @@ impl<'src> Token<'src> {
             Token::Equal => 1,
             Token::Greater => 1,
             Token::GreaterEqual => 2,
-            Token::LeftCurlyBrace => 1,
+            Token::LeftBrace => 1,
             Token::LeftParenthesis => 1,
-            Token::LeftSquareBrace => 1,
+            Token::LeftBracket => 1,
             Token::Less => 1,
             Token::LessEqual => 2,
             Token::Minus => 1,
@@ -163,9 +167,9 @@ impl<'src> Token<'src> {
             Token::Plus => 1,
             Token::PlusEqual => 2,
             Token::Return => 6,
-            Token::RightCurlyBrace => 1,
+            Token::RightBrace => 1,
             Token::RightParenthesis => 1,
-            Token::RightSquareBrace => 1,
+            Token::RightBracket => 1,
             Token::Semicolon => 1,
             Token::Slash => 1,
             Token::SlashEqual => 2,
@@ -212,9 +216,9 @@ impl<'src> Token<'src> {
             Token::Equal => "=",
             Token::Greater => ">",
             Token::GreaterEqual => ">=",
-            Token::LeftCurlyBrace => "{",
+            Token::LeftBrace => "{",
             Token::LeftParenthesis => "(",
-            Token::LeftSquareBrace => "[",
+            Token::LeftBracket => "[",
             Token::Less => "<",
             Token::LessEqual => "<=",
             Token::Minus => "-",
@@ -224,9 +228,9 @@ impl<'src> Token<'src> {
             Token::Plus => "+",
             Token::PlusEqual => "+=",
             Token::Return => "return",
-            Token::RightCurlyBrace => "}",
+            Token::RightBrace => "}",
             Token::RightParenthesis => ")",
-            Token::RightSquareBrace => "]",
+            Token::RightBracket => "]",
             Token::Semicolon => ";",
             Token::Slash => "/",
             Token::SlashEqual => "/=",
@@ -265,9 +269,9 @@ impl<'src> Token<'src> {
             Token::If => TokenOwned::If,
             Token::Int => TokenOwned::Int,
             Token::Integer(integer) => TokenOwned::Integer(integer.to_string()),
-            Token::LeftCurlyBrace => TokenOwned::LeftCurlyBrace,
+            Token::LeftBrace => TokenOwned::LeftCurlyBrace,
             Token::LeftParenthesis => TokenOwned::LeftParenthesis,
-            Token::LeftSquareBrace => TokenOwned::LeftSquareBrace,
+            Token::LeftBracket => TokenOwned::LeftSquareBrace,
             Token::Let => TokenOwned::Let,
             Token::Less => TokenOwned::Less,
             Token::LessEqual => TokenOwned::LessOrEqual,
@@ -281,9 +285,9 @@ impl<'src> Token<'src> {
             Token::Plus => TokenOwned::Plus,
             Token::PlusEqual => TokenOwned::PlusEqual,
             Token::Return => TokenOwned::Return,
-            Token::RightCurlyBrace => TokenOwned::RightCurlyBrace,
+            Token::RightBrace => TokenOwned::RightCurlyBrace,
             Token::RightParenthesis => TokenOwned::RightParenthesis,
-            Token::RightSquareBrace => TokenOwned::RightSquareBrace,
+            Token::RightBracket => TokenOwned::RightSquareBrace,
             Token::Semicolon => TokenOwned::Semicolon,
             Token::Star => TokenOwned::Star,
             Token::StarEqual => TokenOwned::StarEqual,
@@ -326,9 +330,9 @@ impl<'src> Token<'src> {
             Token::If => TokenKind::If,
             Token::Int => TokenKind::Int,
             Token::Integer(_) => TokenKind::Integer,
-            Token::LeftCurlyBrace => TokenKind::LeftCurlyBrace,
+            Token::LeftBrace => TokenKind::LeftBrace,
             Token::LeftParenthesis => TokenKind::LeftParenthesis,
-            Token::LeftSquareBrace => TokenKind::LeftSquareBrace,
+            Token::LeftBracket => TokenKind::LeftBracket,
             Token::Let => TokenKind::Let,
             Token::Less => TokenKind::Less,
             Token::LessEqual => TokenKind::LessEqual,
@@ -342,9 +346,9 @@ impl<'src> Token<'src> {
             Token::Plus => TokenKind::Plus,
             Token::PlusEqual => TokenKind::PlusEqual,
             Token::Return => TokenKind::Return,
-            Token::RightCurlyBrace => TokenKind::RightCurlyBrace,
+            Token::RightBrace => TokenKind::RightBrace,
             Token::RightParenthesis => TokenKind::RightParenthesis,
-            Token::RightSquareBrace => TokenKind::RightSquareBrace,
+            Token::RightBracket => TokenKind::RightBracket,
             Token::Semicolon => TokenKind::Semicolon,
             Token::Star => TokenKind::Star,
             Token::StarEqual => TokenKind::StarEqual,
@@ -381,9 +385,9 @@ impl<'src> Token<'src> {
                 | Token::Equal
                 | Token::Greater
                 | Token::GreaterEqual
-                | Token::LeftCurlyBrace
+                | Token::LeftBrace
                 | Token::LeftParenthesis
-                | Token::LeftSquareBrace
+                | Token::LeftBracket
                 | Token::Less
                 | Token::LessEqual
                 | Token::Minus
@@ -431,9 +435,9 @@ impl<'src> Display for Token<'src> {
             Token::If => write!(f, "if"),
             Token::Int => write!(f, "int"),
             Token::Integer(value) => write!(f, "{value}"),
-            Token::LeftCurlyBrace => write!(f, "{{"),
+            Token::LeftBrace => write!(f, "{{"),
             Token::LeftParenthesis => write!(f, "("),
-            Token::LeftSquareBrace => write!(f, "["),
+            Token::LeftBracket => write!(f, "["),
             Token::Let => write!(f, "let"),
             Token::Less => write!(f, "<"),
             Token::LessEqual => write!(f, "<="),
@@ -447,9 +451,9 @@ impl<'src> Display for Token<'src> {
             Token::Plus => write!(f, "+"),
             Token::PlusEqual => write!(f, "+="),
             Token::Return => write!(f, "return"),
-            Token::RightCurlyBrace => write!(f, "}}"),
+            Token::RightBrace => write!(f, "}}"),
             Token::RightParenthesis => write!(f, ")"),
-            Token::RightSquareBrace => write!(f, "]"),
+            Token::RightBracket => write!(f, "]"),
             Token::Semicolon => write!(f, ";"),
             Token::Slash => write!(f, "/"),
             Token::SlashEqual => write!(f, "/="),
@@ -564,9 +568,9 @@ impl Display for TokenOwned {
             TokenOwned::If => Token::If.fmt(f),
             TokenOwned::Int => Token::Int.fmt(f),
             TokenOwned::Integer(integer) => Token::Integer(integer).fmt(f),
-            TokenOwned::LeftCurlyBrace => Token::LeftCurlyBrace.fmt(f),
+            TokenOwned::LeftCurlyBrace => Token::LeftBrace.fmt(f),
             TokenOwned::LeftParenthesis => Token::LeftParenthesis.fmt(f),
-            TokenOwned::LeftSquareBrace => Token::LeftSquareBrace.fmt(f),
+            TokenOwned::LeftSquareBrace => Token::LeftBracket.fmt(f),
             TokenOwned::Let => Token::Let.fmt(f),
             TokenOwned::Less => Token::Less.fmt(f),
             TokenOwned::LessOrEqual => Token::LessEqual.fmt(f),
@@ -580,9 +584,9 @@ impl Display for TokenOwned {
             TokenOwned::Plus => Token::Plus.fmt(f),
             TokenOwned::PlusEqual => Token::PlusEqual.fmt(f),
             TokenOwned::Return => Token::Return.fmt(f),
-            TokenOwned::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
+            TokenOwned::RightCurlyBrace => Token::RightBrace.fmt(f),
             TokenOwned::RightParenthesis => Token::RightParenthesis.fmt(f),
-            TokenOwned::RightSquareBrace => Token::RightSquareBrace.fmt(f),
+            TokenOwned::RightSquareBrace => Token::RightBracket.fmt(f),
             TokenOwned::Semicolon => Token::Semicolon.fmt(f),
             TokenOwned::Star => Token::Star.fmt(f),
             TokenOwned::StarEqual => Token::StarEqual.fmt(f),
@@ -604,10 +608,10 @@ impl Display for TokenKind {
             TokenKind::Bang => Token::Bang.fmt(f),
             TokenKind::BangEqual => Token::BangEqual.fmt(f),
             TokenKind::Bool => Token::Bool.fmt(f),
-            TokenKind::Boolean => write!(f, "boolean value"),
+            TokenKind::Boolean => write!(f, "boolean"),
             TokenKind::Break => Token::Break.fmt(f),
-            TokenKind::Byte => write!(f, "byte value"),
-            TokenKind::Character => write!(f, "character value"),
+            TokenKind::Byte => write!(f, "byte"),
+            TokenKind::Character => write!(f, "character"),
             TokenKind::Colon => Token::Colon.fmt(f),
             TokenKind::Comma => Token::Comma.fmt(f),
             TokenKind::Dot => Token::Dot.fmt(f),
@@ -618,7 +622,7 @@ impl Display for TokenKind {
             TokenKind::Else => Token::Else.fmt(f),
             TokenKind::Eof => Token::Eof.fmt(f),
             TokenKind::Equal => Token::Equal.fmt(f),
-            TokenKind::Float => write!(f, "float value"),
+            TokenKind::Float => write!(f, "float"),
             TokenKind::FloatKeyword => Token::FloatKeyword.fmt(f),
             TokenKind::Fn => Token::Fn.fmt(f),
             TokenKind::Greater => Token::Greater.fmt(f),
@@ -626,10 +630,10 @@ impl Display for TokenKind {
             TokenKind::Identifier => write!(f, "identifier"),
             TokenKind::If => Token::If.fmt(f),
             TokenKind::Int => Token::Int.fmt(f),
-            TokenKind::Integer => write!(f, "integer value"),
-            TokenKind::LeftCurlyBrace => Token::LeftCurlyBrace.fmt(f),
+            TokenKind::Integer => write!(f, "integer"),
+            TokenKind::LeftBrace => Token::LeftBrace.fmt(f),
             TokenKind::LeftParenthesis => Token::LeftParenthesis.fmt(f),
-            TokenKind::LeftSquareBrace => Token::LeftSquareBrace.fmt(f),
+            TokenKind::LeftBracket => Token::LeftBracket.fmt(f),
             TokenKind::Let => Token::Let.fmt(f),
             TokenKind::Less => Token::Less.fmt(f),
             TokenKind::LessEqual => Token::LessEqual.fmt(f),
@@ -643,16 +647,16 @@ impl Display for TokenKind {
             TokenKind::Plus => Token::Plus.fmt(f),
             TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
             TokenKind::Return => Token::Return.fmt(f),
-            TokenKind::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
+            TokenKind::RightBrace => Token::RightBrace.fmt(f),
             TokenKind::RightParenthesis => Token::RightParenthesis.fmt(f),
-            TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),
+            TokenKind::RightBracket => Token::RightBracket.fmt(f),
             TokenKind::Semicolon => Token::Semicolon.fmt(f),
             TokenKind::Star => Token::Star.fmt(f),
             TokenKind::StarEqual => Token::StarEqual.fmt(f),
             TokenKind::Str => Token::Str.fmt(f),
             TokenKind::Slash => Token::Slash.fmt(f),
             TokenKind::SlashEqual => Token::SlashEqual.fmt(f),
-            TokenKind::String => write!(f, "string value"),
+            TokenKind::String => write!(f, "string"),
             TokenKind::Struct => Token::Struct.fmt(f),
             TokenKind::While => Token::While.fmt(f),
         }

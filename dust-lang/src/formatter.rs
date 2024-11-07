@@ -101,13 +101,13 @@ impl<'src> Formatter<'src> {
                 String(string) => {
                     self.push_colored(string.magenta());
                 }
-                LeftCurlyBrace => {
+                LeftBrace => {
                     self.next_line.push_str(self.current_token.as_str());
                     self.commit_line(LineKind::OpenBlock);
 
                     self.indent += 1;
                 }
-                RightCurlyBrace => {
+                RightBrace => {
                     self.commit_line(LineKind::CloseBlock);
                     self.next_line.push_str(self.current_token.as_str());
 

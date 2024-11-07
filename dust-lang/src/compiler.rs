@@ -886,7 +886,7 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.chunk.begin_scope();
 
-        while !self.allow(Token::RightCurlyBrace)? && !self.is_eof() {
+        while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
         }
 
@@ -902,7 +902,7 @@ impl<'src> Compiler<'src> {
 
         let start_register = self.next_register();
 
-        while !self.allow(Token::RightSquareBrace)? && !self.is_eof() {
+        while !self.allow(Token::RightBracket)? && !self.is_eof() {
             let expected_register = self.next_register();
 
             self.parse_expression()?;
@@ -953,11 +953,11 @@ impl<'src> Compiler<'src> {
         let if_block_start = self.chunk.len();
         let if_block_start_position = self.current_position;
 
-        if let Token::LeftCurlyBrace = self.current_token {
+        if let Token::LeftBrace = self.current_token {
             self.parse_block()?;
         } else {
             return Err(CompileError::ExpectedToken {
-                expected: TokenKind::LeftCurlyBrace,
+                expected: TokenKind::LeftBrace,
                 found: self.current_token.to_owned(),
                 position: self.current_position,
             });
@@ -985,11 +985,11 @@ impl<'src> Compiler<'src> {
         if let Token::Else = self.current_token {
             self.advance()?;
 
-            if let Token::LeftCurlyBrace = self.current_token {
+            if let Token::LeftBrace = self.current_token {
                 self.parse_block()?;
             } else {
                 return Err(CompileError::ExpectedTokenMultiple {
-                    expected: &[TokenKind::If, TokenKind::LeftCurlyBrace],
+                    expected: &[TokenKind::If, TokenKind::LeftBrace],
                     found: self.current_token.to_owned(),
                     position: self.current_position,
                 });
@@ -1147,7 +1147,7 @@ impl<'src> Compiler<'src> {
         loop {
             self.parse(Precedence::None)?;
 
-            if self.is_eof() || self.allow(Token::RightCurlyBrace)? {
+            if self.is_eof() || self.allow(Token::RightBrace)? {
                 self.parse_implicit_return()?;
 
                 break;
@@ -1179,10 +1179,8 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
-        let has_return_value = if matches!(
-            self.current_token,
-            Token::Semicolon | Token::RightCurlyBrace
-        ) {
+        let has_return_value = if matches!(self.current_token, Token::Semicolon | Token::RightBrace)
+        {
             false
         } else {
             self.parse_expression()?;
@@ -1335,7 +1333,7 @@ impl<'src> Compiler<'src> {
             None
         };
 
-        function_compiler.expect(Token::LeftCurlyBrace)?;
+        function_compiler.expect(Token::LeftBrace)?;
         function_compiler.parse_top_level()?;
 
         self.previous_token = function_compiler.previous_token;
@@ -1673,7 +1671,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::LeftCurlyBrace => ParseRule {
+            Token::LeftBrace => ParseRule {
                 prefix: Some(Compiler::parse_block),
                 infix: None,
                 precedence: Precedence::None,
@@ -1683,7 +1681,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: Some(Compiler::parse_call),
                 precedence: Precedence::Call,
             },
-            Token::LeftSquareBrace => ParseRule {
+            Token::LeftBracket => ParseRule {
                 prefix: Some(Compiler::parse_list),
                 infix: None,
                 precedence: Precedence::None,
@@ -1745,7 +1743,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::RightCurlyBrace => ParseRule {
+            Token::RightBrace => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -1755,7 +1753,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::RightSquareBrace => ParseRule {
+            Token::RightBracket => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,

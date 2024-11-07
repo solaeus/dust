@@ -41,11 +41,10 @@ pub fn lex<'tokens, 'src: 'tokens>(
             error: CompileError::Lex(error),
             source,
         })?;
-        let is_eof = matches!(token, Token::Eof);
 
         tokens.push((token, span));
 
-        if is_eof {
+        if lexer.is_eof() {
             break;
         }
     }
@@ -60,6 +59,7 @@ pub fn lex<'tokens, 'src: 'tokens>(
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,
+    is_eof: bool,
 }
 
 impl<'src> Lexer<'src> {
@@ -68,6 +68,7 @@ impl<'src> Lexer<'src> {
         Lexer {
             source,
             position: 0,
+            is_eof: false,
         }
     }
 
@@ -76,7 +77,7 @@ impl<'src> Lexer<'src> {
     }
 
     pub fn is_eof(&self) -> bool {
-        self.position >= self.source.len()
+        self.is_eof
     }
 
     pub fn skip_to(&mut self, position: usize) {
@@ -92,19 +93,12 @@ impl<'src> Lexer<'src> {
 
             lexer(self)?
         } else {
+            self.is_eof = true;
+
             (Token::Eof, Span(self.position, self.position))
         };
 
         Ok((token, span))
-    }
-
-    /// Peek at the next token without consuming the source.
-    pub fn peek_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
-        let token = self.next_token()?;
-
-        self.position -= token.0.len();
-
-        Ok(token)
     }
 
     /// Progress to the next character.
@@ -261,7 +255,7 @@ impl<'src> Lexer<'src> {
     }
 
     /// Lex an identifier token.
-    fn lex_alphanumeric(&mut self) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_keyword_or_identifier(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
         while let Some(c) = self.peek_char() {
@@ -318,6 +312,247 @@ impl<'src> Lexer<'src> {
 
         Ok((Token::String(text), Span(start_pos, self.position)))
     }
+
+    fn lex_char(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_position = self.position;
+
+        self.next_char();
+
+        let char = self.source[self.position..].chars().next().unwrap();
+
+        self.next_char();
+
+        if self.peek_char() == Some('\'') {
+            self.next_char();
+        } else {
+            return Err(LexError::ExpectedCharacter {
+                expected: '\'',
+                actual: self.peek_char().unwrap_or('\0'),
+                position: self.position,
+            });
+        }
+
+        let end_position = self.position;
+
+        Ok((Token::Character(char), Span(start_position, end_position)))
+    }
+
+    fn lex_plus(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::PlusEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Plus, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_minus(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::MinusEqual, Span(start_pos, self.position)))
+        } else if self.peek_chars(8) == "Infinity" {
+            self.position += 8;
+
+            Ok((Token::Float("Infinity"), Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Minus, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_star(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::StarEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Star, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_slash(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::SlashEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Slash, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_percent(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::PercentEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Percent, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_unexpected(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        Err(LexError::UnexpectedCharacter {
+            actual: self.peek_char().unwrap_or('\0'),
+            position: self.position,
+        })
+    }
+
+    fn lex_exclamation_mark(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::BangEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Bang, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_equal(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::DoubleEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Equal, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_less_than(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::LessEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Less, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_greater_than(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('=') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::GreaterEqual, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Greater, Span(start_pos, self.position)))
+        }
+    }
+
+    fn lex_ampersand(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        let peek_char = self.peek_char();
+
+        if let Some('&') = peek_char {
+            self.next_char();
+
+            Ok((Token::DoubleAmpersand, Span(start_pos, self.position)))
+        } else if peek_char.is_none() {
+            Err(LexError::UnexpectedEndOfFile {
+                position: self.position,
+            })
+        } else {
+            Err(LexError::ExpectedCharacter {
+                expected: '&',
+                actual: self.peek_char().unwrap(),
+                position: self.position,
+            })
+        }
+    }
+
+    fn lex_pipe(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        let peek_char = self.peek_char();
+
+        if let Some('|') = peek_char {
+            self.next_char();
+
+            Ok((Token::DoublePipe, Span(start_pos, self.position)))
+        } else if peek_char.is_none() {
+            Err(LexError::UnexpectedEndOfFile {
+                position: self.position,
+            })
+        } else {
+            Err(LexError::ExpectedCharacter {
+                expected: '&',
+                actual: self.peek_char().unwrap(),
+                position: self.position,
+            })
+        }
+    }
+
+    fn lex_left_parenthesis(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::LeftParenthesis, Span(start_pos, self.position)))
+    }
+
+    fn lex_right_parenthesis(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::RightParenthesis, Span(start_pos, self.position)))
+    }
+
+    fn lex_left_bracket(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::LeftBracket, Span(start_pos, self.position)))
+    }
+
+    fn lex_right_bracket(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::RightBracket, Span(start_pos, self.position)))
+    }
 }
 
 type LexerFn<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
@@ -332,7 +567,63 @@ impl<'src> From<&char> for LexRule<'src> {
             '0'..='9' => LexRule {
                 lexer: Lexer::lex_numeric,
             },
-            _ => panic!("Invalid character"),
+            'Z'..='a' => LexRule {
+                lexer: Lexer::lex_keyword_or_identifier,
+            },
+            '"' => LexRule {
+                lexer: Lexer::lex_string,
+            },
+            '\'' => LexRule {
+                lexer: Lexer::lex_char,
+            },
+            '+' => LexRule {
+                lexer: Lexer::lex_plus,
+            },
+            '-' => LexRule {
+                lexer: Lexer::lex_minus,
+            },
+            '*' => LexRule {
+                lexer: Lexer::lex_star,
+            },
+            '/' => LexRule {
+                lexer: Lexer::lex_slash,
+            },
+            '%' => LexRule {
+                lexer: Lexer::lex_percent,
+            },
+            '!' => LexRule {
+                lexer: Lexer::lex_exclamation_mark,
+            },
+            '=' => LexRule {
+                lexer: Lexer::lex_equal,
+            },
+            '<' => LexRule {
+                lexer: Lexer::lex_less_than,
+            },
+            '>' => LexRule {
+                lexer: Lexer::lex_greater_than,
+            },
+            '&' => LexRule {
+                lexer: Lexer::lex_ampersand,
+            },
+            '|' => LexRule {
+                lexer: Lexer::lex_pipe,
+            },
+            '(' => LexRule {
+                lexer: Lexer::lex_left_parenthesis,
+            },
+            ')' => LexRule {
+                lexer: Lexer::lex_right_parenthesis,
+            },
+            '[' => LexRule {
+                lexer: Lexer::lex_left_bracket,
+            },
+            ']' => LexRule {
+                lexer: Lexer::lex_right_bracket,
+            },
+            _ => LexRule {
+                lexer: Lexer::lex_unexpected,
+            },
         }
     }
 }
@@ -464,7 +755,7 @@ mod tests {
             lex(input),
             Ok(vec![
                 (Token::Map, Span(0, 3)),
-                (Token::LeftCurlyBrace, Span(4, 5)),
+                (Token::LeftBrace, Span(4, 5)),
                 (Token::Identifier("x"), Span(6, 7)),
                 (Token::Equal, Span(8, 9)),
                 (Token::String("1"), Span(10, 13)),
@@ -476,7 +767,7 @@ mod tests {
                 (Token::Identifier("z"), Span(22, 23)),
                 (Token::Equal, Span(24, 25)),
                 (Token::Float("3.0"), Span(26, 29)),
-                (Token::RightCurlyBrace, Span(30, 31)),
+                (Token::RightBrace, Span(30, 31)),
                 (Token::Eof, Span(31, 31)),
             ])
         );
@@ -540,7 +831,7 @@ mod tests {
             Ok(vec![
                 (Token::Struct, Span(0, 6)),
                 (Token::Identifier("FooBar"), Span(7, 13)),
-                (Token::LeftCurlyBrace, Span(14, 15)),
+                (Token::LeftBrace, Span(14, 15)),
                 (Token::Identifier("foo"), Span(16, 19)),
                 (Token::Colon, Span(19, 20)),
                 (Token::Int, Span(21, 24)),
@@ -548,7 +839,7 @@ mod tests {
                 (Token::Identifier("bar"), Span(26, 29)),
                 (Token::Colon, Span(29, 30)),
                 (Token::FloatKeyword, Span(31, 36)),
-                (Token::RightCurlyBrace, Span(37, 38)),
+                (Token::RightBrace, Span(37, 38)),
                 (Token::Eof, Span(38, 38))
             ])
         );
@@ -561,16 +852,16 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::LeftSquareBrace, Span(0, 1)),
+                (Token::LeftBracket, Span(0, 1)),
                 (Token::Integer("1"), Span(1, 2)),
                 (Token::Comma, Span(2, 3)),
                 (Token::Integer("2"), Span(4, 5)),
                 (Token::Comma, Span(5, 6)),
                 (Token::Integer("3"), Span(7, 8)),
-                (Token::RightSquareBrace, Span(8, 9)),
-                (Token::LeftSquareBrace, Span(9, 10)),
+                (Token::RightBracket, Span(8, 9)),
+                (Token::LeftBracket, Span(9, 10)),
                 (Token::Integer("1"), Span(10, 11)),
-                (Token::RightSquareBrace, Span(11, 12)),
+                (Token::RightBracket, Span(11, 12)),
                 (Token::Eof, Span(12, 12)),
             ])
         )
@@ -583,13 +874,13 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::LeftSquareBrace, Span(0, 1)),
+                (Token::LeftBracket, Span(0, 1)),
                 (Token::Integer("1"), Span(1, 2)),
                 (Token::Comma, Span(2, 3)),
                 (Token::Integer("2"), Span(4, 5)),
                 (Token::Comma, Span(5, 6)),
                 (Token::Integer("3"), Span(7, 8)),
-                (Token::RightSquareBrace, Span(8, 9)),
+                (Token::RightBracket, Span(8, 9)),
                 (Token::Eof, Span(9, 9)),
             ])
         )
@@ -602,7 +893,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::LeftCurlyBrace, Span(0, 1)),
+                (Token::LeftBrace, Span(0, 1)),
                 (Token::Identifier("a"), Span(1, 2)),
                 (Token::Equal, Span(3, 4)),
                 (Token::Integer("1"), Span(5, 6)),
@@ -614,7 +905,7 @@ mod tests {
                 (Token::Identifier("c"), Span(15, 16)),
                 (Token::Equal, Span(17, 18)),
                 (Token::Integer("3"), Span(19, 20)),
-                (Token::RightCurlyBrace, Span(20, 21)),
+                (Token::RightBrace, Span(20, 21)),
                 (Token::Dot, Span(21, 22)),
                 (Token::Identifier("c"), Span(22, 23)),
                 (Token::Eof, Span(23, 23)),
@@ -683,15 +974,15 @@ mod tests {
                 (Token::Identifier("x"), Span(3, 4)),
                 (Token::Less, Span(5, 6)),
                 (Token::Integer("10"), Span(7, 9)),
-                (Token::LeftCurlyBrace, Span(10, 11)),
+                (Token::LeftBrace, Span(10, 11)),
                 (Token::Identifier("x"), Span(12, 13)),
                 (Token::Plus, Span(14, 15)),
                 (Token::Integer("1"), Span(16, 17)),
-                (Token::RightCurlyBrace, Span(18, 19)),
+                (Token::RightBrace, Span(18, 19)),
                 (Token::Else, Span(20, 24)),
-                (Token::LeftCurlyBrace, Span(25, 26)),
+                (Token::LeftBrace, Span(25, 26)),
                 (Token::Identifier("x"), Span(27, 28)),
-                (Token::RightCurlyBrace, Span(29, 30)),
+                (Token::RightBrace, Span(29, 30)),
                 (Token::Eof, Span(30, 30)),
             ])
         )
@@ -708,11 +999,11 @@ mod tests {
                 (Token::Identifier("x"), Span(6, 7)),
                 (Token::Less, Span(8, 9)),
                 (Token::Integer("10"), Span(10, 12)),
-                (Token::LeftCurlyBrace, Span(13, 14)),
+                (Token::LeftBrace, Span(13, 14)),
                 (Token::Identifier("x"), Span(15, 16)),
                 (Token::PlusEqual, Span(17, 19)),
                 (Token::Integer("1"), Span(20, 21)),
-                (Token::RightCurlyBrace, Span(22, 23)),
+                (Token::RightBrace, Span(22, 23)),
                 (Token::Eof, Span(23, 23)),
             ])
         )
@@ -755,7 +1046,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::LeftCurlyBrace, Span(0, 1)),
+                (Token::LeftBrace, Span(0, 1)),
                 (Token::Identifier("x"), Span(2, 3)),
                 (Token::Equal, Span(4, 5)),
                 (Token::Integer("42"), Span(6, 8)),
@@ -763,7 +1054,7 @@ mod tests {
                 (Token::Identifier("y"), Span(10, 11)),
                 (Token::Equal, Span(12, 13)),
                 (Token::String("foobar"), Span(14, 22)),
-                (Token::RightCurlyBrace, Span(23, 24)),
+                (Token::RightBrace, Span(23, 24)),
                 (Token::Eof, Span(24, 24)),
             ])
         )
@@ -1104,8 +1395,8 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::LeftSquareBrace, Span(0, 1)),
-                (Token::RightSquareBrace, Span(1, 2)),
+                (Token::LeftBracket, Span(0, 1)),
+                (Token::RightBracket, Span(1, 2)),
                 (Token::Eof, Span(2, 2)),
             ])
         )
