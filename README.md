@@ -1,109 +1,50 @@
 # Dust
 
-High-level programming language with effortless concurrency, automatic memory management and type
-safety.
+Dust is a high-level interpreted programming language with static types that focuses on ease of use,
+performance and correctness.
 
-Dust is a work in progress. Because it aims to deliver a high level of safety, extensive testing
-is required. The language is still in the design phase, and the syntax is subject to change.
+## Implementation
 
-## Usage
+Dust is implemented in Rust and is divided into several parts, primarily the lexer, compiler, and
+virtual machine. All of Dust's components are designed with performance in mind and the codebase
+uses as few dependencies as possible.
 
-The Dust command line tool can be used to run Dust programs. It is not yet available outside of
-this repository.
+### Lexer
 
-```sh
-cargo run --package dust-shell -- examples/hello_world.ds
-```
+The lexer emits tokens from the source code. Dust makes extensive use of Rust's zero-copy
+capabilities to avoid unnecessary allocations when creating tokens. A token, depending on its type,
+may contain a reference to some data from the source code. The data is only copied in the case of an
+error, because it improves the usability of the codebase for errors to own their data when possible.
+In a successfully executed program, no part of the source code is copied unless it is a string
+literal or identifier.
 
-```sh
-cargo run --package dust-shell -- -c '"Hello my name is " + read_line() + "!"'
-```
+### Compiler
 
-Dust is easily embedded in another program. You can run a dust program of any size or complexity
-with a single function.
+The compiler creates a chunk, which contains all of the data needed by the virtual machine to run a
+Dust program. It does so by emitting bytecode instructions, constants and locals while parsing the
+tokens, which are generated one at a time by the lexer.
 
-```rust
-use dust_lang::{run, Value};
+#### Parsing
 
-fn main() {
-    let code = "
-        let x = 'Dust'
-        let y = ' is awesome!'
+Dust's compiler uses a custom Pratt parser, a kind of recursive descent parser, to translate a
+sequence of tokens into a chunk.
 
-        write_line(x + y)
+#### Optimizing
 
-        42
-    ";
+When generating instructions for a register-based virtual machine, there are opportunities to
+optimize the generated code, usually by consolidating register use or reusing registers within an
+expression. While it is best to output optimal code in the first place, it is not always possible.
+Dust's compiler has a simple peephole optimizer that can be used to modify isolated sections of the
+instruction list through a mutable reference.
 
-    let result = run(code);
+### Instructions
 
-    assert_eq!(result, Ok(Some(Value::integer(42))));
-}
-```
+### Virtual Machine
 
-## Concepts
+## Previous Implementations
 
-### Effortless Concurrency
+## Inspiration
 
-Dust makes concurrency as effortless as possible. Dust is organized into **statements**, and any
-sequence of statements can be run concurrently by simply adding the `async` keyword before the block
-of statements.
-
-```rust
-// Counts from 0 to 9, sleeping for an increasing amount of time between each.
-let count_slowly = fn (multiplier: int) {
-    i = 0
-
-    while i < 10 {
-        sleep(i * multiplier)
-        write_line(i.to_string())
-
-        i += 1
-    }
-}
-
-async {
-    count_slowly(200) // Finishes last
-    count_slowly(100) // Finishes second
-    count_slowly(50)  // Finishes first
-}
-```
-
-### Automatic Memory Management
-
-Dust uses a garbage collector to automatically manage memory.
-
-```rust
-let x = 0     // x is assigned but never used
-              // x is removed from memory
-
-let y = 41    // y is assigned
-let z = y + 1 // y is kept alive for this statement
-              // y is removed from memory
-
-write_line(z) // z is kept alive for this statement
-              // z is removed from memory
-```
-
-### Type Safety
-
-Dust is statically typed and null-free, but the type of a value can usually be inferred from its
-usage. Dust will refuse to run programs with type errors, but will usually not require type
-annotations.
-
-```rust
-// These two statements are identical to Dust
-let x = 1
-let x: int = 1
-
-// Numbers with decimals are floats
-let y = 10.0
-let y: float = 10.0
-
-// Strings are enclosed in double quotes and are guaranteed to be valid UTF-8
-let z = "Hello, world!"
-let z: str = "Hello, world!"
-```
-
-Aside from the ubiqutous `bool`, `int`, `float`, and `str` types, Dust also has lists, maps,
-ranges, structures, enums and functions.
+- [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf)
+- [A No-Frills Introduction to Lua 5.1 VM Instructions](https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf)
+- [Crafting Interpreters](https://craftinginterpreters.com/)
