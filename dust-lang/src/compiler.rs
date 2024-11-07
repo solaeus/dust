@@ -95,21 +95,21 @@ impl<'src> Compiler<'src> {
     }
 
     fn next_register(&mut self) -> u8 {
-        let current = self
-            .chunk
+        self.chunk
             .instructions()
             .iter()
             .rev()
             .find_map(|(instruction, _)| {
                 if instruction.yields_value() {
-                    Some(instruction.a())
+                    let previous = instruction.a();
+                    let next = previous.overflowing_add(1).0;
+
+                    Some(next)
                 } else {
                     None
                 }
             })
-            .unwrap_or(self.minimum_register);
-
-        current.overflowing_add(1).0
+            .unwrap_or(self.minimum_register)
     }
 
     fn advance(&mut self) -> Result<(), CompileError> {

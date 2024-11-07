@@ -245,7 +245,7 @@ impl NativeFunction {
                             message.push(' ');
                         }
 
-                        let argument = vm.get_register(argument_index, position)?;
+                        let argument = vm.open_register(argument_index, position)?;
 
                         message.push_str(&argument.to_string());
                     }
@@ -264,7 +264,7 @@ impl NativeFunction {
                 let mut string = String::new();
 
                 for argument_index in 0..argument_count {
-                    let argument = vm.get_register(argument_index, position)?;
+                    let argument = vm.open_register(argument_index, position)?;
 
                     string.push_str(&argument.to_string());
                 }
@@ -305,7 +305,7 @@ impl NativeFunction {
                         stdout.write(b" ").map_err(map_err)?;
                     }
 
-                    let argument_string = vm.get_register(argument_index, position)?.to_string();
+                    let argument_string = vm.open_register(argument_index, position)?.to_string();
 
                     stdout
                         .write_all(argument_string.as_bytes())
@@ -323,19 +323,23 @@ impl NativeFunction {
                     })
                 };
 
-                let first_argument = to_register.saturating_sub(argument_count);
-                let last_argument = to_register.saturating_sub(1);
+                let first_index = to_register.saturating_sub(argument_count);
+                let arguments = vm.open_nonempty_registers(first_index..to_register, position)?;
 
-                for argument_index in first_argument..=last_argument {
-                    if argument_index != 0 {
+                for (index, argument) in arguments.into_iter().enumerate() {
+                    if index != 0 {
                         stdout.write(b" ").map_err(map_err)?;
                     }
 
-                    let argument_string = vm.get_register(argument_index, position)?.to_string();
+                    if let Value::Concrete(ConcreteValue::String(string)) = argument {
+                        let bytes = string.as_bytes();
 
-                    stdout
-                        .write_all(argument_string.as_bytes())
-                        .map_err(map_err)?;
+                        stdout.write_all(bytes).map_err(map_err)?;
+                    } else {
+                        let bytes = argument.to_string().into_bytes();
+
+                        stdout.write_all(&bytes).map_err(map_err)?;
+                    }
                 }
 
                 stdout.write(b"\n").map_err(map_err)?;

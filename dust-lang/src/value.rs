@@ -486,6 +486,10 @@ impl Function {
         &self.chunk
     }
 
+    pub fn chunk_mut(&mut self) -> &mut Chunk {
+        &mut self.chunk
+    }
+
     pub fn take_chunk(self) -> Chunk {
         self.chunk
     }
