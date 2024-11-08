@@ -354,7 +354,10 @@ impl<'src> Lexer<'src> {
     fn lex_minus(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_position = self.position;
 
-        if self.peek_char().is_some_and(|char| char.is_ascii_digit()) {
+        if self
+            .peek_second_char()
+            .is_some_and(|char| char.is_ascii_digit())
+        {
             return self.lex_numeric();
         }
 
