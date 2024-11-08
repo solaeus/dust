@@ -352,21 +352,30 @@ impl<'src> Lexer<'src> {
     }
 
     fn lex_minus(&mut self) -> Result<(Token<'src>, Span), LexError> {
-        let start_pos = self.position;
+        let start_position = self.position;
+
+        if self.peek_char().is_some_and(|char| char.is_ascii_digit()) {
+            return self.lex_numeric();
+        }
 
         self.next_char();
 
         if let Some('=') = self.peek_char() {
             self.next_char();
 
-            Ok((Token::MinusEqual, Span(start_pos, self.position)))
-        } else if self.peek_chars(8) == "Infinity" {
+            return Ok((Token::MinusEqual, Span(start_position, self.position)));
+        }
+
+        if self.peek_chars(8) == "Infinity" {
             self.position += 8;
 
-            Ok((Token::Float("Infinity"), Span(start_pos, self.position)))
-        } else {
-            Ok((Token::Minus, Span(start_pos, self.position)))
+            return Ok((
+                Token::Float("-Infinity"),
+                Span(start_position, self.position),
+            ));
         }
+
+        Ok((Token::Minus, Span(start_position, self.position)))
     }
 
     fn lex_star(&mut self) -> Result<(Token<'src>, Span), LexError> {
@@ -553,6 +562,22 @@ impl<'src> Lexer<'src> {
 
         Ok((Token::RightBracket, Span(start_pos, self.position)))
     }
+
+    fn lex_left_brace(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::LeftBrace, Span(start_pos, self.position)))
+    }
+
+    fn lex_right_brace(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::RightBrace, Span(start_pos, self.position)))
+    }
 }
 
 type LexerFn<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
@@ -567,7 +592,7 @@ impl<'src> From<&char> for LexRule<'src> {
             '0'..='9' => LexRule {
                 lexer: Lexer::lex_numeric,
             },
-            'Z'..='a' => LexRule {
+            char if char.is_alphabetic() => LexRule {
                 lexer: Lexer::lex_keyword_or_identifier,
             },
             '"' => LexRule {
@@ -620,6 +645,12 @@ impl<'src> From<&char> for LexRule<'src> {
             },
             ']' => LexRule {
                 lexer: Lexer::lex_right_bracket,
+            },
+            '{' => LexRule {
+                lexer: Lexer::lex_left_brace,
+            },
+            '}' => LexRule {
+                lexer: Lexer::lex_right_brace,
             },
             _ => LexRule {
                 lexer: Lexer::lex_unexpected,
