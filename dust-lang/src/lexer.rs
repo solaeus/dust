@@ -369,6 +369,12 @@ impl<'src> Lexer<'src> {
             return Ok((Token::MinusEqual, Span(start_position, self.position)));
         }
 
+        if let Some('>') = self.peek_char() {
+            self.next_char();
+
+            return Ok((Token::ArrowThin, Span(start_position, self.position)));
+        }
+
         if self.peek_chars(8) == "Infinity" {
             self.position += 8;
 
@@ -581,6 +587,44 @@ impl<'src> Lexer<'src> {
 
         Ok((Token::RightBrace, Span(start_pos, self.position)))
     }
+
+    fn lex_semicolon(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::Semicolon, Span(start_pos, self.position)))
+    }
+
+    fn lex_colon(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::Colon, Span(start_pos, self.position)))
+    }
+
+    fn lex_comma(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        Ok((Token::Comma, Span(start_pos, self.position)))
+    }
+
+    fn lex_dot(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        if let Some('.') = self.peek_char() {
+            self.next_char();
+
+            Ok((Token::DoubleDot, Span(start_pos, self.position)))
+        } else {
+            Ok((Token::Dot, Span(start_pos, self.position)))
+        }
+    }
 }
 
 type LexerFn<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
@@ -654,6 +698,18 @@ impl<'src> From<&char> for LexRule<'src> {
             },
             '}' => LexRule {
                 lexer: Lexer::lex_right_brace,
+            },
+            ';' => LexRule {
+                lexer: Lexer::lex_semicolon,
+            },
+            ':' => LexRule {
+                lexer: Lexer::lex_colon,
+            },
+            ',' => LexRule {
+                lexer: Lexer::lex_comma,
+            },
+            '.' => LexRule {
+                lexer: Lexer::lex_dot,
             },
             _ => LexRule {
                 lexer: Lexer::lex_unexpected,
