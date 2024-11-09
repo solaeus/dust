@@ -19,7 +19,6 @@ use crate::{Disassembler, Instruction, Operation, Span, Type, Value};
 #[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chunk {
     name: Option<String>,
-    pub is_poisoned: bool,
 
     instructions: Vec<(Instruction, Span)>,
     constants: Vec<Value>,
@@ -33,7 +32,6 @@ impl Chunk {
     pub fn new(name: Option<String>) -> Self {
         Self {
             name,
-            is_poisoned: false,
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
@@ -50,7 +48,6 @@ impl Chunk {
     ) -> Self {
         Self {
             name,
-            is_poisoned: false,
             instructions,
             constants,
             locals,
@@ -175,14 +172,6 @@ impl Chunk {
         }
     }
 
-    pub fn expect_not_poisoned(&self) -> Result<(), ChunkError> {
-        if self.is_poisoned {
-            Err(ChunkError::PoisonedChunk)
-        } else {
-            Ok(())
-        }
-    }
-
     pub fn get_constant_type(&self, constant_index: u8) -> Option<Type> {
         self.constants
             .get(constant_index as usize)
@@ -194,16 +183,6 @@ impl Chunk {
     }
 
     pub fn get_register_type(&self, register_index: u8) -> Option<Type> {
-        let local_type_option = self
-            .locals
-            .iter()
-            .find(|local| local.register_index == register_index)
-            .map(|local| local.r#type.clone());
-
-        if let Some(local_type) = local_type_option {
-            return local_type;
-        }
-
         self.instructions
             .iter()
             .enumerate()
@@ -316,26 +295,16 @@ pub struct Local {
 
     /// Scope where the variable was declared.
     pub scope: Scope,
-
-    /// Expected location of a local's value.
-    pub register_index: u8,
 }
 
 impl Local {
     /// Creates a new Local instance.
-    pub fn new(
-        identifier_index: u8,
-        r#type: Option<Type>,
-        mutable: bool,
-        scope: Scope,
-        register_index: u8,
-    ) -> Self {
+    pub fn new(identifier_index: u8, r#type: Option<Type>, mutable: bool, scope: Scope) -> Self {
         Self {
             identifier_index,
             r#type,
             is_mutable: mutable,
             scope,
-            register_index,
         }
     }
 }

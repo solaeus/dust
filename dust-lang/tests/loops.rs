@@ -27,7 +27,7 @@ fn r#while() {
                 Value::integer(5),
                 Value::integer(1),
             ],
-            vec![Local::new(1, None, true, Scope::default(), 0),]
+            vec![Local::new(1, None, true, Scope::default())]
         )),
     );
 

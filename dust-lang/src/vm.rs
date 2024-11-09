@@ -1,8 +1,8 @@
 //! Virtual machine and errors
 use std::{
     cmp::Ordering,
+    collections::HashMap,
     fmt::{self, Display, Formatter},
-    ops::Range,
 };
 
 use crate::{
@@ -12,8 +12,8 @@ use crate::{
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
-    let mut chunk = compile(source)?;
-    let mut vm = Vm::new(&mut chunk, None);
+    let chunk = compile(source)?;
+    let mut vm = Vm::new(&chunk, None);
 
     vm.run()
         .map(|option| option.cloned())
@@ -34,8 +34,9 @@ pub fn run_and_display_output(source: &str) {
 #[derive(Debug, Eq, PartialEq)]
 pub struct Vm<'chunk, 'parent> {
     ip: usize,
-    chunk: &'chunk mut Chunk,
+    chunk: &'chunk Chunk,
     stack: Vec<Register>,
+    local_definitions: HashMap<u8, u8>,
     last_assigned_register: Option<u8>,
     parent: Option<&'parent Vm<'chunk, 'parent>>,
 }
@@ -43,11 +44,12 @@ pub struct Vm<'chunk, 'parent> {
 impl<'chunk, 'parent> Vm<'chunk, 'parent> {
     const STACK_LIMIT: usize = u16::MAX as usize;
 
-    pub fn new(chunk: &'chunk mut Chunk, parent: Option<&'parent Vm<'chunk, 'parent>>) -> Self {
+    pub fn new(chunk: &'chunk Chunk, parent: Option<&'parent Vm<'chunk, 'parent>>) -> Self {
         Self {
             ip: 0,
             chunk,
             stack: Vec::new(),
+            local_definitions: HashMap::new(),
             last_assigned_register: None,
             parent,
         }
@@ -172,24 +174,39 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
                     let from_register = instruction.a();
                     let to_local = instruction.b();
 
-                    self.define_local(to_local, from_register, position)?;
+                    self.define_local(to_local, from_register)?;
                 }
                 Operation::GetLocal => {
                     let to_register = instruction.a();
                     let local_index = instruction.b();
-                    let local = self.get_local(local_index, position)?;
+                    let local_register = self.local_definitions.get(&local_index).copied().ok_or(
+                        VmError::UndefinedLocal {
+                            local_index,
+                            position,
+                        },
+                    )?;
 
                     self.set_register(
                         to_register,
-                        Register::StackPointer(local.register_index),
+                        Register::StackPointer(local_register),
                         position,
                     )?;
                 }
                 Operation::SetLocal => {
-                    let register = instruction.a();
-                    let local_index = instruction.b();
+                    let from_register = instruction.a();
+                    let to_local = instruction.b();
+                    let local_register = self.local_definitions.get(&to_local).copied().ok_or(
+                        VmError::UndefinedLocal {
+                            local_index: to_local,
+                            position,
+                        },
+                    )?;
 
-                    self.define_local(local_index, register, position)?;
+                    self.set_register(
+                        local_register,
+                        Register::StackPointer(from_register),
+                        position,
+                    )?;
                 }
                 Operation::Add => {
                     let to_register = instruction.a();
@@ -401,17 +418,17 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
                     let to_register = instruction.a();
                     let function_register = instruction.b();
                     let argument_count = instruction.c();
-                    let value = self.open_register(function_register, position)?.clone();
-                    let mut function =
-                        if let Value::Concrete(ConcreteValue::Function(function)) = value {
-                            function
-                        } else {
-                            return Err(VmError::ExpectedFunction {
-                                found: value,
-                                position,
-                            });
-                        };
-                    let mut function_vm = Vm::new(function.chunk_mut(), Some(self));
+                    let value = self.open_register(function_register, position)?;
+                    let function = if let Value::Concrete(ConcreteValue::Function(function)) = value
+                    {
+                        function
+                    } else {
+                        return Err(VmError::ExpectedFunction {
+                            found: value.clone(),
+                            position,
+                        });
+                    };
+                    let mut function_vm = Vm::new(function.chunk(), Some(self));
                     let first_argument_index = function_register + 1;
 
                     for argument_index in
@@ -527,6 +544,8 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
                     position,
                 })?;
 
+        log::trace!("Open R{register_index} to {register}");
+
         match register {
             Register::Value(value) => Ok(value),
             Register::StackPointer(register_index) => self.open_register(*register_index, position),
@@ -556,67 +575,7 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
         }
     }
 
-    pub fn open_nonempty_registers(
-        &self,
-        register_index_range: Range<u8>,
-        position: Span,
-    ) -> Result<Vec<&Value>, VmError> {
-        let mut values = Vec::with_capacity(register_index_range.len());
-
-        for register_index in register_index_range.clone() {
-            let register_index = register_index as usize;
-            let register = self.stack.get(register_index).ok_or_else(|| {
-                VmError::RegisterIndexOutOfBounds {
-                    index: register_index,
-                    position,
-                }
-            })?;
-
-            let value = match register {
-                Register::Value(value) => value,
-                Register::StackPointer(register_index) => {
-                    self.open_register(*register_index, position)?
-                }
-                Register::ConstantPointer(constant_index) => {
-                    self.get_constant(*constant_index, position)?
-                }
-                Register::ParentStackPointer(register_index) => {
-                    let parent = self
-                        .parent
-                        .as_ref()
-                        .ok_or(VmError::ExpectedParent { position })?;
-
-                    parent.open_register(*register_index, position)?
-                }
-                Register::ParentConstantPointer(constant_index) => {
-                    let parent = self
-                        .parent
-                        .as_ref()
-                        .ok_or(VmError::ExpectedParent { position })?;
-
-                    parent.get_constant(*constant_index, position)?
-                }
-                Register::Empty => continue,
-            };
-
-            values.push(value);
-        }
-
-        if values.is_empty() {
-            Err(VmError::EmptyRegisters {
-                indexes: register_index_range,
-                position,
-            })
-        } else {
-            Ok(values)
-        }
-    }
-
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
-        self.chunk
-            .expect_not_poisoned()
-            .map_err(|error| VmError::Chunk { error, position })?;
-
         let max_ip = self.chunk.len() - 1;
 
         if self.ip > max_ip {
@@ -628,20 +587,10 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
         self.get_instruction(self.ip - 1, position)
     }
 
-    fn define_local(
-        &mut self,
-        local_index: u8,
-        register_index: u8,
-        position: Span,
-    ) -> Result<(), VmError> {
-        let local = self
-            .chunk
-            .get_local_mut(local_index)
-            .map_err(|error| VmError::Chunk { error, position })?;
-
+    fn define_local(&mut self, local_index: u8, register_index: u8) -> Result<(), VmError> {
         log::debug!("Define local L{}", local_index);
 
-        local.register_index = register_index;
+        self.local_definitions.insert(local_index, register_index);
 
         Ok(())
     }
@@ -694,8 +643,10 @@ pub enum VmError {
 
     // Register errors
     EmptyRegister { index: usize, position: Span },
-    EmptyRegisters { indexes: Range<u8>, position: Span },
     RegisterIndexOutOfBounds { index: usize, position: Span },
+
+    // Local errors
+    UndefinedLocal { local_index: u8, position: Span },
 
     // Execution errors
     ExpectedBoolean { found: Value, position: Span },
@@ -717,7 +668,6 @@ impl AnnotatedError for VmError {
         match self {
             Self::Chunk { .. } => "Chunk error",
             Self::EmptyRegister { .. } => "Empty register",
-            Self::EmptyRegisters { .. } => "Empty registers",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedFunction { .. } => "Expected function",
             Self::ExpectedParent { .. } => "Expected parent",
@@ -725,6 +675,7 @@ impl AnnotatedError for VmError {
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::StackOverflow { .. } => "Stack overflow",
             Self::StackUnderflow { .. } => "Stack underflow",
+            Self::UndefinedLocal { .. } => "Undefined local",
             Self::Value { .. } => "Value error",
         }
     }
@@ -733,10 +684,6 @@ impl AnnotatedError for VmError {
         match self {
             Self::Chunk { error, .. } => Some(error.to_string()),
             Self::EmptyRegister { index, .. } => Some(format!("Register R{index} is empty")),
-            Self::EmptyRegisters { indexes: range, .. } => Some(format!(
-                "Registers R{} to R{} are empty",
-                range.start, range.end
-            )),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
             Self::RegisterIndexOutOfBounds { index, .. } => {
                 Some(format!("Register {index} does not exist"))
@@ -751,7 +698,6 @@ impl AnnotatedError for VmError {
         match self {
             Self::Chunk { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
-            Self::EmptyRegisters { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedParent { position } => *position,
@@ -759,6 +705,7 @@ impl AnnotatedError for VmError {
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::StackOverflow { position } => *position,
             Self::StackUnderflow { position } => *position,
+            Self::UndefinedLocal { position, .. } => *position,
             Self::Value { position, .. } => *position,
         }
     }

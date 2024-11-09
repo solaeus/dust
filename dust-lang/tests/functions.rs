@@ -15,8 +15,8 @@ fn function() {
                 ],
                 vec![Value::string("a"), Value::string("b"),],
                 vec![
-                    Local::new(0, Some(Type::Integer), false, Scope::default(), 0),
-                    Local::new(1, Some(Type::Integer), false, Scope::default(), 1)
+                    Local::new(0, Some(Type::Integer), false, Scope::default()),
+                    Local::new(1, Some(Type::Integer), false, Scope::default())
                 ]
             ),
             FunctionType {
@@ -53,8 +53,8 @@ fn function_call() {
                         ],
                         vec![Value::string("a"), Value::string("b"),],
                         vec![
-                            Local::new(0, Some(Type::Integer), false, Scope::default(), 0),
-                            Local::new(1, Some(Type::Integer), false, Scope::default(), 1)
+                            Local::new(0, Some(Type::Integer), false, Scope::default()),
+                            Local::new(1, Some(Type::Integer), false, Scope::default())
                         ]
                     ),
                     FunctionType {
@@ -97,8 +97,8 @@ fn function_declaration() {
                         ],
                         vec![Value::string("a"), Value::string("b")],
                         vec![
-                            Local::new(0, Some(Type::Integer), false, Scope::default(), 0),
-                            Local::new(1, Some(Type::Integer), false, Scope::default(), 1)
+                            Local::new(0, Some(Type::Integer), false, Scope::default()),
+                            Local::new(1, Some(Type::Integer), false, Scope::default())
                         ]
                     ),
                     FunctionType {
@@ -117,8 +117,7 @@ fn function_declaration() {
                 })),
                 false,
                 Scope::default(),
-                0
-            ),],
+            )],
         )),
     );
 

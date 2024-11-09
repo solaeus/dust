@@ -14,7 +14,7 @@ fn define_local() {
                 (Instruction::r#return(false), Span(11, 11))
             ],
             vec![Value::integer(42), Value::string("x")],
-            vec![Local::new(1, None, false, Scope::default(), 0)]
+            vec![Local::new(1, None, false, Scope::default())]
         )),
     );
 
@@ -55,7 +55,7 @@ fn set_local() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(41), Value::string("x"), Value::integer(42)],
-            vec![Local::new(1, None, true, Scope::default(), 0)]
+            vec![Local::new(1, None, true, Scope::default())]
         )),
     );
 

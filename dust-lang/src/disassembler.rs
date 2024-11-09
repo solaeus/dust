@@ -295,7 +295,6 @@ impl<'a> Disassembler<'a> {
                 identifier_index,
                 r#type,
                 scope,
-                register_index,
                 is_mutable: mutable,
             },
         ) in self.chunk.locals().iter().enumerate()
@@ -319,7 +318,7 @@ impl<'a> Disassembler<'a> {
                 })
                 .unwrap_or("unknown".to_string());
             let local_display = format!(
-                "{index:^3} {identifier_display:10} {type_display:16} {mutable:7} {scope:7} {register_index:8}"
+                "{index:^3} {identifier_display:10} {type_display:16} {mutable:7} {scope:7}"
             );
 
             self.push_details(&local_display);

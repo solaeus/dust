@@ -324,12 +324,13 @@ impl NativeFunction {
                 };
 
                 let first_index = to_register.saturating_sub(argument_count);
-                let arguments = vm.open_nonempty_registers(first_index..to_register, position)?;
 
-                for (index, argument) in arguments.into_iter().enumerate() {
+                for (index, register) in (first_index..to_register).enumerate() {
                     if index != 0 {
                         stdout.write(b" ").map_err(map_err)?;
                     }
+
+                    let argument = vm.open_register(register, position)?;
 
                     if let Value::Concrete(ConcreteValue::String(string)) = argument {
                         let bytes = string.as_bytes();

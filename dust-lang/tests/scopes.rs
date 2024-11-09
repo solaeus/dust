@@ -55,11 +55,11 @@ fn block_scope() {
                 Value::string("e"),
             ],
             vec![
-                Local::new(1, None, false, Scope::new(0, 0), 0),
-                Local::new(3, None, false, Scope::new(1, 1), 1),
-                Local::new(5, None, false, Scope::new(2, 2), 2),
-                Local::new(7, None, false, Scope::new(1, 1), 3),
-                Local::new(8, None, false, Scope::new(0, 0), 4),
+                Local::new(1, None, false, Scope::new(0, 0)),
+                Local::new(3, None, false, Scope::new(1, 1)),
+                Local::new(5, None, false, Scope::new(2, 2)),
+                Local::new(7, None, false, Scope::new(1, 1)),
+                Local::new(8, None, false, Scope::new(0, 0)),
             ]
         )),
     );
@@ -127,15 +127,15 @@ fn multiple_block_scopes() {
                 Value::string("e"),
             ],
             vec![
-                Local::new(1, None, false, Scope::new(0, 0), 0),
-                Local::new(3, None, false, Scope::new(1, 1), 1),
-                Local::new(5, None, false, Scope::new(2, 2), 2),
-                Local::new(7, None, false, Scope::new(1, 1), 3),
-                Local::new(8, None, false, Scope::new(0, 0), 4),
-                Local::new(3, None, false, Scope::new(1, 3), 5),
-                Local::new(5, None, false, Scope::new(2, 4), 6),
-                Local::new(7, None, false, Scope::new(1, 3), 7),
-                Local::new(9, None, false, Scope::new(0, 0), 8),
+                Local::new(1, None, false, Scope::new(0, 0)),
+                Local::new(3, None, false, Scope::new(1, 1)),
+                Local::new(5, None, false, Scope::new(2, 2)),
+                Local::new(7, None, false, Scope::new(1, 1)),
+                Local::new(8, None, false, Scope::new(0, 0)),
+                Local::new(3, None, false, Scope::new(1, 3)),
+                Local::new(5, None, false, Scope::new(2, 4)),
+                Local::new(7, None, false, Scope::new(1, 3)),
+                Local::new(9, None, false, Scope::new(0, 0)),
             ]
         )),
     );

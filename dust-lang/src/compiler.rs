@@ -48,8 +48,9 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
-    optimization_count: usize,
 
+    local_definitions: Vec<u8>,
+    optimization_count: usize,
     previous_is_expression: bool,
     minimum_register: u8,
 
@@ -74,6 +75,7 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             chunk,
             lexer,
+            local_definitions: Vec::new(),
             optimization_count: 0,
             previous_is_expression: false,
             minimum_register: 0,
@@ -178,13 +180,10 @@ impl<'src> Compiler<'src> {
         let identifier = Value::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
 
-        self.chunk.locals_mut().push(Local::new(
-            identifier_index,
-            r#type,
-            is_mutable,
-            scope,
-            register_index,
-        ));
+        self.chunk
+            .locals_mut()
+            .push(Local::new(identifier_index, r#type, is_mutable, scope));
+        self.local_definitions.push(register_index);
 
         (self.chunk.locals().len() as u8 - 1, identifier_index)
     }
@@ -505,7 +504,22 @@ impl<'src> Compiler<'src> {
                 let local = self.get_local(local_index)?;
                 is_mutable_local = local.is_mutable;
 
-                local.register_index
+                *self
+                    .local_definitions
+                    .get(local_index as usize)
+                    .ok_or_else(|| {
+                        let identifier = self
+                            .chunk
+                            .constants()
+                            .get(local.identifier_index as usize)
+                            .unwrap()
+                            .to_string();
+
+                        CompileError::UndeclaredVariable {
+                            identifier,
+                            position: self.current_position,
+                        }
+                    })?
             }
             Operation::LoadConstant => {
                 is_constant = true;
@@ -821,28 +835,8 @@ impl<'src> Compiler<'src> {
 
             self.parse_expression()?;
 
-            let (mut previous_instruction, previous_position) =
-                self.chunk.instructions_mut().pop().ok_or_else(|| {
-                    CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    }
-                })?;
+            let register = self.next_register() - 1;
 
-            if previous_instruction.operation().is_math() {
-                let register_index = self.get_local(local_index)?.register_index;
-
-                log::trace!("Condensing SET_LOCAL to binary math expression");
-
-                previous_instruction.set_a(register_index);
-                self.emit_instruction(previous_instruction, self.current_position);
-
-                return Ok(());
-            }
-
-            let register = self.next_register();
-
-            self.emit_instruction(previous_instruction, previous_position);
             self.emit_instruction(
                 Instruction::set_local(register, local_index),
                 start_position,
@@ -1235,13 +1229,12 @@ impl<'src> Compiler<'src> {
         } else {
             None
         };
-        let register = self.next_register();
 
         self.expect(Token::Equal)?;
         self.parse_expression()?;
 
-        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, scope, register);
         let register = self.next_register().saturating_sub(1);
+        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, scope, register);
 
         self.emit_instruction(
             Instruction::define_local(register, local_index, is_mutable),
@@ -1294,10 +1287,8 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            let register = value_parameters
-                .as_ref()
-                .map(|values| values.len() as u8)
-                .unwrap_or(0);
+            let register = function_compiler.next_register();
+
             let scope = function_compiler.chunk.current_scope();
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
