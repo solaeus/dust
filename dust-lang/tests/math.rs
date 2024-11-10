@@ -41,7 +41,7 @@ fn add_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(1), Value::string("a"), Value::integer(2)],
-            vec![Local::new(1, None, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -124,7 +124,7 @@ fn divide_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![Value::integer(2), Value::string("a")],
-            vec![Local::new(1, None, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -233,7 +233,7 @@ fn multiply_assign() {
                 (Instruction::r#return(true), Span(23, 23))
             ],
             vec![Value::integer(2), Value::string("a"), Value::integer(3)],
-            vec![Local::new(1, None, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -300,7 +300,7 @@ fn subtract_assign() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![Value::integer(42), Value::string("x"), Value::integer(2)],
-            vec![Local::new(1, None, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 

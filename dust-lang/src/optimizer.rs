@@ -1,34 +1,41 @@
-//! Tools used by the compiler to optimize a chunk's bytecode.
-use std::{iter::Map, slice::Iter};
+//! Tool used by the compiler to optimize a chunk's bytecode.
 
 use crate::{Instruction, Operation, Span};
 
-type MapToOperation = fn(&(Instruction, Span)) -> Operation;
-
-type OperationIter<'iter> = Map<Iter<'iter, (Instruction, Span)>, MapToOperation>;
-
-/// Performs optimizations on a subset of instructions.
-pub fn optimize(instructions: &mut [(Instruction, Span)]) -> usize {
-    Optimizer::new(instructions).optimize()
-}
-
 /// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Optimizer<'chunk> {
-    instructions: &'chunk mut [(Instruction, Span)],
+pub struct Optimizer<'a> {
+    instructions: &'a mut Vec<(Instruction, Span)>,
 }
 
-impl<'chunk> Optimizer<'chunk> {
+impl<'a> Optimizer<'a> {
     /// Creates a new optimizer with a mutable reference to some of a chunk's instructions.
-    pub fn new(instructions: &'chunk mut [(Instruction, Span)]) -> Self {
+    pub fn new(instructions: &'a mut Vec<(Instruction, Span)>) -> Self {
         Self { instructions }
     }
 
-    /// Potentially mutates the instructions to optimize them.
-    pub fn optimize(&mut self) -> usize {
-        let mut optimizations = 0;
-
-        if matches!(
+    /// Optimizes a comparison operation.
+    ///
+    /// Comparison instructions (which are always followed by a JUMP) can be optimized when the
+    /// next instructions are two constant or boolean loaders. The first loader is set to skip an
+    /// instruction if it is run while the second loader is modified to use the first's register.
+    /// This makes the following two code snippets compile to the same bytecode:
+    ///
+    /// ```dust
+    /// 4 == 4
+    /// ```
+    ///
+    /// ```dust
+    /// if 4 == 4 { true } else { false }
+    /// ```
+    ///
+    /// The instructions must be in the following order:
+    ///     - `Operation::Equal | Operation::Less | Operation::LessEqual`
+    ///     - `Operation::Jump`
+    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
+    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
+    pub fn optimize_comparison(&mut self) -> bool {
+        if !matches!(
             self.get_operations(),
             Some([
                 Operation::Equal | Operation::Less | Operation::LessEqual,
@@ -37,22 +44,9 @@ impl<'chunk> Optimizer<'chunk> {
                 Operation::LoadBoolean | Operation::LoadConstant,
             ])
         ) {
-            self.optimize_comparison();
-
-            optimizations += 1;
+            return false;
         }
 
-        optimizations
-    }
-
-    /// Optimizes a comparison operation.
-    ///
-    /// The instructions must be in the following order:
-    ///     - `Operation::Equal | Operation::Less | Operation::LessEqual`
-    ///     - `Operation::Jump`
-    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
-    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
-    fn optimize_comparison(&mut self) {
         log::debug!("Optimizing comparison");
 
         let first_loader_register = {
@@ -72,12 +66,30 @@ impl<'chunk> Optimizer<'chunk> {
         second_loader_new.set_c_to_boolean(second_loader.c_is_constant());
 
         *second_loader = second_loader_new;
+
+        true
     }
 
-    fn operations_iter(&self) -> OperationIter {
-        self.instructions
-            .iter()
-            .map(|(instruction, _)| instruction.operation())
+    pub fn optimize_set_local(&mut self) -> bool {
+        if !matches!(
+            self.get_operations(),
+            Some([
+                Operation::Add
+                    | Operation::Subtract
+                    | Operation::Multiply
+                    | Operation::Divide
+                    | Operation::Modulo,
+                Operation::SetLocal,
+            ])
+        ) {
+            return false;
+        }
+
+        log::debug!("Optimizing set local");
+
+        self.instructions.pop();
+
+        true
     }
 
     fn get_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
@@ -87,7 +99,12 @@ impl<'chunk> Optimizer<'chunk> {
 
         let mut n_operations = [Operation::Return; COUNT];
 
-        for (nth, operation) in n_operations.iter_mut().zip(self.operations_iter()) {
+        for (nth, operation) in n_operations.iter_mut().rev().zip(
+            self.instructions
+                .iter()
+                .rev()
+                .map(|(instruction, _)| instruction.operation()),
+        ) {
             *nth = operation;
         }
 

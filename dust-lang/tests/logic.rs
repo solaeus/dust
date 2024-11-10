@@ -67,8 +67,8 @@ fn variable_and() {
             ],
             vec![Value::string("a"), Value::string("b"),],
             vec![
-                Local::new(0, None, false, Scope::default()),
-                Local::new(1, None, false, Scope::default()),
+                Local::new(0, Type::Boolean, false, Scope::default()),
+                Local::new(1, Type::Boolean, false, Scope::default()),
             ]
         ))
     );

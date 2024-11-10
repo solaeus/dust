@@ -15,14 +15,14 @@ fn function() {
                 ],
                 vec![Value::string("a"), Value::string("b"),],
                 vec![
-                    Local::new(0, Some(Type::Integer), false, Scope::default()),
-                    Local::new(1, Some(Type::Integer), false, Scope::default())
+                    Local::new(0, Type::Integer, false, Scope::default()),
+                    Local::new(1, Type::Integer, false, Scope::default())
                 ]
             ),
             FunctionType {
                 type_parameters: None,
                 value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                return_type: Some(Box::new(Type::Integer)),
+                return_type: Box::new(Type::Integer),
             }
         )))
     );
@@ -53,14 +53,14 @@ fn function_call() {
                         ],
                         vec![Value::string("a"), Value::string("b"),],
                         vec![
-                            Local::new(0, Some(Type::Integer), false, Scope::default()),
-                            Local::new(1, Some(Type::Integer), false, Scope::default())
+                            Local::new(0, Type::Integer, false, Scope::default()),
+                            Local::new(1, Type::Integer, false, Scope::default())
                         ]
                     ),
                     FunctionType {
                         type_parameters: None,
                         value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Some(Box::new(Type::Integer)),
+                        return_type: Box::new(Type::Integer),
                     }
                 ),
                 Value::integer(1),
@@ -97,24 +97,24 @@ fn function_declaration() {
                         ],
                         vec![Value::string("a"), Value::string("b")],
                         vec![
-                            Local::new(0, Some(Type::Integer), false, Scope::default()),
-                            Local::new(1, Some(Type::Integer), false, Scope::default())
+                            Local::new(0, Type::Integer, false, Scope::default()),
+                            Local::new(1, Type::Integer, false, Scope::default())
                         ]
                     ),
                     FunctionType {
                         type_parameters: None,
                         value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Some(Box::new(Type::Integer)),
+                        return_type: Box::new(Type::Integer),
                     },
                 )
             ],
             vec![Local::new(
                 0,
-                Some(Type::Function(FunctionType {
+                Type::Function(FunctionType {
                     type_parameters: None,
                     value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                    return_type: Some(Box::new(Type::Integer)),
-                })),
+                    return_type: Box::new(Type::Integer),
+                }),
                 false,
                 Scope::default(),
             )],

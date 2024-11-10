@@ -23,15 +23,7 @@ fn equality_assignment_long() {
                 (Instruction::r#return(true), Span(44, 44)),
             ],
             vec![Value::integer(4), Value::string("a")],
-            vec![Local::new(
-                1,
-                None,
-                false,
-                Scope {
-                    depth: 0,
-                    block_index: 0
-                },
-            )]
+            vec![Local::new(1, Type::Boolean, false, Scope::default(),)]
         )),
     );
 
@@ -61,7 +53,7 @@ fn equality_assignment_short() {
                 (Instruction::r#return(true), Span(16, 16)),
             ],
             vec![Value::integer(4), Value::string("a")],
-            vec![Local::new(1, None, false, Scope::default())]
+            vec![Local::new(1, Type::Boolean, false, Scope::default())]
         )),
     );
 
@@ -119,7 +111,7 @@ fn if_else_assigment_false() {
                 Value::integer(42),
                 Value::string("a")
             ],
-            vec![Local::new(5, None, false, Scope::default())]
+            vec![Local::new(5, Type::Integer, false, Scope::default())]
         )),
     );
 
@@ -177,7 +169,7 @@ fn if_else_assigment_true() {
                 Value::integer(42),
                 Value::string("a")
             ],
-            vec![Local::new(5, None, false, Scope::default())]
+            vec![Local::new(5, Type::Integer, false, Scope::default())]
         )),
     );
 
@@ -302,7 +294,7 @@ fn if_else_complex() {
 
 #[test]
 fn if_else_false() {
-    let source = "if 1 == 2 { panic() } else { 42 }";
+    let source = "if 1 == 2 { panic(); 0 } else { 42 }";
 
     assert_eq!(
         compile(source),
@@ -334,7 +326,7 @@ fn if_else_false() {
 
 #[test]
 fn if_else_true() {
-    let source = "if 1 == 1 { 42 } else { panic() }";
+    let source = "if 1 == 1 { 42 } else { panic(); 0 }";
 
     assert_eq!(
         compile(source),
@@ -366,7 +358,7 @@ fn if_else_true() {
 
 #[test]
 fn if_false() {
-    let source = "if 1 == 2 { 2 }";
+    let source = "if 1 == 2 { panic() }";
 
     assert_eq!(
         compile(source),
@@ -380,8 +372,11 @@ fn if_false() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(10, 11)),
-                (Instruction::load_constant(0, 1, false), Span(12, 13)),
-                (Instruction::r#return(false), Span(15, 15))
+                (
+                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Span(12, 19)
+                ),
+                (Instruction::r#return(false), Span(21, 21))
             ],
             vec![Value::integer(1), Value::integer(2)],
             vec![]
@@ -393,7 +388,7 @@ fn if_false() {
 
 #[test]
 fn if_true() {
-    let source = "if 1 == 1 { 2 }";
+    let source = "if 1 == 1 { panic() }";
 
     assert_eq!(
         compile(source),
@@ -407,13 +402,25 @@ fn if_true() {
                     Span(5, 7)
                 ),
                 (Instruction::jump(1, true), Span(10, 11)),
-                (Instruction::load_constant(0, 1, false), Span(12, 13)),
-                (Instruction::r#return(false), Span(15, 15))
+                (
+                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Span(12, 19)
+                ),
+                (Instruction::r#return(false), Span(21, 21))
             ],
-            vec![Value::integer(1), Value::integer(2)],
+            vec![Value::integer(1)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(
+        run(source),
+        Err(DustError::Runtime {
+            error: VmError::NativeFunction(NativeFunctionError::Panic {
+                message: None,
+                position: Span(12, 19)
+            }),
+            source
+        })
+    );
 }

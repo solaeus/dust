@@ -7,8 +7,7 @@ use std::{
 
 use crate::{
     compile, value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType,
-    Instruction, Local, NativeFunction, NativeFunctionError, Operation, Span, Type, Value,
-    ValueError,
+    Instruction, NativeFunction, NativeFunctionError, Operation, Span, Type, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -164,7 +163,7 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
                         FunctionType {
                             type_parameters: None,
                             value_parameters: None,
-                            return_type: None,
+                            return_type: Box::new(Type::None),
                         },
                     );
 
@@ -593,12 +592,6 @@ impl<'chunk, 'parent> Vm<'chunk, 'parent> {
         self.local_definitions.insert(local_index, register_index);
 
         Ok(())
-    }
-
-    fn get_local(&self, local_index: u8, position: Span) -> Result<&Local, VmError> {
-        self.chunk
-            .get_local(local_index)
-            .map_err(|error| VmError::Chunk { error, position })
     }
 
     fn get_instruction(

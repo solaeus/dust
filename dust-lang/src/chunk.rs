@@ -11,7 +11,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Disassembler, Instruction, Operation, Span, Type, Value};
+use crate::{Disassembler, Instruction, Span, Type, Value};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -24,6 +24,7 @@ pub struct Chunk {
     constants: Vec<Value>,
     locals: Vec<Local>,
 
+    return_type: Type,
     current_scope: Scope,
     block_index: u8,
 }
@@ -35,6 +36,7 @@ impl Chunk {
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
+            return_type: Type::None,
             current_scope: Scope::default(),
             block_index: 0,
         }
@@ -51,6 +53,7 @@ impl Chunk {
             instructions,
             constants,
             locals,
+            return_type: Type::None,
             current_scope: Scope::default(),
             block_index: 0,
         }
@@ -172,78 +175,26 @@ impl Chunk {
         }
     }
 
-    pub fn get_constant_type(&self, constant_index: u8) -> Option<Type> {
+    pub fn get_constant_type(&self, constant_index: u8) -> Result<Type, ChunkError> {
         self.constants
             .get(constant_index as usize)
             .map(|value| value.r#type())
-    }
-
-    pub fn get_local_type(&self, local_index: u8) -> Option<Type> {
-        self.locals.get(local_index as usize)?.r#type.clone()
-    }
-
-    pub fn get_register_type(&self, register_index: u8) -> Option<Type> {
-        self.instructions
-            .iter()
-            .enumerate()
-            .find_map(|(index, (instruction, _))| {
-                if let Operation::LoadList = instruction.operation() {
-                    if instruction.a() == register_index {
-                        let mut length = (instruction.c() - instruction.b() + 1) as usize;
-                        let mut item_type = Type::Any;
-                        let distance_to_end = self.len() - index;
-
-                        for (instruction, _) in self
-                            .instructions()
-                            .iter()
-                            .rev()
-                            .skip(distance_to_end)
-                            .take(length)
-                        {
-                            if let Operation::Close = instruction.operation() {
-                                length -= (instruction.c() - instruction.b()) as usize;
-                            } else if let Type::Any = item_type {
-                                item_type = instruction.yielded_type(self).unwrap_or(Type::Any);
-                            }
-                        }
-
-                        return Some(Type::List {
-                            item_type: Box::new(item_type),
-                            length,
-                        });
-                    }
-                }
-
-                if instruction.yields_value() && instruction.a() == register_index {
-                    instruction.yielded_type(self)
-                } else {
-                    None
-                }
+            .ok_or(ChunkError::ConstantIndexOutOfBounds {
+                index: constant_index as usize,
             })
     }
 
-    pub fn return_type(&self) -> Option<Type> {
-        let returns_value = self
-            .instructions()
-            .last()
-            .map(|(instruction, _)| {
-                debug_assert!(matches!(instruction.operation(), Operation::Return));
-
-                instruction.b_as_boolean()
+    pub fn get_local_type(&self, local_index: u8) -> Result<&Type, ChunkError> {
+        self.locals
+            .get(local_index as usize)
+            .map(|local| &local.r#type)
+            .ok_or(ChunkError::LocalIndexOutOfBounds {
+                index: local_index as usize,
             })
-            .unwrap_or(false);
+    }
 
-        if returns_value {
-            self.instructions.iter().rev().find_map(|(instruction, _)| {
-                if instruction.yields_value() {
-                    instruction.yielded_type(self)
-                } else {
-                    None
-                }
-            })
-        } else {
-            None
-        }
+    pub fn return_type(&self) -> &Type {
+        &self.return_type
     }
 
     pub fn disassembler(&self) -> Disassembler {
@@ -288,7 +239,7 @@ pub struct Local {
     pub identifier_index: u8,
 
     /// The expected type of the local's value.
-    pub r#type: Option<Type>,
+    pub r#type: Type,
 
     /// Whether the local is mutable.
     pub is_mutable: bool,
@@ -299,7 +250,7 @@ pub struct Local {
 
 impl Local {
     /// Creates a new Local instance.
-    pub fn new(identifier_index: u8, r#type: Option<Type>, mutable: bool, scope: Scope) -> Self {
+    pub fn new(identifier_index: u8, r#type: Type, mutable: bool, scope: Scope) -> Self {
         Self {
             identifier_index,
             r#type,
@@ -350,7 +301,6 @@ pub enum ChunkError {
     ConstantIndexOutOfBounds { index: usize },
     InstructionIndexOutOfBounds { index: usize },
     LocalIndexOutOfBounds { index: usize },
-    PoisonedChunk,
 }
 
 impl Display for ChunkError {
@@ -365,7 +315,6 @@ impl Display for ChunkError {
             ChunkError::LocalIndexOutOfBounds { index } => {
                 write!(f, "Local index {} out of bounds", index)
             }
-            ChunkError::PoisonedChunk => write!(f, "Chunk is poisoned"),
         }
     }
 }

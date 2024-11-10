@@ -13,9 +13,9 @@ use std::{
 use colored::Colorize;
 
 use crate::{
-    optimize, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction, LexError,
-    Lexer, Local, NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type,
-    Value,
+    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction, LexError, Lexer,
+    Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind, TokenOwned, Type,
+    TypeConflict, Value,
 };
 
 /// Compiles the input and returns a chunk.
@@ -51,7 +51,7 @@ pub struct Compiler<'src> {
 
     local_definitions: Vec<u8>,
     optimization_count: usize,
-    previous_is_expression: bool,
+    previous_expression_type: Type,
     minimum_register: u8,
 
     current_token: Token<'src>,
@@ -77,7 +77,7 @@ impl<'src> Compiler<'src> {
             lexer,
             local_definitions: Vec::new(),
             optimization_count: 0,
-            previous_is_expression: false,
+            previous_expression_type: Type::None,
             minimum_register: 0,
             current_token,
             current_position,
@@ -167,10 +167,10 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    pub fn declare_local(
+    fn declare_local(
         &mut self,
         identifier: &str,
-        r#type: Option<Type>,
+        r#type: Type,
         is_mutable: bool,
         scope: Scope,
         register_index: u8,
@@ -230,35 +230,27 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn get_last_value_operation(&self) -> Option<Operation> {
-        self.chunk
-            .instructions()
-            .iter()
-            .last()
-            .map(|(instruction, _)| instruction.operation())
-    }
+    fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
+        let mut n_operations = [Operation::Return; COUNT];
 
-    fn get_last_instructions<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        let mut operations = [Operation::Return; COUNT];
-
-        for (index, (instruction, _)) in self
-            .chunk
-            .instructions()
-            .iter()
-            .rev()
-            .take(COUNT)
-            .enumerate()
-        {
-            operations[index] = instruction.operation();
+        for (nth, operation) in n_operations.iter_mut().rev().zip(
+            self.chunk
+                .instructions()
+                .iter()
+                .rev()
+                .map(|(instruction, _)| instruction.operation()),
+        ) {
+            *nth = operation;
         }
 
-        Some(operations)
+        Some(n_operations)
     }
 
     fn get_last_jumpable_mut(&mut self) -> Option<&mut Instruction> {
         self.chunk
             .instructions_mut()
             .iter_mut()
+            .rev()
             .find_map(|(instruction, _)| {
                 if let Operation::LoadBoolean | Operation::LoadConstant = instruction.operation() {
                     Some(instruction)
@@ -266,6 +258,101 @@ impl<'src> Compiler<'src> {
                     None
                 }
             })
+    }
+
+    pub fn get_instruction_type(&self, instruction: &Instruction) -> Result<Type, CompileError> {
+        use Operation::*;
+
+        match instruction.operation() {
+            Add | Divide | Modulo | Multiply | Subtract => {
+                if instruction.b_is_constant() {
+                    self.chunk
+                        .get_constant_type(instruction.b())
+                        .map_err(|error| CompileError::Chunk {
+                            error,
+                            position: self.current_position,
+                        })
+                } else {
+                    self.get_register_type(instruction.b())
+                }
+            }
+            LoadBoolean | Not => Ok(Type::Boolean),
+            Negate => {
+                if instruction.b_is_constant() {
+                    self.chunk
+                        .get_constant_type(instruction.b())
+                        .map_err(|error| CompileError::Chunk {
+                            error,
+                            position: self.current_position,
+                        })
+                } else {
+                    self.get_register_type(instruction.b())
+                }
+            }
+            LoadConstant => self
+                .chunk
+                .get_constant_type(instruction.b())
+                .map_err(|error| CompileError::Chunk {
+                    error,
+                    position: self.current_position,
+                }),
+            LoadList => self.get_register_type(instruction.a()),
+            GetLocal => self
+                .chunk
+                .get_local_type(instruction.b())
+                .cloned()
+                .map_err(|error| CompileError::Chunk {
+                    error,
+                    position: self.current_position,
+                }),
+            CallNative => {
+                let native_function = NativeFunction::from(instruction.b());
+
+                Ok(*native_function.r#type().return_type)
+            }
+            _ => Ok(Type::None),
+        }
+    }
+
+    pub fn get_register_type(&self, register_index: u8) -> Result<Type, CompileError> {
+        for (index, (instruction, _)) in self.chunk.instructions().iter().enumerate() {
+            if let Operation::LoadList = instruction.operation() {
+                if instruction.a() == register_index {
+                    let mut length = (instruction.c() - instruction.b() + 1) as usize;
+                    let mut item_type = Type::Any;
+                    let distance_to_end = self.chunk.len() - index;
+
+                    for (instruction, _) in self
+                        .chunk
+                        .instructions()
+                        .iter()
+                        .rev()
+                        .skip(distance_to_end)
+                        .take(length)
+                    {
+                        if let Operation::Close = instruction.operation() {
+                            length -= (instruction.c() - instruction.b()) as usize;
+                        } else if let Type::Any = item_type {
+                            item_type = self.get_instruction_type(instruction)?;
+                        }
+                    }
+
+                    return Ok(Type::List {
+                        item_type: Box::new(item_type),
+                        length,
+                    });
+                }
+            }
+
+            if instruction.yields_value() && instruction.a() == register_index {
+                return self.get_instruction_type(instruction);
+            }
+        }
+
+        Err(CompileError::CannotResolveRegisterType {
+            register_index: register_index as usize,
+            position: self.current_position,
+        })
     }
 
     fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), CompileError> {
@@ -294,7 +381,7 @@ impl<'src> Compiler<'src> {
                 position,
             );
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Boolean;
 
             Ok(())
         } else {
@@ -318,7 +405,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Byte;
 
             Ok(())
         } else {
@@ -340,7 +427,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Character;
 
             Ok(())
         } else {
@@ -368,7 +455,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Float;
 
             Ok(())
         } else {
@@ -396,7 +483,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Integer;
 
             Ok(())
         } else {
@@ -418,7 +505,9 @@ impl<'src> Compiler<'src> {
 
             self.emit_constant(value, position)?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::String {
+                length: Some(text.len()),
+            };
 
             Ok(())
         } else {
@@ -434,8 +523,6 @@ impl<'src> Compiler<'src> {
         self.allow(Token::LeftParenthesis)?;
         self.parse_expression()?;
         self.expect(Token::RightParenthesis)?;
-
-        self.previous_is_expression = true;
 
         Ok(())
     }
@@ -486,7 +573,9 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(instruction, operator_position);
 
-        self.previous_is_expression = true;
+        if let TokenKind::Bang = operator.kind() {
+            self.previous_expression_type = Type::Boolean;
+        }
 
         Ok(())
     }
@@ -640,17 +729,17 @@ impl<'src> Compiler<'src> {
         | Token::SlashEqual
         | Token::PercentEqual = operator
         {
-            self.previous_is_expression = false;
+            self.previous_expression_type = Type::None;
         } else {
-            self.previous_is_expression = true;
+            self.previous_expression_type = self.get_instruction_type(&left_instruction)?;
         }
 
         Ok(())
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some(Operation::Equal | Operation::Less | Operation::LessEqual) =
-            self.get_last_value_operation()
+        if let Some([Operation::Equal | Operation::Less | Operation::LessEqual, _, _, _]) =
+            self.get_last_operations()
         {
             return Err(CompileError::CannotChainComparison {
                 position: self.current_position,
@@ -726,7 +815,6 @@ impl<'src> Compiler<'src> {
         let register = self.next_register();
 
         self.emit_instruction(instruction, operator_position);
-
         self.emit_instruction(Instruction::jump(1, true), operator_position);
         self.emit_instruction(
             Instruction::load_boolean(register, true, true),
@@ -737,7 +825,7 @@ impl<'src> Compiler<'src> {
             operator_position,
         );
 
-        self.previous_is_expression = true;
+        self.previous_expression_type = Type::Boolean;
 
         Ok(())
     }
@@ -770,7 +858,7 @@ impl<'src> Compiler<'src> {
         self.emit_instruction(Instruction::jump(jump_distance, true), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
-        self.previous_is_expression = true;
+        self.previous_expression_type = Type::Boolean;
 
         Ok(())
     }
@@ -797,9 +885,9 @@ impl<'src> Compiler<'src> {
             let scope = self.chunk.current_scope();
 
             self.emit_instruction(Instruction::load_self(register), start_position);
-            self.declare_local(identifier, None, false, scope, register);
+            self.declare_local(identifier, Type::SelfChunk, false, scope, register);
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::SelfChunk;
 
             return Ok(());
         } else {
@@ -842,17 +930,28 @@ impl<'src> Compiler<'src> {
                 start_position,
             );
 
-            self.previous_is_expression = false;
-        } else {
-            let register = self.next_register();
+            self.previous_expression_type = Type::None;
 
-            self.emit_instruction(
-                Instruction::get_local(register, local_index),
-                self.previous_position,
-            );
+            let mut optimizer = Optimizer::new(self.chunk.instructions_mut());
+            let optimized = Optimizer::optimize_set_local(&mut optimizer);
 
-            self.previous_is_expression = true;
+            if optimized {
+                self.optimization_count += 1;
+            }
+
+            return Ok(());
         }
+
+        let register = self.next_register();
+
+        self.emit_instruction(
+            Instruction::get_local(register, local_index),
+            self.previous_position,
+        );
+
+        let local = self.get_local(local_index)?;
+
+        self.previous_expression_type = local.r#type.clone();
 
         Ok(())
     }
@@ -895,12 +994,23 @@ impl<'src> Compiler<'src> {
         self.advance()?;
 
         let start_register = self.next_register();
+        let mut item_type = Type::Any;
 
         while !self.allow(Token::RightBracket)? && !self.is_eof() {
             let expected_register = self.next_register();
 
             self.parse_expression()?;
 
+            if expected_register > start_register {
+                if let Err(conflict) = item_type.check(&self.previous_expression_type) {
+                    return Err(CompileError::ListItemTypeConflict {
+                        conflict,
+                        position: self.previous_position,
+                    });
+                }
+            }
+
+            item_type = self.previous_expression_type.clone();
             let actual_register = self.next_register() - 1;
 
             if expected_register < actual_register {
@@ -921,7 +1031,10 @@ impl<'src> Compiler<'src> {
             Span(start, end),
         );
 
-        self.previous_is_expression = true;
+        self.previous_expression_type = Type::List {
+            item_type: Box::new(item_type),
+            length: (to_register - start_register) as usize,
+        };
 
         Ok(())
     }
@@ -931,12 +1044,12 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_instructions(),
+            self.get_last_operations(),
             Some([
-                Operation::LoadBoolean,
-                Operation::LoadBoolean,
+                Operation::Equal | Operation::Less | Operation::LessEqual,
                 Operation::Jump,
-                Operation::Equal | Operation::Less | Operation::LessEqual
+                Operation::LoadBoolean,
+                Operation::LoadBoolean,
             ])
         ) {
             self.chunk.instructions_mut().pop();
@@ -959,24 +1072,10 @@ impl<'src> Compiler<'src> {
 
         let if_block_end = self.chunk.len();
         let mut if_block_distance = (if_block_end - if_block_start) as u8;
-
-        let if_block_is_expression = self
-            .chunk
-            .instructions()
-            .iter()
-            .rev()
-            .find_map(|(instruction, _)| {
-                if !matches!(instruction.operation(), Operation::Jump | Operation::Move) {
-                    Some(instruction.yields_value())
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(false);
-
+        let if_block_type = self.previous_expression_type.clone();
         let if_last_register = self.next_register().saturating_sub(1);
 
-        if let Token::Else = self.current_token {
+        let has_else_statement = if let Token::Else = self.current_token {
             self.advance()?;
 
             if let Token::LeftBrace = self.current_token {
@@ -988,18 +1087,29 @@ impl<'src> Compiler<'src> {
                     position: self.current_position,
                 });
             }
-        } else {
-            self.previous_is_expression = false;
-        }
 
-        self.previous_is_expression = if_block_is_expression && self.previous_is_expression;
+            true
+        } else if self.previous_expression_type != Type::None {
+            return Err(CompileError::IfMissingElse {
+                position: Span(if_block_start_position.0, self.current_position.1),
+            });
+        } else {
+            false
+        };
 
         let else_block_end = self.chunk.len();
         let else_block_distance = (else_block_end - if_block_end) as u8;
 
+        if let Err(conflict) = if_block_type.check(&self.previous_expression_type) {
+            return Err(CompileError::IfElseBranchMismatch {
+                conflict,
+                position: Span(if_block_start_position.0, self.current_position.1),
+            });
+        }
+
         match else_block_distance {
             0 => {}
-            1 => {
+            1 if !has_else_statement => {
                 if let Some(skippable) = self.get_last_jumpable_mut() {
                     skippable.set_c_to_boolean(true);
                 } else {
@@ -1014,6 +1124,7 @@ impl<'src> Compiler<'src> {
                     );
                 }
             }
+            1 => {}
             2.. => {
                 if_block_distance += 1;
 
@@ -1036,13 +1147,12 @@ impl<'src> Compiler<'src> {
         );
 
         if self.chunk.len() >= 4 {
-            let possible_comparison_statement = {
-                let start = self.chunk.len() - 4;
+            let mut optimizer = Optimizer::new(self.chunk.instructions_mut());
+            let optimized = optimizer.optimize_comparison();
 
-                &mut self.chunk.instructions_mut()[start..]
-            };
-
-            self.optimization_count += optimize(possible_comparison_statement);
+            if optimized {
+                self.optimization_count += 1
+            }
         }
 
         let else_last_register = self.next_register().saturating_sub(1);
@@ -1065,12 +1175,12 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_instructions(),
+            self.get_last_operations(),
             Some([
-                Operation::LoadBoolean,
-                Operation::LoadBoolean,
+                Operation::Equal | Operation::Less | Operation::LessEqual,
                 Operation::Jump,
-                Operation::Equal | Operation::Less | Operation::LessEqual
+                Operation::LoadBoolean,
+                Operation::LoadBoolean,
             ],)
         ) {
             self.chunk.instructions_mut().pop();
@@ -1097,7 +1207,7 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(jump_back, self.current_position);
 
-        self.previous_is_expression = false;
+        self.previous_expression_type = Type::None;
 
         Ok(())
     }
@@ -1128,7 +1238,8 @@ impl<'src> Compiler<'src> {
         let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
-        self.previous_is_expression = function.r#type().return_type.is_some();
+
+        self.previous_expression_type = Type::Function(function.r#type());
 
         self.emit_instruction(
             Instruction::call_native(to_register, function, argument_count),
@@ -1154,7 +1265,7 @@ impl<'src> Compiler<'src> {
     fn parse_expression(&mut self) -> Result<(), CompileError> {
         self.parse(Precedence::None)?;
 
-        if !self.previous_is_expression || self.chunk.is_empty() {
+        if self.previous_expression_type == Type::None || self.chunk.is_empty() {
             return Err(CompileError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.current_position,
@@ -1185,7 +1296,7 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
 
-        self.previous_is_expression = false;
+        self.previous_expression_type = Type::None;
 
         Ok(())
     }
@@ -1195,7 +1306,7 @@ impl<'src> Compiler<'src> {
             self.emit_instruction(Instruction::r#return(false), self.current_position);
         } else {
             self.emit_instruction(
-                Instruction::r#return(self.previous_is_expression),
+                Instruction::r#return(self.previous_expression_type != Type::None),
                 self.current_position,
             );
         }
@@ -1220,10 +1331,10 @@ impl<'src> Compiler<'src> {
                 position,
             });
         };
-        let r#type = if self.allow(Token::Colon)? {
-            let r#type = self.parse_type_from(self.current_token, self.current_position)?;
-
+        let explicit_type = if self.allow(Token::Colon)? {
             self.advance()?;
+
+            let r#type = self.parse_type_from(self.current_token, self.current_position)?;
 
             Some(r#type)
         } else {
@@ -1233,7 +1344,12 @@ impl<'src> Compiler<'src> {
         self.expect(Token::Equal)?;
         self.parse_expression()?;
 
-        let register = self.next_register().saturating_sub(1);
+        let register = self.next_register() - 1;
+        let r#type = if let Some(r#type) = explicit_type {
+            r#type
+        } else {
+            self.get_register_type(register)?
+        };
         let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, scope, register);
 
         self.emit_instruction(
@@ -1241,7 +1357,7 @@ impl<'src> Compiler<'src> {
             position,
         );
 
-        self.previous_is_expression = false;
+        self.previous_expression_type = Type::None;
 
         Ok(())
     }
@@ -1292,7 +1408,7 @@ impl<'src> Compiler<'src> {
             let scope = function_compiler.chunk.current_scope();
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
-                Some(r#type.clone()),
+                r#type.clone(),
                 is_mutable,
                 scope,
                 register,
@@ -1319,9 +1435,9 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            Some(Box::new(r#type))
+            Box::new(r#type)
         } else {
-            None
+            Box::new(Type::None)
         };
 
         function_compiler.expect(Token::LeftBrace)?;
@@ -1347,7 +1463,7 @@ impl<'src> Compiler<'src> {
             let scope = self.chunk.current_scope();
             let (local_index, _) = self.declare_local(
                 identifier,
-                Some(Type::Function(function_type)),
+                Type::Function(function_type),
                 false,
                 scope,
                 register,
@@ -1359,11 +1475,11 @@ impl<'src> Compiler<'src> {
                 identifier_position,
             );
 
-            self.previous_is_expression = false;
+            self.previous_expression_type = Type::None;
         } else {
             self.emit_constant(function, Span(function_start, function_end))?;
 
-            self.previous_is_expression = true;
+            self.previous_expression_type = Type::Function(function_type);
         }
 
         Ok(())
@@ -1387,6 +1503,15 @@ impl<'src> Compiler<'src> {
         }
 
         let function_register = last_instruction.a();
+        let function_return_type =
+            if let Type::Function(function_type) = self.get_register_type(function_register)? {
+                *function_type.return_type
+            } else {
+                return Err(CompileError::ExpectedFunction {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            };
         let start = self.current_position.0;
 
         self.advance()?;
@@ -1417,7 +1542,7 @@ impl<'src> Compiler<'src> {
             Span(start, end),
         );
 
-        self.previous_is_expression = true;
+        self.previous_expression_type = function_return_type;
 
         Ok(())
     }
@@ -1425,7 +1550,7 @@ impl<'src> Compiler<'src> {
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        self.previous_is_expression = false;
+        self.previous_expression_type = Type::None;
 
         Ok(())
     }
@@ -1817,6 +1942,10 @@ pub enum CompileError {
         found: TokenOwned,
         position: Span,
     },
+    ExpectedFunction {
+        found: TokenOwned,
+        position: Span,
+    },
     InvalidAssignmentTarget {
         found: TokenOwned,
         position: Span,
@@ -1845,6 +1974,27 @@ pub enum CompileError {
         position: Span,
     },
 
+    // Type errors
+    CannotResolveRegisterType {
+        register_index: usize,
+        position: Span,
+    },
+    CannotResolveVariableType {
+        identifier: String,
+        position: Span,
+    },
+    IfElseBranchMismatch {
+        conflict: TypeConflict,
+        position: Span,
+    },
+    IfMissingElse {
+        position: Span,
+    },
+    ListItemTypeConflict {
+        conflict: TypeConflict,
+        position: Span,
+    },
+
     // Wrappers around foreign errors
     Chunk {
         error: ChunkError,
@@ -1868,15 +2018,21 @@ impl AnnotatedError for CompileError {
 
     fn description(&self) -> &'static str {
         match self {
-            Self::CannotChainComparison { .. } => "Cannot chain comparison",
+            Self::CannotChainComparison { .. } => "Cannot chain comparison operations",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
+            Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
+            Self::CannotResolveVariableType { .. } => "Cannot resolve type",
             Self::Chunk { .. } => "Chunk error",
             Self::ExpectedExpression { .. } => "Expected an expression",
+            Self::ExpectedFunction { .. } => "Expected a function",
             Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
+            Self::IfElseBranchMismatch { .. } => "Type mismatch in if/else branches",
+            Self::IfMissingElse { .. } => "If statement missing else branch",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::Lex(error) => error.description(),
+            Self::ListItemTypeConflict { .. } => "List item type conflict",
             Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
@@ -1887,14 +2043,14 @@ impl AnnotatedError for CompileError {
 
     fn details(&self) -> Option<String> {
         match self {
-            Self::CannotChainComparison { .. } => {
-                Some("Cannot chain comparison operations".to_string())
-            }
             Self::CannotMutateImmutableVariable { identifier, .. } => {
-                Some(format!("Cannot mutate immutable variable {identifier}"))
+                Some(format!("{identifier} is immutable"))
             }
             Self::Chunk { error, .. } => Some(error.to_string()),
             Self::ExpectedExpression { found, .. } => Some(format!("Found {found}")),
+            Self::ExpectedFunction { found, .. } => {
+                Some(format!("Expected \"{found}\" to be a function"))
+            }
             Self::ExpectedToken {
                 expected, found, ..
             } => Some(format!("Expected {expected} but found {found}")),
@@ -1919,23 +2075,31 @@ impl AnnotatedError for CompileError {
 
                 Some(details)
             }
-            Self::ExpectedMutableVariable { found, .. } => {
-                Some(format!("Expected mutable variable, found {found}"))
-            }
+            Self::ExpectedMutableVariable { found, .. } => Some(format!("Found {found}")),
+            Self::IfElseBranchMismatch {
+                conflict: TypeConflict { expected, actual },
+                ..
+            } => Some(
+                format!("This if block evaluates to type \"{expected}\" but the else block evaluates to \"{actual}\"")
+            ),
+            Self::IfMissingElse { .. } => Some(
+                "This \"if\" expression evaluates to a value but is missing an else block"
+                    .to_string(),
+            ),
             Self::InvalidAssignmentTarget { found, .. } => {
-                Some(format!("Invalid assignment target, found {found}"))
+                Some(format!("Cannot assign to {found}"))
             }
             Self::Lex(error) => error.details(),
-
             Self::ParseFloatError { error, .. } => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
             Self::UndeclaredVariable { identifier, .. } => {
-                Some(format!("Undeclared variable {identifier}"))
+                Some(format!("{identifier} has not been declared"))
             }
             Self::UnexpectedReturn { .. } => None,
             Self::VariableOutOfScope { identifier, .. } => {
-                Some(format!("Variable {identifier} is out of scope"))
+                Some(format!("{identifier} is out of scope"))
             }
+            _ => None,
         }
     }
 
@@ -1943,13 +2107,19 @@ impl AnnotatedError for CompileError {
         match self {
             Self::CannotChainComparison { position } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
+            Self::CannotResolveRegisterType { position, .. } => *position,
+            Self::CannotResolveVariableType { position, .. } => *position,
             Self::Chunk { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
+            Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedMutableVariable { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
+            Self::IfElseBranchMismatch { position, .. } => *position,
+            Self::IfMissingElse { position } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
             Self::Lex(error) => error.position(),
+            Self::ListItemTypeConflict { position, .. } => *position,
             Self::ParseFloatError { position, .. } => *position,
             Self::ParseIntError { position, .. } => *position,
             Self::UndeclaredVariable { position, .. } => *position,

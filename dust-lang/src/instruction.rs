@@ -362,6 +362,18 @@ impl Instruction {
         self
     }
 
+    pub fn returns_or_panics(&self) -> bool {
+        match self.operation() {
+            Operation::Return => true,
+            Operation::CallNative => {
+                let native_function = NativeFunction::from(self.b());
+
+                matches!(native_function, NativeFunction::Panic)
+            }
+            _ => false,
+        }
+    }
+
     pub fn yields_value(&self) -> bool {
         match self.operation() {
             Operation::Add
@@ -380,40 +392,9 @@ impl Instruction {
             Operation::CallNative => {
                 let native_function = NativeFunction::from(self.b());
 
-                native_function.r#type().return_type.is_some()
+                *native_function.r#type().return_type != Type::None
             }
             _ => false,
-        }
-    }
-
-    pub fn yielded_type(&self, chunk: &Chunk) -> Option<Type> {
-        use Operation::*;
-
-        match self.operation() {
-            Add | Divide | Modulo | Multiply | Subtract => {
-                if self.b_is_constant() {
-                    chunk.get_constant_type(self.b())
-                } else {
-                    chunk.get_register_type(self.b())
-                }
-            }
-            LoadBoolean | Not => Some(Type::Boolean),
-            Negate => {
-                if self.b_is_constant() {
-                    chunk.get_constant_type(self.b())
-                } else {
-                    chunk.get_register_type(self.b())
-                }
-            }
-            LoadConstant => chunk.get_constant_type(self.b()),
-            LoadList => chunk.get_register_type(self.a()),
-            GetLocal => chunk.get_local_type(self.b()),
-            CallNative => {
-                let native_function = NativeFunction::from(self.b());
-
-                native_function.r#type().return_type.map(|boxed| *boxed)
-            }
-            _ => None,
         }
     }
 
@@ -629,7 +610,7 @@ impl Instruction {
                 let mut output = String::new();
                 let native_function_name = native_function.as_str();
 
-                if native_function.r#type().return_type.is_some() {
+                if *native_function.r#type().return_type != Type::None {
                     output.push_str(&format!("R{} = {}(", to_register, native_function_name));
                 } else {
                     output.push_str(&format!("{}(", native_function_name));

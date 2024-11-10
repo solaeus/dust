@@ -56,7 +56,7 @@ macro_rules! define_native_function {
             pub fn returns_value(&self) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => $type.return_type.is_some(),
+                        NativeFunction::$name => *$type.return_type != Type::None,
                     )*
                 }
             }
@@ -100,7 +100,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: None
+            return_type: Box::new(Type::None)
         }
     ),
     // (AssertEqual, 1_u8, "assert_equal", false),
@@ -112,7 +112,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: Some(Box::new(Type::Any))
+            return_type: Box::new(Type::None)
         }
     ),
 
@@ -128,7 +128,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::Any)]),
-            return_type: Some(Box::new(Type::String { length: None }))
+            return_type: Box::new(Type::String { length: None })
         }
     ),
 
@@ -188,7 +188,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: Some(Box::new(Type::String { length: None }))
+            return_type: Box::new(Type::String { length: None })
         }
     ),
     // (ReadTo, 51_u8, "read_to", false),
@@ -203,7 +203,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::String { length: None })]),
-            return_type: None
+            return_type: Box::new(Type::None)
         }
     ),
     // (WriteFile, 56_u8, "write_file", false),
@@ -214,7 +214,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::String { length: None })]),
-            return_type: None
+            return_type: Box::new(Type::None)
         }
     )
 

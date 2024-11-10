@@ -16,7 +16,7 @@ fn r#while() {
                     Span(23, 24)
                 ),
                 (Instruction::jump(2, true), Span(41, 42)),
-                (*Instruction::add(0, 0, 3).set_c_is_constant(), Span(39, 40)),
+                (*Instruction::add(0, 0, 3).set_c_is_constant(), Span(35, 36)),
                 (Instruction::jump(3, false), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),
                 (Instruction::r#return(true), Span(42, 42)),
@@ -27,7 +27,7 @@ fn r#while() {
                 Value::integer(5),
                 Value::integer(1),
             ],
-            vec![Local::new(1, None, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 

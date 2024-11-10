@@ -33,10 +33,12 @@ pub enum Type {
     Map {
         pairs: HashMap<u8, Type>,
     },
+    None,
     Number,
     Range {
         r#type: RangeableType,
     },
+    SelfChunk,
     String {
         length: Option<usize>,
     },
@@ -257,8 +259,10 @@ impl Display for Type {
 
                 write!(f, "}}")
             }
+            Type::None => write!(f, "none"),
             Type::Number => write!(f, "num"),
             Type::Range { r#type } => write!(f, "{type} range"),
+            Type::SelfChunk => write!(f, "self"),
             Type::String { .. } => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple { fields } => {
@@ -343,12 +347,16 @@ impl Ord for Type {
                 left_pairs.iter().cmp(right_pairs.iter())
             }
             (Type::Map { .. }, _) => Ordering::Greater,
+            (Type::None, Type::None) => Ordering::Equal,
+            (Type::None, _) => Ordering::Greater,
             (Type::Number, Type::Number) => Ordering::Equal,
             (Type::Number, _) => Ordering::Greater,
             (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
                 left_type.cmp(right_type)
             }
             (Type::Range { .. }, _) => Ordering::Greater,
+            (Type::SelfChunk, Type::SelfChunk) => Ordering::Equal,
+            (Type::SelfChunk, _) => Ordering::Greater,
             (Type::String { length: left }, Type::String { length: right }) => left.cmp(right),
             (Type::String { .. }, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
@@ -366,7 +374,7 @@ impl Ord for Type {
 pub struct FunctionType {
     pub type_parameters: Option<Vec<u8>>,
     pub value_parameters: Option<Vec<(u8, Type)>>,
-    pub return_type: Option<Box<Type>>,
+    pub return_type: Box<Type>,
 }
 
 impl Display for FunctionType {
@@ -401,8 +409,8 @@ impl Display for FunctionType {
 
         write!(f, ")")?;
 
-        if let Some(return_type) = &self.return_type {
-            write!(f, " -> {return_type}")?;
+        if *self.return_type != Type::None {
+            write!(f, " -> {}", self.return_type)?;
         }
 
         Ok(())

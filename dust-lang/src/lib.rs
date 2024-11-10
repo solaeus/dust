@@ -24,7 +24,7 @@ pub use crate::instruction::Instruction;
 pub use crate::lexer::{lex, LexError, Lexer};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::operation::Operation;
-pub use crate::optimizer::{optimize, Optimizer};
+pub use crate::optimizer::Optimizer;
 pub use crate::r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use crate::token::{output_token_list, Token, TokenKind, TokenOwned};
 pub use crate::value::{ConcreteValue, Function, Value, ValueError};

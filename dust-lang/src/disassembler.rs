@@ -64,8 +64,8 @@ const CONSTANT_HEADER: [&str; 4] = [
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i  IDENTIFIER       TYPE       MUTABLE  SCOPE  REGISTER",
-    "--- ---------- ---------------- ------- ------- --------",
+    " i  IDENTIFIER       TYPE       MUTABLE  SCOPE ",
+    "--- ---------- ---------------- ------- -------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -222,7 +222,16 @@ impl<'a> Disassembler<'a> {
             .map(|identifier| identifier.to_string())
             .unwrap_or_else(|| {
                 current_exe()
-                    .map(|path| path.to_string_lossy().to_string())
+                    .map(|path| {
+                        let path_string = path.to_string_lossy();
+                        let file_name = path_string
+                            .split('/')
+                            .last()
+                            .map(|slice| slice.to_string())
+                            .unwrap_or(path_string.to_string());
+
+                        file_name
+                    })
                     .unwrap_or("Chunk Disassembly".to_string())
             });
 
@@ -245,10 +254,7 @@ impl<'a> Disassembler<'a> {
             self.chunk.len(),
             self.chunk.constants().len(),
             self.chunk.locals().len(),
-            self.chunk
-                .return_type()
-                .map(|r#type| r#type.to_string())
-                .unwrap_or("none".to_string())
+            self.chunk.return_type()
         );
 
         self.push(&info_line, true, false, true, true);
@@ -262,23 +268,10 @@ impl<'a> Disassembler<'a> {
             let bytecode = format!("{:02X}", u32::from(instruction));
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info(self.chunk);
-            let type_display = instruction
-                .yielded_type(self.chunk)
-                .map(|r#type| {
-                    let type_string = r#type.to_string();
-
-                    if type_string.len() > 16 {
-                        format!("{type_string:.13}...")
-                    } else {
-                        type_string
-                    }
-                })
-                .unwrap_or(String::with_capacity(0));
             let position = position.to_string();
 
-            let instruction_display = format!(
-                "{index:^3} {bytecode:>8} {operation:13} {info:^20} {type_display:^16} {position:10}"
-            );
+            let instruction_display =
+                format!("{index:^3} {bytecode:>8} {operation:13} {info:^20} {position:10}");
 
             self.push_details(&instruction_display);
         }
@@ -305,18 +298,7 @@ impl<'a> Disassembler<'a> {
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let type_display = r#type
-                .as_ref()
-                .map(|r#type| {
-                    let type_string = r#type.to_string();
-
-                    if type_string.len() > 16 {
-                        format!("{type_string:.13}...")
-                    } else {
-                        type_string
-                    }
-                })
-                .unwrap_or("unknown".to_string());
+            let type_display = r#type.to_string();
             let local_display = format!(
                 "{index:^3} {identifier_display:10} {type_display:16} {mutable:7} {scope:7}"
             );
