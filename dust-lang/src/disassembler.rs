@@ -45,13 +45,13 @@ use std::env::current_exe;
 
 use colored::Colorize;
 
-use crate::{Chunk, ConcreteValue, Local, Value};
+use crate::{value::ConcreteValue, Chunk, Local};
 
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i  BYTECODE OPERATION             INFO               TYPE        POSITION ",
-    "--- -------- ------------- -------------------- ---------------- ----------",
+    " i  BYTECODE OPERATION             INFO               POSITION ",
+    "--- -------- ------------- ------------------------- ----------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -254,7 +254,7 @@ impl<'a> Disassembler<'a> {
             self.chunk.len(),
             self.chunk.constants().len(),
             self.chunk.locals().len(),
-            self.chunk.return_type()
+            self.chunk.r#type().return_type
         );
 
         self.push(&info_line, true, false, true, true);
@@ -271,7 +271,7 @@ impl<'a> Disassembler<'a> {
             let position = position.to_string();
 
             let instruction_display =
-                format!("{index:^3} {bytecode:>8} {operation:13} {info:^20} {position:10}");
+                format!("{index:^3} {bytecode:>8} {operation:13} {info:<25} {position:10}");
 
             self.push_details(&instruction_display);
         }
@@ -313,6 +313,19 @@ impl<'a> Disassembler<'a> {
         }
 
         for (index, value) in self.chunk.constants().iter().enumerate() {
+            if let ConcreteValue::Function(function) = value {
+                let function_disassembly = function
+                    .chunk()
+                    .disassembler()
+                    .styled(self.styled)
+                    .indent(self.indent + 1)
+                    .disassemble();
+
+                self.output.push_str(&function_disassembly);
+
+                continue;
+            }
+
             let value_display = {
                 let value_string = value.to_string();
 
@@ -325,17 +338,6 @@ impl<'a> Disassembler<'a> {
             let constant_display = format!("{index:^3} {value_display:^15}");
 
             self.push_details(&constant_display);
-
-            if let Value::Concrete(ConcreteValue::Function(function)) = value {
-                let function_disassembly = function
-                    .chunk()
-                    .disassembler()
-                    .styled(self.styled)
-                    .indent(self.indent + 1)
-                    .disassemble();
-
-                self.output.push_str(&function_disassembly);
-            }
         }
 
         self.push_border(&bottom_border);

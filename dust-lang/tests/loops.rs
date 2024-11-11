@@ -22,14 +22,14 @@ fn r#while() {
                 (Instruction::r#return(true), Span(42, 42)),
             ],
             vec![
-                Value::integer(0),
-                Value::string("x"),
-                Value::integer(5),
-                Value::integer(1),
+                ValueOwned::integer(0),
+                ValueOwned::string("x"),
+                ValueOwned::integer(5),
+                ValueOwned::integer(1),
             ],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(5))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(5))));
 }

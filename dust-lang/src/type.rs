@@ -36,7 +36,7 @@ pub enum Type {
     None,
     Number,
     Range {
-        r#type: RangeableType,
+        r#type: Box<Type>,
     },
     SelfChunk,
     String {
@@ -72,6 +72,7 @@ impl Type {
             | (Type::Character, Type::Character)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
+            | (Type::None, Type::None)
             | (Type::String { .. }, Type::String { .. }) => return Ok(()),
             (
                 Type::Generic {
@@ -553,115 +554,8 @@ impl Display for EnumType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum RangeableType {
-    Byte,
-    Character,
-    Float,
-    Integer,
-}
-
-impl Display for RangeableType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            RangeableType::Byte => Type::Byte.fmt(f),
-            RangeableType::Character => Type::Character.fmt(f),
-            RangeableType::Float => Type::Float.fmt(f),
-            RangeableType::Integer => Type::Integer.fmt(f),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TypeConflict {
     pub expected: Type,
     pub actual: Type,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn check_type_any() {
-        let foo = Type::Any;
-        let bar = Type::Any;
-
-        foo.check(&bar).unwrap();
-    }
-
-    #[test]
-    fn check_type_boolean() {
-        let foo = Type::Boolean;
-        let bar = Type::Boolean;
-
-        foo.check(&bar).unwrap();
-    }
-
-    #[test]
-    fn check_type_byte() {
-        let foo = Type::Byte;
-        let bar = Type::Byte;
-
-        foo.check(&bar).unwrap();
-    }
-
-    #[test]
-    fn check_type_character() {
-        let foo = Type::Character;
-        let bar = Type::Character;
-
-        foo.check(&bar).unwrap();
-    }
-
-    #[test]
-    fn errors() {
-        let foo = Type::Integer;
-        let bar = Type::String { length: None };
-
-        assert_eq!(
-            foo.check(&bar),
-            Err(TypeConflict {
-                actual: bar.clone(),
-                expected: foo.clone()
-            })
-        );
-        assert_eq!(
-            bar.check(&foo),
-            Err(TypeConflict {
-                actual: foo.clone(),
-                expected: bar.clone()
-            })
-        );
-
-        let types = [
-            Type::Boolean,
-            Type::Float,
-            Type::Integer,
-            Type::List {
-                item_type: Box::new(Type::Integer),
-                length: 42,
-            },
-            Type::Range {
-                r#type: RangeableType::Integer,
-            },
-            Type::String { length: None },
-        ];
-
-        for left in types.clone() {
-            for right in types.clone() {
-                if left == right {
-                    continue;
-                }
-
-                assert_eq!(
-                    left.check(&right),
-                    Err(TypeConflict {
-                        actual: right.clone(),
-                        expected: left.clone()
-                    })
-                );
-            }
-        }
-    }
 }

@@ -657,13 +657,13 @@ mod tests {
 
     #[test]
     fn r#move() {
-        let mut instruction = Instruction::r#move(0, 1);
+        let mut instruction = Instruction::r#move(4, 1);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Move);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());
@@ -690,13 +690,13 @@ mod tests {
 
     #[test]
     fn load_constant() {
-        let mut instruction = Instruction::load_constant(0, 1, true);
+        let mut instruction = Instruction::load_constant(4, 1, true);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::LoadConstant);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());
@@ -705,10 +705,10 @@ mod tests {
 
     #[test]
     fn load_list() {
-        let instruction = Instruction::load_list(0, 1);
+        let instruction = Instruction::load_list(4, 1);
 
         assert_eq!(instruction.operation(), Operation::LoadList);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
     }
 
@@ -722,12 +722,12 @@ mod tests {
 
     #[test]
     fn declare_local() {
-        let mut instruction = Instruction::define_local(0, 1, true);
+        let mut instruction = Instruction::define_local(4, 1, true);
 
         instruction.set_b_is_constant();
 
         assert_eq!(instruction.operation(), Operation::DefineLocal);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert_eq!(instruction.c(), true as u8);
         assert!(instruction.b_is_constant());
@@ -735,26 +735,26 @@ mod tests {
 
     #[test]
     fn add() {
-        let mut instruction = Instruction::add(1, 1, 0);
+        let mut instruction = Instruction::add(1, 1, 4);
 
         instruction.set_b_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Add);
         assert_eq!(instruction.a(), 1);
         assert_eq!(instruction.b(), 1);
-        assert_eq!(instruction.c(), 0);
+        assert_eq!(instruction.c(), 4);
         assert!(instruction.b_is_constant());
     }
 
     #[test]
     fn subtract() {
-        let mut instruction = Instruction::subtract(0, 1, 2);
+        let mut instruction = Instruction::subtract(4, 1, 2);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Subtract);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert_eq!(instruction.c(), 2);
         assert!(instruction.b_is_constant());
@@ -763,13 +763,13 @@ mod tests {
 
     #[test]
     fn multiply() {
-        let mut instruction = Instruction::multiply(0, 1, 2);
+        let mut instruction = Instruction::multiply(4, 1, 2);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Multiply);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert_eq!(instruction.c(), 2);
         assert!(instruction.b_is_constant());
@@ -778,13 +778,13 @@ mod tests {
 
     #[test]
     fn divide() {
-        let mut instruction = Instruction::divide(0, 1, 2);
+        let mut instruction = Instruction::divide(4, 1, 2);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Divide);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert_eq!(instruction.c(), 2);
         assert!(instruction.b_is_constant());
@@ -827,13 +827,13 @@ mod tests {
 
     #[test]
     fn negate() {
-        let mut instruction = Instruction::negate(0, 1);
+        let mut instruction = Instruction::negate(4, 1);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Negate);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());
@@ -841,13 +841,13 @@ mod tests {
 
     #[test]
     fn not() {
-        let mut instruction = Instruction::not(0, 1);
+        let mut instruction = Instruction::not(4, 1);
 
         instruction.set_b_is_constant();
         instruction.set_c_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Not);
-        assert_eq!(instruction.a(), 0);
+        assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
         assert!(instruction.b_is_constant());
         assert!(instruction.b_is_constant());

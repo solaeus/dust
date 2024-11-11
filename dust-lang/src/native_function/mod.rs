@@ -2,20 +2,20 @@
 //!
 //! Native functions are used either to implement features that are not possible to implement in
 //! Dust itself or that are more efficient to implement in Rust.
+mod logic;
+
 use std::{
     fmt::{self, Display, Formatter},
-    io::{self, stdin, stdout, Write},
+    io::{self},
     string::{self},
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    AnnotatedError, ConcreteValue, FunctionType, Instruction, Span, Type, Value, Vm, VmError,
-};
+use crate::{AnnotatedError, ConcreteValue, FunctionType, Instruction, Span, Type, Vm, VmError};
 
 macro_rules! define_native_function {
-    ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
+    ($(($name:ident, $byte:literal, $str:expr, $type:expr, $function:expr)),*) => {
         /// A dust-native function.
         ///
         /// See the [module-level documentation](index.html) for more information.
@@ -27,6 +27,19 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
+            pub fn call(
+                &self,
+                vm: &mut Vm,
+                instruction: Instruction,
+                span: Span
+            ) -> Result<Option<ConcreteValue>, VmError> {
+                match self {
+                    $(
+                        NativeFunction::$name => $function(vm, instruction, span),
+                    )*
+                }
+            }
+
             pub fn as_str(&self) -> &'static str {
                 match self {
                     $(
@@ -91,18 +104,25 @@ macro_rules! define_native_function {
     };
 }
 
+impl Display for NativeFunction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 define_native_function! {
     // Assertion
-    (
-        Assert,
-        0_u8,
-        "assert",
-        FunctionType {
-            type_parameters: None,
-            value_parameters: None,
-            return_type: Box::new(Type::None)
-        }
-    ),
+    // (
+    //     Assert,
+    //     0_u8,
+    //     "assert",
+    //     FunctionType {
+    //         type_parameters: None,
+    //         value_parameters: None,
+    //         return_type: Box::new(Type::None)
+    //     },
+    //     assert
+    // ),
     // (AssertEqual, 1_u8, "assert_equal", false),
     // (AssertNotEqual, 2_u8, "assert_not_equal", false),
     (
@@ -113,7 +133,8 @@ define_native_function! {
             type_parameters: None,
             value_parameters: None,
             return_type: Box::new(Type::None)
-        }
+        },
+        logic::panic
     ),
 
     // // Type conversion
@@ -129,7 +150,8 @@ define_native_function! {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::Any)]),
             return_type: Box::new(Type::String { length: None })
-        }
+        },
+        logic::to_string
     ),
 
     // // List and string
@@ -189,7 +211,8 @@ define_native_function! {
             type_parameters: None,
             value_parameters: None,
             return_type: Box::new(Type::String { length: None })
-        }
+        },
+        logic::read_line
     ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
@@ -204,7 +227,8 @@ define_native_function! {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::String { length: None })]),
             return_type: Box::new(Type::None)
-        }
+        },
+        logic::write
     ),
     // (WriteFile, 56_u8, "write_file", false),
     (
@@ -215,149 +239,13 @@ define_native_function! {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::String { length: None })]),
             return_type: Box::new(Type::None)
-        }
+        },
+        logic::write_line
     )
 
     // // Random
     // (Random, 58_u8, "random", true),
     // (RandomInRange, 59_u8, "random_in_range", true)
-}
-
-impl NativeFunction {
-    pub fn call(
-        &self,
-        instruction: Instruction,
-        vm: &Vm,
-        position: Span,
-    ) -> Result<Option<Value>, VmError> {
-        let to_register = instruction.a();
-        let argument_count = instruction.c();
-
-        let return_value = match self {
-            NativeFunction::Panic => {
-                let message = if argument_count == 0 {
-                    None
-                } else {
-                    let mut message = String::new();
-
-                    for argument_index in 0..argument_count {
-                        if argument_index != 0 {
-                            message.push(' ');
-                        }
-
-                        let argument = vm.open_register(argument_index, position)?;
-
-                        message.push_str(&argument.to_string());
-                    }
-
-                    Some(message)
-                };
-
-                return Err(VmError::NativeFunction(NativeFunctionError::Panic {
-                    message,
-                    position,
-                }));
-            }
-
-            // Type conversion
-            NativeFunction::ToString => {
-                let mut string = String::new();
-
-                for argument_index in 0..argument_count {
-                    let argument = vm.open_register(argument_index, position)?;
-
-                    string.push_str(&argument.to_string());
-                }
-
-                Some(Value::Concrete(ConcreteValue::String(string)))
-            }
-
-            // I/O
-            NativeFunction::ReadLine => {
-                let mut buffer = String::new();
-
-                stdin().read_line(&mut buffer).map_err(|io_error| {
-                    VmError::NativeFunction(NativeFunctionError::Io {
-                        error: io_error.kind(),
-                        position,
-                    })
-                })?;
-
-                buffer = buffer.trim_end_matches('\n').to_string();
-
-                Some(Value::Concrete(ConcreteValue::String(buffer)))
-            }
-            NativeFunction::Write => {
-                let to_register = instruction.a();
-                let mut stdout = stdout();
-                let map_err = |io_error: io::Error| {
-                    VmError::NativeFunction(NativeFunctionError::Io {
-                        error: io_error.kind(),
-                        position,
-                    })
-                };
-
-                let first_argument = to_register.saturating_sub(argument_count);
-                let last_argument = to_register.saturating_sub(1);
-
-                for argument_index in first_argument..=last_argument {
-                    if argument_index != first_argument {
-                        stdout.write(b" ").map_err(map_err)?;
-                    }
-
-                    let argument_string = vm.open_register(argument_index, position)?.to_string();
-
-                    stdout
-                        .write_all(argument_string.as_bytes())
-                        .map_err(map_err)?;
-                }
-
-                None
-            }
-            NativeFunction::WriteLine => {
-                let mut stdout = stdout();
-                let map_err = |io_error: io::Error| {
-                    VmError::NativeFunction(NativeFunctionError::Io {
-                        error: io_error.kind(),
-                        position,
-                    })
-                };
-
-                let first_index = to_register.saturating_sub(argument_count);
-
-                for (index, register) in (first_index..to_register).enumerate() {
-                    if index != 0 {
-                        stdout.write(b" ").map_err(map_err)?;
-                    }
-
-                    let argument = vm.open_register(register, position)?;
-
-                    if let Value::Concrete(ConcreteValue::String(string)) = argument {
-                        let bytes = string.as_bytes();
-
-                        stdout.write_all(bytes).map_err(map_err)?;
-                    } else {
-                        let bytes = argument.to_string().into_bytes();
-
-                        stdout.write_all(&bytes).map_err(map_err)?;
-                    }
-                }
-
-                stdout.write(b"\n").map_err(map_err)?;
-
-                None
-            }
-            _ => todo!(),
-        };
-
-        Ok(return_value)
-    }
-}
-
-impl Display for NativeFunction {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

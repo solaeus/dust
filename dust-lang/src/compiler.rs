@@ -13,9 +13,9 @@ use std::{
 use colored::Colorize;
 
 use crate::{
-    AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction, LexError, Lexer,
-    Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind, TokenOwned, Type,
-    TypeConflict, Value,
+    value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction,
+    LexError, Lexer, Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind,
+    TokenOwned, Type, TypeConflict,
 };
 
 /// Compiles the input and returns a chunk.
@@ -59,6 +59,9 @@ pub struct Compiler<'src> {
 
     previous_token: Token<'src>,
     previous_position: Span,
+
+    block_index: u8,
+    current_scope: Scope,
 }
 
 impl<'src> Compiler<'src> {
@@ -83,6 +86,8 @@ impl<'src> Compiler<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
+            block_index: 0,
+            current_scope: Scope::default(),
         })
     }
 
@@ -149,11 +154,15 @@ impl<'src> Compiler<'src> {
             .enumerate()
             .rev()
             .find_map(|(index, local)| {
-                let identifier = self
+                let constant = self
                     .chunk
                     .constants()
-                    .get(local.identifier_index as usize)?
-                    .as_string()?;
+                    .get(local.identifier_index as usize)?;
+                let identifier = if let ConcreteValue::String(identifier) = constant {
+                    identifier
+                } else {
+                    return None;
+                };
 
                 if identifier == identifier_text {
                     Some(index as u8)
@@ -177,7 +186,7 @@ impl<'src> Compiler<'src> {
     ) -> (u8, u8) {
         log::debug!("Declare local {identifier}");
 
-        let identifier = Value::string(identifier);
+        let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
 
         self.chunk
@@ -208,16 +217,6 @@ impl<'src> Compiler<'src> {
                 position: self.current_position,
             })
         }
-    }
-
-    fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
-        log::debug!(
-            "Emitting {} at {}",
-            instruction.operation().to_string().bold(),
-            position.to_string()
-        );
-
-        self.chunk.instructions_mut().push((instruction, position));
     }
 
     fn pop_last_instruction(&mut self) -> Result<(Instruction, Span), CompileError> {
@@ -316,8 +315,8 @@ impl<'src> Compiler<'src> {
 
     pub fn get_register_type(&self, register_index: u8) -> Result<Type, CompileError> {
         for (index, (instruction, _)) in self.chunk.instructions().iter().enumerate() {
-            if let Operation::LoadList = instruction.operation() {
-                if instruction.a() == register_index {
+            if instruction.a() == register_index {
+                if let Operation::LoadList = instruction.operation() {
                     let mut length = (instruction.c() - instruction.b() + 1) as usize;
                     let mut item_type = Type::Any;
                     let distance_to_end = self.chunk.len() - index;
@@ -342,10 +341,14 @@ impl<'src> Compiler<'src> {
                         length,
                     });
                 }
-            }
 
-            if instruction.yields_value() && instruction.a() == register_index {
-                return self.get_instruction_type(instruction);
+                if let Operation::LoadSelf = instruction.operation() {
+                    return Ok(Type::SelfChunk);
+                }
+
+                if instruction.yields_value() {
+                    return self.get_instruction_type(instruction);
+                }
             }
         }
 
@@ -355,8 +358,22 @@ impl<'src> Compiler<'src> {
         })
     }
 
-    fn emit_constant(&mut self, value: Value, position: Span) -> Result<(), CompileError> {
-        let constant_index = self.chunk.push_or_get_constant(value);
+    fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
+        log::debug!(
+            "Emitting {} at {}",
+            instruction.operation().to_string().bold(),
+            position.to_string()
+        );
+
+        self.chunk.instructions_mut().push((instruction, position));
+    }
+
+    fn emit_constant(
+        &mut self,
+        constant: ConcreteValue,
+        position: Span,
+    ) -> Result<(), CompileError> {
+        let constant_index = self.chunk.push_or_get_constant(constant);
         let register = self.next_register();
 
         self.emit_instruction(
@@ -401,7 +418,7 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let value = Value::byte(byte);
+            let value = ConcreteValue::byte(byte);
 
             self.emit_constant(value, position)?;
 
@@ -423,7 +440,7 @@ impl<'src> Compiler<'src> {
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let value = Value::character(character);
+            let value = ConcreteValue::character(character);
 
             self.emit_constant(value, position)?;
 
@@ -451,7 +468,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = Value::float(float);
+            let value = ConcreteValue::float(float);
 
             self.emit_constant(value, position)?;
 
@@ -479,7 +496,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = Value::integer(integer);
+            let value = ConcreteValue::integer(integer);
 
             self.emit_constant(value, position)?;
 
@@ -501,7 +518,7 @@ impl<'src> Compiler<'src> {
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let value = Value::string(text);
+            let value = ConcreteValue::string(text);
 
             self.emit_constant(value, position)?;
 
@@ -882,10 +899,15 @@ impl<'src> Compiler<'src> {
             return self.parse_native_call(native_function);
         } else if Some(identifier) == self.chunk.name().map(|string| string.as_str()) {
             let register = self.next_register();
-            let scope = self.chunk.current_scope();
 
             self.emit_instruction(Instruction::load_self(register), start_position);
-            self.declare_local(identifier, Type::SelfChunk, false, scope, register);
+            self.declare_local(
+                identifier,
+                Type::SelfChunk,
+                false,
+                self.current_scope,
+                register,
+            );
 
             self.previous_expression_type = Type::SelfChunk;
 
@@ -902,14 +924,13 @@ impl<'src> Compiler<'src> {
 
             (local.is_mutable, local.scope)
         };
-        let current_scope = self.chunk.current_scope();
 
-        if !current_scope.contains(&local_scope) {
+        if !self.current_scope.contains(&local_scope) {
             return Err(CompileError::VariableOutOfScope {
                 identifier: self.chunk.get_identifier(local_index).unwrap(),
                 position: start_position,
                 variable_scope: local_scope,
-                access_scope: current_scope,
+                access_scope: self.current_scope,
             });
         }
 
@@ -977,13 +998,16 @@ impl<'src> Compiler<'src> {
 
     fn parse_block(&mut self) -> Result<(), CompileError> {
         self.advance()?;
-        self.chunk.begin_scope();
+
+        self.block_index += 1;
+
+        self.current_scope.begin(self.block_index);
 
         while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
         }
 
-        self.chunk.end_scope();
+        self.current_scope.end();
 
         Ok(())
     }
@@ -1317,7 +1341,6 @@ impl<'src> Compiler<'src> {
     fn parse_let_statement(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let scope = self.chunk.current_scope();
         let is_mutable = self.allow(Token::Mut)?;
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
@@ -1350,7 +1373,8 @@ impl<'src> Compiler<'src> {
         } else {
             self.get_register_type(register)?
         };
-        let (local_index, _) = self.declare_local(identifier, r#type, is_mutable, scope, register);
+        let (local_index, _) =
+            self.declare_local(identifier, r#type, is_mutable, self.current_scope, register);
 
         self.emit_instruction(
             Instruction::define_local(register, local_index, is_mutable),
@@ -1405,12 +1429,11 @@ impl<'src> Compiler<'src> {
 
             let register = function_compiler.next_register();
 
-            let scope = function_compiler.chunk.current_scope();
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
                 r#type.clone(),
                 is_mutable,
-                scope,
+                function_compiler.current_scope,
                 register,
             );
 
@@ -1453,23 +1476,26 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type,
         };
-        let function = Value::function(function_compiler.finish(), function_type.clone());
+        let function = ConcreteValue::function(function_compiler.finish());
+        let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
+        let register = self.next_register();
 
         self.lexer.skip_to(function_end);
 
         if let Some((identifier, identifier_position)) = identifier {
-            let register = self.next_register();
-            let scope = self.chunk.current_scope();
             let (local_index, _) = self.declare_local(
                 identifier,
                 Type::Function(function_type),
                 false,
-                scope,
+                self.current_scope,
                 register,
             );
 
-            self.emit_constant(function, Span(function_start, function_end))?;
+            self.emit_instruction(
+                Instruction::load_constant(register, constant_index, false),
+                Span(function_start, function_end),
+            );
             self.emit_instruction(
                 Instruction::define_local(register, local_index, false),
                 identifier_position,
@@ -1477,7 +1503,10 @@ impl<'src> Compiler<'src> {
 
             self.previous_expression_type = Type::None;
         } else {
-            self.emit_constant(function, Span(function_start, function_end))?;
+            self.emit_instruction(
+                Instruction::load_constant(register, constant_index, false),
+                Span(function_start, function_end),
+            );
 
             self.previous_expression_type = Type::Function(function_type);
         }
@@ -1503,15 +1532,18 @@ impl<'src> Compiler<'src> {
         }
 
         let function_register = last_instruction.a();
-        let function_return_type =
-            if let Type::Function(function_type) = self.get_register_type(function_register)? {
-                *function_type.return_type
-            } else {
+        let register_type = self.get_register_type(function_register)?;
+        let function_return_type = match register_type {
+            Type::Function(function_type) => *function_type.return_type,
+            Type::SelfChunk => (*self.chunk.r#type().return_type).clone(),
+            _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
+                    actual_type: register_type,
                     position: self.previous_position,
                 });
-            };
+            }
+        };
         let start = self.current_position.0;
 
         self.advance()?;
@@ -1944,6 +1976,7 @@ pub enum CompileError {
     },
     ExpectedFunction {
         found: TokenOwned,
+        actual_type: Type,
         position: Span,
     },
     InvalidAssignmentTarget {
@@ -2048,8 +2081,8 @@ impl AnnotatedError for CompileError {
             }
             Self::Chunk { error, .. } => Some(error.to_string()),
             Self::ExpectedExpression { found, .. } => Some(format!("Found {found}")),
-            Self::ExpectedFunction { found, .. } => {
-                Some(format!("Expected \"{found}\" to be a function"))
+            Self::ExpectedFunction { found, actual_type, .. } => {
+                Some(format!("Expected \"{found}\" to be a function but it has type {actual_type}"))
             }
             Self::ExpectedToken {
                 expected, found, ..

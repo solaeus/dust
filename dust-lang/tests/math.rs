@@ -17,12 +17,12 @@ fn add() {
                 ),
                 (Instruction::r#return(true), Span(5, 5))
             ],
-            vec![Value::integer(1), Value::integer(2)],
+            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(3))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(3))));
 }
 
 #[test]
@@ -40,12 +40,16 @@ fn add_assign() {
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
-            vec![Value::integer(1), Value::string("a"), Value::integer(2)],
+            vec![
+                ValueOwned::integer(1),
+                ValueOwned::string("a"),
+                ValueOwned::integer(2)
+            ],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(3))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(3))));
 }
 
 #[test]
@@ -97,12 +101,12 @@ fn divide() {
                 ),
                 (Instruction::r#return(true), Span(5, 5))
             ],
-            vec![Value::integer(2)],
+            vec![ValueOwned::integer(2)],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(1))));
 }
 
 #[test]
@@ -123,12 +127,12 @@ fn divide_assign() {
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
-            vec![Value::integer(2), Value::string("a")],
+            vec![ValueOwned::integer(2), ValueOwned::string("a")],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(1))));
 }
 
 #[test]
@@ -176,17 +180,17 @@ fn math_operator_precedence() {
                 (Instruction::r#return(true), Span(17, 17)),
             ],
             vec![
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3),
-                Value::integer(4),
-                Value::integer(5),
+                ValueOwned::integer(1),
+                ValueOwned::integer(2),
+                ValueOwned::integer(3),
+                ValueOwned::integer(4),
+                ValueOwned::integer(5),
             ],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(1))));
 }
 
 #[test]
@@ -206,12 +210,12 @@ fn multiply() {
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
-            vec![Value::integer(1), Value::integer(2)],
+            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(2))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(2))));
 }
 
 #[test]
@@ -232,12 +236,16 @@ fn multiply_assign() {
                 (Instruction::get_local(1, 0), Span(22, 23)),
                 (Instruction::r#return(true), Span(23, 23))
             ],
-            vec![Value::integer(2), Value::string("a"), Value::integer(3)],
+            vec![
+                ValueOwned::integer(2),
+                ValueOwned::string("a"),
+                ValueOwned::integer(3)
+            ],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(6))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(6))));
 }
 
 #[test]
@@ -273,12 +281,12 @@ fn subtract() {
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
-            vec![Value::integer(1), Value::integer(2)],
+            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(-1))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(-1))));
 }
 
 #[test]
@@ -299,12 +307,16 @@ fn subtract_assign() {
                 (Instruction::get_local(1, 0), Span(24, 25)),
                 (Instruction::r#return(true), Span(25, 25)),
             ],
-            vec![Value::integer(42), Value::string("x"), Value::integer(2)],
+            vec![
+                ValueOwned::integer(42),
+                ValueOwned::string("x"),
+                ValueOwned::integer(2)
+            ],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(40))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(40))));
 }
 
 #[test]

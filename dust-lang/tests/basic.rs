@@ -12,12 +12,12 @@ fn constant() {
                 (Instruction::load_constant(0, 0, false), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2))
             ],
-            vec![Value::integer(42)],
+            vec![ValueOwned::Primitive(Primitive::Integer(42))],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
 }
 
 #[test]
@@ -57,10 +57,14 @@ fn parentheses_precedence() {
                 ),
                 (Instruction::r#return(true), Span(11, 11)),
             ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            vec![
+                ValueOwned::integer(1),
+                ValueOwned::integer(2),
+                ValueOwned::integer(3)
+            ],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(9))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(9))));
 }

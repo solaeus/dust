@@ -17,7 +17,7 @@ fn empty_list() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::abstract_list(0, 0, Type::Any))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::list([]))));
 }
 
 #[test]
@@ -35,14 +35,22 @@ fn list() {
                 (Instruction::load_list(3, 0), Span(0, 9)),
                 (Instruction::r#return(true), Span(9, 9)),
             ],
-            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            vec![
+                ValueOwned::integer(1),
+                ValueOwned::integer(2),
+                ValueOwned::integer(3)
+            ],
             vec![]
         )),
     );
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::abstract_list(0, 3, Type::Integer)))
+        Ok(Some(ValueOwned::list([
+            ValueOwned::integer(1),
+            ValueOwned::integer(2),
+            ValueOwned::integer(3)
+        ])))
     );
 }
 
@@ -74,11 +82,11 @@ fn list_with_complex_expression() {
                 (Instruction::r#return(true), Span(18, 18)),
             ],
             vec![
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3),
-                Value::integer(4),
-                Value::integer(5)
+                ValueOwned::integer(1),
+                ValueOwned::integer(2),
+                ValueOwned::integer(3),
+                ValueOwned::integer(4),
+                ValueOwned::integer(5)
             ],
             vec![]
         )),
@@ -86,7 +94,10 @@ fn list_with_complex_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::abstract_list(0, 4, Type::Integer)))
+        Ok(Some(ValueOwned::list([
+            ValueOwned::integer(0),
+            ValueOwned::integer(4)
+        ])))
     );
 }
 
@@ -111,10 +122,10 @@ fn list_with_simple_expression() {
                 (Instruction::r#return(true), Span(13, 13)),
             ],
             vec![
-                Value::integer(1),
-                Value::integer(2),
-                Value::integer(3),
-                Value::integer(4),
+                ValueOwned::integer(1),
+                ValueOwned::integer(2),
+                ValueOwned::integer(3),
+                ValueOwned::integer(4),
             ],
             vec![]
         )),
@@ -122,6 +133,9 @@ fn list_with_simple_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::abstract_list(0, 3, Type::Integer)))
+        Ok(Some(ValueOwned::list([
+            ValueOwned::integer(0),
+            ValueOwned::integer(3)
+        ])))
     );
 }

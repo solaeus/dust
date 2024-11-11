@@ -6,25 +6,18 @@ fn function() {
 
     assert_eq!(
         run(source),
-        Ok(Some(Value::function(
-            Chunk::with_data(
-                None,
-                vec![
-                    (Instruction::add(2, 0, 1), Span(30, 31)),
-                    (Instruction::r#return(true), Span(35, 35)),
-                ],
-                vec![Value::string("a"), Value::string("b"),],
-                vec![
-                    Local::new(0, Type::Integer, false, Scope::default()),
-                    Local::new(1, Type::Integer, false, Scope::default())
-                ]
-            ),
-            FunctionType {
-                type_parameters: None,
-                value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                return_type: Box::new(Type::Integer),
-            }
-        )))
+        Ok(Some(ValueOwned::function(Chunk::with_data(
+            None,
+            vec![
+                (Instruction::add(2, 0, 1), Span(30, 31)),
+                (Instruction::r#return(true), Span(35, 35)),
+            ],
+            vec![ValueOwned::string("a"), ValueOwned::string("b"),],
+            vec![
+                Local::new(0, Type::Integer, false, Scope::default()),
+                Local::new(1, Type::Integer, false, Scope::default())
+            ]
+        ))))
     );
 }
 
@@ -44,33 +37,26 @@ fn function_call() {
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
-                Value::function(
-                    Chunk::with_data(
-                        None,
-                        vec![
-                            (Instruction::add(2, 0, 1), Span(30, 31)),
-                            (Instruction::r#return(true), Span(35, 36)),
-                        ],
-                        vec![Value::string("a"), Value::string("b"),],
-                        vec![
-                            Local::new(0, Type::Integer, false, Scope::default()),
-                            Local::new(1, Type::Integer, false, Scope::default())
-                        ]
-                    ),
-                    FunctionType {
-                        type_parameters: None,
-                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Box::new(Type::Integer),
-                    }
-                ),
-                Value::integer(1),
-                Value::integer(2)
+                ValueOwned::function(Chunk::with_data(
+                    None,
+                    vec![
+                        (Instruction::add(2, 0, 1), Span(30, 31)),
+                        (Instruction::r#return(true), Span(35, 36)),
+                    ],
+                    vec![ValueOwned::string("a"), ValueOwned::string("b"),],
+                    vec![
+                        Local::new(0, Type::Integer, false, Scope::default()),
+                        Local::new(1, Type::Integer, false, Scope::default())
+                    ]
+                )),
+                ValueOwned::integer(1),
+                ValueOwned::integer(2)
             ],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(Value::integer(3))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(3))));
 }
 
 #[test]
@@ -87,26 +73,19 @@ fn function_declaration() {
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
-                Value::string("add"),
-                Value::function(
-                    Chunk::with_data(
-                        None,
-                        vec![
-                            (Instruction::add(2, 0, 1), Span(35, 36)),
-                            (Instruction::r#return(true), Span(40, 40)),
-                        ],
-                        vec![Value::string("a"), Value::string("b")],
-                        vec![
-                            Local::new(0, Type::Integer, false, Scope::default()),
-                            Local::new(1, Type::Integer, false, Scope::default())
-                        ]
-                    ),
-                    FunctionType {
-                        type_parameters: None,
-                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Box::new(Type::Integer),
-                    },
-                )
+                ValueOwned::string("add"),
+                ValueOwned::function(Chunk::with_data(
+                    None,
+                    vec![
+                        (Instruction::add(2, 0, 1), Span(35, 36)),
+                        (Instruction::r#return(true), Span(40, 40)),
+                    ],
+                    vec![ValueOwned::string("a"), ValueOwned::string("b")],
+                    vec![
+                        Local::new(0, Type::Integer, false, Scope::default()),
+                        Local::new(1, Type::Integer, false, Scope::default())
+                    ]
+                ),)
             ],
             vec![Local::new(
                 0,

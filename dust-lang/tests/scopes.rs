@@ -9,7 +9,7 @@ fn allow_access_to_parent_scope() {
         }
     "#;
 
-    assert_eq!(run(source), Ok(Some(Value::integer(1))));
+    assert_eq!(run(source), Ok(Some(ValueOwned::integer(1))));
 }
 
 #[test]
@@ -44,15 +44,15 @@ fn block_scope() {
                 (Instruction::r#return(false), Span(165, 165))
             ],
             vec![
-                Value::integer(0),
-                Value::string("a"),
-                Value::integer(42),
-                Value::string("b"),
-                Value::integer(1),
-                Value::string("c"),
-                Value::integer(2),
-                Value::string("d"),
-                Value::string("e"),
+                ValueOwned::integer(0),
+                ValueOwned::string("a"),
+                ValueOwned::integer(42),
+                ValueOwned::string("b"),
+                ValueOwned::integer(1),
+                ValueOwned::string("c"),
+                ValueOwned::integer(2),
+                ValueOwned::string("d"),
+                ValueOwned::string("e"),
             ],
             vec![
                 Local::new(1, Type::Integer, false, Scope::new(0, 0)),
@@ -115,16 +115,16 @@ fn multiple_block_scopes() {
                 (Instruction::r#return(false), Span(307, 307))
             ],
             vec![
-                Value::integer(0),
-                Value::string("a"),
-                Value::integer(42),
-                Value::string("b"),
-                Value::integer(1),
-                Value::string("c"),
-                Value::integer(2),
-                Value::string("d"),
-                Value::string("q"),
-                Value::string("e"),
+                ValueOwned::integer(0),
+                ValueOwned::string("a"),
+                ValueOwned::integer(42),
+                ValueOwned::string("b"),
+                ValueOwned::integer(1),
+                ValueOwned::string("c"),
+                ValueOwned::integer(2),
+                ValueOwned::string("d"),
+                ValueOwned::string("q"),
+                ValueOwned::string("e"),
             ],
             vec![
                 Local::new(1, Type::Integer, false, Scope::new(0, 0)),
