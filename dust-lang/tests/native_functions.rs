@@ -17,7 +17,7 @@ fn panic() {
                 (Instruction::load_constant(0, 0, false), Span(6, 22)),
                 (Instruction::load_constant(1, 1, false), Span(24, 26)),
                 (
-                    Instruction::call_native(0, NativeFunction::Panic, 2),
+                    Instruction::call_native(2, NativeFunction::Panic, 2),
                     Span(0, 27)
                 ),
                 (Instruction::r#return(false), Span(27, 27))

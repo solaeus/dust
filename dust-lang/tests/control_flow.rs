@@ -167,7 +167,7 @@ fn if_else_assigment_true() {
                 (Instruction::load_constant(4, 4, false), Span(65, 67)),
                 (Instruction::jump(2, true), Span(129, 130)),
                 (
-                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Instruction::call_native(5, NativeFunction::Panic, 0),
                     Span(97, 104)
                 ),
                 (Instruction::load_constant(5, 5, false), Span(118, 119)),
@@ -380,7 +380,7 @@ fn if_else_true() {
                 (Instruction::load_constant(0, 1, false), Span(12, 14)),
                 (Instruction::jump(2, true), Span(36, 36)),
                 (
-                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Instruction::call_native(1, NativeFunction::Panic, 0),
                     Span(24, 31)
                 ),
                 (Instruction::load_constant(1, 2, false), Span(33, 34)),

@@ -34,7 +34,6 @@ pub enum Type {
         pairs: HashMap<u8, Type>,
     },
     None,
-    Number,
     Range {
         r#type: Box<Type>,
     },
@@ -207,10 +206,6 @@ impl Type {
                     return Ok(());
                 }
             }
-            (Type::Number, Type::Number | Type::Integer | Type::Float)
-            | (Type::Integer | Type::Float, Type::Number) => {
-                return Ok(());
-            }
             _ => {}
         }
 
@@ -261,7 +256,6 @@ impl Display for Type {
                 write!(f, "}}")
             }
             Type::None => write!(f, "none"),
-            Type::Number => write!(f, "num"),
             Type::Range { r#type } => write!(f, "{type} range"),
             Type::SelfChunk => write!(f, "self"),
             Type::String { .. } => write!(f, "str"),
@@ -350,8 +344,6 @@ impl Ord for Type {
             (Type::Map { .. }, _) => Ordering::Greater,
             (Type::None, Type::None) => Ordering::Equal,
             (Type::None, _) => Ordering::Greater,
-            (Type::Number, Type::Number) => Ordering::Equal,
-            (Type::Number, _) => Ordering::Greater,
             (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
                 left_type.cmp(right_type)
             }

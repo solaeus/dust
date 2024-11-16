@@ -38,29 +38,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         .parse_top_level()
         .map_err(|error| DustError::Compile { error, source })?;
 
-    let return_type = if compiler
-        .chunk
-        .instructions()
-        .iter()
-        .last()
-        .map(|(instruction, _)| {
-            let should_return = instruction.b_as_boolean();
-
-            (instruction.operation(), should_return)
-        })
-        == Some((Operation::Return, true))
-    {
-        Box::new(compiler.previous_expression_type.clone())
-    } else {
-        Box::new(Type::None)
-    };
-    let chunk_type = FunctionType {
-        type_parameters: None,
-        value_parameters: None,
-        return_type,
-    };
-
-    Ok(compiler.finish(chunk_type))
+    Ok(compiler.finish())
 }
 
 /// Low-level tool for compiling the input a token at a time while assembling a chunk.
@@ -71,16 +49,17 @@ pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
 
-    local_definitions: Vec<u8>,
-    optimization_count: usize,
-    previous_expression_type: Type,
-    minimum_register: u8,
-
     current_token: Token<'src>,
     current_position: Span,
 
     previous_token: Token<'src>,
     previous_position: Span,
+
+    return_type: Option<Type>,
+    local_definitions: Vec<u8>,
+    optimization_count: usize,
+    previous_expression_type: Type,
+    minimum_register: u8,
 
     block_index: u8,
     current_scope: Scope,
@@ -100,23 +79,32 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             chunk,
             lexer,
-            local_definitions: Vec::new(),
-            optimization_count: 0,
-            previous_expression_type: Type::None,
-            minimum_register: 0,
             current_token,
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
+            return_type: None,
+            local_definitions: Vec::new(),
+            optimization_count: 0,
+            previous_expression_type: Type::None,
+            minimum_register: 0,
             block_index: 0,
             current_scope: Scope::default(),
         })
     }
 
-    pub fn finish(mut self, r#type: FunctionType) -> Chunk {
+    pub fn finish(mut self) -> Chunk {
         log::info!("End chunk with {} optimizations", self.optimization_count);
 
-        self.chunk.set_type(r#type);
+        if let Type::None = *self.chunk.r#type().return_type {
+            self.chunk.set_type(FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: self
+                    .return_type
+                    .map_or_else(|| Box::new(Type::None), Box::new),
+            });
+        }
 
         self.chunk
     }
@@ -327,6 +315,7 @@ impl<'src> Compiler<'src> {
                     position: self.current_position,
                 }),
             LoadList => self.get_register_type(instruction.a()),
+            LoadSelf => Ok(Type::SelfChunk),
             GetLocal => self
                 .chunk
                 .get_local_type(instruction.b())
@@ -335,6 +324,26 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.current_position,
                 }),
+            Call => {
+                let function_register = instruction.b();
+                let function_type = self.get_register_type(function_register)?;
+
+                match function_type {
+                    Type::Function(FunctionType { return_type, .. }) => Ok(*return_type),
+                    Type::SelfChunk => {
+                        let return_type = self
+                            .return_type
+                            .as_ref()
+                            .unwrap_or_else(|| &self.chunk.r#type().return_type);
+
+                        Ok(return_type.clone())
+                    }
+                    _ => Err(CompileError::ExpectedFunctionType {
+                        found: function_type,
+                        position: self.current_position,
+                    }),
+                }
+            }
             CallNative => {
                 let native_function = NativeFunction::from(instruction.b());
 
@@ -387,6 +396,29 @@ impl<'src> Compiler<'src> {
             register_index: register_index as usize,
             position: self.current_position,
         })
+    }
+
+    /// Updates [Self::return_type] with the given [Type].
+    ///
+    /// If [Self::return_type] is already set, it will check if the given [Type] is compatible with
+    /// it and set it to the least restrictive of the two.
+    fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
+        if let Some(return_type) = &self.return_type {
+            return_type.check(&new_return_type).map_err(|conflict| {
+                CompileError::ReturnTypeConflict {
+                    conflict,
+                    position: self.current_position,
+                }
+            })?;
+
+            if *return_type != Type::Any {
+                self.return_type = Some(new_return_type);
+            };
+        } else {
+            self.return_type = Some(new_return_type);
+        }
+
+        Ok(())
     }
 
     fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
@@ -932,13 +964,6 @@ impl<'src> Compiler<'src> {
             let register = self.next_register();
 
             self.emit_instruction(Instruction::load_self(register), start_position);
-            self.declare_local(
-                identifier,
-                Type::SelfChunk,
-                false,
-                self.current_scope,
-                register,
-            );
 
             self.previous_expression_type = Type::SelfChunk;
 
@@ -1292,14 +1317,10 @@ impl<'src> Compiler<'src> {
         }
 
         let end = self.previous_position.1;
-        let mut to_register = self.next_register();
+        let to_register = self.next_register();
         let argument_count = to_register - start_register;
 
         self.previous_expression_type = *function.r#type().return_type;
-
-        if let Type::None = self.previous_expression_type {
-            to_register = 0;
-        }
 
         self.emit_instruction(
             Instruction::call_native(to_register, function, argument_count),
@@ -1346,9 +1367,12 @@ impl<'src> Compiler<'src> {
 
         let has_return_value = if matches!(self.current_token, Token::Semicolon | Token::RightBrace)
         {
+            self.update_return_type(Type::None)?;
+
             false
         } else {
             self.parse_expression()?;
+            self.update_return_type(self.previous_expression_type.clone())?;
 
             true
         };
@@ -1497,6 +1521,13 @@ impl<'src> Compiler<'src> {
         } else {
             Box::new(Type::None)
         };
+        let function_type = FunctionType {
+            type_parameters: None,
+            value_parameters,
+            return_type,
+        };
+
+        function_compiler.chunk.set_type(function_type.clone());
 
         function_compiler.expect(Token::LeftBrace)?;
         function_compiler.parse_top_level()?;
@@ -1506,13 +1537,7 @@ impl<'src> Compiler<'src> {
         self.current_token = function_compiler.current_token;
         self.current_position = function_compiler.current_position;
 
-        let function_type = FunctionType {
-            type_parameters: None,
-            value_parameters,
-            return_type,
-        };
-
-        let function = ConcreteValue::Function(function_compiler.finish(function_type.clone()));
+        let function = ConcreteValue::Function(function_compiler.finish());
         let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
         let register = self.next_register();
@@ -2015,6 +2040,10 @@ pub enum CompileError {
         actual_type: Type,
         position: Span,
     },
+    ExpectedFunctionType {
+        found: Type,
+        position: Span,
+    },
     InvalidAssignmentTarget {
         found: TokenOwned,
         position: Span,
@@ -2063,6 +2092,10 @@ pub enum CompileError {
         conflict: TypeConflict,
         position: Span,
     },
+    ReturnTypeConflict {
+        conflict: TypeConflict,
+        position: Span,
+    },
 
     // Wrappers around foreign errors
     Chunk {
@@ -2094,6 +2127,7 @@ impl AnnotatedError for CompileError {
             Self::Chunk { .. } => "Chunk error",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedFunction { .. } => "Expected a function",
+            Self::ExpectedFunctionType { .. } => "Expected a function type",
             Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
@@ -2104,6 +2138,7 @@ impl AnnotatedError for CompileError {
             Self::ListItemTypeConflict { .. } => "List item type conflict",
             Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
+            Self::ReturnTypeConflict { .. } => "Return type conflict",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UnexpectedReturn { .. } => "Unexpected return",
             Self::VariableOutOfScope { .. } => "Variable out of scope",
@@ -2119,6 +2154,9 @@ impl AnnotatedError for CompileError {
             Self::ExpectedExpression { found, .. } => Some(format!("Found {found}")),
             Self::ExpectedFunction { found, actual_type, .. } => {
                 Some(format!("Expected \"{found}\" to be a function but it has type {actual_type}"))
+            }
+            Self::ExpectedFunctionType { found, .. } => {
+                Some(format!("Expected a function type but found {found}"))
             }
             Self::ExpectedToken {
                 expected, found, ..
@@ -2161,6 +2199,12 @@ impl AnnotatedError for CompileError {
             Self::Lex(error) => error.details(),
             Self::ParseFloatError { error, .. } => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
+            Self::ReturnTypeConflict {
+                conflict: TypeConflict { expected, actual },
+                ..
+            } => Some(format!(
+                "Expected return type \"{expected}\" but found \"{actual}\""
+            )),
             Self::UndeclaredVariable { identifier, .. } => {
                 Some(format!("{identifier} has not been declared"))
             }
@@ -2181,6 +2225,7 @@ impl AnnotatedError for CompileError {
             Self::Chunk { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
+            Self::ExpectedFunctionType { position, .. } => *position,
             Self::ExpectedMutableVariable { position, .. } => *position,
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
@@ -2191,6 +2236,7 @@ impl AnnotatedError for CompileError {
             Self::ListItemTypeConflict { position, .. } => *position,
             Self::ParseFloatError { position, .. } => *position,
             Self::ParseIntError { position, .. } => *position,
+            Self::ReturnTypeConflict { position, .. } => *position,
             Self::UndeclaredVariable { position, .. } => *position,
             Self::UnexpectedReturn { position } => *position,
             Self::VariableOutOfScope { position, .. } => *position,

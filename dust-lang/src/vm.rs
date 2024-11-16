@@ -462,7 +462,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    pub(crate) fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
+    fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
         let register =
             self.stack
@@ -482,6 +482,29 @@ impl<'a> Vm<'a> {
                 index: register_index,
                 position: self.current_position,
             }),
+        }
+    }
+
+    pub(crate) fn open_register_ignore_empty(
+        &self,
+        register_index: u8,
+    ) -> Result<Option<ValueRef>, VmError> {
+        let register_index = register_index as usize;
+        let register =
+            self.stack
+                .get(register_index)
+                .ok_or_else(|| VmError::RegisterIndexOutOfBounds {
+                    index: register_index,
+                    position: self.current_position,
+                })?;
+
+        log::trace!("Open R{register_index} to {register}");
+
+        match register {
+            Register::ConcreteValue(value) => Ok(Some(ValueRef::Concrete(value))),
+            Register::Pointer(pointer) => self.follow_pointer(*pointer).map(Some),
+            Register::AbstractValue(abstract_value) => Ok(Some(ValueRef::Abstract(abstract_value))),
+            Register::Empty => Ok(None),
         }
     }
 

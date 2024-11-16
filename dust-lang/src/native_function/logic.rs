@@ -14,7 +14,11 @@ pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
                 message.push(' ');
             }
 
-            let argument = vm.open_register(argument_index)?;
+            let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+                value
+            } else {
+                continue;
+            };
             let argument_string = argument.display(vm)?;
 
             message.push_str(&argument_string);
@@ -48,7 +52,11 @@ pub fn to_string<'a>(
     let mut string = String::new();
 
     for argument_index in 0..argument_count {
-        let argument = vm.open_register(argument_index)?;
+        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+            value
+        } else {
+            continue;
+        };
         let argument_string = argument.display(vm)?;
 
         string.push_str(&argument_string);
@@ -106,7 +114,11 @@ pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument = vm.open_register(argument_index)?;
+        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+            value
+        } else {
+            continue;
+        };
         let argument_string = argument.display(vm)?;
 
         stdout
@@ -138,7 +150,11 @@ pub fn write_line<'a>(
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument = vm.open_register(argument_index)?;
+        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+            value
+        } else {
+            continue;
+        };
         let argument_string = argument.display(vm)?;
 
         stdout

@@ -610,11 +610,7 @@ impl Instruction {
                 let mut output = String::new();
                 let native_function_name = native_function.as_str();
 
-                if *native_function.r#type().return_type != Type::None {
-                    output.push_str(&format!("R{} = {}(", to_register, native_function_name));
-                } else {
-                    output.push_str(&format!("{}(", native_function_name));
-                }
+                output.push_str(&format!("R{} = {}(", to_register, native_function_name));
 
                 if argument_count != 0 {
                     let first_argument = to_register.saturating_sub(argument_count);
