@@ -20,7 +20,7 @@ fn and() {
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn or() {
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn variable_and() {
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
-            vec![ValueOwned::string("a"), ValueOwned::string("b"),],
+            vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
                 Local::new(0, Type::Boolean, false, Scope::default()),
                 Local::new(1, Type::Boolean, false, Scope::default()),
@@ -73,5 +73,5 @@ fn variable_and() {
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }

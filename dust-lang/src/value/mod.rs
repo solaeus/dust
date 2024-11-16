@@ -11,28 +11,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::{Vm, VmError};
 
-#[derive(Clone, Debug)]
-pub enum ValueRef<'a> {
-    Abstract(&'a AbstractValue),
-    Concrete(&'a ConcreteValue),
-}
-
-impl ValueRef<'_> {
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
-        match self {
-            ValueRef::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            ValueRef::Concrete(concrete_value) => Ok((*concrete_value).clone()),
-        }
-    }
-
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
-        match self {
-            ValueRef::Abstract(abstract_value) => abstract_value.display(vm),
-            ValueRef::Concrete(concrete_value) => Ok(concrete_value.to_string()),
-        }
-    }
-}
-
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum ValueOwned {
     Abstract(AbstractValue),
     Concrete(ConcreteValue),
@@ -50,6 +29,28 @@ impl ValueOwned {
         match self {
             ValueOwned::Abstract(abstract_value) => abstract_value.display(vm),
             ValueOwned::Concrete(concrete_value) => Ok(concrete_value.to_string()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub enum ValueRef<'a> {
+    Abstract(&'a AbstractValue),
+    Concrete(&'a ConcreteValue),
+}
+
+impl ValueRef<'_> {
+    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
+        match self {
+            ValueRef::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
+            ValueRef::Concrete(concrete_value) => Ok((*concrete_value).clone()),
+        }
+    }
+
+    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
+        match self {
+            ValueRef::Abstract(abstract_value) => abstract_value.display(vm),
+            ValueRef::Concrete(concrete_value) => Ok(concrete_value.to_string()),
         }
     }
 }

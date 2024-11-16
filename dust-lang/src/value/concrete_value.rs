@@ -20,36 +20,8 @@ pub enum ConcreteValue {
 }
 
 impl ConcreteValue {
-    pub fn boolean(value: bool) -> Self {
-        ConcreteValue::Boolean(value)
-    }
-
-    pub fn byte(value: u8) -> Self {
-        ConcreteValue::Byte(value)
-    }
-
-    pub fn character(value: char) -> Self {
-        ConcreteValue::Character(value)
-    }
-
-    pub fn float(value: f64) -> Self {
-        ConcreteValue::Float(value)
-    }
-
-    pub fn function(chunk: Chunk) -> Self {
-        ConcreteValue::Function(chunk)
-    }
-
-    pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
-        ConcreteValue::Integer(into_i64.into())
-    }
-
     pub fn list<T: Into<Vec<ConcreteValue>>>(into_list: T) -> Self {
         ConcreteValue::List(into_list.into())
-    }
-
-    pub fn range(range: RangeValue) -> Self {
-        ConcreteValue::Range(range)
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
@@ -91,9 +63,9 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let sum = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::byte(left.saturating_add(*right)),
-            (Float(left), Float(right)) => ConcreteValue::float(*left + *right),
-            (Integer(left), Integer(right)) => ConcreteValue::integer(left.saturating_add(*right)),
+            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_add(*right)),
+            (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
+            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
             (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
             _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
         };
@@ -105,9 +77,9 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let difference = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::byte(left.saturating_sub(*right)),
-            (Float(left), Float(right)) => ConcreteValue::float(left - right),
-            (Integer(left), Integer(right)) => ConcreteValue::integer(left.saturating_sub(*right)),
+            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_sub(*right)),
+            (Float(left), Float(right)) => ConcreteValue::Float(left - right),
+            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_sub(*right)),
             _ => return Err(ValueError::CannotSubtract(self.clone(), other.clone())),
         };
 
@@ -118,9 +90,9 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let product = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::byte(left.saturating_mul(*right)),
-            (Float(left), Float(right)) => ConcreteValue::float(left * right),
-            (Integer(left), Integer(right)) => ConcreteValue::integer(left.saturating_mul(*right)),
+            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_mul(*right)),
+            (Float(left), Float(right)) => ConcreteValue::Float(left * right),
+            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_mul(*right)),
             _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         };
 
@@ -131,9 +103,9 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let quotient = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::byte(left.saturating_div(*right)),
-            (Float(left), Float(right)) => ConcreteValue::float(left / right),
-            (Integer(left), Integer(right)) => ConcreteValue::integer(left.saturating_div(*right)),
+            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_div(*right)),
+            (Float(left), Float(right)) => ConcreteValue::Float(left / right),
+            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_div(*right)),
             _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         };
 
@@ -144,10 +116,10 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let product = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::byte(left.wrapping_rem(*right)),
-            (Float(left), Float(right)) => ConcreteValue::float(left % right),
+            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.wrapping_rem(*right)),
+            (Float(left), Float(right)) => ConcreteValue::Float(left % right),
             (Integer(left), Integer(right)) => {
-                ConcreteValue::integer(left.wrapping_rem_euclid(*right))
+                ConcreteValue::Integer(left.wrapping_rem_euclid(*right))
             }
             _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         };
@@ -159,10 +131,10 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let negated = match self {
-            Boolean(value) => ConcreteValue::boolean(!value),
-            Byte(value) => ConcreteValue::byte(value.wrapping_neg()),
-            Float(value) => ConcreteValue::float(-value),
-            Integer(value) => ConcreteValue::integer(value.wrapping_neg()),
+            Boolean(value) => ConcreteValue::Boolean(!value),
+            Byte(value) => ConcreteValue::Byte(value.wrapping_neg()),
+            Float(value) => ConcreteValue::Float(-value),
+            Integer(value) => ConcreteValue::Integer(value.wrapping_neg()),
             _ => return Err(ValueError::CannotNegate(self.clone())),
         };
 
@@ -173,7 +145,7 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let not = match self {
-            Boolean(value) => ConcreteValue::boolean(!value),
+            Boolean(value) => ConcreteValue::Boolean(!value),
             _ => return Err(ValueError::CannotNot(self.clone())),
         };
 
@@ -184,15 +156,15 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let equal = match (self, other) {
-            (Boolean(left), Boolean(right)) => ConcreteValue::boolean(left == right),
-            (Byte(left), Byte(right)) => ConcreteValue::boolean(left == right),
-            (Character(left), Character(right)) => ConcreteValue::boolean(left == right),
-            (Float(left), Float(right)) => ConcreteValue::boolean(left == right),
-            (Function(left), Function(right)) => ConcreteValue::boolean(left == right),
-            (Integer(left), Integer(right)) => ConcreteValue::boolean(left == right),
-            (List(left), List(right)) => ConcreteValue::boolean(left == right),
-            (Range(left), Range(right)) => ConcreteValue::boolean(left == right),
-            (String(left), String(right)) => ConcreteValue::boolean(left == right),
+            (Boolean(left), Boolean(right)) => ConcreteValue::Boolean(left == right),
+            (Byte(left), Byte(right)) => ConcreteValue::Boolean(left == right),
+            (Character(left), Character(right)) => ConcreteValue::Boolean(left == right),
+            (Float(left), Float(right)) => ConcreteValue::Boolean(left == right),
+            (Function(left), Function(right)) => ConcreteValue::Boolean(left == right),
+            (Integer(left), Integer(right)) => ConcreteValue::Boolean(left == right),
+            (List(left), List(right)) => ConcreteValue::Boolean(left == right),
+            (Range(left), Range(right)) => ConcreteValue::Boolean(left == right),
+            (String(left), String(right)) => ConcreteValue::Boolean(left == right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -203,15 +175,15 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let less_than = match (self, other) {
-            (Boolean(left), Boolean(right)) => ConcreteValue::boolean(left < right),
-            (Byte(left), Byte(right)) => ConcreteValue::boolean(left < right),
-            (Character(left), Character(right)) => ConcreteValue::boolean(left < right),
-            (Float(left), Float(right)) => ConcreteValue::boolean(left < right),
-            (Function(left), Function(right)) => ConcreteValue::boolean(left < right),
-            (Integer(left), Integer(right)) => ConcreteValue::boolean(left < right),
-            (List(left), List(right)) => ConcreteValue::boolean(left < right),
-            (Range(left), Range(right)) => ConcreteValue::boolean(left < right),
-            (String(left), String(right)) => ConcreteValue::boolean(left < right),
+            (Boolean(left), Boolean(right)) => ConcreteValue::Boolean(left < right),
+            (Byte(left), Byte(right)) => ConcreteValue::Boolean(left < right),
+            (Character(left), Character(right)) => ConcreteValue::Boolean(left < right),
+            (Float(left), Float(right)) => ConcreteValue::Boolean(left < right),
+            (Function(left), Function(right)) => ConcreteValue::Boolean(left < right),
+            (Integer(left), Integer(right)) => ConcreteValue::Boolean(left < right),
+            (List(left), List(right)) => ConcreteValue::Boolean(left < right),
+            (Range(left), Range(right)) => ConcreteValue::Boolean(left < right),
+            (String(left), String(right)) => ConcreteValue::Boolean(left < right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 
@@ -222,15 +194,15 @@ impl ConcreteValue {
         use ConcreteValue::*;
 
         let less_than_or_equal = match (self, other) {
-            (Boolean(left), Boolean(right)) => ConcreteValue::boolean(left <= right),
-            (Byte(left), Byte(right)) => ConcreteValue::boolean(left <= right),
-            (Character(left), Character(right)) => ConcreteValue::boolean(left <= right),
-            (Float(left), Float(right)) => ConcreteValue::boolean(left <= right),
-            (Function(left), Function(right)) => ConcreteValue::boolean(left <= right),
-            (Integer(left), Integer(right)) => ConcreteValue::boolean(left <= right),
-            (List(left), List(right)) => ConcreteValue::boolean(left <= right),
-            (Range(left), Range(right)) => ConcreteValue::boolean(left <= right),
-            (String(left), String(right)) => ConcreteValue::boolean(left <= right),
+            (Boolean(left), Boolean(right)) => ConcreteValue::Boolean(left <= right),
+            (Byte(left), Byte(right)) => ConcreteValue::Boolean(left <= right),
+            (Character(left), Character(right)) => ConcreteValue::Boolean(left <= right),
+            (Float(left), Float(right)) => ConcreteValue::Boolean(left <= right),
+            (Function(left), Function(right)) => ConcreteValue::Boolean(left <= right),
+            (Integer(left), Integer(right)) => ConcreteValue::Boolean(left <= right),
+            (List(left), List(right)) => ConcreteValue::Boolean(left <= right),
+            (Range(left), Range(right)) => ConcreteValue::Boolean(left <= right),
+            (String(left), String(right)) => ConcreteValue::Boolean(left <= right),
             _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
         };
 

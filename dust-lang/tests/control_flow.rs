@@ -22,12 +22,12 @@ fn equality_assignment_long() {
                 (Instruction::get_local(1, 0), Span(43, 44)),
                 (Instruction::r#return(true), Span(44, 44)),
             ],
-            vec![ValueOwned::integer(4), ValueOwned::string("a")],
+            vec![ConcreteValue::Integer(4), ConcreteValue::string("a")],
             vec![Local::new(1, Type::Boolean, false, Scope::default(),)]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -52,12 +52,12 @@ fn equality_assignment_short() {
                 (Instruction::get_local(1, 0), Span(15, 16)),
                 (Instruction::r#return(true), Span(16, 16)),
             ],
-            vec![ValueOwned::integer(4), ValueOwned::string("a")],
+            vec![ConcreteValue::Integer(4), ConcreteValue::string("a")],
             vec![Local::new(1, Type::Boolean, false, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -104,18 +104,18 @@ fn if_else_assigment_false() {
                 (Instruction::r#return(true), Span(149, 149)),
             ],
             vec![
-                ValueOwned::integer(4),
-                ValueOwned::integer(3),
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(42),
-                ValueOwned::string("a")
+                ConcreteValue::Integer(4),
+                ConcreteValue::Integer(3),
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(42),
+                ConcreteValue::string("a")
             ],
             vec![Local::new(5, Type::Integer, false, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }
 
 #[test]
@@ -162,18 +162,18 @@ fn if_else_assigment_true() {
                 (Instruction::r#return(true), Span(149, 149)),
             ],
             vec![
-                ValueOwned::integer(4),
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(3),
-                ValueOwned::integer(42),
-                ValueOwned::string("a")
+                ConcreteValue::Integer(4),
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(3),
+                ConcreteValue::Integer(42),
+                ConcreteValue::string("a")
             ],
             vec![Local::new(5, Type::Integer, false, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }
 
 #[test]
@@ -210,10 +210,10 @@ fn if_else_complex() {
                 (Instruction::r#return(false), Span(95, 95)),
             ],
             vec![
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(3),
-                ValueOwned::integer(4),
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(3),
+                ConcreteValue::Integer(4),
             ],
             vec![]
         ))
@@ -275,21 +275,21 @@ fn if_else_complex() {
 //                 (Instruction::r#return(true), Span(146, 146)),
 //             ],
 //             vec![
-//                 ValueOwned::integer(0),
-//                 ValueOwned::integer(1),
-//                 ValueOwned::integer(0),
-//                 ValueOwned::integer(2),
-//                 ValueOwned::integer(1),
-//                 ValueOwned::integer(0),
-//                 ValueOwned::integer(3),
-//                 ValueOwned::integer(3),
-//                 ValueOwned::integer(4)
+//                 ConcreteValue::integer(0),
+//                 ConcreteValue::integer(1),
+//                 ConcreteValue::integer(0),
+//                 ConcreteValue::integer(2),
+//                 ConcreteValue::integer(1),
+//                 ConcreteValue::integer(0),
+//                 ConcreteValue::integer(3),
+//                 ConcreteValue::integer(3),
+//                 ConcreteValue::integer(4)
 //             ],
 //             vec![]
 //         ))
 //     );
 
-//     assert_eq!(run(source), Ok(Some(ValueOwned::integer(4))));
+//     assert_eq!(run(source), Ok(Some(ConcreteValue::integer(4))));
 // }
 
 #[test]
@@ -317,15 +317,15 @@ fn if_else_false() {
                 (Instruction::r#return(true), Span(33, 33)),
             ],
             vec![
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(42)
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(42)
             ],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }
 
 #[test]
@@ -352,12 +352,12 @@ fn if_else_true() {
                 (Instruction::r#move(1, 0), Span(33, 33)),
                 (Instruction::r#return(true), Span(33, 33))
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(42)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(42)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }
 
 #[test]
@@ -382,7 +382,7 @@ fn if_false() {
                 ),
                 (Instruction::r#return(false), Span(21, 21))
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
@@ -412,7 +412,7 @@ fn if_true() {
                 ),
                 (Instruction::r#return(false), Span(21, 21))
             ],
-            vec![ValueOwned::integer(1)],
+            vec![ConcreteValue::Integer(1)],
             vec![]
         )),
     );

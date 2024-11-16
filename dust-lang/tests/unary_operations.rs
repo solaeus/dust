@@ -12,12 +12,12 @@ fn negate() {
                 (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
-            vec![ValueOwned::integer(42)],
+            vec![ConcreteValue::Integer(42)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(-42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(-42))));
 }
 
 #[test]
@@ -38,5 +38,5 @@ fn not() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }

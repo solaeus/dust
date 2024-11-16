@@ -13,7 +13,7 @@ fn define_local() {
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::r#return(false), Span(11, 11))
             ],
-            vec![ValueOwned::integer(42), ValueOwned::string("x")],
+            vec![ConcreteValue::Integer(42), ConcreteValue::string("x")],
             vec![Local::new(1, Type::Integer, false, Scope::default())]
         )),
     );
@@ -55,13 +55,13 @@ fn set_local() {
                 (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![
-                ValueOwned::integer(41),
-                ValueOwned::string("x"),
-                ValueOwned::integer(42)
+                ConcreteValue::Integer(41),
+                ConcreteValue::string("x"),
+                ConcreteValue::Integer(42)
             ],
             vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }

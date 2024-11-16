@@ -1,14 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Pointer, ConcreteValue, Type, Vm, VmError};
+use crate::{vm::Pointer, ConcreteValue, Vm, VmError};
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum AbstractValue {
     FunctionSelf,
-    List {
-        items: Vec<Pointer>,
-        item_type: Type,
-    },
+    List { items: Vec<Pointer> },
 }
 
 impl AbstractValue {
@@ -45,7 +42,7 @@ impl AbstractValue {
                     display.push_str(&item_display);
                 }
 
-                display.push_str("]");
+                display.push(']');
 
                 Ok(display)
             }
@@ -59,9 +56,8 @@ impl Clone for AbstractValue {
 
         match self {
             AbstractValue::FunctionSelf => AbstractValue::FunctionSelf,
-            AbstractValue::List { items, item_type } => AbstractValue::List {
+            AbstractValue::List { items } => AbstractValue::List {
                 items: items.clone(),
-                item_type: item_type.clone(),
             },
         }
     }

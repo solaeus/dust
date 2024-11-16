@@ -20,12 +20,12 @@ fn equal() {
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -48,12 +48,12 @@ fn greater() {
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -76,12 +76,12 @@ fn greater_than_or_equal() {
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -104,12 +104,12 @@ fn less_than() {
                 (Instruction::load_boolean(0, false, false), Span(2, 3)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -132,12 +132,12 @@ fn less_than_or_equal() {
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -160,10 +160,10 @@ fn not_equal() {
                 (Instruction::load_boolean(0, false, false), Span(2, 4)),
                 (Instruction::r#return(true), Span(6, 6)),
             ],
-            vec![ValueOwned::integer(1), ValueOwned::integer(2)],
+            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }

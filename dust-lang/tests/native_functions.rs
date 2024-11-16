@@ -18,8 +18,8 @@ fn panic() {
                 (Instruction::r#return(true), Span(27, 27))
             ],
             vec![
-                ValueOwned::string("Goodbye world!"),
-                ValueOwned::integer(42)
+                ConcreteValue::string("Goodbye world!"),
+                ConcreteValue::Integer(42)
             ],
             vec![]
         )),
@@ -53,10 +53,10 @@ fn to_string() {
                 ),
                 (Instruction::r#return(true), Span(13, 13))
             ],
-            vec![ValueOwned::integer(42)],
+            vec![ConcreteValue::Integer(42)],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::string("42"))))
+    assert_eq!(run(source), Ok(Some(ConcreteValue::string("42"))))
 }

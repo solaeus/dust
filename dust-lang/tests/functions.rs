@@ -6,13 +6,13 @@ fn function() {
 
     assert_eq!(
         run(source),
-        Ok(Some(ValueOwned::function(Chunk::with_data(
+        Ok(Some(ConcreteValue::Function(Chunk::with_data(
             None,
             vec![
                 (Instruction::add(2, 0, 1), Span(30, 31)),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
-            vec![ValueOwned::string("a"), ValueOwned::string("b"),],
+            vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
                 Local::new(0, Type::Integer, false, Scope::default()),
                 Local::new(1, Type::Integer, false, Scope::default())
@@ -37,26 +37,26 @@ fn function_call() {
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
-                ValueOwned::function(Chunk::with_data(
+                ConcreteValue::Function(Chunk::with_data(
                     None,
                     vec![
                         (Instruction::add(2, 0, 1), Span(30, 31)),
                         (Instruction::r#return(true), Span(35, 36)),
                     ],
-                    vec![ValueOwned::string("a"), ValueOwned::string("b"),],
+                    vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
                         Local::new(0, Type::Integer, false, Scope::default()),
                         Local::new(1, Type::Integer, false, Scope::default())
                     ]
                 )),
-                ValueOwned::integer(1),
-                ValueOwned::integer(2)
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2)
             ],
             vec![]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::integer(3))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
 }
 
 #[test]
@@ -73,14 +73,14 @@ fn function_declaration() {
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
-                ValueOwned::string("add"),
-                ValueOwned::function(Chunk::with_data(
-                    None,
+                ConcreteValue::string("add"),
+                ConcreteValue::Function(Chunk::with_data(
+                    Some("add".to_string()),
                     vec![
                         (Instruction::add(2, 0, 1), Span(35, 36)),
                         (Instruction::r#return(true), Span(40, 40)),
                     ],
-                    vec![ValueOwned::string("a"), ValueOwned::string("b")],
+                    vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![
                         Local::new(0, Type::Integer, false, Scope::default()),
                         Local::new(1, Type::Integer, false, Scope::default())

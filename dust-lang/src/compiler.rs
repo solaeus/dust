@@ -418,7 +418,7 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let value = ConcreteValue::byte(byte);
+            let value = ConcreteValue::Byte(byte);
 
             self.emit_constant(value, position)?;
 
@@ -440,7 +440,7 @@ impl<'src> Compiler<'src> {
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::character(character);
+            let value = ConcreteValue::Character(character);
 
             self.emit_constant(value, position)?;
 
@@ -468,7 +468,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::float(float);
+            let value = ConcreteValue::Float(float);
 
             self.emit_constant(value, position)?;
 
@@ -496,7 +496,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::integer(integer);
+            let value = ConcreteValue::Integer(integer);
 
             self.emit_constant(value, position)?;
 
@@ -1476,7 +1476,7 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type,
         };
-        let function = ConcreteValue::function(function_compiler.finish());
+        let function = ConcreteValue::Function(function_compiler.finish());
         let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
         let register = self.next_register();

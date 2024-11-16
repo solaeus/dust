@@ -17,7 +17,7 @@ fn empty_list() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ValueOwned::list([]))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::list([]))));
 }
 
 #[test]
@@ -36,9 +36,9 @@ fn list() {
                 (Instruction::r#return(true), Span(9, 9)),
             ],
             vec![
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(3)
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(3)
             ],
             vec![]
         )),
@@ -46,10 +46,10 @@ fn list() {
 
     assert_eq!(
         run(source),
-        Ok(Some(ValueOwned::list([
-            ValueOwned::integer(1),
-            ValueOwned::integer(2),
-            ValueOwned::integer(3)
+        Ok(Some(ConcreteValue::list([
+            ConcreteValue::Integer(1),
+            ConcreteValue::Integer(2),
+            ConcreteValue::Integer(3)
         ])))
     );
 }
@@ -82,11 +82,11 @@ fn list_with_complex_expression() {
                 (Instruction::r#return(true), Span(18, 18)),
             ],
             vec![
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(3),
-                ValueOwned::integer(4),
-                ValueOwned::integer(5)
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(3),
+                ConcreteValue::Integer(4),
+                ConcreteValue::Integer(5)
             ],
             vec![]
         )),
@@ -94,9 +94,9 @@ fn list_with_complex_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(ValueOwned::list([
-            ValueOwned::integer(0),
-            ValueOwned::integer(4)
+        Ok(Some(ConcreteValue::list([
+            ConcreteValue::Integer(1),
+            ConcreteValue::Integer(-15)
         ])))
     );
 }
@@ -122,10 +122,10 @@ fn list_with_simple_expression() {
                 (Instruction::r#return(true), Span(13, 13)),
             ],
             vec![
-                ValueOwned::integer(1),
-                ValueOwned::integer(2),
-                ValueOwned::integer(3),
-                ValueOwned::integer(4),
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(2),
+                ConcreteValue::Integer(3),
+                ConcreteValue::Integer(4),
             ],
             vec![]
         )),
@@ -133,9 +133,10 @@ fn list_with_simple_expression() {
 
     assert_eq!(
         run(source),
-        Ok(Some(ValueOwned::list([
-            ValueOwned::integer(0),
-            ValueOwned::integer(3)
+        Ok(Some(ConcreteValue::list([
+            ConcreteValue::Integer(1),
+            ConcreteValue::Integer(5),
+            ConcreteValue::Integer(4),
         ])))
     );
 }

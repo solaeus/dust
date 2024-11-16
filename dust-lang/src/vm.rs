@@ -14,19 +14,10 @@ use crate::{
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
-    let has_return_value = *chunk.r#type().return_type != Type::None;
     let mut vm = Vm::new(&chunk, None);
 
     vm.run()
-        .map_err(|error| DustError::Runtime { error, source })?;
-
-    if has_return_value {
-        vm.take_top_of_stack_as_value()
-            .map(Some)
-            .map_err(|error| DustError::Runtime { error, source })
-    } else {
-        Ok(None)
-    }
+        .map_err(|error| DustError::Runtime { error, source })
 }
 
 pub fn run_and_display_output(source: &str) {
@@ -75,7 +66,7 @@ impl<'a> Vm<'a> {
         self.current_position
     }
 
-    pub fn run(&mut self) -> Result<Option<ValueRef>, VmError> {
+    pub fn run(&mut self) -> Result<Option<ConcreteValue>, VmError> {
         while let Ok(instruction) = self.read() {
             log::info!(
                 "{} | {} | {} | {}",
@@ -117,7 +108,7 @@ impl<'a> Vm<'a> {
                     let to_register = instruction.a();
                     let boolean = instruction.b_as_boolean();
                     let jump = instruction.c_as_boolean();
-                    let boolean = ConcreteValue::boolean(boolean);
+                    let boolean = ConcreteValue::Boolean(boolean);
 
                     self.set_register(to_register, Register::ConcreteValue(boolean))?;
 
@@ -142,24 +133,28 @@ impl<'a> Vm<'a> {
                 Operation::LoadList => {
                     let to_register = instruction.a();
                     let start_register = instruction.b();
-                    let mut list = Vec::new();
+                    let mut pointers = Vec::new();
 
                     for register_index in start_register..to_register {
-                        let value = self.open_register(register_index)?;
+                        if let Some(Register::Empty) = self.stack.get(register_index as usize) {
+                            continue;
+                        }
 
-                        list.push(value);
+                        let pointer = Pointer::Stack(register_index);
+
+                        pointers.push(pointer);
                     }
 
-                    // self.set_register(to_register, Register::List(list))?;
-
-                    todo!()
+                    self.set_register(
+                        to_register,
+                        Register::AbstractValue(AbstractValue::List { items: pointers }),
+                    )?;
                 }
                 Operation::LoadSelf => {
                     let to_register = instruction.a();
+                    let register = Register::AbstractValue(AbstractValue::FunctionSelf);
 
-                    // self.set_register(to_register, Register::Value(function))?;
-
-                    todo!()
+                    self.set_register(to_register, register)?;
                 }
                 Operation::DefineLocal => {
                     let from_register = instruction.a();
@@ -263,13 +258,9 @@ impl<'a> Vm<'a> {
                 }
                 Operation::TestSet => todo!(),
                 Operation::Equal => {
-                    debug_assert_eq!(
-                        self.get_instruction(self.ip)?.0.operation(),
-                        Operation::Jump
-                    );
-
                     let compare_to = instruction.a_as_boolean();
                     let (left, right) = self.get_arguments(instruction)?;
+
                     let equal_result = left.equal(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
@@ -286,17 +277,12 @@ impl<'a> Vm<'a> {
                     if is_equal == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump = self.get_instruction(self.ip)?.0;
+                        let jump = self.read()?;
 
                         self.jump(jump);
                     }
                 }
                 Operation::Less => {
-                    debug_assert_eq!(
-                        self.get_instruction(self.ip)?.0.operation(),
-                        Operation::Jump
-                    );
-
                     let compare_to = instruction.a_as_boolean();
                     let (left, right) = self.get_arguments(instruction)?;
                     let less_result = left.less_than(right).map_err(|error| VmError::Value {
@@ -315,17 +301,12 @@ impl<'a> Vm<'a> {
                     if is_less_than == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump = self.get_instruction(self.ip)?.0;
+                        let jump = self.read()?;
 
                         self.jump(jump);
                     }
                 }
                 Operation::LessEqual => {
-                    debug_assert_eq!(
-                        self.get_instruction(self.ip)?.0.operation(),
-                        Operation::Jump
-                    );
-
                     let compare_to = instruction.a_as_boolean();
                     let (left, right) = self.get_arguments(instruction)?;
                     let less_or_equal_result =
@@ -347,7 +328,7 @@ impl<'a> Vm<'a> {
                     if is_less_than_or_equal == compare_to {
                         self.ip += 1;
                     } else {
-                        let jump = self.get_instruction(self.ip)?.0;
+                        let jump = self.read()?;
 
                         self.jump(jump);
                     }
@@ -438,9 +419,11 @@ impl<'a> Vm<'a> {
                     }
 
                     return if let Some(register_index) = self.last_assigned_register {
-                        let value_ref = self.open_register(register_index)?;
+                        let return_value = self
+                            .open_register(register_index)?
+                            .to_concrete_owned(self)?;
 
-                        Ok(Some(value_ref))
+                        Ok(Some(return_value))
                     } else {
                         Err(VmError::StackUnderflow {
                             position: self.current_position,
@@ -503,20 +486,6 @@ impl<'a> Vm<'a> {
             Register::AbstractValue(abstract_value) => Ok(ValueRef::Abstract(abstract_value)),
             Register::Empty => Err(VmError::EmptyRegister {
                 index: register_index,
-                position: self.current_position,
-            }),
-        }
-    }
-
-    fn take_top_of_stack_as_value(&mut self) -> Result<ConcreteValue, VmError> {
-        let top_of_stack = self.stack.pop().ok_or(VmError::StackUnderflow {
-            position: self.current_position,
-        })?;
-
-        match top_of_stack {
-            Register::ConcreteValue(value) => Ok(value),
-            _ => Err(VmError::ExpectedValue {
-                found: top_of_stack,
                 position: self.current_position,
             }),
         }
@@ -619,22 +588,19 @@ impl<'a> Vm<'a> {
     }
 
     fn read(&mut self) -> Result<Instruction, VmError> {
-        let (instruction, position) = self.get_instruction(self.ip)?;
+        let (instruction, position) =
+            self.chunk
+                .get_instruction(self.ip)
+                .copied()
+                .map_err(|error| VmError::Chunk {
+                    error,
+                    position: self.current_position,
+                })?;
 
         self.ip += 1;
         self.current_position = position;
 
         Ok(instruction)
-    }
-
-    fn get_instruction(&self, index: usize) -> Result<(Instruction, Span), VmError> {
-        self.chunk
-            .get_instruction(index)
-            .copied()
-            .map_err(|error| VmError::Chunk {
-                error,
-                position: self.current_position,
-            })
     }
 
     fn define_local(&mut self, local_index: u8, register_index: u8) -> Result<(), VmError> {
@@ -650,8 +616,8 @@ impl<'a> Vm<'a> {
 pub enum Register {
     Empty,
     ConcreteValue(ConcreteValue),
-    Pointer(Pointer),
     AbstractValue(AbstractValue),
+    Pointer(Pointer),
 }
 
 impl Display for Register {
