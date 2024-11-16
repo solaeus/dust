@@ -251,7 +251,7 @@ impl Clone for Value {
             Value::Function(function) => Value::Function(function.clone()),
             Value::Integer(integer) => Value::Integer(*integer),
             Value::List(list) => Value::List(list.clone()),
-            Value::Range(range) => Value::Range(range.clone()),
+            Value::Range(range) => Value::Range(*range),
             Value::String(string) => Value::String(string.clone()),
         }
     }

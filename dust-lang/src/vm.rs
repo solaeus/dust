@@ -616,7 +616,7 @@ impl<'a> Vm<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Register {
+pub enum Register {
     Empty,
     Value(Value),
     Pointer(Pointer),

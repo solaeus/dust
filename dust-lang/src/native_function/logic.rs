@@ -1,6 +1,6 @@
 use std::io::{self, stdout, Write};
 
-use crate::{Instruction, NativeFunctionError, Span, Value, Vm, VmError};
+use crate::{Instruction, NativeFunctionError, Value, Vm, VmError};
 
 pub fn panic(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
