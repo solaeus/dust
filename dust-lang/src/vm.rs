@@ -3,14 +3,16 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    io,
 };
 
 use crate::{
-    compile, value::Value, AnnotatedError, Chunk, ChunkError, DustError, Instruction,
-    NativeFunction, NativeFunctionError, Operation, Span, Type, ValueError,
+    compile, AbstractValue, AnnotatedError, Chunk, ChunkError, ConcreteValue, DustError,
+    Instruction, NativeFunction, NativeFunctionError, Operation, Span, Type, ValueError,
+    ValueOwned, ValueRef,
 };
 
-pub fn run(source: &str) -> Result<Option<Value>, DustError> {
+pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
     let has_return_value = *chunk.r#type().return_type != Type::None;
     let mut vm = Vm::new(&chunk, None);
@@ -65,11 +67,15 @@ impl<'a> Vm<'a> {
         }
     }
 
+    pub fn chunk(&self) -> &Chunk {
+        self.chunk
+    }
+
     pub fn current_position(&self) -> Span {
         self.current_position
     }
 
-    pub fn run(&mut self) -> Result<(), VmError> {
+    pub fn run(&mut self) -> Result<Option<ValueRef>, VmError> {
         while let Ok(instruction) = self.read() {
             log::info!(
                 "{} | {} | {} | {}",
@@ -111,9 +117,9 @@ impl<'a> Vm<'a> {
                     let to_register = instruction.a();
                     let boolean = instruction.b_as_boolean();
                     let jump = instruction.c_as_boolean();
-                    let boolean = Value::boolean(boolean);
+                    let boolean = ConcreteValue::boolean(boolean);
 
-                    self.set_register(to_register, Register::Value(boolean))?;
+                    self.set_register(to_register, Register::ConcreteValue(boolean))?;
 
                     if jump {
                         self.ip += 1;
@@ -195,7 +201,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(sum))?;
+                    self.set_register(to_register, Register::ConcreteValue(sum))?;
                 }
                 Operation::Subtract => {
                     let to_register = instruction.a();
@@ -205,7 +211,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(difference))?;
+                    self.set_register(to_register, Register::ConcreteValue(difference))?;
                 }
                 Operation::Multiply => {
                     let to_register = instruction.a();
@@ -215,7 +221,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(product))?;
+                    self.set_register(to_register, Register::ConcreteValue(product))?;
                 }
                 Operation::Divide => {
                     let to_register = instruction.a();
@@ -225,7 +231,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(quotient))?;
+                    self.set_register(to_register, Register::ConcreteValue(quotient))?;
                 }
                 Operation::Modulo => {
                     let to_register = instruction.a();
@@ -235,17 +241,18 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(remainder))?;
+                    self.set_register(to_register, Register::ConcreteValue(remainder))?;
                 }
                 Operation::Test => {
                     let register = instruction.a();
                     let test_value = instruction.c_as_boolean();
                     let value = self.open_register(register)?;
-                    let boolean = if let Value::Boolean(boolean) = value {
+                    let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
+                    {
                         *boolean
                     } else {
                         return Err(VmError::ExpectedBoolean {
-                            found: value.clone(),
+                            found: value.to_concrete_owned(self)?,
                             position: self.current_position,
                         });
                     };
@@ -267,7 +274,7 @@ impl<'a> Vm<'a> {
                         error,
                         position: self.current_position,
                     })?;
-                    let is_equal = if let Value::Boolean(boolean) = equal_result {
+                    let is_equal = if let ConcreteValue::Boolean(boolean) = equal_result {
                         boolean
                     } else {
                         return Err(VmError::ExpectedBoolean {
@@ -296,7 +303,7 @@ impl<'a> Vm<'a> {
                         error,
                         position: self.current_position,
                     })?;
-                    let is_less_than = if let Value::Boolean(boolean) = less_result {
+                    let is_less_than = if let ConcreteValue::Boolean(boolean) = less_result {
                         boolean
                     } else {
                         return Err(VmError::ExpectedBoolean {
@@ -328,7 +335,7 @@ impl<'a> Vm<'a> {
                                 position: self.current_position,
                             })?;
                     let is_less_than_or_equal =
-                        if let Value::Boolean(boolean) = less_or_equal_result {
+                        if let ConcreteValue::Boolean(boolean) = less_or_equal_result {
                             boolean
                         } else {
                             return Err(VmError::ExpectedBoolean {
@@ -352,7 +359,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(instruction.a(), Register::Value(negated))?;
+                    self.set_register(instruction.a(), Register::ConcreteValue(negated))?;
                 }
                 Operation::Not => {
                     let value = self.get_argument(instruction.b(), instruction.b_is_constant())?;
@@ -361,7 +368,7 @@ impl<'a> Vm<'a> {
                         position: self.current_position,
                     })?;
 
-                    self.set_register(instruction.a(), Register::Value(not))?;
+                    self.set_register(instruction.a(), Register::ConcreteValue(not))?;
                 }
                 Operation::Jump => self.jump(instruction),
                 Operation::Call => {
@@ -369,11 +376,13 @@ impl<'a> Vm<'a> {
                     let function_register = instruction.b();
                     let argument_count = instruction.c();
                     let value = self.open_register(function_register)?;
-                    let chunk = if let Value::Function(chunk) = value {
+                    let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = value {
                         chunk
+                    } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = value {
+                        self.chunk
                     } else {
                         return Err(VmError::ExpectedFunction {
-                            found: value.clone(),
+                            found: value.to_concrete_owned(self)?,
                             position: self.current_position,
                         });
                     };
@@ -406,28 +415,32 @@ impl<'a> Vm<'a> {
                     let native_function = NativeFunction::from(instruction.b());
                     let return_value = native_function.call(self, instruction)?;
 
-                    if let Some(concrete_value) = return_value {
+                    if let Some(value) = return_value {
                         let to_register = instruction.a();
 
-                        self.set_register(to_register, Register::Value(concrete_value))?;
+                        let register = match value {
+                            ValueOwned::Abstract(abstract_value) => {
+                                Register::AbstractValue(abstract_value)
+                            }
+                            ValueOwned::Concrete(concrete_value) => {
+                                Register::ConcreteValue(concrete_value)
+                            }
+                        };
+
+                        self.set_register(to_register, register)?;
                     }
                 }
                 Operation::Return => {
                     let should_return_value = instruction.b_as_boolean();
 
                     if !should_return_value {
-                        return Ok(());
+                        return Ok(None);
                     }
 
                     return if let Some(register_index) = self.last_assigned_register {
-                        let top_of_stack = self.stack.len() as u8 - 1;
+                        let value_ref = self.open_register(register_index)?;
 
-                        if register_index != top_of_stack {
-                            self.stack
-                                .push(Register::Pointer(Pointer::Stack(register_index)));
-                        }
-
-                        Ok(())
+                        Ok(Some(value_ref))
                     } else {
                         Err(VmError::StackUnderflow {
                             position: self.current_position,
@@ -437,13 +450,17 @@ impl<'a> Vm<'a> {
             }
         }
 
-        Ok(())
+        Ok(None)
     }
 
-    fn resolve_pointer(&self, pointer: Pointer) -> Result<&Value, VmError> {
+    pub(crate) fn follow_pointer(&self, pointer: Pointer) -> Result<ValueRef, VmError> {
         match pointer {
             Pointer::Stack(register_index) => self.open_register(register_index),
-            Pointer::Constant(constant_index) => self.get_constant(constant_index),
+            Pointer::Constant(constant_index) => {
+                let constant = self.get_constant(constant_index)?;
+
+                Ok(ValueRef::Concrete(constant))
+            }
             Pointer::ParentStack(register_index) => {
                 let parent = self
                     .parent
@@ -461,13 +478,14 @@ impl<'a> Vm<'a> {
                     .ok_or_else(|| VmError::ExpectedParent {
                         position: self.current_position,
                     })?;
+                let constant = parent.get_constant(constant_index)?;
 
-                parent.get_constant(constant_index)
+                Ok(ValueRef::Concrete(constant))
             }
         }
     }
 
-    pub(crate) fn open_register(&self, register_index: u8) -> Result<&Value, VmError> {
+    pub(crate) fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
         let register =
             self.stack
@@ -480,8 +498,9 @@ impl<'a> Vm<'a> {
         log::trace!("Open R{register_index} to {register}");
 
         match register {
-            Register::Value(value) => Ok(value),
-            Register::Pointer(pointer) => self.resolve_pointer(*pointer),
+            Register::ConcreteValue(value) => Ok(ValueRef::Concrete(value)),
+            Register::Pointer(pointer) => self.follow_pointer(*pointer),
+            Register::AbstractValue(abstract_value) => Ok(ValueRef::Abstract(abstract_value)),
             Register::Empty => Err(VmError::EmptyRegister {
                 index: register_index,
                 position: self.current_position,
@@ -489,13 +508,13 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn take_top_of_stack_as_value(&mut self) -> Result<Value, VmError> {
+    fn take_top_of_stack_as_value(&mut self) -> Result<ConcreteValue, VmError> {
         let top_of_stack = self.stack.pop().ok_or(VmError::StackUnderflow {
             position: self.current_position,
         })?;
 
         match top_of_stack {
-            Register::Value(value) => Ok(value),
+            Register::ConcreteValue(value) => Ok(value),
             _ => Err(VmError::ExpectedValue {
                 found: top_of_stack,
                 position: self.current_position,
@@ -516,18 +535,29 @@ impl<'a> Vm<'a> {
     }
 
     /// DRY helper to get a constant or register values
-    fn get_argument(&self, index: u8, is_constant: bool) -> Result<&Value, VmError> {
+    fn get_argument(&self, index: u8, is_constant: bool) -> Result<&ConcreteValue, VmError> {
         let argument = if is_constant {
             self.get_constant(index)?
         } else {
-            self.open_register(index)?
+            match self.open_register(index)? {
+                ValueRef::Concrete(concrete_value) => concrete_value,
+                ValueRef::Abstract(abstract_value) => {
+                    return Err(VmError::ExpectedConcreteValue {
+                        found: abstract_value.clone(),
+                        position: self.current_position,
+                    })
+                }
+            }
         };
 
         Ok(argument)
     }
 
     /// DRY helper to get two arguments for binary operations
-    fn get_arguments(&self, instruction: Instruction) -> Result<(&Value, &Value), VmError> {
+    fn get_arguments(
+        &self,
+        instruction: Instruction,
+    ) -> Result<(&ConcreteValue, &ConcreteValue), VmError> {
         let left = self.get_argument(instruction.b(), instruction.b_is_constant())?;
         let right = self.get_argument(instruction.c(), instruction.c_is_constant())?;
 
@@ -579,7 +609,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn get_constant(&self, index: u8) -> Result<&Value, VmError> {
+    fn get_constant(&self, index: u8) -> Result<&ConcreteValue, VmError> {
         self.chunk
             .get_constant(index)
             .map_err(|error| VmError::Chunk {
@@ -589,7 +619,7 @@ impl<'a> Vm<'a> {
     }
 
     fn read(&mut self) -> Result<Instruction, VmError> {
-        let (instruction, position) = *self.get_instruction(self.ip)?;
+        let (instruction, position) = self.get_instruction(self.ip)?;
 
         self.ip += 1;
         self.current_position = position;
@@ -597,9 +627,10 @@ impl<'a> Vm<'a> {
         Ok(instruction)
     }
 
-    fn get_instruction(&self, index: usize) -> Result<&(Instruction, Span), VmError> {
+    fn get_instruction(&self, index: usize) -> Result<(Instruction, Span), VmError> {
         self.chunk
             .get_instruction(index)
+            .copied()
             .map_err(|error| VmError::Chunk {
                 error,
                 position: self.current_position,
@@ -618,16 +649,18 @@ impl<'a> Vm<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Register {
     Empty,
-    Value(Value),
+    ConcreteValue(ConcreteValue),
     Pointer(Pointer),
+    AbstractValue(AbstractValue),
 }
 
 impl Display for Register {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Empty => write!(f, "empty"),
-            Self::Value(value) => write!(f, "{}", value),
+            Self::ConcreteValue(value) => write!(f, "{}", value),
             Self::Pointer(pointer) => write!(f, "{}", pointer),
+            Self::AbstractValue(value) => write!(f, "{}", value),
         }
     }
 }
@@ -654,26 +687,64 @@ impl Display for Pointer {
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
     // Stack errors
-    StackOverflow { position: Span },
-    StackUnderflow { position: Span },
+    StackOverflow {
+        position: Span,
+    },
+    StackUnderflow {
+        position: Span,
+    },
 
     // Register errors
-    EmptyRegister { index: usize, position: Span },
-    ExpectedValue { found: Register, position: Span },
-    RegisterIndexOutOfBounds { index: usize, position: Span },
+    EmptyRegister {
+        index: usize,
+        position: Span,
+    },
+    ExpectedConcreteValue {
+        found: AbstractValue,
+        position: Span,
+    },
+    ExpectedValue {
+        found: Register,
+        position: Span,
+    },
+    RegisterIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
 
     // Local errors
-    UndefinedLocal { local_index: u8, position: Span },
+    UndefinedLocal {
+        local_index: u8,
+        position: Span,
+    },
 
     // Execution errors
-    ExpectedBoolean { found: Value, position: Span },
-    ExpectedFunction { found: Value, position: Span },
-    ExpectedParent { position: Span },
+    ExpectedBoolean {
+        found: ConcreteValue,
+        position: Span,
+    },
+    ExpectedFunction {
+        found: ConcreteValue,
+        position: Span,
+    },
+    ExpectedParent {
+        position: Span,
+    },
+    ValueDisplay {
+        error: io::ErrorKind,
+        position: Span,
+    },
 
     // Wrappers for foreign errors
-    Chunk { error: ChunkError, position: Span },
+    Chunk {
+        error: ChunkError,
+        position: Span,
+    },
     NativeFunction(NativeFunctionError),
-    Value { error: ValueError, position: Span },
+    Value {
+        error: ValueError,
+        position: Span,
+    },
 }
 
 impl AnnotatedError for VmError {
@@ -686,6 +757,7 @@ impl AnnotatedError for VmError {
             Self::Chunk { .. } => "Chunk error",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
+            Self::ExpectedConcreteValue { .. } => "Expected concrete value",
             Self::ExpectedFunction { .. } => "Expected function",
             Self::ExpectedParent { .. } => "Expected parent",
             Self::ExpectedValue { .. } => "Expected value",
@@ -695,6 +767,7 @@ impl AnnotatedError for VmError {
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndefinedLocal { .. } => "Undefined local",
             Self::Value { .. } => "Value error",
+            Self::ValueDisplay { .. } => "Value display error",
         }
     }
 
@@ -709,6 +782,7 @@ impl AnnotatedError for VmError {
             }
             Self::NativeFunction(error) => error.details(),
             Self::Value { error, .. } => Some(error.to_string()),
+            Self::ValueDisplay { error, .. } => Some(error.to_string() + " while displaying value"),
             _ => None,
         }
     }
@@ -718,6 +792,7 @@ impl AnnotatedError for VmError {
             Self::Chunk { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
+            Self::ExpectedConcreteValue { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedParent { position } => *position,
             Self::ExpectedValue { position, .. } => *position,
@@ -727,6 +802,7 @@ impl AnnotatedError for VmError {
             Self::StackUnderflow { position } => *position,
             Self::UndefinedLocal { position, .. } => *position,
             Self::Value { position, .. } => *position,
+            Self::ValueDisplay { position, .. } => *position,
         }
     }
 }

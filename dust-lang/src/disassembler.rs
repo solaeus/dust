@@ -45,7 +45,7 @@ use std::env::current_exe;
 
 use colored::Colorize;
 
-use crate::{value::Value, Chunk, Local};
+use crate::{value::ConcreteValue, Chunk, Local};
 
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
@@ -313,7 +313,7 @@ impl<'a> Disassembler<'a> {
         }
 
         for (index, value) in self.chunk.constants().iter().enumerate() {
-            if let Value::Function(chunk) = value {
+            if let ConcreteValue::Function(chunk) = value {
                 let function_disassembly = chunk
                     .disassembler()
                     .styled(self.styled)

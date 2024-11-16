@@ -8,7 +8,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value::Value, Disassembler, FunctionType, Instruction, Scope, Span, Type};
+use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -19,7 +19,7 @@ pub struct Chunk {
     r#type: FunctionType,
 
     instructions: Vec<(Instruction, Span)>,
-    constants: Vec<Value>,
+    constants: Vec<ConcreteValue>,
     locals: Vec<Local>,
 }
 
@@ -41,7 +41,7 @@ impl Chunk {
     pub fn with_data(
         name: Option<String>,
         instructions: Vec<(Instruction, Span)>,
-        constants: Vec<Value>,
+        constants: Vec<ConcreteValue>,
         locals: Vec<Local>,
     ) -> Self {
         Self {
@@ -77,15 +77,15 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
-    pub fn constants(&self) -> &Vec<Value> {
+    pub fn constants(&self) -> &Vec<ConcreteValue> {
         &self.constants
     }
 
-    pub fn constants_mut(&mut self) -> &mut Vec<Value> {
+    pub fn constants_mut(&mut self) -> &mut Vec<ConcreteValue> {
         &mut self.constants
     }
 
-    pub fn get_constant(&self, index: u8) -> Result<&Value, ChunkError> {
+    pub fn get_constant(&self, index: u8) -> Result<&ConcreteValue, ChunkError> {
         self.constants
             .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds {
@@ -93,7 +93,7 @@ impl Chunk {
             })
     }
 
-    pub fn push_or_get_constant(&mut self, value: Value) -> u8 {
+    pub fn push_or_get_constant(&mut self, value: ConcreteValue) -> u8 {
         if let Some(index) = self
             .constants
             .iter()

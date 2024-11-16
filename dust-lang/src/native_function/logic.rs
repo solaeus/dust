@@ -1,8 +1,8 @@
 use std::io::{self, stdout, Write};
 
-use crate::{Instruction, NativeFunctionError, Value, Vm, VmError};
+use crate::{ConcreteValue, Instruction, NativeFunctionError, ValueOwned, Vm, VmError};
 
-pub fn panic(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
+pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<ValueOwned>, VmError> {
     let argument_count = instruction.c();
     let message = if argument_count == 0 {
         None
@@ -15,8 +15,9 @@ pub fn panic(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError
             }
 
             let argument = vm.open_register(argument_index)?;
+            let argument_string = argument.display(vm)?;
 
-            message.push_str(&argument.to_string());
+            message.push_str(&argument_string);
         }
 
         Some(message)
@@ -28,7 +29,10 @@ pub fn panic(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError
     }))
 }
 
-pub fn to_string(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
+pub fn to_string<'a>(
+    vm: &'a Vm<'a>,
+    instruction: Instruction,
+) -> Result<Option<ValueOwned>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 1 {
@@ -45,14 +49,18 @@ pub fn to_string(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmE
 
     for argument_index in 0..argument_count {
         let argument = vm.open_register(argument_index)?;
+        let argument_string = argument.display(vm)?;
 
-        string.push_str(&argument.to_string());
+        string.push_str(&argument_string);
     }
 
-    Ok(Some(Value::String(string)))
+    Ok(Some(ValueOwned::Concrete(ConcreteValue::String(string))))
 }
 
-pub fn read_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
+pub fn read_line<'a>(
+    vm: &'a Vm<'a>,
+    instruction: Instruction,
+) -> Result<Option<ValueOwned>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 0 {
@@ -68,9 +76,11 @@ pub fn read_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmE
     let mut buffer = String::new();
 
     match io::stdin().read_line(&mut buffer) {
-        Ok(_) => Ok(Some(Value::String(
-            buffer.trim_end_matches('\n').to_string(),
-        ))),
+        Ok(_) => {
+            buffer = buffer.trim_end_matches('\n').to_string();
+
+            Ok(Some(ValueOwned::Concrete(ConcreteValue::String(buffer))))
+        }
         Err(error) => Err(VmError::NativeFunction(NativeFunctionError::Io {
             error: error.kind(),
             position: vm.current_position(),
@@ -78,7 +88,7 @@ pub fn read_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmE
     }
 }
 
-pub fn write(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
+pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<ValueOwned>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
@@ -96,7 +106,8 @@ pub fn write(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument_string = vm.open_register(argument_index)?.to_string();
+        let argument = vm.open_register(argument_index)?;
+        let argument_string = argument.display(vm)?;
 
         stdout
             .write_all(argument_string.as_bytes())
@@ -106,7 +117,10 @@ pub fn write(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError
     Ok(None)
 }
 
-pub fn write_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
+pub fn write_line<'a>(
+    vm: &'a Vm<'a>,
+    instruction: Instruction,
+) -> Result<Option<ValueOwned>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
@@ -124,7 +138,8 @@ pub fn write_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, Vm
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument_string = vm.open_register(argument_index)?.to_string();
+        let argument = vm.open_register(argument_index)?;
+        let argument_string = argument.display(vm)?;
 
         stdout
             .write_all(argument_string.as_bytes())
