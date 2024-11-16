@@ -8,14 +8,19 @@ fn panic() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(6, 22)),
                 (Instruction::load_constant(1, 1, false), Span(24, 26)),
                 (
-                    Instruction::call_native(2, NativeFunction::Panic, 2),
+                    Instruction::call_native(0, NativeFunction::Panic, 2),
                     Span(0, 27)
                 ),
-                (Instruction::r#return(true), Span(27, 27))
+                (Instruction::r#return(false), Span(27, 27))
             ],
             vec![
                 ConcreteValue::string("Goodbye world!"),
@@ -45,6 +50,11 @@ fn to_string() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::String { length: None }),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(10, 12)),
                 (

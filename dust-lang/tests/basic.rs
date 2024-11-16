@@ -8,6 +8,11 @@ fn constant() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2))
@@ -28,6 +33,11 @@ fn empty() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None)
+            },
             vec![(Instruction::r#return(false), Span(0, 0))],
             vec![],
             vec![]
@@ -44,6 +54,11 @@ fn parentheses_precedence() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (
                     *Instruction::add(0, 0, 1)

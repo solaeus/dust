@@ -40,20 +40,17 @@ impl Chunk {
 
     pub fn with_data(
         name: Option<String>,
+        r#type: FunctionType,
         instructions: Vec<(Instruction, Span)>,
         constants: Vec<ConcreteValue>,
         locals: Vec<Local>,
     ) -> Self {
         Self {
             name,
+            r#type,
             instructions,
             constants,
             locals,
-            r#type: FunctionType {
-                type_parameters: None,
-                value_parameters: None,
-                return_type: Box::new(Type::None),
-            },
         }
     }
 
@@ -61,12 +58,16 @@ impl Chunk {
         self.name.as_ref()
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
+
     pub fn r#type(&self) -> &FunctionType {
         &self.r#type
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = Some(name);
+    pub fn set_type(&mut self, r#type: FunctionType) {
+        self.r#type = r#type;
     }
 
     pub fn len(&self) -> usize {

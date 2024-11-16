@@ -8,6 +8,11 @@ fn and() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean),
+            },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, false), Span(5, 7)),
@@ -31,6 +36,11 @@ fn or() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean),
+            },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(0, true), Span(5, 7)),
@@ -54,6 +64,11 @@ fn variable_and() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean),
+            },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(8, 12)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),

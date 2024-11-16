@@ -1,17 +1,19 @@
 //! Tool used by the compiler to optimize a chunk's bytecode.
 
-use crate::{Instruction, Operation, Span};
+use crate::{Chunk, Instruction, Operation, Span};
 
 /// An instruction optimizer that mutably borrows instructions from a chunk.
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Optimizer<'a> {
-    instructions: &'a mut Vec<(Instruction, Span)>,
+    chunk: &'a mut Chunk,
 }
 
 impl<'a> Optimizer<'a> {
     /// Creates a new optimizer with a mutable reference to some of a chunk's instructions.
-    pub fn new(instructions: &'a mut Vec<(Instruction, Span)>) -> Self {
-        Self { instructions }
+    pub fn new(instructions: &'a mut Chunk) -> Self {
+        Self {
+            chunk: instructions,
+        }
     }
 
     /// Optimizes a comparison operation.
@@ -49,14 +51,15 @@ impl<'a> Optimizer<'a> {
 
         log::debug!("Optimizing comparison");
 
+        let instructions = self.instructions_mut();
         let first_loader_register = {
-            let first_loader = &mut self.instructions[2].0;
+            let first_loader = &mut instructions[2].0;
 
             first_loader.set_c_to_boolean(true);
             first_loader.a()
         };
 
-        let second_loader = &mut self.instructions[3].0;
+        let second_loader = &mut instructions[3].0;
         let mut second_loader_new = Instruction::with_operation(second_loader.operation());
 
         second_loader_new.set_a(first_loader_register);
@@ -85,22 +88,27 @@ impl<'a> Optimizer<'a> {
             return false;
         }
 
-        log::debug!("Optimizing set local");
+        self.instructions_mut().pop();
 
-        self.instructions.pop();
+        log::debug!("Optimizing by removing redundant SetLocal");
 
         true
     }
 
+    fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Span)> {
+        self.chunk.instructions_mut()
+    }
+
     fn get_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        if self.instructions.len() < COUNT {
+        if self.chunk.len() < COUNT {
             return None;
         }
 
         let mut n_operations = [Operation::Return; COUNT];
 
         for (nth, operation) in n_operations.iter_mut().rev().zip(
-            self.instructions
+            self.chunk
+                .instructions()
                 .iter()
                 .rev()
                 .map(|(instruction, _)| instruction.operation()),

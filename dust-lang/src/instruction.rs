@@ -463,11 +463,11 @@ impl Instruction {
             Operation::DefineLocal => {
                 let to_register = self.a();
                 let local_index = self.b();
+                let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
                 let identifier_display = match chunk.get_identifier(local_index) {
                     Some(identifier) => identifier.to_string(),
                     None => "???".to_string(),
                 };
-                let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
 
                 format!("R{to_register} = L{local_index} {mutable_display} {identifier_display}")
             }

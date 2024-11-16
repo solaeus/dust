@@ -8,6 +8,11 @@ fn define_local() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(8, 10)),
                 (Instruction::define_local(0, 0, false), Span(4, 5)),
@@ -46,6 +51,11 @@ fn set_local() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),

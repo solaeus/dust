@@ -38,7 +38,29 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         .parse_top_level()
         .map_err(|error| DustError::Compile { error, source })?;
 
-    Ok(compiler.finish())
+    let return_type = if compiler
+        .chunk
+        .instructions()
+        .iter()
+        .last()
+        .map(|(instruction, _)| {
+            let should_return = instruction.b_as_boolean();
+
+            (instruction.operation(), should_return)
+        })
+        == Some((Operation::Return, true))
+    {
+        Box::new(compiler.previous_expression_type.clone())
+    } else {
+        Box::new(Type::None)
+    };
+    let chunk_type = FunctionType {
+        type_parameters: None,
+        value_parameters: None,
+        return_type,
+    };
+
+    Ok(compiler.finish(chunk_type))
 }
 
 /// Low-level tool for compiling the input a token at a time while assembling a chunk.
@@ -91,8 +113,10 @@ impl<'src> Compiler<'src> {
         })
     }
 
-    pub fn finish(self) -> Chunk {
+    pub fn finish(mut self, r#type: FunctionType) -> Chunk {
         log::info!("End chunk with {} optimizations", self.optimization_count);
+
+        self.chunk.set_type(r#type);
 
         self.chunk
     }
@@ -188,13 +212,14 @@ impl<'src> Compiler<'src> {
 
         let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
+        let local_index = self.chunk.locals().len() as u8;
 
         self.chunk
             .locals_mut()
             .push(Local::new(identifier_index, r#type, is_mutable, scope));
         self.local_definitions.push(register_index);
 
-        (self.chunk.locals().len() as u8 - 1, identifier_index)
+        (local_index, identifier_index)
     }
 
     fn allow(&mut self, allowed: Token) -> Result<bool, CompileError> {
@@ -953,8 +978,8 @@ impl<'src> Compiler<'src> {
 
             self.previous_expression_type = Type::None;
 
-            let mut optimizer = Optimizer::new(self.chunk.instructions_mut());
-            let optimized = Optimizer::optimize_set_local(&mut optimizer);
+            let mut optimizer = Optimizer::new(&mut self.chunk);
+            let optimized = optimizer.optimize_set_local();
 
             if optimized {
                 self.optimization_count += 1;
@@ -1171,7 +1196,7 @@ impl<'src> Compiler<'src> {
         );
 
         if self.chunk.len() >= 4 {
-            let mut optimizer = Optimizer::new(self.chunk.instructions_mut());
+            let mut optimizer = Optimizer::new(&mut self.chunk);
             let optimized = optimizer.optimize_comparison();
 
             if optimized {
@@ -1260,10 +1285,14 @@ impl<'src> Compiler<'src> {
         }
 
         let end = self.previous_position.1;
-        let to_register = self.next_register();
+        let mut to_register = self.next_register();
         let argument_count = to_register - start_register;
 
-        self.previous_expression_type = Type::Function(function.r#type());
+        self.previous_expression_type = *function.r#type().return_type;
+
+        if let Type::None = self.previous_expression_type {
+            to_register = 0;
+        }
 
         self.emit_instruction(
             Instruction::call_native(to_register, function, argument_count),
@@ -1428,7 +1457,6 @@ impl<'src> Compiler<'src> {
             function_compiler.advance()?;
 
             let register = function_compiler.next_register();
-
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
                 r#type.clone(),
@@ -1476,7 +1504,8 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type,
         };
-        let function = ConcreteValue::Function(function_compiler.finish());
+
+        let function = ConcreteValue::Function(function_compiler.finish(function_type.clone()));
         let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
         let register = self.next_register();

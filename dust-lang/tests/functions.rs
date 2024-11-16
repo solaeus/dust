@@ -8,6 +8,15 @@ fn function() {
         run(source),
         Ok(Some(ConcreteValue::Function(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                    return_type: Box::new(Type::Integer),
+                }))
+            },
             vec![
                 (Instruction::add(2, 0, 1), Span(30, 31)),
                 (Instruction::r#return(true), Span(35, 35)),
@@ -29,6 +38,11 @@ fn function_call() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 36)),
                 (Instruction::load_constant(1, 1, false), Span(36, 37)),
@@ -39,6 +53,11 @@ fn function_call() {
             vec![
                 ConcreteValue::Function(Chunk::with_data(
                     None,
+                    FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Box::new(Type::Integer)
+                    },
                     vec![
                         (Instruction::add(2, 0, 1), Span(30, 31)),
                         (Instruction::r#return(true), Span(35, 36)),
@@ -67,15 +86,24 @@ fn function_declaration() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None)
+            },
             vec![
-                (Instruction::load_constant(0, 1, false), Span(0, 40)),
+                (Instruction::load_constant(0, 0, false), Span(0, 40)),
                 (Instruction::define_local(0, 0, false), Span(3, 6)),
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
-                ConcreteValue::string("add"),
                 ConcreteValue::Function(Chunk::with_data(
                     Some("add".to_string()),
+                    FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Box::new(Type::Integer)
+                    },
                     vec![
                         (Instruction::add(2, 0, 1), Span(35, 36)),
                         (Instruction::r#return(true), Span(40, 40)),
@@ -85,10 +113,11 @@ fn function_declaration() {
                         Local::new(0, Type::Integer, false, Scope::default()),
                         Local::new(1, Type::Integer, false, Scope::default())
                     ]
-                ),)
+                )),
+                ConcreteValue::string("add"),
             ],
             vec![Local::new(
-                0,
+                1,
                 Type::Function(FunctionType {
                     type_parameters: None,
                     value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),

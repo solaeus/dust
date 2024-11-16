@@ -8,6 +8,11 @@ fn equality_assignment_long() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)
@@ -38,6 +43,11 @@ fn equality_assignment_short() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)
@@ -64,8 +74,8 @@ fn equality_assignment_short() {
 fn if_else_assigment_false() {
     let source = r#"
         let a = if 4 == 3 {
-            1; 2; 3; 4;
-            panic()
+            panic();
+            0
         } else {
             1; 2; 3; 4;
             42
@@ -76,6 +86,11 @@ fn if_else_assigment_false() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -83,35 +98,33 @@ fn if_else_assigment_false() {
                         .set_c_is_constant(),
                     Span(22, 24)
                 ),
-                (Instruction::jump(6, true), Span(27, 28)),
-                (Instruction::load_constant(0, 2, false), Span(41, 42)),
-                (Instruction::load_constant(1, 3, false), Span(44, 45)),
-                (Instruction::load_constant(2, 1, false), Span(47, 48)),
-                (Instruction::load_constant(3, 0, false), Span(50, 51)),
+                (Instruction::jump(3, true), Span(27, 28)),
                 (
-                    Instruction::call_native(4, NativeFunction::Panic, 0),
-                    Span(65, 72)
+                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Span(41, 48)
                 ),
-                (Instruction::jump(5, true), Span(138, 139)),
-                (Instruction::load_constant(5, 2, false), Span(102, 103)),
-                (Instruction::load_constant(6, 3, false), Span(105, 106)),
-                (Instruction::load_constant(7, 1, false), Span(108, 109)),
-                (Instruction::load_constant(8, 0, false), Span(111, 112)),
-                (Instruction::load_constant(9, 4, false), Span(126, 128)),
-                (Instruction::r#move(9, 4), Span(138, 139)),
-                (Instruction::define_local(9, 0, false), Span(13, 14)),
-                (Instruction::get_local(10, 0), Span(148, 149)),
-                (Instruction::r#return(true), Span(149, 149)),
+                (Instruction::load_constant(0, 2, false), Span(62, 63)),
+                (Instruction::jump(5, true), Span(129, 130)),
+                (Instruction::load_constant(1, 3, false), Span(93, 94)),
+                (Instruction::load_constant(2, 4, false), Span(96, 97)),
+                (Instruction::load_constant(3, 1, false), Span(99, 100)),
+                (Instruction::load_constant(4, 0, false), Span(102, 103)),
+                (Instruction::load_constant(5, 5, false), Span(117, 119)),
+                (Instruction::r#move(5, 0), Span(129, 130)),
+                (Instruction::define_local(5, 0, false), Span(13, 14)),
+                (Instruction::get_local(6, 0), Span(139, 140)),
+                (Instruction::r#return(true), Span(140, 140)),
             ],
             vec![
                 ConcreteValue::Integer(4),
                 ConcreteValue::Integer(3),
+                ConcreteValue::Integer(0),
                 ConcreteValue::Integer(1),
                 ConcreteValue::Integer(2),
                 ConcreteValue::Integer(42),
                 ConcreteValue::string("a")
             ],
-            vec![Local::new(5, Type::Integer, false, Scope::default())]
+            vec![Local::new(6, Type::Integer, false, Scope::default())]
         )),
     );
 
@@ -125,8 +138,8 @@ fn if_else_assigment_true() {
             1; 2; 3; 4;
             42
         } else {
-            1; 2; 3; 4;
-            panic()
+            panic();
+            0
         };
         a"#;
 
@@ -134,6 +147,11 @@ fn if_else_assigment_true() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)
@@ -147,19 +165,16 @@ fn if_else_assigment_true() {
                 (Instruction::load_constant(2, 3, false), Span(47, 48)),
                 (Instruction::load_constant(3, 0, false), Span(50, 51)),
                 (Instruction::load_constant(4, 4, false), Span(65, 67)),
-                (Instruction::jump(5, true), Span(138, 139)),
-                (Instruction::load_constant(5, 1, false), Span(97, 98)),
-                (Instruction::load_constant(6, 2, false), Span(100, 101)),
-                (Instruction::load_constant(7, 3, false), Span(103, 104)),
-                (Instruction::load_constant(8, 0, false), Span(106, 107)),
+                (Instruction::jump(2, true), Span(129, 130)),
                 (
-                    Instruction::call_native(9, NativeFunction::Panic, 0),
-                    Span(121, 128)
+                    Instruction::call_native(0, NativeFunction::Panic, 0),
+                    Span(97, 104)
                 ),
-                (Instruction::r#move(9, 4), Span(138, 139)),
-                (Instruction::define_local(9, 0, false), Span(13, 14)),
-                (Instruction::get_local(10, 0), Span(148, 149)),
-                (Instruction::r#return(true), Span(149, 149)),
+                (Instruction::load_constant(5, 5, false), Span(118, 119)),
+                (Instruction::r#move(5, 4), Span(129, 130)),
+                (Instruction::define_local(5, 0, false), Span(13, 14)),
+                (Instruction::get_local(6, 0), Span(139, 140)),
+                (Instruction::r#return(true), Span(140, 140)),
             ],
             vec![
                 ConcreteValue::Integer(4),
@@ -167,9 +182,10 @@ fn if_else_assigment_true() {
                 ConcreteValue::Integer(2),
                 ConcreteValue::Integer(3),
                 ConcreteValue::Integer(42),
+                ConcreteValue::Integer(0),
                 ConcreteValue::string("a")
             ],
-            vec![Local::new(5, Type::Integer, false, Scope::default())]
+            vec![Local::new(6, Type::Integer, false, Scope::default())]
         )),
     );
 
@@ -189,6 +205,11 @@ fn if_else_complex() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)
@@ -300,6 +321,11 @@ fn if_else_false() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -336,6 +362,11 @@ fn if_else_true() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)
@@ -368,6 +399,11 @@ fn if_false() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -398,6 +434,11 @@ fn if_true() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 0)

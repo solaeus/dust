@@ -8,6 +8,11 @@ fn negate() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -28,6 +33,11 @@ fn not() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean),
+            },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(1, 5)),
                 (Instruction::not(1, 0), Span(0, 1)),

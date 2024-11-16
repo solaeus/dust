@@ -8,6 +8,14 @@ fn empty_list() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::List {
+                    item_type: Box::new(Type::Any),
+                    length: 0
+                })
+            },
             vec![
                 (Instruction::load_list(0, 0), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2)),
@@ -28,6 +36,14 @@ fn list() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::List {
+                    item_type: Box::new(Type::Integer),
+                    length: 3
+                })
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (Instruction::load_constant(1, 1, false), Span(4, 5)),
@@ -62,6 +78,14 @@ fn list_with_complex_expression() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::List {
+                    item_type: Box::new(Type::Integer),
+                    length: 3
+                })
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
@@ -109,6 +133,14 @@ fn list_with_simple_expression() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::List {
+                    item_type: Box::new(Type::Integer),
+                    length: 3
+                })
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (

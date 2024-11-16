@@ -8,6 +8,11 @@ fn add() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (
                     *Instruction::add(0, 0, 1)
@@ -33,6 +38,11 @@ fn add_assign() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -92,6 +102,11 @@ fn divide() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (
                     *Instruction::divide(0, 0, 0)
@@ -117,6 +132,11 @@ fn divide_assign() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -159,6 +179,11 @@ fn math_operator_precedence() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (
                     *Instruction::add(0, 0, 1)
@@ -201,6 +226,11 @@ fn multiply() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (
                     *Instruction::multiply(0, 0, 1)
@@ -226,6 +256,11 @@ fn multiply_assign() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
@@ -272,6 +307,11 @@ fn subtract() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (
                     *Instruction::subtract(0, 0, 1)
@@ -297,6 +337,11 @@ fn subtract_assign() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),

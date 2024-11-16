@@ -8,6 +8,11 @@ fn equal() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::equal(true, 0, 1)
@@ -36,6 +41,11 @@ fn greater() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::less_equal(false, 0, 1)
@@ -64,6 +74,11 @@ fn greater_than_or_equal() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::less(false, 0, 1)
@@ -92,6 +107,11 @@ fn less_than() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::less(true, 0, 1)
@@ -120,6 +140,11 @@ fn less_than_or_equal() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::less_equal(true, 0, 1)
@@ -148,6 +173,11 @@ fn not_equal() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Boolean)
+            },
             vec![
                 (
                     *Instruction::equal(false, 0, 1)

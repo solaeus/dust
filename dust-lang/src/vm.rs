@@ -8,8 +8,8 @@ use std::{
 
 use crate::{
     compile, AbstractValue, AnnotatedError, Chunk, ChunkError, ConcreteValue, DustError,
-    Instruction, NativeFunction, NativeFunctionError, Operation, Span, Type, ValueError,
-    ValueOwned, ValueRef,
+    Instruction, NativeFunction, NativeFunctionError, Operation, Span, ValueError, ValueOwned,
+    ValueRef,
 };
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
@@ -367,29 +367,23 @@ impl<'a> Vm<'a> {
                             position: self.current_position,
                         });
                     };
-                    let has_return_value = *chunk.r#type().return_type != Type::None;
                     let mut function_vm = Vm::new(chunk, Some(self));
                     let first_argument_index = function_register + 1;
                     let last_argument_index = first_argument_index + argument_count;
 
-                    for argument_index in first_argument_index..last_argument_index {
-                        let top_of_stack = function_vm.stack.len() as u8;
-
+                    for (argument_index, argument_register_index) in
+                        (first_argument_index..last_argument_index).enumerate()
+                    {
                         function_vm.set_register(
-                            top_of_stack,
-                            Register::Pointer(Pointer::ParentStack(argument_index)),
+                            argument_index as u8,
+                            Register::Pointer(Pointer::ParentStack(argument_register_index)),
                         )?
                     }
 
-                    function_vm.run()?;
+                    let return_value = function_vm.run()?;
 
-                    if has_return_value {
-                        let top_of_stack = function_vm.stack.len() as u8 - 1;
-
-                        self.set_register(
-                            to_register,
-                            Register::Pointer(Pointer::ParentStack(top_of_stack)),
-                        )?;
+                    if let Some(value) = return_value {
+                        self.set_register(to_register, Register::ConcreteValue(value))?;
                     }
                 }
                 Operation::CallNative => {

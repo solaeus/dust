@@ -30,6 +30,11 @@ fn block_scope() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(17, 18)),
                 (Instruction::define_local(0, 0, false), Span(13, 14)),
@@ -93,6 +98,11 @@ fn multiple_block_scopes() {
         compile(source),
         Ok(Chunk::with_data(
             None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::None),
+            },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(17, 18)),
                 (Instruction::define_local(0, 0, false), Span(13, 14)),
