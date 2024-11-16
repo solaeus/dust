@@ -8,18 +8,18 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value::ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
+use crate::{value::Value, Disassembler, FunctionType, Instruction, Scope, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    name: Option<String>, // TODO: Use a bool indicating whether the chunk is named. If it is, get
-    r#type: FunctionType, // the name from C0.
+    name: Option<String>,
+    r#type: FunctionType,
 
     instructions: Vec<(Instruction, Span)>,
-    constants: Vec<ConcreteValue>,
+    constants: Vec<Value>,
     locals: Vec<Local>,
 }
 
@@ -41,7 +41,7 @@ impl Chunk {
     pub fn with_data(
         name: Option<String>,
         instructions: Vec<(Instruction, Span)>,
-        constants: Vec<ConcreteValue>,
+        constants: Vec<Value>,
         locals: Vec<Local>,
     ) -> Self {
         Self {
@@ -77,15 +77,15 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
-    pub fn constants(&self) -> &Vec<ConcreteValue> {
+    pub fn constants(&self) -> &Vec<Value> {
         &self.constants
     }
 
-    pub fn constants_mut(&mut self) -> &mut Vec<ConcreteValue> {
+    pub fn constants_mut(&mut self) -> &mut Vec<Value> {
         &mut self.constants
     }
 
-    pub fn get_constant(&self, index: u8) -> Result<&ConcreteValue, ChunkError> {
+    pub fn get_constant(&self, index: u8) -> Result<&Value, ChunkError> {
         self.constants
             .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds {
@@ -93,7 +93,7 @@ impl Chunk {
             })
     }
 
-    pub fn push_or_get_constant(&mut self, value: ConcreteValue) -> u8 {
+    pub fn push_or_get_constant(&mut self, value: Value) -> u8 {
         if let Some(index) = self
             .constants
             .iter()

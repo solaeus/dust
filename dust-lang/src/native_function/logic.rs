@@ -1,12 +1,8 @@
 use std::io::{self, stdout, Write};
 
-use crate::{ConcreteValue, Instruction, NativeFunctionError, Span, Value, Vm, VmError};
+use crate::{Instruction, NativeFunctionError, Span, Value, Vm, VmError};
 
-pub fn panic(
-    vm: &Vm,
-    instruction: Instruction,
-    position: Span,
-) -> Result<Option<ConcreteValue>, VmError> {
+pub fn panic(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
     let message = if argument_count == 0 {
         None
@@ -18,7 +14,7 @@ pub fn panic(
                 message.push(' ');
             }
 
-            let argument = vm.open_register(argument_index, position)?;
+            let argument = vm.open_register(argument_index)?;
 
             message.push_str(&argument.to_string());
         }
@@ -28,15 +24,11 @@ pub fn panic(
 
     Err(VmError::NativeFunction(NativeFunctionError::Panic {
         message,
-        position,
+        position: vm.current_position(),
     }))
 }
 
-pub fn to_string(
-    vm: &Vm,
-    instruction: Instruction,
-    position: Span,
-) -> Result<Option<ConcreteValue>, VmError> {
+pub fn to_string(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 1 {
@@ -44,7 +36,7 @@ pub fn to_string(
             NativeFunctionError::ExpectedArgumentCount {
                 expected: 1,
                 found: argument_count as usize,
-                position,
+                position: vm.current_position(),
             },
         ));
     }
@@ -52,19 +44,15 @@ pub fn to_string(
     let mut string = String::new();
 
     for argument_index in 0..argument_count {
-        let argument = vm.open_register(argument_index, position)?;
+        let argument = vm.open_register(argument_index)?;
 
         string.push_str(&argument.to_string());
     }
 
-    Ok(Some(ConcreteValue::String(string)))
+    Ok(Some(Value::String(string)))
 }
 
-pub fn read_line(
-    _: &Vm,
-    instruction: Instruction,
-    position: Span,
-) -> Result<Option<ConcreteValue>, VmError> {
+pub fn read_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 0 {
@@ -72,7 +60,7 @@ pub fn read_line(
             NativeFunctionError::ExpectedArgumentCount {
                 expected: 0,
                 found: argument_count as usize,
-                position,
+                position: vm.current_position(),
             },
         ));
     }
@@ -80,28 +68,24 @@ pub fn read_line(
     let mut buffer = String::new();
 
     match io::stdin().read_line(&mut buffer) {
-        Ok(_) => Ok(Some(ConcreteValue::String(
+        Ok(_) => Ok(Some(Value::String(
             buffer.trim_end_matches('\n').to_string(),
         ))),
         Err(error) => Err(VmError::NativeFunction(NativeFunctionError::Io {
             error: error.kind(),
-            position,
+            position: vm.current_position(),
         })),
     }
 }
 
-pub fn write(
-    vm: &Vm,
-    instruction: Instruction,
-    position: Span,
-) -> Result<Option<ConcreteValue>, VmError> {
+pub fn write(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
     let map_err = |io_error: io::Error| {
         VmError::NativeFunction(NativeFunctionError::Io {
             error: io_error.kind(),
-            position,
+            position: vm.current_position(),
         })
     };
 
@@ -112,7 +96,7 @@ pub fn write(
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument_string = vm.open_register(argument_index, position)?.to_string();
+        let argument_string = vm.open_register(argument_index)?.to_string();
 
         stdout
             .write_all(argument_string.as_bytes())
@@ -122,18 +106,14 @@ pub fn write(
     Ok(None)
 }
 
-pub fn write_line(
-    vm: &Vm,
-    instruction: Instruction,
-    position: Span,
-) -> Result<Option<ConcreteValue>, VmError> {
+pub fn write_line(vm: &Vm, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
     let map_err = |io_error: io::Error| {
         VmError::NativeFunction(NativeFunctionError::Io {
             error: io_error.kind(),
-            position,
+            position: vm.current_position(),
         })
     };
 
@@ -144,7 +124,7 @@ pub fn write_line(
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument_string = vm.open_register(argument_index, position)?.to_string();
+        let argument_string = vm.open_register(argument_index)?.to_string();
 
         stdout
             .write_all(argument_string.as_bytes())

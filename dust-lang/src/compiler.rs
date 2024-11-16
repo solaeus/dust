@@ -13,7 +13,7 @@ use std::{
 use colored::Colorize;
 
 use crate::{
-    value::ConcreteValue, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction,
+    value::Value, AnnotatedError, Chunk, ChunkError, DustError, FunctionType, Instruction,
     LexError, Lexer, Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind,
     TokenOwned, Type, TypeConflict,
 };
@@ -44,7 +44,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 /// Low-level tool for compiling the input a token at a time while assembling a chunk.
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, PartialOrd)]
 pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
@@ -158,7 +158,7 @@ impl<'src> Compiler<'src> {
                     .chunk
                     .constants()
                     .get(local.identifier_index as usize)?;
-                let identifier = if let ConcreteValue::String(identifier) = constant {
+                let identifier = if let Value::String(identifier) = constant {
                     identifier
                 } else {
                     return None;
@@ -186,7 +186,7 @@ impl<'src> Compiler<'src> {
     ) -> (u8, u8) {
         log::debug!("Declare local {identifier}");
 
-        let identifier = ConcreteValue::string(identifier);
+        let identifier = Value::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
 
         self.chunk
@@ -368,11 +368,7 @@ impl<'src> Compiler<'src> {
         self.chunk.instructions_mut().push((instruction, position));
     }
 
-    fn emit_constant(
-        &mut self,
-        constant: ConcreteValue,
-        position: Span,
-    ) -> Result<(), CompileError> {
+    fn emit_constant(&mut self, constant: Value, position: Span) -> Result<(), CompileError> {
         let constant_index = self.chunk.push_or_get_constant(constant);
         let register = self.next_register();
 
@@ -418,7 +414,7 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let value = ConcreteValue::byte(byte);
+            let value = Value::byte(byte);
 
             self.emit_constant(value, position)?;
 
@@ -440,7 +436,7 @@ impl<'src> Compiler<'src> {
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::character(character);
+            let value = Value::character(character);
 
             self.emit_constant(value, position)?;
 
@@ -468,7 +464,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::float(float);
+            let value = Value::float(float);
 
             self.emit_constant(value, position)?;
 
@@ -496,7 +492,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::integer(integer);
+            let value = Value::integer(integer);
 
             self.emit_constant(value, position)?;
 
@@ -518,7 +514,7 @@ impl<'src> Compiler<'src> {
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::string(text);
+            let value = Value::string(text);
 
             self.emit_constant(value, position)?;
 
@@ -1476,7 +1472,7 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type,
         };
-        let function = ConcreteValue::function(function_compiler.finish());
+        let function = Value::function(function_compiler.finish());
         let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
         let register = self.next_register();
