@@ -333,18 +333,20 @@ fn if_else_false() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(10, 11)),
+                (Instruction::jump(2, true), Span(10, 11)),
                 (
                     Instruction::call_native(0, NativeFunction::Panic, 0),
                     Span(12, 19)
                 ),
-                (Instruction::load_constant(1, 2, true), Span(29, 31)),
-                (Instruction::r#move(1, 0), Span(33, 33)),
-                (Instruction::r#return(true), Span(33, 33)),
+                (Instruction::load_constant(0, 2, true), Span(21, 22)),
+                (Instruction::load_constant(1, 3, false), Span(32, 34)),
+                (Instruction::r#move(1, 0), Span(36, 36)),
+                (Instruction::r#return(true), Span(36, 36)),
             ],
             vec![
                 ConcreteValue::Integer(1),
                 ConcreteValue::Integer(2),
+                ConcreteValue::Integer(0),
                 ConcreteValue::Integer(42)
             ],
             vec![]
@@ -374,16 +376,22 @@ fn if_else_true() {
                         .set_c_is_constant(),
                     Span(5, 7)
                 ),
-                (Instruction::jump(1, true), Span(10, 11)),
-                (Instruction::load_constant(0, 1, true), Span(12, 14)),
+                (Instruction::jump(2, true), Span(10, 11)),
+                (Instruction::load_constant(0, 1, false), Span(12, 14)),
+                (Instruction::jump(2, true), Span(36, 36)),
                 (
-                    Instruction::call_native(1, NativeFunction::Panic, 0),
+                    Instruction::call_native(0, NativeFunction::Panic, 0),
                     Span(24, 31)
                 ),
-                (Instruction::r#move(1, 0), Span(33, 33)),
-                (Instruction::r#return(true), Span(33, 33))
+                (Instruction::load_constant(1, 2, false), Span(33, 34)),
+                (Instruction::r#move(1, 0), Span(36, 36)),
+                (Instruction::r#return(true), Span(36, 36))
             ],
-            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(42)],
+            vec![
+                ConcreteValue::Integer(1),
+                ConcreteValue::Integer(42),
+                ConcreteValue::Integer(0)
+            ],
             vec![]
         )),
     );

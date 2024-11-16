@@ -270,11 +270,17 @@ impl<'src> Compiler<'src> {
         Some(n_operations)
     }
 
-    fn get_last_jumpable_mut(&mut self) -> Option<&mut Instruction> {
+    fn get_last_jumpable_mut_between(
+        &mut self,
+        minimum: usize,
+        maximum: usize,
+    ) -> Option<&mut Instruction> {
         self.chunk
             .instructions_mut()
             .iter_mut()
             .rev()
+            .skip(minimum)
+            .take(maximum)
             .find_map(|(instruction, _)| {
                 if let Operation::LoadBoolean | Operation::LoadConstant = instruction.operation() {
                     Some(instruction)
@@ -1124,7 +1130,7 @@ impl<'src> Compiler<'src> {
         let if_block_type = self.previous_expression_type.clone();
         let if_last_register = self.next_register().saturating_sub(1);
 
-        let has_else_statement = if let Token::Else = self.current_token {
+        if let Token::Else = self.current_token {
             self.advance()?;
 
             if let Token::LeftBrace = self.current_token {
@@ -1158,8 +1164,10 @@ impl<'src> Compiler<'src> {
 
         match else_block_distance {
             0 => {}
-            1 if !has_else_statement => {
-                if let Some(skippable) = self.get_last_jumpable_mut() {
+            1 => {
+                if let Some(skippable) =
+                    self.get_last_jumpable_mut_between(1, if_block_distance as usize)
+                {
                     skippable.set_c_to_boolean(true);
                 } else {
                     if_block_distance += 1;
@@ -1173,7 +1181,6 @@ impl<'src> Compiler<'src> {
                     );
                 }
             }
-            1 => {}
             2.. => {
                 if_block_distance += 1;
 
