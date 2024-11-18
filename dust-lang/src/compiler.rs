@@ -4,6 +4,7 @@
 //! - [`compile`], which compiles the entire input and returns a chunk
 //! - [`Compiler`], which compiles the input a token at a time while assembling a chunk
 use std::{
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     mem::replace,
     num::{ParseFloatError, ParseIntError},
@@ -44,19 +45,18 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 /// Low-level tool for compiling the input a token at a time while assembling a chunk.
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
-#[derive(Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
+    local_declarations: HashMap<u8, u8>,
 
     current_token: Token<'src>,
     current_position: Span,
-
     previous_token: Token<'src>,
     previous_position: Span,
 
     return_type: Option<Type>,
-    local_definitions: Vec<u8>,
     optimization_count: usize,
     previous_expression_type: Type,
     minimum_register: u8,
@@ -79,12 +79,12 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             chunk,
             lexer,
+            local_declarations: HashMap::new(),
             current_token,
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
             return_type: None,
-            local_definitions: Vec::new(),
             optimization_count: 0,
             previous_expression_type: Type::None,
             minimum_register: 0,
@@ -113,21 +113,20 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register(&mut self) -> u8 {
+    fn next_register(&self) -> u8 {
         self.chunk
             .instructions()
             .iter()
-            .rev()
-            .find_map(|(instruction, _)| {
+            .filter_map(|(instruction, _)| {
                 if instruction.yields_value() {
-                    let previous = instruction.a();
-                    let next = previous.overflowing_add(1).0;
+                    let to_register = instruction.a();
 
-                    Some(next)
+                    Some(to_register + 1)
                 } else {
                     None
                 }
             })
+            .max()
             .unwrap_or(self.minimum_register)
     }
 
@@ -196,7 +195,7 @@ impl<'src> Compiler<'src> {
         scope: Scope,
         register_index: u8,
     ) -> (u8, u8) {
-        log::debug!("Declare local {identifier}");
+        log::info!("Declaring local {identifier}");
 
         let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
@@ -205,9 +204,33 @@ impl<'src> Compiler<'src> {
         self.chunk
             .locals_mut()
             .push(Local::new(identifier_index, r#type, is_mutable, scope));
-        self.local_definitions.push(register_index);
+        self.local_declarations.insert(local_index, register_index);
 
         (local_index, identifier_index)
+    }
+
+    fn redeclare_local(&mut self, local_index: u8, register_index: u8) -> Result<(), CompileError> {
+        let local = self.get_local(local_index)?;
+
+        if !self.current_scope.contains(&local.scope) {
+            let identifier = self
+                .chunk
+                .constants()
+                .get(local.identifier_index as usize)
+                .map(|constant| constant.to_string())
+                .unwrap_or("unknown".to_string());
+
+            return Err(CompileError::VariableOutOfScope {
+                identifier,
+                variable_scope: local.scope,
+                access_scope: self.current_scope,
+                position: self.current_position,
+            });
+        }
+
+        self.local_declarations.insert(local_index, register_index);
+
+        Ok(())
     }
 
     fn allow(&mut self, allowed: Token) -> Result<bool, CompileError> {
@@ -673,22 +696,19 @@ impl<'src> Compiler<'src> {
                 let local = self.get_local(local_index)?;
                 is_mutable_local = local.is_mutable;
 
-                *self
-                    .local_definitions
-                    .get(local_index as usize)
-                    .ok_or_else(|| {
-                        let identifier = self
-                            .chunk
-                            .constants()
-                            .get(local.identifier_index as usize)
-                            .unwrap()
-                            .to_string();
+                *self.local_declarations.get(&local_index).ok_or_else(|| {
+                    let identifier = self
+                        .chunk
+                        .constants()
+                        .get(local.identifier_index as usize)
+                        .unwrap()
+                        .to_string();
 
-                        CompileError::UndeclaredVariable {
-                            identifier,
-                            position: self.current_position,
-                        }
-                    })?
+                    CompileError::UndeclaredVariable {
+                        identifier,
+                        position: self.current_position,
+                    }
+                })?
             }
             Operation::LoadConstant => {
                 is_constant = true;
@@ -733,17 +753,21 @@ impl<'src> Compiler<'src> {
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
+        let is_assignment =
+            if let Token::PlusEqual | Token::MinusEqual | Token::StarEqual | Token::SlashEqual =
+                operator
+            {
+                if !left_is_mutable_local {
+                    return Err(CompileError::ExpectedMutableVariable {
+                        found: self.previous_token.to_owned(),
+                        position: left_position,
+                    });
+                }
 
-        if let Token::PlusEqual | Token::MinusEqual | Token::StarEqual | Token::SlashEqual =
-            operator
-        {
-            if !left_is_mutable_local {
-                return Err(CompileError::ExpectedMutableVariable {
-                    found: self.previous_token.to_owned(),
-                    position: left_position,
-                });
-            }
-        }
+                true
+            } else {
+                false
+            };
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -756,7 +780,7 @@ impl<'src> Compiler<'src> {
             self.emit_instruction(right_instruction, right_position);
         }
 
-        let register = if left_is_mutable_local {
+        let register = if is_assignment {
             left
         } else {
             self.next_register()
@@ -818,7 +842,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some([Operation::Equal | Operation::Less | Operation::LessEqual, _, _, _]) =
+        if let Some([Operation::Equal | Operation::Less | Operation::LessEqual, _, _]) =
             self.get_last_operations()
         {
             return Err(CompileError::CannotChainComparison {
@@ -911,15 +935,23 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
-        let start_length = self.chunk.len();
         let (left_instruction, left_position) = self.pop_last_instruction()?;
+
+        if !left_instruction.yields_value() {
+            return Err(CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            });
+        }
+
+        let (_, is_constant, _, _) = self.handle_binary_argument(&left_instruction)?;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
-
-        let test_instruction = match operator {
-            Token::DoubleAmpersand => Instruction::test(left_instruction.a(), false),
-            Token::DoublePipe => Instruction::test(left_instruction.a(), true),
+        let test_register = left_instruction.a();
+        let mut test_instruction = match operator {
+            Token::DoubleAmpersand => Instruction::test(test_register, true),
+            Token::DoublePipe => Instruction::test(test_register, false),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
@@ -929,13 +961,14 @@ impl<'src> Compiler<'src> {
             }
         };
 
+        if is_constant {
+            test_instruction.set_b_is_constant();
+        }
+
         self.advance()?;
         self.emit_instruction(left_instruction, left_position);
         self.emit_instruction(test_instruction, operator_position);
-
-        let jump_distance = (self.chunk.len() - start_length) as u8;
-
-        self.emit_instruction(Instruction::jump(jump_distance, true), operator_position);
+        self.emit_instruction(Instruction::jump(1, true), operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
         self.previous_expression_type = Type::Boolean;
@@ -975,17 +1008,14 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        let (is_mutable, local_scope) = {
-            let local = self.get_local(local_index)?;
+        let local = self.get_local(local_index)?;
+        let is_mutable = local.is_mutable;
 
-            (local.is_mutable, local.scope)
-        };
-
-        if !self.current_scope.contains(&local_scope) {
+        if !self.current_scope.contains(&local.scope) {
             return Err(CompileError::VariableOutOfScope {
                 identifier: self.chunk.get_identifier(local_index).unwrap(),
                 position: start_position,
-                variable_scope: local_scope,
+                variable_scope: local.scope,
                 access_scope: self.current_scope,
             });
         }
@@ -998,10 +1028,10 @@ impl<'src> Compiler<'src> {
                 });
             }
 
-            self.parse_expression()?;
-
             let register = self.next_register() - 1;
 
+            self.parse_expression()?;
+            self.redeclare_local(local_index, register)?;
             self.emit_instruction(
                 Instruction::set_local(register, local_index),
                 start_position,
@@ -1055,15 +1085,16 @@ impl<'src> Compiler<'src> {
     fn parse_block(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        self.block_index += 1;
+        let starting_block = self.current_scope.block_index;
 
+        self.block_index += 1;
         self.current_scope.begin(self.block_index);
 
         while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
         }
 
-        self.current_scope.end();
+        self.current_scope.end(starting_block);
 
         Ok(())
     }
@@ -1135,6 +1166,13 @@ impl<'src> Compiler<'src> {
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
             self.chunk.instructions_mut().pop();
+        } else if let Some((instruction, _)) = self.chunk.instructions().last() {
+            let test_register = instruction.a();
+
+            self.emit_instruction(
+                Instruction::test(test_register, true),
+                self.current_position,
+            )
         }
 
         let if_block_start = self.chunk.len();
@@ -1229,9 +1267,8 @@ impl<'src> Compiler<'src> {
 
         if self.chunk.len() >= 4 {
             let mut optimizer = Optimizer::new(&mut self.chunk);
-            let optimized = optimizer.optimize_comparison();
 
-            if optimized {
+            if optimizer.optimize_control_flow() {
                 self.optimization_count += 1
             }
         }
@@ -1449,7 +1486,7 @@ impl<'src> Compiler<'src> {
     fn parse_function(&mut self) -> Result<(), CompileError> {
         let function_start = self.current_position.0;
         let mut function_compiler = Compiler::new(self.lexer)?;
-        let identifier = if let Token::Identifier(text) = function_compiler.current_token {
+        let identifier_info = if let Token::Identifier(text) = function_compiler.current_token {
             let position = function_compiler.current_position;
 
             function_compiler.advance()?;
@@ -1544,7 +1581,7 @@ impl<'src> Compiler<'src> {
 
         self.lexer.skip_to(function_end);
 
-        if let Some((identifier, identifier_position)) = identifier {
+        if let Some((identifier, position)) = identifier_info {
             let (local_index, _) = self.declare_local(
                 identifier,
                 Type::Function(function_type),
@@ -1559,7 +1596,7 @@ impl<'src> Compiler<'src> {
             );
             self.emit_instruction(
                 Instruction::define_local(register, local_index, false),
-                identifier_position,
+                position,
             );
 
             self.previous_expression_type = Type::None;

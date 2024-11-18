@@ -4,17 +4,22 @@ while count <= 15 {
 	let divides_by_3 = count % 3 == 0
 	let divides_by_5 = count % 5 == 0
 
-	let output = if divides_by_3 && divides_by_5 {
-		"fizzbuzz"
-	} else if divides_by_3 {
-		"fizz"
-	} else if divides_by_5 {
-		"buzz"
-	} else {
-		to_string(count)
+	if divides_by_3 && divides_by_5 {
+		write_line("fizzbuzz")
+		return
 	}
 
-	write_line(output)
+	if divides_by_3 {
+		write_line("fizz")
+		return
+	}
+
+	if divides_by_5 {
+		write_line("buzz")
+        return
+	}
+
+	write_line(count)
 
 	count += 1
 }

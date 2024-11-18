@@ -50,22 +50,22 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i  BYTECODE OPERATION             INFO               POSITION ",
-    "--- -------- ------------- ------------------------- ----------",
+    " i   POSITION  BYTECODE   OPERATION                   INFO                ",
+    "--- ---------- -------- ------------- ------------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
     "Constants",
     "---------",
-    " i       VALUE     ",
-    "--- ---------------",
+    " i        TYPE             VALUE      ",
+    "--- ---------------- -----------------",
 ];
 
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i  IDENTIFIER       TYPE       MUTABLE  SCOPE ",
-    "--- ---------- ---------------- ------- -------",
+    " i  SCOPE MUTABLE       TYPE          IDENTIFIER   ",
+    "--- ----- ------- ---------------- ----------------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -77,7 +77,7 @@ pub struct Disassembler<'a> {
     source: Option<&'a str>,
 
     // Options
-    styled: bool,
+    style: bool,
     indent: usize,
 }
 
@@ -87,33 +87,26 @@ impl<'a> Disassembler<'a> {
             output: String::new(),
             chunk,
             source: None,
-            styled: false,
+            style: false,
             indent: 0,
         }
     }
 
-    /// The default width of the disassembly output. To correctly align the output, this should
-    /// return the width of the longest line that the disassembler is guaranteed to produce.
+    /// The default width of the disassembly output, including borders.
     pub fn default_width() -> usize {
         let longest_line = INSTRUCTION_HEADER[3];
 
-        longest_line.chars().count().max(80)
+        (longest_line.chars().count() + 2).max(80)
     }
 
-    pub fn source(mut self, source: &'a str) -> Self {
+    pub fn set_source(&mut self, source: &'a str) -> &mut Self {
         self.source = Some(source);
 
         self
     }
 
-    pub fn styled(mut self, styled: bool) -> Self {
-        self.styled = styled;
-
-        self
-    }
-
-    pub fn indent(mut self, indent: usize) -> Self {
-        self.indent = indent;
+    pub fn style(mut self, styled: bool) -> Self {
+        self.style = styled;
 
         self
     }
@@ -141,21 +134,16 @@ impl<'a> Disassembler<'a> {
                 (0, extra_space)
             }
         };
-        let content = if style_bold {
-            line_characters
-                .iter()
-                .collect::<String>()
-                .bold()
-                .to_string()
-        } else if style_dim {
-            line_characters
-                .iter()
-                .collect::<String>()
-                .dimmed()
-                .to_string()
-        } else {
-            line_characters.iter().collect::<String>()
-        };
+        let mut content = line_characters.iter().collect::<String>();
+
+        if style_bold {
+            content = content.bold().to_string();
+        }
+
+        if style_dim {
+            content = content.dimmed().to_string();
+        }
+
         let length_before_content = self.output.chars().count();
 
         for _ in 0..self.indent {
@@ -195,8 +183,16 @@ impl<'a> Disassembler<'a> {
         }
     }
 
+    fn push_source(&mut self, source: &str) {
+        self.push(source, true, false, false, true);
+    }
+
+    fn push_chunk_info(&mut self, info: &str) {
+        self.push(info, true, false, true, true);
+    }
+
     fn push_header(&mut self, header: &str) {
-        self.push(header, true, self.styled, false, true);
+        self.push(header, true, self.style, false, true);
     }
 
     fn push_details(&mut self, details: &str) {
@@ -240,12 +236,7 @@ impl<'a> Disassembler<'a> {
 
         if let Some(source) = self.source {
             self.push_empty();
-            self.push_details(
-                &source
-                    .replace("  ", "")
-                    .replace("\n\n", " ")
-                    .replace('\n', " "),
-            );
+            self.push_source(&source.split_whitespace().collect::<Vec<&str>>().join(" "));
             self.push_empty();
         }
 
@@ -257,7 +248,7 @@ impl<'a> Disassembler<'a> {
             self.chunk.r#type().return_type
         );
 
-        self.push(&info_line, true, false, true, true);
+        self.push_chunk_info(&info_line);
         self.push_empty();
 
         for line in INSTRUCTION_HEADER {
@@ -265,13 +256,13 @@ impl<'a> Disassembler<'a> {
         }
 
         for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
+            let position = position.to_string();
             let bytecode = format!("{:02X}", u32::from(instruction));
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info(self.chunk);
-            let position = position.to_string();
 
             let instruction_display =
-                format!("{index:^3} {bytecode:>8} {operation:13} {info:<25} {position:10}");
+                format!("{index:^3} {position:^10} {bytecode:>8} {operation:13} {info:^36}");
 
             self.push_details(&instruction_display);
         }
@@ -300,7 +291,7 @@ impl<'a> Disassembler<'a> {
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
             let local_display = format!(
-                "{index:^3} {identifier_display:10} {type_display:16} {mutable:7} {scope:7}"
+                "{index:^3} {scope:5} {mutable:^7} {type_display:^16} {identifier_display:^16}"
             );
 
             self.push_details(&local_display);
@@ -314,35 +305,34 @@ impl<'a> Disassembler<'a> {
 
         for (index, value) in self.chunk.constants().iter().enumerate() {
             if let ConcreteValue::Function(chunk) = value {
-                let function_disassembly = chunk
-                    .disassembler()
-                    .styled(self.styled)
-                    .indent(self.indent + 1)
-                    .disassemble();
+                let mut function_disassembler = chunk.disassembler().style(self.style);
+
+                function_disassembler.indent = self.indent + 1;
+
+                let function_disassembly = function_disassembler.disassemble();
 
                 self.output.push_str(&function_disassembly);
 
                 continue;
             }
 
+            let type_display = value.r#type().to_string();
             let value_display = {
-                let value_string = value.to_string();
+                let mut value_string = value.to_string();
 
                 if value_string.len() > 15 {
-                    format!("{value_string:.12}...")
-                } else {
-                    value_string
+                    value_string = format!("{value_string:.12}...");
                 }
+
+                value_string
             };
-            let constant_display = format!("{index:^3} {value_display:^15}");
+            let constant_display = format!("{index:^3} {type_display:^16} {value_display:^17}");
 
             self.push_details(&constant_display);
         }
 
         self.push_border(&bottom_border);
 
-        let _ = self.output.trim_end_matches('\n');
-
-        self.output
+        self.output.to_string()
     }
 }

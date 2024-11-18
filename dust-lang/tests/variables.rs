@@ -15,15 +15,14 @@ fn define_local() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(8, 10)),
-                (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::r#return(false), Span(11, 11))
             ],
             vec![ConcreteValue::Integer(42), ConcreteValue::string("x")],
-            vec![Local::new(1, Type::Integer, false, Scope::default())]
+            vec![Local::new(1, Type::Integer, false, Scope::default(), 0)]
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(run_source(source), Ok(None));
 }
 
 #[test]
@@ -58,9 +57,8 @@ fn set_local() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
-                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (Instruction::load_constant(1, 2, false), Span(20, 22)),
-                (Instruction::set_local(1, 0), Span(16, 17)),
+                (Instruction::set_local(0, 0), Span(16, 17)),
                 (Instruction::get_local(2, 0), Span(24, 25)),
                 (Instruction::r#return(true), Span(25, 25)),
             ],
@@ -69,9 +67,9 @@ fn set_local() {
                 ConcreteValue::string("x"),
                 ConcreteValue::Integer(42)
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(42))));
 }

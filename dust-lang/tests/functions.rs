@@ -5,7 +5,7 @@ fn function() {
     let source = "fn(a: int, b: int) -> int { a + b }";
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Ok(Some(ConcreteValue::Function(Chunk::with_data(
             None,
             FunctionType {
@@ -23,8 +23,8 @@ fn function() {
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
-                Local::new(0, Type::Integer, false, Scope::default()),
-                Local::new(1, Type::Integer, false, Scope::default())
+                Local::new(0, Type::Integer, false, Scope::default(), 0),
+                Local::new(1, Type::Integer, false, Scope::default(), 1)
             ]
         ))))
     );
@@ -64,8 +64,8 @@ fn function_call() {
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default()),
-                        Local::new(1, Type::Integer, false, Scope::default())
+                        Local::new(0, Type::Integer, false, Scope::default(), 0),
+                        Local::new(1, Type::Integer, false, Scope::default(), 1)
                     ]
                 )),
                 ConcreteValue::Integer(1),
@@ -75,7 +75,7 @@ fn function_call() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(3))));
 }
 
 #[test]
@@ -93,7 +93,6 @@ fn function_declaration() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 40)),
-                (Instruction::define_local(0, 0, false), Span(3, 6)),
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
@@ -110,8 +109,8 @@ fn function_declaration() {
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default()),
-                        Local::new(1, Type::Integer, false, Scope::default())
+                        Local::new(0, Type::Integer, false, Scope::default(), 0),
+                        Local::new(1, Type::Integer, false, Scope::default(), 1)
                     ]
                 )),
                 ConcreteValue::string("add"),
@@ -125,9 +124,10 @@ fn function_declaration() {
                 }),
                 false,
                 Scope::default(),
-            )],
+                0
+            ),],
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(run_source(source), Ok(None));
 }

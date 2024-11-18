@@ -5,6 +5,7 @@
 //! belong to a named function.
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
@@ -181,21 +182,21 @@ impl Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disassembler = self.disassembler().styled(false);
+        let disassembly = self.disassembler().style(true).disassemble();
 
-        write!(f, "{}", disassembler.disassemble())
+        write!(f, "{disassembly}")
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disassembly = self.disassembler().styled(false).disassemble();
+        let disassembly = self.disassembler().style(false).disassemble();
 
         if cfg!(debug_assertions) {
-            write!(f, "\n{}", disassembly)
-        } else {
-            write!(f, "{}", disassembly)
+            write!(f, "\n",)?;
         }
+
+        write!(f, "{}", disassembly)
     }
 }
 
@@ -234,6 +235,12 @@ impl Local {
             is_mutable: mutable,
             scope,
         }
+    }
+}
+
+impl Hash for Local {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.identifier_index.hash(state);
     }
 }
 

@@ -30,7 +30,7 @@ fn equal() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn greater() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn greater_than_or_equal() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn less_than() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn less_than_or_equal() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -195,5 +195,5 @@ fn not_equal() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
 }

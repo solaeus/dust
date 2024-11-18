@@ -12,23 +12,23 @@ use std::fmt::{self, Debug, Display, Formatter};
 use crate::{Vm, VmError};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub enum ValueOwned {
+pub enum Value {
     Abstract(AbstractValue),
     Concrete(ConcreteValue),
 }
 
-impl ValueOwned {
+impl Value {
     pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
-            ValueOwned::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            ValueOwned::Concrete(concrete_value) => Ok(concrete_value.clone()),
+            Value::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
+            Value::Concrete(concrete_value) => Ok(concrete_value.clone()),
         }
     }
 
     pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
         match self {
-            ValueOwned::Abstract(abstract_value) => abstract_value.display(vm),
-            ValueOwned::Concrete(concrete_value) => Ok(concrete_value.to_string()),
+            Value::Abstract(abstract_value) => abstract_value.display(vm),
+            Value::Concrete(concrete_value) => Ok(concrete_value.to_string()),
         }
     }
 }

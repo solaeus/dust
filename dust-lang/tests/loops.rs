@@ -15,7 +15,6 @@ fn r#while() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
-                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
                     *Instruction::less(true, 0, 2).set_c_is_constant(),
                     Span(23, 24)
@@ -32,9 +31,9 @@ fn r#while() {
                 ConcreteValue::Integer(5),
                 ConcreteValue::Integer(1),
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default())]
+            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(5))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(5))));
 }

@@ -1,8 +1,8 @@
 use std::io::{self, stdout, Write};
 
-use crate::{ConcreteValue, Instruction, NativeFunctionError, ValueOwned, Vm, VmError};
+use crate::{ConcreteValue, Instruction, NativeFunctionError, Value, Vm, VmError};
 
-pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<ValueOwned>, VmError> {
+pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
     let message = if argument_count == 0 {
         None
@@ -14,7 +14,7 @@ pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
                 message.push(' ');
             }
 
-            let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+            let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
                 value
             } else {
                 continue;
@@ -33,10 +33,7 @@ pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
     }))
 }
 
-pub fn to_string<'a>(
-    vm: &'a Vm<'a>,
-    instruction: Instruction,
-) -> Result<Option<ValueOwned>, VmError> {
+pub fn to_string<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 1 {
@@ -52,7 +49,7 @@ pub fn to_string<'a>(
     let mut string = String::new();
 
     for argument_index in 0..argument_count {
-        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+        let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
             value
         } else {
             continue;
@@ -62,13 +59,10 @@ pub fn to_string<'a>(
         string.push_str(&argument_string);
     }
 
-    Ok(Some(ValueOwned::Concrete(ConcreteValue::String(string))))
+    Ok(Some(Value::Concrete(ConcreteValue::String(string))))
 }
 
-pub fn read_line<'a>(
-    vm: &'a Vm<'a>,
-    instruction: Instruction,
-) -> Result<Option<ValueOwned>, VmError> {
+pub fn read_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let argument_count = instruction.c();
 
     if argument_count != 0 {
@@ -87,7 +81,7 @@ pub fn read_line<'a>(
         Ok(_) => {
             buffer = buffer.trim_end_matches('\n').to_string();
 
-            Ok(Some(ValueOwned::Concrete(ConcreteValue::String(buffer))))
+            Ok(Some(Value::Concrete(ConcreteValue::String(buffer))))
         }
         Err(error) => Err(VmError::NativeFunction(NativeFunctionError::Io {
             error: error.kind(),
@@ -96,7 +90,7 @@ pub fn read_line<'a>(
     }
 }
 
-pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<ValueOwned>, VmError> {
+pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
@@ -114,7 +108,7 @@ pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+        let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
             value
         } else {
             continue;
@@ -129,10 +123,7 @@ pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
     Ok(None)
 }
 
-pub fn write_line<'a>(
-    vm: &'a Vm<'a>,
-    instruction: Instruction,
-) -> Result<Option<ValueOwned>, VmError> {
+pub fn write_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
     let to_register = instruction.a();
     let argument_count = instruction.c();
     let mut stdout = stdout();
@@ -150,7 +141,7 @@ pub fn write_line<'a>(
             stdout.write(b" ").map_err(map_err)?;
         }
 
-        let argument = if let Some(value) = vm.open_register_ignore_empty(argument_index)? {
+        let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
             value
         } else {
             continue;

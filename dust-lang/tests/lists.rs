@@ -25,7 +25,7 @@ fn empty_list() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::list([]))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::list([]))));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn list() {
     );
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(2),
@@ -117,7 +117,7 @@ fn list_with_complex_expression() {
     );
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(-15)
@@ -164,7 +164,7 @@ fn list_with_simple_expression() {
     );
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(5),

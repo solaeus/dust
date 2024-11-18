@@ -22,7 +22,7 @@ fn negate() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(-42))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(-42))));
 }
 
 #[test]
@@ -48,5 +48,5 @@ fn not() {
         )),
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
 }

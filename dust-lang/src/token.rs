@@ -4,24 +4,25 @@ use std::{
     io::Write,
 };
 
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::Span;
 
-pub fn output_token_list<W: Write>(tokens: &[(Token, Span)], writer: &mut W) {
-    const HEADER: [&str; 2] = [
-        "TOKEN        KIND       POSITION  ",
-        "------------ ---------- ----------",
-    ];
+pub fn display_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer: &mut W) {
+    const HEADER: [&str; 2] = ["    TOKEN      POSITION ", "------------- ----------"];
 
     writeln!(writer, "{}", HEADER[0]).unwrap();
     writeln!(writer, "{}", HEADER[1]).unwrap();
 
     for (token, position) in tokens {
-        let kind = token.kind().to_string();
-        let token = token.to_string();
+        let token = if styled {
+            format!("{:^13}", token.to_string().bold())
+        } else {
+            format!("{token:^13}")
+        };
 
-        writeln!(writer, "{token:<12} {kind:<10} {position}").unwrap();
+        writeln!(writer, "{token} {position:<10}").unwrap();
     }
 }
 

@@ -8,11 +8,10 @@ use std::{
 
 use crate::{
     compile, AbstractValue, AnnotatedError, Chunk, ChunkError, ConcreteValue, DustError,
-    Instruction, NativeFunction, NativeFunctionError, Operation, Span, ValueError, ValueOwned,
-    ValueRef,
+    Instruction, NativeFunction, NativeFunctionError, Operation, Span, Value, ValueError, ValueRef,
 };
 
-pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
+pub fn run_source(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
     let mut vm = Vm::new(&chunk, None);
 
@@ -20,25 +19,24 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
         .map_err(|error| DustError::Runtime { error, source })
 }
 
-pub fn run_and_display_output(source: &str) {
-    match run(source) {
-        Ok(Some(value)) => println!("{}", value),
-        Ok(None) => {}
-        Err(error) => eprintln!("{}", error.report()),
-    }
+pub fn run_chunk(chunk: &Chunk) -> Result<Option<ConcreteValue>, DustError> {
+    let mut vm = Vm::new(chunk, None);
+
+    vm.run()
+        .map_err(|error| DustError::Runtime { error, source: "" })
 }
 
 /// Dust virtual machine.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Vm<'a> {
     chunk: &'a Chunk,
     stack: Vec<Register>,
     parent: Option<&'a Vm<'a>>,
+    local_definitions: HashMap<u8, u8>,
 
     ip: usize,
-    local_definitions: HashMap<u8, u8>,
     last_assigned_register: Option<u8>,
     current_position: Span,
 }
@@ -51,8 +49,8 @@ impl<'a> Vm<'a> {
             chunk,
             stack: Vec::new(),
             parent,
-            ip: 0,
             local_definitions: HashMap::new(),
+            ip: 0,
             last_assigned_register: None,
             current_position: Span(0, 0),
         }
@@ -186,6 +184,7 @@ impl<'a> Vm<'a> {
                     )?;
                     let register = Register::Pointer(Pointer::Stack(from_register));
 
+                    self.define_local(to_local, from_register)?;
                     self.set_register(local_register, register)?;
                 }
                 Operation::Add => {
@@ -239,9 +238,9 @@ impl<'a> Vm<'a> {
                     self.set_register(to_register, Register::ConcreteValue(remainder))?;
                 }
                 Operation::Test => {
-                    let register = instruction.a();
+                    let test_register = instruction.b();
                     let test_value = instruction.c_as_boolean();
-                    let value = self.open_register(register)?;
+                    let value = self.open_register(test_register)?;
                     let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
                     {
                         *boolean
@@ -252,11 +251,33 @@ impl<'a> Vm<'a> {
                         });
                     };
 
-                    if boolean != test_value {
+                    if boolean == test_value {
                         self.ip += 1;
                     }
                 }
-                Operation::TestSet => todo!(),
+                Operation::TestSet => {
+                    let to_register = instruction.a();
+                    let test_register = instruction.b();
+                    let test_value = instruction.c_as_boolean();
+                    let value = self.open_register(test_register)?;
+                    let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
+                    {
+                        *boolean
+                    } else {
+                        return Err(VmError::ExpectedBoolean {
+                            found: value.to_concrete_owned(self)?,
+                            position: self.current_position,
+                        });
+                    };
+
+                    if boolean == test_value {
+                        self.ip += 1;
+                    } else {
+                        let register = Register::Pointer(Pointer::Stack(test_register));
+
+                        self.set_register(to_register, register)?;
+                    }
+                }
                 Operation::Equal => {
                     let compare_to = instruction.a_as_boolean();
                     let (left, right) = self.get_arguments(instruction)?;
@@ -394,10 +415,10 @@ impl<'a> Vm<'a> {
                         let to_register = instruction.a();
 
                         let register = match value {
-                            ValueOwned::Abstract(abstract_value) => {
+                            Value::Abstract(abstract_value) => {
                                 Register::AbstractValue(abstract_value)
                             }
-                            ValueOwned::Concrete(concrete_value) => {
+                            Value::Concrete(concrete_value) => {
                                 Register::ConcreteValue(concrete_value)
                             }
                         };
@@ -485,7 +506,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    pub(crate) fn open_register_ignore_empty(
+    pub(crate) fn open_register_allow_empty(
         &self,
         register_index: u8,
     ) -> Result<Option<ValueRef>, VmError> {

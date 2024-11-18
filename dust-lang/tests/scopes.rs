@@ -9,7 +9,7 @@ fn allow_access_to_parent_scope() {
         }
     "#;
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(1))));
+    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(1))));
 }
 
 #[test]
@@ -60,16 +60,16 @@ fn block_scope() {
                 ConcreteValue::string("e"),
             ],
             vec![
-                Local::new(1, Type::Integer, false, Scope::new(0, 0)),
-                Local::new(3, Type::Integer, false, Scope::new(1, 1)),
-                Local::new(5, Type::Integer, false, Scope::new(2, 2)),
-                Local::new(7, Type::Integer, false, Scope::new(1, 1)),
-                Local::new(8, Type::Integer, false, Scope::new(0, 0)),
+                Local::new(1, Type::Integer, false, Scope::new(0, 0), 0),
+                Local::new(3, Type::Integer, false, Scope::new(1, 1), 0),
+                Local::new(5, Type::Integer, false, Scope::new(2, 2), 0),
+                Local::new(7, Type::Integer, false, Scope::new(1, 1), 0),
+                Local::new(8, Type::Integer, false, Scope::new(0, 0), 0),
             ]
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(run_source(source), Ok(None));
 }
 
 #[test]
@@ -81,17 +81,17 @@ fn multiple_block_scopes() {
             {
                 let c = 1;
             }
-            let d = 2;
+            let d = b;
         }
-        let q = 42;
+        let q = a;
         {
             let b = 42;
             {
                 let c = 1;
             }
-            let d = 2;
+            let d = b;
         }
-        let e = 1;
+        let e = a;
     ";
 
     assert_eq!(
@@ -110,19 +110,19 @@ fn multiple_block_scopes() {
                 (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (Instruction::load_constant(2, 4, false), Span(92, 93)),
                 (Instruction::define_local(2, 2, false), Span(88, 89)),
-                (Instruction::load_constant(3, 6, false), Span(129, 130)),
+                (Instruction::get_local(3, 1), Span(129, 130)),
                 (Instruction::define_local(3, 3, false), Span(125, 126)),
-                (Instruction::load_constant(4, 2, false), Span(158, 160)),
+                (Instruction::get_local(4, 0), Span(158, 159)),
                 (Instruction::define_local(4, 4, false), Span(154, 155)),
-                (Instruction::load_constant(5, 2, false), Span(192, 194)),
-                (Instruction::define_local(5, 5, false), Span(188, 189)),
-                (Instruction::load_constant(6, 4, false), Span(234, 235)),
-                (Instruction::define_local(6, 6, false), Span(230, 231)),
-                (Instruction::load_constant(7, 6, false), Span(271, 272)),
-                (Instruction::define_local(7, 7, false), Span(267, 268)),
-                (Instruction::load_constant(8, 4, false), Span(300, 301)),
-                (Instruction::define_local(8, 8, false), Span(296, 297)),
-                (Instruction::r#return(false), Span(307, 307))
+                (Instruction::load_constant(5, 2, false), Span(191, 193)),
+                (Instruction::define_local(5, 5, false), Span(187, 188)),
+                (Instruction::load_constant(6, 4, false), Span(233, 234)),
+                (Instruction::define_local(6, 6, false), Span(229, 230)),
+                (Instruction::get_local(7, 5), Span(270, 271)),
+                (Instruction::define_local(7, 7, false), Span(266, 267)),
+                (Instruction::get_local(8, 0), Span(299, 300)),
+                (Instruction::define_local(8, 8, false), Span(295, 296)),
+                (Instruction::r#return(false), Span(306, 306))
             ],
             vec![
                 ConcreteValue::Integer(0),
@@ -131,26 +131,25 @@ fn multiple_block_scopes() {
                 ConcreteValue::string("b"),
                 ConcreteValue::Integer(1),
                 ConcreteValue::string("c"),
-                ConcreteValue::Integer(2),
                 ConcreteValue::string("d"),
                 ConcreteValue::string("q"),
                 ConcreteValue::string("e"),
             ],
             vec![
-                Local::new(1, Type::Integer, false, Scope::new(0, 0)),
-                Local::new(3, Type::Integer, false, Scope::new(1, 1)),
-                Local::new(5, Type::Integer, false, Scope::new(2, 2)),
-                Local::new(7, Type::Integer, false, Scope::new(1, 1)),
-                Local::new(8, Type::Integer, false, Scope::new(0, 0)),
-                Local::new(3, Type::Integer, false, Scope::new(1, 3)),
-                Local::new(5, Type::Integer, false, Scope::new(2, 4)),
-                Local::new(7, Type::Integer, false, Scope::new(1, 3)),
-                Local::new(9, Type::Integer, false, Scope::new(0, 0)),
+                Local::new(1, Type::Integer, false, Scope::new(0, 0), 0),
+                Local::new(3, Type::Integer, false, Scope::new(1, 1), 0),
+                Local::new(5, Type::Integer, false, Scope::new(2, 2), 0),
+                Local::new(6, Type::Integer, false, Scope::new(1, 1), 0),
+                Local::new(7, Type::Integer, false, Scope::new(0, 0), 0),
+                Local::new(3, Type::Integer, false, Scope::new(1, 3), 0),
+                Local::new(5, Type::Integer, false, Scope::new(2, 4), 0),
+                Local::new(6, Type::Integer, false, Scope::new(1, 3), 0),
+                Local::new(8, Type::Integer, false, Scope::new(0, 0), 0),
             ]
         )),
     );
 
-    assert_eq!(run(source), Ok(None));
+    assert_eq!(run_source(source), Ok(None));
 }
 
 #[test]
@@ -163,7 +162,7 @@ fn disallow_access_to_child_scope() {
     "#;
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -188,7 +187,7 @@ fn disallow_access_to_child_scope_nested() {
     "#;
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -213,7 +212,7 @@ fn disallow_access_to_sibling_scope() {
     "#;
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -240,7 +239,7 @@ fn disallow_access_to_sibling_scope_nested() {
     "#;
 
     assert_eq!(
-        run(source),
+        run_source(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),

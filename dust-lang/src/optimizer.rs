@@ -16,11 +16,11 @@ impl<'a> Optimizer<'a> {
         }
     }
 
-    /// Optimizes a comparison operation.
+    /// Optimizes a short control flow pattern.
     ///
-    /// Comparison instructions (which are always followed by a JUMP) can be optimized when the
-    /// next instructions are two constant or boolean loaders. The first loader is set to skip an
-    /// instruction if it is run while the second loader is modified to use the first's register.
+    /// Comparison and test instructions (which are always followed by a JUMP) can be optimized when
+    /// the next instructions are two constant or boolean loaders. The first loader is set to skip
+    /// an instruction if it is run while the second loader is modified to use the first's register.
     /// This makes the following two code snippets compile to the same bytecode:
     ///
     /// ```dust
@@ -32,15 +32,15 @@ impl<'a> Optimizer<'a> {
     /// ```
     ///
     /// The instructions must be in the following order:
-    ///     - `Operation::Equal | Operation::Less | Operation::LessEqual`
+    ///     - `Operation::Equal` | `Operation::Less` | `Operation::LessEqual` | `Operation::Test`
     ///     - `Operation::Jump`
-    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
-    ///     - `Operation::LoadBoolean | Operation::LoadConstant`
-    pub fn optimize_comparison(&mut self) -> bool {
+    ///     - `Operation::LoadBoolean` | `Operation::LoadConstant`
+    ///     - `Operation::LoadBoolean` | `Operation::LoadConstant`
+    pub fn optimize_control_flow(&mut self) -> bool {
         if !matches!(
             self.get_operations(),
             Some([
-                Operation::Equal | Operation::Less | Operation::LessEqual,
+                Operation::Equal | Operation::Less | Operation::LessEqual | Operation::Test,
                 Operation::Jump,
                 Operation::LoadBoolean | Operation::LoadConstant,
                 Operation::LoadBoolean | Operation::LoadConstant,
@@ -49,24 +49,20 @@ impl<'a> Optimizer<'a> {
             return false;
         }
 
-        log::debug!("Optimizing comparison");
+        log::debug!("Consolidating registers for control flow optimization");
 
         let instructions = self.instructions_mut();
-        let first_loader_register = {
-            let first_loader = &mut instructions[2].0;
+        let first_loader = &mut instructions.iter_mut().nth_back(1).unwrap().0;
 
-            first_loader.set_c_to_boolean(true);
-            first_loader.a()
-        };
+        first_loader.set_c_to_boolean(true);
 
-        let second_loader = &mut instructions[3].0;
+        let first_loader_register = first_loader.a();
+        let second_loader = &mut instructions.last_mut().unwrap().0;
         let mut second_loader_new = Instruction::with_operation(second_loader.operation());
 
         second_loader_new.set_a(first_loader_register);
         second_loader_new.set_b(second_loader.b());
         second_loader_new.set_c(second_loader.c());
-        second_loader_new.set_b_to_boolean(second_loader.b_is_constant());
-        second_loader_new.set_c_to_boolean(second_loader.c_is_constant());
 
         *second_loader = second_loader_new;
 
@@ -88,9 +84,27 @@ impl<'a> Optimizer<'a> {
             return false;
         }
 
-        self.instructions_mut().pop();
+        log::debug!("Condensing math and SetLocal to math instruction");
 
-        log::debug!("Optimizing by removing redundant SetLocal");
+        let instructions = self.instructions_mut();
+        let set_local = instructions.pop().unwrap().0;
+        let set_local_register = set_local.a();
+        let math_instruction = &mut instructions.last_mut().unwrap().0;
+        let mut math_instruction_new = Instruction::with_operation(math_instruction.operation());
+
+        math_instruction_new.set_a(set_local_register);
+        math_instruction_new.set_b(math_instruction.b());
+        math_instruction_new.set_c(math_instruction.c());
+
+        if math_instruction.b_is_constant() {
+            math_instruction_new.set_b_is_constant();
+        }
+
+        if math_instruction.c_is_constant() {
+            math_instruction_new.set_c_is_constant();
+        }
+
+        *math_instruction = math_instruction_new;
 
         true
     }

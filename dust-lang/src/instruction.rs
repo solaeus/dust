@@ -14,7 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, NativeFunction, Operation, Type};
+use crate::{Chunk, NativeFunction, Operation};
 
 /// An operation and its arguments for the Dust virtual machine.
 ///
@@ -160,10 +160,10 @@ impl Instruction {
         instruction
     }
 
-    pub fn test(to_register: u8, test_value: bool) -> Instruction {
+    pub fn test(test_register: u8, test_value: bool) -> Instruction {
         let mut instruction = Instruction(Operation::Test as u32);
 
-        instruction.set_a(to_register);
+        instruction.set_b(test_register);
         instruction.set_c_to_boolean(test_value);
 
         instruction
@@ -375,27 +375,24 @@ impl Instruction {
     }
 
     pub fn yields_value(&self) -> bool {
-        match self.operation() {
+        matches!(
+            self.operation(),
             Operation::Add
-            | Operation::Call
-            | Operation::Divide
-            | Operation::GetLocal
-            | Operation::LoadBoolean
-            | Operation::LoadConstant
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::Modulo
-            | Operation::Multiply
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Subtract => true,
-            Operation::CallNative => {
-                let native_function = NativeFunction::from(self.b());
-
-                *native_function.r#type().return_type != Type::None
-            }
-            _ => false,
-        }
+                | Operation::Call
+                | Operation::CallNative
+                | Operation::Divide
+                | Operation::GetLocal
+                | Operation::LoadBoolean
+                | Operation::LoadConstant
+                | Operation::LoadList
+                | Operation::LoadSelf
+                | Operation::Modulo
+                | Operation::Multiply
+                | Operation::Negate
+                | Operation::Not
+                | Operation::Subtract
+                | Operation::TestSet
+        )
     }
 
     pub fn disassembly_info(&self, chunk: &Chunk) -> String {
@@ -428,7 +425,7 @@ impl Instruction {
                 let jump = self.c_as_boolean();
 
                 if jump {
-                    format!("R{to_register} = {boolean} && SKIP")
+                    format!("R{to_register} = {boolean} && JUMP +1")
                 } else {
                     format!("R{to_register} = {boolean}")
                 }
@@ -439,7 +436,7 @@ impl Instruction {
                 let jump = self.c_as_boolean();
 
                 if jump {
-                    format!("R{register_index} = C{constant_index} && SKIP")
+                    format!("R{register_index} = C{constant_index} JUMP +1")
                 } else {
                     format!("R{register_index} = C{constant_index}")
                 }
@@ -463,13 +460,8 @@ impl Instruction {
             Operation::DefineLocal => {
                 let to_register = self.a();
                 let local_index = self.b();
-                let mutable_display = if self.c_as_boolean() { "mut" } else { "" };
-                let identifier_display = match chunk.get_identifier(local_index) {
-                    Some(identifier) => identifier.to_string(),
-                    None => "???".to_string(),
-                };
 
-                format!("R{to_register} = L{local_index} {mutable_display} {identifier_display}")
+                format!("L{local_index} = R{to_register}")
             }
             Operation::GetLocal => {
                 let local_index = self.b();
@@ -478,12 +470,9 @@ impl Instruction {
             }
             Operation::SetLocal => {
                 let local_index = self.b();
-                let identifier_display = match chunk.get_identifier(local_index) {
-                    Some(identifier) => identifier.to_string(),
-                    None => "???".to_string(),
-                };
+                let register = self.a();
 
-                format!("L{} = R{} {}", local_index, self.a(), identifier_display)
+                format!("L{local_index} = R{register}")
             }
             Operation::Add => {
                 let to_register = self.a();
@@ -516,37 +505,42 @@ impl Instruction {
                 format!("R{to_register} = {first_argument} % {second_argument}",)
             }
             Operation::Test => {
-                let to_register = self.a();
-                let test_value = self.c_as_boolean();
-
-                format!("if R{to_register} != {test_value} {{ SKIP }}")
-            }
-            Operation::TestSet => {
-                let to_register = self.a();
-                let argument = format!("R{}", self.b());
+                let test_register = if self.b_is_constant() {
+                    format!("C{}", self.b())
+                } else {
+                    format!("R{}", self.b())
+                };
                 let test_value = self.c_as_boolean();
                 let bang = if test_value { "" } else { "!" };
 
-                format!("if {bang}R{to_register} {{ R{to_register} = R{argument} }}",)
+                format!("if {bang}{test_register} {{ JUMP +1 }}",)
+            }
+            Operation::TestSet => {
+                let to_register = self.a();
+                let test_register = self.b();
+                let test_value = self.c_as_boolean();
+                let bang = if test_value { "" } else { "!" };
+
+                format!("if {bang}R{test_register} {{ JUMP +1 }} else {{ R{to_register} = R{test_register} }}")
             }
             Operation::Equal => {
                 let comparison_symbol = if self.a_as_boolean() { "==" } else { "!=" };
 
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ JUMP +1 }}")
             }
             Operation::Less => {
                 let comparison_symbol = if self.a_as_boolean() { "<" } else { ">=" };
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ JUMP +1 }}")
             }
             Operation::LessEqual => {
                 let comparison_symbol = if self.a_as_boolean() { "<=" } else { ">" };
                 let (first_argument, second_argument) = format_arguments();
 
-                format!("if {first_argument} {comparison_symbol} {second_argument} {{ SKIP }}")
+                format!("if {first_argument} {comparison_symbol} {second_argument} {{ JUMP +1 }}")
             }
             Operation::Negate => {
                 let to_register = self.a();
@@ -615,8 +609,8 @@ impl Instruction {
                 if argument_count != 0 {
                     let first_argument = to_register.saturating_sub(argument_count);
 
-                    for (index, register) in (first_argument..to_register).enumerate() {
-                        if index > 0 {
+                    for register in first_argument..to_register {
+                        if register != first_argument {
                             output.push_str(", ");
                         }
 
@@ -788,16 +782,16 @@ mod tests {
     }
 
     #[test]
-    fn and() {
-        let instruction = Instruction::test(4, true);
+    fn test() {
+        let instruction = Instruction::test(42, true);
 
         assert_eq!(instruction.operation(), Operation::Test);
-        assert_eq!(instruction.a(), 4);
+        assert_eq!(instruction.b(), 42);
         assert!(instruction.c_as_boolean());
     }
 
     #[test]
-    fn or() {
+    fn test_set() {
         let instruction = Instruction::test_set(4, 1, true);
 
         assert_eq!(instruction.operation(), Operation::TestSet);

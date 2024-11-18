@@ -5,7 +5,12 @@ use colored::{ColoredString, Colorize, CustomColor};
 
 use crate::{CompileError, DustError, LexError, Lexer, Token};
 
-pub fn format(source: &str, line_numbers: bool, colored: bool) -> Result<String, DustError> {
+pub fn format(
+    source: &str,
+    colored: bool,
+    indent: usize,
+    line_numbers: bool,
+) -> Result<String, DustError> {
     let lexer = Lexer::new(source);
     let formatted = Formatter::new(lexer)
         .line_numbers(line_numbers)

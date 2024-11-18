@@ -12,7 +12,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, ValueOwned, Vm, VmError};
+use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, Value, Vm, VmError};
 
 macro_rules! define_native_function {
     ($(($name:ident, $byte:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -31,7 +31,7 @@ macro_rules! define_native_function {
                 &self,
                 vm: &mut Vm,
                 instruction: Instruction,
-            ) -> Result<Option<ValueOwned>, VmError> {
+            ) -> Result<Option<Value>, VmError> {
                 match self {
                     $(
                         NativeFunction::$name => $function(vm, instruction),
