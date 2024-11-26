@@ -48,7 +48,6 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
-    local_declarations: Vec<u8>,
 
     current_token: Token<'src>,
     current_position: Span,
@@ -58,7 +57,7 @@ pub struct Compiler<'src> {
     return_type: Option<Type>,
     optimization_count: usize,
     previous_expression_type: Type,
-    minimum_register: u8,
+    minimum_register: u16,
 
     block_index: u8,
     current_scope: Scope,
@@ -78,7 +77,6 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             chunk,
             lexer,
-            local_declarations: Vec::new(),
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -112,7 +110,7 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register(&self) -> u8 {
+    fn next_register(&self) -> u16 {
         self.chunk
             .instructions()
             .iter()
@@ -146,7 +144,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn get_local(&self, index: u8) -> Result<&Local, CompileError> {
+    fn get_local(&self, index: u16) -> Result<&Local, CompileError> {
         self.chunk
             .get_local(index)
             .map_err(|error| CompileError::Chunk {
@@ -155,7 +153,7 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn get_local_index(&self, identifier_text: &str) -> Result<u8, CompileError> {
+    fn get_local_index(&self, identifier_text: &str) -> Result<u16, CompileError> {
         self.chunk
             .locals()
             .iter()
@@ -173,7 +171,7 @@ impl<'src> Compiler<'src> {
                 };
 
                 if identifier == identifier_text {
-                    Some(index as u8)
+                    Some(index as u16)
                 } else {
                     None
                 }
@@ -190,8 +188,7 @@ impl<'src> Compiler<'src> {
         r#type: Type,
         is_mutable: bool,
         scope: Scope,
-        register_index: u8,
-    ) -> (u8, u8) {
+    ) -> (u16, u16) {
         log::info!("Declaring local {identifier}");
 
         let identifier = ConcreteValue::string(identifier);
@@ -201,34 +198,8 @@ impl<'src> Compiler<'src> {
         self.chunk
             .locals_mut()
             .push(Local::new(identifier_index, r#type, is_mutable, scope));
-        self.local_declarations.insert(local_index, register_index);
 
-        (local_index as u8, identifier_index)
-    }
-
-    fn redeclare_local(&mut self, local_index: u8, register_index: u8) -> Result<(), CompileError> {
-        let local_index = local_index as usize;
-
-        if !self.local_declarations.len() <= local_index {
-            let local = self.get_local(local_index as u8)?;
-            let identifier = self
-                .chunk
-                .constants()
-                .get(local.identifier_index as usize)
-                .map(|constant| constant.to_string())
-                .unwrap_or("unknown".to_string());
-
-            return Err(CompileError::VariableOutOfScope {
-                identifier,
-                variable_scope: local.scope,
-                access_scope: self.current_scope,
-                position: self.current_position,
-            });
-        }
-
-        self.local_declarations[local_index] = register_index;
-
-        Ok(())
+        (local_index as u16, identifier_index)
     }
 
     fn allow(&mut self, allowed: Token) -> Result<bool, CompileError> {
@@ -374,7 +345,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    pub fn get_register_type(&self, register_index: u8) -> Result<Type, CompileError> {
+    pub fn get_register_type(&self, register_index: u16) -> Result<Type, CompileError> {
         for (index, (instruction, _)) in self.chunk.instructions().iter().enumerate() {
             if instruction.a() == register_index {
                 if let Operation::LoadList = instruction.operation() {
@@ -459,11 +430,13 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         let constant_index = self.chunk.push_or_get_constant(constant);
         let register = self.next_register();
+        let instruction = Instruction::builder(Operation::LoadConstant)
+            .a(register)
+            .b(constant_index)
+            .c_to_boolean(false)
+            .build();
 
-        self.emit_instruction(
-            Instruction::load_constant(register, constant_index, false),
-            position,
-        );
+        self.emit_instruction(instruction, position);
 
         Ok(())
     }
@@ -476,11 +449,13 @@ impl<'src> Compiler<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
             let register = self.next_register();
+            let instruction = Instruction::builder(Operation::LoadBoolean)
+                .a(register)
+                .b_to_boolean(boolean)
+                .c_to_boolean(false)
+                .build();
 
-            self.emit_instruction(
-                Instruction::load_boolean(register, boolean, false),
-                position,
-            );
+            self.emit_instruction(instruction, position);
 
             self.previous_expression_type = Type::Boolean;
 
@@ -656,9 +631,17 @@ impl<'src> Compiler<'src> {
         }
 
         let register = self.next_register();
-        let mut instruction = match operator.kind() {
-            TokenKind::Bang => Instruction::not(register, argument),
-            TokenKind::Minus => Instruction::negate(register, argument),
+        let instruction = match operator.kind() {
+            TokenKind::Bang => Instruction::builder(Operation::Not)
+                .a(register)
+                .b(argument)
+                .b_is_constant(is_constant)
+                .build(),
+            TokenKind::Minus => Instruction::builder(Operation::Negate)
+                .a(register)
+                .b(argument)
+                .b_is_constant(is_constant)
+                .build(),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::Bang, TokenKind::Minus],
@@ -667,10 +650,6 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-
-        if is_constant {
-            instruction.set_b_is_constant();
-        }
 
         self.emit_instruction(instruction, operator_position);
 
@@ -684,32 +663,19 @@ impl<'src> Compiler<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
-    ) -> Result<(bool, bool, bool, u8), CompileError> {
+    ) -> Result<(bool, bool, bool, bool, u16), CompileError> {
         let mut push_back = false;
         let mut is_constant = false;
+        let mut is_local = false;
         let mut is_mutable_local = false;
         let argument = match instruction.operation() {
             Operation::GetLocal => {
                 let local_index = instruction.b();
                 let local = self.get_local(local_index)?;
+                is_local = true;
                 is_mutable_local = local.is_mutable;
 
-                *self
-                    .local_declarations
-                    .get(local_index as usize)
-                    .ok_or_else(|| {
-                        let identifier = self
-                            .chunk
-                            .constants()
-                            .get(local.identifier_index as usize)
-                            .unwrap()
-                            .to_string();
-
-                        CompileError::UndeclaredVariable {
-                            identifier,
-                            position: self.current_position,
-                        }
-                    })?
+                local_index
             }
             Operation::LoadConstant => {
                 is_constant = true;
@@ -733,7 +699,7 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        Ok((push_back, is_constant, is_mutable_local, argument))
+        Ok((push_back, is_constant, is_local, is_mutable_local, argument))
     }
 
     fn parse_math_binary(&mut self) -> Result<(), CompileError> {
@@ -744,7 +710,7 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 }
             })?;
-        let (push_back_left, left_is_constant, left_is_mutable_local, left) =
+        let (push_back_left, left_is_constant, left_is_local, left_is_mutable_local, left) =
             self.handle_binary_argument(&left_instruction)?;
 
         if push_back_left {
@@ -774,7 +740,7 @@ impl<'src> Compiler<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_position) = self.pop_last_instruction()?;
-        let (push_back_right, right_is_constant, _, right) =
+        let (push_back_right, right_is_constant, right_is_local, _, right) =
             self.handle_binary_argument(&right_instruction)?;
 
         if push_back_right {
@@ -786,17 +752,17 @@ impl<'src> Compiler<'src> {
         } else {
             self.next_register()
         };
-        let mut new_instruction = match operator {
-            Token::Plus => Instruction::add(register, left, right),
-            Token::PlusEqual => Instruction::add(register, left, right),
-            Token::Minus => Instruction::subtract(register, left, right),
-            Token::MinusEqual => Instruction::subtract(register, left, right),
-            Token::Star => Instruction::multiply(register, left, right),
-            Token::StarEqual => Instruction::multiply(register, left, right),
-            Token::Slash => Instruction::divide(register, left, right),
-            Token::SlashEqual => Instruction::divide(register, left, right),
-            Token::Percent => Instruction::modulo(register, left, right),
-            Token::PercentEqual => Instruction::modulo(register, left, right),
+        let operation = match operator {
+            Token::Plus => Operation::Add,
+            Token::PlusEqual => Operation::Add,
+            Token::Minus => Operation::Subtract,
+            Token::MinusEqual => Operation::Subtract,
+            Token::Star => Operation::Multiply,
+            Token::StarEqual => Operation::Multiply,
+            Token::Slash => Operation::Divide,
+            Token::SlashEqual => Operation::Divide,
+            Token::Percent => Operation::Modulo,
+            Token::PercentEqual => Operation::Modulo,
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -817,15 +783,15 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        if left_is_constant {
-            new_instruction.set_b_is_constant();
-        }
+        let instruction = Instruction::builder(operation)
+            .a(register)
+            .b(left)
+            .c(right)
+            .b_is_constant(left_is_constant)
+            .c_is_constant(right_is_constant)
+            .build();
 
-        if right_is_constant {
-            new_instruction.set_c_is_constant();
-        }
-
-        self.emit_instruction(new_instruction, operator_position);
+        self.emit_instruction(instruction, operator_position);
 
         if is_assignment {
             self.previous_expression_type = Type::None;
@@ -852,7 +818,7 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 }
             })?;
-        let (push_back_left, left_is_constant, _, left) =
+        let (push_back_left, left_is_constant, left_is_local, _, left) =
             self.handle_binary_argument(&left_instruction)?;
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -868,16 +834,15 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 }
             })?;
-        let (push_back_right, right_is_constant, _, right) =
+        let (push_back_right, right_is_constant, right_is_local, _, right) =
             self.handle_binary_argument(&right_instruction)?;
-
-        let mut instruction = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left, right),
-            Token::BangEqual => Instruction::equal(false, left, right),
-            Token::Less => Instruction::less(true, left, right),
-            Token::LessEqual => Instruction::less_equal(true, left, right),
-            Token::Greater => Instruction::less_equal(false, left, right),
-            Token::GreaterEqual => Instruction::less(false, left, right),
+        let (operation, instruction_boolean) = match operator {
+            Token::DoubleEqual => (Operation::Equal, true),
+            Token::BangEqual => (Operation::Equal, false),
+            Token::Less => (Operation::Less, true),
+            Token::LessEqual => (Operation::LessEqual, true),
+            Token::Greater => (Operation::LessEqual, false),
+            Token::GreaterEqual => (Operation::Less, false),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -893,14 +858,13 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-
-        if left_is_constant {
-            instruction.set_b_is_constant();
-        }
-
-        if right_is_constant {
-            instruction.set_c_is_constant();
-        }
+        let instruction = Instruction::builder(operation)
+            .a_to_boolean(instruction_boolean)
+            .b(left)
+            .c(right)
+            .b_is_constant(left_is_constant)
+            .c_is_constant(right_is_constant)
+            .build();
 
         if push_back_left {
             self.emit_instruction(left_instruction, left_position);
@@ -911,17 +875,25 @@ impl<'src> Compiler<'src> {
         }
 
         let register = self.next_register();
+        let jump = Instruction::builder(Operation::Jump)
+            .a(1)
+            .b_to_boolean(true)
+            .build();
+        let load_true = Instruction::builder(Operation::LoadBoolean)
+            .a(register)
+            .b_to_boolean(true)
+            .c_to_boolean(true)
+            .build();
+        let load_false = Instruction::builder(Operation::LoadBoolean)
+            .a(register)
+            .b_to_boolean(false)
+            .c_to_boolean(false)
+            .build();
 
         self.emit_instruction(instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
-        self.emit_instruction(
-            Instruction::load_boolean(register, true, true),
-            operator_position,
-        );
-        self.emit_instruction(
-            Instruction::load_boolean(register, false, false),
-            operator_position,
-        );
+        self.emit_instruction(jump, operator_position);
+        self.emit_instruction(load_true, operator_position);
+        self.emit_instruction(load_false, operator_position);
 
         self.previous_expression_type = Type::Boolean;
 
@@ -938,14 +910,14 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let (_, is_constant, _, _) = self.handle_binary_argument(&left_instruction)?;
+        let (_, is_constant, is_local, _, _) = self.handle_binary_argument(&left_instruction)?;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
         let test_register = left_instruction.a();
-        let mut test_instruction = match operator {
-            Token::DoubleAmpersand => Instruction::test(test_register, true),
-            Token::DoublePipe => Instruction::test(test_register, false),
+        let test_boolean = match operator {
+            Token::DoubleAmpersand => true,
+            Token::DoublePipe => false,
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
@@ -954,15 +926,19 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-
-        if is_constant {
-            test_instruction.set_b_is_constant();
-        }
+        let test = Instruction::builder(Operation::Test)
+            .b(test_register)
+            .c_to_boolean(test_boolean)
+            .build();
+        let jump = Instruction::builder(Operation::Jump)
+            .a(1)
+            .b_to_boolean(true)
+            .build();
 
         self.advance()?;
         self.emit_instruction(left_instruction, left_position);
-        self.emit_instruction(test_instruction, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), operator_position);
+        self.emit_instruction(test, operator_position);
+        self.emit_instruction(jump, operator_position);
         self.parse_sub_expression(&rule.precedence)?;
 
         self.previous_expression_type = Type::Boolean;
@@ -989,8 +965,11 @@ impl<'src> Compiler<'src> {
             return self.parse_native_call(native_function);
         } else if Some(identifier) == self.chunk.name().map(|string| string.as_str()) {
             let register = self.next_register();
+            let load_self = Instruction::builder(Operation::LoadSelf)
+                .a(register)
+                .build();
 
-            self.emit_instruction(Instruction::load_self(register), start_position);
+            self.emit_instruction(load_self, start_position);
 
             self.previous_expression_type = Type::SelfChunk;
 
@@ -1024,13 +1003,13 @@ impl<'src> Compiler<'src> {
 
             self.parse_expression()?;
 
-            let register = self.local_declarations[local_index as usize];
+            let register = self.next_register();
+            let set_local = Instruction::builder(Operation::SetLocal)
+                .a(register)
+                .b(local_index)
+                .build();
 
-            self.redeclare_local(local_index, register)?;
-            self.emit_instruction(
-                Instruction::set_local(register, local_index),
-                start_position,
-            );
+            self.emit_instruction(set_local, start_position);
 
             self.previous_expression_type = Type::None;
 
@@ -1045,11 +1024,12 @@ impl<'src> Compiler<'src> {
         }
 
         let register = self.next_register();
+        let get_local = Instruction::builder(Operation::GetLocal)
+            .a(register)
+            .b(local_index)
+            .build();
 
-        self.emit_instruction(
-            Instruction::get_local(register, local_index),
-            self.previous_position,
-        );
+        self.emit_instruction(get_local, self.previous_position);
 
         let local = self.get_local(local_index)?;
 
@@ -1118,12 +1098,13 @@ impl<'src> Compiler<'src> {
 
             item_type = self.previous_expression_type.clone();
             let actual_register = self.next_register() - 1;
+            let close = Instruction::builder(Operation::Close)
+                .a(expected_register)
+                .b(actual_register)
+                .build();
 
             if expected_register < actual_register {
-                self.emit_instruction(
-                    Instruction::close(expected_register, actual_register),
-                    self.current_position,
-                );
+                self.emit_instruction(close, self.current_position);
             }
 
             self.allow(Token::Comma)?;
@@ -1131,11 +1112,12 @@ impl<'src> Compiler<'src> {
 
         let to_register = self.next_register();
         let end = self.current_position.1;
+        let load_list = Instruction::builder(Operation::LoadList)
+            .a(to_register)
+            .b(start_register)
+            .build();
 
-        self.emit_instruction(
-            Instruction::load_list(to_register, start_register),
-            Span(start, end),
-        );
+        self.emit_instruction(load_list, Span(start, end));
 
         self.previous_expression_type = Type::List {
             item_type: Box::new(item_type),
@@ -1163,11 +1145,12 @@ impl<'src> Compiler<'src> {
             self.chunk.instructions_mut().pop();
         } else if let Some((instruction, _)) = self.chunk.instructions().last() {
             let test_register = instruction.a();
+            let test = Instruction::builder(Operation::Test)
+                .b(test_register)
+                .c_to_boolean(true)
+                .build();
 
-            self.emit_instruction(
-                Instruction::test(test_register, true),
-                self.current_position,
-            )
+            self.emit_instruction(test, self.current_position)
         }
 
         let if_block_start = self.chunk.len();
@@ -1184,7 +1167,7 @@ impl<'src> Compiler<'src> {
         }
 
         let if_block_end = self.chunk.len();
-        let mut if_block_distance = (if_block_end - if_block_start) as u8;
+        let mut if_block_distance = (if_block_end - if_block_start) as u16;
         let if_block_type = self.previous_expression_type.clone();
         let if_last_register = self.next_register().saturating_sub(1);
 
@@ -1211,7 +1194,7 @@ impl<'src> Compiler<'src> {
         };
 
         let else_block_end = self.chunk.len();
-        let else_block_distance = (else_block_end - if_block_end) as u8;
+        let else_block_distance = (else_block_end - if_block_end) as u16;
 
         if let Err(conflict) = if_block_type.check(&self.previous_expression_type) {
             return Err(CompileError::IfElseBranchMismatch {
@@ -1229,36 +1212,37 @@ impl<'src> Compiler<'src> {
                     skippable.set_c_to_boolean(true);
                 } else {
                     if_block_distance += 1;
+                    let jump = Instruction::builder(Operation::Jump)
+                        .b(else_block_distance)
+                        .c_to_boolean(true)
+                        .build();
 
-                    self.chunk.instructions_mut().insert(
-                        if_block_end,
-                        (
-                            Instruction::jump(else_block_distance, true),
-                            self.current_position,
-                        ),
-                    );
+                    self.chunk
+                        .instructions_mut()
+                        .insert(if_block_end, (jump, self.current_position));
                 }
             }
             2.. => {
                 if_block_distance += 1;
+                let jump = Instruction::builder(Operation::Jump)
+                    .b(else_block_distance)
+                    .c_to_boolean(true)
+                    .build();
 
-                self.chunk.instructions_mut().insert(
-                    if_block_end,
-                    (
-                        Instruction::jump(else_block_distance, true),
-                        self.current_position,
-                    ),
-                );
+                self.chunk
+                    .instructions_mut()
+                    .insert(if_block_end, (jump, self.current_position));
             }
         }
 
-        self.chunk.instructions_mut().insert(
-            if_block_start,
-            (
-                Instruction::jump(if_block_distance, true),
-                if_block_start_position,
-            ),
-        );
+        let jump = Instruction::builder(Operation::Jump)
+            .b(if_block_distance)
+            .c_to_boolean(true)
+            .build();
+
+        self.chunk
+            .instructions_mut()
+            .insert(if_block_start, (jump, if_block_start_position));
 
         if self.chunk.len() >= 4 {
             let mut optimizer = Optimizer::new(&mut self.chunk);
@@ -1269,12 +1253,13 @@ impl<'src> Compiler<'src> {
         }
 
         let else_last_register = self.next_register().saturating_sub(1);
+        let r#move = Instruction::builder(Operation::Move)
+            .a(if_last_register)
+            .b(else_last_register)
+            .build();
 
         if if_last_register < else_last_register {
-            self.emit_instruction(
-                Instruction::r#move(else_last_register, if_last_register),
-                self.current_position,
-            );
+            self.emit_instruction(r#move, self.current_position);
         }
 
         Ok(())
@@ -1283,7 +1268,7 @@ impl<'src> Compiler<'src> {
     fn parse_while(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let expression_start = self.chunk.len() as u8;
+        let expression_start = self.chunk.len() as u16;
 
         self.parse_expression()?;
 
@@ -1305,18 +1290,22 @@ impl<'src> Compiler<'src> {
 
         self.parse_block()?;
 
-        let block_end = self.chunk.len() as u8;
+        let block_end = self.chunk.len() as u16;
+        let jump_distance = block_end - block_start as u16 + 1;
+        let jump = Instruction::builder(Operation::Jump)
+            .b(jump_distance)
+            .c_to_boolean(true)
+            .build();
 
-        self.chunk.instructions_mut().insert(
-            block_start,
-            (
-                Instruction::jump(block_end - block_start as u8 + 1, true),
-                self.current_position,
-            ),
-        );
+        self.chunk
+            .instructions_mut()
+            .insert(block_start, (jump, self.current_position));
 
         let jump_back_distance = block_end - expression_start + 1;
-        let jump_back = Instruction::jump(jump_back_distance, false);
+        let jump_back = Instruction::builder(Operation::Jump)
+            .b(jump_back_distance)
+            .c_to_boolean(false)
+            .build();
 
         self.emit_instruction(jump_back, self.current_position);
 
@@ -1339,25 +1328,29 @@ impl<'src> Compiler<'src> {
             let actual_register = self.next_register() - 1;
 
             if expected_register < actual_register {
-                self.emit_instruction(
-                    Instruction::close(expected_register, actual_register),
-                    self.current_position,
-                );
+                let close = Instruction::builder(Operation::Close)
+                    .b(expected_register)
+                    .c(actual_register)
+                    .build();
+
+                self.emit_instruction(close, self.current_position);
             }
 
             self.allow(Token::Comma)?;
         }
 
+        self.previous_expression_type = *function.r#type().return_type;
         let end = self.previous_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - start_register;
+        let call_native = Instruction::builder(Operation::CallNative)
+            .a(start_register)
+            .b(function as u16)
+            .c(argument_count)
+            .build();
 
-        self.previous_expression_type = *function.r#type().return_type;
+        self.emit_instruction(call_native, Span(start, end));
 
-        self.emit_instruction(
-            Instruction::call_native(to_register, function, argument_count),
-            Span(start, end),
-        );
         Ok(())
     }
 
@@ -1409,8 +1402,11 @@ impl<'src> Compiler<'src> {
             true
         };
         let end = self.current_position.1;
+        let r#return = Instruction::builder(Operation::Return)
+            .b_to_boolean(has_return_value)
+            .build();
 
-        self.emit_instruction(Instruction::r#return(has_return_value), Span(start, end));
+        self.emit_instruction(r#return, Span(start, end));
 
         self.previous_expression_type = Type::None;
 
@@ -1419,12 +1415,18 @@ impl<'src> Compiler<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if self.allow(Token::Semicolon)? {
-            self.emit_instruction(Instruction::r#return(false), self.current_position);
+            let r#return = Instruction::builder(Operation::Return)
+                .b_to_boolean(false)
+                .build();
+
+            self.emit_instruction(r#return, self.current_position);
         } else {
-            self.emit_instruction(
-                Instruction::r#return(self.previous_expression_type != Type::None),
-                self.current_position,
-            );
+            let should_return_value = self.previous_expression_type != Type::None;
+            let r#return = Instruction::builder(Operation::Return)
+                .b_to_boolean(should_return_value)
+                .build();
+
+            self.emit_instruction(r#return, self.current_position);
         }
 
         Ok(())
@@ -1466,12 +1468,14 @@ impl<'src> Compiler<'src> {
             self.get_register_type(register)?
         };
         let (local_index, _) =
-            self.declare_local(identifier, r#type, is_mutable, self.current_scope, register);
+            self.declare_local(identifier, r#type, is_mutable, self.current_scope);
+        let define_local = Instruction::builder(Operation::DefineLocal)
+            .a(register)
+            .b(local_index)
+            .c_to_boolean(is_mutable)
+            .build();
 
-        self.emit_instruction(
-            Instruction::define_local(register, local_index, is_mutable),
-            position,
-        );
+        self.emit_instruction(define_local, position);
 
         self.previous_expression_type = Type::None;
 
@@ -1494,7 +1498,7 @@ impl<'src> Compiler<'src> {
 
         function_compiler.expect(Token::LeftParenthesis)?;
 
-        let mut value_parameters: Option<Vec<(u8, Type)>> = None;
+        let mut value_parameters: Option<Vec<(u16, Type)>> = None;
 
         while function_compiler.current_token != Token::RightParenthesis {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1519,13 +1523,11 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            let register = function_compiler.next_register();
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
                 r#type.clone(),
                 is_mutable,
                 function_compiler.current_scope,
-                register,
             );
 
             if let Some(value_parameters) = value_parameters.as_mut() {
@@ -1582,24 +1584,30 @@ impl<'src> Compiler<'src> {
                 Type::Function(function_type),
                 false,
                 self.current_scope,
-                register,
             );
+            let load_constant = Instruction::builder(Operation::LoadConstant)
+                .a(register)
+                .b(constant_index)
+                .c_to_boolean(false)
+                .build();
+            let define_local = Instruction::builder(Operation::DefineLocal)
+                .a(register)
+                .b(local_index)
+                .c_to_boolean(false)
+                .build();
 
-            self.emit_instruction(
-                Instruction::load_constant(register, constant_index, false),
-                Span(function_start, function_end),
-            );
-            self.emit_instruction(
-                Instruction::define_local(register, local_index, false),
-                position,
-            );
+            self.emit_instruction(load_constant, Span(function_start, function_end));
+            self.emit_instruction(define_local, position);
 
             self.previous_expression_type = Type::None;
         } else {
-            self.emit_instruction(
-                Instruction::load_constant(register, constant_index, false),
-                Span(function_start, function_end),
-            );
+            let load_constant = Instruction::builder(Operation::LoadConstant)
+                .a(register)
+                .b(constant_index)
+                .c_to_boolean(false)
+                .build();
+
+            self.emit_instruction(load_constant, Span(function_start, function_end));
 
             self.previous_expression_type = Type::Function(function_type);
         }
@@ -1647,12 +1655,13 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
 
             let actual_register = self.next_register() - 1;
+            let close = Instruction::builder(Operation::Close)
+                .b(expected_register)
+                .c(actual_register)
+                .build();
 
             if expected_register < actual_register {
-                self.emit_instruction(
-                    Instruction::close(expected_register, actual_register),
-                    self.current_position,
-                );
+                self.emit_instruction(close, self.current_position);
             }
 
             self.allow(Token::Comma)?;
@@ -1661,11 +1670,13 @@ impl<'src> Compiler<'src> {
         let end = self.current_position.1;
         let to_register = self.next_register();
         let argument_count = to_register - function_register - 1;
+        let call = Instruction::builder(Operation::Call)
+            .a(to_register)
+            .b(function_register)
+            .c(argument_count)
+            .build();
 
-        self.emit_instruction(
-            Instruction::call(to_register, function_register, argument_count),
-            Span(start, end),
-        );
+        self.emit_instruction(call, Span(start, end));
 
         self.previous_expression_type = function_return_type;
 

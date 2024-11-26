@@ -33,10 +33,10 @@ pub struct Vm<'a> {
     chunk: &'a Chunk,
     stack: Vec<Register>,
     parent: Option<&'a Vm<'a>>,
-    local_definitions: Vec<Option<u8>>,
+    local_definitions: Vec<Option<u16>>,
 
     ip: usize,
-    last_assigned_register: Option<u8>,
+    last_assigned_register: Option<u16>,
     current_position: Span,
 }
 
@@ -387,7 +387,7 @@ impl<'a> Vm<'a> {
                         (first_argument_index..last_argument_index).enumerate()
                     {
                         function_vm.set_register(
-                            argument_index as u8,
+                            argument_index as u16,
                             Register::Pointer(Pointer::ParentStack(argument_register_index)),
                         )?
                     }
@@ -474,7 +474,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
+    fn open_register(&self, register_index: u16) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
         let register =
             self.stack
@@ -499,7 +499,7 @@ impl<'a> Vm<'a> {
 
     pub(crate) fn open_register_allow_empty(
         &self,
-        register_index: u8,
+        register_index: u16,
     ) -> Result<Option<ValueRef>, VmError> {
         let register_index = register_index as usize;
         let register =
@@ -533,7 +533,7 @@ impl<'a> Vm<'a> {
     }
 
     /// DRY helper to get a constant or register values
-    fn get_argument(&self, index: u8, is_constant: bool) -> Result<&ConcreteValue, VmError> {
+    fn get_argument(&self, index: u16, is_constant: bool) -> Result<&ConcreteValue, VmError> {
         let argument = if is_constant {
             self.get_constant(index)?
         } else {
@@ -562,7 +562,7 @@ impl<'a> Vm<'a> {
         Ok((left, right))
     }
 
-    fn set_register(&mut self, to_register: u8, register: Register) -> Result<(), VmError> {
+    fn set_register(&mut self, to_register: u16, register: Register) -> Result<(), VmError> {
         self.last_assigned_register = Some(to_register);
 
         let length = self.stack.len();
@@ -607,7 +607,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn get_constant(&self, index: u8) -> Result<&ConcreteValue, VmError> {
+    fn get_constant(&self, index: u16) -> Result<&ConcreteValue, VmError> {
         self.chunk
             .get_constant(index)
             .map_err(|error| VmError::Chunk {
@@ -654,10 +654,10 @@ impl Display for Register {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Pointer {
-    Stack(u8),
-    Constant(u8),
-    ParentStack(u8),
-    ParentConstant(u8),
+    Stack(u16),
+    Constant(u16),
+    ParentStack(u16),
+    ParentConstant(u16),
 }
 
 impl Display for Pointer {
@@ -701,7 +701,7 @@ pub enum VmError {
 
     // Local errors
     UndefinedLocal {
-        local_index: u8,
+        local_index: u16,
         position: Span,
     },
 

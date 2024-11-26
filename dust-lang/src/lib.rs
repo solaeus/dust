@@ -21,7 +21,7 @@ pub use crate::compiler::{compile, CompileError, Compiler};
 pub use crate::disassembler::Disassembler;
 pub use crate::dust_error::{AnnotatedError, DustError};
 pub use crate::formatter::{format, Formatter};
-pub use crate::instruction::Instruction;
+pub use crate::instruction::{Instruction, InstructionBuilder};
 pub use crate::lexer::{lex, LexError, Lexer};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::operation::Operation;

@@ -1,6 +1,6 @@
 //! Tool used by the compiler to optimize a chunk's bytecode.
 
-use crate::{Chunk, Instruction, Operation, Span};
+use crate::{instruction::InstructionBuilder, Chunk, Instruction, Operation, Span};
 
 /// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug)]
@@ -58,11 +58,11 @@ impl<'a> Optimizer<'a> {
 
         let first_loader_register = first_loader.a();
         let second_loader = &mut instructions.last_mut().unwrap().0;
-        let mut second_loader_new = Instruction::with_operation(second_loader.operation());
-
-        second_loader_new.set_a(first_loader_register);
-        second_loader_new.set_b(second_loader.b());
-        second_loader_new.set_c(second_loader.c());
+        let second_loader_new = Instruction::builder(second_loader.operation())
+            .a(first_loader_register)
+            .b(second_loader.b())
+            .c(second_loader.c())
+            .build();
 
         *second_loader = second_loader_new;
 
@@ -89,22 +89,12 @@ impl<'a> Optimizer<'a> {
         let instructions = self.instructions_mut();
         let set_local = instructions.pop().unwrap().0;
         let set_local_register = set_local.a();
-        let math_instruction = &mut instructions.last_mut().unwrap().0;
-        let mut math_instruction_new = Instruction::with_operation(math_instruction.operation());
+        let math_instruction = instructions.last_mut().unwrap().0;
+        let math_instruction_new = InstructionBuilder::from(&math_instruction)
+            .a(set_local_register)
+            .build();
 
-        math_instruction_new.set_a(set_local_register);
-        math_instruction_new.set_b(math_instruction.b());
-        math_instruction_new.set_c(math_instruction.c());
-
-        if math_instruction.b_is_constant() {
-            math_instruction_new.set_b_is_constant();
-        }
-
-        if math_instruction.c_is_constant() {
-            math_instruction_new.set_c_is_constant();
-        }
-
-        *math_instruction = math_instruction_new;
+        instructions.last_mut().unwrap().0 = math_instruction_new;
 
         true
     }

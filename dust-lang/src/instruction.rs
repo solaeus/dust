@@ -46,54 +46,107 @@ impl InstructionBuilder {
         )
     }
 
-    pub fn set_a(&mut self, a: u16) -> &mut Self {
+    pub fn a(&mut self, a: u16) -> &mut Self {
         self.a = a;
         self
     }
 
-    pub fn set_b(&mut self, b: u16) -> &mut Self {
+    pub fn a_to_boolean(&mut self, a: bool) -> &mut Self {
+        self.a = a as u16;
+        self
+    }
+
+    pub fn b(&mut self, b: u16) -> &mut Self {
         self.b = b;
         self
     }
 
-    pub fn set_b_to_boolean(&mut self, b: bool) -> &mut Self {
+    pub fn b_to_boolean(&mut self, b: bool) -> &mut Self {
         self.b = b as u16;
         self
     }
 
-    pub fn set_c(&mut self, c: u16) -> &mut Self {
+    pub fn c(&mut self, c: u16) -> &mut Self {
         self.c = c;
         self
     }
 
-    pub fn set_c_to_boolean(&mut self, c: bool) -> &mut Self {
+    pub fn c_to_boolean(&mut self, c: bool) -> &mut Self {
         self.c = c as u16;
         self
     }
 
-    pub fn set_b_is_constant(&mut self, b_is_constant: bool) -> &mut Self {
+    pub fn b_is_constant(&mut self, b_is_constant: bool) -> &mut Self {
         self.b_is_constant = b_is_constant;
         self
     }
 
-    pub fn set_c_is_constant(&mut self, c_is_constant: bool) -> &mut Self {
+    pub fn c_is_constant(&mut self, c_is_constant: bool) -> &mut Self {
         self.c_is_constant = c_is_constant;
         self
     }
 
-    pub fn set_a_is_local(&mut self, a_is_local: bool) -> &mut Self {
+    pub fn a_is_local(&mut self, a_is_local: bool) -> &mut Self {
         self.a_is_local = a_is_local;
         self
     }
 
-    pub fn set_b_is_local(&mut self, b_is_local: bool) -> &mut Self {
+    pub fn b_is_local(&mut self, b_is_local: bool) -> &mut Self {
         self.b_is_local = b_is_local;
         self
     }
 
-    pub fn set_c_is_local(&mut self, c_is_local: bool) -> &mut Self {
+    pub fn c_is_local(&mut self, c_is_local: bool) -> &mut Self {
         self.c_is_local = c_is_local;
         self
+    }
+}
+
+impl From<&Instruction> for InstructionBuilder {
+    fn from(instruction: &Instruction) -> Self {
+        InstructionBuilder {
+            operation: instruction.operation(),
+            a: instruction.a(),
+            b: instruction.b(),
+            c: instruction.c(),
+            b_is_constant: instruction.b_is_constant(),
+            c_is_constant: instruction.c_is_constant(),
+            a_is_local: instruction.a_is_local(),
+            b_is_local: instruction.b_is_local(),
+            c_is_local: instruction.c_is_local(),
+        }
+    }
+}
+
+impl From<Instruction> for InstructionBuilder {
+    fn from(instruction: Instruction) -> Self {
+        InstructionBuilder {
+            operation: instruction.operation(),
+            a: instruction.a(),
+            b: instruction.b(),
+            c: instruction.c(),
+            b_is_constant: instruction.b_is_constant(),
+            c_is_constant: instruction.c_is_constant(),
+            a_is_local: instruction.a_is_local(),
+            b_is_local: instruction.b_is_local(),
+            c_is_local: instruction.c_is_local(),
+        }
+    }
+}
+
+impl From<&mut Instruction> for InstructionBuilder {
+    fn from(instruction: &mut Instruction) -> Self {
+        InstructionBuilder {
+            operation: instruction.operation(),
+            a: instruction.a(),
+            b: instruction.b(),
+            c: instruction.c(),
+            b_is_constant: instruction.b_is_constant(),
+            c_is_constant: instruction.c_is_constant(),
+            a_is_local: instruction.a_is_local(),
+            b_is_local: instruction.b_is_local(),
+            c_is_local: instruction.c_is_local(),
+        }
     }
 }
 
@@ -104,6 +157,10 @@ impl InstructionBuilder {
 pub struct Instruction(u64);
 
 impl Instruction {
+    pub fn new(operation: Operation) -> Instruction {
+        Instruction(operation as u64)
+    }
+
     pub fn builder(operation: Operation) -> InstructionBuilder {
         InstructionBuilder {
             operation,
@@ -118,195 +175,267 @@ impl Instruction {
         }
     }
 
+    pub fn operation(&self) -> Operation {
+        Operation::from((self.0 & 0b11111111) as u8)
+    }
+
+    pub fn set_b_is_constant(&mut self) -> &mut Self {
+        self.0 = (self.0 & !(1 << 9)) | ((true as u64) << 9);
+
+        self
+    }
+
+    pub fn set_c_is_constant(&mut self) -> &mut Self {
+        self.0 = (self.0 & !(1 << 10)) | ((true as u64) << 10);
+
+        self
+    }
+
+    pub fn set_a_is_local(&mut self) -> &mut Self {
+        self.0 = (self.0 & !(1 << 11)) | ((true as u64) << 11);
+
+        self
+    }
+
+    pub fn set_b_is_local(&mut self) -> &mut Self {
+        self.0 = (self.0 & !(1 << 12)) | ((true as u64) << 12);
+
+        self
+    }
+
+    pub fn set_c_is_local(&mut self) -> &mut Self {
+        self.0 = (self.0 & !(1 << 13)) | ((true as u64) << 13);
+
+        self
+    }
+
+    pub fn a(&self) -> u16 {
+        ((self.0 >> 16) & 0b1111111111111111) as u16
+    }
+
+    pub fn a_as_boolean(&self) -> bool {
+        self.a() != 0
+    }
+
+    pub fn set_a(&mut self, a: u16) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 16)) | ((a as u64) << 16);
+
+        self
+    }
+
+    pub fn set_a_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 16)) | ((boolean as u64) << 16);
+
+        self
+    }
+
+    pub fn b(&self) -> u16 {
+        ((self.0 >> 32) & 0b1111111111111111) as u16
+    }
+
+    pub fn b_as_boolean(&self) -> bool {
+        self.b() != 0
+    }
+
+    pub fn set_b(&mut self, b: u16) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 32)) | ((b as u64) << 32);
+
+        self
+    }
+
+    pub fn set_b_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 32)) | ((boolean as u64) << 32);
+
+        self
+    }
+
+    pub fn c(&self) -> u16 {
+        ((self.0 >> 48) & 0b1111111111111111) as u16
+    }
+
+    pub fn c_as_boolean(&self) -> bool {
+        self.c() != 0
+    }
+
+    pub fn set_c(&mut self, c: u16) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 48)) | ((c as u64) << 48);
+
+        self
+    }
+
+    pub fn set_c_to_boolean(&mut self, boolean: bool) -> &mut Self {
+        self.0 = (self.0 & !(0b1111111111111111 << 48)) | ((boolean as u64) << 48);
+
+        self
+    }
+
+    pub fn b_is_constant(&self) -> bool {
+        (self.0 >> 9) & 1 == 1
+    }
+
+    pub fn c_is_constant(&self) -> bool {
+        (self.0 >> 10) & 1 == 1
+    }
+
+    pub fn a_is_local(&self) -> bool {
+        (self.0 >> 11) & 1 == 1
+    }
+
+    pub fn b_is_local(&self) -> bool {
+        (self.0 >> 12) & 1 == 1
+    }
+
+    pub fn c_is_local(&self) -> bool {
+        (self.0 >> 13) & 1 == 1
+    }
+
     pub fn r#move(to_register: u16, from_register: u16) -> Instruction {
-        Instruction::builder(Operation::Move)
-            .set_a(to_register)
-            .set_b(from_register)
-            .build()
+        *Instruction::new(Operation::Move)
+            .set_b(to_register)
+            .set_c(from_register)
     }
 
     pub fn close(from_register: u16, to_register: u16) -> Instruction {
-        Instruction::builder(Operation::Close)
+        *Instruction::new(Operation::Close)
             .set_b(from_register)
             .set_c(to_register)
-            .build()
     }
 
     pub fn load_boolean(to_register: u16, value: bool, skip: bool) -> Instruction {
-        Instruction::builder(Operation::LoadBoolean)
+        *Instruction::new(Operation::LoadBoolean)
             .set_a(to_register)
             .set_b_to_boolean(value)
             .set_c_to_boolean(skip)
-            .build()
     }
 
     pub fn load_constant(to_register: u16, constant_index: u16, skip: bool) -> Instruction {
-        Instruction::builder(Operation::LoadConstant)
+        *Instruction::new(Operation::LoadConstant)
             .set_a(to_register)
             .set_b(constant_index)
             .set_c_to_boolean(skip)
-            .build()
     }
 
     pub fn load_list(to_register: u16, start_register: u16) -> Instruction {
-        Instruction::builder(Operation::LoadList)
+        *Instruction::new(Operation::LoadList)
             .set_a(to_register)
             .set_b(start_register)
-            .build()
     }
 
     pub fn load_self(to_register: u16) -> Instruction {
-        Instruction::builder(Operation::LoadSelf)
-            .set_a(to_register)
-            .build()
+        *Instruction::new(Operation::LoadSelf).set_a(to_register)
     }
 
     pub fn define_local(to_register: u16, local_index: u16, is_mutable: bool) -> Instruction {
-        Instruction::builder(Operation::DefineLocal)
-            .set_a(to_register as u16)
-            .set_b(local_index as u16)
+        *Instruction::new(Operation::DefineLocal)
+            .set_a(to_register)
+            .set_b(local_index)
             .set_c_to_boolean(is_mutable)
-            .build()
     }
 
     pub fn get_local(to_register: u16, local_index: u16) -> Instruction {
-        Instruction::builder(Operation::GetLocal)
+        *Instruction::new(Operation::GetLocal)
             .set_a(to_register)
             .set_b(local_index)
-            .build()
     }
 
     pub fn set_local(from_register: u16, local_index: u16) -> Instruction {
-        Instruction::builder(Operation::SetLocal)
+        *Instruction::new(Operation::SetLocal)
             .set_a(from_register)
             .set_b(local_index)
-            .build()
     }
 
-    // pub fn add(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
-    //     Instruction::builder(Operation::Add)
-    //         .set_a(to_register)
-    //         .set_b(left_index)
-    //         .set_c(right_index)
-    //         .build()
-    // }
+    pub fn add(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Add)
+            .set_a(to_register)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    // pub fn subtract(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Subtract as u32);
+    pub fn subtract(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Subtract)
+            .set_a(to_register)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
+    pub fn multiply(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Multiply)
+            .set_a(to_register)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    //     instruction
-    // }
+    pub fn divide(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Divide)
+            .set_a(to_register)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    // pub fn multiply(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Multiply as u32);
+    pub fn modulo(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Modulo)
+            .set_a(to_register)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
+    pub fn test(test_register: u16, test_value: bool) -> Instruction {
+        *Instruction::new(Operation::Test)
+            .set_b(test_register)
+            .set_c_to_boolean(test_value)
+    }
 
-    //     instruction
-    // }
+    pub fn test_set(to_register: u16, argument_index: u16, test_value: bool) -> Instruction {
+        *Instruction::new(Operation::TestSet)
+            .set_a(to_register)
+            .set_b(argument_index)
+            .set_c_to_boolean(test_value)
+    }
 
-    // pub fn divide(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Divide as u32);
+    pub fn equal(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Equal)
+            .set_a_to_boolean(comparison_boolean)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
+    pub fn less(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::Less)
+            .set_a_to_boolean(comparison_boolean)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    //     instruction
-    // }
+    pub fn less_equal(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
+        *Instruction::new(Operation::LessEqual)
+            .set_a_to_boolean(comparison_boolean)
+            .set_b(left_index)
+            .set_c(right_index)
+    }
 
-    // pub fn modulo(to_register: u16, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Modulo as u32);
+    pub fn negate(to_register: u16, from_index: u16) -> Instruction {
+        *Instruction::new(Operation::Negate)
+            .set_a(to_register)
+            .set_b(from_index)
+    }
 
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
-
-    //     instruction
-    // }
-
-    // pub fn test(test_register: u16, test_value: bool) -> Instruction {
-    //     Instruction::builder(Operation::Test)
-    //         .set_b(test_register)
-    //         .set_c_to_boolean(test_value)
-    //         .build()
-    // }
-
-    // pub fn test_set(to_register: u16, argument_index: u16, test_value: bool) -> Instruction {
-    //     Instruction::builder(Operation::TestSet)
-    //         .set_a(to_register)
-    //         .set_b(argument_index)
-    //         .set_c_to_boolean(test_value)
-    //         .build()
-    // }
-
-    // pub fn equal(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Equal as u32);
-
-    //     instruction.set_a_to_boolean(comparison_boolean);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
-
-    //     instruction
-    // }
-
-    // pub fn less(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Less as u32);
-
-    //     instruction.set_a_to_boolean(comparison_boolean);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
-
-    //     instruction
-    // }
-
-    // pub fn less_equal(comparison_boolean: bool, left_index: u16, right_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::LessEqual as u32);
-
-    //     instruction.set_a_to_boolean(comparison_boolean);
-    //     instruction.set_b(left_index);
-    //     instruction.set_c(right_index);
-
-    //     instruction
-    // }
-
-    // pub fn negate(to_register: u16, from_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Negate as u32);
-
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(from_index);
-
-    //     instruction
-    // }
-
-    // pub fn not(to_register: u16, from_index: u16) -> Instruction {
-    //     let mut instruction = Instruction(Operation::Not as u32);
-
-    //     instruction.set_a(to_register);
-    //     instruction.set_b(from_index);
-
-    //     instruction
-    // }
+    pub fn not(to_register: u16, from_index: u16) -> Instruction {
+        *Instruction::new(Operation::Not)
+            .set_a(to_register)
+            .set_b(from_index)
+    }
 
     pub fn jump(jump_offset: u16, is_positive: bool) -> Instruction {
-        Instruction::builder(Operation::Jump)
+        *Instruction::new(Operation::Jump)
             .set_b(jump_offset)
             .set_c_to_boolean(is_positive)
-            .build()
     }
 
     pub fn call(to_register: u16, function_register: u16, argument_count: u16) -> Instruction {
-        Instruction::builder(Operation::Call)
+        *Instruction::new(Operation::Call)
             .set_a(to_register)
             .set_b(function_register)
             .set_c(argument_count)
-            .build()
     }
 
     pub fn call_native(
@@ -314,17 +443,49 @@ impl Instruction {
         native_fn: NativeFunction,
         argument_count: u16,
     ) -> Instruction {
-        Instruction::builder(Operation::CallNative)
+        *Instruction::new(Operation::CallNative)
             .set_a(to_register)
             .set_b(native_fn as u16)
             .set_c(argument_count)
-            .build()
     }
 
     pub fn r#return(should_return_value: bool) -> Instruction {
-        Instruction::builder(Operation::Return)
-            .set_b_to_boolean(should_return_value)
-            .build()
+        *Instruction::new(Operation::Return).set_b_to_boolean(should_return_value)
+    }
+    pub fn yields_value(&self) -> bool {
+        match self.operation() {
+            Operation::LoadBoolean
+            | Operation::LoadConstant
+            | Operation::LoadList
+            | Operation::LoadSelf
+            | Operation::GetLocal
+            | Operation::Add
+            | Operation::Subtract
+            | Operation::Multiply
+            | Operation::Divide
+            | Operation::Modulo
+            | Operation::Equal
+            | Operation::Less
+            | Operation::LessEqual
+            | Operation::Negate
+            | Operation::Not
+            | Operation::Call => true,
+
+            Operation::CallNative => {
+                let function = NativeFunction::from(self.b());
+
+                function.returns_value()
+            }
+
+            Operation::Move
+            | Operation::Close
+            | Operation::DefineLocal
+            | Operation::SetLocal
+            | Operation::Test
+            | Operation::TestSet
+            | Operation::Jump
+            | Operation::Return => true,
+        }
     }
 
     pub fn disassembly_info(&self, chunk: &Chunk) -> String {
@@ -552,22 +713,45 @@ impl Instruction {
     }
 }
 
+impl From<&Instruction> for u64 {
+    fn from(instruction: &Instruction) -> Self {
+        instruction.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn r#move() {
-        let mut instruction = Instruction::r#move(4, 1);
+    fn builder() {
+        let instruction_from_builder = Instruction::builder(Operation::Add)
+            .a(1)
+            .b(2)
+            .c(3)
+            .b_is_constant(true)
+            .c_is_constant(true)
+            .a_is_local(true)
+            .b_is_local(true)
+            .c_is_local(true)
+            .build();
+        let instruction = *Instruction::add(1, 2, 3)
+            .set_b_is_constant()
+            .set_c_is_constant()
+            .set_a_is_local()
+            .set_b_is_local()
+            .set_c_is_local();
 
-        instruction.set_b_is_constant();
-        instruction.set_c_is_constant();
+        assert_eq!(instruction_from_builder, instruction);
+    }
+
+    #[test]
+    fn r#move() {
+        let instruction = Instruction::r#move(4, 1);
 
         assert_eq!(instruction.operation(), Operation::Move);
-        assert_eq!(instruction.a(), 4);
-        assert_eq!(instruction.b(), 1);
-        assert!(instruction.b_is_constant());
-        assert!(instruction.b_is_constant());
+        assert_eq!(instruction.b(), 4);
+        assert_eq!(instruction.c(), 1);
     }
 
     #[test]
@@ -623,22 +807,18 @@ mod tests {
 
     #[test]
     fn declare_local() {
-        let mut instruction = Instruction::define_local(4, 1, true);
-
-        instruction.set_b_is_constant();
+        let instruction = *Instruction::define_local(4, 1, true).set_b_is_constant();
 
         assert_eq!(instruction.operation(), Operation::DefineLocal);
         assert_eq!(instruction.a(), 4);
         assert_eq!(instruction.b(), 1);
-        assert_eq!(instruction.c(), true as u16);
+        assert!(instruction.c_as_boolean());
         assert!(instruction.b_is_constant());
     }
 
     #[test]
     fn add() {
-        let mut instruction = Instruction::add(1, 1, 4);
-
-        instruction.set_b_is_constant();
+        let instruction = *Instruction::add(1, 1, 4).set_b_is_constant();
 
         assert_eq!(instruction.operation(), Operation::Add);
         assert_eq!(instruction.a(), 1);

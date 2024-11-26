@@ -87,7 +87,7 @@ impl Chunk {
         &mut self.constants
     }
 
-    pub fn get_constant(&self, index: u8) -> Result<&ConcreteValue, ChunkError> {
+    pub fn get_constant(&self, index: u16) -> Result<&ConcreteValue, ChunkError> {
         self.constants
             .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds {
@@ -95,15 +95,15 @@ impl Chunk {
             })
     }
 
-    pub fn push_or_get_constant(&mut self, value: ConcreteValue) -> u8 {
+    pub fn push_or_get_constant(&mut self, value: ConcreteValue) -> u16 {
         if let Some(index) = self
             .constants
             .iter()
             .position(|constant| *constant == value)
         {
-            index as u8
+            index as u16
         } else {
-            let index = self.constants.len() as u8;
+            let index = self.constants.len() as u16;
 
             self.constants.push(value);
 
@@ -133,7 +133,7 @@ impl Chunk {
         &mut self.locals
     }
 
-    pub fn get_local(&self, index: u8) -> Result<&Local, ChunkError> {
+    pub fn get_local(&self, index: u16) -> Result<&Local, ChunkError> {
         self.locals
             .get(index as usize)
             .ok_or(ChunkError::LocalIndexOutOfBounds {
@@ -141,7 +141,7 @@ impl Chunk {
             })
     }
 
-    pub fn get_local_mut(&mut self, index: u8) -> Result<&mut Local, ChunkError> {
+    pub fn get_local_mut(&mut self, index: u16) -> Result<&mut Local, ChunkError> {
         self.locals
             .get_mut(index as usize)
             .ok_or(ChunkError::LocalIndexOutOfBounds {
@@ -149,7 +149,7 @@ impl Chunk {
             })
     }
 
-    pub fn get_identifier(&self, local_index: u8) -> Option<String> {
+    pub fn get_identifier(&self, local_index: u16) -> Option<String> {
         self.locals.get(local_index as usize).and_then(|local| {
             self.constants
                 .get(local.identifier_index as usize)
@@ -157,7 +157,7 @@ impl Chunk {
         })
     }
 
-    pub fn get_constant_type(&self, constant_index: u8) -> Result<Type, ChunkError> {
+    pub fn get_constant_type(&self, constant_index: u16) -> Result<Type, ChunkError> {
         self.constants
             .get(constant_index as usize)
             .map(|value| value.r#type())
@@ -166,7 +166,7 @@ impl Chunk {
             })
     }
 
-    pub fn get_local_type(&self, local_index: u8) -> Result<&Type, ChunkError> {
+    pub fn get_local_type(&self, local_index: u16) -> Result<&Type, ChunkError> {
         self.locals
             .get(local_index as usize)
             .map(|local| &local.r#type)
@@ -214,7 +214,7 @@ impl PartialEq for Chunk {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
     /// The index of the identifier in the constants table.
-    pub identifier_index: u8,
+    pub identifier_index: u16,
 
     /// The expected type of the local's value.
     pub r#type: Type,
@@ -228,7 +228,7 @@ pub struct Local {
 
 impl Local {
     /// Creates a new Local instance.
-    pub fn new(identifier_index: u8, r#type: Type, mutable: bool, scope: Scope) -> Self {
+    pub fn new(identifier_index: u16, r#type: Type, mutable: bool, scope: Scope) -> Self {
         Self {
             identifier_index,
             r#type,
