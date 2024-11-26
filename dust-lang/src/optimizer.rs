@@ -1,6 +1,6 @@
 //! Tool used by the compiler to optimize a chunk's bytecode.
 
-use crate::{instruction::InstructionBuilder, Chunk, Instruction, Operation, Span};
+use crate::{Chunk, Instruction, Operation, Span};
 
 /// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug)]
@@ -58,11 +58,7 @@ impl<'a> Optimizer<'a> {
 
         let first_loader_register = first_loader.a();
         let second_loader = &mut instructions.last_mut().unwrap().0;
-        let second_loader_new = Instruction::builder(second_loader.operation())
-            .a(first_loader_register)
-            .b(second_loader.b())
-            .c(second_loader.c())
-            .build();
+        let second_loader_new = *second_loader.clone().set_a(first_loader_register);
 
         *second_loader = second_loader_new;
 
@@ -90,9 +86,7 @@ impl<'a> Optimizer<'a> {
         let set_local = instructions.pop().unwrap().0;
         let set_local_register = set_local.a();
         let math_instruction = instructions.last_mut().unwrap().0;
-        let math_instruction_new = InstructionBuilder::from(&math_instruction)
-            .a(set_local_register)
-            .build();
+        let math_instruction_new = *math_instruction.clone().set_a(set_local_register);
 
         instructions.last_mut().unwrap().0 = math_instruction_new;
 
