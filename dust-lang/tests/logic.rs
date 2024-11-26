@@ -71,7 +71,9 @@ fn variable_and() {
             },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(8, 12)),
+                (Instruction::define_local(0, 0, false), Span(4, 5)),
                 (Instruction::load_boolean(1, false, false), Span(22, 27)),
+                (Instruction::define_local(1, 1, false), Span(18, 19)),
                 (Instruction::get_local(2, 0), Span(29, 30)),
                 (Instruction::test(2, true), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
@@ -80,8 +82,8 @@ fn variable_and() {
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
-                Local::new(0, Type::Boolean, false, Scope::default(), 0),
-                Local::new(1, Type::Boolean, false, Scope::default(), 1),
+                Local::new(0, Type::Boolean, false, Scope::default()),
+                Local::new(1, Type::Boolean, false, Scope::default()),
             ]
         ))
     );

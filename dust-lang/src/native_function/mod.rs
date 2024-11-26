@@ -74,8 +74,8 @@ macro_rules! define_native_function {
             }
         }
 
-        impl From<u8> for NativeFunction {
-            fn from(byte: u8) -> Self {
+        impl From<u16> for NativeFunction {
+            fn from(byte: u16) -> Self {
                 match byte {
                     $(
                         $byte => NativeFunction::$name,
@@ -126,7 +126,7 @@ define_native_function! {
     // (AssertNotEqual, 2_u8, "assert_not_equal", false),
     (
         Panic,
-        3_u8,
+        3,
         "panic",
         FunctionType {
             type_parameters: None,
@@ -143,7 +143,7 @@ define_native_function! {
     // (ToInteger, 7_u8, "to_integer", true),
     (
         ToString,
-        8_u8,
+        8,
         "to_string",
         FunctionType {
             type_parameters: None,
@@ -204,7 +204,7 @@ define_native_function! {
     // (ReadFile, 49_u8, "read_file", true),
     (
         ReadLine,
-        50_u8,
+        50,
         "read_line",
         FunctionType {
             type_parameters: None,
@@ -220,7 +220,7 @@ define_native_function! {
     // (PrependFile, 54_u8, "prepend_file", false),
     (
         Write,
-        55_u8,
+        55,
         "write",
         FunctionType {
             type_parameters: None,
@@ -232,7 +232,7 @@ define_native_function! {
     // (WriteFile, 56_u8, "write_file", false),
     (
         WriteLine,
-        57_u8,
+        57,
         "write_line",
         FunctionType {
             type_parameters: None,

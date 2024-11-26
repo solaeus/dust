@@ -45,6 +45,7 @@ fn add_assign() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(17, 19)),
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
@@ -54,7 +55,7 @@ fn add_assign() {
                 ConcreteValue::string("a"),
                 ConcreteValue::Integer(2)
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -138,6 +139,7 @@ fn divide_assign() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
                     *Instruction::divide(0, 0, 0).set_c_is_constant(),
                     Span(17, 19)
@@ -146,7 +148,7 @@ fn divide_assign() {
                 (Instruction::r#return(true), Span(24, 24))
             ],
             vec![ConcreteValue::Integer(2), ConcreteValue::string("a")],
-            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -261,6 +263,7 @@ fn multiply_assign() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
                     *Instruction::multiply(0, 0, 2).set_c_is_constant(),
                     Span(17, 19)
@@ -273,7 +276,7 @@ fn multiply_assign() {
                 ConcreteValue::string("a"),
                 ConcreteValue::Integer(3)
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         ))
     );
 
@@ -341,6 +344,7 @@ fn subtract_assign() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
+                (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
                     *Instruction::subtract(0, 0, 2).set_c_is_constant(),
                     Span(18, 20)
@@ -353,7 +357,7 @@ fn subtract_assign() {
                 ConcreteValue::string("x"),
                 ConcreteValue::Integer(2)
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default(), 0)]
+            vec![Local::new(1, Type::Integer, true, Scope::default())]
         )),
     );
 

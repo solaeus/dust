@@ -4,7 +4,6 @@
 //! - [`compile`], which compiles the entire input and returns a chunk
 //! - [`Compiler`], which compiles the input a token at a time while assembling a chunk
 use std::{
-    collections::HashMap,
     fmt::{self, Display, Formatter},
     mem::replace,
     num::{ParseFloatError, ParseIntError},
@@ -49,7 +48,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 pub struct Compiler<'src> {
     chunk: Chunk,
     lexer: Lexer<'src>,
-    local_declarations: HashMap<u8, u8>,
+    local_declarations: Vec<u8>,
 
     current_token: Token<'src>,
     current_position: Span,
@@ -79,7 +78,7 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             chunk,
             lexer,
-            local_declarations: HashMap::new(),
+            local_declarations: Vec::new(),
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -119,9 +118,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .filter_map(|(instruction, _)| {
                 if instruction.yields_value() {
-                    let to_register = instruction.a();
-
-                    Some(to_register + 1)
+                    Some(instruction.a() + 1)
                 } else {
                     None
                 }
@@ -199,20 +196,21 @@ impl<'src> Compiler<'src> {
 
         let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
-        let local_index = self.chunk.locals().len() as u8;
+        let local_index = self.chunk.locals().len();
 
         self.chunk
             .locals_mut()
             .push(Local::new(identifier_index, r#type, is_mutable, scope));
         self.local_declarations.insert(local_index, register_index);
 
-        (local_index, identifier_index)
+        (local_index as u8, identifier_index)
     }
 
     fn redeclare_local(&mut self, local_index: u8, register_index: u8) -> Result<(), CompileError> {
-        let local = self.get_local(local_index)?;
+        let local_index = local_index as usize;
 
-        if !self.current_scope.contains(&local.scope) {
+        if !self.local_declarations.len() <= local_index {
+            let local = self.get_local(local_index as u8)?;
             let identifier = self
                 .chunk
                 .constants()
@@ -228,7 +226,7 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        self.local_declarations.insert(local_index, register_index);
+        self.local_declarations[local_index] = register_index;
 
         Ok(())
     }
@@ -696,19 +694,22 @@ impl<'src> Compiler<'src> {
                 let local = self.get_local(local_index)?;
                 is_mutable_local = local.is_mutable;
 
-                *self.local_declarations.get(&local_index).ok_or_else(|| {
-                    let identifier = self
-                        .chunk
-                        .constants()
-                        .get(local.identifier_index as usize)
-                        .unwrap()
-                        .to_string();
+                *self
+                    .local_declarations
+                    .get(local_index as usize)
+                    .ok_or_else(|| {
+                        let identifier = self
+                            .chunk
+                            .constants()
+                            .get(local.identifier_index as usize)
+                            .unwrap()
+                            .to_string();
 
-                    CompileError::UndeclaredVariable {
-                        identifier,
-                        position: self.current_position,
-                    }
-                })?
+                        CompileError::UndeclaredVariable {
+                            identifier,
+                            position: self.current_position,
+                        }
+                    })?
             }
             Operation::LoadConstant => {
                 is_constant = true;
@@ -785,7 +786,6 @@ impl<'src> Compiler<'src> {
         } else {
             self.next_register()
         };
-
         let mut new_instruction = match operator {
             Token::Plus => Instruction::add(register, left, right),
             Token::PlusEqual => Instruction::add(register, left, right),
@@ -827,12 +827,7 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(new_instruction, operator_position);
 
-        if let Token::PlusEqual
-        | Token::MinusEqual
-        | Token::StarEqual
-        | Token::SlashEqual
-        | Token::PercentEqual = operator
-        {
+        if is_assignment {
             self.previous_expression_type = Type::None;
         } else {
             self.previous_expression_type = self.get_instruction_type(&left_instruction)?;
@@ -859,7 +854,6 @@ impl<'src> Compiler<'src> {
             })?;
         let (push_back_left, left_is_constant, _, left) =
             self.handle_binary_argument(&left_instruction)?;
-
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -1028,9 +1022,10 @@ impl<'src> Compiler<'src> {
                 });
             }
 
-            let register = self.next_register() - 1;
-
             self.parse_expression()?;
+
+            let register = self.local_declarations[local_index as usize];
+
             self.redeclare_local(local_index, register)?;
             self.emit_instruction(
                 Instruction::set_local(register, local_index),

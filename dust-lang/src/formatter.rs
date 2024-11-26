@@ -8,7 +8,7 @@ use crate::{CompileError, DustError, LexError, Lexer, Token};
 pub fn format(
     source: &str,
     colored: bool,
-    indent: usize,
+    _indent: usize,
     line_numbers: bool,
 ) -> Result<String, DustError> {
     let lexer = Lexer::new(source);

@@ -60,11 +60,11 @@ fn block_scope() {
                 ConcreteValue::string("e"),
             ],
             vec![
-                Local::new(1, Type::Integer, false, Scope::new(0, 0), 0),
-                Local::new(3, Type::Integer, false, Scope::new(1, 1), 0),
-                Local::new(5, Type::Integer, false, Scope::new(2, 2), 0),
-                Local::new(7, Type::Integer, false, Scope::new(1, 1), 0),
-                Local::new(8, Type::Integer, false, Scope::new(0, 0), 0),
+                Local::new(1, Type::Integer, false, Scope::new(0, 0)),
+                Local::new(3, Type::Integer, false, Scope::new(1, 1)),
+                Local::new(5, Type::Integer, false, Scope::new(2, 2)),
+                Local::new(7, Type::Integer, false, Scope::new(1, 1)),
+                Local::new(8, Type::Integer, false, Scope::new(0, 0)),
             ]
         )),
     );
@@ -136,15 +136,15 @@ fn multiple_block_scopes() {
                 ConcreteValue::string("e"),
             ],
             vec![
-                Local::new(1, Type::Integer, false, Scope::new(0, 0), 0),
-                Local::new(3, Type::Integer, false, Scope::new(1, 1), 0),
-                Local::new(5, Type::Integer, false, Scope::new(2, 2), 0),
-                Local::new(6, Type::Integer, false, Scope::new(1, 1), 0),
-                Local::new(7, Type::Integer, false, Scope::new(0, 0), 0),
-                Local::new(3, Type::Integer, false, Scope::new(1, 3), 0),
-                Local::new(5, Type::Integer, false, Scope::new(2, 4), 0),
-                Local::new(6, Type::Integer, false, Scope::new(1, 3), 0),
-                Local::new(8, Type::Integer, false, Scope::new(0, 0), 0),
+                Local::new(1, Type::Integer, false, Scope::new(0, 0)),
+                Local::new(3, Type::Integer, false, Scope::new(1, 1)),
+                Local::new(5, Type::Integer, false, Scope::new(2, 2)),
+                Local::new(6, Type::Integer, false, Scope::new(1, 1)),
+                Local::new(7, Type::Integer, false, Scope::new(0, 0)),
+                Local::new(3, Type::Integer, false, Scope::new(1, 3)),
+                Local::new(5, Type::Integer, false, Scope::new(2, 4)),
+                Local::new(6, Type::Integer, false, Scope::new(1, 3)),
+                Local::new(8, Type::Integer, false, Scope::new(0, 0)),
             ]
         )),
     );

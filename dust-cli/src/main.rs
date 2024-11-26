@@ -1,13 +1,13 @@
 use std::{
     fmt::{self, Display, Formatter},
-    fs::{read_to_string, File, OpenOptions},
+    fs::{File, OpenOptions},
     io::{stdin, stdout, Read, Write},
     time::Instant,
 };
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use dust_lang::{compile, display_token_list, format, lex, run_source, vm::run_chunk, Chunk};
+use dust_lang::{compile, display_token_list, format, lex, vm::run_chunk};
 use env_logger::Target;
 use log::{Level, LevelFilter};
 

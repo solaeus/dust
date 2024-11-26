@@ -23,8 +23,8 @@ fn function() {
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
-                Local::new(0, Type::Integer, false, Scope::default(), 0),
-                Local::new(1, Type::Integer, false, Scope::default(), 1)
+                Local::new(0, Type::Integer, false, Scope::default()),
+                Local::new(1, Type::Integer, false, Scope::default())
             ]
         ))))
     );
@@ -64,8 +64,8 @@ fn function_call() {
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default(), 0),
-                        Local::new(1, Type::Integer, false, Scope::default(), 1)
+                        Local::new(0, Type::Integer, false, Scope::default()),
+                        Local::new(1, Type::Integer, false, Scope::default())
                     ]
                 )),
                 ConcreteValue::Integer(1),
@@ -93,6 +93,7 @@ fn function_declaration() {
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(0, 40)),
+                (Instruction::define_local(0, 0, false), Span(3, 6)),
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
@@ -109,8 +110,8 @@ fn function_declaration() {
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default(), 0),
-                        Local::new(1, Type::Integer, false, Scope::default(), 1)
+                        Local::new(0, Type::Integer, false, Scope::default()),
+                        Local::new(1, Type::Integer, false, Scope::default())
                     ]
                 )),
                 ConcreteValue::string("add"),
@@ -124,7 +125,6 @@ fn function_declaration() {
                 }),
                 false,
                 Scope::default(),
-                0
             ),],
         )),
     );

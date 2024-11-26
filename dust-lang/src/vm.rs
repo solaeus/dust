@@ -1,7 +1,6 @@
 //! Virtual machine and errors
 use std::{
     cmp::Ordering,
-    collections::HashMap,
     fmt::{self, Display, Formatter},
     io,
 };
@@ -34,7 +33,7 @@ pub struct Vm<'a> {
     chunk: &'a Chunk,
     stack: Vec<Register>,
     parent: Option<&'a Vm<'a>>,
-    local_definitions: HashMap<u8, u8>,
+    local_definitions: Vec<Option<u8>>,
 
     ip: usize,
     last_assigned_register: Option<u8>,
@@ -49,7 +48,7 @@ impl<'a> Vm<'a> {
             chunk,
             stack: Vec::new(),
             parent,
-            local_definitions: HashMap::new(),
+            local_definitions: vec![None; chunk.locals().len()],
             ip: 0,
             last_assigned_register: None,
             current_position: Span(0, 0),
@@ -158,12 +157,12 @@ impl<'a> Vm<'a> {
                     let from_register = instruction.a();
                     let to_local = instruction.b();
 
-                    self.define_local(to_local, from_register)?;
+                    self.local_definitions[to_local as usize] = Some(from_register);
                 }
                 Operation::GetLocal => {
                     let to_register = instruction.a();
                     let local_index = instruction.b();
-                    let local_register = self.local_definitions.get(&local_index).copied().ok_or(
+                    let local_register = self.local_definitions[local_index as usize].ok_or(
                         VmError::UndefinedLocal {
                             local_index,
                             position: self.current_position,
@@ -176,16 +175,8 @@ impl<'a> Vm<'a> {
                 Operation::SetLocal => {
                     let from_register = instruction.a();
                     let to_local = instruction.b();
-                    let local_register = self.local_definitions.get(&to_local).copied().ok_or(
-                        VmError::UndefinedLocal {
-                            local_index: to_local,
-                            position: self.current_position,
-                        },
-                    )?;
-                    let register = Register::Pointer(Pointer::Stack(from_register));
 
-                    self.define_local(to_local, from_register)?;
-                    self.set_register(local_register, register)?;
+                    self.local_definitions[to_local as usize] = Some(from_register);
                 }
                 Operation::Add => {
                     let to_register = instruction.a();
@@ -639,14 +630,6 @@ impl<'a> Vm<'a> {
         self.current_position = position;
 
         Ok(instruction)
-    }
-
-    fn define_local(&mut self, local_index: u8, register_index: u8) -> Result<(), VmError> {
-        log::debug!("Define local L{}", local_index);
-
-        self.local_definitions.insert(local_index, register_index);
-
-        Ok(())
     }
 }
 

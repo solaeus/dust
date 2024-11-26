@@ -4,7 +4,7 @@
 //! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
 //! belong to a named function.
 
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
@@ -193,7 +193,7 @@ impl Debug for Chunk {
         let disassembly = self.disassembler().style(false).disassemble();
 
         if cfg!(debug_assertions) {
-            write!(f, "\n",)?;
+            f.write_char('\n')?;
         }
 
         write!(f, "{}", disassembly)
