@@ -632,7 +632,15 @@ impl<'src> Compiler<'src> {
                 .push((right_instruction, right_type, right_position));
         }
 
-        let destination = Destination::Register(self.next_register());
+        let destination = if is_assignment {
+            match left {
+                Argument::Register(register) => Destination::Register(register),
+                Argument::Local(local_index) => Destination::Local(local_index),
+                Argument::Constant(_) => Destination::Register(self.next_register()),
+            }
+        } else {
+            Destination::Register(self.next_register())
+        };
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
             Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
@@ -1268,6 +1276,7 @@ impl<'src> Compiler<'src> {
                 should_return_value,
             });
 
+            self.update_return_type(previous_expression_type)?;
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 

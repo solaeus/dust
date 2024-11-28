@@ -59,11 +59,11 @@ fn add_assign() {
                 ),
                 (
                     Instruction::add(
-                        Destination::Register(0),
-                        Argument::Register(0),
+                        Destination::Local(0),
+                        Argument::Local(0),
                         Argument::Constant(2)
                     ),
-                    Type::Integer,
+                    Type::None,
                     Span(17, 19)
                 ),
                 (
@@ -176,11 +176,11 @@ fn divide_assign() {
                 ),
                 (
                     Instruction::divide(
-                        Destination::Register(0),
-                        Argument::Register(0),
+                        Destination::Local(0),
+                        Argument::Local(0),
                         Argument::Constant(0)
                     ),
-                    Type::Integer,
+                    Type::None,
                     Span(17, 19)
                 ),
                 (
@@ -339,11 +339,11 @@ fn multiply_assign() {
                 ),
                 (
                     Instruction::multiply(
-                        Destination::Register(0),
-                        Argument::Register(0),
+                        Destination::Local(0),
+                        Argument::Local(0),
                         Argument::Constant(2)
                     ),
-                    Type::Integer,
+                    Type::None,
                     Span(17, 19)
                 ),
                 (
@@ -440,11 +440,11 @@ fn subtract_assign() {
                 ),
                 (
                     Instruction::subtract(
-                        Destination::Register(0),
-                        Argument::Register(0),
+                        Destination::Local(0),
+                        Argument::Local(0),
                         Argument::Constant(2)
                     ),
-                    Type::Integer,
+                    Type::None,
                     Span(18, 20)
                 ),
                 (
