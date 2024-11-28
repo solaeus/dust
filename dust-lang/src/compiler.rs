@@ -117,8 +117,6 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(instruction, _, _)| {
                 if instruction.yields_value() {
-                    println!("{:?}", instruction);
-
                     Some(instruction.a() + 1)
                 } else {
                     None
