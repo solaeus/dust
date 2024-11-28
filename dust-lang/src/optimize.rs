@@ -18,10 +18,10 @@ use crate::{instruction::SetLocal, Chunk, Operation};
 /// ```
 ///
 /// The instructions must be in the following order:
-///     - `Operation::Equal` | `Operation::Less` | `Operation::LessEqual` | `Operation::Test`
-///     - `Operation::Jump`
-///     - `Operation::LoadBoolean` | `Operation::LoadConstant`
-///     - `Operation::LoadBoolean` | `Operation::LoadConstant`
+///     - `Equal`, `Less`, `LessEqual` or `Test`
+///     - `Jump`
+///     - `LoadBoolean` or `LoadConstant`
+///     - `LoadBoolean` or `LoadConstant`
 pub fn optimize_control_flow(chunk: &mut Chunk) {
     if !matches!(
         chunk.get_last_operations(),
@@ -49,6 +49,24 @@ pub fn optimize_control_flow(chunk: &mut Chunk) {
     *second_loader = second_loader_new;
 }
 
+/// Optimizes a math instruction followed by a SetLocal instruction.
+///
+/// The SetLocal instruction is removed and the math instruction is modified to use the local as
+/// its destination. This makes the following two code snippets compile to the same bytecode:
+///
+/// ```dust
+/// let a = 0;
+/// a = a + 1;
+/// ```
+///
+/// ```dust
+/// let a = 0;
+/// a += 1;
+/// ```
+///
+/// The instructions must be in the following order:
+///     - `Add`, `Subtract`, `Multiply`, `Divide` or `Modulo`
+///     - `SetLocal`
 pub fn optimize_set_local(chunk: &mut Chunk) {
     if !matches!(
         chunk.get_last_operations(),

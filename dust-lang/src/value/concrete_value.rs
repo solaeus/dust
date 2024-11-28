@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Type, ValueError};
+use crate::{Chunk, Type, Value, ValueError, ValueRef};
 
 use super::RangeValue;
 
@@ -20,6 +20,14 @@ pub enum ConcreteValue {
 }
 
 impl ConcreteValue {
+    pub fn to_value(self) -> Value {
+        Value::Concrete(self)
+    }
+
+    pub fn to_value_ref(&self) -> ValueRef {
+        ValueRef::Concrete(self)
+    }
+
     pub fn list<T: Into<Vec<ConcreteValue>>>(into_list: T) -> Self {
         ConcreteValue::List(into_list.into())
     }
@@ -62,7 +70,12 @@ impl ConcreteValue {
             (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
             (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
-            _ => return Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotAdd(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(sum)
@@ -75,7 +88,12 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_sub(*right)),
             (Float(left), Float(right)) => ConcreteValue::Float(left - right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_sub(*right)),
-            _ => return Err(ValueError::CannotSubtract(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotSubtract(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(difference)
@@ -88,7 +106,12 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_mul(*right)),
             (Float(left), Float(right)) => ConcreteValue::Float(left * right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_mul(*right)),
-            _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotMultiply(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(product)
@@ -101,7 +124,12 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_div(*right)),
             (Float(left), Float(right)) => ConcreteValue::Float(left / right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_div(*right)),
-            _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotMultiply(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(quotient)
@@ -116,7 +144,12 @@ impl ConcreteValue {
             (Integer(left), Integer(right)) => {
                 ConcreteValue::Integer(left.wrapping_rem_euclid(*right))
             }
-            _ => return Err(ValueError::CannotMultiply(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotMultiply(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(product)
@@ -130,7 +163,7 @@ impl ConcreteValue {
             Byte(value) => ConcreteValue::Byte(value.wrapping_neg()),
             Float(value) => ConcreteValue::Float(-value),
             Integer(value) => ConcreteValue::Integer(value.wrapping_neg()),
-            _ => return Err(ValueError::CannotNegate(self.clone())),
+            _ => return Err(ValueError::CannotNegate(self.clone().to_value())),
         };
 
         Ok(negated)
@@ -141,7 +174,7 @@ impl ConcreteValue {
 
         let not = match self {
             Boolean(value) => ConcreteValue::Boolean(!value),
-            _ => return Err(ValueError::CannotNot(self.clone())),
+            _ => return Err(ValueError::CannotNot(self.clone().to_value())),
         };
 
         Ok(not)
@@ -160,7 +193,12 @@ impl ConcreteValue {
             (List(left), List(right)) => ConcreteValue::Boolean(left == right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left == right),
             (String(left), String(right)) => ConcreteValue::Boolean(left == right),
-            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotCompare(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(equal)
@@ -179,7 +217,12 @@ impl ConcreteValue {
             (List(left), List(right)) => ConcreteValue::Boolean(left < right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left < right),
             (String(left), String(right)) => ConcreteValue::Boolean(left < right),
-            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotCompare(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(less_than)
@@ -198,7 +241,12 @@ impl ConcreteValue {
             (List(left), List(right)) => ConcreteValue::Boolean(left <= right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left <= right),
             (String(left), String(right)) => ConcreteValue::Boolean(left <= right),
-            _ => return Err(ValueError::CannotCompare(self.clone(), other.clone())),
+            _ => {
+                return Err(ValueError::CannotCompare(
+                    self.clone().to_value(),
+                    other.clone().to_value(),
+                ))
+            }
         };
 
         Ok(less_than_or_equal)

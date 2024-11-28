@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Pointer, ConcreteValue, Vm, VmError};
+use crate::{vm::Pointer, ConcreteValue, Value, ValueRef, Vm, VmError};
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum AbstractValue {
@@ -9,6 +9,14 @@ pub enum AbstractValue {
 }
 
 impl AbstractValue {
+    pub fn to_value(self) -> Value {
+        Value::Abstract(self)
+    }
+
+    pub fn to_value_ref(&self) -> ValueRef {
+        ValueRef::Abstract(self)
+    }
+
     pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
             AbstractValue::FunctionSelf => Ok(ConcreteValue::Function(vm.chunk().clone())),

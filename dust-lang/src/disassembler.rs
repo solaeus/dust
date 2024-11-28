@@ -50,8 +50,8 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i   POSITION    OPERATION                 TYPE                             INFO              ",
-    "--- ---------- ------------- -------------------------------- --------------------------------",
+    " i   POSITION    OPERATION        TYPE                    INFO              ",
+    "--- ---------- ------------- -------------- --------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -259,10 +259,18 @@ impl<'a> Disassembler<'a> {
         {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
-            let r#type = r#type.to_string();
+            let type_display = {
+                let mut type_string = r#type.to_string();
+
+                if type_string.len() > 14 {
+                    type_string = format!("{type_string:.11}...");
+                }
+
+                type_string
+            };
             let info = instruction.disassembly_info();
             let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {type:^32} {info:^32}");
+                format!("{index:^3} {position:^10} {operation:13} {type_display:^14} {info:^32}");
 
             self.push_details(&instruction_display);
         }

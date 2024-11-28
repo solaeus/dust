@@ -30,9 +30,7 @@ use crate::{dust_error::AnnotatedError, CompileError, DustError, Span, Token};
 ///     ]
 /// );
 /// ```
-pub fn lex<'tokens, 'src: 'tokens>(
-    source: &'src str,
-) -> Result<Vec<(Token<'src>, Span)>, DustError> {
+pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, DustError> {
     let mut lexer = Lexer::new(source);
     let mut tokens = Vec::new();
 

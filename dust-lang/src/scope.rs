@@ -34,13 +34,11 @@ impl Scope {
         }
     }
 
-    #[inline]
     pub fn begin(&mut self, block_index: u8) {
         self.depth += 1;
         self.block_index = block_index;
     }
 
-    #[inline]
     pub fn end(&mut self, block_index: u8) {
         self.depth -= 1;
         self.block_index = block_index;
