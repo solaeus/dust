@@ -15,7 +15,7 @@ fn and() {
             },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, true), Span(5, 7)),
+                (Instruction::test(Argument::Register(0), true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
@@ -25,7 +25,7 @@ fn and() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn or() {
             },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(0, false), Span(5, 7)),
+                (Instruction::test(Argument::Register(0), false), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
                 (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
@@ -53,7 +53,7 @@ fn or() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn variable_and() {
                 (Instruction::load_boolean(1, false, false), Span(22, 27)),
                 (Instruction::define_local(1, 1, false), Span(18, 19)),
                 (Instruction::get_local(2, 0), Span(29, 30)),
-                (Instruction::test(2, true), Span(31, 33)),
+                (Instruction::test(Argument::Register(2), true), Span(31, 33)),
                 (Instruction::jump(1, true), Span(31, 33)),
                 (Instruction::get_local(3, 1), Span(34, 35)),
                 (Instruction::r#return(true), Span(35, 35)),
@@ -88,5 +88,5 @@ fn variable_and() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }

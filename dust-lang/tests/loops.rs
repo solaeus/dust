@@ -17,11 +17,14 @@ fn r#while() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::less(true, 0, 2).set_c_is_constant(),
+                    Instruction::less(true, Argument::Register(0), Argument::Constant(2)),
                     Span(23, 24)
                 ),
                 (Instruction::jump(2, true), Span(41, 42)),
-                (*Instruction::add(0, 0, 3).set_c_is_constant(), Span(35, 36)),
+                (
+                    Instruction::add(0, Argument::Register(0), Argument::Constant(3)),
+                    Span(35, 36)
+                ),
                 (Instruction::jump(3, false), Span(41, 42)),
                 (Instruction::get_local(1, 0), Span(41, 42)),
                 (Instruction::r#return(true), Span(42, 42)),
@@ -36,5 +39,5 @@ fn r#while() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(5))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(5))));
 }

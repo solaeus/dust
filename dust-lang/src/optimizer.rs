@@ -1,6 +1,6 @@
 //! Tool used by the compiler to optimize a chunk's bytecode.
 
-use crate::{Chunk, Instruction, Operation, Span};
+use crate::{Chunk, Instruction, Operation, Span, Type};
 
 /// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug)]
@@ -93,7 +93,7 @@ impl<'a> Optimizer<'a> {
         true
     }
 
-    fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Span)> {
+    fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Type, Span)> {
         self.chunk.instructions_mut()
     }
 
@@ -109,7 +109,7 @@ impl<'a> Optimizer<'a> {
                 .instructions()
                 .iter()
                 .rev()
-                .map(|(instruction, _)| instruction.operation()),
+                .map(|(instruction, _, _)| instruction.operation()),
         ) {
             *nth = operation;
         }

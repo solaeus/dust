@@ -50,8 +50,8 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i   POSITION    OPERATION                   INFO                ",
-    "--- ---------- ------------- ------------------------------------",
+    " i   POSITION    OPERATION         TYPE                       INFO                ",
+    "--- ---------- ------------- ---------------- ------------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -255,13 +255,14 @@ impl<'a> Disassembler<'a> {
             self.push_header(line);
         }
 
-        for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
+        for (index, (instruction, r#type, position)) in self.chunk.instructions().iter().enumerate()
+        {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info(self.chunk);
 
             let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {info:^36}");
+                format!("{index:^3} {position:^10} {operation:13} {type:^16} {info:^36}");
 
             self.push_details(&instruction_display);
         }

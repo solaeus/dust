@@ -121,11 +121,191 @@ impl Instruction {
         Instruction(operation as u64)
     }
 
+    pub fn r#move(from: u16, to: u16) -> Instruction {
+        Instruction::from(Move { from, to })
+    }
+
+    pub fn close(from: u16, to: u16) -> Instruction {
+        Instruction::from(Close { from, to })
+    }
+
+    pub fn load_boolean(destination: u16, value: bool, jump_next: bool) -> Instruction {
+        Instruction::from(LoadBoolean {
+            destination,
+            value,
+            jump_next,
+        })
+    }
+
+    pub fn load_constant(destination: u16, constant_index: u16, jump_next: bool) -> Instruction {
+        Instruction::from(LoadConstant {
+            destination,
+            constant_index,
+            jump_next,
+        })
+    }
+
+    pub fn load_list(destination: u16, start_register: u16) -> Instruction {
+        Instruction::from(LoadList {
+            destination,
+            start_register,
+        })
+    }
+
+    pub fn load_self(destination: u16) -> Instruction {
+        Instruction::from(LoadSelf { destination })
+    }
+
+    pub fn define_local(register: u16, local_index: u16, is_mutable: bool) -> Instruction {
+        Instruction::from(DefineLocal {
+            local_index,
+            register,
+            is_mutable,
+        })
+    }
+
+    pub fn get_local(destination: u16, local_index: u16) -> Instruction {
+        Instruction::from(GetLocal {
+            destination,
+            local_index,
+        })
+    }
+
+    pub fn set_local(register: u16, local_index: u16) -> Instruction {
+        Instruction::from(SetLocal {
+            local_index,
+            register,
+        })
+    }
+
+    pub fn add(destination: u16, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Add {
+            destination,
+            left,
+            right,
+        })
+    }
+
+    pub fn subtract(destination: u16, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Subtract {
+            destination,
+            left,
+            right,
+        })
+    }
+
+    pub fn multiply(destination: u16, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Multiply {
+            destination,
+            left,
+            right,
+        })
+    }
+
+    pub fn divide(destination: u16, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Divide {
+            destination,
+            left,
+            right,
+        })
+    }
+
+    pub fn modulo(destination: u16, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Modulo {
+            destination,
+            left,
+            right,
+        })
+    }
+
+    pub fn test(argument: Argument, value: bool) -> Instruction {
+        Instruction::from(Test { argument, value })
+    }
+
+    pub fn test_set(destination: u16, argument: Argument, value: bool) -> Instruction {
+        Instruction::from(TestSet {
+            destination,
+            argument,
+            value,
+        })
+    }
+
+    pub fn equal(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Equal { value, left, right })
+    }
+
+    pub fn less(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Less { value, left, right })
+    }
+
+    pub fn less_equal(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(LessEqual { value, left, right })
+    }
+
+    pub fn negate(destination: u16, argument: Argument) -> Instruction {
+        Instruction::from(Negate {
+            destination,
+            argument,
+        })
+    }
+
+    pub fn not(destination: u16, argument: Argument) -> Instruction {
+        Instruction::from(Not {
+            destination,
+            argument,
+        })
+    }
+
+    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
+        Instruction::from(Jump {
+            offset,
+            is_positive,
+        })
+    }
+
+    pub fn call(destination: u16, function: Argument, argument_count: u16) -> Instruction {
+        Instruction::from(Call {
+            destination,
+            function,
+            argument_count,
+        })
+    }
+
+    pub fn call_native(
+        destination: u16,
+        function: NativeFunction,
+        argument_count: u16,
+    ) -> Instruction {
+        Instruction::from(CallNative {
+            destination,
+            function,
+            argument_count,
+        })
+    }
+
+    pub fn r#return(should_return_value: bool) -> Instruction {
+        Instruction::from(Return {
+            should_return_value,
+        })
+    }
+
     pub fn destination_as_argument(&self) -> Option<Argument> {
-        if self.yields_value() {
-            Some(Argument::Register(self.a()))
-        } else {
-            None
+        match self.operation() {
+            Operation::LoadConstant => Some(Argument::Constant(self.b())),
+            Operation::GetLocal => Some(Argument::Local(self.b())),
+            Operation::LoadBoolean
+            | Operation::LoadList
+            | Operation::LoadSelf
+            | Operation::Add
+            | Operation::Subtract
+            | Operation::Multiply
+            | Operation::Divide
+            | Operation::Modulo
+            | Operation::Negate
+            | Operation::Not
+            | Operation::Call
+            | Operation::CallNative => Some(Argument::Register(self.a())),
+            _ => None,
         }
     }
 
@@ -284,27 +464,25 @@ impl Instruction {
             | Operation::Multiply
             | Operation::Divide
             | Operation::Modulo
-            | Operation::Equal
-            | Operation::Less
-            | Operation::LessEqual
             | Operation::Negate
             | Operation::Not
             | Operation::Call => true,
-
             Operation::CallNative => {
                 let function = NativeFunction::from(self.b());
 
                 function.returns_value()
             }
-
             Operation::Move
             | Operation::Close
             | Operation::DefineLocal
             | Operation::SetLocal
+            | Operation::Equal
+            | Operation::Less
+            | Operation::LessEqual
             | Operation::Test
             | Operation::TestSet
             | Operation::Jump
-            | Operation::Return => true,
+            | Operation::Return => false,
         }
     }
 
@@ -313,12 +491,12 @@ impl Instruction {
             Operation::Move => {
                 let Move { from, to } = Move::from(self);
 
-                format!("{to} = {from}")
+                format!("R{to} = R{from}")
             }
             Operation::Close => {
                 let Close { from, to } = Close::from(self);
 
-                format!("{from}..={to}")
+                format!("R{from}..=R{to}")
             }
             Operation::LoadBoolean => {
                 let LoadBoolean {
@@ -336,14 +514,14 @@ impl Instruction {
             Operation::LoadConstant => {
                 let LoadConstant {
                     destination,
-                    constant_index: constant,
+                    constant_index,
                     jump_next,
                 } = LoadConstant::from(self);
 
                 if jump_next {
-                    format!("R{destination} = C{constant} JUMP +1")
+                    format!("R{destination} = C{constant_index} JUMP +1")
                 } else {
-                    format!("R{destination} = C{constant}")
+                    format!("R{destination} = C{constant_index}")
                 }
             }
             Operation::LoadList => {

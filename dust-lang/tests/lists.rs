@@ -11,10 +11,7 @@ fn empty_list() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List {
-                    item_type: Box::new(Type::Any),
-                    length: 0
-                })
+                return_type: Box::new(Type::List(Box::new(Type::Any))),
             },
             vec![
                 (Instruction::load_list(0, 0), Span(0, 2)),
@@ -25,7 +22,7 @@ fn empty_list() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::list([]))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::list([]))));
 }
 
 #[test]
@@ -39,10 +36,7 @@ fn list() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List {
-                    item_type: Box::new(Type::Integer),
-                    length: 3
-                })
+                return_type: Box::new(Type::List(Box::new(Type::Integer))),
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
@@ -61,7 +55,7 @@ fn list() {
     );
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(2),
@@ -81,26 +75,22 @@ fn list_with_complex_expression() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List {
-                    item_type: Box::new(Type::Integer),
-                    length: 3
-                })
+                return_type: Box::new(Type::List(Box::new(Type::Integer))),
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    *Instruction::add(1, 1, 2)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
                     Span(6, 7)
                 ),
                 (
-                    *Instruction::multiply(2, 3, 4)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::multiply(2, Argument::Constant(3), Argument::Constant(4)),
                     Span(14, 15)
                 ),
-                (Instruction::subtract(3, 1, 2), Span(10, 11)),
+                (
+                    Instruction::subtract(3, Argument::Register(1), Argument::Register(2)),
+                    Span(10, 11)
+                ),
                 (Instruction::close(1, 3), Span(17, 18)),
                 (Instruction::load_list(4, 0), Span(0, 18)),
                 (Instruction::r#return(true), Span(18, 18)),
@@ -117,7 +107,7 @@ fn list_with_complex_expression() {
     );
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(-15)
@@ -136,17 +126,12 @@ fn list_with_simple_expression() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List {
-                    item_type: Box::new(Type::Integer),
-                    length: 3
-                })
+                return_type: Box::new(Type::List(Box::new(Type::Integer))),
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    *Instruction::add(1, 1, 2)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
                     Span(6, 7)
                 ),
                 (Instruction::load_constant(2, 3, false), Span(11, 12)),
@@ -164,7 +149,7 @@ fn list_with_simple_expression() {
     );
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Ok(Some(ConcreteValue::list([
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(5),

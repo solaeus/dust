@@ -15,9 +15,7 @@ fn equal() {
             },
             vec![
                 (
-                    *Instruction::equal(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::equal(true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -30,7 +28,7 @@ fn equal() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -48,9 +46,7 @@ fn greater() {
             },
             vec![
                 (
-                    *Instruction::less_equal(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::less_equal(false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::jump(1, true), Span(2, 3)),
@@ -63,7 +59,7 @@ fn greater() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -81,9 +77,7 @@ fn greater_than_or_equal() {
             },
             vec![
                 (
-                    *Instruction::less(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::less(false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -96,7 +90,7 @@ fn greater_than_or_equal() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }
 
 #[test]
@@ -114,9 +108,7 @@ fn less_than() {
             },
             vec![
                 (
-                    *Instruction::less(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::less(true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::jump(1, true), Span(2, 3)),
@@ -129,7 +121,7 @@ fn less_than() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -147,9 +139,7 @@ fn less_than_or_equal() {
             },
             vec![
                 (
-                    *Instruction::less_equal(true, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::less_equal(true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -162,7 +152,7 @@ fn less_than_or_equal() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
 
 #[test]
@@ -180,9 +170,7 @@ fn not_equal() {
             },
             vec![
                 (
-                    *Instruction::equal(false, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::equal(false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::jump(1, true), Span(2, 4)),
@@ -195,5 +183,5 @@ fn not_equal() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }

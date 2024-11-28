@@ -5,7 +5,7 @@ fn function() {
     let source = "fn(a: int, b: int) -> int { a + b }";
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Ok(Some(ConcreteValue::Function(Chunk::with_data(
             None,
             FunctionType {
@@ -18,7 +18,10 @@ fn function() {
                 }))
             },
             vec![
-                (Instruction::add(2, 0, 1), Span(30, 31)),
+                (
+                    Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                    Span(30, 31)
+                ),
                 (Instruction::r#return(true), Span(35, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
@@ -47,7 +50,7 @@ fn function_call() {
                 (Instruction::load_constant(0, 0, false), Span(0, 36)),
                 (Instruction::load_constant(1, 1, false), Span(36, 37)),
                 (Instruction::load_constant(2, 2, false), Span(39, 40)),
-                (Instruction::call(3, 0, 2), Span(35, 41)),
+                (Instruction::call(3, Argument::Constant(0), 2), Span(35, 41)),
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
@@ -59,7 +62,10 @@ fn function_call() {
                         return_type: Box::new(Type::Integer)
                     },
                     vec![
-                        (Instruction::add(2, 0, 1), Span(30, 31)),
+                        (
+                            Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Span(30, 31)
+                        ),
                         (Instruction::r#return(true), Span(35, 36)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
@@ -75,7 +81,7 @@ fn function_call() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
 }
 
 #[test]
@@ -105,7 +111,10 @@ fn function_declaration() {
                         return_type: Box::new(Type::Integer)
                     },
                     vec![
-                        (Instruction::add(2, 0, 1), Span(35, 36)),
+                        (
+                            Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Span(35, 36)
+                        ),
                         (Instruction::r#return(true), Span(40, 40)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
@@ -129,5 +138,5 @@ fn function_declaration() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }

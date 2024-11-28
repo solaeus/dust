@@ -47,15 +47,10 @@ impl ConcreteValue {
             ConcreteValue::List(list) => {
                 let item_type = list.first().map_or(Type::Any, |item| item.r#type());
 
-                Type::List {
-                    item_type: Box::new(item_type),
-                    length: list.len(),
-                }
+                Type::List(Box::new(item_type))
             }
             ConcreteValue::Range(range) => range.r#type(),
-            ConcreteValue::String(string) => Type::String {
-                length: Some(string.len()),
-            },
+            ConcreteValue::String(_) => Type::String,
         }
     }
 

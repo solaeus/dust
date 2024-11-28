@@ -19,7 +19,7 @@ pub struct Chunk {
     name: Option<String>,
     r#type: FunctionType,
 
-    instructions: Vec<(Instruction, Span)>,
+    instructions: Vec<(Instruction, Type, Span)>,
     constants: Vec<ConcreteValue>,
     locals: Vec<Local>,
 }
@@ -42,7 +42,7 @@ impl Chunk {
     pub fn with_data(
         name: Option<String>,
         r#type: FunctionType,
-        instructions: Vec<(Instruction, Span)>,
+        instructions: Vec<(Instruction, Type, Span)>,
         constants: Vec<ConcreteValue>,
         locals: Vec<Local>,
     ) -> Self {
@@ -111,15 +111,15 @@ impl Chunk {
         }
     }
 
-    pub fn instructions(&self) -> &Vec<(Instruction, Span)> {
+    pub fn instructions(&self) -> &Vec<(Instruction, Type, Span)> {
         &self.instructions
     }
 
-    pub fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Span)> {
+    pub fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Type, Span)> {
         &mut self.instructions
     }
 
-    pub fn get_instruction(&self, index: usize) -> Result<&(Instruction, Span), ChunkError> {
+    pub fn get_instruction(&self, index: usize) -> Result<&(Instruction, Type, Span), ChunkError> {
         self.instructions
             .get(index)
             .ok_or(ChunkError::InstructionIndexOutOfBounds { index })

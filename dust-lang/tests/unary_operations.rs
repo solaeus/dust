@@ -14,7 +14,7 @@ fn negate() {
                 return_type: Box::new(Type::Integer),
             },
             vec![
-                (*Instruction::negate(0, 0).set_b_is_constant(), Span(0, 1)),
+                (Instruction::negate(0, Argument::Constant(0)), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
             vec![ConcreteValue::Integer(42)],
@@ -22,7 +22,7 @@ fn negate() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(-42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(-42))));
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn not() {
             },
             vec![
                 (Instruction::load_boolean(0, true, false), Span(1, 5)),
-                (Instruction::not(1, 0), Span(0, 1)),
+                (Instruction::not(1, Argument::Register(0)), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],
             vec![],
@@ -48,5 +48,5 @@ fn not() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
 }

@@ -23,7 +23,7 @@ fn define_local() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -73,5 +73,5 @@ fn set_local() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }

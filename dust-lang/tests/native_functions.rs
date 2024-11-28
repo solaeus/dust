@@ -31,7 +31,7 @@ fn panic() {
     );
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Err(DustError::Runtime {
             error: VmError::NativeFunction(NativeFunctionError::Panic {
                 message: Some("Goodbye world! 42".to_string()),
@@ -53,7 +53,7 @@ fn to_string() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String { length: None }),
+                return_type: Box::new(Type::String),
             },
             vec![
                 (Instruction::load_constant(0, 0, false), Span(10, 12)),
@@ -68,5 +68,5 @@ fn to_string() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::string("42"))))
+    assert_eq!(run(source), Ok(Some(ConcreteValue::string("42"))))
 }

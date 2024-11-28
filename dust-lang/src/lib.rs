@@ -30,7 +30,7 @@ pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
 pub use crate::scope::Scope;
 pub use crate::token::{display_token_list, Token, TokenKind, TokenOwned};
 pub use crate::value::{AbstractValue, ConcreteValue, RangeValue, Value, ValueError, ValueRef};
-pub use crate::vm::{run_source, Vm, VmError};
+pub use crate::vm::{run, Vm, VmError};
 
 use std::fmt::Display;
 

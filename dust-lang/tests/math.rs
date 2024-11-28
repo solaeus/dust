@@ -15,9 +15,7 @@ fn add() {
             },
             vec![
                 (
-                    *Instruction::add(0, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))
@@ -27,7 +25,7 @@ fn add() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
 }
 
 #[test]
@@ -46,7 +44,10 @@ fn add_assign() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
-                (*Instruction::add(0, 0, 2).set_c_is_constant(), Span(17, 19)),
+                (
+                    Instruction::add(0, Argument::Register(0), Argument::Constant(2)),
+                    Span(17, 19)
+                ),
                 (Instruction::get_local(1, 0), Span(23, 24)),
                 (Instruction::r#return(true), Span(24, 24))
             ],
@@ -59,7 +60,7 @@ fn add_assign() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
 }
 
 #[test]
@@ -109,9 +110,7 @@ fn divide() {
             },
             vec![
                 (
-                    *Instruction::divide(0, 0, 0)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))
@@ -121,7 +120,7 @@ fn divide() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(1))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(1))));
 }
 
 #[test]
@@ -141,7 +140,7 @@ fn divide_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::divide(0, 0, 0).set_c_is_constant(),
+                    Instruction::divide(0, Argument::Register(0), Argument::Constant(0)),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(23, 24)),
@@ -152,7 +151,7 @@ fn divide_assign() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(1))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(1))));
 }
 
 #[test]
@@ -186,22 +185,21 @@ fn math_operator_precedence() {
             },
             vec![
                 (
-                    *Instruction::add(0, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (
-                    *Instruction::multiply(1, 2, 3)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::multiply(1, Argument::Constant(2), Argument::Constant(3)),
                     Span(10, 11)
                 ),
                 (
-                    *Instruction::divide(2, 1, 4).set_c_is_constant(),
+                    Instruction::divide(2, Argument::Register(1), Argument::Constant(4)),
                     Span(14, 15)
                 ),
-                (Instruction::subtract(3, 0, 2), Span(6, 7)),
+                (
+                    Instruction::subtract(3, Argument::Register(0), Argument::Register(2)),
+                    Span(6, 7)
+                ),
                 (Instruction::r#return(true), Span(17, 17)),
             ],
             vec![
@@ -215,7 +213,7 @@ fn math_operator_precedence() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(1))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(1))));
 }
 
 #[test]
@@ -233,9 +231,7 @@ fn multiply() {
             },
             vec![
                 (
-                    *Instruction::multiply(0, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -245,7 +241,7 @@ fn multiply() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(2))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(2))));
 }
 
 #[test]
@@ -265,7 +261,7 @@ fn multiply_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::multiply(0, 0, 2).set_c_is_constant(),
+                    Instruction::multiply(0, Argument::Register(0), Argument::Constant(2)),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(22, 23)),
@@ -280,7 +276,7 @@ fn multiply_assign() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(6))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(6))));
 }
 
 #[test]
@@ -314,9 +310,7 @@ fn subtract() {
             },
             vec![
                 (
-                    *Instruction::subtract(0, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -326,7 +320,7 @@ fn subtract() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(-1))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(-1))));
 }
 
 #[test]
@@ -346,7 +340,7 @@ fn subtract_assign() {
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (Instruction::define_local(0, 0, true), Span(8, 9)),
                 (
-                    *Instruction::subtract(0, 0, 2).set_c_is_constant(),
+                    Instruction::subtract(0, Argument::Register(0), Argument::Constant(2)),
                     Span(18, 20)
                 ),
                 (Instruction::get_local(1, 0), Span(24, 25)),
@@ -361,7 +355,7 @@ fn subtract_assign() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(40))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(40))));
 }
 
 #[test]

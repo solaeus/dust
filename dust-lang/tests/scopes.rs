@@ -9,7 +9,7 @@ fn allow_access_to_parent_scope() {
         }
     "#;
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(1))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(1))));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn block_scope() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn multiple_block_scopes() {
         )),
     );
 
-    assert_eq!(run_source(source), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn disallow_access_to_child_scope() {
     "#;
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -187,7 +187,7 @@ fn disallow_access_to_child_scope_nested() {
     "#;
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -212,7 +212,7 @@ fn disallow_access_to_sibling_scope() {
     "#;
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
@@ -239,7 +239,7 @@ fn disallow_access_to_sibling_scope_nested() {
     "#;
 
     assert_eq!(
-        run_source(source),
+        run(source),
         Err(DustError::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),

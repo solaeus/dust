@@ -22,7 +22,7 @@ fn constant() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(42))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(42))));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn empty() {
             vec![]
         ))
     );
-    assert_eq!(run_source(source), Ok(None));
+    assert_eq!(run(source), Ok(None));
 }
 
 #[test]
@@ -61,13 +61,11 @@ fn parentheses_precedence() {
             },
             vec![
                 (
-                    *Instruction::add(0, 0, 1)
-                        .set_b_is_constant()
-                        .set_c_is_constant(),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(3, 4)
                 ),
                 (
-                    *Instruction::multiply(1, 0, 2).set_c_is_constant(),
+                    Instruction::multiply(1, Argument::Register(0), Argument::Constant(2)),
                     Span(8, 9)
                 ),
                 (Instruction::r#return(true), Span(11, 11)),
@@ -81,5 +79,5 @@ fn parentheses_precedence() {
         ))
     );
 
-    assert_eq!(run_source(source), Ok(Some(ConcreteValue::Integer(9))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(9))));
 }

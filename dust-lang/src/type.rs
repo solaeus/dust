@@ -22,14 +22,7 @@ pub enum Type {
         concrete_type: Option<Box<Type>>,
     },
     Integer,
-    List {
-        item_type: Box<Type>,
-        length: usize,
-    },
-    ListEmpty,
-    ListOf {
-        item_type: Box<Type>,
-    },
+    List(Box<Type>),
     Map {
         pairs: HashMap<u8, Type>,
     },
@@ -38,9 +31,7 @@ pub enum Type {
         r#type: Box<Type>,
     },
     SelfChunk,
-    String {
-        length: Option<usize>,
-    },
+    String,
     Struct(StructType),
     Tuple {
         fields: Option<Vec<Type>>,
@@ -106,23 +97,7 @@ impl Type {
                     return Ok(());
                 }
             }
-            (
-                Type::List {
-                    item_type: left_type,
-                    length: left_length,
-                },
-                Type::List {
-                    item_type: right_type,
-                    length: right_length,
-                },
-            ) => {
-                if left_length != right_length {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                }
-
+            (Type::List(left_type), Type::List(right_type)) => {
                 if left_type.check(right_type).is_err() {
                     return Err(TypeConflict {
                         actual: other.clone(),
@@ -131,51 +106,6 @@ impl Type {
                 }
 
                 return Ok(());
-            }
-            (
-                Type::ListOf {
-                    item_type: left_type,
-                },
-                Type::ListOf {
-                    item_type: right_type,
-                },
-            ) => {
-                if left_type.check(right_type).is_err() {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                }
-            }
-            (
-                Type::List {
-                    item_type: list_item_type,
-                    ..
-                },
-                Type::ListOf {
-                    item_type: list_of_item_type,
-                },
-            )
-            | (
-                Type::ListOf {
-                    item_type: list_of_item_type,
-                },
-                Type::List {
-                    item_type: list_item_type,
-                    ..
-                },
-            ) => {
-                // TODO: This is a hack, remove it.
-                if let Type::Any = **list_of_item_type {
-                    return Ok(());
-                }
-
-                if list_item_type.check(list_of_item_type).is_err() {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                }
             }
             (
                 Type::Function(FunctionType {
@@ -237,9 +167,7 @@ impl Display for Type {
                 }
             }
             Type::Integer => write!(f, "int"),
-            Type::List { item_type, length } => write!(f, "[{item_type}; {length}]"),
-            Type::ListEmpty => write!(f, "[]"),
-            Type::ListOf { item_type } => write!(f, "[{item_type}]"),
+            Type::List(item_type) => write!(f, "[{item_type}]"),
             Type::Map { pairs } => {
                 write!(f, "map ")?;
 
@@ -258,7 +186,7 @@ impl Display for Type {
             Type::None => write!(f, "none"),
             Type::Range { r#type } => write!(f, "{type} range"),
             Type::SelfChunk => write!(f, "self"),
-            Type::String { .. } => write!(f, "str"),
+            Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple { fields } => {
                 if let Some(fields) = fields {
@@ -310,34 +238,10 @@ impl Ord for Type {
             (Type::Generic { .. }, _) => Ordering::Greater,
             (Type::Integer, Type::Integer) => Ordering::Equal,
             (Type::Integer, _) => Ordering::Greater,
-            (
-                Type::List {
-                    item_type: left_item_type,
-                    length: left_length,
-                },
-                Type::List {
-                    item_type: right_item_type,
-                    length: right_length,
-                },
-            ) => {
-                if left_length == right_length {
-                    left_item_type.cmp(right_item_type)
-                } else {
-                    left_length.cmp(right_length)
-                }
+            (Type::List(left_item_type), Type::List(right_item_type)) => {
+                left_item_type.cmp(right_item_type)
             }
             (Type::List { .. }, _) => Ordering::Greater,
-            (Type::ListEmpty, Type::ListEmpty) => Ordering::Equal,
-            (Type::ListEmpty, _) => Ordering::Greater,
-            (
-                Type::ListOf {
-                    item_type: left_item_type,
-                },
-                Type::ListOf {
-                    item_type: right_item_type,
-                },
-            ) => left_item_type.cmp(right_item_type),
-            (Type::ListOf { .. }, _) => Ordering::Greater,
             (Type::Map { pairs: left_pairs }, Type::Map { pairs: right_pairs }) => {
                 left_pairs.iter().cmp(right_pairs.iter())
             }
@@ -350,7 +254,7 @@ impl Ord for Type {
             (Type::Range { .. }, _) => Ordering::Greater,
             (Type::SelfChunk, Type::SelfChunk) => Ordering::Equal,
             (Type::SelfChunk, _) => Ordering::Greater,
-            (Type::String { length: left }, Type::String { length: right }) => left.cmp(right),
+            (Type::String, Type::String) => Ordering::Equal,
             (Type::String { .. }, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
                 left_struct.cmp(right_struct)

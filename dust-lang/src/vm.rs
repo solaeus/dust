@@ -10,19 +10,12 @@ use crate::{
     Instruction, NativeFunction, NativeFunctionError, Operation, Span, Value, ValueError, ValueRef,
 };
 
-pub fn run_source(source: &str) -> Result<Option<ConcreteValue>, DustError> {
+pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
     let mut vm = Vm::new(&chunk, None);
 
     vm.run()
         .map_err(|error| DustError::Runtime { error, source })
-}
-
-pub fn run_chunk(chunk: &Chunk) -> Result<Option<ConcreteValue>, DustError> {
-    let mut vm = Vm::new(chunk, None);
-
-    vm.run()
-        .map_err(|error| DustError::Runtime { error, source: "" })
 }
 
 /// Dust virtual machine.
@@ -617,19 +610,18 @@ impl<'a> Vm<'a> {
     }
 
     fn read(&mut self) -> Result<Instruction, VmError> {
-        let (instruction, position) =
+        let (instruction, _type, position) =
             self.chunk
                 .get_instruction(self.ip)
-                .copied()
                 .map_err(|error| VmError::Chunk {
                     error,
                     position: self.current_position,
                 })?;
 
         self.ip += 1;
-        self.current_position = position;
+        self.current_position = *position;
 
-        Ok(instruction)
+        Ok(*instruction)
     }
 }
 

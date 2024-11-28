@@ -148,7 +148,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: Some(vec![(0, Type::Any)]),
-            return_type: Box::new(Type::String { length: None })
+            return_type: Box::new(Type::String)
         },
         logic::to_string
     ),
@@ -209,7 +209,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: Box::new(Type::String { length: None })
+            return_type: Box::new(Type::String)
         },
         logic::read_line
     ),
@@ -224,7 +224,7 @@ define_native_function! {
         "write",
         FunctionType {
             type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String { length: None })]),
+            value_parameters: Some(vec![(0, Type::String)]),
             return_type: Box::new(Type::None)
         },
         logic::write
@@ -236,7 +236,7 @@ define_native_function! {
         "write_line",
         FunctionType {
             type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String { length: None })]),
+            value_parameters: Some(vec![(0, Type::String)]),
             return_type: Box::new(Type::None)
         },
         logic::write_line
