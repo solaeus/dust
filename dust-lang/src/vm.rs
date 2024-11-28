@@ -7,8 +7,8 @@ use std::{
 
 use crate::{
     compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ChunkError,
-    ConcreteValue, Destination, DustError, Instruction, NativeFunction, NativeFunctionError,
-    Operation, Span, Value, ValueError, ValueRef,
+    ConcreteValue, Destination, DustError, Instruction, NativeFunctionError, Operation, Span,
+    Value, ValueError, ValueRef,
 };
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
@@ -106,7 +106,7 @@ impl<'a> Vm<'a> {
                     self.set_register(register_index, register)?;
 
                     if jump_next {
-                        self.ip += 1;
+                        self.jump(1, true);
                     }
                 }
                 Operation::LoadConstant => {
@@ -284,7 +284,7 @@ impl<'a> Vm<'a> {
                     };
 
                     if boolean == test_value {
-                        self.ip += 1;
+                        self.jump(1, true);
                     }
                 }
                 Operation::TestSet => {
@@ -306,7 +306,7 @@ impl<'a> Vm<'a> {
                     };
 
                     if boolean == test_value {
-                        self.ip += 1;
+                        self.jump(1, true);
                     } else {
                         let pointer = match argument {
                             Argument::Constant(constant_index) => Pointer::Constant(constant_index),
@@ -345,11 +345,15 @@ impl<'a> Vm<'a> {
                         };
 
                     if is_equal == value {
-                        self.ip += 1;
+                        self.jump(1, true);
                     } else {
                         let jump = self.read()?;
+                        let Jump {
+                            offset,
+                            is_positive,
+                        } = Jump::from(&jump);
 
-                        self.jump(jump);
+                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::Less => {
@@ -371,11 +375,15 @@ impl<'a> Vm<'a> {
                         };
 
                     if is_less_than == value {
-                        self.ip += 1;
+                        self.jump(1, true);
                     } else {
                         let jump = self.read()?;
+                        let Jump {
+                            offset,
+                            is_positive,
+                        } = Jump::from(&jump);
 
-                        self.jump(jump);
+                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::LessEqual => {
@@ -401,11 +409,15 @@ impl<'a> Vm<'a> {
                         };
 
                     if is_less_than_or_equal == value {
-                        self.ip += 1;
+                        self.jump(1, true);
                     } else {
                         let jump = self.read()?;
+                        let Jump {
+                            offset,
+                            is_positive,
+                        } = Jump::from(&jump);
 
-                        self.jump(jump);
+                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::Negate => {
@@ -438,7 +450,15 @@ impl<'a> Vm<'a> {
 
                     self.set_register(register_index, register)?;
                 }
-                Operation::Jump => self.jump(instruction),
+                Operation::Jump => {
+                    let jump = self.read()?;
+                    let Jump {
+                        offset,
+                        is_positive,
+                    } = Jump::from(&jump);
+
+                    self.jump(offset as usize, is_positive);
+                }
                 Operation::Call => {
                     let Call {
                         destination,
@@ -459,7 +479,7 @@ impl<'a> Vm<'a> {
                         });
                     };
                     let mut function_vm = Vm::new(chunk, Some(self));
-                    let first_argument_index = register_index - argument_count;
+                    let first_argument_index = register_index - argument_count - 1;
 
                     for (argument_index, argument_register_index) in
                         (first_argument_index..register_index).enumerate()
@@ -469,7 +489,9 @@ impl<'a> Vm<'a> {
                             Register::Pointer(Pointer::ParentStack(argument_register_index)),
                         )?;
 
-                        function_vm.local_definitions[argument_index] = Some(argument_index as u16);
+                        function_vm
+                            .local_definitions
+                            .push(Some(argument_index as u16));
                     }
 
                     let return_value = function_vm.run()?;
@@ -599,17 +621,25 @@ impl<'a> Vm<'a> {
     }
 
     /// DRY helper for handling JUMP instructions
-    fn jump(&mut self, jump: Instruction) {
-        let jump_distance = jump.b();
-        let is_positive = jump.c_as_boolean();
+    fn jump(&mut self, offset: usize, is_positive: bool) {
+        log::trace!(
+            "Jumping {}",
+            if is_positive {
+                format!("+{}", offset)
+            } else {
+                format!("-{}", offset + 1)
+            }
+        );
+
         let new_ip = if is_positive {
-            self.ip + jump_distance as usize
+            self.ip + offset
         } else {
-            self.ip - jump_distance as usize - 1
+            self.ip - offset - 1
         };
         self.ip = new_ip;
     }
 
+    /// DRY helper to get a register index from a Destination
     fn get_destination(&self, destination: Destination) -> Result<u16, VmError> {
         let index = match destination {
             Destination::Register(register_index) => register_index,
@@ -627,7 +657,7 @@ impl<'a> Vm<'a> {
         Ok(index)
     }
 
-    /// DRY helper to get a constant or register values
+    /// DRY helper to get a value from an Argument
     fn get_argument(&self, argument: Argument) -> Result<ValueRef, VmError> {
         let value_ref = match argument {
             Argument::Constant(constant_index) => {
@@ -638,15 +668,6 @@ impl<'a> Vm<'a> {
         };
 
         Ok(value_ref)
-    }
-
-    /// DRY helper to get two arguments for binary operations
-    fn get_arguments(&self, instruction: Instruction) -> Result<(ValueRef, ValueRef), VmError> {
-        let (left, right) = instruction.b_and_c_as_arguments();
-        let left_value = self.get_argument(left)?;
-        let right_value = self.get_argument(right)?;
-
-        Ok((left_value, right_value))
     }
 
     fn set_register(&mut self, to_register: u16, register: Register) -> Result<(), VmError> {
@@ -728,7 +749,7 @@ impl<'a> Vm<'a> {
                     position: self.current_position,
                 })?;
 
-        self.ip += 1;
+        self.jump(1, true);
         self.current_position = *position;
 
         Ok(*instruction)
