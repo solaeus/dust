@@ -496,7 +496,7 @@ impl Instruction {
             Operation::Close => {
                 let Close { from, to } = Close::from(self);
 
-                format!("R{from}..=R{to}")
+                format!("R{from}..R{to}")
             }
             Operation::LoadBoolean => {
                 let LoadBoolean {
@@ -529,7 +529,7 @@ impl Instruction {
                     destination,
                     start_register,
                 } = LoadList::from(self);
-                let end_register = destination - 1;
+                let end_register = destination.saturating_sub(1);
 
                 format!("R{destination} = [R{start_register}..=R{end_register}]",)
             }
