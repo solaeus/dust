@@ -20,9 +20,10 @@ fn function() {
             vec![
                 (
                     Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                    Type::Integer,
                     Span(30, 31)
                 ),
-                (Instruction::r#return(true), Span(35, 35)),
+                (Instruction::r#return(true), Type::None, Span(35, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
@@ -47,11 +48,31 @@ fn function_call() {
                 return_type: Box::new(Type::Integer)
             },
             vec![
-                (Instruction::load_constant(0, 0, false), Span(0, 36)),
-                (Instruction::load_constant(1, 1, false), Span(36, 37)),
-                (Instruction::load_constant(2, 2, false), Span(39, 40)),
-                (Instruction::call(3, Argument::Constant(0), 2), Span(35, 41)),
-                (Instruction::r#return(true), Span(41, 41)),
+                (
+                    Instruction::load_constant(0, 0, false),
+                    Type::Function(FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Box::new(Type::Integer),
+                    }),
+                    Span(0, 36)
+                ),
+                (
+                    Instruction::load_constant(1, 1, false),
+                    Type::Integer,
+                    Span(36, 37)
+                ),
+                (
+                    Instruction::load_constant(2, 2, false),
+                    Type::Integer,
+                    Span(39, 40)
+                ),
+                (
+                    Instruction::call(3, Argument::Constant(0), 2),
+                    Type::Integer,
+                    Span(35, 41)
+                ),
+                (Instruction::r#return(true), Type::None, Span(41, 41)),
             ],
             vec![
                 ConcreteValue::Function(Chunk::with_data(
@@ -64,9 +85,10 @@ fn function_call() {
                     vec![
                         (
                             Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Type::Integer,
                             Span(30, 31)
                         ),
-                        (Instruction::r#return(true), Span(35, 36)),
+                        (Instruction::r#return(true), Type::None, Span(35, 36)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
@@ -98,9 +120,21 @@ fn function_declaration() {
                 return_type: Box::new(Type::None)
             },
             vec![
-                (Instruction::load_constant(0, 0, false), Span(0, 40)),
-                (Instruction::define_local(0, 0, false), Span(3, 6)),
-                (Instruction::r#return(false), Span(40, 40))
+                (
+                    Instruction::load_constant(0, 0, false),
+                    Type::Function(FunctionType {
+                        type_parameters: None,
+                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Box::new(Type::Integer),
+                    }),
+                    Span(0, 40)
+                ),
+                (
+                    Instruction::define_local(0, 0, false),
+                    Type::None,
+                    Span(3, 6)
+                ),
+                (Instruction::r#return(false), Type::None, Span(40, 40))
             ],
             vec![
                 ConcreteValue::Function(Chunk::with_data(
@@ -113,9 +147,10 @@ fn function_declaration() {
                     vec![
                         (
                             Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Type::Integer,
                             Span(35, 36)
                         ),
-                        (Instruction::r#return(true), Span(40, 40)),
+                        (Instruction::r#return(true), Type::None, Span(40, 40)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![

@@ -14,20 +14,30 @@ fn r#while() {
                 return_type: Box::new(Type::Integer),
             },
             vec![
-                (Instruction::load_constant(0, 0, false), Span(12, 13)),
-                (Instruction::define_local(0, 0, true), Span(8, 9)),
+                (
+                    Instruction::load_constant(0, 0, false),
+                    Type::Integer,
+                    Span(12, 13)
+                ),
+                (
+                    Instruction::define_local(0, 0, true),
+                    Type::None,
+                    Span(8, 9)
+                ),
                 (
                     Instruction::less(true, Argument::Register(0), Argument::Constant(2)),
+                    Type::Integer,
                     Span(23, 24)
                 ),
-                (Instruction::jump(2, true), Span(41, 42)),
+                (Instruction::jump(2, true), Type::None, Span(41, 42)),
                 (
                     Instruction::add(0, Argument::Register(0), Argument::Constant(3)),
+                    Type::Integer,
                     Span(35, 36)
                 ),
-                (Instruction::jump(3, false), Span(41, 42)),
-                (Instruction::get_local(1, 0), Span(41, 42)),
-                (Instruction::r#return(true), Span(42, 42)),
+                (Instruction::jump(3, false), Type::None, Span(41, 42)),
+                (Instruction::get_local(1, 0), Type::Integer, Span(41, 42)),
+                (Instruction::r#return(true), Type::None, Span(42, 42)),
             ],
             vec![
                 ConcreteValue::Integer(0),

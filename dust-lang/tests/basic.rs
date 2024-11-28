@@ -14,8 +14,12 @@ fn constant() {
                 return_type: Box::new(Type::Integer)
             },
             vec![
-                (Instruction::load_constant(0, 0, false), Span(0, 2)),
-                (Instruction::r#return(true), Span(2, 2))
+                (
+                    Instruction::load_constant(0, 0, false),
+                    Type::Integer,
+                    Span(0, 2)
+                ),
+                (Instruction::r#return(true), Type::None, Span(2, 2))
             ],
             vec![ConcreteValue::Integer(42)],
             vec![]
@@ -38,7 +42,7 @@ fn empty() {
                 value_parameters: None,
                 return_type: Box::new(Type::None)
             },
-            vec![(Instruction::r#return(false), Span(0, 0))],
+            vec![(Instruction::r#return(false), Type::None, Span(0, 0))],
             vec![],
             vec![]
         ))
@@ -62,13 +66,15 @@ fn parentheses_precedence() {
             vec![
                 (
                     Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                    Type::Integer,
                     Span(3, 4)
                 ),
                 (
                     Instruction::multiply(1, Argument::Register(0), Argument::Constant(2)),
+                    Type::Integer,
                     Span(8, 9)
                 ),
-                (Instruction::r#return(true), Span(11, 11)),
+                (Instruction::r#return(true), Type::None, Span(11, 11)),
             ],
             vec![
                 ConcreteValue::Integer(1),

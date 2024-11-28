@@ -14,11 +14,23 @@ fn and() {
                 return_type: Box::new(Type::Boolean),
             },
             vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(Argument::Register(0), true), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
+                (
+                    Instruction::load_boolean(0, true, false),
+                    Type::Boolean,
+                    Span(0, 4)
+                ),
+                (
+                    Instruction::test(Argument::Register(0), true),
+                    Type::None,
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Type::None, Span(5, 7)),
+                (
+                    Instruction::load_boolean(1, false, false),
+                    Type::Boolean,
+                    Span(8, 13)
+                ),
+                (Instruction::r#return(true), Type::None, Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -42,11 +54,23 @@ fn or() {
                 return_type: Box::new(Type::Boolean),
             },
             vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(Argument::Register(0), false), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
+                (
+                    Instruction::load_boolean(0, true, false),
+                    Type::Boolean,
+                    Span(0, 4)
+                ),
+                (
+                    Instruction::test(Argument::Register(0), false),
+                    Type::None,
+                    Span(5, 7)
+                ),
+                (Instruction::jump(1, true), Type::None, Span(5, 7)),
+                (
+                    Instruction::load_boolean(1, false, false),
+                    Type::Boolean,
+                    Span(8, 13)
+                ),
+                (Instruction::r#return(true), Type::None, Span(13, 13)),
             ],
             vec![],
             vec![]
@@ -70,15 +94,35 @@ fn variable_and() {
                 return_type: Box::new(Type::Boolean),
             },
             vec![
-                (Instruction::load_boolean(0, true, false), Span(8, 12)),
-                (Instruction::define_local(0, 0, false), Span(4, 5)),
-                (Instruction::load_boolean(1, false, false), Span(22, 27)),
-                (Instruction::define_local(1, 1, false), Span(18, 19)),
-                (Instruction::get_local(2, 0), Span(29, 30)),
-                (Instruction::test(Argument::Register(2), true), Span(31, 33)),
-                (Instruction::jump(1, true), Span(31, 33)),
-                (Instruction::get_local(3, 1), Span(34, 35)),
-                (Instruction::r#return(true), Span(35, 35)),
+                (
+                    Instruction::load_boolean(0, true, false),
+                    Type::Boolean,
+                    Span(8, 12)
+                ),
+                (
+                    Instruction::define_local(0, 0, false),
+                    Type::None,
+                    Span(4, 5)
+                ),
+                (
+                    Instruction::load_boolean(1, false, false),
+                    Type::Boolean,
+                    Span(22, 27)
+                ),
+                (
+                    Instruction::define_local(1, 1, false),
+                    Type::None,
+                    Span(18, 19)
+                ),
+                (Instruction::get_local(2, 0), Type::Boolean, Span(29, 30)),
+                (
+                    Instruction::test(Argument::Register(2), true),
+                    Type::None,
+                    Span(31, 33)
+                ),
+                (Instruction::jump(1, true), Type::None, Span(31, 33)),
+                (Instruction::get_local(3, 1), Type::Boolean, Span(34, 35)),
+                (Instruction::r#return(true), Type::None, Span(35, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
