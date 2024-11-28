@@ -37,7 +37,7 @@ fn block_scope() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(17, 18)
                 ),
@@ -47,7 +47,7 @@ fn block_scope() {
                     Span(13, 14)
                 ),
                 (
-                    Instruction::load_constant(1, 2, false),
+                    Instruction::load_constant(Destination::Register(1), 2, false),
                     Type::Integer,
                     Span(50, 52)
                 ),
@@ -57,7 +57,7 @@ fn block_scope() {
                     Span(46, 47)
                 ),
                 (
-                    Instruction::load_constant(2, 4, false),
+                    Instruction::load_constant(Destination::Register(2), 4, false),
                     Type::Integer,
                     Span(92, 93)
                 ),
@@ -67,7 +67,7 @@ fn block_scope() {
                     Span(88, 89)
                 ),
                 (
-                    Instruction::load_constant(3, 6, false),
+                    Instruction::load_constant(Destination::Register(3), 6, false),
                     Type::Integer,
                     Span(129, 130)
                 ),
@@ -77,7 +77,7 @@ fn block_scope() {
                     Span(125, 126)
                 ),
                 (
-                    Instruction::load_constant(4, 4, false),
+                    Instruction::load_constant(Destination::Register(4), 4, false),
                     Type::Integer,
                     Span(158, 159)
                 ),
@@ -145,7 +145,7 @@ fn multiple_block_scopes() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(17, 18)
                 ),
@@ -155,7 +155,7 @@ fn multiple_block_scopes() {
                     Span(13, 14)
                 ),
                 (
-                    Instruction::load_constant(1, 2, false),
+                    Instruction::load_constant(Destination::Register(1), 2, false),
                     Type::Integer,
                     Span(50, 52)
                 ),
@@ -165,7 +165,7 @@ fn multiple_block_scopes() {
                     Span(46, 47)
                 ),
                 (
-                    Instruction::load_constant(2, 4, false),
+                    Instruction::load_constant(Destination::Register(2), 4, false),
                     Type::Integer,
                     Span(92, 93)
                 ),
@@ -174,20 +174,28 @@ fn multiple_block_scopes() {
                     Type::None,
                     Span(88, 89)
                 ),
-                (Instruction::get_local(3, 1), Type::Integer, Span(129, 130)),
+                (
+                    Instruction::get_local(Destination::Register(3), 1),
+                    Type::Integer,
+                    Span(129, 130)
+                ),
                 (
                     Instruction::define_local(3, 3, false),
                     Type::None,
                     Span(125, 126)
                 ),
-                (Instruction::get_local(4, 0), Type::Integer, Span(158, 159)),
+                (
+                    Instruction::get_local(Destination::Register(4), 0),
+                    Type::Integer,
+                    Span(158, 159)
+                ),
                 (
                     Instruction::define_local(4, 4, false),
                     Type::None,
                     Span(154, 155)
                 ),
                 (
-                    Instruction::load_constant(5, 2, false),
+                    Instruction::load_constant(Destination::Register(5), 2, false),
                     Type::Integer,
                     Span(191, 193)
                 ),
@@ -197,7 +205,7 @@ fn multiple_block_scopes() {
                     Span(187, 188)
                 ),
                 (
-                    Instruction::load_constant(6, 4, false),
+                    Instruction::load_constant(Destination::Register(6), 4, false),
                     Type::Integer,
                     Span(233, 234)
                 ),
@@ -206,13 +214,21 @@ fn multiple_block_scopes() {
                     Type::None,
                     Span(229, 230)
                 ),
-                (Instruction::get_local(7, 5), Type::Integer, Span(270, 271)),
+                (
+                    Instruction::get_local(Destination::Register(7), 5),
+                    Type::Integer,
+                    Span(270, 271)
+                ),
                 (
                     Instruction::define_local(7, 7, false),
                     Type::None,
                     Span(266, 267)
                 ),
-                (Instruction::get_local(8, 0), Type::Integer, Span(299, 300)),
+                (
+                    Instruction::get_local(Destination::Register(8), 0),
+                    Type::Integer,
+                    Span(299, 300)
+                ),
                 (
                     Instruction::define_local(8, 8, false),
                     Type::None,

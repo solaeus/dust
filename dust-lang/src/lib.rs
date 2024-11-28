@@ -19,7 +19,7 @@ pub use crate::chunk::{Chunk, ChunkError, Local};
 pub use crate::compiler::{compile, CompileError, Compiler};
 pub use crate::disassembler::Disassembler;
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Argument, Instruction};
+pub use crate::instruction::{Argument, Destination, Instruction};
 pub use crate::lexer::{lex, LexError, Lexer};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::operation::Operation;

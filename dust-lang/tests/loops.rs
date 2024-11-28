@@ -15,7 +15,7 @@ fn r#while() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 13)
                 ),
@@ -25,18 +25,26 @@ fn r#while() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::less(true, Argument::Register(0), Argument::Constant(2)),
-                    Type::Integer,
+                    Instruction::less(true, Argument::Local(0), Argument::Constant(2)),
+                    Type::None,
                     Span(23, 24)
                 ),
                 (Instruction::jump(2, true), Type::None, Span(41, 42)),
                 (
-                    Instruction::add(0, Argument::Register(0), Argument::Constant(3)),
+                    Instruction::add(
+                        Destination::Local(0),
+                        Argument::Local(0),
+                        Argument::Constant(3)
+                    ),
                     Type::Integer,
                     Span(35, 36)
                 ),
                 (Instruction::jump(3, false), Type::None, Span(41, 42)),
-                (Instruction::get_local(1, 0), Type::Integer, Span(41, 42)),
+                (
+                    Instruction::get_local(Destination::Register(1), 0),
+                    Type::Integer,
+                    Span(41, 42)
+                ),
                 (Instruction::r#return(true), Type::None, Span(42, 42)),
             ],
             vec![

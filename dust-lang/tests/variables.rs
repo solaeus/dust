@@ -15,7 +15,7 @@ fn define_local() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(8, 10)
                 ),
@@ -66,7 +66,7 @@ fn set_local() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 14)
                 ),
@@ -76,12 +76,16 @@ fn set_local() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::load_constant(1, 2, false),
+                    Instruction::load_constant(Destination::Register(1), 2, false),
                     Type::Integer,
                     Span(20, 22)
                 ),
                 (Instruction::set_local(1, 0), Type::None, Span(16, 17)),
-                (Instruction::get_local(2, 0), Type::Integer, Span(24, 25)),
+                (
+                    Instruction::get_local(Destination::Register(2), 0),
+                    Type::Integer,
+                    Span(24, 25)
+                ),
                 (Instruction::r#return(true), Type::None, Span(25, 25)),
             ],
             vec![

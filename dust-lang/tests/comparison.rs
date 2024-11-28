@@ -21,12 +21,12 @@ fn equal() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 4)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 4)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 4)
                 ),
@@ -61,12 +61,12 @@ fn greater() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 3)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 3)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 3)
                 ),
@@ -101,12 +101,12 @@ fn greater_than_or_equal() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 4)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 4)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 4)
                 ),
@@ -141,12 +141,12 @@ fn less_than() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 3)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 3)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 3)
                 ),
@@ -181,12 +181,12 @@ fn less_than_or_equal() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 4)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 4)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 4)
                 ),
@@ -221,12 +221,12 @@ fn not_equal() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(2, 4)),
                 (
-                    Instruction::load_boolean(0, true, true),
+                    Instruction::load_boolean(Destination::Register(0), true, true),
                     Type::Boolean,
                     Span(2, 4)
                 ),
                 (
-                    Instruction::load_boolean(0, false, false),
+                    Instruction::load_boolean(Destination::Register(0), false, false),
                     Type::Boolean,
                     Span(2, 4)
                 ),

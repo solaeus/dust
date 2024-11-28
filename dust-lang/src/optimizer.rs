@@ -1,6 +1,6 @@
 //! Tool used by the compiler to optimize a chunk's bytecode.
 
-use crate::{Chunk, Instruction, Operation, Span, Type};
+use crate::{instruction::SetLocal, Chunk, Instruction, Operation, Span, Type};
 
 /// An instruction optimizer that mutably borrows instructions from a chunk.
 #[derive(Debug)]
@@ -83,10 +83,12 @@ impl<'a> Optimizer<'a> {
         log::debug!("Condensing math and SetLocal to math instruction");
 
         let instructions = self.instructions_mut();
-        let set_local = instructions.pop().unwrap().0;
-        let set_local_register = set_local.a();
+        let set_local = SetLocal::from(&instructions.pop().unwrap().0);
         let math_instruction = instructions.last_mut().unwrap().0;
-        let math_instruction_new = *math_instruction.clone().set_a(set_local_register);
+        let math_instruction_new = *math_instruction
+            .clone()
+            .set_a(set_local.local_index)
+            .set_a_is_local(true);
 
         instructions.last_mut().unwrap().0 = math_instruction_new;
 

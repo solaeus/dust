@@ -15,7 +15,7 @@ fn negate() {
             },
             vec![
                 (
-                    Instruction::negate(0, Argument::Constant(0)),
+                    Instruction::negate(Destination::Register(0), Argument::Constant(0)),
                     Type::Integer,
                     Span(0, 1)
                 ),
@@ -44,12 +44,12 @@ fn not() {
             },
             vec![
                 (
-                    Instruction::load_boolean(0, true, false),
+                    Instruction::load_boolean(Destination::Register(0), true, false),
                     Type::Boolean,
                     Span(1, 5)
                 ),
                 (
-                    Instruction::not(1, Argument::Register(0)),
+                    Instruction::not(Destination::Register(1), Argument::Register(0)),
                     Type::Boolean,
                     Span(0, 1)
                 ),

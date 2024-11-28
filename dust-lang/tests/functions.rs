@@ -19,7 +19,11 @@ fn function() {
             },
             vec![
                 (
-                    Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                    Instruction::add(
+                        Destination::Register(2),
+                        Argument::Local(0),
+                        Argument::Local(1)
+                    ),
                     Type::Integer,
                     Span(30, 31)
                 ),
@@ -49,7 +53,7 @@ fn function_call() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Function(FunctionType {
                         type_parameters: None,
                         value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
@@ -58,17 +62,17 @@ fn function_call() {
                     Span(0, 36)
                 ),
                 (
-                    Instruction::load_constant(1, 1, false),
+                    Instruction::load_constant(Destination::Register(1), 1, false),
                     Type::Integer,
                     Span(36, 37)
                 ),
                 (
-                    Instruction::load_constant(2, 2, false),
+                    Instruction::load_constant(Destination::Register(2), 2, false),
                     Type::Integer,
                     Span(39, 40)
                 ),
                 (
-                    Instruction::call(3, Argument::Constant(0), 2),
+                    Instruction::call(Destination::Register(3), Argument::Constant(0), 2),
                     Type::Integer,
                     Span(35, 41)
                 ),
@@ -84,7 +88,11 @@ fn function_call() {
                     },
                     vec![
                         (
-                            Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Instruction::add(
+                                Destination::Register(2),
+                                Argument::Local(0),
+                                Argument::Local(1)
+                            ),
                             Type::Integer,
                             Span(30, 31)
                         ),
@@ -121,7 +129,7 @@ fn function_declaration() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Function(FunctionType {
                         type_parameters: None,
                         value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
@@ -146,7 +154,11 @@ fn function_declaration() {
                     },
                     vec![
                         (
-                            Instruction::add(2, Argument::Local(0), Argument::Local(1)),
+                            Instruction::add(
+                                Destination::Register(2),
+                                Argument::Local(0),
+                                Argument::Local(1)
+                            ),
                             Type::Integer,
                             Span(35, 36)
                         ),

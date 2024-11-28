@@ -15,17 +15,17 @@ fn panic() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::String,
                     Span(6, 22)
                 ),
                 (
-                    Instruction::load_constant(1, 1, false),
+                    Instruction::load_constant(Destination::Register(1), 1, false),
                     Type::Integer,
                     Span(24, 26)
                 ),
                 (
-                    Instruction::call_native(2, NativeFunction::Panic, 2),
+                    Instruction::call_native(Destination::Register(2), NativeFunction::Panic, 2),
                     Type::None,
                     Span(0, 27)
                 ),
@@ -66,12 +66,12 @@ fn to_string() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(10, 12)
                 ),
                 (
-                    Instruction::call_native(1, NativeFunction::ToString, 1),
+                    Instruction::call_native(Destination::Register(1), NativeFunction::ToString, 1),
                     Type::String,
                     Span(0, 13)
                 ),

@@ -63,7 +63,7 @@ impl<'a> Vm<'a> {
                 self.ip - 1,
                 self.current_position,
                 instruction.operation(),
-                instruction.disassembly_info(self.chunk)
+                instruction.disassembly_info()
             );
 
             match instruction.operation() {

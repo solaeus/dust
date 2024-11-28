@@ -40,7 +40,7 @@ mod subtract;
 mod test;
 mod test_set;
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 pub use add::Add;
 pub use call::Call;
@@ -70,8 +70,41 @@ pub use test_set::TestSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, NativeFunction, Operation};
+use crate::{NativeFunction, Operation};
 
+#[derive(Debug, Clone, Copy)]
+pub enum Destination {
+    Local(u16),
+    Register(u16),
+}
+
+impl Destination {
+    pub fn index(&self) -> u16 {
+        match self {
+            Destination::Local(index) => *index,
+            Destination::Register(index) => *index,
+        }
+    }
+
+    pub fn is_local(&self) -> bool {
+        matches!(self, Destination::Local(_))
+    }
+
+    pub fn is_register(&self) -> bool {
+        matches!(self, Destination::Register(_))
+    }
+}
+
+impl Display for Destination {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Destination::Local(index) => write!(f, "L{index}"),
+            Destination::Register(index) => write!(f, "R{index}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Argument {
     Constant(u16),
     Local(u16),
@@ -113,7 +146,7 @@ impl Display for Argument {
 /// An operation and its arguments for the Dust virtual machine.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Instruction(u64);
 
 impl Instruction {
@@ -129,7 +162,7 @@ impl Instruction {
         Instruction::from(Close { from, to })
     }
 
-    pub fn load_boolean(destination: u16, value: bool, jump_next: bool) -> Instruction {
+    pub fn load_boolean(destination: Destination, value: bool, jump_next: bool) -> Instruction {
         Instruction::from(LoadBoolean {
             destination,
             value,
@@ -137,7 +170,11 @@ impl Instruction {
         })
     }
 
-    pub fn load_constant(destination: u16, constant_index: u16, jump_next: bool) -> Instruction {
+    pub fn load_constant(
+        destination: Destination,
+        constant_index: u16,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadConstant {
             destination,
             constant_index,
@@ -145,14 +182,14 @@ impl Instruction {
         })
     }
 
-    pub fn load_list(destination: u16, start_register: u16) -> Instruction {
+    pub fn load_list(destination: Destination, start_register: u16) -> Instruction {
         Instruction::from(LoadList {
             destination,
             start_register,
         })
     }
 
-    pub fn load_self(destination: u16) -> Instruction {
+    pub fn load_self(destination: Destination) -> Instruction {
         Instruction::from(LoadSelf { destination })
     }
 
@@ -164,7 +201,7 @@ impl Instruction {
         })
     }
 
-    pub fn get_local(destination: u16, local_index: u16) -> Instruction {
+    pub fn get_local(destination: Destination, local_index: u16) -> Instruction {
         Instruction::from(GetLocal {
             destination,
             local_index,
@@ -178,7 +215,7 @@ impl Instruction {
         })
     }
 
-    pub fn add(destination: u16, left: Argument, right: Argument) -> Instruction {
+    pub fn add(destination: Destination, left: Argument, right: Argument) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
@@ -186,7 +223,7 @@ impl Instruction {
         })
     }
 
-    pub fn subtract(destination: u16, left: Argument, right: Argument) -> Instruction {
+    pub fn subtract(destination: Destination, left: Argument, right: Argument) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
@@ -194,7 +231,7 @@ impl Instruction {
         })
     }
 
-    pub fn multiply(destination: u16, left: Argument, right: Argument) -> Instruction {
+    pub fn multiply(destination: Destination, left: Argument, right: Argument) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
@@ -202,7 +239,7 @@ impl Instruction {
         })
     }
 
-    pub fn divide(destination: u16, left: Argument, right: Argument) -> Instruction {
+    pub fn divide(destination: Destination, left: Argument, right: Argument) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
@@ -210,7 +247,7 @@ impl Instruction {
         })
     }
 
-    pub fn modulo(destination: u16, left: Argument, right: Argument) -> Instruction {
+    pub fn modulo(destination: Destination, left: Argument, right: Argument) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
@@ -222,7 +259,7 @@ impl Instruction {
         Instruction::from(Test { argument, value })
     }
 
-    pub fn test_set(destination: u16, argument: Argument, value: bool) -> Instruction {
+    pub fn test_set(destination: Destination, argument: Argument, value: bool) -> Instruction {
         Instruction::from(TestSet {
             destination,
             argument,
@@ -242,14 +279,14 @@ impl Instruction {
         Instruction::from(LessEqual { value, left, right })
     }
 
-    pub fn negate(destination: u16, argument: Argument) -> Instruction {
+    pub fn negate(destination: Destination, argument: Argument) -> Instruction {
         Instruction::from(Negate {
             destination,
             argument,
         })
     }
 
-    pub fn not(destination: u16, argument: Argument) -> Instruction {
+    pub fn not(destination: Destination, argument: Argument) -> Instruction {
         Instruction::from(Not {
             destination,
             argument,
@@ -263,7 +300,7 @@ impl Instruction {
         })
     }
 
-    pub fn call(destination: u16, function: Argument, argument_count: u16) -> Instruction {
+    pub fn call(destination: Destination, function: Argument, argument_count: u16) -> Instruction {
         Instruction::from(Call {
             destination,
             function,
@@ -272,7 +309,7 @@ impl Instruction {
     }
 
     pub fn call_native(
-        destination: u16,
+        destination: Destination,
         function: NativeFunction,
         argument_count: u16,
     ) -> Instruction {
@@ -486,7 +523,7 @@ impl Instruction {
         }
     }
 
-    pub fn disassembly_info(&self, chunk: &Chunk) -> String {
+    pub fn disassembly_info(&self) -> String {
         match self.operation() {
             Operation::Move => {
                 let Move { from, to } = Move::from(self);
@@ -506,9 +543,9 @@ impl Instruction {
                 } = LoadBoolean::from(self);
 
                 if jump_next {
-                    format!("R{destination} = {value} && JUMP +1")
+                    format!("{destination} = {value} && JUMP +1")
                 } else {
-                    format!("R{destination} = {value}")
+                    format!("{destination} = {value}")
                 }
             }
             Operation::LoadConstant => {
@@ -519,9 +556,9 @@ impl Instruction {
                 } = LoadConstant::from(self);
 
                 if jump_next {
-                    format!("R{destination} = C{constant_index} JUMP +1")
+                    format!("{destination} = C{constant_index} JUMP +1")
                 } else {
-                    format!("R{destination} = C{constant_index}")
+                    format!("{destination} = C{constant_index}")
                 }
             }
             Operation::LoadList => {
@@ -529,18 +566,14 @@ impl Instruction {
                     destination,
                     start_register,
                 } = LoadList::from(self);
-                let end_register = destination.saturating_sub(1);
+                let end_register = destination.index().saturating_sub(1);
 
-                format!("R{destination} = [R{start_register}..=R{end_register}]",)
+                format!("{destination} = [R{start_register}..=R{end_register}]",)
             }
             Operation::LoadSelf => {
                 let LoadSelf { destination } = LoadSelf::from(self);
-                let name = chunk
-                    .name()
-                    .map(|idenifier| idenifier.as_str())
-                    .unwrap_or("self");
 
-                format!("R{destination} = {name}")
+                format!("{destination} = self")
             }
             Operation::DefineLocal => {
                 let DefineLocal {
@@ -561,7 +594,7 @@ impl Instruction {
                     local_index,
                 } = GetLocal::from(self);
 
-                format!("R{destination} = L{local_index}")
+                format!("{destination} = L{local_index}")
             }
             Operation::SetLocal => {
                 let SetLocal {
@@ -578,7 +611,7 @@ impl Instruction {
                     right,
                 } = Add::from(self);
 
-                format!("R{destination} = {left} + {right}")
+                format!("{destination} = {left} + {right}")
             }
             Operation::Subtract => {
                 let Subtract {
@@ -587,7 +620,7 @@ impl Instruction {
                     right,
                 } = Subtract::from(self);
 
-                format!("R{destination} = {left} - {right}")
+                format!("{destination} = {left} - {right}")
             }
             Operation::Multiply => {
                 let Multiply {
@@ -596,7 +629,7 @@ impl Instruction {
                     right,
                 } = Multiply::from(self);
 
-                format!("R{destination} = {left} * {right}")
+                format!("{destination} = {left} * {right}")
             }
             Operation::Divide => {
                 let Divide {
@@ -605,7 +638,7 @@ impl Instruction {
                     right,
                 } = Divide::from(self);
 
-                format!("R{destination} = {left} / {right}")
+                format!("{destination} = {left} / {right}")
             }
             Operation::Modulo => {
                 let Modulo {
@@ -614,7 +647,7 @@ impl Instruction {
                     right,
                 } = Modulo::from(self);
 
-                format!("R{destination} = {left} % {right}")
+                format!("{destination} = {left} % {right}")
             }
             Operation::Test => {
                 let Test { argument, value } = Test::from(self);
@@ -630,7 +663,7 @@ impl Instruction {
                 } = TestSet::from(self);
                 let bang = if value { "" } else { "!" };
 
-                format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
+                format!("if {bang}{argument} {{ JUMP +1 }} else {{ {destination} = {argument} }}")
             }
             Operation::Equal => {
                 let Equal { value, left, right } = Equal::from(self);
@@ -639,7 +672,7 @@ impl Instruction {
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::Less => {
-                let Equal { value, left, right } = Equal::from(self);
+                let Less { value, left, right } = Less::from(self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
@@ -656,7 +689,7 @@ impl Instruction {
                     argument,
                 } = Negate::from(self);
 
-                format!("R{destination} = -{argument}")
+                format!("{destination} = -{argument}")
             }
             Operation::Not => {
                 let Not {
@@ -664,7 +697,7 @@ impl Instruction {
                     argument,
                 } = Not::from(self);
 
-                format!("R{destination} = !{argument}")
+                format!("{destination} = !{argument}")
             }
             Operation::Jump => {
                 let Jump {
@@ -684,10 +717,10 @@ impl Instruction {
                     function,
                     argument_count,
                 } = Call::from(self);
-                let first_argument = destination.saturating_sub(argument_count);
-                let last_argument = destination - 1;
+                let first_argument = destination.index().saturating_sub(argument_count);
+                let last_argument = destination.index() - 1;
 
-                format!("R{destination} = {function}(R{first_argument}..=R{last_argument})")
+                format!("{destination} = {function}(R{first_argument}..=R{last_argument})")
             }
             Operation::CallNative => {
                 let CallNative {
@@ -695,10 +728,10 @@ impl Instruction {
                     function,
                     argument_count,
                 } = CallNative::from(self);
-                let first_argument = destination.saturating_sub(argument_count);
-                let last_argument = destination - 1;
+                let first_argument = destination.index().saturating_sub(argument_count);
+                let last_argument = destination.index() - 1;
 
-                format!("R{destination} = {function}(R{first_argument}..=R{last_argument})")
+                format!("{destination} = {function}(R{first_argument}..=R{last_argument})")
             }
             Operation::Return => {
                 let Return {
@@ -718,5 +751,11 @@ impl Instruction {
 impl From<&Instruction> for u64 {
     fn from(instruction: &Instruction) -> Self {
         instruction.0
+    }
+}
+
+impl Debug for Instruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.operation(), self.disassembly_info())
     }
 }

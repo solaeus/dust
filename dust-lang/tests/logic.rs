@@ -15,7 +15,7 @@ fn and() {
             },
             vec![
                 (
-                    Instruction::load_boolean(0, true, false),
+                    Instruction::load_boolean(Destination::Register(0), true, false),
                     Type::Boolean,
                     Span(0, 4)
                 ),
@@ -26,7 +26,7 @@ fn and() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(5, 7)),
                 (
-                    Instruction::load_boolean(1, false, false),
+                    Instruction::load_boolean(Destination::Register(1), false, false),
                     Type::Boolean,
                     Span(8, 13)
                 ),
@@ -55,7 +55,7 @@ fn or() {
             },
             vec![
                 (
-                    Instruction::load_boolean(0, true, false),
+                    Instruction::load_boolean(Destination::Register(0), true, false),
                     Type::Boolean,
                     Span(0, 4)
                 ),
@@ -66,7 +66,7 @@ fn or() {
                 ),
                 (Instruction::jump(1, true), Type::None, Span(5, 7)),
                 (
-                    Instruction::load_boolean(1, false, false),
+                    Instruction::load_boolean(Destination::Register(1), false, false),
                     Type::Boolean,
                     Span(8, 13)
                 ),
@@ -95,7 +95,7 @@ fn variable_and() {
             },
             vec![
                 (
-                    Instruction::load_boolean(0, true, false),
+                    Instruction::load_boolean(Destination::Register(0), true, false),
                     Type::Boolean,
                     Span(8, 12)
                 ),
@@ -105,7 +105,7 @@ fn variable_and() {
                     Span(4, 5)
                 ),
                 (
-                    Instruction::load_boolean(1, false, false),
+                    Instruction::load_boolean(Destination::Register(1), false, false),
                     Type::Boolean,
                     Span(22, 27)
                 ),
@@ -114,14 +114,22 @@ fn variable_and() {
                     Type::None,
                     Span(18, 19)
                 ),
-                (Instruction::get_local(2, 0), Type::Boolean, Span(29, 30)),
                 (
-                    Instruction::test(Argument::Register(2), true),
+                    Instruction::get_local(Destination::Register(2), 0),
+                    Type::Boolean,
+                    Span(29, 30)
+                ),
+                (
+                    Instruction::test(Argument::Local(0), true),
                     Type::None,
                     Span(31, 33)
                 ),
                 (Instruction::jump(1, true), Type::None, Span(31, 33)),
-                (Instruction::get_local(3, 1), Type::Boolean, Span(34, 35)),
+                (
+                    Instruction::get_local(Destination::Register(3), 1),
+                    Type::Boolean,
+                    Span(34, 35)
+                ),
                 (Instruction::r#return(true), Type::None, Span(35, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],

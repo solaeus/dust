@@ -15,7 +15,11 @@ fn add() {
             },
             vec![
                 (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
                     Type::Integer,
                     Span(2, 3)
                 ),
@@ -44,7 +48,7 @@ fn add_assign() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 13)
                 ),
@@ -54,11 +58,19 @@ fn add_assign() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::add(0, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Register(0),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(17, 19)
                 ),
-                (Instruction::get_local(1, 0), Type::Integer, Span(23, 24)),
+                (
+                    Instruction::get_local(Destination::Register(1), 0),
+                    Type::Integer,
+                    Span(23, 24)
+                ),
                 (Instruction::r#return(true), Type::None, Span(24, 24))
             ],
             vec![
@@ -120,7 +132,11 @@ fn divide() {
             },
             vec![
                 (
-                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::divide(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(0)
+                    ),
                     Type::Integer,
                     Span(2, 3)
                 ),
@@ -149,7 +165,7 @@ fn divide_assign() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 13)
                 ),
@@ -159,11 +175,19 @@ fn divide_assign() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::divide(0, Argument::Register(0), Argument::Constant(0)),
+                    Instruction::divide(
+                        Destination::Register(0),
+                        Argument::Register(0),
+                        Argument::Constant(0)
+                    ),
                     Type::Integer,
                     Span(17, 19)
                 ),
-                (Instruction::get_local(1, 0), Type::Integer, Span(23, 24)),
+                (
+                    Instruction::get_local(Destination::Register(1), 0),
+                    Type::Integer,
+                    Span(23, 24)
+                ),
                 (Instruction::r#return(true), Type::None, Span(24, 24))
             ],
             vec![ConcreteValue::Integer(2), ConcreteValue::string("a")],
@@ -205,22 +229,38 @@ fn math_operator_precedence() {
             },
             vec![
                 (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
                     Type::Integer,
                     Span(2, 3)
                 ),
                 (
-                    Instruction::multiply(1, Argument::Constant(2), Argument::Constant(3)),
+                    Instruction::multiply(
+                        Destination::Register(1),
+                        Argument::Constant(2),
+                        Argument::Constant(3)
+                    ),
                     Type::Integer,
                     Span(10, 11)
                 ),
                 (
-                    Instruction::divide(2, Argument::Register(1), Argument::Constant(4)),
+                    Instruction::divide(
+                        Destination::Register(2),
+                        Argument::Register(1),
+                        Argument::Constant(4)
+                    ),
                     Type::Integer,
                     Span(14, 15)
                 ),
                 (
-                    Instruction::subtract(3, Argument::Register(0), Argument::Register(2)),
+                    Instruction::subtract(
+                        Destination::Register(3),
+                        Argument::Register(0),
+                        Argument::Register(2)
+                    ),
                     Type::Integer,
                     Span(6, 7)
                 ),
@@ -255,7 +295,11 @@ fn multiply() {
             },
             vec![
                 (
-                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::multiply(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
                     Type::Integer,
                     Span(2, 3)
                 ),
@@ -284,7 +328,7 @@ fn multiply_assign() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 13)
                 ),
@@ -294,11 +338,19 @@ fn multiply_assign() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::multiply(0, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::multiply(
+                        Destination::Register(0),
+                        Argument::Register(0),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(17, 19)
                 ),
-                (Instruction::get_local(1, 0), Type::Integer, Span(22, 23)),
+                (
+                    Instruction::get_local(Destination::Register(1), 0),
+                    Type::Integer,
+                    Span(22, 23)
+                ),
                 (Instruction::r#return(true), Type::None, Span(23, 23))
             ],
             vec![
@@ -344,7 +396,11 @@ fn subtract() {
             },
             vec![
                 (
-                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::subtract(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
                     Type::Integer,
                     Span(2, 3)
                 ),
@@ -373,7 +429,7 @@ fn subtract_assign() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(12, 14)
                 ),
@@ -383,11 +439,19 @@ fn subtract_assign() {
                     Span(8, 9)
                 ),
                 (
-                    Instruction::subtract(0, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::subtract(
+                        Destination::Register(0),
+                        Argument::Register(0),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(18, 20)
                 ),
-                (Instruction::get_local(1, 0), Type::Integer, Span(24, 25)),
+                (
+                    Instruction::get_local(Destination::Register(1), 0),
+                    Type::Integer,
+                    Span(24, 25)
+                ),
                 (Instruction::r#return(true), Type::None, Span(25, 25)),
             ],
             vec![

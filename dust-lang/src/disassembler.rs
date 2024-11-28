@@ -64,8 +64,8 @@ const CONSTANT_HEADER: [&str; 4] = [
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i  SCOPE MUTABLE       TYPE          IDENTIFIER   ",
-    "--- ----- ------- ---------------- ----------------",
+    " i   SCOPE  MUTABLE       TYPE          IDENTIFIER   ",
+    "--- ------- ------- ---------------- ----------------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -260,7 +260,7 @@ impl<'a> Disassembler<'a> {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let r#type = r#type.to_string();
-            let info = instruction.disassembly_info(self.chunk);
+            let info = instruction.disassembly_info();
             let instruction_display =
                 format!("{index:^3} {position:^10} {operation:13} {type:^16} {info:^34}");
 
@@ -291,7 +291,7 @@ impl<'a> Disassembler<'a> {
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
             let local_display = format!(
-                "{index:^3} {scope:5} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
+                "{index:^3} {scope:7} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
             );
 
             self.push_details(&local_display);

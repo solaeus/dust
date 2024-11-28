@@ -15,7 +15,7 @@ fn empty_list() {
             },
             vec![
                 (
-                    Instruction::load_list(0, 0),
+                    Instruction::load_list(Destination::Register(0), 0),
                     Type::List(Box::new(Type::Any)),
                     Span(0, 2)
                 ),
@@ -44,22 +44,22 @@ fn list() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(1, 2)
                 ),
                 (
-                    Instruction::load_constant(1, 1, false),
+                    Instruction::load_constant(Destination::Register(1), 1, false),
                     Type::Integer,
                     Span(4, 5)
                 ),
                 (
-                    Instruction::load_constant(2, 2, false),
+                    Instruction::load_constant(Destination::Register(2), 2, false),
                     Type::Integer,
                     Span(7, 8)
                 ),
                 (
-                    Instruction::load_list(3, 0),
+                    Instruction::load_list(Destination::Register(3), 0),
                     Type::List(Box::new(Type::Integer)),
                     Span(0, 9)
                 ),
@@ -99,28 +99,40 @@ fn list_with_complex_expression() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(1, 2)
                 ),
                 (
-                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
+                    Instruction::add(
+                        Destination::Register(1),
+                        Argument::Constant(1),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(6, 7)
                 ),
                 (
-                    Instruction::multiply(2, Argument::Constant(3), Argument::Constant(4)),
+                    Instruction::multiply(
+                        Destination::Register(2),
+                        Argument::Constant(3),
+                        Argument::Constant(4)
+                    ),
                     Type::Integer,
                     Span(14, 15)
                 ),
                 (
-                    Instruction::subtract(3, Argument::Register(1), Argument::Register(2)),
+                    Instruction::subtract(
+                        Destination::Register(3),
+                        Argument::Register(1),
+                        Argument::Register(2)
+                    ),
                     Type::Integer,
                     Span(10, 11)
                 ),
                 (Instruction::close(1, 3), Type::None, Span(17, 18)),
                 (
-                    Instruction::load_list(4, 0),
+                    Instruction::load_list(Destination::Register(4), 0),
                     Type::List(Box::new(Type::Integer)),
                     Span(0, 18)
                 ),
@@ -161,22 +173,26 @@ fn list_with_simple_expression() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(1, 2)
                 ),
                 (
-                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
+                    Instruction::add(
+                        Destination::Register(1),
+                        Argument::Constant(1),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(6, 7)
                 ),
                 (
-                    Instruction::load_constant(2, 3, false),
+                    Instruction::load_constant(Destination::Register(2), 3, false),
                     Type::Integer,
                     Span(11, 12)
                 ),
                 (
-                    Instruction::load_list(3, 0),
+                    Instruction::load_list(Destination::Register(3), 0),
                     Type::List(Box::new(Type::Integer)),
                     Span(0, 13)
                 ),

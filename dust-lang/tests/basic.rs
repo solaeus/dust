@@ -15,7 +15,7 @@ fn constant() {
             },
             vec![
                 (
-                    Instruction::load_constant(0, 0, false),
+                    Instruction::load_constant(Destination::Register(0), 0, false),
                     Type::Integer,
                     Span(0, 2)
                 ),
@@ -65,12 +65,20 @@ fn parentheses_precedence() {
             },
             vec![
                 (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
                     Type::Integer,
                     Span(3, 4)
                 ),
                 (
-                    Instruction::multiply(1, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::multiply(
+                        Destination::Register(1),
+                        Argument::Register(0),
+                        Argument::Constant(2)
+                    ),
                     Type::Integer,
                     Span(8, 9)
                 ),

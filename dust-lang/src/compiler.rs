@@ -14,14 +14,13 @@ use colored::Colorize;
 
 use crate::{
     instruction::{
-        Add, Call, CallNative, Close, DefineLocal, Divide, Equal, GetLocal, Jump, Less, LessEqual,
-        LoadBoolean, LoadConstant, LoadList, LoadSelf, Modulo, Move, Multiply, Negate, Not, Return,
-        SetLocal, Subtract, Test,
+        Call, CallNative, Close, DefineLocal, GetLocal, Jump, LoadBoolean, LoadConstant, LoadList,
+        LoadSelf, Move, Negate, Not, Return, SetLocal, Test,
     },
     value::ConcreteValue,
-    AnnotatedError, Argument, Chunk, ChunkError, DustError, FunctionType, Instruction, LexError,
-    Lexer, Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind, TokenOwned,
-    Type, TypeConflict,
+    AnnotatedError, Argument, Chunk, ChunkError, Destination, DustError, FunctionType, Instruction,
+    LexError, Lexer, Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind,
+    TokenOwned, Type, TypeConflict,
 };
 
 /// Compiles the input and returns a chunk.
@@ -118,6 +117,8 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(instruction, _, _)| {
                 if instruction.yields_value() {
+                    println!("{:?}", instruction);
+
                     Some(instruction.a() + 1)
                 } else {
                     None
@@ -364,7 +365,7 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         let r#type = constant.r#type();
         let constant_index = self.chunk.push_or_get_constant(constant);
-        let destination = self.next_register();
+        let destination = Destination::Register(self.next_register());
         let instruction = Instruction::from(LoadConstant {
             destination,
             constant_index,
@@ -383,7 +384,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let boolean = text.parse::<bool>().unwrap();
-            let destination = self.next_register();
+            let destination = Destination::Register(self.next_register());
             let instruction = Instruction::from(LoadBoolean {
                 destination,
                 value: boolean,
@@ -542,7 +543,7 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        let destination = self.next_register();
+        let destination = Destination::Register(self.next_register());
         let instruction = match operator.kind() {
             TokenKind::Bang => Instruction::from(Not {
                 destination,
@@ -576,10 +577,7 @@ impl<'src> Compiler<'src> {
                 position: self.previous_position,
             }
         })?;
-        let push_back = !matches!(
-            instruction.operation(),
-            Operation::LoadConstant | Operation::GetLocal,
-        );
+        let push_back = matches!(argument, Argument::Register(_));
 
         Ok((argument, push_back))
     }
@@ -636,11 +634,7 @@ impl<'src> Compiler<'src> {
                 .push((right_instruction, right_type, right_position));
         }
 
-        let destination = if is_assignment {
-            left.index()
-        } else {
-            self.next_register()
-        };
+        let destination = Destination::Register(self.next_register());
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
             Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
@@ -688,15 +682,16 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 }
             })?;
-        let left = left_instruction.destination_as_argument().ok_or_else(|| {
-            CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: left_position,
-            }
-        })?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
+
+        if push_back_left {
+            self.chunk
+                .instructions_mut()
+                .push((left_instruction, left_type, left_position));
+        }
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -708,43 +703,21 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 }
             })?;
-        let right = right_instruction.destination_as_argument().ok_or_else(|| {
-            CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: right_position,
-            }
-        })?;
+        let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+
+        if push_back_right {
+            self.chunk
+                .instructions_mut()
+                .push((right_instruction, right_type, right_position));
+        }
+
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::from(Equal {
-                value: true,
-                left,
-                right,
-            }),
-            Token::BangEqual => Instruction::from(Equal {
-                value: false,
-                left,
-                right,
-            }),
-            Token::Less => Instruction::from(Less {
-                value: true,
-                left,
-                right,
-            }),
-            Token::LessEqual => Instruction::from(LessEqual {
-                value: true,
-                left,
-                right,
-            }),
-            Token::Greater => Instruction::from(LessEqual {
-                value: false,
-                left,
-                right,
-            }),
-            Token::GreaterEqual => Instruction::from(Less {
-                value: false,
-                left,
-                right,
-            }),
+            Token::DoubleEqual => Instruction::equal(true, left, right),
+            Token::BangEqual => Instruction::equal(false, left, right),
+            Token::Less => Instruction::less(true, left, right),
+            Token::LessEqual => Instruction::less_equal(true, left, right),
+            Token::Greater => Instruction::less_equal(false, left, right),
+            Token::GreaterEqual => Instruction::less(false, left, right),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -760,19 +733,18 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-
-        let register = self.next_register();
+        let destination = Destination::Register(self.next_register());
         let jump = Instruction::from(Jump {
             offset: 1,
             is_positive: true,
         });
         let load_true = Instruction::from(LoadBoolean {
-            destination: register,
+            destination,
             value: true,
             jump_next: true,
         });
         let load_false = Instruction::from(LoadBoolean {
-            destination: register,
+            destination,
             value: false,
             jump_next: false,
         });
@@ -851,7 +823,7 @@ impl<'src> Compiler<'src> {
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_native_call(native_function);
         } else if Some(identifier) == self.chunk.name().map(|string| string.as_str()) {
-            let destination = self.next_register();
+            let destination = Destination::Register(self.next_register());
             let load_self = Instruction::from(LoadSelf { destination });
 
             self.emit_instruction(load_self, Type::SelfChunk, start_position);
@@ -901,7 +873,7 @@ impl<'src> Compiler<'src> {
             return Ok(());
         }
 
-        let destination = self.next_register();
+        let destination = Destination::Register(self.next_register());
         let get_local = Instruction::from(GetLocal {
             destination,
             local_index,
@@ -980,7 +952,7 @@ impl<'src> Compiler<'src> {
             self.allow(Token::Comma)?;
         }
 
-        let destination = self.next_register();
+        let destination = Destination::Register(self.next_register());
         let end = self.current_position.1;
         let load_list = Instruction::from(LoadList {
             destination,
@@ -1206,12 +1178,18 @@ impl<'src> Compiler<'src> {
         let argument_count = destination - start_register;
         let return_type = *function.r#type().return_type;
         let call_native = Instruction::from(CallNative {
-            destination,
+            destination: Destination::Register(destination),
             function,
             argument_count,
         });
 
         self.emit_instruction(call_native, return_type, Span(start, end));
+
+        Ok(())
+    }
+
+    fn parse_semicolon(&mut self) -> Result<(), CompileError> {
+        self.advance()?;
 
         Ok(())
     }
@@ -1438,7 +1416,7 @@ impl<'src> Compiler<'src> {
         let function = ConcreteValue::Function(function_compiler.finish());
         let constant_index = self.chunk.push_or_get_constant(function);
         let function_end = self.current_position.1;
-        let destination = self.next_register();
+        let register = self.next_register();
 
         self.lexer.skip_to(function_end);
 
@@ -1450,13 +1428,13 @@ impl<'src> Compiler<'src> {
                 self.current_scope,
             );
             let load_constant = Instruction::from(LoadConstant {
-                destination,
+                destination: Destination::Register(register),
                 constant_index,
                 jump_next: false,
             });
             let define_local = Instruction::from(DefineLocal {
                 local_index,
-                register: destination,
+                register,
                 is_mutable: false,
             });
 
@@ -1468,7 +1446,7 @@ impl<'src> Compiler<'src> {
             self.emit_instruction(define_local, Type::None, position);
         } else {
             let load_constant = Instruction::from(LoadConstant {
-                destination,
+                destination: Destination::Register(register),
                 constant_index,
                 jump_next: false,
             });
@@ -1542,10 +1520,10 @@ impl<'src> Compiler<'src> {
         }
 
         let end = self.current_position.1;
-        let destination = self.next_register();
+        let register = self.next_register();
         let argument_count = self.next_register() - function.index() - 1;
         let call = Instruction::from(Call {
-            destination,
+            destination: Destination::Register(register),
             function,
             argument_count,
         });
@@ -1875,7 +1853,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(Compiler::parse_semicolon),
                 infix: None,
                 precedence: Precedence::None,
             },
