@@ -17,10 +17,11 @@ use crate::{
         Call, CallNative, Close, DefineLocal, GetLocal, Jump, LoadBoolean, LoadConstant, LoadList,
         LoadSelf, Move, Negate, Not, Return, SetLocal, Test,
     },
+    optimize_control_flow, optimize_set_local,
     value::ConcreteValue,
     AnnotatedError, Argument, Chunk, ChunkError, Destination, DustError, FunctionType, Instruction,
-    LexError, Lexer, Local, NativeFunction, Operation, Optimizer, Scope, Span, Token, TokenKind,
-    TokenOwned, Type, TypeConflict,
+    LexError, Lexer, Local, NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned,
+    Type, TypeConflict,
 };
 
 /// Compiles the input and returns a chunk.
@@ -232,22 +233,6 @@ impl<'src> Compiler<'src> {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
             })
-    }
-
-    fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        let mut n_operations = [Operation::Return; COUNT];
-
-        for (nth, operation) in n_operations.iter_mut().rev().zip(
-            self.chunk
-                .instructions()
-                .iter()
-                .rev()
-                .map(|(instruction, _, _)| instruction.operation()),
-        ) {
-            *nth = operation;
-        }
-
-        Some(n_operations)
     }
 
     fn get_last_jumpable_mut_between(
@@ -675,7 +660,7 @@ impl<'src> Compiler<'src> {
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
         if let Some([Operation::Equal | Operation::Less | Operation::LessEqual, _, _]) =
-            self.get_last_operations()
+            self.chunk.get_last_operations()
         {
             return Err(CompileError::CannotChainComparison {
                 position: self.current_position,
@@ -875,10 +860,7 @@ impl<'src> Compiler<'src> {
             });
 
             self.emit_instruction(set_local, Type::None, start_position);
-
-            let mut optimizer = Optimizer::new(&mut self.chunk);
-
-            optimizer.optimize_set_local();
+            optimize_set_local(&mut self.chunk);
 
             return Ok(());
         }
@@ -979,7 +961,7 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_operations(),
+            self.chunk.get_last_operations(),
             Some([
                 Operation::Equal | Operation::Less | Operation::LessEqual,
                 Operation::Jump,
@@ -1093,9 +1075,7 @@ impl<'src> Compiler<'src> {
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
 
         if self.chunk.len() >= 4 {
-            let mut optimizer = Optimizer::new(&mut self.chunk);
-
-            optimizer.optimize_control_flow();
+            optimize_control_flow(&mut self.chunk);
         }
 
         let else_last_register = self.next_register().saturating_sub(1);
@@ -1119,7 +1099,7 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_operations(),
+            self.chunk.get_last_operations(),
             Some([
                 Operation::Equal | Operation::Less | Operation::LessEqual,
                 Operation::Jump,

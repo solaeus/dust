@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
+use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Operation, Scope, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -123,6 +123,21 @@ impl Chunk {
         self.instructions
             .get(index)
             .ok_or(ChunkError::InstructionIndexOutOfBounds { index })
+    }
+
+    pub fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
+        let mut n_operations = [Operation::Return; COUNT];
+
+        for (nth, operation) in n_operations.iter_mut().rev().zip(
+            self.instructions
+                .iter()
+                .rev()
+                .map(|(instruction, _, _)| instruction.operation()),
+        ) {
+            *nth = operation;
+        }
+
+        Some(n_operations)
     }
 
     pub fn locals(&self) -> &Vec<Local> {
