@@ -194,13 +194,13 @@ impl<'src> Compiler<'src> {
 
         let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.chunk.push_or_get_constant(identifier);
-        let local_index = self.chunk.locals().len();
+        let local_index = self.chunk.locals().len() as u16;
 
         self.chunk
             .locals_mut()
             .push(Local::new(identifier_index, r#type, is_mutable, scope));
 
-        (local_index as u16, identifier_index)
+        (local_index, identifier_index)
     }
 
     fn allow(&mut self, allowed: Token) -> Result<bool, CompileError> {

@@ -50,8 +50,8 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i   POSITION    OPERATION         TYPE                       INFO              ",
-    "--- ---------- ------------- ---------------- ----------------------------------",
+    " i   POSITION    OPERATION                 TYPE                             INFO              ",
+    "--- ---------- ------------- -------------------------------- --------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -64,8 +64,8 @@ const CONSTANT_HEADER: [&str; 4] = [
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i   SCOPE  MUTABLE       TYPE          IDENTIFIER   ",
-    "--- ------- ------- ---------------- ----------------",
+    " i   SCOPE  MUTABLE               TYPE                  IDENTIFIER   ",
+    "--- ------- ------- -------------------------------- ----------------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -262,7 +262,7 @@ impl<'a> Disassembler<'a> {
             let r#type = r#type.to_string();
             let info = instruction.disassembly_info();
             let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {type:^16} {info:^34}");
+                format!("{index:^3} {position:^10} {operation:13} {type:^32} {info:^32}");
 
             self.push_details(&instruction_display);
         }
@@ -290,8 +290,9 @@ impl<'a> Disassembler<'a> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
+            let scope = scope.to_string();
             let local_display = format!(
-                "{index:^3} {scope:7} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
+                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^32} {identifier_display:^16}"
             );
 
             self.push_details(&local_display);
