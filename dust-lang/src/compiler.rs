@@ -785,7 +785,7 @@ impl<'src> Compiler<'src> {
         };
         let test = Instruction::from(Test {
             argument,
-            value: test_boolean,
+            test_value: test_boolean,
         });
         let jump = Instruction::from(Jump {
             offset: 1,
@@ -976,7 +976,7 @@ impl<'src> Compiler<'src> {
             let test_register = instruction.a();
             let test = Instruction::from(Test {
                 argument: Argument::Register(test_register),
-                value: true,
+                test_value: true,
             });
 
             self.emit_instruction(test, Type::None, self.current_position)

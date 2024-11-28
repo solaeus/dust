@@ -256,14 +256,17 @@ impl Instruction {
     }
 
     pub fn test(argument: Argument, value: bool) -> Instruction {
-        Instruction::from(Test { argument, value })
+        Instruction::from(Test {
+            argument,
+            test_value: value,
+        })
     }
 
     pub fn test_set(destination: Destination, argument: Argument, value: bool) -> Instruction {
         Instruction::from(TestSet {
             destination,
             argument,
-            value,
+            test_value: value,
         })
     }
 
@@ -650,7 +653,10 @@ impl Instruction {
                 format!("{destination} = {left} % {right}")
             }
             Operation::Test => {
-                let Test { argument, value } = Test::from(self);
+                let Test {
+                    argument,
+                    test_value: value,
+                } = Test::from(self);
                 let bang = if value { "" } else { "!" };
 
                 format!("if {bang}{argument} {{ JUMP +1 }}",)
@@ -659,7 +665,7 @@ impl Instruction {
                 let TestSet {
                     destination,
                     argument,
-                    value,
+                    test_value: value,
                 } = TestSet::from(self);
                 let bang = if value { "" } else { "!" };
 

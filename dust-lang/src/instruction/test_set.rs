@@ -3,7 +3,7 @@ use crate::{Argument, Destination, Instruction, Operation};
 pub struct TestSet {
     pub destination: Destination,
     pub argument: Argument,
-    pub value: bool,
+    pub test_value: bool,
 }
 
 impl From<&Instruction> for TestSet {
@@ -17,7 +17,7 @@ impl From<&Instruction> for TestSet {
         TestSet {
             destination,
             argument: instruction.b_as_argument(),
-            value: instruction.c_as_boolean(),
+            test_value: instruction.c_as_boolean(),
         }
     }
 }
@@ -35,6 +35,6 @@ impl From<TestSet> for Instruction {
             .set_b(test_set.argument.index())
             .set_b_is_constant(test_set.argument.is_constant())
             .set_b_is_local(test_set.argument.is_local())
-            .set_c_to_boolean(test_set.value)
+            .set_c_to_boolean(test_set.test_value)
     }
 }

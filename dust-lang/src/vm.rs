@@ -6,11 +6,9 @@ use std::{
 };
 
 use crate::{
-    compile,
-    instruction::{Negate, Not},
-    AbstractValue, AnnotatedError, Argument, Chunk, ChunkError, ConcreteValue, Destination,
-    DustError, Instruction, NativeFunction, NativeFunctionError, Operation, Span, Value,
-    ValueError, ValueRef,
+    compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ChunkError,
+    ConcreteValue, Destination, DustError, Instruction, NativeFunction, NativeFunctionError,
+    Operation, Span, Value, ValueError, ValueRef,
 };
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
@@ -71,69 +69,75 @@ impl<'a> Vm<'a> {
 
             match instruction.operation() {
                 Operation::Move => {
-                    let to_register = instruction.a();
-                    let from_register = instruction.b();
+                    let Move { from, to } = Move::from(&instruction);
                     let from_register_has_value = self
                         .stack
-                        .get(from_register as usize)
+                        .get(from as usize)
                         .is_some_and(|register| !matches!(register, Register::Empty));
-                    let register = Register::Pointer(Pointer::Stack(from_register));
+                    let register = Register::Pointer(Pointer::Stack(from));
 
                     if from_register_has_value {
-                        self.set_register(to_register, register)?;
+                        self.set_register(to, register)?;
                     }
                 }
                 Operation::Close => {
-                    let from_register = instruction.b();
-                    let to_register = instruction.c();
+                    let Close { from, to } = Close::from(&instruction);
 
-                    if self.stack.len() < to_register as usize {
+                    if self.stack.len() < to as usize {
                         return Err(VmError::StackUnderflow {
                             position: self.current_position,
                         });
                     }
 
-                    for register_index in from_register..to_register {
+                    for register_index in from..to {
                         self.stack[register_index as usize] = Register::Empty;
                     }
                 }
                 Operation::LoadBoolean => {
-                    let to_register = instruction.a();
-                    let boolean = instruction.b_as_boolean();
-                    let jump = instruction.c_as_boolean();
-                    let boolean = ConcreteValue::Boolean(boolean).to_value();
+                    let LoadBoolean {
+                        destination,
+                        value,
+                        jump_next,
+                    } = LoadBoolean::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let boolean = ConcreteValue::Boolean(value).to_value();
+                    let register = Register::Value(boolean);
 
-                    self.set_register(to_register, Register::Value(boolean))?;
+                    self.set_register(register_index, register)?;
 
-                    if jump {
+                    if jump_next {
                         self.ip += 1;
                     }
                 }
                 Operation::LoadConstant => {
-                    let to_register = instruction.a();
-                    let from_constant = instruction.b();
-                    let jump = instruction.c_as_boolean();
+                    let LoadConstant {
+                        destination,
+                        constant_index,
+                        jump_next,
+                    } = LoadConstant::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let register = Register::Pointer(Pointer::Constant(constant_index));
 
-                    self.set_register(
-                        to_register,
-                        Register::Pointer(Pointer::Constant(from_constant)),
-                    )?;
+                    self.set_register(register_index, register)?;
 
-                    if jump {
+                    if jump_next {
                         self.ip += 1
                     }
                 }
                 Operation::LoadList => {
-                    let to_register = instruction.a();
-                    let start_register = instruction.b();
+                    let LoadList {
+                        destination,
+                        start_register,
+                    } = LoadList::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
                     let mut pointers = Vec::new();
 
-                    for register_index in start_register..to_register {
-                        if let Some(Register::Empty) = self.stack.get(register_index as usize) {
+                    for register in start_register..register_index {
+                        if let Some(Register::Empty) = self.stack.get(register as usize) {
                             continue;
                         }
 
-                        let pointer = Pointer::Stack(register_index);
+                        let pointer = Pointer::Stack(register);
 
                         pointers.push(pointer);
                     }
@@ -141,23 +145,30 @@ impl<'a> Vm<'a> {
                     let register =
                         Register::Value(AbstractValue::List { items: pointers }.to_value());
 
-                    self.set_register(to_register, register)?;
+                    self.set_register(register_index, register)?;
                 }
                 Operation::LoadSelf => {
-                    let to_register = instruction.a();
+                    let LoadSelf { destination } = LoadSelf::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
                     let register = Register::Value(AbstractValue::FunctionSelf.to_value());
 
-                    self.set_register(to_register, register)?;
+                    self.set_register(register_index, register)?;
                 }
                 Operation::DefineLocal => {
-                    let from_register = instruction.a();
-                    let to_local = instruction.b();
+                    let DefineLocal {
+                        register,
+                        local_index,
+                        is_mutable,
+                    } = DefineLocal::from(&instruction);
 
-                    self.local_definitions[to_local as usize] = Some(from_register);
+                    self.local_definitions[local_index as usize] = Some(register);
                 }
                 Operation::GetLocal => {
-                    let to_register = instruction.a();
-                    let local_index = instruction.b();
+                    let GetLocal {
+                        destination,
+                        local_index,
+                    } = GetLocal::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
                     let local_register = self.local_definitions[local_index as usize].ok_or(
                         VmError::UndefinedLocal {
                             local_index,
@@ -166,68 +177,102 @@ impl<'a> Vm<'a> {
                     )?;
                     let register = Register::Pointer(Pointer::Stack(local_register));
 
-                    self.set_register(to_register, register)?;
+                    self.set_register(register_index, register)?;
                 }
                 Operation::SetLocal => {
-                    let from_register = instruction.a();
-                    let to_local = instruction.b();
+                    let SetLocal {
+                        register,
+                        local_index,
+                    } = SetLocal::from(&instruction);
 
-                    self.local_definitions[to_local as usize] = Some(from_register);
+                    self.local_definitions[local_index as usize] = Some(register);
                 }
                 Operation::Add => {
-                    let to_register = instruction.a();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Add {
+                        destination,
+                        left,
+                        right,
+                    } = Add::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let sum = left.add(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(sum))?;
+                    self.set_register(register_index, Register::Value(sum))?;
                 }
                 Operation::Subtract => {
-                    let to_register = instruction.a();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Subtract {
+                        destination,
+                        left,
+                        right,
+                    } = Subtract::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let difference = left.subtract(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(difference))?;
+                    self.set_register(register_index, Register::Value(difference))?;
                 }
                 Operation::Multiply => {
-                    let to_register = instruction.a();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Multiply {
+                        destination,
+                        left,
+                        right,
+                    } = Multiply::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let product = left.multiply(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(product))?;
+                    self.set_register(register_index, Register::Value(product))?;
                 }
                 Operation::Divide => {
-                    let to_register = instruction.a();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Divide {
+                        destination,
+                        left,
+                        right,
+                    } = Divide::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let quotient = left.divide(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(quotient))?;
+                    self.set_register(register_index, Register::Value(quotient))?;
                 }
                 Operation::Modulo => {
-                    let to_register = instruction.a();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Modulo {
+                        destination,
+                        left,
+                        right,
+                    } = Modulo::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let remainder = left.modulo(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
                     })?;
 
-                    self.set_register(to_register, Register::Value(remainder))?;
+                    self.set_register(register_index, Register::Value(remainder))?;
                 }
                 Operation::Test => {
-                    let test_register = instruction.b();
-                    let test_value = instruction.c_as_boolean();
-                    let value = self.open_register(test_register)?;
+                    let Test {
+                        argument,
+                        test_value,
+                    } = Test::from(&instruction);
+                    let value = self.get_argument(argument)?;
                     let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
                     {
                         *boolean
@@ -243,10 +288,13 @@ impl<'a> Vm<'a> {
                     }
                 }
                 Operation::TestSet => {
-                    let to_register = instruction.a();
-                    let test_register = instruction.b();
-                    let test_value = instruction.c_as_boolean();
-                    let value = self.open_register(test_register)?;
+                    let TestSet {
+                        destination,
+                        argument,
+                        test_value,
+                    } = TestSet::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let value = self.get_argument(argument)?;
                     let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
                     {
                         *boolean
@@ -260,15 +308,28 @@ impl<'a> Vm<'a> {
                     if boolean == test_value {
                         self.ip += 1;
                     } else {
-                        let register = Register::Pointer(Pointer::Stack(test_register));
+                        let pointer = match argument {
+                            Argument::Constant(constant_index) => Pointer::Constant(constant_index),
+                            Argument::Local(local_index) => {
+                                let register_index = self.local_definitions[local_index as usize]
+                                    .ok_or(VmError::UndefinedLocal {
+                                    local_index,
+                                    position: self.current_position,
+                                })?;
 
-                        self.set_register(to_register, register)?;
+                                Pointer::Stack(register_index)
+                            }
+                            Argument::Register(register_index) => Pointer::Stack(register_index),
+                        };
+                        let register = Register::Pointer(pointer);
+
+                        self.set_register(register_index, register)?;
                     }
                 }
                 Operation::Equal => {
-                    let compare_to = instruction.a_as_boolean();
-                    let (left, right) = self.get_arguments(instruction)?;
-
+                    let Equal { value, left, right } = Equal::from(&instruction);
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let equal_result = left.equal(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
@@ -283,7 +344,7 @@ impl<'a> Vm<'a> {
                             });
                         };
 
-                    if is_equal == compare_to {
+                    if is_equal == value {
                         self.ip += 1;
                     } else {
                         let jump = self.read()?;
@@ -292,8 +353,9 @@ impl<'a> Vm<'a> {
                     }
                 }
                 Operation::Less => {
-                    let compare_to = instruction.a_as_boolean();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let Less { value, left, right } = Less::from(&instruction);
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let less_result = left.less_than(right).map_err(|error| VmError::Value {
                         error,
                         position: self.current_position,
@@ -308,7 +370,7 @@ impl<'a> Vm<'a> {
                             });
                         };
 
-                    if is_less_than == compare_to {
+                    if is_less_than == value {
                         self.ip += 1;
                     } else {
                         let jump = self.read()?;
@@ -317,8 +379,9 @@ impl<'a> Vm<'a> {
                     }
                 }
                 Operation::LessEqual => {
-                    let compare_to = instruction.a_as_boolean();
-                    let (left, right) = self.get_arguments(instruction)?;
+                    let LessEqual { value, left, right } = LessEqual::from(&instruction);
+                    let left = self.get_argument(left)?;
+                    let right = self.get_argument(right)?;
                     let less_or_equal_result =
                         left.less_than_or_equal(right)
                             .map_err(|error| VmError::Value {
@@ -337,7 +400,7 @@ impl<'a> Vm<'a> {
                             });
                         };
 
-                    if is_less_than_or_equal == compare_to {
+                    if is_less_than_or_equal == value {
                         self.ip += 1;
                     } else {
                         let jump = self.read()?;
@@ -377,26 +440,29 @@ impl<'a> Vm<'a> {
                 }
                 Operation::Jump => self.jump(instruction),
                 Operation::Call => {
-                    let to_register = instruction.a();
-                    let function_register = instruction.b();
-                    let argument_count = instruction.c();
-                    let value = self.open_register(function_register)?;
-                    let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = value {
+                    let Call {
+                        destination,
+                        function,
+                        argument_count,
+                    } = Call::from(&instruction);
+                    let register_index = self.get_destination(destination)?;
+                    let function = self.get_argument(function)?;
+                    let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = function
+                    {
                         chunk
-                    } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = value {
+                    } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = function {
                         self.chunk
                     } else {
                         return Err(VmError::ExpectedFunction {
-                            found: value.to_concrete_owned(self)?,
+                            found: function.to_concrete_owned(self)?,
                             position: self.current_position,
                         });
                     };
                     let mut function_vm = Vm::new(chunk, Some(self));
-                    let first_argument_index = function_register + 1;
-                    let last_argument_index = first_argument_index + argument_count;
+                    let first_argument_index = register_index - argument_count;
 
                     for (argument_index, argument_register_index) in
-                        (first_argument_index..last_argument_index).enumerate()
+                        (first_argument_index..register_index).enumerate()
                     {
                         function_vm.set_register(
                             argument_index as u16,
@@ -411,22 +477,28 @@ impl<'a> Vm<'a> {
                     if let Some(concrete_value) = return_value {
                         let register = Register::Value(concrete_value.to_value());
 
-                        self.set_register(to_register, register)?;
+                        self.set_register(register_index, register)?;
                     }
                 }
                 Operation::CallNative => {
-                    let native_function = NativeFunction::from(instruction.b());
-                    let return_value = native_function.call(self, instruction)?;
+                    let CallNative {
+                        destination,
+                        function,
+                        argument_count,
+                    } = CallNative::from(&instruction);
+                    let return_value = function.call(self, instruction)?;
 
                     if let Some(value) = return_value {
-                        let to_register = instruction.a();
+                        let register_index = self.get_destination(destination)?;
                         let register = Register::Value(value);
 
-                        self.set_register(to_register, register)?;
+                        self.set_register(register_index, register)?;
                     }
                 }
                 Operation::Return => {
-                    let should_return_value = instruction.b_as_boolean();
+                    let Return {
+                        should_return_value,
+                    } = Return::from(&instruction);
 
                     if !should_return_value {
                         return Ok(None);

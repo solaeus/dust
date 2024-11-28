@@ -2,14 +2,14 @@ use crate::{Argument, Instruction, Operation};
 
 pub struct Test {
     pub argument: Argument,
-    pub value: bool,
+    pub test_value: bool,
 }
 
 impl From<&Instruction> for Test {
     fn from(instruction: &Instruction) -> Self {
         Test {
             argument: instruction.b_as_argument(),
-            value: instruction.c_as_boolean(),
+            test_value: instruction.c_as_boolean(),
         }
     }
 }
@@ -20,6 +20,6 @@ impl From<Test> for Instruction {
             .set_b(test.argument.index())
             .set_b_is_constant(test.argument.is_constant())
             .set_b_is_local(test.argument.is_local())
-            .set_c_to_boolean(test.value)
+            .set_c_to_boolean(test.test_value)
     }
 }
