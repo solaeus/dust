@@ -532,14 +532,15 @@ impl<'src> Compiler<'src> {
 
         let (previous_instruction, previous_type, previous_position) =
             self.pop_last_instruction()?;
-        let argument = if let Some(argument) = previous_instruction.destination_as_argument() {
-            argument
-        } else {
-            return Err(CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: previous_position,
-            });
-        };
+        let (argument, push_back) = self.handle_binary_argument(&previous_instruction)?;
+
+        if push_back {
+            self.chunk.instructions_mut().push((
+                previous_instruction,
+                previous_type.clone(),
+                previous_position,
+            ))
+        }
 
         let destination = Destination::Register(self.next_register());
         let instruction = match operator.kind() {
@@ -773,12 +774,16 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let argument = left_instruction.destination_as_argument().ok_or_else(|| {
-            CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: left_position,
-            }
-        })?;
+        let (argument, push_back) = self.handle_binary_argument(&left_instruction)?;
+
+        if push_back {
+            self.chunk.instructions_mut().push((
+                left_instruction,
+                left_type.clone(),
+                left_position,
+            ));
+        }
+
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -803,7 +808,6 @@ impl<'src> Compiler<'src> {
         });
 
         self.advance()?;
-        self.emit_instruction(left_instruction, left_type, left_position);
         self.emit_instruction(test, Type::None, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
         self.parse_sub_expression(&rule.precedence)?;
@@ -864,7 +868,7 @@ impl<'src> Compiler<'src> {
 
             self.parse_expression()?;
 
-            let register = self.next_register();
+            let register = self.next_register() - 1;
             let set_local = Instruction::from(SetLocal {
                 register,
                 local_index,

@@ -115,18 +115,13 @@ fn variable_and() {
                     Span(18, 19)
                 ),
                 (
-                    Instruction::get_local(Destination::Register(2), 0),
-                    Type::Boolean,
-                    Span(29, 30)
-                ),
-                (
                     Instruction::test(Argument::Local(0), true),
                     Type::None,
                     Span(31, 33)
                 ),
                 (Instruction::jump(1, true), Type::None, Span(31, 33)),
                 (
-                    Instruction::get_local(Destination::Register(3), 1),
+                    Instruction::get_local(Destination::Register(2), 1),
                     Type::Boolean,
                     Span(34, 35)
                 ),
