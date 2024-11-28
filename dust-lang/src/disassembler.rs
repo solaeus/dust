@@ -50,8 +50,8 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i   POSITION    OPERATION         TYPE                       INFO                ",
-    "--- ---------- ------------- ---------------- ------------------------------------",
+    " i   POSITION    OPERATION         TYPE                       INFO              ",
+    "--- ---------- ------------- ---------------- ----------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -259,10 +259,10 @@ impl<'a> Disassembler<'a> {
         {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
+            let r#type = r#type.to_string();
             let info = instruction.disassembly_info(self.chunk);
-
             let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {type:^16} {info:^36}");
+                format!("{index:^3} {position:^10} {operation:13} {type:^16} {info:^34}");
 
             self.push_details(&instruction_display);
         }
@@ -279,7 +279,7 @@ impl<'a> Disassembler<'a> {
                 identifier_index,
                 r#type,
                 scope,
-                is_mutable: mutable,
+                is_mutable,
             },
         ) in self.chunk.locals().iter().enumerate()
         {
@@ -291,7 +291,7 @@ impl<'a> Disassembler<'a> {
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
             let local_display = format!(
-                "{index:^3} {scope:5} {mutable:^7} {type_display:^16} {identifier_display:^16}"
+                "{index:^3} {scope:5} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
             );
 
             self.push_details(&local_display);

@@ -467,11 +467,6 @@ impl Instruction {
             | Operation::Negate
             | Operation::Not
             | Operation::Call => true,
-            Operation::CallNative => {
-                let function = NativeFunction::from(self.b());
-
-                function.returns_value()
-            }
             Operation::Move
             | Operation::Close
             | Operation::DefineLocal
@@ -483,6 +478,11 @@ impl Instruction {
             | Operation::TestSet
             | Operation::Jump
             | Operation::Return => false,
+            Operation::CallNative => {
+                let function = NativeFunction::from(self.b());
+
+                function.returns_value()
+            }
         }
     }
 
