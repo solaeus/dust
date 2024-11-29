@@ -778,6 +778,8 @@ impl<'src> Compiler<'src> {
             });
         }
 
+        if let Some([Operation::Test, Operation::Jump]) = self.get_last_operations() {}
+
         let (argument, push_back) = self.handle_binary_argument(&left_instruction)?;
 
         if push_back {

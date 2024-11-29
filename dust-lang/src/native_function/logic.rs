@@ -104,10 +104,6 @@ pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
     let first_argument = to_register.saturating_sub(argument_count);
 
     for argument_index in first_argument..to_register {
-        if argument_index != first_argument {
-            stdout.write(b" ").map_err(map_err)?;
-        }
-
         let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
             value
         } else {
@@ -137,10 +133,6 @@ pub fn write_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option
     let first_argument = to_register.saturating_sub(argument_count);
 
     for argument_index in first_argument..to_register {
-        if argument_index != first_argument {
-            stdout.write(b" ").map_err(map_err)?;
-        }
-
         let argument = if let Some(value) = vm.open_register_allow_empty(argument_index)? {
             value
         } else {

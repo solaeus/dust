@@ -686,10 +686,10 @@ impl Instruction {
                     function,
                     argument_count,
                 } = Call::from(self);
-                let first_argument = destination.index().saturating_sub(argument_count);
-                let last_argument = destination.index() - 1;
+                let arguments_start = destination.index().saturating_sub(argument_count);
+                let arguments_end = arguments_start + argument_count;
 
-                format!("{destination} = {function}(R{first_argument}..=R{last_argument})")
+                format!("{destination} = {function}(R{arguments_start}..R{arguments_end})")
             }
             Operation::CallNative => {
                 let CallNative {
@@ -697,10 +697,10 @@ impl Instruction {
                     function,
                     argument_count,
                 } = CallNative::from(self);
-                let first_argument = destination.index().saturating_sub(argument_count);
-                let last_argument = destination.index() - 1;
+                let arguments_start = destination.index().saturating_sub(argument_count);
+                let arguments_end = arguments_start + argument_count;
 
-                format!("{destination} = {function}(R{first_argument}..=R{last_argument})")
+                format!("{destination} = {function}(R{arguments_start}..R{arguments_end})")
             }
             Operation::Return => {
                 let Return {
