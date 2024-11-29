@@ -14,6 +14,42 @@
 //! Be careful when working with instructions directly. When modifying an instruction, be sure to
 //! account for the fact that setting the A, B, or C arguments to 0 will have no effect. It is
 //! usually best to remove instructions and insert new ones in their place instead of mutating them.
+//!
+//! For each operation, there are two ways to create an instruction:
+//!
+//! - Use the associated function on `Instruction`
+//! - Use the corresponding struct and call `Instruction::from`
+//!
+//! # Example
+//!
+//! ```
+//! # use dust_lang::instruction::{Instruction, Move};
+//! let move_1 = Instruction::r#move(42, 4);
+//! let move_2 = Instruction::from(Move { from: 42, to: 4 });
+//!
+//! assert_eq!(move_1, move_2);
+//! ```
+//!
+//! # Example
+//!
+//! Use the `Destination` and `Argument` enums to create instructions. This is easier to read and
+//! enforces consistency in how the `Instruction` methods are called.
+//!
+//! ```
+//! # use dust_lang::instruction::{Instruction, Add, Destination, Argument};
+//! let add_1 = Instruction::add(
+//!     Destination::Register(0),
+//!     Argument::Local(1),
+//!     Argument::Constant(2)
+//! );
+//! let add_2 = Instruction::from(Add {
+//!     destination: Destination::Register(0),
+//!     left: Argument::Local(1),
+//!     right: Argument::Constant(2),
+//! });
+//!
+//! assert_eq!(add_1, add_2);
+//! ```
 mod add;
 mod call;
 mod call_native;
@@ -71,77 +107,6 @@ pub use test_set::TestSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{NativeFunction, Operation};
-
-#[derive(Debug, Clone, Copy)]
-pub enum Destination {
-    Local(u16),
-    Register(u16),
-}
-
-impl Destination {
-    pub fn index(&self) -> u16 {
-        match self {
-            Destination::Local(index) => *index,
-            Destination::Register(index) => *index,
-        }
-    }
-
-    pub fn is_local(&self) -> bool {
-        matches!(self, Destination::Local(_))
-    }
-
-    pub fn is_register(&self) -> bool {
-        matches!(self, Destination::Register(_))
-    }
-}
-
-impl Display for Destination {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Destination::Local(index) => write!(f, "L{index}"),
-            Destination::Register(index) => write!(f, "R{index}"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Argument {
-    Constant(u16),
-    Local(u16),
-    Register(u16),
-}
-
-impl Argument {
-    pub fn index(&self) -> u16 {
-        match self {
-            Argument::Constant(index) => *index,
-            Argument::Local(index) => *index,
-            Argument::Register(index) => *index,
-        }
-    }
-
-    pub fn is_constant(&self) -> bool {
-        matches!(self, Argument::Constant(_))
-    }
-
-    pub fn is_local(&self) -> bool {
-        matches!(self, Argument::Local(_))
-    }
-
-    pub fn is_register(&self) -> bool {
-        matches!(self, Argument::Register(_))
-    }
-}
-
-impl Display for Argument {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Argument::Constant(index) => write!(f, "C{index}"),
-            Argument::Local(index) => write!(f, "L{index}"),
-            Argument::Register(index) => write!(f, "R{index}"),
-        }
-    }
-}
 
 /// An operation and its arguments for the Dust virtual machine.
 ///
@@ -763,5 +728,76 @@ impl From<&Instruction> for u64 {
 impl Debug for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.operation(), self.disassembly_info())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Destination {
+    Local(u16),
+    Register(u16),
+}
+
+impl Destination {
+    pub fn index(&self) -> u16 {
+        match self {
+            Destination::Local(index) => *index,
+            Destination::Register(index) => *index,
+        }
+    }
+
+    pub fn is_local(&self) -> bool {
+        matches!(self, Destination::Local(_))
+    }
+
+    pub fn is_register(&self) -> bool {
+        matches!(self, Destination::Register(_))
+    }
+}
+
+impl Display for Destination {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Destination::Local(index) => write!(f, "L{index}"),
+            Destination::Register(index) => write!(f, "R{index}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Argument {
+    Constant(u16),
+    Local(u16),
+    Register(u16),
+}
+
+impl Argument {
+    pub fn index(&self) -> u16 {
+        match self {
+            Argument::Constant(index) => *index,
+            Argument::Local(index) => *index,
+            Argument::Register(index) => *index,
+        }
+    }
+
+    pub fn is_constant(&self) -> bool {
+        matches!(self, Argument::Constant(_))
+    }
+
+    pub fn is_local(&self) -> bool {
+        matches!(self, Argument::Local(_))
+    }
+
+    pub fn is_register(&self) -> bool {
+        matches!(self, Argument::Register(_))
+    }
+}
+
+impl Display for Argument {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Argument::Constant(index) => write!(f, "C{index}"),
+            Argument::Local(index) => write!(f, "L{index}"),
+            Argument::Register(index) => write!(f, "R{index}"),
+        }
     }
 }
