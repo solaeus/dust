@@ -1,16 +1,10 @@
-//! Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.
-//!
-//! !!! Warning !!!
-//! The byte values of the operations matter. The seventh and eighth bits must be zero so that the
-//! [Instruction][crate::Instruction] type can use them as flags.
+//! Part of an [Instruction][crate::Instruction] that is encoded as a single byte.
 
 use std::fmt::{self, Display, Formatter};
 
 macro_rules! define_operation {
-    ($(($name:ident, $byte:literal, $str:expr, $type:expr)),*) => {
-        /// Part of an [Instruction][crate::Instruction], which can be executed by the Dust virtual machine.)
-        ///
-        /// See the [module-level documentation](index.html) for more information.
+    ($(($name:ident, $byte:literal, $str:expr)),*) => {
+        /// Part of an [Instruction][crate::Instruction] that is encoded as a single byte.
         #[derive(Clone, Copy, Debug, PartialEq)]
         pub enum Operation {
             $(
@@ -58,31 +52,39 @@ macro_rules! define_operation {
 }
 
 define_operation! {
-    (Move, 0b0000_0000, "MOVE", None),
-    (Close, 0b000_0001, "CLOSE", None),
-    (LoadBoolean, 0b0000_0010, "LOAD_BOOLEAN", None),
-    (LoadConstant, 0b0000_0011, "LOAD_CONSTANT", None),
-    (LoadList, 0b0000_0100, "LOAD_LIST", None),
-    (LoadSelf, 0b0000_0101, "LOAD_SELF", None),
-    (DefineLocal, 0b0000_0110, "DEFINE_LOCAL", None),
-    (GetLocal, 0b0000_0111, "GET_LOCAL", None),
-    (SetLocal, 0b0000_1000, "SET_LOCAL", None),
-    (Add, 0b0000_1001, "ADD", None),
-    (Subtract, 0b0000_1010, "SUBTRACT", None),
-    (Multiply, 0b0000_1011, "MULTIPLY", None),
-    (Divide, 0b0000_1100, "DIVIDE", None),
-    (Modulo, 0b0000_1101, "MODULO", None),
-    (Test, 0b0000_1110, "TEST", None),
-    (TestSet, 0b0000_1111, "TEST_SET", None),
-    (Equal, 0b0001_0000, "EQUAL", None),
-    (Less, 0b0001_0001, "LESS", None),
-    (LessEqual, 0b0001_0010, "LESS_EQUAL", None),
-    (Negate, 0b0001_0011, "NEGATE", None),
-    (Not, 0b0001_0100, "NOT", None),
-    (Jump, 0b0001_0101, "JUMP", None),
-    (Call, 0b0001_0110, "CALL", None),
-    (CallNative, 0b0001_0111, "CALL_NATIVE", None),
-    (Return, 0b0001_1000, "RETURN", None)
+    (Move, 0, "MOVE"),
+    (Close, 1, "CLOSE"),
+
+    (LoadBoolean, 2, "LOAD_BOOLEAN"),
+    (LoadConstant, 3, "LOAD_CONSTANT"),
+    (LoadList, 4, "LOAD_LIST"),
+    (LoadSelf, 5, "LOAD_SELF"),
+
+    (DefineLocal, 6, "DEFINE_LOCAL"),
+    (GetLocal, 7, "GET_LOCAL"),
+    (SetLocal, 8, "SET_LOCAL"),
+
+    (Add, 9, "ADD"),
+    (Subtract, 10, "SUBTRACT"),
+    (Multiply, 11, "MULTIPLY"),
+    (Divide, 12, "DIVIDE"),
+    (Modulo, 13, "MODULO"),
+
+    (Test, 14, "TEST"),
+    (TestSet, 15, "TEST_SET"),
+
+    (Equal, 16, "EQUAL"),
+    (Less, 17, "LESS"),
+    (LessEqual, 18, "LESS_EQUAL"),
+
+    (Negate, 19, "NEGATE"),
+    (Not, 20, "NOT"),
+
+    (Call, 21, "CALL"),
+    (CallNative, 22, "CALL_NATIVE"),
+
+    (Jump, 23, "JUMP"),
+    (Return, 24, "RETURN")
 }
 
 impl Operation {
