@@ -47,7 +47,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
     Ok(compiler.finish(None, None))
 }
 
-/// Low-level tool for compiling the input a token at a time while assembling a chunk.
+/// Tool for compiling the input a token at a time while assembling a chunk.
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]

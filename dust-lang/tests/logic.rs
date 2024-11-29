@@ -81,8 +81,8 @@ fn or() {
 }
 
 #[test]
-fn variable_and() {
-    let source = "let a = true; let b = false; a && b";
+fn and_and_or() {
+    let source = "let a = true; let b = true; let c = false; a && b || c";
 
     assert_eq!(
         compile(source),
@@ -105,9 +105,9 @@ fn variable_and() {
                     Span(4, 5)
                 ),
                 (
-                    Instruction::load_boolean(Destination::Register(1), false, false),
+                    Instruction::load_boolean(Destination::Register(1), true, false),
                     Type::Boolean,
-                    Span(22, 27)
+                    Span(22, 26)
                 ),
                 (
                     Instruction::define_local(1, 1, false),
@@ -115,25 +115,46 @@ fn variable_and() {
                     Span(18, 19)
                 ),
                 (
+                    Instruction::load_boolean(Destination::Register(2), false, false),
+                    Type::Boolean,
+                    Span(36, 41)
+                ),
+                (
+                    Instruction::define_local(2, 2, false),
+                    Type::None,
+                    Span(32, 33)
+                ),
+                (
                     Instruction::test(Argument::Local(0), true),
                     Type::None,
-                    Span(31, 33)
+                    Span(45, 47)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(31, 33)),
+                (Instruction::jump(1, true), Type::None, Span(45, 47)),
                 (
-                    Instruction::get_local(Destination::Register(2), 1),
-                    Type::Boolean,
-                    Span(34, 35)
+                    Instruction::test(Argument::Local(1), false),
+                    Type::None,
+                    Span(50, 52)
                 ),
-                (Instruction::r#return(true), Type::None, Span(35, 35)),
+                (Instruction::jump(1, true), Type::None, Span(50, 52)),
+                (
+                    Instruction::get_local(Destination::Register(3), 2),
+                    Type::Boolean,
+                    Span(53, 54)
+                ),
+                (Instruction::r#return(true), Type::None, Span(54, 54)),
             ],
-            vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
+            vec![
+                ConcreteValue::string("a"),
+                ConcreteValue::string("b"),
+                ConcreteValue::string("c")
+            ],
             vec![
                 Local::new(0, Type::Boolean, false, Scope::default()),
                 Local::new(1, Type::Boolean, false, Scope::default()),
+                Local::new(2, Type::Boolean, false, Scope::default())
             ]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
 }
