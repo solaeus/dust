@@ -121,7 +121,7 @@ impl<'a> Vm<'a> {
                     self.set_register(register_index, register)?;
 
                     if jump_next {
-                        self.ip += 1
+                        self.jump(1, true);
                     }
                 }
                 Operation::LoadList => {
@@ -285,14 +285,6 @@ impl<'a> Vm<'a> {
 
                     if boolean == test_value {
                         self.jump(1, true);
-                    } else {
-                        let jump = self.read()?;
-                        let Jump {
-                            offset,
-                            is_positive,
-                        } = Jump::from(&jump);
-
-                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::TestSet => {
@@ -354,14 +346,6 @@ impl<'a> Vm<'a> {
 
                     if is_equal == value {
                         self.jump(1, true);
-                    } else {
-                        let jump = self.read()?;
-                        let Jump {
-                            offset,
-                            is_positive,
-                        } = Jump::from(&jump);
-
-                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::Less => {
@@ -384,14 +368,6 @@ impl<'a> Vm<'a> {
 
                     if is_less_than == value {
                         self.jump(1, true);
-                    } else {
-                        let jump = self.read()?;
-                        let Jump {
-                            offset,
-                            is_positive,
-                        } = Jump::from(&jump);
-
-                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::LessEqual => {
@@ -418,14 +394,6 @@ impl<'a> Vm<'a> {
 
                     if is_less_than_or_equal == value {
                         self.jump(1, true);
-                    } else {
-                        let jump = self.read()?;
-                        let Jump {
-                            offset,
-                            is_positive,
-                        } = Jump::from(&jump);
-
-                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::Negate => {
