@@ -286,7 +286,7 @@ impl Display for ConcreteValue {
 
                 Ok(())
             }
-            ConcreteValue::Function(function) => write!(f, "{function}"),
+            ConcreteValue::Function(chunk) => write!(f, "{}", chunk.r#type()),
             ConcreteValue::Integer(integer) => write!(f, "{integer}"),
             ConcreteValue::List(list) => {
                 write!(f, "[")?;

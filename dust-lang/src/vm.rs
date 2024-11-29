@@ -285,6 +285,14 @@ impl<'a> Vm<'a> {
 
                     if boolean == test_value {
                         self.jump(1, true);
+                    } else {
+                        let jump = self.read()?;
+                        let Jump {
+                            offset,
+                            is_positive,
+                        } = Jump::from(&jump);
+
+                        self.jump(offset as usize, is_positive);
                     }
                 }
                 Operation::TestSet => {
@@ -451,11 +459,10 @@ impl<'a> Vm<'a> {
                     self.set_register(register_index, register)?;
                 }
                 Operation::Jump => {
-                    let jump = self.read()?;
                     let Jump {
                         offset,
                         is_positive,
-                    } = Jump::from(&jump);
+                    } = Jump::from(&instruction);
 
                     self.jump(offset as usize, is_positive);
                 }
@@ -479,7 +486,7 @@ impl<'a> Vm<'a> {
                         });
                     };
                     let mut function_vm = Vm::new(chunk, Some(self));
-                    let first_argument_index = register_index - argument_count - 1;
+                    let first_argument_index = register_index - argument_count;
 
                     for (argument_index, argument_register_index) in
                         (first_argument_index..register_index).enumerate()
@@ -489,9 +496,7 @@ impl<'a> Vm<'a> {
                             Register::Pointer(Pointer::ParentStack(argument_register_index)),
                         )?;
 
-                        function_vm
-                            .local_definitions
-                            .push(Some(argument_index as u16));
+                        function_vm.local_definitions[argument_index] = Some(argument_index as u16);
                     }
 
                     let return_value = function_vm.run()?;
@@ -627,7 +632,7 @@ impl<'a> Vm<'a> {
             if is_positive {
                 format!("+{}", offset)
             } else {
-                format!("-{}", offset + 1)
+                format!("-{}", offset)
             }
         );
 
@@ -749,7 +754,7 @@ impl<'a> Vm<'a> {
                     position: self.current_position,
                 })?;
 
-        self.jump(1, true);
+        self.ip += 1;
         self.current_position = *position;
 
         Ok(*instruction)

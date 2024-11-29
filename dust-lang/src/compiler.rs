@@ -1491,14 +1491,17 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
+        let mut argument_count = 0;
+
         while !self.allow(Token::RightParenthesis)? {
             let expected_register = self.next_register();
 
             self.parse_expression()?;
 
             let actual_register = self.next_register() - 1;
+            let registers_to_close = actual_register - expected_register;
 
-            if expected_register < actual_register {
+            if registers_to_close > 0 {
                 let close = Instruction::from(Close {
                     from: expected_register,
                     to: actual_register,
@@ -1507,12 +1510,13 @@ impl<'src> Compiler<'src> {
                 self.emit_instruction(close, Type::None, self.current_position);
             }
 
+            argument_count += registers_to_close + 1;
+
             self.allow(Token::Comma)?;
         }
 
         let end = self.current_position.1;
         let register = self.next_register();
-        let argument_count = self.next_register() - function.index() - 1;
         let call = Instruction::from(Call {
             destination: Destination::Register(register),
             function,
