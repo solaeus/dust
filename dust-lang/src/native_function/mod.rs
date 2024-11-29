@@ -1,7 +1,7 @@
 //! Built-in functions that implement extended functionality.
 //!
-//! Native functions are used either to implement features that are not possible to implement in
-//! Dust itself or that are more efficient to implement in Rust.
+//! Native functions are used to implement features that are not possible to implement in Dust
+//! itself or that are more efficient to implement in Rust.
 mod logic;
 
 use std::{
@@ -15,14 +15,14 @@ use serde::{Deserialize, Serialize};
 use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, Value, Vm, VmError};
 
 macro_rules! define_native_function {
-    ($(($name:ident, $byte:literal, $str:expr, $type:expr, $function:expr)),*) => {
+    ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
         /// A dust-native function.
         ///
         /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub enum NativeFunction {
             $(
-                $name = $byte as isize,
+                $name = $bytes as isize,
             )*
         }
 
@@ -75,14 +75,14 @@ macro_rules! define_native_function {
         }
 
         impl From<u16> for NativeFunction {
-            fn from(byte: u16) -> Self {
-                match byte {
+            fn from(bytes: u16) -> Self {
+                match bytes {
                     $(
-                        $byte => NativeFunction::$name,
+                        $bytes => NativeFunction::$name,
                     )*
                     _ => {
                         if cfg!(test) {
-                            panic!("Invalid native function byte: {}", byte)
+                            panic!("Invalid native function byte: {}", bytes)
                         } else {
                             NativeFunction::Panic
                         }
@@ -91,11 +91,11 @@ macro_rules! define_native_function {
             }
         }
 
-        impl From<NativeFunction> for u8 {
+        impl From<NativeFunction> for u16 {
             fn from(native_function: NativeFunction) -> Self {
                 match native_function {
                     $(
-                        NativeFunction::$name => $byte,
+                        NativeFunction::$name => $bytes,
                     )*
                 }
             }

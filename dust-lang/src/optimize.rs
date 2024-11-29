@@ -1,6 +1,23 @@
 //! Tools used by the compiler to optimize a chunk's bytecode.
 
-use crate::{instruction::SetLocal, Chunk, Operation};
+use crate::{instruction::SetLocal, Instruction, Operation, Span, Type};
+
+fn get_last_operations<const COUNT: usize>(
+    instructions: &[(Instruction, Type, Span)],
+) -> Option<[Operation; COUNT]> {
+    let mut n_operations = [Operation::Return; COUNT];
+
+    for (nth, operation) in n_operations.iter_mut().rev().zip(
+        instructions
+            .iter()
+            .rev()
+            .map(|(instruction, _, _)| instruction.operation()),
+    ) {
+        *nth = operation;
+    }
+
+    Some(n_operations)
+}
 
 /// Optimizes a short control flow pattern.
 ///
@@ -22,9 +39,9 @@ use crate::{instruction::SetLocal, Chunk, Operation};
 ///     - `Jump`
 ///     - `LoadBoolean` or `LoadConstant`
 ///     - `LoadBoolean` or `LoadConstant`
-pub fn optimize_control_flow(chunk: &mut Chunk) {
+pub fn optimize_control_flow(instructions: &mut [(Instruction, Type, Span)]) {
     if !matches!(
-        chunk.get_last_operations(),
+        get_last_operations(instructions),
         Some([
             Operation::Equal | Operation::Less | Operation::LessEqual | Operation::Test,
             Operation::Jump,
@@ -37,7 +54,6 @@ pub fn optimize_control_flow(chunk: &mut Chunk) {
 
     log::debug!("Consolidating registers for control flow optimization");
 
-    let instructions = chunk.instructions_mut();
     let first_loader = &mut instructions.iter_mut().nth_back(1).unwrap().0;
 
     first_loader.set_c_to_boolean(true);
@@ -67,9 +83,9 @@ pub fn optimize_control_flow(chunk: &mut Chunk) {
 /// The instructions must be in the following order:
 ///     - `Add`, `Subtract`, `Multiply`, `Divide` or `Modulo`
 ///     - `SetLocal`
-pub fn optimize_set_local(chunk: &mut Chunk) {
+pub fn optimize_set_local(instructions: &mut Vec<(Instruction, Type, Span)>) {
     if !matches!(
-        chunk.get_last_operations(),
+        get_last_operations(instructions),
         Some([
             Operation::Add
                 | Operation::Subtract
@@ -84,7 +100,6 @@ pub fn optimize_set_local(chunk: &mut Chunk) {
 
     log::debug!("Condensing math and SetLocal to math instruction");
 
-    let instructions = chunk.instructions_mut();
     let set_local = SetLocal::from(&instructions.pop().unwrap().0);
     let math_instruction = instructions.last_mut().unwrap().0;
     let math_instruction_new = *math_instruction

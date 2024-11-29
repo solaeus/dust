@@ -20,7 +20,7 @@
 //! - Use the associated function on `Instruction`
 //! - Use the corresponding struct and call `Instruction::from`
 //!
-//! # Example
+//! # Examples
 //!
 //! ```
 //! # use dust_lang::instruction::{Instruction, Move};
@@ -29,8 +29,6 @@
 //!
 //! assert_eq!(move_1, move_2);
 //! ```
-//!
-//! # Example
 //!
 //! Use the `Destination` and `Argument` enums to create instructions. This is easier to read and
 //! enforces consistency in how the `Instruction` methods are called.

@@ -6,9 +6,9 @@ use std::{
 };
 
 use crate::{
-    compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ChunkError,
-    ConcreteValue, Destination, DustError, Instruction, NativeFunctionError, Operation, Span,
-    Value, ValueError, ValueRef,
+    compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ConcreteValue,
+    Destination, DustError, Instruction, NativeFunctionError, Operation, Span, Value, ValueError,
+    ValueRef,
 };
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
@@ -690,9 +690,10 @@ impl<'a> Vm<'a> {
 
     fn get_constant(&self, constant_index: u16) -> Result<&ConcreteValue, VmError> {
         self.chunk
-            .get_constant(constant_index)
-            .map_err(|error| VmError::Chunk {
-                error,
+            .constants()
+            .get(constant_index as usize)
+            .ok_or_else(|| VmError::ConstantIndexOutOfBounds {
+                index: constant_index as usize,
                 position: self.current_position,
             })
     }
@@ -715,12 +716,12 @@ impl<'a> Vm<'a> {
 
     fn read(&mut self) -> Result<Instruction, VmError> {
         let (instruction, _type, position) =
-            self.chunk
-                .get_instruction(self.ip)
-                .map_err(|error| VmError::Chunk {
-                    error,
+            self.chunk.instructions().get(self.ip).ok_or_else(|| {
+                VmError::InstructionIndexOutOfBounds {
+                    index: self.ip,
                     position: self.current_position,
-                })?;
+                }
+            })?;
 
         self.ip += 1;
         self.current_position = *position;
@@ -816,11 +817,21 @@ pub enum VmError {
         position: Span,
     },
 
-    // Wrappers for foreign errors
-    Chunk {
-        error: ChunkError,
+    // Chunk errors
+    ConstantIndexOutOfBounds {
+        index: usize,
         position: Span,
     },
+    InstructionIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
+    LocalIndexOutOfBounds {
+        index: usize,
+        position: Span,
+    },
+
+    // Wrappers for foreign errors
     NativeFunction(NativeFunctionError),
     Value {
         error: ValueError,
@@ -835,13 +846,15 @@ impl AnnotatedError for VmError {
 
     fn description(&self) -> &'static str {
         match self {
-            Self::Chunk { .. } => "Chunk error",
+            Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::EmptyRegister { .. } => "Empty register",
             Self::ExpectedBoolean { .. } => "Expected boolean",
             Self::ExpectedConcreteValue { .. } => "Expected concrete value",
             Self::ExpectedFunction { .. } => "Expected function",
             Self::ExpectedParent { .. } => "Expected parent",
             Self::ExpectedValue { .. } => "Expected value",
+            Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
+            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
             Self::NativeFunction(error) => error.description(),
             Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
             Self::StackOverflow { .. } => "Stack overflow",
@@ -854,7 +867,6 @@ impl AnnotatedError for VmError {
 
     fn details(&self) -> Option<String> {
         match self {
-            Self::Chunk { error, .. } => Some(error.to_string()),
             Self::EmptyRegister { index, .. } => Some(format!("Register R{index} is empty")),
             Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
 
@@ -870,13 +882,15 @@ impl AnnotatedError for VmError {
 
     fn position(&self) -> Span {
         match self {
-            Self::Chunk { position, .. } => *position,
+            Self::ConstantIndexOutOfBounds { position, .. } => *position,
             Self::EmptyRegister { position, .. } => *position,
             Self::ExpectedBoolean { position, .. } => *position,
             Self::ExpectedConcreteValue { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedParent { position } => *position,
             Self::ExpectedValue { position, .. } => *position,
+            Self::InstructionIndexOutOfBounds { position, .. } => *position,
+            Self::LocalIndexOutOfBounds { position, .. } => *position,
             Self::NativeFunction(error) => error.position(),
             Self::RegisterIndexOutOfBounds { position, .. } => *position,
             Self::StackOverflow { position } => *position,

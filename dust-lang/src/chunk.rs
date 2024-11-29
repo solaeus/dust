@@ -4,12 +4,11 @@
 //! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
 //! belong to a named function.
 
-use std::fmt::{self, Debug, Display, Formatter, Write};
-use std::hash::{Hash, Hasher};
+use std::fmt::{self, Debug, Display, Write};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Operation, Scope, Span, Type};
+use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -59,16 +58,8 @@ impl Chunk {
         self.name.as_ref()
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = Some(name);
-    }
-
     pub fn r#type(&self) -> &FunctionType {
         &self.r#type
-    }
-
-    pub fn set_type(&mut self, r#type: FunctionType) {
-        self.r#type = r#type;
     }
 
     pub fn len(&self) -> usize {
@@ -83,111 +74,12 @@ impl Chunk {
         &self.constants
     }
 
-    pub fn constants_mut(&mut self) -> &mut Vec<ConcreteValue> {
-        &mut self.constants
-    }
-
-    pub fn get_constant(&self, index: u16) -> Result<&ConcreteValue, ChunkError> {
-        self.constants
-            .get(index as usize)
-            .ok_or(ChunkError::ConstantIndexOutOfBounds {
-                index: index as usize,
-            })
-    }
-
-    pub fn push_or_get_constant(&mut self, value: ConcreteValue) -> u16 {
-        if let Some(index) = self
-            .constants
-            .iter()
-            .position(|constant| *constant == value)
-        {
-            index as u16
-        } else {
-            let index = self.constants.len() as u16;
-
-            self.constants.push(value);
-
-            index
-        }
-    }
-
     pub fn instructions(&self) -> &Vec<(Instruction, Type, Span)> {
         &self.instructions
     }
 
-    pub fn instructions_mut(&mut self) -> &mut Vec<(Instruction, Type, Span)> {
-        &mut self.instructions
-    }
-
-    pub fn get_instruction(&self, index: usize) -> Result<&(Instruction, Type, Span), ChunkError> {
-        self.instructions
-            .get(index)
-            .ok_or(ChunkError::InstructionIndexOutOfBounds { index })
-    }
-
-    pub fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        let mut n_operations = [Operation::Return; COUNT];
-
-        for (nth, operation) in n_operations.iter_mut().rev().zip(
-            self.instructions
-                .iter()
-                .rev()
-                .map(|(instruction, _, _)| instruction.operation()),
-        ) {
-            *nth = operation;
-        }
-
-        Some(n_operations)
-    }
-
     pub fn locals(&self) -> &Vec<Local> {
         &self.locals
-    }
-
-    pub fn locals_mut(&mut self) -> &mut Vec<Local> {
-        &mut self.locals
-    }
-
-    pub fn get_local(&self, index: u16) -> Result<&Local, ChunkError> {
-        self.locals
-            .get(index as usize)
-            .ok_or(ChunkError::LocalIndexOutOfBounds {
-                index: index as usize,
-            })
-    }
-
-    pub fn get_local_mut(&mut self, index: u16) -> Result<&mut Local, ChunkError> {
-        self.locals
-            .get_mut(index as usize)
-            .ok_or(ChunkError::LocalIndexOutOfBounds {
-                index: index as usize,
-            })
-    }
-
-    pub fn get_identifier(&self, local_index: u16) -> Option<String> {
-        self.locals.get(local_index as usize).and_then(|local| {
-            self.constants
-                .get(local.identifier_index as usize)
-                .map(|value| value.to_string())
-        })
-    }
-
-    pub fn get_constant_type(&self, constant_index: u16) -> Result<Type, ChunkError> {
-        self.constants
-            .get(constant_index as usize)
-            .map(|value| value.r#type())
-            .ok_or(ChunkError::ConstantIndexOutOfBounds {
-                index: constant_index as usize,
-            })
-    }
-
-    pub fn get_local_type(&self, local_index: u16) -> Result<&Type, ChunkError> {
-        self.locals
-            .get(local_index as usize)
-            .map(|local| &local.r#type)
-            .ok_or(ChunkError::LocalIndexOutOfBounds {
-                index: local_index as usize,
-            })
     }
 
     pub fn disassembler(&self) -> Disassembler {
@@ -249,40 +141,6 @@ impl Local {
             r#type,
             is_mutable: mutable,
             scope,
-        }
-    }
-}
-
-impl Hash for Local {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.identifier_index.hash(state);
-    }
-}
-
-/// Errors that can occur when using a [`Chunk`].
-#[derive(Clone, Debug, PartialEq)]
-pub enum ChunkError {
-    ConstantIndexOutOfBounds { index: usize },
-    FunctionIndexOutOfBounds { index: usize },
-    InstructionIndexOutOfBounds { index: usize },
-    LocalIndexOutOfBounds { index: usize },
-}
-
-impl Display for ChunkError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ChunkError::ConstantIndexOutOfBounds { index } => {
-                write!(f, "Constant index {} out of bounds", index)
-            }
-            ChunkError::FunctionIndexOutOfBounds { index } => {
-                write!(f, "Function index {} out of bounds", index)
-            }
-            ChunkError::InstructionIndexOutOfBounds { index } => {
-                write!(f, "Instruction index {} out of bounds", index)
-            }
-            ChunkError::LocalIndexOutOfBounds { index } => {
-                write!(f, "Local index {} out of bounds", index)
-            }
         }
     }
 }
