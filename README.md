@@ -3,6 +3,23 @@
 Dust is a high-level interpreted programming language with static types that focuses on ease of use,
 performance and correctness.
 
+## Features
+
+- Values
+  - [x] no `null` or `undefined`
+  - [x] boolean
+  - [x] byte
+  - [x] character
+  - [x] integer
+  - [x] float
+  - [x] function
+  - [x] list
+  - [x] range
+  - [x] string
+- Types
+  - [x] basic types: `bool`, `byte`, `char`, `int`, `float`, functions, lists, ranges, `str`
+  - [O] generalized types: `num`, `any`
+
 ## Implementation
 
 Dust is implemented in Rust and is divided into several parts, primarily the lexer, compiler, and
