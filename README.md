@@ -3,22 +3,55 @@
 Dust is a high-level interpreted programming language with static types that focuses on ease of use,
 performance and correctness.
 
-## Features
+## Feature Progress
 
+- [X] Lexer
+- [X] Compiler
+- [X] VM
+- [ ] Formatter
+- CLI
+  - [X] Run source
+  - [X] Compile to chunk and show disassembly
+  - [ ] Tokenize using the lexer and show token list
+  - [ ] Format using the formatter and display the output
+  - [ ] Compile to and run from intermediate formats
+    - [ ] JSON
+    - [ ] Postcard
 - Values
-  - [x] no `null` or `undefined`
-  - [x] boolean
-  - [x] byte
-  - [x] character
-  - [x] integer
-  - [x] float
-  - [x] function
-  - [x] list
-  - [x] range
-  - [x] string
+  - [X] No `null` or `undefined`
+  - [X] Booleans
+  - [X] Bytes
+  - [X] Characters
+  - [ ] Enums
+  - [X] Integers
+  - [X] Floats
+  - [X] Functions
+  - [X] Lists
+  - [ ] Maps
+  - [X] Ranges
+  - [X] Strings
+  - [ ] Structs
+  - [ ] Tuples
+  - [ ] Runtime-efficient abstract values for lists and maps
 - Types
-  - [x] basic types: `bool`, `byte`, `char`, `int`, `float`, functions, lists, ranges, `str`
-  - [O] generalized types: `num`, `any`
+  - [X] Basic types for each kind of value
+  - [X] Generalized types: `num`, `any`
+  - [ ] `struct` types
+  - [ ] `enum` types
+  - [ ] Type arguments
+  - [ ] Type Checking
+    - [ ] Function returns
+    - [X] If/Else branches
+    - [ ] Instruction arguments
+- Variables
+  - [X] Immutable by default
+  - [X] Block scope
+  - [X] Statically typed
+- Functions
+  - [X] First-class value
+  - [X] Statically typed arguments and returns
+  - [X] Pure (does not "inherit" local variables - only arguments)
+  - [ ] Type arguments
 
 ## Implementation
 
