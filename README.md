@@ -32,15 +32,16 @@ Dust is still in development. This list may change as the language evolves.
   - [ ] Compile to and run from intermediate formats
     - [ ] JSON
     - [ ] Postcard
-- Values
+- Basic Values
   - [X] No `null` or `undefined` values
   - [X] Booleans
   - [X] Bytes (unsigned 8-bit)
   - [X] Characters (Unicode scalar value)
   - [X] Floats (64-bit)
   - [X] Functions
-  - [X] Integer (signed 64-bit)
+  - [X] Integers (signed 64-bit)
   - [ ] Ranges
+- Composite Values
   - [X] Strings (UTF-8)
   - [X] Concrete lists
   - [X] Abstract lists (optimization)
@@ -50,7 +51,7 @@ Dust is still in development. This list may change as the language evolves.
   - [ ] Structs
   - [ ] Enums
 - Types
-  - [X] Basic types for each kind of value
+  - [X] Basic types for each kind of basic value
   - [X] Generalized types: `num`, `any`, `none`
   - [ ] `struct` types
   - [ ] `enum` types
