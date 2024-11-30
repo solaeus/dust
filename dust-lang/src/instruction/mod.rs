@@ -1,15 +1,18 @@
 //! An operation and its arguments for the Dust virtual machine.
 //!
 //! Each instruction is a 64-bit unsigned integer that is divided into nine fields:
-//! - Bits 0-8: The operation code.
-//! - Bit 9: Boolean flag indicating whether the B argument is a constant.
-//! - Bit 10: Boolean flag indicating whether the C argument is a constant.
-//! - Bit 11: Boolean flag indicating whether the A argument is a local.
-//! - Bit 12: Boolean flag indicating whether the B argument is a local.
-//! - Bit 13: Boolean flag indicating whether the C argument is a local.
-//! - Bits 17-32: The A argument,
-//! - Bits 33-48: The B argument.
-//! - Bits 49-63: The C argument.
+//!
+//! Bit   | Description
+//! ----- | -----------
+//! 0-8   | The operation code.
+//! 9     | Boolean flag indicating whether the B argument is a constant.
+//! 10    | Boolean flag indicating whether the C argument is a constant.
+//! 11    | Boolean flag indicating whether the A argument is a local.
+//! 12    | Boolean flag indicating whether the B argument is a local.
+//! 13    | Boolean flag indicating whether the C argument is a local.
+//! 17-32 | The A argument,
+//! 33-48 | The B argument.
+//! 49-63 | The C argument.
 //!
 //! Be careful when working with instructions directly. When modifying an instruction, be sure to
 //! account for the fact that setting the A, B, or C arguments to 0 will have no effect. It is
