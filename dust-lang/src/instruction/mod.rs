@@ -1,6 +1,6 @@
 //! An operation and its arguments for the Dust virtual machine.
 //!
-//! Each instruction is a 64-bit unsigned integer that is divided into five fields:
+//! Each instruction is a 64-bit unsigned integer that is divided into nine fields:
 //! - Bits 0-8: The operation code.
 //! - Bit 9: Boolean flag indicating whether the B argument is a constant.
 //! - Bit 10: Boolean flag indicating whether the C argument is a constant.
