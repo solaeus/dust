@@ -781,8 +781,9 @@ impl<'src> Compiler<'src> {
         if let Some([Operation::Test, Operation::Jump]) = self.get_last_operations() {}
 
         let (argument, push_back) = self.handle_binary_argument(&left_instruction)?;
+        let is_local = matches!(argument, Argument::Local(_));
 
-        if push_back {
+        if push_back || is_local {
             self.instructions
                 .push((left_instruction, left_type.clone(), left_position));
         }

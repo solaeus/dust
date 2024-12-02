@@ -41,8 +41,8 @@ Dust is still in development. This list may change as the language evolves.
   - [X] Functions
   - [X] Integers (signed 64-bit)
   - [ ] Ranges
-- Composite Values
   - [X] Strings (UTF-8)
+- Composite Values
   - [X] Concrete lists
   - [X] Abstract lists (optimization)
   - [ ] Concrete maps

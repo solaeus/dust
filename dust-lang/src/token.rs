@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Span;
 
-pub fn display_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer: &mut W) {
+pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer: &mut W) {
     const HEADER: [&str; 2] = ["    TOKEN      POSITION ", "------------- ----------"];
 
     writeln!(writer, "{}", HEADER[0]).unwrap();
