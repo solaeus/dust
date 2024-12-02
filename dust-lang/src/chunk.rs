@@ -18,7 +18,7 @@ pub struct Chunk {
     name: Option<String>,
     r#type: FunctionType,
 
-    instructions: Vec<(Instruction, Type, Span)>,
+    instructions: Vec<(Instruction, Span)>,
     constants: Vec<ConcreteValue>,
     locals: Vec<Local>,
 }
@@ -41,7 +41,7 @@ impl Chunk {
     pub fn with_data(
         name: Option<String>,
         r#type: FunctionType,
-        instructions: Vec<(Instruction, Type, Span)>,
+        instructions: Vec<(Instruction, Span)>,
         constants: Vec<ConcreteValue>,
         locals: Vec<Local>,
     ) -> Self {
@@ -74,7 +74,7 @@ impl Chunk {
         &self.constants
     }
 
-    pub fn instructions(&self) -> &Vec<(Instruction, Type, Span)> {
+    pub fn instructions(&self) -> &Vec<(Instruction, Span)> {
         &self.instructions
     }
 

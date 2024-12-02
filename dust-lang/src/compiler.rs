@@ -112,11 +112,16 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type: Box::new(self.return_type.unwrap_or(Type::None)),
         };
+        let instructions = self
+            .instructions
+            .into_iter()
+            .map(|(i, _, s)| (i, s))
+            .collect();
 
         Chunk::with_data(
             self.self_name,
             r#type,
-            self.instructions,
+            instructions,
             self.constants,
             self.locals,
         )

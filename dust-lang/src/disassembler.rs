@@ -47,8 +47,8 @@ use crate::{value::ConcreteValue, Chunk, Local};
 const INSTRUCTION_HEADER: [&str; 4] = [
     "Instructions",
     "------------",
-    " i   POSITION    OPERATION        TYPE                    INFO              ",
-    "--- ---------- ------------- -------------- --------------------------------",
+    " i   POSITION    OPERATION                 INFO              ",
+    "--- ---------- ------------- --------------------------------",
 ];
 
 const CONSTANT_HEADER: [&str; 4] = [
@@ -61,8 +61,8 @@ const CONSTANT_HEADER: [&str; 4] = [
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i   SCOPE  MUTABLE               TYPE                  IDENTIFIER   ",
-    "--- ------- ------- -------------------------------- ----------------",
+    " i   SCOPE  MUTABLE       TYPE          IDENTIFIER   ",
+    "--- ------- ------- ---------------- ----------------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -89,11 +89,11 @@ impl<'a> Disassembler<'a> {
         }
     }
 
-    /// The default width of the disassembly output, including borders.
+    /// The default width of the disassembly output, including borders and padding.
     pub fn default_width() -> usize {
         let longest_line = INSTRUCTION_HEADER[3];
 
-        (longest_line.chars().count() + 2).max(80)
+        longest_line.chars().count() + 4 // Allow for one border and one padding space on each side.
     }
 
     pub fn source(mut self, source: &'a str) -> Self {
@@ -209,22 +209,12 @@ impl<'a> Disassembler<'a> {
             self.push_header(line);
         }
 
-        for (index, (instruction, r#type, position)) in self.chunk.instructions().iter().enumerate()
-        {
+        for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
-            let type_display = {
-                let mut type_string = r#type.to_string();
-
-                if type_string.len() > 14 {
-                    type_string = format!("{type_string:.11}...");
-                }
-
-                type_string
-            };
             let info = instruction.disassembly_info();
             let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {type_display:^14} {info:^32}");
+                format!("{index:^3} {position:^10} {operation:13} {info:^32}");
 
             self.push_details(&instruction_display);
         }
@@ -254,7 +244,7 @@ impl<'a> Disassembler<'a> {
             let type_display = r#type.to_string();
             let scope = scope.to_string();
             let local_display = format!(
-                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^32} {identifier_display:^16}"
+                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
             );
 
             self.push_details(&local_display);

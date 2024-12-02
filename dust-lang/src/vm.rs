@@ -715,13 +715,12 @@ impl<'a> Vm<'a> {
     }
 
     fn read(&mut self) -> Result<Instruction, VmError> {
-        let (instruction, _type, position) =
-            self.chunk.instructions().get(self.ip).ok_or_else(|| {
-                VmError::InstructionIndexOutOfBounds {
-                    index: self.ip,
-                    position: self.current_position,
-                }
-            })?;
+        let (instruction, position) = self.chunk.instructions().get(self.ip).ok_or_else(|| {
+            VmError::InstructionIndexOutOfBounds {
+                index: self.ip,
+                position: self.current_position,
+            }
+        })?;
 
         self.ip += 1;
         self.current_position = *position;

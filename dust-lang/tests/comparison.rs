@@ -16,21 +16,18 @@ fn equal() {
             vec![
                 (
                     Instruction::equal(true, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 4)),
+                (Instruction::jump(1, true), Span(2, 4)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
-                (Instruction::r#return(true), Type::None, Span(6, 6)),
+                (Instruction::r#return(true), Span(6, 6)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
@@ -56,21 +53,18 @@ fn greater() {
             vec![
                 (
                     Instruction::less_equal(false, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 3)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 3)),
+                (Instruction::jump(1, true), Span(2, 3)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 3)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 3)
                 ),
-                (Instruction::r#return(true), Type::None, Span(5, 5)),
+                (Instruction::r#return(true), Span(5, 5)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
@@ -96,21 +90,18 @@ fn greater_than_or_equal() {
             vec![
                 (
                     Instruction::less(false, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 4)),
+                (Instruction::jump(1, true), Span(2, 4)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
-                (Instruction::r#return(true), Type::None, Span(6, 6)),
+                (Instruction::r#return(true), Span(6, 6)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
@@ -136,21 +127,18 @@ fn less_than() {
             vec![
                 (
                     Instruction::less(true, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 3)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 3)),
+                (Instruction::jump(1, true), Span(2, 3)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 3)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 3)
                 ),
-                (Instruction::r#return(true), Type::None, Span(5, 5)),
+                (Instruction::r#return(true), Span(5, 5)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
@@ -176,21 +164,18 @@ fn less_than_or_equal() {
             vec![
                 (
                     Instruction::less_equal(true, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 4)),
+                (Instruction::jump(1, true), Span(2, 4)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
-                (Instruction::r#return(true), Type::None, Span(6, 6)),
+                (Instruction::r#return(true), Span(6, 6)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]
@@ -216,21 +201,18 @@ fn not_equal() {
             vec![
                 (
                     Instruction::equal(false, Argument::Constant(0), Argument::Constant(1)),
-                    Type::None,
                     Span(2, 4)
                 ),
-                (Instruction::jump(1, true), Type::None, Span(2, 4)),
+                (Instruction::jump(1, true), Span(2, 4)),
                 (
                     Instruction::load_boolean(Destination::Register(0), true, true),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
                 (
                     Instruction::load_boolean(Destination::Register(0), false, false),
-                    Type::Boolean,
                     Span(2, 4)
                 ),
-                (Instruction::r#return(true), Type::None, Span(6, 6)),
+                (Instruction::r#return(true), Span(6, 6)),
             ],
             vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
             vec![]

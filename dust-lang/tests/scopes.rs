@@ -38,55 +38,30 @@ fn block_scope() {
             vec![
                 (
                     Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::Integer,
                     Span(17, 18)
                 ),
-                (
-                    Instruction::define_local(0, 0, false),
-                    Type::None,
-                    Span(13, 14)
-                ),
+                (Instruction::define_local(0, 0, false), Span(13, 14)),
                 (
                     Instruction::load_constant(Destination::Register(1), 2, false),
-                    Type::Integer,
                     Span(50, 52)
                 ),
-                (
-                    Instruction::define_local(1, 1, false),
-                    Type::None,
-                    Span(46, 47)
-                ),
+                (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (
                     Instruction::load_constant(Destination::Register(2), 4, false),
-                    Type::Integer,
                     Span(92, 93)
                 ),
-                (
-                    Instruction::define_local(2, 2, false),
-                    Type::None,
-                    Span(88, 89)
-                ),
+                (Instruction::define_local(2, 2, false), Span(88, 89)),
                 (
                     Instruction::load_constant(Destination::Register(3), 6, false),
-                    Type::Integer,
                     Span(129, 130)
                 ),
-                (
-                    Instruction::define_local(3, 3, false),
-                    Type::None,
-                    Span(125, 126)
-                ),
+                (Instruction::define_local(3, 3, false), Span(125, 126)),
                 (
                     Instruction::load_constant(Destination::Register(4), 4, false),
-                    Type::Integer,
                     Span(158, 159)
                 ),
-                (
-                    Instruction::define_local(4, 4, false),
-                    Type::None,
-                    Span(154, 155)
-                ),
-                (Instruction::r#return(false), Type::None, Span(165, 165))
+                (Instruction::define_local(4, 4, false), Span(154, 155)),
+                (Instruction::r#return(false), Span(165, 165))
             ],
             vec![
                 ConcreteValue::Integer(0),
@@ -146,95 +121,50 @@ fn multiple_block_scopes() {
             vec![
                 (
                     Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::Integer,
                     Span(17, 18)
                 ),
-                (
-                    Instruction::define_local(0, 0, false),
-                    Type::None,
-                    Span(13, 14)
-                ),
+                (Instruction::define_local(0, 0, false), Span(13, 14)),
                 (
                     Instruction::load_constant(Destination::Register(1), 2, false),
-                    Type::Integer,
                     Span(50, 52)
                 ),
-                (
-                    Instruction::define_local(1, 1, false),
-                    Type::None,
-                    Span(46, 47)
-                ),
+                (Instruction::define_local(1, 1, false), Span(46, 47)),
                 (
                     Instruction::load_constant(Destination::Register(2), 4, false),
-                    Type::Integer,
                     Span(92, 93)
                 ),
-                (
-                    Instruction::define_local(2, 2, false),
-                    Type::None,
-                    Span(88, 89)
-                ),
+                (Instruction::define_local(2, 2, false), Span(88, 89)),
                 (
                     Instruction::get_local(Destination::Register(3), 1),
-                    Type::Integer,
                     Span(129, 130)
                 ),
-                (
-                    Instruction::define_local(3, 3, false),
-                    Type::None,
-                    Span(125, 126)
-                ),
+                (Instruction::define_local(3, 3, false), Span(125, 126)),
                 (
                     Instruction::get_local(Destination::Register(4), 0),
-                    Type::Integer,
                     Span(158, 159)
                 ),
-                (
-                    Instruction::define_local(4, 4, false),
-                    Type::None,
-                    Span(154, 155)
-                ),
+                (Instruction::define_local(4, 4, false), Span(154, 155)),
                 (
                     Instruction::load_constant(Destination::Register(5), 2, false),
-                    Type::Integer,
                     Span(191, 193)
                 ),
-                (
-                    Instruction::define_local(5, 5, false),
-                    Type::None,
-                    Span(187, 188)
-                ),
+                (Instruction::define_local(5, 5, false), Span(187, 188)),
                 (
                     Instruction::load_constant(Destination::Register(6), 4, false),
-                    Type::Integer,
                     Span(233, 234)
                 ),
-                (
-                    Instruction::define_local(6, 6, false),
-                    Type::None,
-                    Span(229, 230)
-                ),
+                (Instruction::define_local(6, 6, false), Span(229, 230)),
                 (
                     Instruction::get_local(Destination::Register(7), 5),
-                    Type::Integer,
                     Span(270, 271)
                 ),
-                (
-                    Instruction::define_local(7, 7, false),
-                    Type::None,
-                    Span(266, 267)
-                ),
+                (Instruction::define_local(7, 7, false), Span(266, 267)),
                 (
                     Instruction::get_local(Destination::Register(8), 0),
-                    Type::Integer,
                     Span(299, 300)
                 ),
-                (
-                    Instruction::define_local(8, 8, false),
-                    Type::None,
-                    Span(295, 296)
-                ),
-                (Instruction::r#return(false), Type::None, Span(306, 306))
+                (Instruction::define_local(8, 8, false), Span(295, 296)),
+                (Instruction::r#return(false), Span(306, 306))
             ],
             vec![
                 ConcreteValue::Integer(0),
