@@ -1,4 +1,32 @@
 //! The Dust programming language library.
+//!
+//! # Running Programs
+//!
+//! Dust is easy to embed in another application. The `run` function can be used to run Dust code
+//! and get the program's result in a single call.
+//!
+//! If a program returns a value, it does so with a ConcreteValue. Dust's concrete values are simple
+//! and flexible, they are wrappers for familiar Rust types like String, i64 and Vec.
+//!
+//! If an error occurs, it is returned as a DustError. This error can be used to create a report
+//! with source annotations, which should be printed to the user.
+//!
+//! ## Examples
+//!
+//! ```rust
+//! # use dust_lang::{run, ConcreteValue};
+//! let result = run("21 * 2").unwrap();
+//!
+//! assert_eq!(result, Some(ConcreteValue::Integer(42)));
+//! ```
+//!
+//! ```rust
+//! # use dust_lang::{run, DustError};
+//! let error = run("21 + wut").unwrap_err();
+//! let report = error.report();
+//!
+//! println!("{}", report);
+//! ```
 
 pub mod chunk;
 pub mod compiler;

@@ -8,6 +8,8 @@
 //! The disassembler can be customized with the 'styled' option, which will apply ANSI color codes
 //! to the output.
 //!
+//! If the 'source' option is set, the disassembler will include the source code in the output.
+//!
 //! # Output
 //!
 //! The output of [Disassembler::disassemble] is a string that can be printed to the console or
