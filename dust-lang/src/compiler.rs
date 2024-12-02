@@ -1,8 +1,9 @@
 //! Compilation tools and errors
 //!
 //! This module provides two compilation options:
-//! - [`compile`], which compiles the entire input and returns a chunk
-//! - [`Compiler`], which compiles the input a token at a time while assembling a chunk
+//! - [`compile`] borrows a string and returns a chunk, handling the entire compilation process and
+//!   turning any resulting [`ComplileError`] into a [`DustError`].
+//! - [`Compiler`] uses a lexer to get tokens and assembles a chunk.
 use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
@@ -41,10 +42,12 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         Compiler::new(lexer).map_err(|error| DustError::Compile { error, source })?;
 
     compiler
-        .parse_top_level()
+        .compile()
         .map_err(|error| DustError::Compile { error, source })?;
 
-    Ok(compiler.finish(None, None))
+    let chunk = compiler.finish(None, None);
+
+    Ok(chunk)
 }
 
 /// Tool for compiling the input a token at a time while assembling a chunk.
@@ -117,6 +120,20 @@ impl<'src> Compiler<'src> {
             self.constants,
             self.locals,
         )
+    }
+
+    pub fn compile(&mut self) -> Result<(), CompileError> {
+        loop {
+            self.parse(Precedence::None)?;
+
+            if self.is_eof() || self.allow(Token::RightBrace)? {
+                self.parse_implicit_return()?;
+
+                break;
+            }
+        }
+
+        Ok(())
     }
 
     fn is_eof(&self) -> bool {
@@ -1199,20 +1216,6 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_top_level(&mut self) -> Result<(), CompileError> {
-        loop {
-            self.parse(Precedence::None)?;
-
-            if self.is_eof() || self.allow(Token::RightBrace)? {
-                self.parse_implicit_return()?;
-
-                break;
-            }
-        }
-
-        Ok(())
-    }
-
     fn parse_expression(&mut self) -> Result<(), CompileError> {
         self.parse(Precedence::None)?;
 
@@ -1408,7 +1411,7 @@ impl<'src> Compiler<'src> {
         function_compiler.return_type = Some((*return_type).clone());
 
         function_compiler.expect(Token::LeftBrace)?;
-        function_compiler.parse_top_level()?;
+        function_compiler.compile()?;
 
         self.previous_token = function_compiler.previous_token;
         self.previous_position = function_compiler.previous_position;

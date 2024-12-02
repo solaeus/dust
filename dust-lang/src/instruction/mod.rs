@@ -703,7 +703,11 @@ impl Instruction {
                 let arguments_start = destination.index().saturating_sub(argument_count);
                 let arguments_end = arguments_start + argument_count;
 
-                format!("{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                if function.returns_value() {
+                    format!("{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                } else {
+                    format!("{function}(R{arguments_start}..R{arguments_end})")
+                }
             }
             Operation::Return => {
                 let Return {

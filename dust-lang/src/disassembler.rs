@@ -15,30 +15,22 @@
 //!
 //! ```text
 //! ┌──────────────────────────────────────────────────────────────────────────────┐
-//! │                             <file name omitted>                              │
-//! │                                                                              │
-//! │                         write_line("Hello, world!")                          │
-//! │                                                                              │
+//! │                                     dust                                     │
 //! │             3 instructions, 1 constants, 0 locals, returns none              │
 //! │                                                                              │
 //! │                                 Instructions                                 │
 //! │                                 ------------                                 │
-//! │ i  BYTECODE OPERATION             INFO               TYPE         POSITION   │
-//! │--- -------- ------------- -------------------- ---------------- ------------ │
-//! │ 0        03 LOAD_CONSTANT R0 = C0                    str        (11, 26)     │
-//! │ 1   1390117 CALL_NATIVE   write_line(R0)                        (0, 27)      │
-//! │ 2        18 RETURN                                              (27, 27)     │
-//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
-//! │                                    Locals                                    │
-//! │                                    ------                                    │
-//! │            i  IDENTIFIER       TYPE       MUTABLE  SCOPE  REGISTER           │
-//! │           --- ---------- ---------------- ------- ------- --------           │
+//! │  i   POSITION    OPERATION        TYPE                    INFO               │
+//! │ --- ---------- ------------- -------------- -------------------------------- │
+//! │  0   (11, 24)  LOAD_CONSTANT      str                   R0 = C0              │
+//! │  1   (0, 25)   CALL_NATIVE        none             write_line(R0..R1)        │
+//! │  2   (25, 25)  RETURN             none                                       │
 //! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
 //! │                                  Constants                                   │
 //! │                                  ---------                                   │
-//! │                              i       VALUE                                   │
-//! │                             --- ---------------                              │
-//! │                              0   Hello, world!                               │
+//! │                     i        TYPE             VALUE                          │
+//! │                    --- ---------------- -----------------                    │
+//! │                     0        str          Hello, world!                      │
 //! └──────────────────────────────────────────────────────────────────────────────┘
 //! ```
 use std::env::current_exe;
@@ -207,6 +199,97 @@ impl<'a> Disassembler<'a> {
         self.push("", false, false, false, true);
     }
 
+    fn push_instruction_section(&mut self) {
+        for line in INSTRUCTION_HEADER {
+            self.push_header(line);
+        }
+
+        for (index, (instruction, r#type, position)) in self.chunk.instructions().iter().enumerate()
+        {
+            let position = position.to_string();
+            let operation = instruction.operation().to_string();
+            let type_display = {
+                let mut type_string = r#type.to_string();
+
+                if type_string.len() > 14 {
+                    type_string = format!("{type_string:.11}...");
+                }
+
+                type_string
+            };
+            let info = instruction.disassembly_info();
+            let instruction_display =
+                format!("{index:^3} {position:^10} {operation:13} {type_display:^14} {info:^32}");
+
+            self.push_details(&instruction_display);
+        }
+    }
+
+    fn push_local_section(&mut self) {
+        for line in LOCAL_HEADER {
+            self.push_header(line);
+        }
+
+        for (
+            index,
+            Local {
+                identifier_index,
+                r#type,
+                scope,
+                is_mutable,
+            },
+        ) in self.chunk.locals().iter().enumerate()
+        {
+            let identifier_display = self
+                .chunk
+                .constants()
+                .get(*identifier_index as usize)
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let type_display = r#type.to_string();
+            let scope = scope.to_string();
+            let local_display = format!(
+                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^32} {identifier_display:^16}"
+            );
+
+            self.push_details(&local_display);
+        }
+    }
+
+    fn push_constant_section(&mut self) {
+        for line in CONSTANT_HEADER {
+            self.push_header(line);
+        }
+
+        for (index, value) in self.chunk.constants().iter().enumerate() {
+            if let ConcreteValue::Function(chunk) = value {
+                let mut function_disassembler = chunk.disassembler().style(self.style);
+
+                function_disassembler.indent = self.indent + 1;
+
+                let function_disassembly = function_disassembler.disassemble();
+
+                self.output.push_str(&function_disassembly);
+
+                continue;
+            }
+
+            let type_display = value.r#type().to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 15 {
+                    value_string = format!("{value_string:.12}...");
+                }
+
+                value_string
+            };
+            let constant_display = format!("{index:^3} {type_display:^16} {value_display:^17}");
+
+            self.push_details(&constant_display);
+        }
+    }
+
     pub fn disassemble(mut self) -> String {
         let width = Disassembler::default_width();
         let top_border = "┌".to_string() + &"─".repeat(width - 2) + "┐";
@@ -251,93 +334,18 @@ impl<'a> Disassembler<'a> {
         self.push_chunk_info(&info_line);
         self.push_empty();
 
-        for line in INSTRUCTION_HEADER {
-            self.push_header(line);
+        if !self.chunk.is_empty() {
+            self.push_instruction_section();
         }
 
-        for (index, (instruction, r#type, position)) in self.chunk.instructions().iter().enumerate()
-        {
-            let position = position.to_string();
-            let operation = instruction.operation().to_string();
-            let type_display = {
-                let mut type_string = r#type.to_string();
-
-                if type_string.len() > 14 {
-                    type_string = format!("{type_string:.11}...");
-                }
-
-                type_string
-            };
-            let info = instruction.disassembly_info();
-            let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {type_display:^14} {info:^32}");
-
-            self.push_details(&instruction_display);
+        if !self.chunk.locals().is_empty() {
+            self.push_border(&section_border);
+            self.push_local_section();
         }
 
-        self.push_border(&section_border);
-
-        for line in LOCAL_HEADER {
-            self.push_header(line);
-        }
-
-        for (
-            index,
-            Local {
-                identifier_index,
-                r#type,
-                scope,
-                is_mutable,
-            },
-        ) in self.chunk.locals().iter().enumerate()
-        {
-            let identifier_display = self
-                .chunk
-                .constants()
-                .get(*identifier_index as usize)
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "unknown".to_string());
-            let type_display = r#type.to_string();
-            let scope = scope.to_string();
-            let local_display = format!(
-                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^32} {identifier_display:^16}"
-            );
-
-            self.push_details(&local_display);
-        }
-
-        self.push_border(&section_border);
-
-        for line in CONSTANT_HEADER {
-            self.push_header(line);
-        }
-
-        for (index, value) in self.chunk.constants().iter().enumerate() {
-            if let ConcreteValue::Function(chunk) = value {
-                let mut function_disassembler = chunk.disassembler().style(self.style);
-
-                function_disassembler.indent = self.indent + 1;
-
-                let function_disassembly = function_disassembler.disassemble();
-
-                self.output.push_str(&function_disassembly);
-
-                continue;
-            }
-
-            let type_display = value.r#type().to_string();
-            let value_display = {
-                let mut value_string = value.to_string();
-
-                if value_string.len() > 15 {
-                    value_string = format!("{value_string:.12}...");
-                }
-
-                value_string
-            };
-            let constant_display = format!("{index:^3} {type_display:^16} {value_display:^17}");
-
-            self.push_details(&constant_display);
+        if !self.chunk.constants().is_empty() {
+            self.push_border(&section_border);
+            self.push_constant_section();
         }
 
         self.push_border(&bottom_border);
