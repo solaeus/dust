@@ -80,7 +80,7 @@ impl GlobalArguments {
         let mut logger = env_logger::builder();
 
         logger.format(move |buf, record| {
-            let elapsed = start_time.elapsed().as_nanos();
+            let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32()).dimmed();
             let level_display = match record.level() {
                 Level::Info => "INFO".bold().white(),
                 Level::Debug => "DEBUG".bold().blue(),
@@ -88,15 +88,7 @@ impl GlobalArguments {
                 Level::Error => "ERROR".bold().red(),
                 Level::Trace => "TRACE".bold().purple(),
             };
-            let module = record
-                .module_path()
-                .map(|path| path.split("::").last().unwrap_or(path))
-                .unwrap_or("unknown")
-                .dimmed();
-            let display = format!(
-                "{elapsed} {level_display:5} {module:^6} {args}",
-                args = record.args()
-            );
+            let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
 
             writeln!(buf, "{display}")
         });
