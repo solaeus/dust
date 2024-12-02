@@ -16,6 +16,9 @@
 //! ```text
 //! ┌──────────────────────────────────────────────────────────────────────────────┐
 //! │                                     dust                                     │
+//! │                                                                              │
+//! │                          write_line("hello_world")                           │
+//! │                                                                              │
 //! │             3 instructions, 1 constants, 0 locals, returns none              │
 //! │                                                                              │
 //! │                                 Instructions                                 │
@@ -30,7 +33,7 @@
 //! │                                  ---------                                   │
 //! │                     i        TYPE             VALUE                          │
 //! │                    --- ---------------- -----------------                    │
-//! │                     0        str          Hello, world!                      │
+//! │                     0        str           hello_world                       │
 //! └──────────────────────────────────────────────────────────────────────────────┘
 //! ```
 use std::env::current_exe;
@@ -91,7 +94,7 @@ impl<'a> Disassembler<'a> {
         (longest_line.chars().count() + 2).max(80)
     }
 
-    pub fn set_source(&mut self, source: &'a str) -> &mut Self {
+    pub fn source(mut self, source: &'a str) -> Self {
         self.source = Some(source);
 
         self

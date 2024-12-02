@@ -158,7 +158,11 @@ fn main() {
                 return;
             }
         };
-        let disassembly = chunk.disassembler().style(style).disassemble();
+        let disassembly = chunk
+            .disassembler()
+            .style(style)
+            .source(&source)
+            .disassemble();
 
         println!("{}", disassembly);
 
