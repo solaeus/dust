@@ -17,12 +17,13 @@ pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer
 
     for (token, position) in tokens {
         let token = if styled {
-            format!("{:^13}", token.to_string().bold())
+            format!("{:^13}", token.as_str().bold())
         } else {
-            format!("{token:^13}")
+            token.to_string()
         };
+        let position = position.to_string();
 
-        writeln!(writer, "{token} {position:<10}").unwrap();
+        writeln!(writer, "{token:^13} {position:^10}").unwrap();
     }
 }
 
