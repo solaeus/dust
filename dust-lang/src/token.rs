@@ -28,25 +28,22 @@ pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer
 }
 
 macro_rules! define_tokens {
-    ($($variant:ident $(($data_type:ty))?),+ $(,)?) => {
+    ($($variant:ident $(($data_type:ty))?),+) => {
         /// Source token.
         ///
         /// This is a borrowed type, i.e. some variants contain references to the source text.
-        #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub enum Token<'src> {
-            #[default]
-            Eof,
             $(
                 $variant $(($data_type))?,
             )*
         }
 
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         /// Data-less representation of a source token.
         ///
         /// If a [Token] borrows from the source text, its TokenKind omits the data.
         pub enum TokenKind {
-            Eof,
             $(
                 $variant,
             )*
@@ -55,6 +52,8 @@ macro_rules! define_tokens {
 }
 
 define_tokens! {
+    Eof,
+
     // Hard-coded values
     Boolean(&'src str),
     Byte(&'src str),
@@ -114,7 +113,7 @@ define_tokens! {
     Slash,
     SlashEqual,
     Star,
-    StarEqual,
+    StarEqual
 }
 
 impl<'src> Token<'src> {
@@ -472,7 +471,7 @@ impl<'src> Display for Token<'src> {
 /// Owned representation of a source token.
 ///
 /// If a [Token] borrows from the source text, its TokenOwned omits the data.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TokenOwned {
     Eof,
 
