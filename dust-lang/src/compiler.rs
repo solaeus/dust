@@ -691,8 +691,8 @@ impl<'src> Compiler<'src> {
                 )?;
             }
             Token::Minus | Token::MinusEqual => {
-                Compiler::expect_addable_type(&right_type, &right_position)?;
-                Compiler::expect_addable_types(
+                Compiler::expect_subtractable_type(&right_type, &right_position)?;
+                Compiler::expect_subtractable_types(
                     &left_type,
                     &left_position,
                     &right_type,
