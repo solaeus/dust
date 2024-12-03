@@ -27,7 +27,7 @@ Dust is still in development. This list may change as the language evolves.
 - CLI
   - [X] Run source
   - [X] Compile to chunk and show disassembly
-  - [ ] Tokenize using the lexer and show token list
+  - [X] Tokenize using the lexer and show token list
   - [ ] Format using the formatter and display the output
   - [ ] Compile to and run from intermediate formats
     - [ ] JSON

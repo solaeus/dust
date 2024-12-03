@@ -9,20 +9,26 @@ use serde::{Deserialize, Serialize};
 
 use crate::Span;
 
-pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer: &mut W) {
+pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], style: bool, writer: &mut W) {
     const HEADER: [&str; 2] = ["    TOKEN      POSITION ", "------------- ----------"];
 
-    writeln!(writer, "{}", HEADER[0]).unwrap();
-    writeln!(writer, "{}", HEADER[1]).unwrap();
+    if style {
+        writeln!(writer, "{}", HEADER[0].bold()).unwrap();
+        writeln!(writer, "{}", HEADER[1].bold()).unwrap();
+    } else {
+        writeln!(writer, "{}", HEADER[0]).unwrap();
+        writeln!(writer, "{}", HEADER[1]).unwrap();
+    }
 
     for (token, position) in tokens {
-        let token = if styled {
+        let token = if style {
             format!("{:^13}", token.to_string().bold())
         } else {
             format!("{token:^13}")
         };
+        let position = position.to_string();
 
-        writeln!(writer, "{token} {position:<10}").unwrap();
+        writeln!(writer, "{token:^13} {position:^10}").unwrap();
     }
 }
 

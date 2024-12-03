@@ -42,7 +42,7 @@ enum CliMode {
         global_arguments: GlobalArguments,
 
         /// Style the disassembly output
-        #[arg(short, long)]
+        #[arg(short, long, default_value = "true")]
         style: bool,
     },
 
@@ -53,7 +53,7 @@ enum CliMode {
         global_arguments: GlobalArguments,
 
         /// Style the disassembly output
-        #[arg(short, long)]
+        #[arg(short, long, default_value = "true")]
         style: bool,
     },
 }
