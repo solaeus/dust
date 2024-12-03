@@ -1628,8 +1628,9 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         if matches!(
             (left, right),
-            (Type::Integer, Type::Integer)
+            (Type::Character, Type::Character)
                 | (Type::Float, Type::Float)
+                | (Type::Integer, Type::Integer)
                 | (Type::String, Type::String),
         ) {
             Ok(())

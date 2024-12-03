@@ -67,6 +67,9 @@ impl ConcreteValue {
 
         let sum = match (self, other) {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_add(*right)),
+            (Character(left), Character(right)) => {
+                ConcreteValue::string(format!("{}{}", left, right))
+            }
             (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
             (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
