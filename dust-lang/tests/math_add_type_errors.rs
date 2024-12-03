@@ -113,6 +113,126 @@ fn add_list_right() {
 // fn add_range_right() {
 //     todo!("Add ranges")
 // }
+//
+
+#[test]
+fn add_byte_and_character() {
+    let source = "0xff + 'a'";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Byte,
+                right_type: Type::Character,
+                position: Span(0, 10)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_byte_and_integer() {
+    let source = "0xff + 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Byte,
+                right_type: Type::Integer,
+                position: Span(0, 8)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_byte_and_string() {
+    let source = "0xff + \"hello\"";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Byte,
+                right_type: Type::String,
+                position: Span(0, 14)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_character_and_byte() {
+    let source = "'a' + 0xff";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Character,
+                right_type: Type::Byte,
+                position: Span(0, 10)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_character_and_float() {
+    let source = "'a' + 1.0";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Character,
+                right_type: Type::Float,
+                position: Span(0, 9)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_character_and_integer() {
+    let source = "'a' + 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Character,
+                right_type: Type::Integer,
+                position: Span(0, 7)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_float_and_byte() {
+    let source = "1.0 + 0xff";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Float,
+                right_type: Type::Byte,
+                position: Span(0, 10)
+            },
+            source,
+        })
+    );
+}
 
 #[test]
 fn add_float_and_character() {
@@ -159,6 +279,23 @@ fn add_float_and_string() {
                 left_type: Type::Float,
                 right_type: Type::String,
                 position: Span(0, 13)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_integer_and_byte() {
+    let source = "1 + 0xff";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddArguments {
+                left_type: Type::Integer,
+                right_type: Type::Byte,
+                position: Span(0, 8)
             },
             source,
         })
@@ -217,16 +354,16 @@ fn add_integer_and_string() {
 }
 
 #[test]
-fn add_string_and_character() {
-    let source = "\"hello\" + 'a'";
+fn add_string_and_byte() {
+    let source = "\"hello\" + 0xff";
 
     assert_eq!(
         compile(source),
         Err(DustError::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::String,
-                right_type: Type::Character,
-                position: Span(0, 13)
+                right_type: Type::Byte,
+                position: Span(0, 14)
             },
             source,
         })
@@ -261,40 +398,6 @@ fn add_string_and_integer() {
                 left_type: Type::String,
                 right_type: Type::Integer,
                 position: Span(0, 11)
-            },
-            source,
-        })
-    );
-}
-
-#[test]
-fn add_character_and_float() {
-    let source = "'a' + 1.0";
-
-    assert_eq!(
-        compile(source),
-        Err(DustError::Compile {
-            error: CompileError::CannotAddArguments {
-                left_type: Type::Character,
-                right_type: Type::Float,
-                position: Span(0, 9)
-            },
-            source,
-        })
-    );
-}
-
-#[test]
-fn add_character_and_integer() {
-    let source = "'a' + 1";
-
-    assert_eq!(
-        compile(source),
-        Err(DustError::Compile {
-            error: CompileError::CannotAddArguments {
-                left_type: Type::Character,
-                right_type: Type::Integer,
-                position: Span(0, 7)
             },
             source,
         })
