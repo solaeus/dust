@@ -651,8 +651,17 @@ impl<'src> Compiler<'src> {
             Token::Plus | Token::PlusEqual => {
                 Compiler::expect_addable_type(&left_type, &left_position)?
             }
+            Token::Minus | Token::MinusEqual => {
+                Compiler::expect_subtractable_type(&left_type, &left_position)?
+            }
             Token::Slash | Token::SlashEqual => {
                 Compiler::expect_dividable_type(&left_type, &left_position)?
+            }
+            Token::Star | Token::StarEqual => {
+                Compiler::expect_multipliable_type(&left_type, &left_position)?
+            }
+            Token::Percent | Token::PercentEqual => {
+                Compiler::expect_modulable_type(&left_type, &left_position)?
             }
             _ => {}
         }
@@ -693,6 +702,15 @@ impl<'src> Compiler<'src> {
             Token::Slash | Token::SlashEqual => {
                 Compiler::expect_dividable_type(&right_type, &right_position)?;
                 Compiler::expect_dividable_types(
+                    &left_type,
+                    &left_position,
+                    &right_type,
+                    &right_position,
+                )?;
+            }
+            Token::Star | Token::StarEqual => {
+                Compiler::expect_multipliable_type(&right_type, &right_position)?;
+                Compiler::expect_multipliable_types(
                     &left_type,
                     &left_position,
                     &right_type,
@@ -1754,10 +1772,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn expect_multiplicable_type(
-        argument_type: &Type,
-        position: &Span,
-    ) -> Result<(), CompileError> {
+    fn expect_multipliable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
         if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
             Ok(())
         } else {
@@ -1768,7 +1783,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn expect_multiplicable_types(
+    fn expect_multipliable_types(
         left: &Type,
         left_position: &Span,
         right: &Type,
@@ -1781,6 +1796,37 @@ impl<'src> Compiler<'src> {
             Ok(())
         } else {
             Err(CompileError::CannotMultiplyArguments {
+                left_type: left.clone(),
+                right_type: right.clone(),
+                position: Span(left_position.0, right_position.1),
+            })
+        }
+    }
+
+    fn expect_subtractable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
+        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotSubtractType {
+                argument_type: argument_type.clone(),
+                position: *position,
+            })
+        }
+    }
+
+    fn expect_subtractable_types(
+        left: &Type,
+        left_position: &Span,
+        right: &Type,
+        right_position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(
+            (left, right),
+            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotSubtractArguments {
                 left_type: left.clone(),
                 right_type: right.clone(),
                 position: Span(left_position.0, right_position.1),
@@ -2205,11 +2251,11 @@ pub enum CompileError {
         right_type: Type,
         position: Span,
     },
-    CannotSubtractLeft {
+    CannotSubtractType {
         argument_type: Type,
         position: Span,
     },
-    CannotSubtract {
+    CannotSubtractArguments {
         left_type: Type,
         right_type: Type,
         position: Span,
@@ -2283,8 +2329,8 @@ impl AnnotatedError for CompileError {
             Self::CannotMultiplyType { .. } => "Cannot multiply this type",
             Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
             Self::CannotResolveVariableType { .. } => "Cannot resolve type",
-            Self::CannotSubtract { .. } => "Cannot subtract these types",
-            Self::CannotSubtractLeft { .. } => "Cannot subtract from this type",
+            Self::CannotSubtractType { .. } => "Cannot subtract from this type",
+            Self::CannotSubtractArguments { .. } => "Cannot subtract these types",
             Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedFunction { .. } => "Expected a function",
@@ -2392,8 +2438,8 @@ impl AnnotatedError for CompileError {
             Self::CannotMultiplyType { position, .. } => *position,
             Self::CannotResolveRegisterType { position, .. } => *position,
             Self::CannotResolveVariableType { position, .. } => *position,
-            Self::CannotSubtract { position, .. } => *position,
-            Self::CannotSubtractLeft { position, .. } => *position,
+            Self::CannotSubtractArguments { position, .. } => *position,
+            Self::CannotSubtractType { position, .. } => *position,
             Self::ConstantIndexOutOfBounds { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
