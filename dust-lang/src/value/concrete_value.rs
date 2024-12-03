@@ -70,9 +70,11 @@ impl ConcreteValue {
             (Character(left), Character(right)) => {
                 ConcreteValue::string(format!("{}{}", left, right))
             }
+            (Character(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
             (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
             (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
+            (String(left), Character(right)) => ConcreteValue::string(format!("{}{}", left, right)),
             _ => {
                 return Err(ValueError::CannotAdd(
                     self.clone().to_value(),

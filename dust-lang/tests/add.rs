@@ -33,6 +33,41 @@ fn add_characters() {
 }
 
 #[test]
+fn add_character_and_string() {
+    let source = "'a' + \"b\"";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::String),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(4, 5)
+                ),
+                (Instruction::r#return(true), Span(9, 9))
+            ],
+            vec![
+                ConcreteValue::Character('a'),
+                ConcreteValue::String("b".to_string())
+            ],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::string("ab"))));
+}
+
+#[test]
 fn add_floats() {
     let source = "1.0 + 2.0";
 
@@ -126,5 +161,43 @@ fn add_strings() {
             ],
             vec![]
         ))
+    );
+}
+
+#[test]
+fn add_string_and_character() {
+    let source = "\"a\" + 'b'";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::String),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(4, 5)
+                ),
+                (Instruction::r#return(true), Span(9, 9))
+            ],
+            vec![
+                ConcreteValue::String("a".to_string()),
+                ConcreteValue::Character('b')
+            ],
+            vec![]
+        ))
+    );
+
+    assert_eq!(
+        run(source),
+        Ok(Some(ConcreteValue::String("ab".to_string())))
     );
 }

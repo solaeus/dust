@@ -629,20 +629,16 @@ impl<'src> Compiler<'src> {
         };
         let operator = self.current_token;
         let operator_position = self.current_position;
-
-        Compiler::expect_addable_type(&left_type, &left_position)?;
-
         let rule = ParseRule::from(&operator);
         let is_assignment = matches!(
             operator,
             Token::PlusEqual | Token::MinusEqual | Token::StarEqual | Token::SlashEqual
         );
 
-        let r#type = if is_assignment {
-            Type::None
-        } else {
-            left_type.clone()
-        };
+        if push_back_left {
+            self.instructions
+                .push((left_instruction, left_type.clone(), left_position));
+        }
 
         if is_assignment && !left_is_mutable_local {
             return Err(CompileError::ExpectedMutableVariable {
@@ -651,10 +647,15 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        if push_back_left {
-            self.instructions
-                .push((left_instruction, left_type.clone(), left_position));
-        }
+        Compiler::expect_addable_type(&left_type, &left_position)?;
+
+        let r#type = if is_assignment {
+            Type::None
+        } else if left_type == Type::Character {
+            Type::String
+        } else {
+            left_type.clone()
+        };
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -1628,9 +1629,11 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         if matches!(
             (left, right),
-            (Type::Character, Type::Character)
+            (Type::Character, Type::String)
+                | (Type::Character, Type::Character)
                 | (Type::Float, Type::Float)
                 | (Type::Integer, Type::Integer)
+                | (Type::String, Type::Character)
                 | (Type::String, Type::String),
         ) {
             Ok(())
