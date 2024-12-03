@@ -26,7 +26,7 @@ fn function() {
                     ),
                     Span(30, 31)
                 ),
-                (Instruction::r#return(true), Span(35, 35)),
+                (Instruction::r#return(true), Span(34, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
@@ -53,7 +53,7 @@ fn function_call() {
             vec![
                 (
                     Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(0, 36)
+                    Span(0, 35)
                 ),
                 (
                     Instruction::load_constant(Destination::Register(1), 1, false),
@@ -86,7 +86,7 @@ fn function_call() {
                             ),
                             Span(30, 31)
                         ),
-                        (Instruction::r#return(true), Span(35, 36)),
+                        (Instruction::r#return(true), Span(34, 35)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
@@ -142,7 +142,7 @@ fn function_declaration() {
                             ),
                             Span(35, 36)
                         ),
-                        (Instruction::r#return(true), Span(40, 40)),
+                        (Instruction::r#return(true), Span(39, 40)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![

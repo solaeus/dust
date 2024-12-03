@@ -131,7 +131,7 @@ impl<'src> Compiler<'src> {
         loop {
             self.parse(Precedence::None)?;
 
-            if self.is_eof() || self.allow(Token::RightBrace)? {
+            if matches!(self.current_token, Token::Eof | Token::RightBrace) {
                 self.parse_implicit_return()?;
 
                 break;
@@ -150,7 +150,9 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                if instruction.yields_value() {
+                let is_get_local = matches!(instruction.operation(), Operation::GetLocal);
+
+                if instruction.yields_value() && !is_get_local {
                     Some(instruction.a() + 1)
                 } else {
                     None
@@ -627,11 +629,15 @@ impl<'src> Compiler<'src> {
         };
         let operator = self.current_token;
         let operator_position = self.current_position;
+
+        Compiler::expect_addable_type(&left_type, &left_position)?;
+
         let rule = ParseRule::from(&operator);
         let is_assignment = matches!(
             operator,
             Token::PlusEqual | Token::MinusEqual | Token::StarEqual | Token::SlashEqual
         );
+
         let r#type = if is_assignment {
             Type::None
         } else {
@@ -647,7 +653,7 @@ impl<'src> Compiler<'src> {
 
         if push_back_left {
             self.instructions
-                .push((left_instruction, left_type, left_position));
+                .push((left_instruction, left_type.clone(), left_position));
         }
 
         self.advance()?;
@@ -655,6 +661,9 @@ impl<'src> Compiler<'src> {
 
         let (right_instruction, right_type, right_position) = self.pop_last_instruction()?;
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+
+        Compiler::expect_addable_type(&right_type, &right_position)?;
+        Compiler::expect_addable_types(&left_type, &left_position, &right_type, &right_position)?;
 
         if push_back_right {
             self.instructions
@@ -986,7 +995,7 @@ impl<'src> Compiler<'src> {
         }
 
         let destination = Destination::Register(self.next_register());
-        let end = self.current_position.1;
+        let end = self.previous_position.1;
         let load_list = Instruction::from(LoadList {
             destination,
             start_register,
@@ -1357,7 +1366,7 @@ impl<'src> Compiler<'src> {
 
         let mut value_parameters: Option<Vec<(u16, Type)>> = None;
 
-        while function_compiler.current_token != Token::RightParenthesis {
+        while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
             let parameter = if let Token::Identifier(text) = function_compiler.current_token {
                 function_compiler.advance()?;
@@ -1398,8 +1407,6 @@ impl<'src> Compiler<'src> {
             function_compiler.allow(Token::Comma)?;
         }
 
-        function_compiler.advance()?;
-
         let return_type = if function_compiler.allow(Token::ArrowThin)? {
             let r#type = function_compiler.parse_type_from(
                 function_compiler.current_token,
@@ -1417,6 +1424,9 @@ impl<'src> Compiler<'src> {
 
         function_compiler.expect(Token::LeftBrace)?;
         function_compiler.compile()?;
+        function_compiler.expect(Token::RightBrace)?;
+
+        let function_end = function_compiler.previous_position.1;
 
         self.previous_token = function_compiler.previous_token;
         self.previous_position = function_compiler.previous_position;
@@ -1426,7 +1436,6 @@ impl<'src> Compiler<'src> {
         let function =
             ConcreteValue::Function(function_compiler.finish(None, value_parameters.clone()));
         let constant_index = self.push_or_get_constant(function);
-        let function_end = self.current_position.1;
         let register = self.next_register();
         let function_type = FunctionType {
             type_parameters: None,
@@ -1514,6 +1523,7 @@ impl<'src> Compiler<'src> {
         let start = self.current_position.0;
 
         self.advance()?;
+        self.expect(Token::LeftParenthesis)?;
 
         let mut argument_count = 0;
 
@@ -1594,6 +1604,42 @@ impl<'src> Compiler<'src> {
         }
 
         Ok(())
+    }
+
+    fn expect_addable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
+        if matches!(
+            argument_type,
+            Type::Byte | Type::Character | Type::Float | Type::Integer | Type::String
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotAddType {
+                argument_type: argument_type.clone(),
+                position: *position,
+            })
+        }
+    }
+
+    fn expect_addable_types(
+        left: &Type,
+        left_position: &Span,
+        right: &Type,
+        right_position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(
+            (left, right),
+            (Type::Integer, Type::Integer)
+                | (Type::Float, Type::Float)
+                | (Type::String, Type::String),
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotAddArguments {
+                left_type: left.clone(),
+                right_type: right.clone(),
+                position: Span(left_position.0, right_position.1),
+            })
+        }
     }
 }
 
@@ -1977,6 +2023,24 @@ pub enum CompileError {
     },
 
     // Type errors
+    CannotAddType {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotAddArguments {
+        left_type: Type,
+        right_type: Type,
+        position: Span,
+    },
+    CannotSubtractLeft {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotSubtract {
+        left_type: Type,
+        right_type: Type,
+        position: Span,
+    },
     CannotResolveRegisterType {
         register_index: usize,
         position: Span,
@@ -2034,10 +2098,14 @@ impl AnnotatedError for CompileError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::CannotAddArguments { .. } => "Cannot add these types",
+            Self::CannotAddType { .. } => "Cannot add to this type",
             Self::CannotChainComparison { .. } => "Cannot chain comparison operations",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
             Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
             Self::CannotResolveVariableType { .. } => "Cannot resolve type",
+            Self::CannotSubtract { .. } => "Cannot subtract these types",
+            Self::CannotSubtractLeft { .. } => "Cannot subtract from this type",
             Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedFunction { .. } => "Expected a function",
@@ -2133,10 +2201,14 @@ impl AnnotatedError for CompileError {
 
     fn position(&self) -> Span {
         match self {
+            Self::CannotAddArguments { position, .. } => *position,
+            Self::CannotAddType { position, .. } => *position,
             Self::CannotChainComparison { position } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
             Self::CannotResolveRegisterType { position, .. } => *position,
             Self::CannotResolveVariableType { position, .. } => *position,
+            Self::CannotSubtract { position, .. } => *position,
+            Self::CannotSubtractLeft { position, .. } => *position,
             Self::ConstantIndexOutOfBounds { position, .. } => *position,
             Self::ExpectedExpression { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,

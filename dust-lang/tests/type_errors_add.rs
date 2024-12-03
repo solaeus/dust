@@ -1,0 +1,160 @@
+use dust_lang::*;
+
+#[test]
+fn add_boolean_left() {
+    let source = "true + 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::Boolean,
+                position: Span(0, 4)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_boolean_right() {
+    let source = "1 + true";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::Boolean,
+                position: Span(4, 8)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_function_left() {
+    let source = "fn(){} + 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: None,
+                    return_type: Box::new(Type::None)
+                }),
+                position: Span(0, 6)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_function_right() {
+    let source = "1 + fn(){}";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: None,
+                    return_type: Box::new(Type::None)
+                }),
+                position: Span(4, 10)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_list_left() {
+    let source = "[1, 2] + 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::List(Box::new(Type::Integer)),
+                position: Span(0, 6)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn add_list_right() {
+    let source = "1 + [1, 2]";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotAddType {
+                argument_type: Type::List(Box::new(Type::Integer)),
+                position: Span(4, 10)
+            },
+            source,
+        })
+    );
+}
+
+// #[test]
+// fn add_range_left() {
+//     todo!("Add ranges")
+// }
+
+// #[test]
+// fn add_range_right() {
+//     todo!("Add ranges")
+// }
+
+#[test]
+fn add_character_and_float() {
+    let source = "'a' + 1.0";
+}
+
+#[test]
+fn add_character_and_integer() {
+    todo!()
+}
+
+#[test]
+fn add_character_and_string() {
+    todo!()
+}
+
+#[test]
+fn add_float_and_character() {
+    todo!()
+}
+
+#[test]
+fn add_float_and_integer() {
+    todo!()
+}
+
+#[test]
+fn add_float_and_string() {
+    todo!()
+}
+
+#[test]
+fn add_integer_and_character() {
+    todo!()
+}
+
+#[test]
+fn add_integer_and_float() {
+    todo!()
+}
+
+#[test]
+fn add_integer_and_string() {
+    todo!()
+}
