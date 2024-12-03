@@ -866,7 +866,21 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
+        let is_logic_chain = matches!(
+            self.get_last_operations(),
+            Some([Operation::Test, Operation::Jump, _])
+        );
         let (left_instruction, left_type, left_position) = self.pop_last_instruction()?;
+        let jump_index = self.instructions.len().saturating_sub(1);
+        let mut jump_distance = if is_logic_chain {
+            self.instructions.pop().map_or(0, |(jump, _, _)| {
+                let Jump { offset, .. } = Jump::from(&jump);
+
+                offset
+            })
+        } else {
+            0
+        };
 
         if !left_instruction.yields_value() {
             return Err(CompileError::ExpectedExpression {
@@ -903,15 +917,20 @@ impl<'src> Compiler<'src> {
             argument,
             test_value: test_boolean,
         });
-        let jump = Instruction::from(Jump {
-            offset: 1,
-            is_positive: true,
-        });
 
         self.advance()?;
         self.emit_instruction(test, Type::None, operator_position);
-        self.emit_instruction(jump, Type::None, operator_position);
+        self.emit_instruction(Instruction::jump(1, true), Type::None, operator_position);
         self.parse_sub_expression(&rule.precedence)?;
+
+        if is_logic_chain {
+            let expression_length = self.instructions.len() - jump_index - 1;
+            jump_distance += expression_length as u16;
+            let jump = Instruction::jump(jump_distance, true);
+
+            self.instructions
+                .insert(jump_index, (jump, Type::None, operator_position));
+        }
 
         Ok(())
     }
