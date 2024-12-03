@@ -182,18 +182,19 @@ reintroduced in the future.
 
 ## Inspiration
 
-[Crafting Interpreters] by Bob Nystrom was a major inspiration for rewriting Dust to use bytecode
-instructions. It was also a great resource for writing the compiler, especially the Pratt parser.
+[Crafting Interpreters] by Bob Nystrom was a great resource for writing the compiler, especially the
+Pratt parser. The book is a great introduction to writing interpreters.
 
 [A No-Frills Introduction to Lua 5.1 VM Instructions] by Kein-Hong Man was a great resource for the
 design of Dust's instructions and operation codes. The Lua VM is simple and efficient, and Dust's VM
 attempts to be the same, though it is not as optimized for different platforms. Dust's instructions
 were originally 32-bit like Lua's, but were changed to 64-bit to allow for more complex information
-about the instruction's arguments.
+about the instruction's arguments. Dust's compile-time optimizations are inspired by Lua
+optimizations covered in this paper.
 
 [The Implementation of Lua 5.0] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and Waldemar
-Celes was a great resource for understanding how a compiler and VM tie together. Dust's compiler's
-optimization functions are inspired by Lua optimizations covered in this paper.
+Celes was a great resource for understanding register-based virtual machines and their instructions.
+This paper is a great resource when designing new features.
 
 [Crafting Interpreters]: https://craftinginterpreters.com/
 [The Implementation of Lua 5.0]: https://www.lua.org/doc/jucs05.pdf
