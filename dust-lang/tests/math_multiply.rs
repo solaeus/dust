@@ -18,13 +18,13 @@ fn multiply_floats() {
                     Instruction::multiply(
                         Destination::Register(0),
                         Argument::Constant(0),
-                        Argument::Constant(1)
+                        Argument::Constant(0)
                     ),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9)),
             ],
-            vec![ConcreteValue::Float(2.0), ConcreteValue::Float(2.0)],
+            vec![ConcreteValue::Float(2.0)],
             vec![]
         ))
     );

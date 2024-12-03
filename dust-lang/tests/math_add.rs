@@ -120,10 +120,7 @@ fn add_character_and_string() {
                 ),
                 (Instruction::r#return(true), Span(9, 9))
             ],
-            vec![
-                ConcreteValue::Character('a'),
-                ConcreteValue::String("b".to_string())
-            ],
+            vec![ConcreteValue::Character('a'), ConcreteValue::string("b")],
             vec![]
         ))
     );
@@ -287,8 +284,8 @@ fn add_strings() {
                 (Instruction::r#return(true), Span(20, 20))
             ],
             vec![
-                ConcreteValue::String("Hello, ".to_string()),
-                ConcreteValue::String("world!".to_string())
+                ConcreteValue::string("Hello, "),
+                ConcreteValue::string("world!")
             ],
             vec![]
         ))
@@ -327,8 +324,5 @@ fn add_string_and_character() {
         ))
     );
 
-    assert_eq!(
-        run(source),
-        Ok(Some(ConcreteValue::String("ab".to_string())))
-    );
+    assert_eq!(run(source), Ok(Some(ConcreteValue::string("ab"))));
 }

@@ -18,9 +18,9 @@ fn divide_bytes() {
                     Instruction::divide(
                         Destination::Register(0),
                         Argument::Constant(0),
-                        Argument::Constant(0)
+                        Argument::Constant(1)
                     ),
-                    Span(0, 7)
+                    Span(5, 6)
                 ),
                 (Instruction::r#return(true), Span(11, 11))
             ],

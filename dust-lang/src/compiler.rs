@@ -150,9 +150,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                let is_get_local = matches!(instruction.operation(), Operation::GetLocal);
-
-                if instruction.yields_value() && !is_get_local {
+                if instruction.yields_value() {
                     Some(instruction.a() + 1)
                 } else {
                     None
@@ -632,7 +630,11 @@ impl<'src> Compiler<'src> {
         let rule = ParseRule::from(&operator);
         let is_assignment = matches!(
             operator,
-            Token::PlusEqual | Token::MinusEqual | Token::StarEqual | Token::SlashEqual
+            Token::PlusEqual
+                | Token::MinusEqual
+                | Token::StarEqual
+                | Token::SlashEqual
+                | Token::PercentEqual
         );
 
         if push_back_left {
@@ -1729,7 +1731,7 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         if matches!(
             (left, right),
-            (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
+            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
         ) {
             Ok(())
         } else {
