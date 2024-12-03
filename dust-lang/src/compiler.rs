@@ -1693,10 +1693,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn expect_dividable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(
-            argument_type,
-            Type::Byte | Type::Character | Type::Float | Type::Integer
-        ) {
+        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
             Ok(())
         } else {
             Err(CompileError::CannotDivideType {

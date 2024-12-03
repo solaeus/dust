@@ -19,36 +19,171 @@ fn divide_boolean_left() {
 #[test]
 fn divide_boolean_right() {
     let source = "1 / true";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Boolean,
+                position: Span(4, 8)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_character_left() {
     let source = "'a' / 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Character,
+                position: Span(0, 3)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_character_right() {
     let source = "1 / 'a'";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Character,
+                position: Span(4, 7)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn divide_float_and_character() {
+    let source = "1.0 / 'a'";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Character,
+                position: Span(6, 9)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn divide_float_and_integer() {
+    let source = "1.0 / 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideArguments {
+                left_type: Type::Float,
+                right_type: Type::Integer,
+                position: Span(0, 7)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_function_left() {
     let source = "fn(){} / 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: None,
+                    return_type: Box::new(Type::None)
+                }),
+                position: Span(0, 6)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_function_right() {
     let source = "1 / fn(){}";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::Function(FunctionType {
+                    type_parameters: None,
+                    value_parameters: None,
+                    return_type: Box::new(Type::None)
+                }),
+                position: Span(4, 10)
+            },
+            source,
+        })
+    );
+}
+
+#[test]
+fn divide_integer_and_float() {
+    let source = "1 / 1.0";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideArguments {
+                left_type: Type::Integer,
+                right_type: Type::Float,
+                position: Span(0, 7)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_list_left() {
     let source = "[1, 2] / 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::List(Box::new(Type::Integer)),
+                position: Span(0, 6)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_list_right() {
     let source = "1 / [1, 2]";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::List(Box::new(Type::Integer)),
+                position: Span(4, 10)
+            },
+            source,
+        })
+    );
 }
 
 // #[test]
@@ -64,24 +199,31 @@ fn divide_list_right() {
 #[test]
 fn divide_string_left() {
     let source = "\"hello\" / 1";
+
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::String,
+                position: Span(0, 7)
+            },
+            source,
+        })
+    );
 }
 
 #[test]
 fn divide_string_right() {
     let source = "1 / \"hello\"";
-}
 
-#[test]
-fn divide_float_and_character() {
-    let source = "1.0 / 'a'";
-}
-
-#[test]
-fn divide_float_and_integer() {
-    let source = "1.0 / 1";
-}
-
-#[test]
-fn divide_integer_and_float() {
-    let source = "1 / 1.0";
+    assert_eq!(
+        compile(source),
+        Err(DustError::Compile {
+            error: CompileError::CannotDivideType {
+                argument_type: Type::String,
+                position: Span(4, 11)
+            },
+            source,
+        })
+    );
 }
