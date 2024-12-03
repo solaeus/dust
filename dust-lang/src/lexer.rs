@@ -211,14 +211,14 @@ impl<'src> Lexer<'src> {
 
                         let peek_second_char = self.peek_second_char();
 
-                        if let ('e', Some('0'..='9')) = (peek_char, peek_second_char) {
+                        if let ('e' | 'E', Some('0'..='9')) = (peek_char, peek_second_char) {
                             self.next_char();
                             self.next_char();
 
                             continue;
                         }
 
-                        if let ('e', Some('-')) = (peek_char, peek_second_char) {
+                        if let ('e' | 'E', Some('+')) = (peek_char, peek_second_char) {
                             self.next_char();
                             self.next_char();
 
@@ -226,7 +226,9 @@ impl<'src> Lexer<'src> {
                         }
 
                         return Err(LexError::ExpectedCharacterMultiple {
-                            expected: &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', '-'],
+                            expected: &[
+                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', 'E', '-',
+                            ],
                             actual: peek_char,
                             position: self.position,
                         });

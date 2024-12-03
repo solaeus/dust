@@ -647,7 +647,15 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        Compiler::expect_addable_type(&left_type, &left_position)?;
+        match operator {
+            Token::Plus | Token::PlusEqual => {
+                Compiler::expect_addable_type(&left_type, &left_position)?
+            }
+            Token::Slash | Token::SlashEqual => {
+                Compiler::expect_dividable_type(&left_type, &left_position)?
+            }
+            _ => {}
+        }
 
         let r#type = if is_assignment {
             Type::None
@@ -663,8 +671,45 @@ impl<'src> Compiler<'src> {
         let (right_instruction, right_type, right_position) = self.pop_last_instruction()?;
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
 
-        Compiler::expect_addable_type(&right_type, &right_position)?;
-        Compiler::expect_addable_types(&left_type, &left_position, &right_type, &right_position)?;
+        match operator {
+            Token::Plus | Token::PlusEqual => {
+                Compiler::expect_addable_type(&right_type, &right_position)?;
+                Compiler::expect_addable_types(
+                    &left_type,
+                    &left_position,
+                    &right_type,
+                    &right_position,
+                )?;
+            }
+            Token::Minus | Token::MinusEqual => {
+                Compiler::expect_addable_type(&right_type, &right_position)?;
+                Compiler::expect_addable_types(
+                    &left_type,
+                    &left_position,
+                    &right_type,
+                    &right_position,
+                )?;
+            }
+            Token::Slash | Token::SlashEqual => {
+                Compiler::expect_dividable_type(&right_type, &right_position)?;
+                Compiler::expect_dividable_types(
+                    &left_type,
+                    &left_position,
+                    &right_type,
+                    &right_position,
+                )?;
+            }
+            Token::Percent | Token::PercentEqual => {
+                Compiler::expect_modulable_type(&right_type, &right_position)?;
+                Compiler::expect_modulable_types(
+                    &left_type,
+                    &left_position,
+                    &right_type,
+                    &right_position,
+                )?;
+            }
+            _ => {}
+        }
 
         if push_back_right {
             self.instructions
@@ -1629,7 +1674,8 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         if matches!(
             (left, right),
-            (Type::Character, Type::String)
+            (Type::Byte, Type::Byte)
+                | (Type::Character, Type::String)
                 | (Type::Character, Type::Character)
                 | (Type::Float, Type::Float)
                 | (Type::Integer, Type::Integer)
@@ -1639,6 +1685,105 @@ impl<'src> Compiler<'src> {
             Ok(())
         } else {
             Err(CompileError::CannotAddArguments {
+                left_type: left.clone(),
+                right_type: right.clone(),
+                position: Span(left_position.0, right_position.1),
+            })
+        }
+    }
+
+    fn expect_dividable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
+        if matches!(
+            argument_type,
+            Type::Byte | Type::Character | Type::Float | Type::Integer
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotDivideType {
+                argument_type: argument_type.clone(),
+                position: *position,
+            })
+        }
+    }
+
+    fn expect_dividable_types(
+        left: &Type,
+        left_position: &Span,
+        right: &Type,
+        right_position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(
+            (left, right),
+            (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotDivideArguments {
+                left_type: left.clone(),
+                right_type: right.clone(),
+                position: Span(left_position.0, right_position.1),
+            })
+        }
+    }
+
+    fn expect_modulable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
+        if matches!(argument_type, Type::Byte | Type::Integer | Type::Float) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotModuloType {
+                argument_type: argument_type.clone(),
+                position: *position,
+            })
+        }
+    }
+
+    fn expect_modulable_types(
+        left: &Type,
+        left_position: &Span,
+        right: &Type,
+        right_position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(
+            (left, right),
+            (Type::Byte, Type::Byte) | (Type::Integer, Type::Integer) | (Type::Float, Type::Float)
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotModuloArguments {
+                left_type: left.clone(),
+                right_type: right.clone(),
+                position: Span(left_position.0, right_position.1),
+            })
+        }
+    }
+
+    fn expect_multiplicable_type(
+        argument_type: &Type,
+        position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotMultiplyType {
+                argument_type: argument_type.clone(),
+                position: *position,
+            })
+        }
+    }
+
+    fn expect_multiplicable_types(
+        left: &Type,
+        left_position: &Span,
+        right: &Type,
+        right_position: &Span,
+    ) -> Result<(), CompileError> {
+        if matches!(
+            (left, right),
+            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
+        ) {
+            Ok(())
+        } else {
+            Err(CompileError::CannotMultiplyArguments {
                 left_type: left.clone(),
                 right_type: right.clone(),
                 position: Span(left_position.0, right_position.1),
@@ -2036,6 +2181,33 @@ pub enum CompileError {
         right_type: Type,
         position: Span,
     },
+    CannotDivideType {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotDivideArguments {
+        left_type: Type,
+        right_type: Type,
+        position: Span,
+    },
+    CannotModuloType {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotModuloArguments {
+        left_type: Type,
+        right_type: Type,
+        position: Span,
+    },
+    CannotMultiplyType {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotMultiplyArguments {
+        left_type: Type,
+        right_type: Type,
+        position: Span,
+    },
     CannotSubtractLeft {
         argument_type: Type,
         position: Span,
@@ -2105,7 +2277,13 @@ impl AnnotatedError for CompileError {
             Self::CannotAddArguments { .. } => "Cannot add these types",
             Self::CannotAddType { .. } => "Cannot add to this type",
             Self::CannotChainComparison { .. } => "Cannot chain comparison operations",
+            Self::CannotDivideArguments { .. } => "Cannot divide these types",
+            Self::CannotDivideType { .. } => "Cannot divide this type",
+            Self::CannotModuloArguments { .. } => "Cannot modulo these types",
+            Self::CannotModuloType { .. } => "Cannot modulo this type",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
+            Self::CannotMultiplyArguments { .. } => "Cannot multiply these types",
+            Self::CannotMultiplyType { .. } => "Cannot multiply this type",
             Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
             Self::CannotResolveVariableType { .. } => "Cannot resolve type",
             Self::CannotSubtract { .. } => "Cannot subtract these types",
@@ -2208,7 +2386,13 @@ impl AnnotatedError for CompileError {
             Self::CannotAddArguments { position, .. } => *position,
             Self::CannotAddType { position, .. } => *position,
             Self::CannotChainComparison { position } => *position,
+            Self::CannotDivideArguments { position, .. } => *position,
+            Self::CannotDivideType { position, .. } => *position,
+            Self::CannotModuloArguments { position, .. } => *position,
+            Self::CannotModuloType { position, .. } => *position,
             Self::CannotMutateImmutableVariable { position, .. } => *position,
+            Self::CannotMultiplyArguments { position, .. } => *position,
+            Self::CannotMultiplyType { position, .. } => *position,
             Self::CannotResolveRegisterType { position, .. } => *position,
             Self::CannotResolveVariableType { position, .. } => *position,
             Self::CannotSubtract { position, .. } => *position,

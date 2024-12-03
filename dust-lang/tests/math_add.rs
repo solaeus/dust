@@ -1,6 +1,70 @@
 use dust_lang::*;
 
 #[test]
+fn add_bytes() {
+    let source = "0xfe + 0x01";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Byte),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(5, 6)
+                ),
+                (Instruction::r#return(true), Span(11, 11))
+            ],
+            vec![ConcreteValue::Byte(0xfe), ConcreteValue::Byte(0x01)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Byte(0xff))));
+}
+
+#[test]
+fn add_bytes_saturate() {
+    let source = "0xff + 0x01";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Byte),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(5, 6)
+                ),
+                (Instruction::r#return(true), Span(11, 11))
+            ],
+            vec![ConcreteValue::Byte(0xff), ConcreteValue::Byte(0x01)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Byte(0xff))));
+}
+
+#[test]
 fn add_characters() {
     let source = "'a' + 'b'";
 
@@ -100,6 +164,41 @@ fn add_floats() {
 }
 
 #[test]
+fn add_floats_saturatate() {
+    let source = "1.7976931348623157E+308 + 0.00000001";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Float),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(24, 25)
+                ),
+                (Instruction::r#return(true), Span(36, 36))
+            ],
+            vec![
+                ConcreteValue::Float(f64::MAX),
+                ConcreteValue::Float(0.00000001)
+            ],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Float(f64::MAX))));
+}
+
+#[test]
 fn add_integers() {
     let source = "1 + 2";
 
@@ -129,6 +228,38 @@ fn add_integers() {
     );
 
     assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
+}
+
+#[test]
+fn add_integers_saturate() {
+    let source = "9223372036854775807 + 1";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Integer),
+            },
+            vec![
+                (
+                    Instruction::add(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(1)
+                    ),
+                    Span(20, 21)
+                ),
+                (Instruction::r#return(true), Span(23, 23))
+            ],
+            vec![ConcreteValue::Integer(i64::MAX), ConcreteValue::Integer(1)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(i64::MAX))));
 }
 
 #[test]

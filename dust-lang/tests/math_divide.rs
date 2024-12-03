@@ -1,6 +1,38 @@
 use dust_lang::*;
 
 #[test]
+fn divide_bytes() {
+    let source = "0xff / 0x01";
+
+    assert_eq!(
+        compile(source),
+        Ok(Chunk::with_data(
+            None,
+            FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Box::new(Type::Byte),
+            },
+            vec![
+                (
+                    Instruction::divide(
+                        Destination::Register(0),
+                        Argument::Constant(0),
+                        Argument::Constant(0)
+                    ),
+                    Span(0, 7)
+                ),
+                (Instruction::r#return(true), Span(11, 11))
+            ],
+            vec![ConcreteValue::Byte(0xff), ConcreteValue::Byte(0x01)],
+            vec![]
+        ))
+    );
+
+    assert_eq!(run(source), Ok(Some(ConcreteValue::Byte(0xff))));
+}
+
+#[test]
 fn divide_floats() {
     let source = "2.0 / 2.0";
 
