@@ -1,5 +1,6 @@
 hyperfine \
     --shell none \
+    --prepare 'sync' \
     --warmup 5 \
     '../target/release/dust assets/count_to_one_million.ds' \
     'node assets/count_to_one_million.js' \
