@@ -8,6 +8,7 @@ use std::fmt::{self, Debug, Display, Write};
 
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use smartstring::alias::String;
 
 use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
 

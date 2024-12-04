@@ -18,11 +18,9 @@ use crate::{
         Call, CallNative, Close, DefineLocal, GetLocal, Jump, LoadBoolean, LoadConstant, LoadList,
         LoadSelf, Move, Negate, Not, Return, SetLocal, Test,
     },
-    optimize_control_flow, optimize_set_local,
-    value::ConcreteValue,
-    AnnotatedError, Argument, Chunk, Destination, DustError, FunctionType, Instruction, LexError,
-    Lexer, Local, NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type,
-    TypeConflict,
+    optimize_control_flow, optimize_set_local, AnnotatedError, Argument, Chunk, ConcreteValue,
+    Destination, DustError, DustString, FunctionType, Instruction, LexError, Lexer, Local,
+    NativeFunction, Operation, Scope, Span, Token, TokenKind, TokenOwned, Type, TypeConflict,
 };
 
 /// Compiles the input and returns a chunk.
@@ -55,7 +53,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
 pub struct Compiler<'src> {
-    self_name: Option<String>,
+    self_name: Option<DustString>,
     instructions: Vec<(Instruction, Type, Span)>,
     constants: Vec<ConcreteValue>,
     locals: Vec<Local>,
@@ -1279,7 +1277,6 @@ impl<'src> Compiler<'src> {
         let start = self.previous_position.0;
         let start_register = self.next_register();
 
-        self.advance()?;
         self.expect(Token::LeftParenthesis)?;
 
         while !self.allow(Token::RightParenthesis)? {
@@ -1447,7 +1444,7 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            function_compiler.self_name = Some(text.to_string());
+            function_compiler.self_name = Some(text.into());
 
             Some((text, position))
         } else {
@@ -1518,13 +1515,14 @@ impl<'src> Compiler<'src> {
         function_compiler.compile()?;
         function_compiler.expect(Token::RightBrace)?;
 
-        let function_end = function_compiler.previous_position.1;
-
         self.previous_token = function_compiler.previous_token;
         self.previous_position = function_compiler.previous_position;
         self.current_token = function_compiler.current_token;
         self.current_position = function_compiler.current_position;
 
+        self.lexer.skip_to(self.current_position.1);
+
+        let function_end = function_compiler.previous_position.1;
         let function =
             ConcreteValue::function(function_compiler.finish(None, value_parameters.clone()));
         let constant_index = self.push_or_get_constant(function);
@@ -1534,8 +1532,6 @@ impl<'src> Compiler<'src> {
             value_parameters,
             return_type,
         };
-
-        self.lexer.skip_to(function_end);
 
         if let Some((identifier, position)) = identifier_info {
             let (local_index, _) = self.declare_local(
@@ -1614,7 +1610,11 @@ impl<'src> Compiler<'src> {
         };
         let start = self.current_position.0;
 
+        println!("{} {}", self.previous_token, self.current_token);
+
         self.advance()?;
+
+        println!("{} {}", self.previous_token, self.current_token);
 
         let mut argument_count = 0;
 

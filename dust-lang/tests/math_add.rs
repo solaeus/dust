@@ -316,10 +316,7 @@ fn add_string_and_character() {
                 ),
                 (Instruction::r#return(true), Span(9, 9))
             ],
-            vec![
-                ConcreteValue::String("a".to_string()),
-                ConcreteValue::Character('b')
-            ],
+            vec![ConcreteValue::string("a"), ConcreteValue::Character('b')],
             vec![]
         ))
     );

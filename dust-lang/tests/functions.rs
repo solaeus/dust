@@ -127,7 +127,7 @@ fn function_declaration() {
             ],
             vec![
                 ConcreteValue::function(Chunk::with_data(
-                    Some("add".to_string()),
+                    Some("add".into()),
                     FunctionType {
                         type_parameters: None,
                         value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),

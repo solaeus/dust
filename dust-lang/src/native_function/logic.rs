@@ -59,7 +59,7 @@ pub fn to_string<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<
         string.push_str(&argument_string);
     }
 
-    Ok(Some(Value::Concrete(ConcreteValue::String(string))))
+    Ok(Some(Value::Concrete(ConcreteValue::string(string))))
 }
 
 pub fn read_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
@@ -81,7 +81,7 @@ pub fn read_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<
         Ok(_) => {
             buffer = buffer.trim_end_matches('\n').to_string();
 
-            Ok(Some(Value::Concrete(ConcreteValue::String(buffer))))
+            Ok(Some(Value::Concrete(ConcreteValue::string(buffer))))
         }
         Err(error) => Err(VmError::NativeFunction(NativeFunctionError::Io {
             error: error.kind(),

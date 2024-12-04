@@ -287,9 +287,27 @@ impl<'a> Disassembler<'a> {
 
     pub fn disassemble(mut self) -> String {
         let width = Disassembler::default_width();
-        let top_border = "┌".to_string() + &"─".repeat(width - 2) + "┐";
-        let section_border = "│".to_string() + &"┈".repeat(width - 2) + "│";
-        let bottom_border = "└".to_string() + &"─".repeat(width - 2) + "┘";
+        let top_border = {
+            let mut border = "┌".to_string();
+            border += &"─".repeat(width - 2);
+            border += "┐";
+
+            border
+        };
+        let section_border = {
+            let mut border = "│".to_string();
+            border += &"┈".repeat(width - 2);
+            border += "│";
+
+            border
+        };
+        let bottom_border = {
+            let mut border = "└".to_string();
+            border += &"─".repeat(width - 2);
+            border += "┘";
+
+            border
+        };
         let name_display = self
             .chunk
             .name()

@@ -4,7 +4,7 @@ mod concrete_value;
 mod range_value;
 
 pub use abstract_value::AbstractValue;
-pub use concrete_value::ConcreteValue;
+pub use concrete_value::{ConcreteValue, DustString};
 pub use range_value::RangeValue;
 
 use std::fmt::{self, Debug, Display, Formatter};

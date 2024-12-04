@@ -1,10 +1,13 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use smartstring::{LazyCompact, SmartString};
 
 use crate::{Chunk, Type, Value, ValueError, ValueRef};
 
 use super::RangeValue;
+
+pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum ConcreteValue {
@@ -16,7 +19,7 @@ pub enum ConcreteValue {
     Integer(i64),
     List(Vec<ConcreteValue>),
     Range(RangeValue),
-    String(String),
+    String(DustString),
 }
 
 impl ConcreteValue {
@@ -36,11 +39,11 @@ impl ConcreteValue {
         ConcreteValue::List(into_list.into())
     }
 
-    pub fn string<T: ToString>(to_string: T) -> Self {
-        ConcreteValue::String(to_string.to_string())
+    pub fn string<T: Into<SmartString<LazyCompact>>>(to_string: T) -> Self {
+        ConcreteValue::String(to_string.into())
     }
 
-    pub fn as_string(&self) -> Option<&String> {
+    pub fn as_string(&self) -> Option<&DustString> {
         if let ConcreteValue::String(string) = self {
             Some(string)
         } else {
@@ -89,33 +92,6 @@ impl ConcreteValue {
         };
 
         Ok(sum)
-    }
-
-    pub fn add_assign(&mut self, other: &Self) -> Result<(), ValueError> {
-        use ConcreteValue::*;
-
-        match (self, other) {
-            (Integer(left), Integer(right)) => {
-                *left += right;
-            }
-            (Float(left), Float(right)) => {
-                *left += right;
-            }
-            (String(left), String(right)) => {
-                *left += right;
-            }
-            (String(left), Character(right)) => {
-                *left += &right.to_string();
-            }
-            (left, right) => {
-                return Err(ValueError::CannotAdd(
-                    left.clone().to_value(),
-                    right.clone().to_value(),
-                ))
-            }
-        }
-
-        Ok(())
     }
 
     pub fn subtract(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
