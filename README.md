@@ -121,8 +121,9 @@ assigning each argument a register and associating the register with the local.
 
 When generating instructions for a register-based virtual machine, there are opportunities to
 optimize the generated code by using fewer instructions or fewer registers. While it is best to
-output optimal code in the first place, it is not always possible. Dust's compiler uses simple
-functions that modify isolated sections of the instruction list through a mutable reference.
+output optimal code in the first place, it is not always possible. Dust's compiler modifies the
+instruction list during parsing to apply optimizations before the chunk is completed. There is no
+separate optimization pass, and the compiler cannot be run in a mode that disables optimizations.
 
 #### Type Checking
 

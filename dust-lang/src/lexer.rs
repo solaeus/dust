@@ -239,7 +239,7 @@ impl<'src> Lexer<'src> {
                 }
             }
 
-            if c.is_ascii_digit() {
+            if c.is_ascii_digit() || c == '_' {
                 self.next_char();
             } else {
                 break;

@@ -80,7 +80,7 @@ impl ValueRef<'_> {
     pub fn add(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.add(right).map(|result| result.to_value())
+                left.add(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotAdd(self.to_owned(), other.to_owned())),
         }
@@ -89,7 +89,7 @@ impl ValueRef<'_> {
     pub fn subtract(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.subtract(right).map(|result| result.to_value())
+                left.subtract(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotSubtract(
                 self.to_owned(),
@@ -101,7 +101,7 @@ impl ValueRef<'_> {
     pub fn multiply(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.multiply(right).map(|result| result.to_value())
+                left.multiply(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotMultiply(
                 self.to_owned(),
@@ -113,7 +113,7 @@ impl ValueRef<'_> {
     pub fn divide(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.divide(right).map(|result| result.to_value())
+                left.divide(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotDivide(self.to_owned(), other.to_owned())),
         }
@@ -122,7 +122,7 @@ impl ValueRef<'_> {
     pub fn modulo(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.modulo(right).map(|result| result.to_value())
+                left.modulo(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotModulo(self.to_owned(), other.to_owned())),
         }
@@ -130,18 +130,14 @@ impl ValueRef<'_> {
 
     pub fn negate(&self) -> Result<Value, ValueError> {
         match self {
-            ValueRef::Concrete(concrete_value) => {
-                concrete_value.negate().map(|result| result.to_value())
-            }
+            ValueRef::Concrete(concrete_value) => concrete_value.negate().map(Value::Concrete),
             _ => Err(ValueError::CannotNegate(self.to_owned())),
         }
     }
 
     pub fn not(&self) -> Result<Value, ValueError> {
         match self {
-            ValueRef::Concrete(concrete_value) => {
-                concrete_value.not().map(|result| result.to_value())
-            }
+            ValueRef::Concrete(concrete_value) => concrete_value.not().map(Value::Concrete),
             _ => Err(ValueError::CannotNot(self.to_owned())),
         }
     }
@@ -149,7 +145,7 @@ impl ValueRef<'_> {
     pub fn equal(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.equal(right).map(|result| result.to_value())
+                left.equal(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }
@@ -158,7 +154,7 @@ impl ValueRef<'_> {
     pub fn less_than(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.less_than(right).map(|result| result.to_value())
+                left.less_than(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }
@@ -166,9 +162,9 @@ impl ValueRef<'_> {
 
     pub fn less_than_or_equal(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => left
-                .less_than_or_equal(right)
-                .map(|result| result.to_value()),
+            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
+                left.less_than_or_equal(right).map(Value::Concrete)
+            }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }
     }

@@ -7,6 +7,7 @@
 use std::fmt::{self, Debug, Display, Write};
 
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
 
@@ -18,18 +19,18 @@ pub struct Chunk {
     name: Option<String>,
     r#type: FunctionType,
 
-    instructions: Vec<(Instruction, Span)>,
-    constants: Vec<ConcreteValue>,
-    locals: Vec<Local>,
+    instructions: SmallVec<[(Instruction, Span); 32]>,
+    constants: SmallVec<[ConcreteValue; 16]>,
+    locals: SmallVec<[Local; 8]>,
 }
 
 impl Chunk {
     pub fn new(name: Option<String>) -> Self {
         Self {
             name,
-            instructions: Vec::new(),
-            constants: Vec::new(),
-            locals: Vec::new(),
+            instructions: SmallVec::new(),
+            constants: SmallVec::new(),
+            locals: SmallVec::new(),
             r#type: FunctionType {
                 type_parameters: None,
                 value_parameters: None,
@@ -48,9 +49,9 @@ impl Chunk {
         Self {
             name,
             r#type,
-            instructions,
-            constants,
-            locals,
+            instructions: instructions.into(),
+            constants: constants.into(),
+            locals: locals.into(),
         }
     }
 
@@ -70,16 +71,30 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
-    pub fn constants(&self) -> &Vec<ConcreteValue> {
+    pub fn constants(&self) -> &SmallVec<[ConcreteValue; 16]> {
         &self.constants
     }
 
-    pub fn instructions(&self) -> &Vec<(Instruction, Span)> {
+    pub fn instructions(&self) -> &SmallVec<[(Instruction, Span); 32]> {
         &self.instructions
     }
 
-    pub fn locals(&self) -> &Vec<Local> {
+    pub fn locals(&self) -> &SmallVec<[Local; 8]> {
         &self.locals
+    }
+
+    pub fn stack_size(&self) -> usize {
+        self.instructions()
+            .iter()
+            .rev()
+            .find_map(|(instruction, _)| {
+                if instruction.yields_value() {
+                    Some(instruction.a() as usize)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0)
     }
 
     pub fn disassembler(&self) -> Disassembler {

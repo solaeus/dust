@@ -505,13 +505,19 @@ impl<'src> Compiler<'src> {
         if let Token::Integer(text) = self.current_token {
             self.advance()?;
 
-            let integer = text
-                .parse::<i64>()
-                .map_err(|error| CompileError::ParseIntError {
-                    error,
-                    position: self.previous_position,
-                })?;
-            let value = ConcreteValue::Integer(integer);
+            let mut integer_value = 0_i64;
+
+            for digit in text.chars() {
+                let digit = if let Some(digit) = digit.to_digit(10) {
+                    digit as i64
+                } else {
+                    continue;
+                };
+
+                integer_value = integer_value * 10 + digit;
+            }
+
+            let value = ConcreteValue::Integer(integer_value);
 
             self.emit_constant(value, position)?;
 
@@ -1519,7 +1525,7 @@ impl<'src> Compiler<'src> {
         self.current_position = function_compiler.current_position;
 
         let function =
-            ConcreteValue::Function(function_compiler.finish(None, value_parameters.clone()));
+            ConcreteValue::function(function_compiler.finish(None, value_parameters.clone()));
         let constant_index = self.push_or_get_constant(function);
         let register = self.next_register();
         let function_type = FunctionType {

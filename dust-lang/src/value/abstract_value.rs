@@ -19,7 +19,7 @@ impl AbstractValue {
 
     pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
-            AbstractValue::FunctionSelf => Ok(ConcreteValue::Function(vm.chunk().clone())),
+            AbstractValue::FunctionSelf => Ok(ConcreteValue::function(vm.chunk().clone())),
             AbstractValue::List { items, .. } => {
                 let mut resolved_items = Vec::with_capacity(items.len());
 

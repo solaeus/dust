@@ -12,7 +12,7 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(Chunk),
+    Function(Box<Chunk>),
     Integer(i64),
     List(Vec<ConcreteValue>),
     Range(RangeValue),
@@ -26,6 +26,10 @@ impl ConcreteValue {
 
     pub fn to_value_ref(&self) -> ValueRef {
         ValueRef::Concrete(self)
+    }
+
+    pub fn function(chunk: Chunk) -> Self {
+        ConcreteValue::Function(Box::new(chunk))
     }
 
     pub fn list<T: Into<Vec<ConcreteValue>>>(into_list: T) -> Self {

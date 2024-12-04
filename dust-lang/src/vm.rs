@@ -5,6 +5,8 @@ use std::{
     io,
 };
 
+use smallvec::{smallvec, SmallVec};
+
 use crate::{
     compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ConcreteValue,
     Destination, DustError, Instruction, NativeFunctionError, Operation, Span, Value, ValueError,
@@ -25,9 +27,9 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
 #[derive(Debug)]
 pub struct Vm<'a> {
     chunk: &'a Chunk,
-    stack: Vec<Register>,
+    stack: SmallVec<[Register; 64]>,
     parent: Option<&'a Vm<'a>>,
-    local_definitions: Vec<Option<u16>>,
+    local_definitions: SmallVec<[Option<u16>; 16]>,
 
     ip: usize,
     last_assigned_register: Option<u16>,
@@ -35,14 +37,14 @@ pub struct Vm<'a> {
 }
 
 impl<'a> Vm<'a> {
-    const STACK_LIMIT: usize = u16::MAX as usize;
+    const STACK_LIMIT: u16 = u16::MAX;
 
     pub fn new(chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
         Self {
             chunk,
-            stack: Vec::new(),
+            stack: smallvec![Register::Empty; chunk.stack_size()],
             parent,
-            local_definitions: vec![None; chunk.locals().len()],
+            local_definitions: smallvec![None; chunk.locals().len()],
             ip: 0,
             last_assigned_register: None,
             current_position: Span(0, 0),
@@ -643,11 +645,9 @@ impl<'a> Vm<'a> {
         Ok(value_ref)
     }
 
+    #[inline(always)]
     fn set_register(&mut self, to_register: u16, register: Register) -> Result<(), VmError> {
-        self.last_assigned_register = Some(to_register);
-
-        let length = self.stack.len();
-        let to_register = to_register as usize;
+        let length = self.stack.len() as u16;
 
         if length == Self::STACK_LIMIT {
             return Err(VmError::StackOverflow {
@@ -659,16 +659,12 @@ impl<'a> Vm<'a> {
             Ordering::Less => {
                 log::trace!("Change R{to_register} to {register}");
 
-                self.stack[to_register] = register;
-
-                Ok(())
+                self.stack[to_register as usize] = register;
             }
             Ordering::Equal => {
                 log::trace!("Set R{to_register} to {register}");
 
                 self.stack.push(register);
-
-                Ok(())
             }
             Ordering::Greater => {
                 let difference = to_register - length;
@@ -682,10 +678,12 @@ impl<'a> Vm<'a> {
                 log::trace!("Set R{to_register} to {register}");
 
                 self.stack.push(register);
-
-                Ok(())
             }
         }
+
+        self.last_assigned_register = Some(to_register);
+
+        Ok(())
     }
 
     fn get_constant(&self, constant_index: u16) -> Result<&ConcreteValue, VmError> {

@@ -6,7 +6,7 @@ fn function() {
 
     assert_eq!(
         run(source),
-        Ok(Some(ConcreteValue::Function(Chunk::with_data(
+        Ok(Some(ConcreteValue::function(Chunk::with_data(
             None,
             FunctionType {
                 type_parameters: None,
@@ -70,7 +70,7 @@ fn function_call() {
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
-                ConcreteValue::Function(Chunk::with_data(
+                ConcreteValue::function(Chunk::with_data(
                     None,
                     FunctionType {
                         type_parameters: None,
@@ -126,7 +126,7 @@ fn function_declaration() {
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
-                ConcreteValue::Function(Chunk::with_data(
+                ConcreteValue::function(Chunk::with_data(
                     Some("add".to_string()),
                     FunctionType {
                         type_parameters: None,
