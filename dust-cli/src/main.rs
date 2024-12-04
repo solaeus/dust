@@ -2,7 +2,7 @@ use std::io::{stdout, Write};
 use std::time::Instant;
 use std::{fs::read_to_string, path::PathBuf};
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser};
 use colored::Colorize;
 use dust_lang::{compile, lex, run, write_token_list};
 use log::{Level, LevelFilter};
@@ -13,72 +13,63 @@ use log::{Level, LevelFilter};
     author = env!("CARGO_PKG_AUTHORS"),
     about = env!("CARGO_PKG_DESCRIPTION"),
 )]
-#[command(args_conflicts_with_subcommands = true)]
 struct Cli {
-    #[command(flatten)]
-    global_arguments: GlobalArguments,
-
-    #[command(subcommand)]
-    mode: Option<CliMode>,
-}
-
-#[derive(Subcommand)]
-enum CliMode {
-    /// Run the source code (default)
-    #[command(short_flag = 'r')]
-    Run {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Do not print the program's output value
-        #[arg(short, long)]
-        no_output: bool,
-    },
-
-    /// Compile a chunk and show the disassembly
-    #[command(short_flag = 'd')]
-    Disassemble {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Style the disassembly output
-        #[arg(short, long, default_value = "true")]
-        style: bool,
-    },
-
-    /// Create and display tokens from the source code
-    #[command(short_flag = 't')]
-    Tokenize {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Style the disassembly output
-        #[arg(short, long, default_value = "true")]
-        style: bool,
-    },
-}
-
-#[derive(Args, Clone)]
-struct GlobalArguments {
     /// Log level, overrides the DUST_LOG environment variable
     ///
     /// Possible values: trace, debug, info, warn, error
-    #[arg(short, long, value_name = "LOG_LEVEL")]
+    #[arg(short, long, global = true, value_name = "LOG_LEVEL")]
     log: Option<LevelFilter>,
 
+    #[command(flatten)]
+    mode: ModeFlags,
+
+    #[command(flatten)]
+    source: Source,
+}
+
+#[derive(Args)]
+#[group(required = true, multiple = false)]
+struct ModeFlags {
+    /// Run the source code (default)
+    #[arg(short, long)]
+    run: bool,
+
+    #[arg(long, requires("run"))]
+    /// Do not print the run result
+    no_output: bool,
+
+    /// Compile a chunk and show the disassembly
+    #[arg(short, long)]
+    disassemble: bool,
+
+    /// Lex and display tokens from the source code
+    #[arg(short, long)]
+    tokenize: bool,
+
+    /// Style disassembly or tokenization output
+    #[arg(
+        short,
+        long,
+        default_value = "true",
+        requires("disassemble"),
+        requires("tokenize")
+    )]
+    style: bool,
+}
+
+#[derive(Args)]
+#[group(required = true, multiple = false)]
+struct Source {
     /// Source code
-    ///
-    /// Conflicts with the file argument
-    #[arg(short, long, value_name = "SOURCE", conflicts_with = "file")]
+    #[arg(short, long, value_name = "SOURCE")]
     command: Option<String>,
 
     /// Path to a source code file
-    #[arg(required_unless_present = "command")]
     file: Option<PathBuf>,
 }
 
-fn set_log_and_get_source(arguments: GlobalArguments, start_time: Instant) -> String {
-    let GlobalArguments { command, file, log } = arguments;
+fn main() {
+    let start_time = Instant::now();
     let mut logger = env_logger::builder();
 
     logger.format(move |buf, record| {
@@ -95,43 +86,32 @@ fn set_log_and_get_source(arguments: GlobalArguments, start_time: Instant) -> St
         writeln!(buf, "{display}")
     });
 
+    let Cli {
+        log,
+        source: Source { command, file },
+        mode,
+    } = Cli::parse();
+
     if let Some(level) = log {
         logger.filter_level(level).init();
     } else {
         logger.parse_env("DUST_LOG").init();
     }
 
-    if let Some(source) = command {
+    let source = if let Some(source) = command {
         source
     } else {
         let path = file.expect("Path is required when command is not provided");
 
         read_to_string(path).expect("Failed to read file")
-    }
-}
+    };
 
-fn main() {
-    let start_time = Instant::now();
-    let Cli {
-        global_arguments,
-        mode,
-    } = Cli::parse();
-    let mode = mode.unwrap_or(CliMode::Run {
-        global_arguments,
-        no_output: false,
-    });
-
-    if let CliMode::Run {
-        global_arguments,
-        no_output,
-    } = mode
-    {
-        let source = set_log_and_get_source(global_arguments, start_time);
+    if mode.run {
         let run_result = run(&source);
 
         match run_result {
             Ok(Some(value)) => {
-                if !no_output {
+                if !mode.no_output {
                     println!("{}", value)
                 }
             }
@@ -144,12 +124,7 @@ fn main() {
         return;
     }
 
-    if let CliMode::Disassemble {
-        global_arguments,
-        style,
-    } = mode
-    {
-        let source = set_log_and_get_source(global_arguments, start_time);
+    if mode.disassemble {
         let chunk = match compile(&source) {
             Ok(chunk) => chunk,
             Err(error) => {
@@ -160,7 +135,7 @@ fn main() {
         };
         let disassembly = chunk
             .disassembler()
-            .style(style)
+            .style(mode.style)
             .source(&source)
             .disassemble();
 
@@ -169,12 +144,7 @@ fn main() {
         return;
     }
 
-    if let CliMode::Tokenize {
-        global_arguments,
-        style,
-    } = mode
-    {
-        let source = set_log_and_get_source(global_arguments, start_time);
+    if mode.tokenize {
         let tokens = match lex(&source) {
             Ok(tokens) => tokens,
             Err(error) => {
@@ -185,7 +155,7 @@ fn main() {
         };
         let mut stdout = stdout().lock();
 
-        write_token_list(&tokens, style, &mut stdout)
+        write_token_list(&tokens, mode.style, &mut stdout)
     }
 }
 
