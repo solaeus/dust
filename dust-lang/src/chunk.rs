@@ -89,7 +89,7 @@ impl Chunk {
             .rev()
             .find_map(|(instruction, _)| {
                 if instruction.yields_value() {
-                    Some(instruction.a() as usize)
+                    Some(instruction.a() as usize + 1)
                 } else {
                     None
                 }
