@@ -110,7 +110,7 @@ fn main() {
         let chunk = match compile(&source) {
             Ok(chunk) => chunk,
             Err(error) => {
-                eprintln!("{}", error.report());
+                eprintln!("{}", error);
 
                 return;
             }
@@ -130,7 +130,7 @@ fn main() {
         let tokens = match lex(&source) {
             Ok(tokens) => tokens,
             Err(error) => {
-                eprintln!("{}", error.report());
+                eprintln!("{}", error);
 
                 return;
             }
@@ -150,7 +150,7 @@ fn main() {
         }
         Ok(None) => {}
         Err(error) => {
-            eprintln!("{}", error.report());
+            eprintln!("{}", error);
         }
     }
 }
