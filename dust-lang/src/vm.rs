@@ -1,6 +1,5 @@
 //! Virtual machine and errors
 use std::{
-    cmp::Ordering,
     fmt::{self, Display, Formatter},
     io,
 };
@@ -37,8 +36,6 @@ pub struct Vm<'a> {
 }
 
 impl<'a> Vm<'a> {
-    const STACK_LIMIT: u16 = u16::MAX;
-
     pub fn new(chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
         Self {
             chunk,
@@ -647,41 +644,13 @@ impl<'a> Vm<'a> {
 
     #[inline(always)]
     fn set_register(&mut self, to_register: u16, register: Register) -> Result<(), VmError> {
-        let length = self.stack.len() as u16;
-
-        if length == Self::STACK_LIMIT {
-            return Err(VmError::StackOverflow {
-                position: self.current_position,
-            });
-        }
-
-        match to_register.cmp(&length) {
-            Ordering::Less => {
-                log::trace!("Change R{to_register} to {register}");
-
-                self.stack[to_register as usize] = register;
-            }
-            Ordering::Equal => {
-                log::trace!("Set R{to_register} to {register}");
-
-                self.stack.push(register);
-            }
-            Ordering::Greater => {
-                let difference = to_register - length;
-
-                for index in 0..difference {
-                    log::trace!("Set R{index} to {register}");
-
-                    self.stack.push(Register::Empty);
-                }
-
-                log::trace!("Set R{to_register} to {register}");
-
-                self.stack.push(register);
-            }
-        }
-
         self.last_assigned_register = Some(to_register);
+
+        let to_register = to_register as usize;
+
+        assert!(self.stack.len() > to_register); // Compiler hint to avoid bounds check
+
+        self.stack[to_register] = register;
 
         Ok(())
     }

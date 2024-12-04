@@ -90,6 +90,33 @@ impl ConcreteValue {
         Ok(sum)
     }
 
+    pub fn add_assign(&mut self, other: &Self) -> Result<(), ValueError> {
+        use ConcreteValue::*;
+
+        match (self, other) {
+            (Integer(left), Integer(right)) => {
+                *left += right;
+            }
+            (Float(left), Float(right)) => {
+                *left += right;
+            }
+            (String(left), String(right)) => {
+                *left += right;
+            }
+            (String(left), Character(right)) => {
+                *left += &right.to_string();
+            }
+            (left, right) => {
+                return Err(ValueError::CannotAdd(
+                    left.clone().to_value(),
+                    right.clone().to_value(),
+                ))
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn subtract(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 

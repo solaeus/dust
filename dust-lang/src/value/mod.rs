@@ -38,6 +38,13 @@ impl Value {
             Value::Concrete(concrete_value) => Ok(concrete_value.to_string()),
         }
     }
+
+    pub fn add_assign(&mut self, other: ValueRef) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Concrete(left), ValueRef::Concrete(right)) => left.add_assign(right),
+            (left, right) => Err(ValueError::CannotAdd(left.clone(), right.to_owned())),
+        }
+    }
 }
 
 impl Display for Value {

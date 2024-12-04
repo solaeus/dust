@@ -1279,6 +1279,7 @@ impl<'src> Compiler<'src> {
         let start = self.previous_position.0;
         let start_register = self.next_register();
 
+        self.advance()?;
         self.expect(Token::LeftParenthesis)?;
 
         while !self.allow(Token::RightParenthesis)? {
@@ -1614,7 +1615,6 @@ impl<'src> Compiler<'src> {
         let start = self.current_position.0;
 
         self.advance()?;
-        self.expect(Token::LeftParenthesis)?;
 
         let mut argument_count = 0;
 
