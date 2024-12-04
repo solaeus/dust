@@ -35,10 +35,9 @@ pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, DustError> {
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer.next_token().map_err(|error| DustError::Compile {
-            error: CompileError::Lex(error),
-            source,
-        })?;
+        let (token, span) = lexer
+            .next_token()
+            .map_err(|error| DustError::compile(CompileError::Lex(error), source))?;
 
         tokens.push((token, span));
 

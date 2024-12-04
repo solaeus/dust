@@ -11,6 +11,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use smallvec::smallvec;
 
 use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, Value, Vm, VmError};
 
@@ -68,7 +69,7 @@ macro_rules! define_native_function {
             pub fn returns_value(&self) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => *$type.return_type != Type::None,
+                        NativeFunction::$name => $type.return_type != Type::None,
                     )*
                 }
             }
@@ -131,7 +132,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: Box::new(Type::None)
+            return_type: Type::None
         },
         logic::panic
     ),
@@ -147,8 +148,8 @@ define_native_function! {
         "to_string",
         FunctionType {
             type_parameters: None,
-            value_parameters: Some(vec![(0, Type::Any)]),
-            return_type: Box::new(Type::String)
+            value_parameters: Some(smallvec![(0, Type::Any)]),
+            return_type: Type::String
         },
         logic::to_string
     ),
@@ -209,7 +210,7 @@ define_native_function! {
         FunctionType {
             type_parameters: None,
             value_parameters: None,
-            return_type: Box::new(Type::String)
+            return_type: Type::String
         },
         logic::read_line
     ),
@@ -224,8 +225,8 @@ define_native_function! {
         "write",
         FunctionType {
             type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String)]),
-            return_type: Box::new(Type::None)
+            value_parameters: Some(smallvec![(0, Type::String)]),
+            return_type: Type::None
         },
         logic::write
     ),
@@ -236,8 +237,8 @@ define_native_function! {
         "write_line",
         FunctionType {
             type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String)]),
-            return_type: Box::new(Type::None)
+            value_parameters: Some(smallvec![(0, Type::String)]),
+            return_type: Type::None
         },
         logic::write_line
     )

@@ -1,5 +1,7 @@
 //! Tools used by the compiler to optimize a chunk's bytecode.
 
+use smallvec::SmallVec;
+
 use crate::{instruction::SetLocal, Instruction, Operation, Span, Type};
 
 fn get_last_operations<const COUNT: usize>(
@@ -83,7 +85,7 @@ pub fn optimize_control_flow(instructions: &mut [(Instruction, Type, Span)]) {
 /// The instructions must be in the following order:
 ///     - `Add`, `Subtract`, `Multiply`, `Divide` or `Modulo`
 ///     - `SetLocal`
-pub fn optimize_set_local(instructions: &mut Vec<(Instruction, Type, Span)>) {
+pub fn optimize_set_local(instructions: &mut SmallVec<[(Instruction, Type, Span); 32]>) {
     if !matches!(
         get_last_operations(instructions),
         Some([

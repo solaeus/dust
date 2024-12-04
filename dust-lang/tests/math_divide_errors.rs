@@ -6,7 +6,7 @@ fn divide_boolean_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Boolean,
                 position: Span(0, 4)
@@ -22,7 +22,7 @@ fn divide_boolean_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Boolean,
                 position: Span(4, 8)
@@ -38,7 +38,7 @@ fn divide_character_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Character,
                 position: Span(0, 3)
@@ -54,7 +54,7 @@ fn divide_character_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Character,
                 position: Span(4, 7)
@@ -70,7 +70,7 @@ fn divide_float_and_character() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Character,
                 position: Span(6, 9)
@@ -86,7 +86,7 @@ fn divide_float_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideArguments {
                 left_type: Type::Float,
                 right_type: Type::Integer,
@@ -103,7 +103,7 @@ fn divide_function_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Function(FunctionType {
                     type_parameters: None,
@@ -123,7 +123,7 @@ fn divide_function_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::Function(FunctionType {
                     type_parameters: None,
@@ -143,7 +143,7 @@ fn divide_integer_and_float() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideArguments {
                 left_type: Type::Integer,
                 right_type: Type::Float,
@@ -160,7 +160,7 @@ fn divide_list_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(0, 6)
@@ -176,7 +176,7 @@ fn divide_list_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(4, 10)
@@ -202,7 +202,7 @@ fn divide_string_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::String,
                 position: Span(0, 7)
@@ -218,7 +218,7 @@ fn divide_string_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotDivideType {
                 argument_type: Type::String,
                 position: Span(4, 11)

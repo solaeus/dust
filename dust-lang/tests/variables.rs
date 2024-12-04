@@ -35,7 +35,7 @@ fn let_statement_expects_identifier() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: Token::Integer("1").to_owned(),

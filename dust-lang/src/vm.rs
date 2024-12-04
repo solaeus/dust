@@ -14,10 +14,9 @@ use crate::{
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
-    let mut vm = Vm::new(&chunk, None);
+    let mut vm = Vm::new(source, &chunk, None);
 
-    vm.run()
-        .map_err(|error| DustError::Runtime { error, source })
+    vm.run().map_err(|error| DustError::runtime(error, source))
 }
 
 /// Dust virtual machine.
@@ -25,18 +24,19 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Debug)]
 pub struct Vm<'a> {
-    chunk: &'a Chunk,
     stack: SmallVec<[Register; 64]>,
+
+    chunk: &'a Chunk,
     parent: Option<&'a Vm<'a>>,
     local_definitions: SmallVec<[Option<u16>; 16]>,
 
     ip: usize,
     last_assigned_register: Option<u16>,
-    current_position: Span,
+    source: &'a str,
 }
 
 impl<'a> Vm<'a> {
-    pub fn new(chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
+    pub fn new(source: &'a str, chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
         Self {
             chunk,
             stack: smallvec![Register::Empty; chunk.stack_size()],
@@ -44,7 +44,7 @@ impl<'a> Vm<'a> {
             local_definitions: smallvec![None; chunk.locals().len()],
             ip: 0,
             last_assigned_register: None,
-            current_position: Span(0, 0),
+            source,
         }
     }
 
@@ -53,7 +53,7 @@ impl<'a> Vm<'a> {
     }
 
     pub fn current_position(&self) -> Span {
-        self.current_position
+        self.chunk.positions()[self.ip.saturating_sub(1)]
     }
 
     pub fn run(&mut self) -> Result<Option<ConcreteValue>, VmError> {
@@ -63,7 +63,7 @@ impl<'a> Vm<'a> {
             log::info!(
                 "{} | {} | {} | {}",
                 self.ip - 1,
-                self.current_position,
+                self.current_position(),
                 instruction.operation(),
                 instruction.disassembly_info()
             );
@@ -86,7 +86,7 @@ impl<'a> Vm<'a> {
 
                     if self.stack.len() < to as usize {
                         return Err(VmError::StackUnderflow {
-                            position: self.current_position,
+                            position: self.current_position(),
                         });
                     }
 
@@ -173,7 +173,7 @@ impl<'a> Vm<'a> {
                     let local_register = self.local_definitions[local_index as usize].ok_or(
                         VmError::UndefinedLocal {
                             local_index,
-                            position: self.current_position,
+                            position: self.current_position(),
                         },
                     )?;
                     let register = Register::Pointer(Pointer::Stack(local_register));
@@ -199,7 +199,17 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let sum_result = left.add(right);
 
-                    assert!(sum_result.is_ok(), "VM Error: {}", sum_result.unwrap_err());
+                    assert!(
+                        sum_result.is_ok(),
+                        "VM Error: {}",
+                        DustError::runtime(
+                            VmError::Value {
+                                error: sum_result.unwrap_err(),
+                                position: self.current_position()
+                            },
+                            self.source
+                        )
+                    );
 
                     let sum = sum_result.unwrap();
 
@@ -216,7 +226,7 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let difference = left.subtract(right).map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
 
                     self.set_register(register_index, Register::Value(difference))?;
@@ -232,7 +242,7 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let product = left.multiply(right).map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
 
                     self.set_register(register_index, Register::Value(product))?;
@@ -248,7 +258,7 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let quotient = left.divide(right).map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
 
                     self.set_register(register_index, Register::Value(quotient))?;
@@ -264,7 +274,7 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let remainder = left.modulo(right).map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
 
                     self.set_register(register_index, Register::Value(remainder))?;
@@ -281,7 +291,7 @@ impl<'a> Vm<'a> {
                     } else {
                         return Err(VmError::ExpectedBoolean {
                             found: value.to_owned(),
-                            position: self.current_position,
+                            position: self.current_position(),
                         });
                     };
 
@@ -303,7 +313,7 @@ impl<'a> Vm<'a> {
                     } else {
                         return Err(VmError::ExpectedBoolean {
                             found: value.to_owned(),
-                            position: self.current_position,
+                            position: self.current_position(),
                         });
                     };
 
@@ -316,7 +326,7 @@ impl<'a> Vm<'a> {
                                 let register_index = self.local_definitions[local_index as usize]
                                     .ok_or(VmError::UndefinedLocal {
                                     local_index,
-                                    position: self.current_position,
+                                    position: self.current_position(),
                                 })?;
 
                                 Pointer::Stack(register_index)
@@ -334,7 +344,7 @@ impl<'a> Vm<'a> {
                     let right = self.get_argument(right)?;
                     let equal_result = left.equal(right).map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
                     let is_equal =
                         if let Value::Concrete(ConcreteValue::Boolean(boolean)) = equal_result {
@@ -342,7 +352,7 @@ impl<'a> Vm<'a> {
                         } else {
                             return Err(VmError::ExpectedBoolean {
                                 found: equal_result,
-                                position: self.current_position,
+                                position: self.current_position(),
                             });
                         };
 
@@ -360,7 +370,7 @@ impl<'a> Vm<'a> {
                         less_result.is_ok(),
                         "VM Error: {}\nPosition: {}",
                         less_result.unwrap_err(),
-                        self.current_position
+                        self.current_position()
                     );
 
                     let less_than_value = less_result.unwrap();
@@ -369,7 +379,7 @@ impl<'a> Vm<'a> {
                     assert!(
                         less_than_boolean.is_some(),
                         "VM Error: Expected a boolean\nPosition: {}",
-                        self.current_position
+                        self.current_position()
                     );
 
                     let is_less_than = less_than_boolean.unwrap();
@@ -386,7 +396,7 @@ impl<'a> Vm<'a> {
                         left.less_than_or_equal(right)
                             .map_err(|error| VmError::Value {
                                 error,
-                                position: self.current_position,
+                                position: self.current_position(),
                             })?;
                     let is_less_than_or_equal =
                         if let Value::Concrete(ConcreteValue::Boolean(boolean)) =
@@ -396,7 +406,7 @@ impl<'a> Vm<'a> {
                         } else {
                             return Err(VmError::ExpectedBoolean {
                                 found: less_or_equal_result,
-                                position: self.current_position,
+                                position: self.current_position(),
                             });
                         };
 
@@ -412,7 +422,7 @@ impl<'a> Vm<'a> {
                     let value = self.get_argument(argument)?;
                     let negated = value.negate().map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
                     let register_index = self.get_destination(destination)?;
                     let register = Register::Value(negated);
@@ -427,7 +437,7 @@ impl<'a> Vm<'a> {
                     let value = self.get_argument(argument)?;
                     let not = value.not().map_err(|error| VmError::Value {
                         error,
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
                     let register_index = self.get_destination(destination)?;
                     let register = Register::Value(not);
@@ -458,10 +468,10 @@ impl<'a> Vm<'a> {
                     } else {
                         return Err(VmError::ExpectedFunction {
                             found: function.to_concrete_owned(self)?,
-                            position: self.current_position,
+                            position: self.current_position(),
                         });
                     };
-                    let mut function_vm = Vm::new(chunk, Some(self));
+                    let mut function_vm = Vm::new(self.source, chunk, Some(self));
                     let first_argument_index = register_index - argument_count;
 
                     for (argument_index, argument_register_index) in
@@ -515,7 +525,7 @@ impl<'a> Vm<'a> {
                         Ok(Some(return_value))
                     } else {
                         Err(VmError::StackUnderflow {
-                            position: self.current_position,
+                            position: self.current_position(),
                         })
                     };
                 }
@@ -536,7 +546,7 @@ impl<'a> Vm<'a> {
                     .parent
                     .as_ref()
                     .ok_or_else(|| VmError::ExpectedParent {
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
 
                 parent.open_register(register_index)
@@ -546,7 +556,7 @@ impl<'a> Vm<'a> {
                     .parent
                     .as_ref()
                     .ok_or_else(|| VmError::ExpectedParent {
-                        position: self.current_position,
+                        position: self.current_position(),
                     })?;
                 let constant = parent.get_constant(constant_index);
 
@@ -572,7 +582,7 @@ impl<'a> Vm<'a> {
             Register::Pointer(pointer) => self.follow_pointer(*pointer),
             Register::Empty => Err(VmError::EmptyRegister {
                 index: register_index,
-                position: self.current_position,
+                position: self.current_position(),
             }),
         }
     }
@@ -587,7 +597,7 @@ impl<'a> Vm<'a> {
                 .get(register_index)
                 .ok_or_else(|| VmError::RegisterIndexOutOfBounds {
                     index: register_index,
-                    position: self.current_position,
+                    position: self.current_position(),
                 })?;
 
         log::trace!("Open R{register_index} to {register}");
@@ -685,7 +695,7 @@ impl<'a> Vm<'a> {
 
         self.local_definitions[local_index].ok_or_else(|| VmError::UndefinedLocal {
             local_index: local_index as u16,
-            position: self.current_position,
+            position: self.current_position(),
         })
     }
 
@@ -693,12 +703,21 @@ impl<'a> Vm<'a> {
     fn read(&mut self) -> Instruction {
         let instructions = self.chunk.instructions();
 
-        assert!(self.ip < instructions.len(), "VM Error: IP out of bounds");
+        assert!(
+            self.ip < instructions.len(),
+            "{}",
+            DustError::runtime(
+                VmError::InstructionIndexOutOfBounds {
+                    index: self.ip,
+                    position: self.current_position()
+                },
+                self.source,
+            )
+        );
 
-        let (instruction, position) = instructions[self.ip];
+        let instruction = instructions[self.ip];
 
         self.ip += 1;
-        self.current_position = position;
 
         instruction
     }

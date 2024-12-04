@@ -205,7 +205,7 @@ fn disallow_access_to_child_scope() {
 
     assert_eq!(
         run(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
                 position: Span(52, 53),
@@ -230,7 +230,7 @@ fn disallow_access_to_child_scope_nested() {
 
     assert_eq!(
         run(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
                 position: Span(78, 79),
@@ -255,7 +255,7 @@ fn disallow_access_to_sibling_scope() {
 
     assert_eq!(
         run(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
                 variable_scope: Scope::new(1, 1),
@@ -282,7 +282,7 @@ fn disallow_access_to_sibling_scope_nested() {
 
     assert_eq!(
         run(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::VariableOutOfScope {
                 identifier: "x".to_string(),
                 variable_scope: Scope::new(2, 2),

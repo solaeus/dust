@@ -6,7 +6,7 @@ fn add_boolean_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::Boolean,
                 position: Span(0, 4)
@@ -22,7 +22,7 @@ fn add_boolean_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::Boolean,
                 position: Span(4, 8)
@@ -38,7 +38,7 @@ fn add_function_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::Function(FunctionType {
                     type_parameters: None,
@@ -58,7 +58,7 @@ fn add_function_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::Function(FunctionType {
                     type_parameters: None,
@@ -78,7 +78,7 @@ fn add_list_left() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(0, 6)
@@ -94,7 +94,7 @@ fn add_list_right() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(4, 10)
@@ -121,7 +121,7 @@ fn add_byte_and_character() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Byte,
                 right_type: Type::Character,
@@ -138,7 +138,7 @@ fn add_byte_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Byte,
                 right_type: Type::Integer,
@@ -155,7 +155,7 @@ fn add_byte_and_string() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Byte,
                 right_type: Type::String,
@@ -172,7 +172,7 @@ fn add_character_and_byte() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Character,
                 right_type: Type::Byte,
@@ -189,7 +189,7 @@ fn add_character_and_float() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Character,
                 right_type: Type::Float,
@@ -206,7 +206,7 @@ fn add_character_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Character,
                 right_type: Type::Integer,
@@ -223,7 +223,7 @@ fn add_float_and_byte() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Float,
                 right_type: Type::Byte,
@@ -240,7 +240,7 @@ fn add_float_and_character() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Float,
                 right_type: Type::Character,
@@ -257,7 +257,7 @@ fn add_float_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Float,
                 right_type: Type::Integer,
@@ -274,7 +274,7 @@ fn add_float_and_string() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Float,
                 right_type: Type::String,
@@ -291,7 +291,7 @@ fn add_integer_and_byte() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Integer,
                 right_type: Type::Byte,
@@ -308,7 +308,7 @@ fn add_integer_and_character() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Integer,
                 right_type: Type::Character,
@@ -325,7 +325,7 @@ fn add_integer_and_float() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Integer,
                 right_type: Type::Float,
@@ -342,7 +342,7 @@ fn add_integer_and_string() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::Integer,
                 right_type: Type::String,
@@ -359,7 +359,7 @@ fn add_string_and_byte() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::String,
                 right_type: Type::Byte,
@@ -376,7 +376,7 @@ fn add_string_and_float() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::String,
                 right_type: Type::Float,
@@ -393,7 +393,7 @@ fn add_string_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(DustError::Compile {
+        Err(CreateReport::Compile {
             error: CompileError::CannotAddArguments {
                 left_type: Type::String,
                 right_type: Type::Integer,

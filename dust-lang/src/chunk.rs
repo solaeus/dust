@@ -20,7 +20,8 @@ pub struct Chunk {
     name: Option<String>,
     r#type: FunctionType,
 
-    instructions: SmallVec<[(Instruction, Span); 32]>,
+    instructions: SmallVec<[Instruction; 32]>,
+    positions: SmallVec<[Span; 32]>,
     constants: SmallVec<[ConcreteValue; 16]>,
     locals: SmallVec<[Local; 8]>,
 }
@@ -30,12 +31,13 @@ impl Chunk {
         Self {
             name,
             instructions: SmallVec::new(),
+            positions: SmallVec::new(),
             constants: SmallVec::new(),
             locals: SmallVec::new(),
             r#type: FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None),
+                return_type: Type::None,
             },
         }
     }
@@ -43,16 +45,18 @@ impl Chunk {
     pub fn with_data(
         name: Option<String>,
         r#type: FunctionType,
-        instructions: Vec<(Instruction, Span)>,
-        constants: Vec<ConcreteValue>,
-        locals: Vec<Local>,
+        instructions: SmallVec<[Instruction; 32]>,
+        positions: SmallVec<[Span; 32]>,
+        constants: SmallVec<[ConcreteValue; 16]>,
+        locals: SmallVec<[Local; 8]>,
     ) -> Self {
         Self {
             name,
             r#type,
-            instructions: instructions.into(),
-            constants: constants.into(),
-            locals: locals.into(),
+            instructions,
+            positions,
+            constants,
+            locals,
         }
     }
 
@@ -76,8 +80,12 @@ impl Chunk {
         &self.constants
     }
 
-    pub fn instructions(&self) -> &SmallVec<[(Instruction, Span); 32]> {
+    pub fn instructions(&self) -> &SmallVec<[Instruction; 32]> {
         &self.instructions
+    }
+
+    pub fn positions(&self) -> &SmallVec<[Span; 32]> {
+        &self.positions
     }
 
     pub fn locals(&self) -> &SmallVec<[Local; 8]> {
@@ -88,7 +96,7 @@ impl Chunk {
         self.instructions()
             .iter()
             .rev()
-            .find_map(|(instruction, _)| {
+            .find_map(|instruction| {
                 if instruction.yields_value() {
                     Some(instruction.a() as usize + 1)
                 } else {

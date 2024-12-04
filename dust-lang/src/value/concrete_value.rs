@@ -57,7 +57,7 @@ impl ConcreteValue {
             ConcreteValue::Byte(_) => Type::Byte,
             ConcreteValue::Character(_) => Type::Character,
             ConcreteValue::Float(_) => Type::Float,
-            ConcreteValue::Function(chunk) => Type::Function(chunk.r#type().clone()),
+            ConcreteValue::Function(chunk) => Type::function(chunk.r#type().clone()),
             ConcreteValue::Integer(_) => Type::Integer,
             ConcreteValue::List(list) => {
                 let item_type = list.first().map_or(Type::Any, |item| item.r#type());

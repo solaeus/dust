@@ -6,6 +6,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 /// Description of a kind of value.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -16,7 +17,7 @@ pub enum Type {
     Character,
     Enum(EnumType),
     Float,
-    Function(FunctionType),
+    Function(Box<FunctionType>),
     Generic {
         identifier_index: u8,
         concrete_type: Option<Box<Type>>,
@@ -24,7 +25,7 @@ pub enum Type {
     Integer,
     List(Box<Type>),
     Map {
-        pairs: HashMap<u8, Type>,
+        pairs: Box<SmallVec<[(u8, Type); 8]>>,
     },
     None,
     Range {
@@ -34,11 +35,19 @@ pub enum Type {
     String,
     Struct(StructType),
     Tuple {
-        fields: Option<Vec<Type>>,
+        fields: Option<Box<SmallVec<[Type; 4]>>>,
     },
 }
 
 impl Type {
+    pub fn function(function_type: FunctionType) -> Self {
+        Type::Function(Box::new(function_type))
+    }
+
+    pub fn list(element_type: Type) -> Self {
+        Type::List(Box::new(element_type))
+    }
+
     /// Returns a concrete type, either the type itself or the concrete type of a generic type.
     pub fn concrete_type(&self) -> &Type {
         if let Type::Generic {
@@ -107,18 +116,18 @@ impl Type {
 
                 return Ok(());
             }
-            (
-                Type::Function(FunctionType {
+            (Type::Function(left_function_type), Type::Function(right_function_type)) => {
+                let FunctionType {
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
-                }),
-                Type::Function(FunctionType {
+                } = left_function_type.as_ref();
+                let FunctionType {
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
-                }),
-            ) => {
+                } = right_function_type.as_ref();
+
                 if left_return != right_return
                     || left_type_parameters != right_type_parameters
                     || left_value_parameters != right_value_parameters
@@ -269,9 +278,23 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Option<Vec<u16>>,
-    pub value_parameters: Option<Vec<(u16, Type)>>,
-    pub return_type: Box<Type>,
+    pub type_parameters: Option<SmallVec<[u16; 4]>>,
+    pub value_parameters: Option<SmallVec<[(u16, Type); 4]>>,
+    pub return_type: Type,
+}
+
+impl FunctionType {
+    pub fn new<T: Into<SmallVec<[u16; 4]>>, U: Into<SmallVec<[(u16, Type); 4]>>>(
+        type_parameters: Option<T>,
+        value_parameters: Option<U>,
+        return_type: Type,
+    ) -> Self {
+        FunctionType {
+            type_parameters: type_parameters.map(|into_types| into_types.into()),
+            value_parameters: value_parameters.map(|into_values| into_values.into()),
+            return_type,
+        }
+    }
 }
 
 impl Display for FunctionType {
@@ -306,7 +329,7 @@ impl Display for FunctionType {
 
         write!(f, ")")?;
 
-        if *self.return_type != Type::None {
+        if self.return_type != Type::None {
             write!(f, " -> {}", self.return_type)?;
         }
 

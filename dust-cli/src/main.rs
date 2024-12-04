@@ -16,8 +16,8 @@ use log::{Level, LevelFilter};
 struct Cli {
     /// Log level, overrides the DUST_LOG environment variable
     ///
-    /// Possible values: trace, debug, info, warn, error
-    #[arg(short, long, global = true, value_name = "LOG_LEVEL")]
+    /// Possible values: trace, debug, info, warn, error, off
+    #[arg(short, long, value_name = "LOG_LEVEL")]
     log: Option<LevelFilter>,
 
     #[command(flatten)]
@@ -28,7 +28,7 @@ struct Cli {
 }
 
 #[derive(Args)]
-#[group(required = true, multiple = false)]
+#[group(multiple = false)]
 struct ModeFlags {
     /// Run the source code (default)
     #[arg(short, long)]
@@ -106,24 +106,6 @@ fn main() {
         read_to_string(path).expect("Failed to read file")
     };
 
-    if mode.run {
-        let run_result = run(&source);
-
-        match run_result {
-            Ok(Some(value)) => {
-                if !mode.no_output {
-                    println!("{}", value)
-                }
-            }
-            Ok(None) => {}
-            Err(error) => {
-                eprintln!("{}", error.report());
-            }
-        }
-
-        return;
-    }
-
     if mode.disassemble {
         let chunk = match compile(&source) {
             Ok(chunk) => chunk,
@@ -156,6 +138,20 @@ fn main() {
         let mut stdout = stdout().lock();
 
         write_token_list(&tokens, mode.style, &mut stdout)
+    }
+
+    let run_result = run(&source);
+
+    match run_result {
+        Ok(Some(value)) => {
+            if !mode.no_output {
+                println!("{}", value)
+            }
+        }
+        Ok(None) => {}
+        Err(error) => {
+            eprintln!("{}", error.report());
+        }
     }
 }
 

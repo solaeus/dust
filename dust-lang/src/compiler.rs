@@ -8,10 +8,10 @@ use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
     num::{ParseFloatError, ParseIntError},
-    vec,
 };
 
 use colored::Colorize;
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
     instruction::{
@@ -36,12 +36,11 @@ use crate::{
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler =
-        Compiler::new(lexer).map_err(|error| DustError::Compile { error, source })?;
+    let mut compiler = Compiler::new(lexer).map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
-        .map_err(|error| DustError::Compile { error, source })?;
+        .map_err(|error| DustError::compile(error, source))?;
 
     let chunk = compiler.finish(None, None);
 
@@ -54,9 +53,9 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 #[derive(Debug)]
 pub struct Compiler<'src> {
     self_name: Option<DustString>,
-    instructions: Vec<(Instruction, Type, Span)>,
-    constants: Vec<ConcreteValue>,
-    locals: Vec<Local>,
+    instructions: SmallVec<[(Instruction, Type, Span); 32]>,
+    constants: SmallVec<[ConcreteValue; 16]>,
+    locals: SmallVec<[Local; 8]>,
 
     lexer: Lexer<'src>,
 
@@ -83,9 +82,9 @@ impl<'src> Compiler<'src> {
 
         Ok(Compiler {
             self_name: None,
-            instructions: Vec::new(),
-            constants: Vec::new(),
-            locals: Vec::new(),
+            instructions: SmallVec::new(),
+            constants: SmallVec::new(),
+            locals: SmallVec::new(),
             lexer,
             current_token,
             current_position,
@@ -100,26 +99,27 @@ impl<'src> Compiler<'src> {
 
     pub fn finish(
         self,
-        type_parameters: Option<Vec<u16>>,
-        value_parameters: Option<Vec<(u16, Type)>>,
+        type_parameters: Option<SmallVec<[u16; 4]>>,
+        value_parameters: Option<SmallVec<[(u16, Type); 4]>>,
     ) -> Chunk {
         log::info!("End chunk");
 
         let r#type = FunctionType {
             type_parameters,
             value_parameters,
-            return_type: Box::new(self.return_type.unwrap_or(Type::None)),
+            return_type: self.return_type.unwrap_or(Type::None),
         };
-        let instructions = self
+        let (instructions, positions) = self
             .instructions
             .into_iter()
-            .map(|(i, _, s)| (i, s))
-            .collect();
+            .map(|(instruction, _, position)| (instruction, position))
+            .unzip();
 
         Chunk::with_data(
             self.self_name,
             r#type,
             instructions,
+            positions,
             self.constants,
             self.locals,
         )
@@ -1301,7 +1301,7 @@ impl<'src> Compiler<'src> {
         let end = self.previous_position.1;
         let destination = self.next_register();
         let argument_count = destination - start_register;
-        let return_type = *function.r#type().return_type;
+        let return_type = function.r#type().return_type;
         let call_native = Instruction::from(CallNative {
             destination: Destination::Register(destination),
             function,
@@ -1453,7 +1453,7 @@ impl<'src> Compiler<'src> {
 
         function_compiler.expect(Token::LeftParenthesis)?;
 
-        let mut value_parameters: Option<Vec<(u16, Type)>> = None;
+        let mut value_parameters: Option<SmallVec<[(u16, Type); 4]>> = None;
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1488,7 +1488,7 @@ impl<'src> Compiler<'src> {
             if let Some(value_parameters) = value_parameters.as_mut() {
                 value_parameters.push((identifier_index, r#type));
             } else {
-                value_parameters = Some(vec![(identifier_index, r#type)]);
+                value_parameters = Some(smallvec![(identifier_index, r#type)]);
             };
 
             function_compiler.minimum_register += 1;
@@ -1504,12 +1504,12 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            Box::new(r#type)
+            r#type
         } else {
-            Box::new(Type::None)
+            Type::None
         };
 
-        function_compiler.return_type = Some((*return_type).clone());
+        function_compiler.return_type = Some((return_type).clone());
 
         function_compiler.expect(Token::LeftBrace)?;
         function_compiler.compile()?;
@@ -1536,7 +1536,7 @@ impl<'src> Compiler<'src> {
         if let Some((identifier, position)) = identifier_info {
             let (local_index, _) = self.declare_local(
                 identifier,
-                Type::Function(function_type.clone()),
+                Type::function(function_type.clone()),
                 false,
                 self.current_scope,
             );
@@ -1553,7 +1553,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_instruction(
                 load_constant,
-                Type::Function(function_type),
+                Type::function(function_type),
                 Span(function_start, function_end),
             );
             self.emit_instruction(define_local, Type::None, position);
@@ -1566,7 +1566,7 @@ impl<'src> Compiler<'src> {
 
             self.emit_instruction(
                 load_constant,
-                Type::Function(function_type),
+                Type::function(function_type),
                 Span(function_start, function_end),
             );
         }
@@ -1598,7 +1598,7 @@ impl<'src> Compiler<'src> {
         })?;
         let register_type = self.get_register_type(function.index())?;
         let function_return_type = match register_type {
-            Type::Function(function_type) => *function_type.return_type,
+            Type::Function(function_type) => function_type.return_type,
             Type::SelfChunk => self.return_type.clone().unwrap_or(Type::None),
             _ => {
                 return Err(CompileError::ExpectedFunction {
@@ -1610,11 +1610,7 @@ impl<'src> Compiler<'src> {
         };
         let start = self.current_position.0;
 
-        println!("{} {}", self.previous_token, self.current_token);
-
         self.advance()?;
-
-        println!("{} {}", self.previous_token, self.current_token);
 
         let mut argument_count = 0;
 

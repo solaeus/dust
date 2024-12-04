@@ -209,7 +209,13 @@ impl<'a> Disassembler<'a> {
             self.push_header(line);
         }
 
-        for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
+        for (index, (instruction, position)) in self
+            .chunk
+            .instructions()
+            .iter()
+            .zip(self.chunk.positions().iter())
+            .enumerate()
+        {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
