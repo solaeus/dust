@@ -66,6 +66,7 @@ impl ConcreteValue {
         }
     }
 
+    #[inline(always)]
     pub fn add(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 
@@ -240,6 +241,7 @@ impl ConcreteValue {
         Ok(equal)
     }
 
+    #[inline(always)]
     pub fn less_than(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 

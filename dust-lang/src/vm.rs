@@ -57,7 +57,9 @@ impl<'a> Vm<'a> {
     }
 
     pub fn run(&mut self) -> Result<Option<ConcreteValue>, VmError> {
-        while let Ok(instruction) = self.read() {
+        loop {
+            let instruction = self.read();
+
             log::info!(
                 "{} | {} | {} | {}",
                 self.ip - 1,
@@ -195,10 +197,11 @@ impl<'a> Vm<'a> {
                     let register_index = self.get_destination(destination)?;
                     let left = self.get_argument(left)?;
                     let right = self.get_argument(right)?;
-                    let sum = left.add(right).map_err(|error| VmError::Value {
-                        error,
-                        position: self.current_position,
-                    })?;
+                    let sum_result = left.add(right);
+
+                    assert!(sum_result.is_ok(), "VM Error: {}", sum_result.unwrap_err());
+
+                    let sum = sum_result.unwrap();
 
                     self.set_register(register_index, Register::Value(sum))?;
                 }
@@ -351,21 +354,27 @@ impl<'a> Vm<'a> {
                     let Less { value, left, right } = Less::from(&instruction);
                     let left = self.get_argument(left)?;
                     let right = self.get_argument(right)?;
-                    let less_result = left.less_than(right).map_err(|error| VmError::Value {
-                        error,
-                        position: self.current_position,
-                    })?;
-                    let is_less_than =
-                        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = less_result {
-                            boolean
-                        } else {
-                            return Err(VmError::ExpectedBoolean {
-                                found: less_result,
-                                position: self.current_position,
-                            });
-                        };
+                    let less_result = left.less_than(right);
 
-                    if is_less_than == value {
+                    assert!(
+                        less_result.is_ok(),
+                        "VM Error: {}\nPosition: {}",
+                        less_result.unwrap_err(),
+                        self.current_position
+                    );
+
+                    let less_than_value = less_result.unwrap();
+                    let less_than_boolean = less_than_value.as_boolean();
+
+                    assert!(
+                        less_than_boolean.is_some(),
+                        "VM Error: Expected a boolean\nPosition: {}",
+                        self.current_position
+                    );
+
+                    let is_less_than = less_than_boolean.unwrap();
+
+                    if is_less_than == &value {
                         self.jump(1, true);
                     }
                 }
@@ -512,15 +521,13 @@ impl<'a> Vm<'a> {
                 }
             }
         }
-
-        Ok(None)
     }
 
     pub(crate) fn follow_pointer(&self, pointer: Pointer) -> Result<ValueRef, VmError> {
         match pointer {
             Pointer::Stack(register_index) => self.open_register(register_index),
             Pointer::Constant(constant_index) => {
-                let constant = self.get_constant(constant_index)?;
+                let constant = self.get_constant(constant_index);
 
                 Ok(ValueRef::Concrete(constant))
             }
@@ -541,7 +548,7 @@ impl<'a> Vm<'a> {
                     .ok_or_else(|| VmError::ExpectedParent {
                         position: self.current_position,
                     })?;
-                let constant = parent.get_constant(constant_index)?;
+                let constant = parent.get_constant(constant_index);
 
                 Ok(ValueRef::Concrete(constant))
             }
@@ -550,13 +557,13 @@ impl<'a> Vm<'a> {
 
     fn open_register(&self, register_index: u16) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
-        let register =
-            self.stack
-                .get(register_index)
-                .ok_or_else(|| VmError::RegisterIndexOutOfBounds {
-                    index: register_index,
-                    position: self.current_position,
-                })?;
+
+        assert!(
+            register_index < self.stack.len(),
+            "VM Error: Register index out of bounds"
+        );
+
+        let register = &self.stack[register_index];
 
         log::trace!("Open R{register_index} to {register}");
 
@@ -615,15 +622,7 @@ impl<'a> Vm<'a> {
     fn get_destination(&self, destination: Destination) -> Result<u16, VmError> {
         let index = match destination {
             Destination::Register(register_index) => register_index,
-            Destination::Local(local_index) => self
-                .local_definitions
-                .get(local_index as usize)
-                .copied()
-                .flatten()
-                .ok_or_else(|| VmError::UndefinedLocal {
-                    local_index,
-                    position: self.current_position,
-                })?,
+            Destination::Local(local_index) => self.get_local_register(local_index)?,
         };
 
         Ok(index)
@@ -633,10 +632,14 @@ impl<'a> Vm<'a> {
     fn get_argument(&self, argument: Argument) -> Result<ValueRef, VmError> {
         let value_ref = match argument {
             Argument::Constant(constant_index) => {
-                ValueRef::Concrete(self.get_constant(constant_index)?)
+                ValueRef::Concrete(self.get_constant(constant_index))
             }
             Argument::Register(register_index) => self.open_register(register_index)?,
-            Argument::Local(local_index) => self.get_local(local_index)?,
+            Argument::Local(local_index) => {
+                let register_index = self.get_local_register(local_index)?;
+
+                self.open_register(register_index)?
+            }
         };
 
         Ok(value_ref)
@@ -648,51 +651,56 @@ impl<'a> Vm<'a> {
 
         let to_register = to_register as usize;
 
-        assert!(self.stack.len() > to_register); // Compiler hint to avoid bounds check
+        assert!(
+            self.stack.len() > to_register,
+            "VM Error: Register index out of bounds"
+        );
 
         self.stack[to_register] = register;
 
         Ok(())
     }
 
-    fn get_constant(&self, constant_index: u16) -> Result<&ConcreteValue, VmError> {
-        self.chunk
-            .constants()
-            .get(constant_index as usize)
-            .ok_or_else(|| VmError::ConstantIndexOutOfBounds {
-                index: constant_index as usize,
-                position: self.current_position,
-            })
+    #[inline(always)]
+    fn get_constant(&self, constant_index: u16) -> &ConcreteValue {
+        let constant_index = constant_index as usize;
+        let constants = self.chunk.constants();
+
+        assert!(
+            constant_index < constants.len(),
+            "VM Error: Constant index out of bounds"
+        );
+
+        &constants[constant_index]
     }
 
-    fn get_local(&self, local_index: u16) -> Result<ValueRef, VmError> {
-        let register_index = self
-            .local_definitions
-            .get(local_index as usize)
-            .ok_or_else(|| VmError::UndefinedLocal {
-                local_index,
-                position: self.current_position,
-            })?
-            .ok_or_else(|| VmError::UndefinedLocal {
-                local_index,
-                position: self.current_position,
-            })?;
+    #[inline(always)]
+    fn get_local_register(&self, local_index: u16) -> Result<u16, VmError> {
+        let local_index = local_index as usize;
 
-        self.open_register(register_index)
+        assert!(
+            local_index < self.local_definitions.len(),
+            "VM Error: Local index out of bounds"
+        );
+
+        self.local_definitions[local_index].ok_or_else(|| VmError::UndefinedLocal {
+            local_index: local_index as u16,
+            position: self.current_position,
+        })
     }
 
-    fn read(&mut self) -> Result<Instruction, VmError> {
-        let (instruction, position) = self.chunk.instructions().get(self.ip).ok_or_else(|| {
-            VmError::InstructionIndexOutOfBounds {
-                index: self.ip,
-                position: self.current_position,
-            }
-        })?;
+    #[inline(always)]
+    fn read(&mut self) -> Instruction {
+        let instructions = self.chunk.instructions();
+
+        assert!(self.ip < instructions.len(), "VM Error: IP out of bounds");
+
+        let (instruction, position) = instructions[self.ip];
 
         self.ip += 1;
-        self.current_position = *position;
+        self.current_position = position;
 
-        Ok(*instruction)
+        instruction
     }
 }
 

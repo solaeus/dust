@@ -32,17 +32,11 @@ impl Value {
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
-        match self {
-            Value::Abstract(abstract_value) => abstract_value.display(vm),
-            Value::Concrete(concrete_value) => Ok(concrete_value.to_string()),
-        }
-    }
-
-    pub fn add_assign(&mut self, other: ValueRef) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), ValueRef::Concrete(right)) => left.add_assign(right),
-            (left, right) => Err(ValueError::CannotAdd(left.clone(), right.to_owned())),
+    pub fn as_boolean(&self) -> Option<&bool> {
+        if let Value::Concrete(ConcreteValue::Boolean(value)) = self {
+            Some(value)
+        } else {
+            None
         }
     }
 }
@@ -84,6 +78,7 @@ impl ValueRef<'_> {
         }
     }
 
+    #[inline(always)]
     pub fn add(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
@@ -158,6 +153,7 @@ impl ValueRef<'_> {
         }
     }
 
+    #[inline(always)]
     pub fn less_than(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
