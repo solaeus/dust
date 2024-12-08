@@ -8,11 +8,7 @@ pub struct Modulo {
 
 impl From<&Instruction> for Modulo {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Modulo {
@@ -25,19 +21,16 @@ impl From<&Instruction> for Modulo {
 
 impl From<Modulo> for Instruction {
     fn from(modulo: Modulo) -> Self {
-        let (a, a_is_local) = match modulo.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = modulo.destination.as_index_and_a_options();
+        let (b, b_options) = modulo.left.as_index_and_b_options();
+        let (c, c_options) = modulo.right.as_index_and_c_options();
 
-        *Instruction::new(Operation::Modulo)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(modulo.left.index())
-            .set_b_is_constant(modulo.left.is_constant())
-            .set_b_is_local(modulo.left.is_local())
-            .set_c(modulo.right.index())
-            .set_c_is_constant(modulo.right.is_constant())
-            .set_c_is_local(modulo.right.is_local())
+        Instruction {
+            operation: Operation::MODULO,
+            options: a_options | b_options | c_options,
+            a,
+            b,
+            c,
+        }
     }
 }

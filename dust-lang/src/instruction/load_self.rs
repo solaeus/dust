@@ -6,11 +6,7 @@ pub struct LoadSelf {
 
 impl From<&Instruction> for LoadSelf {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
 
         LoadSelf { destination }
     }
@@ -18,13 +14,14 @@ impl From<&Instruction> for LoadSelf {
 
 impl From<LoadSelf> for Instruction {
     fn from(load_self: LoadSelf) -> Self {
-        let (a, a_is_local) = match load_self.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, options) = load_self.destination.as_index_and_a_options();
 
-        *Instruction::new(Operation::LoadSelf)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
+        Instruction {
+            operation: Operation::LOAD_SELF,
+            options,
+            a,
+            b: 0,
+            c: 0,
+        }
     }
 }

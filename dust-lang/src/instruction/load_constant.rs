@@ -8,31 +8,30 @@ pub struct LoadConstant {
 
 impl From<&Instruction> for LoadConstant {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let constant_index = instruction.b;
+        let jump_next = instruction.c != 0;
 
         LoadConstant {
             destination,
-            constant_index: instruction.b(),
-            jump_next: instruction.c_as_boolean(),
+            constant_index,
+            jump_next,
         }
     }
 }
 
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
-        let (a, a_is_local) = match load_constant.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, options) = load_constant.destination.as_index_and_a_options();
+        let b = load_constant.constant_index;
+        let c = load_constant.jump_next as u16;
 
-        *Instruction::new(Operation::LoadConstant)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(load_constant.constant_index)
-            .set_c_to_boolean(load_constant.jump_next)
+        Instruction {
+            operation: Operation::LOAD_CONSTANT,
+            options,
+            a,
+            b,
+            c,
+        }
     }
 }

@@ -8,31 +8,28 @@ pub struct CallNative {
 
 impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let function = NativeFunction::from(instruction.b);
 
         CallNative {
             destination,
-            function: NativeFunction::from(instruction.b()),
-            argument_count: instruction.c(),
+            function,
+            argument_count: instruction.c,
         }
     }
 }
 
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
-        let (a, a_is_local) = match call_native.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = call_native.destination.as_index_and_a_options();
+        let b = call_native.function as u16;
 
-        *Instruction::new(Operation::CallNative)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(call_native.function as u16)
-            .set_c(call_native.argument_count)
+        Instruction {
+            operation: Operation::CALL_NATIVE,
+            options: a_options,
+            a,
+            b,
+            c: call_native.argument_count,
+        }
     }
 }

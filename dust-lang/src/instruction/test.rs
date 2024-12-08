@@ -7,19 +7,27 @@ pub struct Test {
 
 impl From<&Instruction> for Test {
     fn from(instruction: &Instruction) -> Self {
+        let argument = instruction.b_as_argument();
+        let test_value = instruction.c != 0;
+
         Test {
-            argument: instruction.b_as_argument(),
-            test_value: instruction.c_as_boolean(),
+            argument,
+            test_value,
         }
     }
 }
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        *Instruction::new(Operation::Test)
-            .set_b(test.argument.index())
-            .set_b_is_constant(test.argument.is_constant())
-            .set_b_is_local(test.argument.is_local())
-            .set_c_to_boolean(test.test_value)
+        let (b, options) = test.argument.as_index_and_b_options();
+        let c = test.test_value as u16;
+
+        Instruction {
+            operation: Operation::TEST,
+            options,
+            a: 0,
+            b,
+            c,
+        }
     }
 }

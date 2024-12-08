@@ -7,31 +7,27 @@ pub struct Negate {
 
 impl From<&Instruction> for Negate {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let argument = instruction.b_as_argument();
 
         Negate {
             destination,
-            argument: instruction.b_as_argument(),
+            argument,
         }
     }
 }
 
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
-        let (a, a_is_local) = match negate.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = negate.destination.as_index_and_a_options();
+        let (b, b_options) = negate.argument.as_index_and_b_options();
 
-        *Instruction::new(Operation::Negate)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(negate.argument.index())
-            .set_b_is_constant(negate.argument.is_constant())
-            .set_b_is_local(negate.argument.is_local())
+        Instruction {
+            operation: Operation::NEGATE,
+            options: a_options | b_options,
+            a,
+            b,
+            c: 0,
+        }
     }
 }

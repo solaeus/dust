@@ -7,29 +7,27 @@ pub struct LoadList {
 
 impl From<&Instruction> for LoadList {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let start_register = instruction.b;
 
         LoadList {
             destination,
-            start_register: instruction.b(),
+            start_register,
         }
     }
 }
 
 impl From<LoadList> for Instruction {
     fn from(load_list: LoadList) -> Self {
-        let (a, a_is_local) = match load_list.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, options) = load_list.destination.as_index_and_a_options();
+        let b = load_list.start_register;
 
-        *Instruction::new(Operation::LoadList)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(load_list.start_register)
+        Instruction {
+            operation: Operation::LOAD_LIST,
+            options,
+            a,
+            b,
+            c: 0,
+        }
     }
 }

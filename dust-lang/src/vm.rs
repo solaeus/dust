@@ -182,7 +182,7 @@ impl<'a> Vm<'a> {
                 }
                 Operation::SetLocal => {
                     let SetLocal {
-                        register,
+                        register_index: register,
                         local_index,
                     } = SetLocal::from(&instruction);
 

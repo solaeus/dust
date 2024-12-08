@@ -1,18 +1,20 @@
 //! An operation and its arguments for the Dust virtual machine.
 //!
-//! Each instruction is a 64-bit unsigned integer that is divided into nine fields:
+//! Each instruction is 64 bits and holds ten distinct fields:
 //!
 //! Bit   | Description
 //! ----- | -----------
-//! 0-8   | The operation code.
-//! 9     | Boolean flag indicating whether the B argument is a constant.
-//! 10    | Boolean flag indicating whether the C argument is a constant.
-//! 11    | Boolean flag indicating whether the A argument is a local.
-//! 12    | Boolean flag indicating whether the B argument is a local.
-//! 13    | Boolean flag indicating whether the C argument is a local.
-//! 17-32 | The A argument,
-//! 33-48 | The B argument.
-//! 49-63 | The C argument.
+//! 0-8   | Operation code
+//! 9     | Flag for whether A is a local
+//! 10    | Flag for whether B argument is a constant
+//! 11    | Flag for whether C argument is a local
+//! 12    | Flag for whether B argument is a constant
+//! 13    | Flag for whether C argument is a local
+//! 14    | D Argument
+//! 15-16 | Unused
+//! 17-32 | A argument
+//! 33-48 | B argument
+//! 49-63 | C argument
 //!
 //! Be careful when working with instructions directly. When modifying an instruction, be sure to
 //! account for the fact that setting the A, B, or C arguments to 0 will have no effect. It is
@@ -55,7 +57,6 @@ mod add;
 mod call;
 mod call_native;
 mod close;
-mod define_local;
 mod divide;
 mod equal;
 mod get_local;
@@ -79,13 +80,10 @@ mod subtract;
 mod test;
 mod test_set;
 
-use std::fmt::{self, Debug, Display, Formatter};
-
 pub use add::Add;
 pub use call::Call;
 pub use call_native::CallNative;
 pub use close::Close;
-pub use define_local::DefineLocal;
 pub use divide::Divide;
 pub use equal::Equal;
 pub use get_local::GetLocal;
@@ -110,6 +108,7 @@ pub use test::Test;
 pub use test_set::TestSet;
 
 use serde::{Deserialize, Serialize};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::NativeFunction;
 
@@ -165,14 +164,6 @@ impl Instruction {
         Instruction::from(LoadSelf { destination })
     }
 
-    pub fn define_local(register: u16, local_index: u16, is_mutable: bool) -> Instruction {
-        Instruction::from(DefineLocal {
-            local_index,
-            register,
-            is_mutable,
-        })
-    }
-
     pub fn get_local(destination: Destination, local_index: u16) -> Instruction {
         Instruction::from(GetLocal {
             destination,
@@ -183,7 +174,7 @@ impl Instruction {
     pub fn set_local(register: u16, local_index: u16) -> Instruction {
         Instruction::from(SetLocal {
             local_index,
-            register,
+            register_index: register,
         })
     }
 
@@ -242,16 +233,46 @@ impl Instruction {
         })
     }
 
-    pub fn equal(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Equal { value, left, right })
+    pub fn equal(
+        destination: Destination,
+        value: bool,
+        left: Argument,
+        right: Argument,
+    ) -> Instruction {
+        Instruction::from(Equal {
+            destination,
+            value,
+            left,
+            right,
+        })
     }
 
-    pub fn less(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Less { value, left, right })
+    pub fn less(
+        destination: Destination,
+        value: bool,
+        left: Argument,
+        right: Argument,
+    ) -> Instruction {
+        Instruction::from(Less {
+            destination,
+            value,
+            left,
+            right,
+        })
     }
 
-    pub fn less_equal(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(LessEqual { value, left, right })
+    pub fn less_equal(
+        destination: Destination,
+        value: bool,
+        left: Argument,
+        right: Argument,
+    ) -> Instruction {
+        Instruction::from(LessEqual {
+            destination,
+            value,
+            left,
+            right,
+        })
     }
 
     pub fn negate(destination: Destination, argument: Argument) -> Instruction {
@@ -460,7 +481,7 @@ impl Instruction {
             }
             Operation::SET_LOCAL => {
                 let SetLocal {
-                    register,
+                    register_index: register,
                     local_index,
                 } = SetLocal::from(self);
 
@@ -531,22 +552,37 @@ impl Instruction {
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ {destination} = {argument} }}")
             }
             Operation::EQUAL => {
-                let Equal { value, left, right } = Equal::from(self);
+                let Equal {
+                    destination,
+                    value,
+                    left,
+                    right,
+                } = Equal::from(self);
                 let comparison_symbol = if value { "==" } else { "!=" };
 
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
+                format!("{destination} = {left} {comparison_symbol} {right}")
             }
             Operation::LESS => {
-                let Less { value, left, right } = Less::from(self);
+                let Less {
+                    destination,
+                    value,
+                    left,
+                    right,
+                } = Less::from(self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
+                format!("{destination} {left} {comparison_symbol} {right}")
             }
             Operation::LESS_EQUAL => {
-                let LessEqual { value, left, right } = LessEqual::from(self);
+                let LessEqual {
+                    destination,
+                    value,
+                    left,
+                    right,
+                } = LessEqual::from(self);
                 let comparison_symbol = if value { "<=" } else { ">" };
 
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
+                format!("{destination} {left} {comparison_symbol} {right}")
             }
             Operation::NEGATE => {
                 let Negate {

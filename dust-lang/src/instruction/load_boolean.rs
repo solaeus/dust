@@ -8,31 +8,30 @@ pub struct LoadBoolean {
 
 impl From<&Instruction> for LoadBoolean {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let value = instruction.b != 0;
+        let jump_next = instruction.c != 0;
 
         LoadBoolean {
             destination,
-            value: instruction.b_as_boolean(),
-            jump_next: instruction.c_as_boolean(),
+            value,
+            jump_next,
         }
     }
 }
 
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
-        let (a, a_is_local) = match load_boolean.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, options) = load_boolean.destination.as_index_and_a_options();
+        let b = load_boolean.value as u16;
+        let c = load_boolean.jump_next as u16;
 
-        *Instruction::new(Operation::LoadBoolean)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b_to_boolean(load_boolean.value)
-            .set_c_to_boolean(load_boolean.jump_next)
+        Instruction {
+            operation: Operation::LOAD_BOOLEAN,
+            options,
+            a,
+            b,
+            c,
+        }
     }
 }

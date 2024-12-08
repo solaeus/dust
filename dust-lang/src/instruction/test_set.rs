@@ -8,33 +8,30 @@ pub struct TestSet {
 
 impl From<&Instruction> for TestSet {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let argument = instruction.b_as_argument();
+        let test_value = instruction.c != 0;
 
         TestSet {
             destination,
-            argument: instruction.b_as_argument(),
-            test_value: instruction.c_as_boolean(),
+            argument,
+            test_value,
         }
     }
 }
 
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
-        let (a, a_is_local) = match test_set.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = test_set.destination.as_index_and_a_options();
+        let (b, b_options) = test_set.argument.as_index_and_b_options();
+        let c = test_set.test_value as u16;
 
-        *Instruction::new(Operation::TestSet)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(test_set.argument.index())
-            .set_b_is_constant(test_set.argument.is_constant())
-            .set_b_is_local(test_set.argument.is_local())
-            .set_c_to_boolean(test_set.test_value)
+        Instruction {
+            operation: Operation::TEST_SET,
+            options: a_options | b_options,
+            a,
+            b,
+            c,
+        }
     }
 }

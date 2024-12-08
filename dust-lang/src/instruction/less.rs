@@ -1,6 +1,9 @@
-use crate::{Argument, Instruction, Operation};
+use crate::{Argument, Destination, Instruction, Operation};
+
+use super::InstructionOptions;
 
 pub struct Less {
+    pub destination: Destination,
     pub value: bool,
     pub left: Argument,
     pub right: Argument,
@@ -8,10 +11,13 @@ pub struct Less {
 
 impl From<&Instruction> for Less {
     fn from(instruction: &Instruction) -> Self {
+        let destination = instruction.a_as_destination();
+        let value = instruction.options.d();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Less {
-            value: instruction.a_as_boolean(),
+            destination,
+            value,
             left,
             right,
         }
@@ -20,13 +26,21 @@ impl From<&Instruction> for Less {
 
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
-        *Instruction::new(Operation::Less)
-            .set_a_to_boolean(less.value)
-            .set_b(less.left.index())
-            .set_b_is_constant(less.left.is_constant())
-            .set_b_is_local(less.left.is_local())
-            .set_c(less.right.index())
-            .set_c_is_constant(less.right.is_constant())
-            .set_c_is_local(less.right.is_local())
+        let (a, a_options) = less.destination.as_index_and_a_options();
+        let (b, b_options) = less.left.as_index_and_b_options();
+        let (c, c_options) = less.right.as_index_and_c_options();
+        let d_options = if less.value {
+            InstructionOptions::D_IS_TRUE
+        } else {
+            InstructionOptions::empty()
+        };
+
+        Instruction {
+            operation: Operation::LESS,
+            options: a_options | b_options | c_options | d_options,
+            a,
+            b,
+            c,
+        }
     }
 }

@@ -994,7 +994,7 @@ impl<'src> Compiler<'src> {
 
             let register = self.next_register() - 1;
             let set_local = Instruction::from(SetLocal {
-                register,
+                register_index: register,
                 local_index,
             });
 

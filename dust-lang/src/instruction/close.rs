@@ -1,5 +1,7 @@
 use crate::{Instruction, Operation};
 
+use super::InstructionOptions;
+
 pub struct Close {
     pub from: u16,
     pub to: u16,
@@ -8,16 +10,20 @@ pub struct Close {
 impl From<&Instruction> for Close {
     fn from(instruction: &Instruction) -> Self {
         Close {
-            from: instruction.b(),
-            to: instruction.c(),
+            from: instruction.b,
+            to: instruction.c,
         }
     }
 }
 
 impl From<Close> for Instruction {
-    fn from(r#move: Close) -> Self {
-        *Instruction::new(Operation::Close)
-            .set_b(r#move.from)
-            .set_c(r#move.to)
+    fn from(close: Close) -> Self {
+        Instruction {
+            operation: Operation::CLOSE,
+            options: InstructionOptions::empty(),
+            a: 0,
+            b: close.from,
+            c: close.to,
+        }
     }
 }

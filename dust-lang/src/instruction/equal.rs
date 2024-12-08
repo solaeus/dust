@@ -1,6 +1,9 @@
-use crate::{Argument, Instruction, Operation};
+use crate::{Argument, Destination, Instruction, Operation};
+
+use super::InstructionOptions;
 
 pub struct Equal {
+    pub destination: Destination,
     pub value: bool,
     pub left: Argument,
     pub right: Argument,
@@ -8,10 +11,13 @@ pub struct Equal {
 
 impl From<&Instruction> for Equal {
     fn from(instruction: &Instruction) -> Self {
+        let destination = instruction.a_as_destination();
+        let value = instruction.options.d();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Equal {
-            value: instruction.a_as_boolean(),
+            destination,
+            value,
             left,
             right,
         }
@@ -20,13 +26,21 @@ impl From<&Instruction> for Equal {
 
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
-        *Instruction::new(Operation::Equal)
-            .set_a_to_boolean(equal.value)
-            .set_b(equal.left.index())
-            .set_b_is_constant(equal.left.is_constant())
-            .set_b_is_local(equal.left.is_local())
-            .set_c(equal.right.index())
-            .set_c_is_constant(equal.right.is_constant())
-            .set_c_is_local(equal.right.is_local())
+        let (a, a_options) = equal.destination.as_index_and_a_options();
+        let (b, b_options) = equal.left.as_index_and_b_options();
+        let (c, c_options) = equal.right.as_index_and_c_options();
+        let d_options = if equal.value {
+            InstructionOptions::D_IS_TRUE
+        } else {
+            InstructionOptions::empty()
+        };
+
+        Instruction {
+            operation: Operation::EQUAL,
+            options: a_options | b_options | c_options | d_options,
+            a,
+            b,
+            c,
+        }
     }
 }

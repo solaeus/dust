@@ -8,11 +8,7 @@ pub struct Divide {
 
 impl From<&Instruction> for Divide {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Divide {
@@ -25,19 +21,16 @@ impl From<&Instruction> for Divide {
 
 impl From<Divide> for Instruction {
     fn from(divide: Divide) -> Self {
-        let (a, a_is_local) = match divide.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = divide.destination.as_index_and_a_options();
+        let (b, b_options) = divide.left.as_index_and_b_options();
+        let (c, c_options) = divide.right.as_index_and_c_options();
 
-        *Instruction::new(Operation::Divide)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(divide.left.index())
-            .set_b_is_constant(divide.left.is_constant())
-            .set_b_is_local(divide.left.is_local())
-            .set_c(divide.right.index())
-            .set_c_is_constant(divide.right.is_constant())
-            .set_c_is_local(divide.right.is_local())
+        Instruction {
+            operation: Operation::DIVIDE,
+            options: a_options | b_options | c_options,
+            a,
+            b,
+            c,
+        }
     }
 }

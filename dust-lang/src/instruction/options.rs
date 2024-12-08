@@ -12,7 +12,7 @@ bitflags! {
         const C_IS_CONSTANT = 0b00001000;
         const C_IS_LOCAL = 0b00010000;
 
-        const D_FIELD = 0b00100000;
+        const D_IS_TRUE = 0b00100000;
     }
 }
 
@@ -38,6 +38,6 @@ impl InstructionOptions {
     }
 
     pub fn d(self) -> bool {
-        self.contains(Self::D_FIELD)
+        self.contains(Self::D_IS_TRUE)
     }
 }

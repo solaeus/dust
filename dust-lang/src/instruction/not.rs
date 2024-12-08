@@ -7,31 +7,27 @@ pub struct Not {
 
 impl From<&Instruction> for Not {
     fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+        let destination = instruction.a_as_destination();
+        let argument = instruction.b_as_argument();
 
         Not {
             destination,
-            argument: instruction.b_as_argument(),
+            argument,
         }
     }
 }
 
 impl From<Not> for Instruction {
     fn from(not: Not) -> Self {
-        let (a, a_is_local) = match not.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let (a, a_options) = not.destination.as_index_and_a_options();
+        let (b, b_options) = not.argument.as_index_and_b_options();
 
-        *Instruction::new(Operation::Not)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(not.argument.index())
-            .set_b_is_constant(not.argument.is_constant())
-            .set_b_is_local(not.argument.is_local())
+        Instruction {
+            operation: Operation::NOT,
+            options: a_options | b_options,
+            a,
+            b,
+            c: 0,
+        }
     }
 }
