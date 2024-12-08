@@ -71,6 +71,8 @@ mod r#move;
 mod multiply;
 mod negate;
 mod not;
+mod operation;
+mod options;
 mod r#return;
 mod set_local;
 mod subtract;
@@ -98,6 +100,8 @@ pub use modulo::Modulo;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
+pub use operation::Operation;
+pub use options::InstructionOptions;
 pub use r#move::Move;
 pub use r#return::Return;
 pub use set_local::SetLocal;
@@ -107,19 +111,21 @@ pub use test_set::TestSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{NativeFunction, Operation};
+use crate::NativeFunction;
 
 /// An operation and its arguments for the Dust virtual machine.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Instruction(u64);
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Instruction {
+    operation: Operation,
+    options: InstructionOptions,
+    a: u16,
+    b: u16,
+    c: u16,
+}
 
 impl Instruction {
-    pub fn new(operation: Operation) -> Instruction {
-        Instruction(operation as u64)
-    }
-
     pub fn r#move(from: u16, to: u16) -> Instruction {
         Instruction::from(Move { from, to })
     }
@@ -296,215 +302,115 @@ impl Instruction {
     }
 
     pub fn destination_as_argument(&self) -> Option<Argument> {
-        match self.operation() {
-            Operation::LoadConstant => Some(Argument::Constant(self.b())),
-            Operation::GetLocal => Some(Argument::Local(self.b())),
-            Operation::LoadBoolean
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::Add
-            | Operation::Subtract
-            | Operation::Multiply
-            | Operation::Divide
-            | Operation::Modulo
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Call
-            | Operation::CallNative => Some(Argument::Register(self.a())),
+        match self.operation {
+            Operation::LOAD_CONSTANT => Some(Argument::Constant(self.b)),
+            Operation::GET_LOCAL => Some(Argument::Local(self.b)),
+            Operation::LOAD_BOOLEAN
+            | Operation::LOAD_LIST
+            | Operation::LOAD_SELF
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::NEGATE
+            | Operation::NOT
+            | Operation::CALL
+            | Operation::CALL_NATIVE => Some(Argument::Register(self.a)),
             _ => None,
         }
     }
 
-    pub fn b_as_argument(&self) -> Argument {
-        if self.b_is_constant() {
-            Argument::Constant(self.b())
-        } else if self.b_is_local() {
-            Argument::Local(self.b())
+    pub fn a_as_destination(&self) -> Destination {
+        if self.options.a_is_local() {
+            Destination::Local(self.a)
         } else {
-            Argument::Register(self.b())
+            Destination::Register(self.a)
+        }
+    }
+
+    pub fn b_as_argument(&self) -> Argument {
+        if self.options.b_is_constant() {
+            Argument::Constant(self.b)
+        } else if self.options.b_is_local() {
+            Argument::Local(self.b)
+        } else {
+            Argument::Register(self.b)
         }
     }
 
     pub fn b_and_c_as_arguments(&self) -> (Argument, Argument) {
-        let left = if self.b_is_constant() {
-            Argument::Constant(self.b())
-        } else if self.b_is_local() {
-            Argument::Local(self.b())
+        let left = if self.options.b_is_constant() {
+            Argument::Constant(self.b)
+        } else if self.options.b_is_local() {
+            Argument::Local(self.b)
         } else {
-            Argument::Register(self.b())
+            Argument::Register(self.b)
         };
-        let right = if self.c_is_constant() {
-            Argument::Constant(self.c())
-        } else if self.c_is_local() {
-            Argument::Local(self.c())
+        let right = if self.options.c_is_constant() {
+            Argument::Constant(self.c)
+        } else if self.options.c_is_local() {
+            Argument::Local(self.c)
         } else {
-            Argument::Register(self.c())
+            Argument::Register(self.c)
         };
 
         (left, right)
     }
 
-    pub fn operation(&self) -> Operation {
-        Operation::from((self.0 & 0b11111111) as u8)
-    }
-
-    pub fn set_b_is_constant(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(1 << 9)) | ((boolean as u64) << 9);
-
-        self
-    }
-
-    pub fn set_c_is_constant(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(1 << 10)) | ((boolean as u64) << 10);
-
-        self
-    }
-
-    pub fn set_a_is_local(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(1 << 11)) | ((boolean as u64) << 11);
-
-        self
-    }
-
-    pub fn set_b_is_local(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(1 << 12)) | ((boolean as u64) << 12);
-
-        self
-    }
-
-    pub fn set_c_is_local(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(1 << 13)) | ((boolean as u64) << 13);
-
-        self
-    }
-
-    pub fn a(&self) -> u16 {
-        ((self.0 >> 16) & 0b1111111111111111) as u16
-    }
-
-    pub fn a_as_boolean(&self) -> bool {
-        self.a() != 0
-    }
-
-    pub fn set_a(&mut self, a: u16) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 16)) | ((a as u64) << 16);
-
-        self
-    }
-
-    pub fn set_a_to_boolean(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 16)) | ((boolean as u64) << 16);
-
-        self
-    }
-
-    pub fn b(&self) -> u16 {
-        ((self.0 >> 32) & 0b1111111111111111) as u16
-    }
-
-    pub fn b_as_boolean(&self) -> bool {
-        self.b() != 0
-    }
-
-    pub fn set_b(&mut self, b: u16) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 32)) | ((b as u64) << 32);
-
-        self
-    }
-
-    pub fn set_b_to_boolean(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 32)) | ((boolean as u64) << 32);
-
-        self
-    }
-
-    pub fn c(&self) -> u16 {
-        ((self.0 >> 48) & 0b1111111111111111) as u16
-    }
-
-    pub fn c_as_boolean(&self) -> bool {
-        self.c() != 0
-    }
-
-    pub fn set_c(&mut self, c: u16) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 48)) | ((c as u64) << 48);
-
-        self
-    }
-
-    pub fn set_c_to_boolean(&mut self, boolean: bool) -> &mut Self {
-        self.0 = (self.0 & !(0b1111111111111111 << 48)) | ((boolean as u64) << 48);
-
-        self
-    }
-
-    pub fn b_is_constant(&self) -> bool {
-        (self.0 >> 9) & 1 == 1
-    }
-
-    pub fn c_is_constant(&self) -> bool {
-        (self.0 >> 10) & 1 == 1
-    }
-
-    pub fn a_is_local(&self) -> bool {
-        (self.0 >> 11) & 1 == 1
-    }
-
-    pub fn b_is_local(&self) -> bool {
-        (self.0 >> 12) & 1 == 1
-    }
-
-    pub fn c_is_local(&self) -> bool {
-        (self.0 >> 13) & 1 == 1
-    }
-
     pub fn yields_value(&self) -> bool {
-        match self.operation() {
-            Operation::LoadBoolean
-            | Operation::LoadConstant
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::GetLocal
-            | Operation::Add
-            | Operation::Subtract
-            | Operation::Multiply
-            | Operation::Divide
-            | Operation::Modulo
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Call => true,
-            Operation::Move
-            | Operation::Close
-            | Operation::DefineLocal
-            | Operation::SetLocal
-            | Operation::Equal
-            | Operation::Less
-            | Operation::LessEqual
-            | Operation::Test
-            | Operation::TestSet
-            | Operation::Jump
-            | Operation::Return => false,
-            Operation::CallNative => {
-                let function = NativeFunction::from(self.b());
+        match self.operation {
+            Operation::LOAD_BOOLEAN
+            | Operation::LOAD_CONSTANT
+            | Operation::LOAD_LIST
+            | Operation::LOAD_SELF
+            | Operation::GET_LOCAL
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::NEGATE
+            | Operation::NOT
+            | Operation::CALL => true,
+            Operation::MOVE
+            | Operation::CLOSE
+            | Operation::SET_LOCAL
+            | Operation::EQUAL
+            | Operation::LESS
+            | Operation::LESS_EQUAL
+            | Operation::TEST
+            | Operation::TEST_SET
+            | Operation::JUMP
+            | Operation::RETURN => false,
+            Operation::CALL_NATIVE => {
+                let function = NativeFunction::from(self.b);
 
                 function.returns_value()
+            }
+            _ => {
+                if cfg!(debug_assertions) {
+                    panic!("Unknown operation {}", self.operation);
+                } else {
+                    false
+                }
             }
         }
     }
 
     pub fn disassembly_info(&self) -> String {
-        match self.operation() {
-            Operation::Move => {
+        match self.operation {
+            Operation::MOVE => {
                 let Move { from, to } = Move::from(self);
 
                 format!("R{to} = R{from}")
             }
-            Operation::Close => {
+            Operation::CLOSE => {
                 let Close { from, to } = Close::from(self);
 
                 format!("R{from}..R{to}")
             }
-            Operation::LoadBoolean => {
+            Operation::LOAD_BOOLEAN => {
                 let LoadBoolean {
                     destination,
                     value,
@@ -517,7 +423,7 @@ impl Instruction {
                     format!("{destination} = {value}")
                 }
             }
-            Operation::LoadConstant => {
+            Operation::LOAD_CONSTANT => {
                 let LoadConstant {
                     destination,
                     constant_index,
@@ -530,7 +436,7 @@ impl Instruction {
                     format!("{destination} = C{constant_index}")
                 }
             }
-            Operation::LoadList => {
+            Operation::LOAD_LIST => {
                 let LoadList {
                     destination,
                     start_register,
@@ -539,25 +445,12 @@ impl Instruction {
 
                 format!("{destination} = [R{start_register}..=R{end_register}]",)
             }
-            Operation::LoadSelf => {
+            Operation::LOAD_SELF => {
                 let LoadSelf { destination } = LoadSelf::from(self);
 
                 format!("{destination} = self")
             }
-            Operation::DefineLocal => {
-                let DefineLocal {
-                    register,
-                    local_index,
-                    is_mutable,
-                } = DefineLocal::from(self);
-
-                if is_mutable {
-                    format!("mut L{local_index} = R{register}")
-                } else {
-                    format!("L{local_index} = R{register}")
-                }
-            }
-            Operation::GetLocal => {
+            Operation::GET_LOCAL => {
                 let GetLocal {
                     destination,
                     local_index,
@@ -565,7 +458,7 @@ impl Instruction {
 
                 format!("{destination} = L{local_index}")
             }
-            Operation::SetLocal => {
+            Operation::SET_LOCAL => {
                 let SetLocal {
                     register,
                     local_index,
@@ -573,7 +466,7 @@ impl Instruction {
 
                 format!("L{local_index} = R{register}")
             }
-            Operation::Add => {
+            Operation::ADD => {
                 let Add {
                     destination,
                     left,
@@ -582,7 +475,7 @@ impl Instruction {
 
                 format!("{destination} = {left} + {right}")
             }
-            Operation::Subtract => {
+            Operation::SUBTRACT => {
                 let Subtract {
                     destination,
                     left,
@@ -591,7 +484,7 @@ impl Instruction {
 
                 format!("{destination} = {left} - {right}")
             }
-            Operation::Multiply => {
+            Operation::MULTIPLY => {
                 let Multiply {
                     destination,
                     left,
@@ -600,7 +493,7 @@ impl Instruction {
 
                 format!("{destination} = {left} * {right}")
             }
-            Operation::Divide => {
+            Operation::DIVIDE => {
                 let Divide {
                     destination,
                     left,
@@ -609,7 +502,7 @@ impl Instruction {
 
                 format!("{destination} = {left} / {right}")
             }
-            Operation::Modulo => {
+            Operation::MODULO => {
                 let Modulo {
                     destination,
                     left,
@@ -618,7 +511,7 @@ impl Instruction {
 
                 format!("{destination} = {left} % {right}")
             }
-            Operation::Test => {
+            Operation::TEST => {
                 let Test {
                     argument,
                     test_value: value,
@@ -627,7 +520,7 @@ impl Instruction {
 
                 format!("if {bang}{argument} {{ JUMP +1 }}",)
             }
-            Operation::TestSet => {
+            Operation::TEST_SET => {
                 let TestSet {
                     destination,
                     argument,
@@ -637,25 +530,25 @@ impl Instruction {
 
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ {destination} = {argument} }}")
             }
-            Operation::Equal => {
+            Operation::EQUAL => {
                 let Equal { value, left, right } = Equal::from(self);
                 let comparison_symbol = if value { "==" } else { "!=" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
-            Operation::Less => {
+            Operation::LESS => {
                 let Less { value, left, right } = Less::from(self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
-            Operation::LessEqual => {
+            Operation::LESS_EQUAL => {
                 let LessEqual { value, left, right } = LessEqual::from(self);
                 let comparison_symbol = if value { "<=" } else { ">" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
-            Operation::Negate => {
+            Operation::NEGATE => {
                 let Negate {
                     destination,
                     argument,
@@ -663,7 +556,7 @@ impl Instruction {
 
                 format!("{destination} = -{argument}")
             }
-            Operation::Not => {
+            Operation::NOT => {
                 let Not {
                     destination,
                     argument,
@@ -671,7 +564,7 @@ impl Instruction {
 
                 format!("{destination} = !{argument}")
             }
-            Operation::Jump => {
+            Operation::JUMP => {
                 let Jump {
                     offset,
                     is_positive,
@@ -683,7 +576,7 @@ impl Instruction {
                     format!("JUMP -{offset}")
                 }
             }
-            Operation::Call => {
+            Operation::CALL => {
                 let Call {
                     destination,
                     function,
@@ -694,7 +587,7 @@ impl Instruction {
 
                 format!("{destination} = {function}(R{arguments_start}..R{arguments_end})")
             }
-            Operation::CallNative => {
+            Operation::CALL_NATIVE => {
                 let CallNative {
                     destination,
                     function,
@@ -709,7 +602,7 @@ impl Instruction {
                     format!("{function}(R{arguments_start}..R{arguments_end})")
                 }
             }
-            Operation::Return => {
+            Operation::RETURN => {
                 let Return {
                     should_return_value,
                 } = Return::from(self);
@@ -720,19 +613,20 @@ impl Instruction {
                     "".to_string()
                 }
             }
+            _ => {
+                if cfg!(debug_assertions) {
+                    panic!("Unknown operation {}", self.operation);
+                } else {
+                    "RETURN".to_string()
+                }
+            }
         }
-    }
-}
-
-impl From<&Instruction> for u64 {
-    fn from(instruction: &Instruction) -> Self {
-        instruction.0
     }
 }
 
 impl Debug for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.operation(), self.disassembly_info())
+        write!(f, "{} {}", self.operation, self.disassembly_info())
     }
 }
 
@@ -756,6 +650,13 @@ impl Destination {
 
     pub fn is_register(&self) -> bool {
         matches!(self, Destination::Register(_))
+    }
+
+    pub fn as_index_and_a_options(&self) -> (u16, InstructionOptions) {
+        match self {
+            Destination::Local(index) => (*index, InstructionOptions::A_IS_LOCAL),
+            Destination::Register(index) => (*index, InstructionOptions::empty()),
+        }
     }
 }
 
@@ -794,6 +695,22 @@ impl Argument {
 
     pub fn is_register(&self) -> bool {
         matches!(self, Argument::Register(_))
+    }
+
+    pub fn as_index_and_b_options(&self) -> (u16, InstructionOptions) {
+        match self {
+            Argument::Constant(index) => (*index, InstructionOptions::B_IS_CONSTANT),
+            Argument::Local(index) => (*index, InstructionOptions::B_IS_LOCAL),
+            Argument::Register(index) => (*index, InstructionOptions::empty()),
+        }
+    }
+
+    pub fn as_index_and_c_options(&self) -> (u16, InstructionOptions) {
+        match self {
+            Argument::Constant(index) => (*index, InstructionOptions::C_IS_CONSTANT),
+            Argument::Local(index) => (*index, InstructionOptions::C_IS_LOCAL),
+            Argument::Register(index) => (*index, InstructionOptions::empty()),
+        }
     }
 }
 
