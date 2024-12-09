@@ -25,10 +25,10 @@ impl Value {
         }
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
+    pub fn into_concrete_owned(self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
             Value::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            Value::Concrete(concrete_value) => Ok(concrete_value.clone()),
+            Value::Concrete(concrete_value) => Ok(concrete_value),
         }
     }
 
@@ -64,10 +64,10 @@ impl ValueRef<'_> {
         }
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
+    pub fn into_concrete_owned(self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
             ValueRef::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            ValueRef::Concrete(concrete_value) => Ok((*concrete_value).clone()),
+            ValueRef::Concrete(concrete_value) => Ok(concrete_value.clone()),
         }
     }
 

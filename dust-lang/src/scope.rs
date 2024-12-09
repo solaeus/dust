@@ -47,6 +47,6 @@ impl Scope {
 
 impl Display for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.depth, self.block_index)
+        write!(f, "{}.{}", self.depth, self.block_index)
     }
 }

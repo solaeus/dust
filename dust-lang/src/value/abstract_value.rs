@@ -24,7 +24,7 @@ impl AbstractValue {
                 let mut resolved_items = Vec::with_capacity(items.len());
 
                 for pointer in items {
-                    let resolved_item = vm.follow_pointer(*pointer)?.to_concrete_owned(vm)?;
+                    let resolved_item = vm.follow_pointer(*pointer)?.into_concrete_owned(vm)?;
 
                     resolved_items.push(resolved_item);
                 }

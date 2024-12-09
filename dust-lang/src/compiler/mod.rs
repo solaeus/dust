@@ -610,12 +610,13 @@ impl<'src> Compiler<'src> {
         &mut self,
         instruction: &Instruction,
     ) -> Result<(Argument, bool), CompileError> {
-        let argument = instruction.destination_as_argument().ok_or_else(|| {
-            CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            }
-        })?;
+        let argument =
+            instruction
+                .as_argument()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
         let push_back = matches!(argument, Argument::Register(_));
 
         Ok((argument, push_back))
@@ -867,7 +868,20 @@ impl<'src> Compiler<'src> {
             self.get_last_operations(),
             Some([Operation::Test, Operation::Jump, _])
         );
-        let (left_instruction, left_type, left_position) = self.pop_last_instruction()?;
+
+        let (mut left_instruction, left_type, left_position) = self.pop_last_instruction()?;
+
+        if is_logic_chain {
+            let destination = self
+                .instructions
+                .iter()
+                .rev()
+                .nth(2)
+                .map_or(0, |(instruction, _, _)| instruction.a);
+
+            left_instruction.a = destination;
+        }
+
         let jump_index = self.instructions.len().saturating_sub(1);
         let mut jump_distance = if is_logic_chain {
             self.instructions.pop().map_or(0, |(jump, _, _)| {
@@ -886,13 +900,10 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let (argument, push_back) = self.handle_binary_argument(&left_instruction)?;
-        let is_local = left_instruction.operation() == Operation::GetLocal;
+        let (left, _) = self.handle_binary_argument(&left_instruction)?;
 
-        if push_back || is_local {
-            self.instructions
-                .push((left_instruction, left_type.clone(), left_position));
-        }
+        self.instructions
+            .push((left_instruction, left_type.clone(), left_position));
 
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -908,15 +919,15 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-        let test = Instruction::from(Test {
-            argument,
-            test_value: test_boolean,
-        });
+        let test = Instruction::test(left, test_boolean);
 
         self.advance()?;
         self.emit_instruction(test, Type::None, operator_position);
         self.emit_instruction(Instruction::jump(1, true), Type::None, operator_position);
         self.parse_sub_expression(&rule.precedence)?;
+
+        let (mut right_instruction, _, _) = self.instructions.last_mut().unwrap();
+        right_instruction.a = left_instruction.a;
 
         if is_logic_chain {
             let expression_length = self.instructions.len() - jump_index - 1;
@@ -992,7 +1003,7 @@ impl<'src> Compiler<'src> {
             });
 
             self.emit_instruction(set_local, Type::None, start_position);
-            optimize_set_local(self);
+            optimize_set_local(self)?;
 
             return Ok(());
         }
@@ -1092,7 +1103,7 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         if let Some((instruction, _, _)) = self.instructions.last() {
-            let argument = match instruction.destination_as_argument() {
+            let argument = match instruction.as_argument() {
                 Some(argument) => argument,
                 None => {
                     return Err(CompileError::ExpectedExpression {
@@ -1323,7 +1334,18 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), CompileError> {
-        self.parse(precedence.increment())
+        self.parse(precedence.increment())?;
+
+        let expression_type = self.get_last_instruction_type();
+
+        if expression_type == Type::None || self.instructions.is_empty() {
+            return Err(CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.current_position,
+            });
+        }
+
+        Ok(())
     }
 
     fn parse_return_statement(&mut self) -> Result<(), CompileError> {
@@ -1572,12 +1594,13 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let function = last_instruction.destination_as_argument().ok_or_else(|| {
-            CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            }
-        })?;
+        let function =
+            last_instruction
+                .as_argument()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
         let register_type = self.get_register_type(function.index())?;
         let function_return_type = match register_type {
             Type::Function(function_type) => function_type.return_type,

@@ -40,15 +40,15 @@
 //! write, this ensures that the instruction has the correct flags to represent the arguments.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, u8, Argument};
+//! # use dust_lang::instruction::{Instruction, Add, Argument};
 //! let add_1 = Instruction::add(
-//!     u8::Register(0),
-//!     Argument::Local(1),
+//!     0,
+//!     Argument::Register(1),
 //!     Argument::Constant(2)
 //! );
 //! let add_2 = Instruction::from(Add {
-//!     destination: u8::Register(0),
-//!     left: Argument::Local(1),
+//!     destination: 0,
+//!     left: Argument::Register(1),
 //!     right: Argument::Constant(2),
 //! });
 //!
@@ -57,21 +57,20 @@
 //!
 //! ## Reading Instructions
 //!
-//! To read an instruction, check its `operation` field, then convert the instruction to the struct
-//! that corresponds to that operation. Like the example above, this removes the burden of dealing
-//! with the options and handles the process of reading the options and the instruction's fields
-//! into `u8` or `Argument` enums when appropriate.
+//! To read an instruction, check its operation with [`Instruction::operation`], then convert the
+//! instruction to the struct that corresponds to that operation. Like the example above, this
+//! removes the burden of dealing with the options directly and automatically casts the A, B, C and
+//! D fields as `u8`, `bool` or `Argument` values.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, u8, Argument, Operation};
+//! # use dust_lang::instruction::{Instruction, Add, Argument, Operation};
 //! # let mystery_instruction = Instruction::add(
-//!     u8::Local(1),
-//!     Argument::Local(1),
-//!     Argument::Constant(2)
-//! );
-//!
-//! // Let's read an instruction and see if it performs addition-assignment, like in one of the
-//! // following examples:
+//! #     1,
+//! #     Argument::Register(1),
+//! #     Argument::Constant(2)
+//! # );
+//! // Let's read an instruction and see if it performs addition-assignment,
+//! // like in one of the following examples:
 //! //  - `a += 2`
 //! //  - `a = a + 2`
 //! //  - `a = 2 + a`
@@ -79,7 +78,7 @@
 //! let operation = mystery_instruction.operation();
 //!
 //! match operation {
-//!     Operation::ADD => {
+//!     Operation::Add => {
 //!         let Add { destination, left, right } = Add::from(&mystery_instruction);
 //!         let is_add_assign =
 //!             left == Argument::Register(destination)
@@ -87,10 +86,7 @@
 //!
 //!         assert!(is_add_assign);
 //!     }
-//!     // Handle other operations...
-//!     _ => {
-//!         panic!("Unknown operation code: {operation}");
-//!     }
+//!     _ => {} // Handle other operations...
 //! }
 //! ```
 mod add;
@@ -357,7 +353,7 @@ impl Instruction {
         })
     }
 
-    pub fn destination_as_argument(&self) -> Option<Argument> {
+    pub fn as_argument(&self) -> Option<Argument> {
         match self.operation() {
             Operation::LoadConstant => Some(Argument::Constant(self.b)),
             Operation::LoadBoolean
@@ -592,7 +588,7 @@ impl Instruction {
                 } = Less::from(self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
-                format!("R{destination} {left} {comparison_symbol} {right}")
+                format!("R{destination} = {left} {comparison_symbol} {right}")
             }
             Operation::LessEqual => {
                 let LessEqual {
@@ -603,7 +599,7 @@ impl Instruction {
                 } = LessEqual::from(self);
                 let comparison_symbol = if value { "<=" } else { ">" };
 
-                format!("R{destination} {left} {comparison_symbol} {right}")
+                format!("R{destination} = {left} {comparison_symbol} {right}")
             }
             Operation::Negate => {
                 let Negate {
@@ -687,7 +683,7 @@ impl Debug for Instruction {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Argument {
     Constant(u8),
     Register(u8),
@@ -740,15 +736,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn instruction_is_8_bytes() {
-        assert_eq!(size_of::<Instruction>(), 8);
+    fn instruction_is_4_bytes() {
+        assert_eq!(size_of::<Instruction>(), 4);
     }
 
     #[test]
     fn instruction_layout() {
-        assert_eq!(offset_of!(Instruction, a), 0);
-        assert_eq!(offset_of!(Instruction, b), 1);
-        assert_eq!(offset_of!(Instruction, c), 2);
-        assert_eq!(offset_of!(Instruction, metadata), 3);
+        assert_eq!(offset_of!(Instruction, metadata), 0);
+        assert_eq!(offset_of!(Instruction, a), 1);
+        assert_eq!(offset_of!(Instruction, b), 2);
+        assert_eq!(offset_of!(Instruction, c), 3);
     }
 }

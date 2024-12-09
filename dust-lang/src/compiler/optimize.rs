@@ -1,7 +1,5 @@
 //! Tools used by the compiler to optimize a chunk's bytecode.
 
-use smallvec::SmallVec;
-
 use crate::{instruction::SetLocal, CompileError, Compiler, Instruction, Operation, Span, Type};
 
 fn get_last_operations<const COUNT: usize>(

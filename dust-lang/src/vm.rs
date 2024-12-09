@@ -169,7 +169,7 @@ impl<'a> Vm<'a> {
                     let local_register_index = self.get_local_register(local_index)?;
                     let register = Register::Pointer(Pointer::Stack(register_index));
 
-                    self.set_register(local_register_index, register);
+                    self.set_register(local_register_index, register)?;
                 }
                 Operation::Add => {
                     let Add {
@@ -471,7 +471,7 @@ impl<'a> Vm<'a> {
                         self.chunk
                     } else {
                         return Err(VmError::ExpectedFunction {
-                            found: function.to_concrete_owned(self)?,
+                            found: function.into_concrete_owned(self)?,
                             position: self.current_position(),
                         });
                     };
@@ -521,7 +521,7 @@ impl<'a> Vm<'a> {
                     return if let Some(register_index) = self.last_assigned_register {
                         let return_value = self
                             .open_register(register_index)?
-                            .to_concrete_owned(self)?;
+                            .into_concrete_owned(self)?;
 
                         Ok(Some(return_value))
                     } else {
