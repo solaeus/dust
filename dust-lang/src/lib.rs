@@ -30,7 +30,6 @@
 
 pub mod chunk;
 pub mod compiler;
-pub mod disassembler;
 pub mod dust_error;
 pub mod instruction;
 pub mod lexer;
@@ -41,9 +40,8 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use crate::chunk::{Chunk, Local};
+pub use crate::chunk::{Chunk, Disassembler, Local};
 pub use crate::compiler::{compile, CompileError, Compiler};
-pub use crate::disassembler::Disassembler;
 pub use crate::dust_error::{AnnotatedError, DustError};
 pub use crate::instruction::{Argument, Instruction, Operation};
 pub use crate::lexer::{lex, LexError, Lexer};

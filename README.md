@@ -137,34 +137,96 @@ The compiler always checks types on the fly, so there is no need for a separate 
 
 ### Instructions
 
-Dust's virtual machine is register-based and uses 64-bit instructions, which encode ten pieces of
-information:
+Dust's virtual machine uses 32-bit instructions, which encode seven pieces of information:
 
 Bit   | Description
 ----- | -----------
-0-5   | Operation code
-6-8   | Unused, reserved in case more operation codes are needed
-9     | Flag indicating that A is a local
-10    | Flag indicating that B is a constant
-11    | Flag indicating that B is a local
-12    | Flag indicating that C is a constant
-13    | Flag indicating that C is a local
-14    | D Argument (boolean value)
-15-16 | Unused
-17-32 | A argument (unsigned 16-bit integer)
-33-48 | B argument (unsigned 16-bit integer)
-49-63 | C argument (unsigned 16-bit integer)
+0-4   | Operation code
+5     | Flag indicating if the B argument is a constant
+6     | Flag indicating if the C argument is a constant
+7     | D field (boolean)
+8-15  | A field (unsigned 8-bit integer)
+16-23 | B field (unsigned 8-bit integer)
+24-31 | C field (unsigned 8-bit integer)
 
-Because the instructions are 64 bits, the maximum number of registers is 2^16, which is more than
-enough, even for programs that are very large. This also means that chunks can store up to 2^16
-constants and locals.
+#### Operations
+
+Five bits are used for the operation, which allows for up to 32 operations.
+
+##### Stack manipulation
+
+- MOVE: Makes a register's value available in another register by using a pointer. This avoids
+  copying the value or invalidating the original register.
+- CLOSE: Sets a range of registers to the "empty" state.
+
+##### Value loaders
+
+- LOAD_BOOLEAN: Loads a boolean, the value of which is encoded in the instruction, to a register.
+- LOAD_CONSTANT: Loads a constant from the constant list to a register.
+- LOAD_LIST: Creates a list abstraction from a range of registers and loads it to a register.
+- LOAD_MAP: Creates a map abstraction from a range of registers and loads it to a register.
+- LOAD_SELF: Creates an abstraction that represents the current function and loads it to a register.
+
+##### Variable operations
+
+- GET_LOCAL: Loads a variable's value to a register by using a pointer to point to the variable's
+  canonical register (i.e. the register whose index is stored in the locals list).
+- SET_LOCAL: Changes a variable's register to a pointer to another register, effectively changing
+  the variable's value.
+
+##### Arithmetic
+
+Arithmetic instructions use every field except for D. The A field is the destination register, the B
+and C fields are the arguments, and the flags indicate whether the arguments are constants.
+
+- ADD: Adds two values and stores the result in a register. Unlike the other arithmetic operations,
+  the ADD instruction can also be used to concatenate strings and characters.
+- SUBTRACT: Subtracts one argument from another and stores the result in a register.
+- MULTIPLY: Multiplies two arguments and stores the result in a register.
+- DIVIDE: Divides one value by another and stores the result in a register.
+- MODULO: Calculates the division remainder of two values and stores the result in a register.
+- POWER: Raises one value to the power of another and stores the result in a register.
+
+##### Logic
+
+Logic instructions work differently from arithmetic and comparison instructions, but they are still
+essentially binary operations with a left and a right argument. Rather than performing some
+calculation and storing a result, the logic instructions perform a check on the left-hand argument
+and, based on the result, either skip the right-hand argument or allow it to be executed. A `TEST`
+is always followed by a `JUMP`. If the left argument passes the test (a boolean equality check), the
+`JUMP` instruction is skipped and the right argument is executed. If the left argument fails the
+test, the `JUMP` is not skipped and it jumps past the right argument.
+
+- TEST
+- TEST_SET
+
+##### Comparison
+
+- EQUAL
+- LESS
+- LESS_EQUAL
+
+##### Unary operations
+
+- NEGATE
+- NOT
+
+##### Execution
+
+- CALL
+- CALL_NATIVE
+- JUMP
+- RETURN
+
+
+The A, B, and C
+fields are used for usually used as indexes into the constant list or stack, but they can also hold
+other information, like the number of arguments for a function call.
 
 ### Virtual Machine
 
 The virtual machine is simple and efficient. It uses a stack of registers, which can hold values or
-pointers. Pointers can point to values in the constant list, locals list, or the stack itself. If it
-points to a local, the VM must consult its local definitions to find which register hold's the
-value. Those local defintions are stored as a simple list of register indexes.
+pointers. Pointers can point to values in the constant list, locals list, or the stack itself.
 
 While the compiler has multiple responsibilities that warrant more complexity, the VM is simple
 enough to use a very straightforward design. The VM's `run` function uses a simple `while` loop with

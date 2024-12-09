@@ -365,6 +365,9 @@ impl Instruction {
             | Operation::Multiply
             | Operation::Divide
             | Operation::Modulo
+            | Operation::Equal
+            | Operation::Less
+            | Operation::LessEqual
             | Operation::Negate
             | Operation::Not
             | Operation::Call

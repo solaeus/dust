@@ -3,6 +3,9 @@
 //! A chunk consists of a sequence of instructions and their positions, a list of constants, and a
 //! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
 //! belong to a named function.
+mod disassembler;
+
+pub use disassembler::Disassembler;
 
 use std::fmt::{self, Debug, Display, Write};
 
@@ -10,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smartstring::alias::String;
 
-use crate::{ConcreteValue, Disassembler, FunctionType, Instruction, Scope, Span, Type};
+use crate::{ConcreteValue, FunctionType, Instruction, Scope, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///

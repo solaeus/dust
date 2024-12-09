@@ -13,30 +13,30 @@
 //! # Output
 //!
 //! The output of [Disassembler::disassemble] is a string that can be printed to the console or
-//! written to a file. Below is an example of the disassembly for a simple "Hello, world!" program.
+//! written to a file. Below is an example of the disassembly for a simple "Hello world!" program.
 //!
 //! ```text
-//! ┌──────────────────────────────────────────────────────────────────────────────┐
-//! │                                     dust                                     │
-//! │                                                                              │
-//! │                          write_line("hello_world")                           │
-//! │                                                                              │
-//! │             3 instructions, 1 constants, 0 locals, returns none              │
-//! │                                                                              │
-//! │                                 Instructions                                 │
-//! │                                 ------------                                 │
-//! │  i   POSITION    OPERATION        TYPE                    INFO               │
-//! │ --- ---------- ------------- -------------- -------------------------------- │
-//! │  0   (11, 24)  LOAD_CONSTANT      str                   R0 = C0              │
-//! │  1   (0, 25)   CALL_NATIVE        none             write_line(R0..R1)        │
-//! │  2   (25, 25)  RETURN             none                                       │
-//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
-//! │                                  Constants                                   │
-//! │                                  ---------                                   │
-//! │                     i        TYPE             VALUE                          │
-//! │                    --- ---------------- -----------------                    │
-//! │                     0        str           hello_world                       │
-//! └──────────────────────────────────────────────────────────────────────────────┘
+//! ┌───────────────────────────────────────────────────────────────┐
+//! │                             dust                              │
+//! │                                                               │
+//! │                  write_line("Hello world!")                   │
+//! │                                                               │
+//! │      3 instructions, 1 constants, 0 locals, returns none      │
+//! │                                                               │
+//! │                         Instructions                          │
+//! │                         ------------                          │
+//! │  i   POSITION    OPERATION                 INFO               │
+//! │ --- ---------- ------------- -------------------------------- │
+//! │  0   (11, 25)  LOAD_CONSTANT             R0 = C0              │
+//! │  1   (0, 26)   CALL_NATIVE          write_line(R0..R1)        │
+//! │  2   (26, 26)  RETURN                                         │
+//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
+//! │                           Constants                           │
+//! │                           ---------                           │
+//! │             i        TYPE             VALUE                   │
+//! │            --- ---------------- -----------------             │
+//! │             0        str          Hello world!                │
+//! └───────────────────────────────────────────────────────────────┘
 //! ```
 use std::env::current_exe;
 

@@ -13,7 +13,10 @@ use std::{
 };
 
 use colored::Colorize;
-use optimize::{optimize_control_flow, optimize_set_local};
+use optimize::{
+    condense_set_local_to_math, optimize_test_with_explicit_booleans,
+    optimize_test_with_loader_arguments,
+};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -1003,7 +1006,7 @@ impl<'src> Compiler<'src> {
             });
 
             self.emit_instruction(set_local, Type::None, start_position);
-            optimize_set_local(self)?;
+            condense_set_local_to_math(self)?;
 
             return Ok(());
         }
@@ -1209,9 +1212,8 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
 
-        if self.instructions.len() >= 4 {
-            optimize_control_flow(&mut self.instructions);
-        }
+        optimize_test_with_explicit_booleans(self);
+        optimize_test_with_loader_arguments(self);
 
         let else_last_register = self.next_register().saturating_sub(1);
         let r#move = Instruction::from(Move {
@@ -1385,13 +1387,24 @@ impl<'src> Compiler<'src> {
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
-            let previous_expression_type = self.get_last_instruction_type();
-            let should_return_value = previous_expression_type != Type::None;
+            let previous_expression_type = self
+                .instructions
+                .iter()
+                .rev()
+                .find_map(|(instruction, r#type, _)| {
+                    if instruction.yields_value() {
+                        Some(r#type)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(&Type::None);
+            let should_return_value = previous_expression_type != &Type::None;
             let r#return = Instruction::from(Return {
                 should_return_value,
             });
 
-            self.update_return_type(previous_expression_type)?;
+            self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 
