@@ -278,13 +278,13 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Option<SmallVec<[u16; 4]>>,
-    pub value_parameters: Option<SmallVec<[(u16, Type); 4]>>,
+    pub type_parameters: Option<SmallVec<[u8; 4]>>,
+    pub value_parameters: Option<SmallVec<[(u8, Type); 4]>>,
     pub return_type: Type,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<SmallVec<[u16; 4]>>, U: Into<SmallVec<[(u16, Type); 4]>>>(
+    pub fn new<T: Into<SmallVec<[u8; 4]>>, U: Into<SmallVec<[(u8, Type); 4]>>>(
         type_parameters: Option<T>,
         value_parameters: Option<U>,
         return_type: Type,

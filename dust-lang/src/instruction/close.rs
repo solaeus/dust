@@ -1,10 +1,8 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Close {
-    pub from: u16,
-    pub to: u16,
+    pub from: u8,
+    pub to: u8,
 }
 
 impl From<&Instruction> for Close {
@@ -18,12 +16,9 @@ impl From<&Instruction> for Close {
 
 impl From<Close> for Instruction {
     fn from(close: Close) -> Self {
-        Instruction {
-            operation: Operation::CLOSE,
-            options: InstructionOptions::empty(),
-            a: 0,
-            b: close.from,
-            c: close.to,
-        }
+        let metadata = Operation::Close as u8;
+        let (a, b, c) = (0, close.from, close.to);
+
+        Instruction { metadata, a, b, c }
     }
 }

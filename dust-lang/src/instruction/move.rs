@@ -1,10 +1,8 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Move {
-    pub from: u16,
-    pub to: u16,
+    pub from: u8,
+    pub to: u8,
 }
 
 impl From<&Instruction> for Move {
@@ -18,12 +16,11 @@ impl From<&Instruction> for Move {
 
 impl From<Move> for Instruction {
     fn from(r#move: Move) -> Self {
-        Instruction {
-            operation: Operation::MOVE,
-            options: InstructionOptions::empty(),
-            a: 0,
-            b: r#move.from,
-            c: r#move.to,
-        }
+        let metadata = Operation::Move as u8;
+        let a = 0;
+        let b = r#move.from;
+        let c = r#move.to;
+
+        Instruction { metadata, a, b, c }
     }
 }

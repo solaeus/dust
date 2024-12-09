@@ -1,32 +1,32 @@
-use crate::{Argument, Destination, Instruction, Operation};
+use crate::{Argument, Instruction, Operation};
 
 pub struct Call {
-    pub destination: Destination,
+    pub destination: u8,
     pub function: Argument,
-    pub argument_count: u16,
+    pub argument_count: u8,
 }
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
+        let destination = instruction.a;
+        let function = instruction.b_as_argument();
+        let argument_count = instruction.c;
+
         Call {
-            destination: instruction.a_as_destination(),
-            function: instruction.b_as_argument(),
-            argument_count: instruction.c,
+            destination,
+            function,
+            argument_count,
         }
     }
 }
 
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
-        let (a, a_options) = call.destination.as_index_and_a_options();
+        let a = call.destination;
         let (b, b_options) = call.function.as_index_and_b_options();
+        let c = call.argument_count;
+        let metadata = Operation::Call as u8 | b_options.bits();
 
-        Instruction {
-            operation: Operation::CALL,
-            options: a_options | b_options,
-            a,
-            b,
-            c: call.argument_count,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

@@ -1,14 +1,14 @@
-use crate::{Destination, Instruction, NativeFunction, Operation};
+use crate::{Instruction, NativeFunction, Operation};
 
 pub struct CallNative {
-    pub destination: Destination,
+    pub destination: u8,
     pub function: NativeFunction,
-    pub argument_count: u16,
+    pub argument_count: u8,
 }
 
 impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let function = NativeFunction::from(instruction.b);
 
         CallNative {
@@ -21,15 +21,11 @@ impl From<&Instruction> for CallNative {
 
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
-        let (a, a_options) = call_native.destination.as_index_and_a_options();
-        let b = call_native.function as u16;
+        let metadata = Operation::CallNative as u8;
+        let a = call_native.destination;
+        let b = call_native.function as u8;
+        let c = call_native.argument_count;
 
-        Instruction {
-            operation: Operation::CALL_NATIVE,
-            options: a_options,
-            a,
-            b,
-            c: call_native.argument_count,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

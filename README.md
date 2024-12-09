@@ -137,20 +137,23 @@ The compiler always checks types on the fly, so there is no need for a separate 
 
 ### Instructions
 
-Dust's virtual machine is register-based and uses 64-bit instructions, which encode nine pieces of
+Dust's virtual machine is register-based and uses 64-bit instructions, which encode ten pieces of
 information:
 
 Bit   | Description
 ----- | -----------
-0-8   | The operation code.
-9     | Boolean flag indicating whether the second argument is a constant
-10    | Boolean flag indicating whether the third argument is a constant
-11    | Boolean flag indicating whether the first argument is a local
-12    | Boolean flag indicating whether the second argument is a local
-13    | Boolean flag indicating whether the third argument is a local
-17-32 | First argument, usually the destination register or local where a value is stored
-33-48 | Second argument, a register, local, constant or boolean flag
-49-63 | Third argument, a register, local, constant or boolean flag
+0-5   | Operation code
+6-8   | Unused, reserved in case more operation codes are needed
+9     | Flag indicating that A is a local
+10    | Flag indicating that B is a constant
+11    | Flag indicating that B is a local
+12    | Flag indicating that C is a constant
+13    | Flag indicating that C is a local
+14    | D Argument (boolean value)
+15-16 | Unused
+17-32 | A argument (unsigned 16-bit integer)
+33-48 | B argument (unsigned 16-bit integer)
+49-63 | C argument (unsigned 16-bit integer)
 
 Because the instructions are 64 bits, the maximum number of registers is 2^16, which is more than
 enough, even for programs that are very large. This also means that chunks can store up to 2^16

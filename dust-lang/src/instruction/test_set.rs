@@ -1,14 +1,14 @@
-use crate::{Argument, Destination, Instruction, Operation};
+use crate::{Argument, Instruction, Operation};
 
 pub struct TestSet {
-    pub destination: Destination,
+    pub destination: u8,
     pub argument: Argument,
     pub test_value: bool,
 }
 
 impl From<&Instruction> for TestSet {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let argument = instruction.b_as_argument();
         let test_value = instruction.c != 0;
 
@@ -22,16 +22,11 @@ impl From<&Instruction> for TestSet {
 
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
-        let (a, a_options) = test_set.destination.as_index_and_a_options();
+        let a = test_set.destination;
         let (b, b_options) = test_set.argument.as_index_and_b_options();
-        let c = test_set.test_value as u16;
+        let c = test_set.test_value as u8;
+        let metadata = Operation::TestSet as u8 | b_options.bits();
 
-        Instruction {
-            operation: Operation::TEST_SET,
-            options: a_options | b_options,
-            a,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

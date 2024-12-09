@@ -61,8 +61,8 @@ const CONSTANT_HEADER: [&str; 4] = [
 const LOCAL_HEADER: [&str; 4] = [
     "Locals",
     "------",
-    " i   SCOPE  MUTABLE       TYPE          IDENTIFIER   ",
-    "--- ------- ------- ---------------- ----------------",
+    " i     IDENTIFIER    REGISTER  SCOPE  MUTABLE",
+    "--- ---------------- -------- ------- -------",
 ];
 
 /// Builder that constructs a human-readable representation of a chunk.
@@ -209,13 +209,7 @@ impl<'a> Disassembler<'a> {
             self.push_header(line);
         }
 
-        for (index, (instruction, position)) in self
-            .chunk
-            .instructions()
-            .iter()
-            .zip(self.chunk.positions().iter())
-            .enumerate()
-        {
+        for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
@@ -235,7 +229,7 @@ impl<'a> Disassembler<'a> {
             index,
             Local {
                 identifier_index,
-                r#type,
+                register_index,
                 scope,
                 is_mutable,
             },
@@ -247,10 +241,10 @@ impl<'a> Disassembler<'a> {
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let type_display = r#type.to_string();
+            let register_display = format!("R{register_index}");
             let scope = scope.to_string();
             let local_display = format!(
-                "{index:^3} {scope:^7} {is_mutable:^7} {type_display:^16} {identifier_display:^16}"
+                "{index:^3} {identifier_display:^16} {register_display:^8} {scope:^7} {is_mutable:^7}"
             );
 
             self.push_details(&local_display);

@@ -19,15 +19,11 @@ impl From<&Instruction> for Test {
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
+        let a = 0;
         let (b, options) = test.argument.as_index_and_b_options();
-        let c = test.test_value as u16;
+        let c = test.test_value as u8;
+        let metadata = Operation::Test as u8 | options.bits();
 
-        Instruction {
-            operation: Operation::TEST,
-            options,
-            a: 0,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

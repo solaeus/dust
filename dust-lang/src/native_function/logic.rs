@@ -3,7 +3,7 @@ use std::io::{self, stdout, Write};
 use crate::{ConcreteValue, Instruction, NativeFunctionError, Value, Vm, VmError};
 
 pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
-    let argument_count = instruction.c();
+    let argument_count = instruction.c;
     let message = if argument_count == 0 {
         None
     } else {
@@ -34,7 +34,7 @@ pub fn panic<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
 }
 
 pub fn to_string<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
-    let argument_count = instruction.c();
+    let argument_count = instruction.c;
 
     if argument_count != 1 {
         return Err(VmError::NativeFunction(
@@ -63,7 +63,7 @@ pub fn to_string<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<
 }
 
 pub fn read_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
-    let argument_count = instruction.c();
+    let argument_count = instruction.c;
 
     if argument_count != 0 {
         return Err(VmError::NativeFunction(
@@ -91,8 +91,8 @@ pub fn read_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<
 }
 
 pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
-    let to_register = instruction.a();
-    let argument_count = instruction.c();
+    let to_register = instruction.a;
+    let argument_count = instruction.c;
     let mut stdout = stdout();
     let map_err = |io_error: io::Error| {
         VmError::NativeFunction(NativeFunctionError::Io {
@@ -120,8 +120,8 @@ pub fn write<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Valu
 }
 
 pub fn write_line<'a>(vm: &'a Vm<'a>, instruction: Instruction) -> Result<Option<Value>, VmError> {
-    let to_register = instruction.a();
-    let argument_count = instruction.c();
+    let to_register = instruction.a;
+    let argument_count = instruction.c;
     let mut stdout = stdout();
     let map_err = |io_error: io::Error| {
         VmError::NativeFunction(NativeFunctionError::Io {

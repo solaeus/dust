@@ -75,8 +75,8 @@ macro_rules! define_native_function {
             }
         }
 
-        impl From<u16> for NativeFunction {
-            fn from(bytes: u16) -> Self {
+        impl From<u8> for NativeFunction {
+            fn from(bytes: u8) -> Self {
                 match bytes {
                     $(
                         $bytes => NativeFunction::$name,

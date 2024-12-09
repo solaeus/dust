@@ -1,14 +1,14 @@
-use crate::{Argument, Destination, Instruction, Operation};
+use crate::{Argument, Instruction, Operation};
 
 pub struct Modulo {
-    pub destination: Destination,
+    pub destination: u8,
     pub left: Argument,
     pub right: Argument,
 }
 
 impl From<&Instruction> for Modulo {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Modulo {
@@ -21,16 +21,11 @@ impl From<&Instruction> for Modulo {
 
 impl From<Modulo> for Instruction {
     fn from(modulo: Modulo) -> Self {
-        let (a, a_options) = modulo.destination.as_index_and_a_options();
+        let a = modulo.destination;
         let (b, b_options) = modulo.left.as_index_and_b_options();
         let (c, c_options) = modulo.right.as_index_and_c_options();
+        let metadata = Operation::Modulo as u8 | b_options.bits() | c_options.bits();
 
-        Instruction {
-            operation: Operation::MODULO,
-            options: a_options | b_options | c_options,
-            a,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

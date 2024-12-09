@@ -6,7 +6,7 @@ fn add_assign_expects_mutable_variable() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
@@ -22,7 +22,7 @@ fn divide_assign_expects_mutable_variable() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
@@ -38,7 +38,7 @@ fn multiply_assign_expects_mutable_variable() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
@@ -54,7 +54,7 @@ fn subtract_assign_expects_mutable_variable() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)
@@ -70,7 +70,7 @@ fn modulo_assign_expects_mutable_variable() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::ExpectedMutableVariable {
                 found: Token::Integer("1").to_owned(),
                 position: Span(0, 1)

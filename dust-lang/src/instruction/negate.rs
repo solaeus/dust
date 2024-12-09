@@ -1,13 +1,13 @@
-use crate::{Argument, Destination, Instruction, Operation};
+use crate::{Argument, Instruction, Operation};
 
 pub struct Negate {
-    pub destination: Destination,
+    pub destination: u8,
     pub argument: Argument,
 }
 
 impl From<&Instruction> for Negate {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let argument = instruction.b_as_argument();
 
         Negate {
@@ -19,15 +19,11 @@ impl From<&Instruction> for Negate {
 
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
-        let (a, a_options) = negate.destination.as_index_and_a_options();
+        let a = negate.destination;
         let (b, b_options) = negate.argument.as_index_and_b_options();
+        let c = 0;
+        let metadata = Operation::Negate as u8 | b_options.bits();
 
-        Instruction {
-            operation: Operation::NEGATE,
-            options: a_options | b_options,
-            a,
-            b,
-            c: 0,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

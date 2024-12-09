@@ -11,7 +11,7 @@ fn constant() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer)
+                return_type: Type::Integer
             },
             vec![
                 (

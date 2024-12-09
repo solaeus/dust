@@ -1,7 +1,5 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Return {
     pub should_return_value: bool,
 }
@@ -18,14 +16,11 @@ impl From<&Instruction> for Return {
 
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
-        let b = r#return.should_return_value as u16;
+        let metadata = Operation::Return as u8;
+        let a = 0;
+        let b = r#return.should_return_value as u8;
+        let c = 0;
 
-        Instruction {
-            operation: Operation::RETURN,
-            options: InstructionOptions::empty(),
-            a: 0,
-            b,
-            c: 0,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

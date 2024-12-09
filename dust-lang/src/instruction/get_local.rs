@@ -1,31 +1,29 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct GetLocal {
-    pub destination: Destination,
-    pub local_index: u16,
+    pub destination: u8,
+    pub local_index: u8,
 }
 
 impl From<&Instruction> for GetLocal {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
+        let local_index = instruction.b;
 
         GetLocal {
             destination,
-            local_index: instruction.b,
+            local_index,
         }
     }
 }
 
 impl From<GetLocal> for Instruction {
     fn from(get_local: GetLocal) -> Self {
-        let (a, a_options) = get_local.destination.as_index_and_a_options();
+        let a = get_local.destination;
+        let b = get_local.local_index;
+        let c = 0;
+        let metadata = Operation::GetLocal as u8;
 
-        Instruction {
-            operation: Operation::GET_LOCAL,
-            options: a_options,
-            a,
-            b: get_local.local_index,
-            c: 0,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

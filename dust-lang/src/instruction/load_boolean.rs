@@ -1,14 +1,14 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct LoadBoolean {
-    pub destination: Destination,
+    pub destination: u8,
     pub value: bool,
     pub jump_next: bool,
 }
 
 impl From<&Instruction> for LoadBoolean {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let value = instruction.b != 0;
         let jump_next = instruction.c != 0;
 
@@ -22,16 +22,11 @@ impl From<&Instruction> for LoadBoolean {
 
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
-        let (a, options) = load_boolean.destination.as_index_and_a_options();
-        let b = load_boolean.value as u16;
-        let c = load_boolean.jump_next as u16;
+        let metadata = Operation::LoadBoolean as u8;
+        let a = load_boolean.destination;
+        let b = load_boolean.value as u8;
+        let c = load_boolean.jump_next as u8;
 
-        Instruction {
-            operation: Operation::LOAD_BOOLEAN,
-            options,
-            a,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

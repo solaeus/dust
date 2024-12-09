@@ -1,9 +1,9 @@
-use crate::{Argument, Destination, Instruction, Operation};
+use crate::{Argument, Instruction, Operation};
 
 use super::InstructionOptions;
 
 pub struct Equal {
-    pub destination: Destination,
+    pub destination: u8,
     pub value: bool,
     pub left: Argument,
     pub right: Argument,
@@ -11,8 +11,8 @@ pub struct Equal {
 
 impl From<&Instruction> for Equal {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
-        let value = instruction.options.d();
+        let destination = instruction.a;
+        let value = instruction.d();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Equal {
@@ -26,7 +26,7 @@ impl From<&Instruction> for Equal {
 
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
-        let (a, a_options) = equal.destination.as_index_and_a_options();
+        let a = equal.destination;
         let (b, b_options) = equal.left.as_index_and_b_options();
         let (c, c_options) = equal.right.as_index_and_c_options();
         let d_options = if equal.value {
@@ -34,13 +34,9 @@ impl From<Equal> for Instruction {
         } else {
             InstructionOptions::empty()
         };
+        let metadata =
+            Operation::Equal as u8 | b_options.bits() | c_options.bits() | d_options.bits();
 
-        Instruction {
-            operation: Operation::EQUAL,
-            options: a_options | b_options | c_options | d_options,
-            a,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

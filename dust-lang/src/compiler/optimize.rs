@@ -2,7 +2,7 @@
 
 use smallvec::SmallVec;
 
-use crate::{instruction::SetLocal, Instruction, Operation, Span, Type};
+use crate::{instruction::SetLocal, CompileError, Compiler, Instruction, Operation, Span, Type};
 
 fn get_last_operations<const COUNT: usize>(
     instructions: &[(Instruction, Type, Span)],
@@ -58,13 +58,12 @@ pub fn optimize_control_flow(instructions: &mut [(Instruction, Type, Span)]) {
 
     let first_loader = &mut instructions.iter_mut().nth_back(1).unwrap().0;
 
-    first_loader.set_c_to_boolean(true);
+    first_loader.c = true as u8;
 
-    let first_loader_register = first_loader.a();
+    let first_loader_destination = first_loader.a;
     let second_loader = &mut instructions.last_mut().unwrap().0;
-    let second_loader_new = *second_loader.clone().set_a(first_loader_register);
 
-    *second_loader = second_loader_new;
+    second_loader.a = first_loader_destination;
 }
 
 /// Optimizes a math instruction followed by a SetLocal instruction.
@@ -85,9 +84,9 @@ pub fn optimize_control_flow(instructions: &mut [(Instruction, Type, Span)]) {
 /// The instructions must be in the following order:
 ///     - `Add`, `Subtract`, `Multiply`, `Divide` or `Modulo`
 ///     - `SetLocal`
-pub fn optimize_set_local(instructions: &mut SmallVec<[(Instruction, Type, Span); 32]>) {
+pub fn optimize_set_local(compiler: &mut Compiler) -> Result<(), CompileError> {
     if !matches!(
-        get_last_operations(instructions),
+        compiler.get_last_operations(),
         Some([
             Operation::Add
                 | Operation::Subtract
@@ -97,17 +96,17 @@ pub fn optimize_set_local(instructions: &mut SmallVec<[(Instruction, Type, Span)
             Operation::SetLocal,
         ])
     ) {
-        return;
+        return Ok(());
     }
 
     log::debug!("Condensing math and SetLocal to math instruction");
 
-    let set_local = SetLocal::from(&instructions.pop().unwrap().0);
-    let math_instruction = instructions.last_mut().unwrap().0;
-    let math_instruction_new = *math_instruction
-        .clone()
-        .set_a(set_local.local_index)
-        .set_a_is_local(true);
+    let set_local = SetLocal::from(&compiler.instructions.pop().unwrap().0);
+    let (local, _) = compiler.get_local(set_local.local_index)?;
+    let local_register_index = local.register_index;
+    let math_instruction = &mut compiler.instructions.last_mut().unwrap().0;
 
-    instructions.last_mut().unwrap().0 = math_instruction_new;
+    math_instruction.a = local_register_index;
+
+    Ok(())
 }

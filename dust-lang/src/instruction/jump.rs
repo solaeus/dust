@@ -1,9 +1,7 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Jump {
-    pub offset: u16,
+    pub offset: u8,
     pub is_positive: bool,
 }
 
@@ -18,12 +16,11 @@ impl From<&Instruction> for Jump {
 
 impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
-        Instruction {
-            operation: Operation::JUMP,
-            options: InstructionOptions::empty(),
-            a: 0,
-            b: jump.offset,
-            c: jump.is_positive as u16,
-        }
+        let metadata = Operation::Jump as u8;
+        let a = 0;
+        let b = jump.offset;
+        let c = jump.is_positive as u8;
+
+        Instruction { metadata, a, b, c }
     }
 }

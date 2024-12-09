@@ -1,14 +1,12 @@
-//! Top-level Dust errors with source code annotations.
-
+//! Top-level error for the Dust language API that can create detailed reports with source code
+//! annotations.
 use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
 use crate::{CompileError, Span, VmError};
 
-/// A top-level error that can occur during the execution of Dust code.
-///
-/// This error can display nicely formatted messages with source code annotations.
+/// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
 pub enum DustError<'src> {
     Compile {
@@ -30,7 +28,7 @@ impl<'src> DustError<'src> {
         DustError::Runtime { error, source }
     }
 
-    pub fn create_report(&self) -> String {
+    pub fn report(&self) -> String {
         let (position, title, description, details) = self.error_data();
         let label = format!("{}: {}", title, description);
         let details = details.unwrap_or_else(|| "While parsing this code".to_string());
@@ -74,7 +72,7 @@ impl<'src> DustError<'src> {
 
 impl Display for DustError<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.create_report())
+        write!(f, "{}", self.report())
     }
 }
 

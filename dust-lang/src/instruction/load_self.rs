@@ -1,12 +1,12 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct LoadSelf {
-    pub destination: Destination,
+    pub destination: u8,
 }
 
 impl From<&Instruction> for LoadSelf {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
 
         LoadSelf { destination }
     }
@@ -14,14 +14,11 @@ impl From<&Instruction> for LoadSelf {
 
 impl From<LoadSelf> for Instruction {
     fn from(load_self: LoadSelf) -> Self {
-        let (a, options) = load_self.destination.as_index_and_a_options();
+        let metadata = Operation::LoadSelf as u8;
+        let a = load_self.destination;
+        let b = 0;
+        let c = 0;
 
-        Instruction {
-            operation: Operation::LOAD_SELF,
-            options,
-            a,
-            b: 0,
-            c: 0,
-        }
+        Instruction { metadata, a, b, c }
     }
 }

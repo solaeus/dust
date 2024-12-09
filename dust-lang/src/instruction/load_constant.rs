@@ -1,14 +1,14 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct LoadConstant {
-    pub destination: Destination,
-    pub constant_index: u16,
+    pub destination: u8,
+    pub constant_index: u8,
     pub jump_next: bool,
 }
 
 impl From<&Instruction> for LoadConstant {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_as_destination();
+        let destination = instruction.a;
         let constant_index = instruction.b;
         let jump_next = instruction.c != 0;
 
@@ -22,16 +22,11 @@ impl From<&Instruction> for LoadConstant {
 
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
-        let (a, options) = load_constant.destination.as_index_and_a_options();
+        let metadata = Operation::LoadConstant as u8;
+        let a = load_constant.destination;
         let b = load_constant.constant_index;
-        let c = load_constant.jump_next as u16;
+        let c = load_constant.jump_next as u8;
 
-        Instruction {
-            operation: Operation::LOAD_CONSTANT,
-            options,
-            a,
-            b,
-            c,
-        }
+        Instruction { metadata, a, b, c }
     }
 }
