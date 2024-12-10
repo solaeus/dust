@@ -77,7 +77,7 @@ statement.
 In this example, these semicolons are optional. Because these `let` statements do not return a
 value, the semicolons have nothing to suppress and are ignored.
 
-```dust
+```rust
 let a = 40;
 let b = 2;
 
@@ -86,7 +86,7 @@ write_line("The answer is ", a + b);
 
 One could write the above program without any semicolons at all.
 
-```dust
+```rust
 let x = 10
 let y = 3
 
@@ -98,7 +98,7 @@ the `else` block does not return a value at all. Dust does not allow branches of
 statement to return different types of values. In this case, adding a semicolon after the `777`
 expression fixes the error by supressing the value.
 
-```dust
+```rust
 let input = read_line()
 
 if input == "42" {
@@ -117,7 +117,7 @@ expressiveness so that the language is applicable to a wide range of use cases. 
 team of developers may prefer a more long-form style of code with lots of line breaks while a user
 writing Dust on the command line may prefer a more terse style without sacrificing readability.
 
-```dust
+```rust
 let a = 0; let b = 1; let c = 2; let list = [a, b, c];
 
 write_line("Here's our list: ", list)
