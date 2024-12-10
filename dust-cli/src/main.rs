@@ -121,7 +121,8 @@ fn main() {
             .disassembler(&mut stdout)
             .style(mode.style)
             .source(&source)
-            .disassemble();
+            .disassemble()
+            .expect("Failed to write disassembly to stdout");
 
         return;
     }

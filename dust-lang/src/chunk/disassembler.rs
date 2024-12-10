@@ -12,31 +12,32 @@
 //!
 //! # Output
 //!
-//! The output of [Disassembler::disassemble] is a string that can be printed to the console or
-//! written to a file. Below is an example of the disassembly for a simple "Hello world!" program.
+//! The disassembler will output a human-readable representation of the chunk by writing to any type
+//! that implements the [Write][] trait.
 //!
 //! ```text
-//! ┌───────────────────────────────────────────────────────────────┐
-//! │                             dust                              │
-//! │                                                               │
-//! │                  write_line("Hello world!")                   │
-//! │                                                               │
-//! │      3 instructions, 1 constants, 0 locals, returns none      │
-//! │                                                               │
-//! │                         Instructions                          │
-//! │                         ------------                          │
-//! │  i   POSITION    OPERATION                 INFO               │
-//! │ --- ---------- ------------- -------------------------------- │
-//! │  0   (11, 25)  LOAD_CONSTANT             R0 = C0              │
-//! │  1   (0, 26)   CALL_NATIVE          write_line(R0..R1)        │
-//! │  2   (26, 26)  RETURN                                         │
-//! │┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈│
-//! │                           Constants                           │
-//! │                           ---------                           │
-//! │             i        TYPE             VALUE                   │
-//! │            --- ---------------- -----------------             │
-//! │             0        str          Hello world!                │
-//! └───────────────────────────────────────────────────────────────┘
+//! ╭─────────────────────────────────────────────────────────────────╮
+//! │                              dust                               │
+//! │                                                                 │
+//! │                   write_line("Hello world!")                    │
+//! │                                                                 │
+//! │       3 instructions, 1 constants, 0 locals, returns str        │
+//! │                                                                 │
+//! │                          Instructions                           │
+//! │ ╭─────┬────────────┬─────────────────┬────────────────────────╮ │
+//! │ │  i  │  POSITION  │    OPERATION    │          INFO          │ │
+//! │ ├─────┼────────────┼─────────────────┼────────────────────────┤ │
+//! │ │  0  │  (11, 25)  │  LOAD_CONSTANT  │        R0 = C0         │ │
+//! │ │  1  │  (0, 26)   │   CALL_NATIVE   │     write_line(R0)     │ │
+//! │ │  2  │  (26, 26)  │     RETURN      │         RETURN         │ │
+//! │ ╰─────┴────────────┴─────────────────┴────────────────────────╯ │
+//! │                            Constants                            │
+//! │  ╭─────┬──────────────────────────┬──────────────────────────╮  │
+//! │  │  i  │           TYPE           │          VALUE           │  │
+//! │  ├─────┼──────────────────────────┼──────────────────────────┤  │
+//! │  │  0  │           str            │       Hello world!       │  │
+//! │  ╰─────┴──────────────────────────┴──────────────────────────╯  │
+//! ╰─────────────────────────────────────────────────────────────────╯
 //! ```
 use std::{
     env::current_exe,
@@ -273,7 +274,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_centered_with_border(&row)?;
         }
 
-        self.write_centered_with_border_bold(INSTRUCTION_BORDERS[2])?;
+        self.write_centered_with_border(INSTRUCTION_BORDERS[2])?;
 
         Ok(())
     }

@@ -1392,19 +1392,17 @@ impl<'src> Compiler<'src> {
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
-            let previous_expression_type = self
-                .instructions
-                .iter()
-                .rev()
-                .find_map(|(instruction, r#type, _)| {
-                    if instruction.yields_value() {
-                        Some(r#type)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(&Type::None);
-            let should_return_value = previous_expression_type != &Type::None;
+            let previous_expression_type =
+                self.instructions
+                    .last()
+                    .map_or(Type::None, |(instruction, r#type, _)| {
+                        if instruction.yields_value() {
+                            r#type.clone()
+                        } else {
+                            Type::None
+                        }
+                    });
+            let should_return_value = previous_expression_type != Type::None;
             let r#return = Instruction::from(Return {
                 should_return_value,
             });
