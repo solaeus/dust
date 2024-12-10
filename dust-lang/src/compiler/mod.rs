@@ -305,25 +305,6 @@ impl<'src> Compiler<'src> {
         Some(n_operations)
     }
 
-    fn get_last_jumpable_mut_between(
-        &mut self,
-        minimum: usize,
-        maximum: usize,
-    ) -> Option<&mut Instruction> {
-        self.instructions
-            .iter_mut()
-            .rev()
-            .skip(minimum)
-            .take(maximum)
-            .find_map(|(instruction, _, _)| {
-                if let Operation::LoadBoolean | Operation::LoadConstant = instruction.operation() {
-                    Some(instruction)
-                } else {
-                    None
-                }
-            })
-    }
-
     fn get_last_instruction_type(&self) -> Type {
         self.instructions
             .last()

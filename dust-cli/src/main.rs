@@ -4,7 +4,7 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use clap::{Args, Parser};
 use colored::Colorize;
-use dust_lang::{compile, lex, run, write_token_list};
+use dust_lang::{compile, lex, run, CompileError, DustError, Lexer, Span, Token};
 use log::{Level, LevelFilter};
 
 #[derive(Parser)]
@@ -128,17 +128,48 @@ fn main() {
     }
 
     if mode.tokenize {
-        let tokens = match lex(&source) {
-            Ok(tokens) => tokens,
-            Err(error) => {
-                eprintln!("{}", error);
+        let mut lexer = Lexer::new(&source);
+        let mut next_token = || -> Option<(Token, Span, bool)> {
+            match lexer.next_token() {
+                Ok((token, position)) => Some((token, position, lexer.is_eof())),
+                Err(error) => {
+                    let report = DustError::compile(CompileError::Lex(error), &source).report();
 
-                return;
+                    eprintln!("{report}");
+
+                    None
+                }
             }
         };
-        let mut stdout = stdout().lock();
 
-        write_token_list(&tokens, mode.style, &mut stdout)
+        println!("{:^66}", "Tokens");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+        println!("{:^21}|{:^22}|{:^22}", "Kind", "Value", "Position");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+
+        while let Some((token, position, is_eof)) = next_token() {
+            if is_eof {
+                break;
+            }
+
+            let token_kind = token.kind().to_string();
+            let token = token.to_string();
+            let position = position.to_string();
+
+            println!("{token_kind:^21}|{token:^22}|{position:^22}");
+        }
+
+        return;
     }
 
     let run_result = run(&source);

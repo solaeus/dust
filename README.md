@@ -44,9 +44,9 @@ maintain a docket of what is being worked on, what is coming next and what can b
 - [ ] REPL
 - CLI
   - [X] Run source
-  - [X] Compile to chunk and show disassembly
+  - [X] Compile source to a chunk and show disassembly
   - [X] Tokenize using the lexer and show token list
-  - [ ] Format using the formatter and display the output
+  - [ ] Format using a built-in formatter
   - [ ] Compile to and run from intermediate formats
     - [ ] JSON
     - [ ] Postcard
@@ -290,6 +290,10 @@ machines up and running. The included code examples show how to implement both t
 The performance comparison between the two types of VMs is worth reading for anyone who is trying to
 choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks
 used in this project to compare Dust to other languages.
+
+## License
+
+Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` file for details.
 
 [Crafting Interpreters]: https://craftinginterpreters.com/
 [The Implementation of Lua 5.0]: https://www.lua.org/doc/jucs05.pdf

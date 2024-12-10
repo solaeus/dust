@@ -1,12 +1,12 @@
 [package]
 name = "dust-cli"
 description = "The Dust Programming Language CLI"
-version = "0.1.0"
 authors = ["Jeff Anderson"]
 edition.workspace = true
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [[bin]]
 name = "dust"
