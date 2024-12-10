@@ -1,11 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Pointer, ConcreteValue, Value, ValueRef, Vm, VmError};
+use crate::{vm::Pointer, ConcreteValue, DustString, Value, ValueRef, Vm, VmError};
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum AbstractValue {
     FunctionSelf,
-    List { items: Vec<Pointer> },
+    List { item_pointers: Vec<Pointer> },
 }
 
 impl AbstractValue {
@@ -20,25 +20,34 @@ impl AbstractValue {
     pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
         match self {
             AbstractValue::FunctionSelf => Ok(ConcreteValue::function(vm.chunk().clone())),
-            AbstractValue::List { items, .. } => {
-                let mut resolved_items = Vec::with_capacity(items.len());
+            AbstractValue::List { item_pointers, .. } => {
+                let mut items: Vec<ConcreteValue> = Vec::with_capacity(item_pointers.len());
 
-                for pointer in items {
-                    let resolved_item = vm.follow_pointer(*pointer)?.into_concrete_owned(vm)?;
+                for pointer in item_pointers {
+                    let item_option = vm.follow_pointer_allow_empty(*pointer)?;
+                    let item = match item_option {
+                        Some(value_ref) => value_ref.into_concrete_owned(vm)?,
+                        None => continue,
+                    };
 
-                    resolved_items.push(resolved_item);
+                    items.push(item);
                 }
 
-                Ok(ConcreteValue::List(resolved_items))
+                Ok(ConcreteValue::List(items))
             }
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
+    pub fn to_dust_string(&self, vm: &Vm) -> Result<DustString, VmError> {
+        let mut display = DustString::new();
+
         match self {
-            AbstractValue::FunctionSelf => Ok("self".to_string()),
-            AbstractValue::List { items, .. } => {
-                let mut display = "[".to_string();
+            AbstractValue::FunctionSelf => display.push_str("self"),
+            AbstractValue::List {
+                item_pointers: items,
+                ..
+            } => {
+                display.push('[');
 
                 for (i, item) in items.iter().enumerate() {
                     if i > 0 {
@@ -51,10 +60,10 @@ impl AbstractValue {
                 }
 
                 display.push(']');
-
-                Ok(display)
             }
         }
+
+        Ok(display)
     }
 }
 
@@ -64,8 +73,10 @@ impl Clone for AbstractValue {
 
         match self {
             AbstractValue::FunctionSelf => AbstractValue::FunctionSelf,
-            AbstractValue::List { items } => AbstractValue::List {
-                items: items.clone(),
+            AbstractValue::List {
+                item_pointers: items,
+            } => AbstractValue::List {
+                item_pointers: items.clone(),
             },
         }
     }
@@ -75,7 +86,10 @@ impl Display for AbstractValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             AbstractValue::FunctionSelf => write!(f, "self"),
-            AbstractValue::List { items, .. } => {
+            AbstractValue::List {
+                item_pointers: items,
+                ..
+            } => {
                 write!(f, "[")?;
 
                 for (i, item) in items.iter().enumerate() {

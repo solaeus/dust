@@ -38,62 +38,75 @@
 //! │             0        str          Hello world!                │
 //! └───────────────────────────────────────────────────────────────┘
 //! ```
-use std::env::current_exe;
+use std::{
+    env::current_exe,
+    io::{self, ErrorKind, Write},
+    iter::empty,
+    str::Chars,
+};
 
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 
 use crate::{value::ConcreteValue, Chunk, Local};
 
-const INSTRUCTION_HEADER: [&str; 4] = [
-    "Instructions",
-    "------------",
-    " i   POSITION    OPERATION                 INFO              ",
-    "--- ---------- ------------- --------------------------------",
+const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
+    [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 24)];
+const INSTRUCTION_BORDERS: [&str; 3] = [
+    "╭─────┬────────────┬─────────────────┬────────────────────────╮",
+    "├─────┼────────────┼─────────────────┼────────────────────────┤",
+    "╰─────┴────────────┴─────────────────┴────────────────────────╯",
 ];
 
-const CONSTANT_HEADER: [&str; 4] = [
-    "Constants",
-    "---------",
-    " i        TYPE             VALUE      ",
-    "--- ---------------- -----------------",
+const LOCAL_COLUMNS: [(&str, usize); 5] = [
+    ("i", 5),
+    ("IDENTIFIER", 16),
+    ("VALUE", 10),
+    ("SCOPE", 7),
+    ("MUTABLE", 7),
+];
+const LOCAL_BORDERS: [&str; 3] = [
+    "╭─────┬────────────────┬──────────┬───────┬───────╮",
+    "├─────┼────────────────┼──────────┼───────┼───────┤",
+    "╰─────┴────────────────┴──────────┴───────┴───────╯",
 ];
 
-const LOCAL_HEADER: [&str; 4] = [
-    "Locals",
-    "------",
-    " i     IDENTIFIER    REGISTER  SCOPE  MUTABLE",
-    "--- ---------------- -------- ------- -------",
+const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
+const CONSTANT_BORDERS: [&str; 3] = [
+    "╭─────┬──────────────────────────┬──────────────────────────╮",
+    "├─────┼──────────────────────────┼──────────────────────────┤",
+    "╰─────┴──────────────────────────┴──────────────────────────╯",
 ];
+
+const INDENTATION: &str = "│  ";
+const TOP_BORDER: [char; 3] = ['╭', '─', '╮'];
+const LEFT_BORDER: char = '│';
+const RIGHT_BORDER: char = '│';
+const BOTTOM_BORDER: [char; 3] = ['╰', '─', '╯'];
 
 /// Builder that constructs a human-readable representation of a chunk.
 ///
 /// See the [module-level documentation](index.html) for more information.
-pub struct Disassembler<'a> {
-    output: String,
+pub struct Disassembler<'a, W> {
+    writer: &'a mut W,
     chunk: &'a Chunk,
     source: Option<&'a str>,
 
     // Options
     style: bool,
     indent: usize,
+    output_width: usize,
 }
 
-impl<'a> Disassembler<'a> {
-    pub fn new(chunk: &'a Chunk) -> Self {
+impl<'a, W: Write> Disassembler<'a, W> {
+    pub fn new(chunk: &'a Chunk, writer: &'a mut W) -> Self {
         Self {
-            output: String::new(),
+            writer,
             chunk,
             source: None,
             style: false,
             indent: 0,
+            output_width: Self::content_length(),
         }
-    }
-
-    /// The default width of the disassembly output, including borders and padding.
-    pub fn default_width() -> usize {
-        let longest_line = INSTRUCTION_HEADER[3];
-
-        longest_line.chars().count() + 4 // Allow for one border and one padding space on each side.
     }
 
     pub fn source(mut self, source: &'a str) -> Self {
@@ -108,122 +121,167 @@ impl<'a> Disassembler<'a> {
         self
     }
 
-    fn push(
+    fn indent(mut self, indent: usize) -> Self {
+        self.indent = indent;
+
+        self
+    }
+
+    fn content_length() -> usize {
+        let longest_line_length = INSTRUCTION_BORDERS[0].chars().count();
+
+        longest_line_length
+    }
+
+    fn line_length(&self) -> usize {
+        let indentation_length = INDENTATION.chars().count();
+
+        self.output_width + (indentation_length * self.indent) + 2 // Left and right border
+    }
+
+    fn write_char(&mut self, c: char) -> Result<(), io::Error> {
+        write!(&mut self.writer, "{}", c)
+    }
+
+    fn write_str(&mut self, text: &str) -> Result<(), io::Error> {
+        write!(&mut self.writer, "{}", text)
+    }
+
+    fn write_content(
         &mut self,
         text: &str,
         center: bool,
         style_bold: bool,
         style_dim: bool,
         add_border: bool,
-    ) {
-        let width = Disassembler::default_width();
-        let characters = text.chars().collect::<Vec<char>>();
-        let content_width = if add_border { width - 2 } else { width };
-        let (line_characters, remainder) = characters
-            .split_at_checked(content_width)
-            .unwrap_or((characters.as_slice(), &[]));
+    ) -> Result<(), io::Error> {
+        let (line_content, overflow) = {
+            if text.len() > self.output_width {
+                let split_index = text
+                    .char_indices()
+                    .nth(self.output_width)
+                    .map(|(index, _)| index)
+                    .unwrap_or_else(|| text.len());
+
+                text.split_at(split_index)
+            } else {
+                (text, "")
+            }
+        };
         let (left_pad_length, right_pad_length) = {
-            let extra_space = content_width.saturating_sub(characters.len());
+            let width = self.line_length();
+            let line_content_length = line_content.chars().count();
+            let extra_space = width.saturating_sub(line_content_length);
+            let half = extra_space / 2;
+            let remainder = extra_space % 2;
 
             if center {
-                (extra_space / 2, extra_space / 2 + extra_space % 2)
+                (half, half + remainder)
             } else {
                 (0, extra_space)
             }
         };
-        let mut content = line_characters.iter().collect::<String>();
-
-        if style_bold {
-            content = content.bold().to_string();
-        }
-
-        if style_dim {
-            content = content.dimmed().to_string();
-        }
-
-        let length_before_content = self.output.chars().count();
 
         for _ in 0..self.indent {
-            self.output.push_str("│   ");
+            self.write_str(INDENTATION)?;
         }
 
         if add_border {
-            self.output.push('│');
+            self.write_char(LEFT_BORDER)?;
         }
 
-        self.output.push_str(&" ".repeat(left_pad_length));
-        self.output.push_str(&content);
-        self.output.push_str(&" ".repeat(right_pad_length));
+        if center {
+            for _ in 0..left_pad_length {
+                self.write_char(' ')?;
+            }
+        }
 
-        let length_after_content = self.output.chars().count();
-        let line_length = length_after_content - length_before_content;
+        self.write_str(line_content)?;
 
-        if line_length < content_width - 1 {
-            self.output
-                .push_str(&" ".repeat(content_width - line_length));
+        if center {
+            for _ in 0..right_pad_length {
+                self.write_char(' ')?;
+            }
         }
 
         if add_border {
-            self.output.push('│');
+            self.write_char(RIGHT_BORDER)?;
         }
 
-        self.output.push('\n');
+        self.write_char('\n')?;
 
-        if !remainder.is_empty() {
-            self.push(
-                remainder.iter().collect::<String>().as_str(),
-                center,
-                style_bold,
-                style_dim,
-                add_border,
-            );
+        if !overflow.is_empty() {
+            self.write_content(overflow, center, style_bold, style_dim, add_border)?;
         }
+
+        Ok(())
     }
 
-    fn push_source(&mut self, source: &str) {
-        self.push(source, true, false, false, true);
+    fn write_centered_with_border(&mut self, text: &str) -> Result<(), io::Error> {
+        self.write_content(text, true, false, false, true)
     }
 
-    fn push_chunk_info(&mut self, info: &str) {
-        self.push(info, true, false, true, true);
+    fn write_centered_with_border_dim(&mut self, text: &str) -> Result<(), io::Error> {
+        self.write_content(text, true, false, self.style, true)
     }
 
-    fn push_header(&mut self, header: &str) {
-        self.push(header, true, self.style, false, true);
+    fn write_centered_with_border_bold(&mut self, text: &str) -> Result<(), io::Error> {
+        self.write_content(text, true, self.style, false, true)
     }
 
-    fn push_details(&mut self, details: &str) {
-        self.push(details, true, false, false, true);
-    }
-
-    fn push_border(&mut self, border: &str) {
-        self.push(border, false, false, false, false);
-    }
-
-    fn push_empty(&mut self) {
-        self.push("", false, false, false, true);
-    }
-
-    fn push_instruction_section(&mut self) {
-        for line in INSTRUCTION_HEADER {
-            self.push_header(line);
+    fn write_page_border(&mut self, border: [char; 3]) -> Result<(), io::Error> {
+        for _ in 0..self.indent {
+            self.write_str(INDENTATION)?;
         }
+
+        self.write_char(border[0])?;
+
+        for _ in 0..self.line_length() {
+            self.write_char(border[1])?;
+        }
+
+        self.write_char(border[2])
+    }
+
+    fn write_instruction_section(&mut self) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in INSTRUCTION_COLUMNS {
+            column_name_line.push_str(&format!("│{column_name:^width$}", width = width));
+        }
+
+        column_name_line.push('│');
+        self.write_centered_with_border_bold("Instructions")?;
+        self.write_centered_with_border(INSTRUCTION_BORDERS[0])?;
+        self.write_centered_with_border(&column_name_line)?;
+        self.write_centered_with_border(INSTRUCTION_BORDERS[1])?;
 
         for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
             let position = position.to_string();
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
-            let instruction_display =
-                format!("{index:^3} {position:^10} {operation:13} {info:^32}");
+            let row = format!("│{index:^5}│{position:^12}│{operation:^17}│{info:^24}│");
 
-            self.push_details(&instruction_display);
+            self.write_centered_with_border(&row)?;
         }
+
+        self.write_centered_with_border_bold(INSTRUCTION_BORDERS[2])?;
+
+        Ok(())
     }
 
-    fn push_local_section(&mut self) {
-        for line in LOCAL_HEADER {
-            self.push_header(line);
+    fn write_local_section(&mut self) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in LOCAL_COLUMNS {
+            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
         }
+
+        column_name_line.push('│');
+        self.write_centered_with_border_bold("Locals")?;
+        self.write_centered_with_border(LOCAL_BORDERS[0])?;
+        self.write_centered_with_border(&column_name_line)?;
+        self.write_centered_with_border(LOCAL_BORDERS[1])?;
 
         for (
             index,
@@ -243,34 +301,37 @@ impl<'a> Disassembler<'a> {
                 .unwrap_or_else(|| "unknown".to_string());
             let register_display = format!("R{register_index}");
             let scope = scope.to_string();
-            let local_display = format!(
-                "{index:^3} {identifier_display:^16} {register_display:^8} {scope:^7} {is_mutable:^7}"
+            let row = format!(
+                "│{index:^5}│{identifier_display:^16}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
             );
 
-            self.push_details(&local_display);
+            self.write_centered_with_border(&row)?;
         }
+
+        self.write_centered_with_border(LOCAL_BORDERS[2])?;
+
+        Ok(())
     }
 
-    fn push_constant_section(&mut self) {
-        for line in CONSTANT_HEADER {
-            self.push_header(line);
+    fn write_constant_section(&mut self) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in CONSTANT_COLUMNS {
+            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
         }
 
+        column_name_line.push('│');
+        self.write_centered_with_border_bold("Constants")?;
+        self.write_centered_with_border(CONSTANT_BORDERS[0])?;
+        self.write_centered_with_border(&column_name_line)?;
+        self.write_centered_with_border(CONSTANT_BORDERS[1])?;
+
         for (index, value) in self.chunk.constants().iter().enumerate() {
-            if let ConcreteValue::Function(chunk) = value {
-                let mut function_disassembler = chunk.disassembler().style(self.style);
-
-                function_disassembler.indent = self.indent + 1;
-
-                let function_disassembly = function_disassembler.disassemble();
-
-                self.output.push_str(&function_disassembly);
-
-                continue;
-            }
-
+            let is_function = matches!(value, ConcreteValue::Function(_));
             let type_display = value.r#type().to_string();
-            let value_display = {
+            let value_display = if is_function {
+                "Function displayed below".to_string()
+            } else {
                 let mut value_string = value.to_string();
 
                 if value_string.len() > 15 {
@@ -279,35 +340,31 @@ impl<'a> Disassembler<'a> {
 
                 value_string
             };
-            let constant_display = format!("{index:^3} {type_display:^16} {value_display:^17}");
+            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
 
-            self.push_details(&constant_display);
+            self.write_centered_with_border(&constant_display)?;
+
+            if let ConcreteValue::Function(chunk) = value {
+                let function_disassembler = chunk
+                    .disassembler(self.writer)
+                    .style(self.style)
+                    .indent(self.indent + 1);
+                let original_output_width = self.output_width;
+                self.output_width = function_disassembler.output_width;
+
+                function_disassembler.disassemble()?;
+                self.write_char('\n')?;
+
+                self.output_width = original_output_width;
+            }
         }
+
+        self.write_centered_with_border(CONSTANT_BORDERS[2])?;
+
+        Ok(())
     }
 
-    pub fn disassemble(mut self) -> String {
-        let width = Disassembler::default_width();
-        let top_border = {
-            let mut border = "┌".to_string();
-            border += &"─".repeat(width - 2);
-            border += "┐";
-
-            border
-        };
-        let section_border = {
-            let mut border = "│".to_string();
-            border += &"┈".repeat(width - 2);
-            border += "│";
-
-            border
-        };
-        let bottom_border = {
-            let mut border = "└".to_string();
-            border += &"─".repeat(width - 2);
-            border += "┘";
-
-            border
-        };
+    pub fn disassemble(mut self) -> Result<(), io::Error> {
         let name_display = self
             .chunk
             .name()
@@ -324,16 +381,19 @@ impl<'a> Disassembler<'a> {
 
                         file_name
                     })
-                    .unwrap_or("Chunk Disassembly".to_string())
+                    .unwrap_or("Dust Chunk Disassembly".to_string())
             });
 
-        self.push_border(&top_border);
-        self.push_header(&name_display);
+        self.write_page_border(TOP_BORDER)?;
+        self.write_char('\n')?;
+        self.write_centered_with_border_bold(&name_display)?;
 
         if let Some(source) = self.source {
-            self.push_empty();
-            self.push_source(&source.split_whitespace().collect::<Vec<&str>>().join(" "));
-            self.push_empty();
+            let lazily_formatted = source.split_whitespace().collect::<Vec<&str>>().join(" ");
+
+            self.write_centered_with_border("")?;
+            self.write_centered_with_border(&lazily_formatted)?;
+            self.write_centered_with_border("")?;
         }
 
         let info_line = format!(
@@ -344,25 +404,21 @@ impl<'a> Disassembler<'a> {
             self.chunk.r#type().return_type
         );
 
-        self.push_chunk_info(&info_line);
-        self.push_empty();
+        self.write_centered_with_border_dim(&info_line)?;
+        self.write_centered_with_border("")?;
 
         if !self.chunk.is_empty() {
-            self.push_instruction_section();
+            self.write_instruction_section()?;
         }
 
         if !self.chunk.locals().is_empty() {
-            self.push_border(&section_border);
-            self.push_local_section();
+            self.write_local_section()?;
         }
 
         if !self.chunk.constants().is_empty() {
-            self.push_border(&section_border);
-            self.push_constant_section();
+            self.write_constant_section()?;
         }
 
-        self.push_border(&bottom_border);
-
-        self.output.to_string()
+        self.write_page_border(BOTTOM_BORDER)
     }
 }

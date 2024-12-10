@@ -14,10 +14,7 @@ fn constant() {
                 return_type: Type::Integer
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(0, 2)
-                ),
+                (Instruction::load_constant(0, 0, false), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2))
             ],
             vec![ConcreteValue::Integer(42)],

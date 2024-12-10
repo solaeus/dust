@@ -51,6 +51,10 @@ impl ConcreteValue {
         }
     }
 
+    pub fn to_dust_string(&self) -> DustString {
+        DustString::from(self.to_string())
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             ConcreteValue::Boolean(_) => Type::Boolean,

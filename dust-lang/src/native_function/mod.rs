@@ -2,18 +2,20 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
-mod logic;
+mod assertion;
+mod io;
+mod string;
 
 use std::{
     fmt::{self, Display, Formatter},
-    io::{self},
-    string::{self},
+    io::ErrorKind as IoErrorKind,
+    string::ParseError,
 };
 
 use serde::{Deserialize, Serialize};
-use smallvec::smallvec;
+use smallvec::{smallvec, SmallVec};
 
-use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, Value, Vm, VmError};
+use crate::{AnnotatedError, FunctionType, Span, Type, Value, ValueRef, Vm, VmError};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -28,14 +30,14 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            pub fn call(
+            pub fn call<'a>(
                 &self,
-                vm: &mut Vm,
-                instruction: Instruction,
-            ) -> Result<Option<Value>, VmError> {
+                vm: &Vm<'a>,
+                arguments: SmallVec<[ValueRef<'a>; 4]>,
+            ) -> Result<Option<Value>, NativeFunctionError> {
                 match self {
                     $(
-                        NativeFunction::$name => $function(vm, instruction),
+                        NativeFunction::$name => $function(vm, arguments),
                     )*
                 }
             }
@@ -134,7 +136,7 @@ define_native_function! {
             value_parameters: None,
             return_type: Type::None
         },
-        logic::panic
+        assertion::panic
     ),
 
     // // Type conversion
@@ -151,7 +153,7 @@ define_native_function! {
             value_parameters: Some(smallvec![(0, Type::Any)]),
             return_type: Type::String
         },
-        logic::to_string
+        string::to_string
     ),
 
     // // List and string
@@ -212,7 +214,7 @@ define_native_function! {
             value_parameters: None,
             return_type: Type::String
         },
-        logic::read_line
+        io::read_line
     ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
@@ -228,7 +230,7 @@ define_native_function! {
             value_parameters: Some(smallvec![(0, Type::String)]),
             return_type: Type::None
         },
-        logic::write
+        io::write
     ),
     // (WriteFile, 56_u8, "write_file", false),
     (
@@ -240,7 +242,7 @@ define_native_function! {
             value_parameters: Some(smallvec![(0, Type::String)]),
             return_type: Type::None
         },
-        logic::write_line
+        io::write_line
     )
 
     // // Random
@@ -260,13 +262,14 @@ pub enum NativeFunctionError {
         position: Span,
     },
     Parse {
-        error: string::ParseError,
+        error: ParseError,
         position: Span,
     },
     Io {
-        error: io::ErrorKind,
+        error: IoErrorKind,
         position: Span,
     },
+    Vm(Box<VmError>),
 }
 
 impl AnnotatedError for NativeFunctionError {
@@ -282,6 +285,7 @@ impl AnnotatedError for NativeFunctionError {
             NativeFunctionError::Panic { .. } => "Explicit panic",
             NativeFunctionError::Parse { .. } => "Failed to parse value",
             NativeFunctionError::Io { .. } => "I/O error",
+            NativeFunctionError::Vm(error) => error.description(),
         }
     }
 
@@ -293,6 +297,7 @@ impl AnnotatedError for NativeFunctionError {
             NativeFunctionError::Panic { message, .. } => message.clone(),
             NativeFunctionError::Parse { error, .. } => Some(format!("{}", error)),
             NativeFunctionError::Io { error, .. } => Some(format!("{}", error)),
+            NativeFunctionError::Vm(error) => error.details(),
         }
     }
 
@@ -302,6 +307,7 @@ impl AnnotatedError for NativeFunctionError {
             NativeFunctionError::Panic { position, .. } => *position,
             NativeFunctionError::Parse { position, .. } => *position,
             NativeFunctionError::Io { position, .. } => *position,
+            NativeFunctionError::Vm(error) => error.position(),
         }
     }
 }

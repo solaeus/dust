@@ -71,10 +71,10 @@ impl ValueRef<'_> {
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
+    pub fn display(&self, vm: &Vm) -> Result<DustString, VmError> {
         match self {
-            ValueRef::Abstract(abstract_value) => abstract_value.display(vm),
-            ValueRef::Concrete(concrete_value) => Ok(concrete_value.to_string()),
+            ValueRef::Abstract(abstract_value) => abstract_value.to_dust_string(vm),
+            ValueRef::Concrete(concrete_value) => Ok(concrete_value.to_dust_string()),
         }
     }
 

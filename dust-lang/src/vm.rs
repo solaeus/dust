@@ -49,6 +49,10 @@ impl<'a> Vm<'a> {
         self.chunk
     }
 
+    pub fn source(&self) -> &'a str {
+        self.source
+    }
+
     pub fn current_position(&self) -> Span {
         let index = self.ip.saturating_sub(1);
         let (_, position) = self.chunk.instructions()[index];
@@ -140,8 +144,12 @@ impl<'a> Vm<'a> {
                         pointers.push(pointer);
                     }
 
-                    let register =
-                        Register::Value(AbstractValue::List { items: pointers }.to_value());
+                    let register = Register::Value(
+                        AbstractValue::List {
+                            item_pointers: pointers,
+                        }
+                        .to_value(),
+                    );
 
                     self.set_register(destination, register)?;
                 }
@@ -501,7 +509,33 @@ impl<'a> Vm<'a> {
                         function,
                         argument_count,
                     } = CallNative::from(&instruction);
-                    let return_value = function.call(self, instruction)?;
+                    let first_argument_index = (destination - argument_count) as usize;
+                    let argument_range = first_argument_index..destination as usize;
+                    let argument_registers = &self.stack[argument_range];
+                    let mut arguments: SmallVec<[ValueRef; 4]> = SmallVec::new();
+
+                    for register in argument_registers {
+                        let value = match register {
+                            Register::Value(value) => value.to_ref(),
+                            Register::Pointer(pointer) => {
+                                let value_option = self.follow_pointer_allow_empty(*pointer)?;
+
+                                match value_option {
+                                    Some(value) => value,
+                                    None => continue,
+                                }
+                            }
+                            Register::Empty => continue,
+                        };
+
+                        arguments.push(value);
+                    }
+
+                    let call_result = function.call(self, arguments);
+                    let return_value = match call_result {
+                        Ok(value_option) => value_option,
+                        Err(error) => return Err(VmError::NativeFunction(error)),
+                    };
 
                     if let Some(value) = return_value {
                         let register = Register::Value(value);
@@ -567,6 +601,41 @@ impl<'a> Vm<'a> {
         }
     }
 
+    pub(crate) fn follow_pointer_allow_empty(
+        &self,
+        pointer: Pointer,
+    ) -> Result<Option<ValueRef>, VmError> {
+        match pointer {
+            Pointer::Stack(register_index) => self.open_register_allow_empty(register_index),
+            Pointer::Constant(constant_index) => {
+                let constant = self.get_constant(constant_index);
+
+                Ok(Some(ValueRef::Concrete(constant)))
+            }
+            Pointer::ParentStack(register_index) => {
+                let parent = self
+                    .parent
+                    .as_ref()
+                    .ok_or_else(|| VmError::ExpectedParent {
+                        position: self.current_position(),
+                    })?;
+
+                parent.open_register_allow_empty(register_index)
+            }
+            Pointer::ParentConstant(constant_index) => {
+                let parent = self
+                    .parent
+                    .as_ref()
+                    .ok_or_else(|| VmError::ExpectedParent {
+                        position: self.current_position(),
+                    })?;
+                let constant = parent.get_constant(constant_index);
+
+                Ok(Some(ValueRef::Concrete(constant)))
+            }
+        }
+    }
+
     fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
 
@@ -589,10 +658,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    pub(crate) fn open_register_allow_empty(
-        &self,
-        register_index: u8,
-    ) -> Result<Option<ValueRef>, VmError> {
+    fn open_register_allow_empty(&self, register_index: u8) -> Result<Option<ValueRef>, VmError> {
         let register_index = register_index as usize;
         let register =
             self.stack

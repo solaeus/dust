@@ -4,23 +4,27 @@
 //! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
 //! belong to a named function.
 mod disassembler;
+mod local;
+mod scope;
 
 pub use disassembler::Disassembler;
+pub use local::Local;
+pub use scope::Scope;
 
-use std::fmt::{self, Debug, Display, Write};
+use std::fmt::{self, Debug, Display, Formatter, Write as FmtWrite};
+use std::io::Write;
 
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use smartstring::alias::String;
 
-use crate::{ConcreteValue, FunctionType, Instruction, Scope, Span, Type};
+use crate::{ConcreteValue, DustString, FunctionType, Instruction, Span, Type};
 
 /// In-memory representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    name: Option<String>,
+    name: Option<DustString>,
     r#type: FunctionType,
 
     instructions: SmallVec<[(Instruction, Span); 32]>,
@@ -29,7 +33,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(name: Option<String>) -> Self {
+    pub fn new(name: Option<DustString>) -> Self {
         Self {
             name,
             instructions: SmallVec::new(),
@@ -42,24 +46,23 @@ impl Chunk {
             },
         }
     }
-
     pub fn with_data(
-        name: Option<String>,
+        name: Option<DustString>,
         r#type: FunctionType,
-        instructions: SmallVec<[(Instruction, Span); 32]>,
-        constants: SmallVec<[ConcreteValue; 16]>,
-        locals: SmallVec<[Local; 8]>,
+        instructions: impl Into<SmallVec<[(Instruction, Span); 32]>>,
+        constants: impl Into<SmallVec<[ConcreteValue; 16]>>,
+        locals: impl Into<SmallVec<[Local; 8]>>,
     ) -> Self {
         Self {
             name,
             r#type,
-            instructions,
-            constants,
-            locals,
+            instructions: instructions.into(),
+            constants: constants.into(),
+            locals: locals.into(),
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<&DustString> {
         self.name.as_ref()
     }
 
@@ -101,28 +104,42 @@ impl Chunk {
             .unwrap_or(0)
     }
 
-    pub fn disassembler(&self) -> Disassembler {
-        Disassembler::new(self)
+    pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<W> {
+        Disassembler::new(self, writer)
     }
 }
 
 impl Display for Chunk {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disassembly = self.disassembler().style(true).disassemble();
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut output = Vec::new();
 
-        write!(f, "{disassembly}")
+        self.disassembler(&mut output)
+            .style(true)
+            .disassemble()
+            .unwrap();
+
+        let string = String::from_utf8_lossy(&output);
+
+        write!(f, "{string}")
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let disassembly = self.disassembler().style(false).disassemble();
+        let mut output = Vec::new();
 
-        if cfg!(debug_assertions) {
+        self.disassembler(&mut output)
+            .style(true)
+            .disassemble()
+            .unwrap();
+
+        let string = String::from_utf8_lossy(&output);
+
+        if cfg!(test) {
             f.write_char('\n')?;
         }
 
-        write!(f, "{}", disassembly)
+        write!(f, "{string}")
     }
 }
 
@@ -133,33 +150,5 @@ impl PartialEq for Chunk {
         self.instructions == other.instructions
             && self.constants == other.constants
             && self.locals == other.locals
-    }
-}
-
-/// A scoped variable.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Local {
-    /// The index of the identifier in the constants table.
-    pub identifier_index: u8,
-
-    /// Stack index where the local's value is stored.
-    pub register_index: u8,
-
-    /// Whether the local is mutable.
-    pub is_mutable: bool,
-
-    /// Scope where the variable was declared.
-    pub scope: Scope,
-}
-
-impl Local {
-    /// Creates a new Local instance.
-    pub fn new(identifier_index: u8, register_index: u8, is_mutable: bool, scope: Scope) -> Self {
-        Self {
-            identifier_index,
-            register_index,
-            is_mutable,
-            scope,
-        }
     }
 }

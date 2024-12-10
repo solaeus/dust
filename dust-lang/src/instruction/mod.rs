@@ -370,8 +370,16 @@ impl Instruction {
             | Operation::LessEqual
             | Operation::Negate
             | Operation::Not
-            | Operation::Call
-            | Operation::CallNative => Some(Argument::Register(self.a)),
+            | Operation::Call => Some(Argument::Register(self.a)),
+            Operation::CallNative => {
+                let function = NativeFunction::from(self.b);
+
+                if function.returns_value() {
+                    Some(Argument::Register(self.a))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -565,9 +573,9 @@ impl Instruction {
                 let TestSet {
                     destination,
                     argument,
-                    test_value: value,
+                    test_value,
                 } = TestSet::from(self);
-                let bang = if value { "" } else { "!" };
+                let bang = if test_value { "" } else { "!" };
 
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
             }
@@ -641,7 +649,13 @@ impl Instruction {
                 let arguments_start = destination.saturating_sub(argument_count);
                 let arguments_end = arguments_start + argument_count;
 
-                format!("R{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                match argument_count {
+                    0 => format!("R{destination} = {function}()"),
+                    1 => format!("R{destination} = {function}(R{arguments_start})"),
+                    _ => {
+                        format!("R{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                    }
+                }
             }
             Operation::CallNative => {
                 let CallNative {
@@ -651,12 +665,23 @@ impl Instruction {
                 } = CallNative::from(self);
                 let arguments_start = destination.saturating_sub(argument_count);
                 let arguments_end = arguments_start + argument_count;
-
-                if function.returns_value() {
-                    format!("R{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                let mut info_string = if function.returns_value() {
+                    format!("R{destination} = ")
                 } else {
-                    format!("{function}(R{arguments_start}..R{arguments_end})")
+                    String::new()
+                };
+
+                match argument_count {
+                    0 => {
+                        info_string.push_str(function.as_str());
+                        info_string.push_str("()");
+                    }
+                    1 => info_string.push_str(&format!("{function}(R{arguments_start})")),
+                    _ => info_string
+                        .push_str(&format!("{function}(R{arguments_start}..R{arguments_end})")),
                 }
+
+                info_string
             }
             Operation::Return => {
                 let Return {

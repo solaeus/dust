@@ -119,8 +119,12 @@ impl<'src> Compiler<'src> {
             .instructions
             .into_iter()
             .map(|(instruction, _, position)| (instruction, position))
-            .collect();
-        let locals = self.locals.into_iter().map(|(local, _)| local).collect();
+            .collect::<SmallVec<[(Instruction, Span); 32]>>();
+        let locals = self
+            .locals
+            .into_iter()
+            .map(|(local, _)| local)
+            .collect::<SmallVec<[Local; 8]>>();
 
         Chunk::with_data(self.self_name, r#type, instructions, self.constants, locals)
     }
@@ -960,7 +964,7 @@ impl<'src> Compiler<'src> {
         let local_index = if let Ok(local_index) = self.get_local_index(identifier) {
             local_index
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
-            return self.parse_native_call(native_function);
+            return self.parse_call_native(native_function);
         } else if self.self_name.as_deref() == Some(identifier) {
             let destination = self.next_register();
             let load_self = Instruction::from(LoadSelf { destination });
@@ -1274,7 +1278,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_native_call(&mut self, function: NativeFunction) -> Result<(), CompileError> {
+    fn parse_call_native(&mut self, function: NativeFunction) -> Result<(), CompileError> {
         let start = self.previous_position.0;
         let start_register = self.next_register();
 
@@ -1286,8 +1290,9 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
 
             let actual_register = self.next_register() - 1;
+            let registers_to_close = actual_register - expected_register;
 
-            if expected_register < actual_register {
+            if registers_to_close > 0 {
                 let close = Instruction::from(Close {
                     from: expected_register,
                     to: actual_register,
@@ -1547,8 +1552,8 @@ impl<'src> Compiler<'src> {
         self.lexer.skip_to(self.current_position.1);
 
         let function_end = function_compiler.previous_position.1;
-        let function =
-            ConcreteValue::function(function_compiler.finish(None, value_parameters.clone()));
+        let chunk = function_compiler.finish(None, value_parameters.clone());
+        let function = ConcreteValue::function(chunk);
         let constant_index = self.push_or_get_constant(function);
         let destination = self.next_register();
         let function_type = FunctionType {
@@ -1557,23 +1562,22 @@ impl<'src> Compiler<'src> {
             return_type,
         };
 
-        if let Some((identifier, position)) = identifier_info {
-            let (local_index, _) = self.declare_local(
+        if let Some((identifier, _)) = identifier_info {
+            self.declare_local(
                 identifier,
                 destination,
                 Type::function(function_type.clone()),
                 false,
                 self.current_scope,
             );
+
             let load_constant = Instruction::load_constant(destination, constant_index, false);
-            let set_local = Instruction::set_local(destination, local_index);
 
             self.emit_instruction(
                 load_constant,
                 Type::function(function_type),
                 Span(function_start, function_end),
             );
-            self.emit_instruction(set_local, Type::None, position);
         } else {
             let load_constant = Instruction::from(LoadConstant {
                 destination,
@@ -1592,7 +1596,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_call(&mut self) -> Result<(), CompileError> {
-        let (last_instruction, _, _) =
+        let (last_instruction, last_instruction_type, _) =
             self.instructions
                 .last()
                 .ok_or_else(|| CompileError::ExpectedExpression {
@@ -1607,21 +1611,20 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let function =
+        let argument =
             last_instruction
                 .as_argument()
                 .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let register_type = self.get_register_type(function.index())?;
-        let function_return_type = match register_type {
-            Type::Function(function_type) => function_type.return_type,
+        let function_return_type = match last_instruction_type {
+            Type::Function(function_type) => function_type.return_type.clone(),
             Type::SelfChunk => self.return_type.clone().unwrap_or(Type::None),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
-                    actual_type: register_type,
+                    actual_type: last_instruction_type.clone(),
                     position: self.previous_position,
                 });
             }
@@ -1638,7 +1641,7 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
 
             let actual_register = self.next_register() - 1;
-            let registers_to_close = actual_register - expected_register;
+            let registers_to_close = (actual_register - expected_register).saturating_sub(1);
 
             if registers_to_close > 0 {
                 let close = Instruction::from(Close {
@@ -1658,7 +1661,7 @@ impl<'src> Compiler<'src> {
         let destination = self.next_register();
         let call = Instruction::from(Call {
             destination,
-            function,
+            function: argument,
             argument_count,
         });
 

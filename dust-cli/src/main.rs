@@ -115,13 +115,13 @@ fn main() {
                 return;
             }
         };
-        let disassembly = chunk
-            .disassembler()
+        let mut stdout = stdout().lock();
+
+        chunk
+            .disassembler(&mut stdout)
             .style(mode.style)
             .source(&source)
             .disassemble();
-
-        println!("{}", disassembly);
 
         return;
     }
