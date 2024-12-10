@@ -11,15 +11,11 @@ fn divide_bytes() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Byte),
+                return_type: Type::Byte,
             },
             vec![
                 (
-                    Instruction::divide(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(5, 6)
                 ),
                 (Instruction::r#return(true), Span(11, 11))
@@ -43,15 +39,11 @@ fn divide_floats() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Float),
+                return_type: Type::Float,
             },
             vec![
                 (
-                    Instruction::divide(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(0)
-                    ),
+                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -75,15 +67,11 @@ fn divide_integers() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::divide(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(0)
-                    ),
+                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))

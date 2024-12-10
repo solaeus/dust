@@ -36,7 +36,7 @@ fn empty() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None)
+                return_type: Type::None
             },
             vec![(Instruction::r#return(false), Span(0, 0))],
             vec![],
@@ -57,23 +57,15 @@ fn parentheses_precedence() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer)
+                return_type: Type::Integer
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(3, 4)
                 ),
                 (
-                    Instruction::multiply(
-                        Destination::Register(1),
-                        Argument::Register(0),
-                        Argument::Constant(2)
-                    ),
+                    Instruction::multiply(1, Argument::Register(0), Argument::Constant(2)),
                     Span(8, 9)
                 ),
                 (Instruction::r#return(true), Span(11, 11)),
@@ -101,39 +93,23 @@ fn math_operator_precedence() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (
-                    Instruction::multiply(
-                        Destination::Register(1),
-                        Argument::Constant(2),
-                        Argument::Constant(3)
-                    ),
+                    Instruction::multiply(1, Argument::Constant(2), Argument::Constant(3)),
                     Span(10, 11)
                 ),
                 (
-                    Instruction::divide(
-                        Destination::Register(2),
-                        Argument::Register(1),
-                        Argument::Constant(4)
-                    ),
+                    Instruction::divide(2, Argument::Register(1), Argument::Constant(4)),
                     Span(14, 15)
                 ),
                 (
-                    Instruction::subtract(
-                        Destination::Register(3),
-                        Argument::Register(0),
-                        Argument::Register(2)
-                    ),
+                    Instruction::subtract(3, Argument::Register(0), Argument::Register(2)),
                     Span(6, 7)
                 ),
                 (Instruction::r#return(true), Span(17, 17)),

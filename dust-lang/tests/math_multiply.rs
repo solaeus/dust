@@ -11,15 +11,11 @@ fn multiply_floats() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Float),
+                return_type: Type::Float
             },
             vec![
                 (
-                    Instruction::multiply(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(0)
-                    ),
+                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9)),
@@ -43,15 +39,11 @@ fn multiply_integers() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::multiply(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),

@@ -135,8 +135,8 @@ impl Debug for Chunk {
 
         let string = String::from_utf8_lossy(&output);
 
-        if cfg!(test) {
-            f.write_char('\n')?;
+        if cfg!(debug_assertions) {
+            f.write_char('\n')?; // Improves readability in Cargo test output
         }
 
         write!(f, "{string}")

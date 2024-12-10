@@ -11,15 +11,11 @@ fn add_bytes() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Byte),
+                return_type: Type::Byte,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(5, 6)
                 ),
                 (Instruction::r#return(true), Span(11, 11))
@@ -43,15 +39,11 @@ fn add_bytes_saturate() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Byte),
+                return_type: Type::Byte,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(5, 6)
                 ),
                 (Instruction::r#return(true), Span(11, 11))
@@ -75,15 +67,11 @@ fn add_characters() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -107,15 +95,11 @@ fn add_character_and_string() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -139,15 +123,11 @@ fn add_floats() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Float),
+                return_type: Type::Float,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -171,15 +151,11 @@ fn add_floats_saturatate() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Float),
+                return_type: Type::Float,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(24, 25)
                 ),
                 (Instruction::r#return(true), Span(36, 36))
@@ -206,15 +182,11 @@ fn add_integers() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))
@@ -238,15 +210,11 @@ fn add_integers_saturate() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(20, 21)
                 ),
                 (Instruction::r#return(true), Span(23, 23))
@@ -270,15 +238,11 @@ fn add_strings() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(10, 11)
                 ),
                 (Instruction::r#return(true), Span(20, 20))
@@ -303,15 +267,11 @@ fn add_string_and_character() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(1)
-                    ),
+                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))

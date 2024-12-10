@@ -11,20 +11,11 @@ fn equal() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::equal(true, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(1, true), Span(2, 4)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 4)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::equal(0, true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -48,20 +39,11 @@ fn greater() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::less_equal(false, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 3)
-                ),
-                (Instruction::jump(1, true), Span(2, 3)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 3)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::less_equal(0, false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -85,20 +67,11 @@ fn greater_than_or_equal() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::less(false, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(1, true), Span(2, 4)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 4)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::less(0, false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -122,20 +95,11 @@ fn less_than() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::less(true, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 3)
-                ),
-                (Instruction::jump(1, true), Span(2, 3)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 3)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::less(0, true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -159,20 +123,11 @@ fn less_than_or_equal() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::less_equal(true, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(1, true), Span(2, 4)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 4)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::less_equal(0, true, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -196,20 +151,11 @@ fn not_equal() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean)
+                return_type: Type::Boolean
             },
             vec![
                 (
-                    Instruction::equal(false, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 4)
-                ),
-                (Instruction::jump(1, true), Span(2, 4)),
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, true),
-                    Span(2, 4)
-                ),
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
+                    Instruction::equal(0, false, Argument::Constant(0), Argument::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),

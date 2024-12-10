@@ -6,7 +6,7 @@ fn multiply_boolean_left() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::Boolean,
                 position: Span(0, 4)
@@ -22,7 +22,7 @@ fn multiply_boolean_right() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::Boolean,
                 position: Span(4, 8)
@@ -38,7 +38,7 @@ fn multiply_character_left() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::Character,
                 position: Span(0, 3)
@@ -54,7 +54,7 @@ fn multiply_character_right() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::Character,
                 position: Span(4, 7)
@@ -70,7 +70,7 @@ fn multiply_float_and_character() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::Character,
                 position: Span(6, 9)
@@ -86,7 +86,7 @@ fn multiply_float_and_integer() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyArguments {
                 left_type: Type::Float,
                 right_type: Type::Integer,
@@ -103,12 +103,12 @@ fn multiply_function_left() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
-                argument_type: Type::Function(FunctionType {
+                argument_type: Type::function(FunctionType {
                     type_parameters: None,
                     value_parameters: None,
-                    return_type: Box::new(Type::None)
+                    return_type: Type::None
                 }),
                 position: Span(0, 6)
             },
@@ -123,12 +123,12 @@ fn multiply_function_right() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
-                argument_type: Type::Function(FunctionType {
+                argument_type: Type::function(FunctionType {
                     type_parameters: None,
                     value_parameters: None,
-                    return_type: Box::new(Type::None)
+                    return_type: Type::None
                 }),
                 position: Span(4, 10)
             },
@@ -143,7 +143,7 @@ fn multiply_integer_and_float() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyArguments {
                 left_type: Type::Integer,
                 right_type: Type::Float,
@@ -160,7 +160,7 @@ fn multiply_list_left() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(0, 6)
@@ -176,7 +176,7 @@ fn multiply_list_right() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::List(Box::new(Type::Integer)),
                 position: Span(4, 10)
@@ -202,7 +202,7 @@ fn multiply_string_left() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::String,
                 position: Span(0, 7)
@@ -218,7 +218,7 @@ fn multiply_string_right() {
 
     assert_eq!(
         compile(source),
-        Err(CreateReport::Compile {
+        Err(DustError::Compile {
             error: CompileError::CannotMultiplyType {
                 argument_type: Type::String,
                 position: Span(4, 11)

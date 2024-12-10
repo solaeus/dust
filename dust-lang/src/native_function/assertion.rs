@@ -1,15 +1,15 @@
-use std::panic::{self, Location, PanicHookInfo};
+use std::panic;
 
 use annotate_snippets::{Level, Renderer, Snippet};
 use smallvec::SmallVec;
 
-use crate::{NativeFunctionError, Value, ValueRef, Vm};
+use crate::{DustString, NativeFunctionError, Value, ValueRef, Vm};
 
 pub fn panic(
     vm: &Vm,
     arguments: SmallVec<[ValueRef; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
-    let mut message = String::new();
+    let mut message: Option<DustString> = None;
 
     for value_ref in arguments {
         let string = match value_ref.display(vm) {
@@ -17,7 +17,10 @@ pub fn panic(
             Err(error) => return Err(NativeFunctionError::Vm(Box::new(error))),
         };
 
-        message.push_str(&string);
+        match message {
+            Some(ref mut message) => message.push_str(&string),
+            None => message = Some(string),
+        }
     }
 
     let position = vm.current_position();
@@ -33,7 +36,10 @@ pub fn panic(
 
     panic::set_hook(Box::new(move |_| {
         println!("{}", report);
-        println!("Panic Message: {}", message);
+
+        if let Some(message) = &message {
+            println!("{}", message);
+        }
     }));
 
     panic!();

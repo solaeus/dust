@@ -11,13 +11,10 @@ fn empty_list() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List(Box::new(Type::Any))),
+                return_type: Type::List(Box::new(Type::Any)),
             },
             vec![
-                (
-                    Instruction::load_list(Destination::Register(0), 0),
-                    Span(0, 2)
-                ),
+                (Instruction::load_list(0, 0), Span(0, 2)),
                 (Instruction::r#return(true), Span(2, 2)),
             ],
             vec![],
@@ -39,25 +36,13 @@ fn list() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List(Box::new(Type::Integer))),
+                return_type: Type::List(Box::new(Type::Integer)),
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(1, 2)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(1), 1, false),
-                    Span(4, 5)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(2), 2, false),
-                    Span(7, 8)
-                ),
-                (
-                    Instruction::load_list(Destination::Register(3), 0),
-                    Span(0, 9)
-                ),
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
+                (Instruction::load_constant(1, 1, false), Span(4, 5)),
+                (Instruction::load_constant(2, 2, false), Span(7, 8)),
+                (Instruction::load_list(3, 0), Span(0, 9)),
                 (Instruction::r#return(true), Span(9, 9)),
             ],
             vec![
@@ -90,42 +75,24 @@ fn list_with_complex_expression() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List(Box::new(Type::Integer))),
+                return_type: Type::List(Box::new(Type::Integer)),
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(1, 2)
-                ),
-                (
-                    Instruction::add(
-                        Destination::Register(1),
-                        Argument::Constant(1),
-                        Argument::Constant(2)
-                    ),
+                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
                     Span(6, 7)
                 ),
                 (
-                    Instruction::multiply(
-                        Destination::Register(2),
-                        Argument::Constant(3),
-                        Argument::Constant(4)
-                    ),
+                    Instruction::multiply(2, Argument::Constant(3), Argument::Constant(4)),
                     Span(14, 15)
                 ),
                 (
-                    Instruction::subtract(
-                        Destination::Register(3),
-                        Argument::Register(1),
-                        Argument::Register(2)
-                    ),
+                    Instruction::subtract(3, Argument::Register(1), Argument::Register(2)),
                     Span(10, 11)
                 ),
                 (Instruction::close(1, 3), Span(17, 18)),
-                (
-                    Instruction::load_list(Destination::Register(4), 0),
-                    Span(0, 18)
-                ),
+                (Instruction::load_list(4, 0), Span(0, 18)),
                 (Instruction::r#return(true), Span(18, 18)),
             ],
             vec![
@@ -159,29 +126,16 @@ fn list_with_simple_expression() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::List(Box::new(Type::Integer))),
+                return_type: Type::List(Box::new(Type::Integer)),
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(1, 2)
-                ),
-                (
-                    Instruction::add(
-                        Destination::Register(1),
-                        Argument::Constant(1),
-                        Argument::Constant(2)
-                    ),
+                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
                     Span(6, 7)
                 ),
-                (
-                    Instruction::load_constant(Destination::Register(2), 3, false),
-                    Span(11, 12)
-                ),
-                (
-                    Instruction::load_list(Destination::Register(3), 0),
-                    Span(0, 13)
-                ),
+                (Instruction::load_constant(2, 3, false), Span(11, 12)),
+                (Instruction::load_list(3, 0), Span(0, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
             ],
             vec![

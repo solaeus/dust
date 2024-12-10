@@ -11,19 +11,13 @@ fn true_and_true() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean),
+                return_type: Type::Boolean,
             },
             vec![
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, false),
-                    Span(0, 4)
-                ),
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(Argument::Register(0), true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (
-                    Instruction::load_boolean(Destination::Register(1), true, false),
-                    Span(8, 12)
-                ),
+                (Instruction::load_boolean(1, true, false), Span(8, 12)),
                 (Instruction::r#return(true), Span(12, 12)),
             ],
             vec![],
@@ -45,19 +39,13 @@ fn false_and_false() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean),
+                return_type: Type::Boolean,
             },
             vec![
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
-                    Span(0, 5)
-                ),
+                (Instruction::load_boolean(0, false, false), Span(0, 5)),
                 (Instruction::test(Argument::Register(0), true), Span(6, 8)),
                 (Instruction::jump(1, true), Span(6, 8)),
-                (
-                    Instruction::load_boolean(Destination::Register(1), false, false),
-                    Span(9, 14)
-                ),
+                (Instruction::load_boolean(1, false, false), Span(9, 14)),
                 (Instruction::r#return(true), Span(14, 14)),
             ],
             vec![],
@@ -79,19 +67,13 @@ fn false_and_true() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean),
+                return_type: Type::Boolean,
             },
             vec![
-                (
-                    Instruction::load_boolean(Destination::Register(0), false, false),
-                    Span(0, 5)
-                ),
+                (Instruction::load_boolean(0, false, false), Span(0, 5)),
                 (Instruction::test(Argument::Register(0), true), Span(6, 8)),
                 (Instruction::jump(1, true), Span(6, 8)),
-                (
-                    Instruction::load_boolean(Destination::Register(1), true, false),
-                    Span(9, 13)
-                ),
+                (Instruction::load_boolean(1, true, false), Span(9, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
             ],
             vec![],
@@ -113,19 +95,13 @@ fn true_and_false() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean),
+                return_type: Type::Boolean,
             },
             vec![
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, false),
-                    Span(0, 4)
-                ),
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(Argument::Register(0), true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (
-                    Instruction::load_boolean(Destination::Register(1), false, false),
-                    Span(8, 13)
-                ),
+                (Instruction::load_boolean(1, false, false), Span(8, 13)),
                 (Instruction::r#return(true), Span(13, 13)),
             ],
             vec![],

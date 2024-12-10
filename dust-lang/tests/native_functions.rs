@@ -11,19 +11,13 @@ fn panic() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None),
+                return_type: Type::None,
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(6, 22)),
+                (Instruction::load_constant(1, 1, false), Span(24, 26)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(6, 22)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(1), 1, false),
-                    Span(24, 26)
-                ),
-                (
-                    Instruction::call_native(Destination::Register(2), NativeFunction::Panic, 2),
+                    Instruction::call_native(2, NativeFunction::Panic, 2),
                     Span(0, 27)
                 ),
                 (Instruction::r#return(false), Span(27, 27))
@@ -38,7 +32,7 @@ fn panic() {
 
     assert_eq!(
         run(source),
-        Err(CreateReport::Runtime {
+        Err(DustError::Runtime {
             error: VmError::NativeFunction(NativeFunctionError::Panic {
                 message: Some("Goodbye world! 42".to_string()),
                 position: Span(0, 27)
@@ -59,15 +53,12 @@ fn to_string() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(10, 12)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(10, 12)
-                ),
-                (
-                    Instruction::call_native(Destination::Register(1), NativeFunction::ToString, 1),
+                    Instruction::call_native(1, NativeFunction::ToString, 1),
                     Span(0, 13)
                 ),
                 (Instruction::r#return(true), Span(13, 13))

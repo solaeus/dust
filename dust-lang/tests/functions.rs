@@ -1,4 +1,5 @@
 use dust_lang::*;
+use smallvec::smallvec;
 
 #[test]
 fn function() {
@@ -11,27 +12,23 @@ fn function() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Function(FunctionType {
+                return_type: Type::function(FunctionType {
                     type_parameters: None,
-                    value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                    return_type: Box::new(Type::Integer),
-                }))
+                    value_parameters: Some(smallvec![(0, Type::Integer), (1, Type::Integer)]),
+                    return_type: Type::Integer,
+                })
             },
             vec![
                 (
-                    Instruction::add(
-                        Destination::Register(2),
-                        Argument::Local(0),
-                        Argument::Local(1)
-                    ),
+                    Instruction::add(2, Argument::Register(0), Argument::Register(1)),
                     Span(30, 31)
                 ),
                 (Instruction::r#return(true), Span(34, 35)),
             ],
             vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
             vec![
-                Local::new(0, Type::Integer, false, Scope::default()),
-                Local::new(1, Type::Integer, false, Scope::default())
+                Local::new(0, 0, false, Scope::default()),
+                Local::new(1, 1, false, Scope::default())
             ]
         ))))
     );
@@ -48,25 +45,13 @@ fn function_call() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer)
+                return_type: Type::Integer
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(0, 35)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(1), 1, false),
-                    Span(36, 37)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(2), 2, false),
-                    Span(39, 40)
-                ),
-                (
-                    Instruction::call(Destination::Register(3), Argument::Constant(0), 2),
-                    Span(35, 41)
-                ),
+                (Instruction::load_constant(0, 0, false), Span(0, 35)),
+                (Instruction::load_constant(1, 1, false), Span(36, 37)),
+                (Instruction::load_constant(2, 2, false), Span(39, 40)),
+                (Instruction::call(3, Argument::Constant(0), 2), Span(35, 41)),
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
@@ -74,24 +59,20 @@ fn function_call() {
                     None,
                     FunctionType {
                         type_parameters: None,
-                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Box::new(Type::Integer)
+                        value_parameters: Some(smallvec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Type::Integer
                     },
                     vec![
                         (
-                            Instruction::add(
-                                Destination::Register(2),
-                                Argument::Local(0),
-                                Argument::Local(1)
-                            ),
+                            Instruction::add(2, Argument::Register(0), Argument::Register(1)),
                             Span(30, 31)
                         ),
                         (Instruction::r#return(true), Span(34, 35)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b"),],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default()),
-                        Local::new(1, Type::Integer, false, Scope::default())
+                        Local::new(0, 0, false, Scope::default()),
+                        Local::new(1, 1, false, Scope::default())
                     ]
                 )),
                 ConcreteValue::Integer(1),
@@ -115,14 +96,10 @@ fn function_declaration() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None)
+                return_type: Type::None
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Span(0, 40)
-                ),
-                (Instruction::define_local(0, 0, false), Span(3, 6)),
+                (Instruction::load_constant(0, 0, false), Span(0, 40)),
                 (Instruction::r#return(false), Span(40, 40))
             ],
             vec![
@@ -130,38 +107,25 @@ fn function_declaration() {
                     Some("add".into()),
                     FunctionType {
                         type_parameters: None,
-                        value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                        return_type: Box::new(Type::Integer)
+                        value_parameters: Some(smallvec![(0, Type::Integer), (1, Type::Integer)]),
+                        return_type: Type::Integer
                     },
                     vec![
                         (
-                            Instruction::add(
-                                Destination::Register(2),
-                                Argument::Local(0),
-                                Argument::Local(1)
-                            ),
+                            Instruction::add(2, Argument::Register(0), Argument::Register(1)),
                             Span(35, 36)
                         ),
                         (Instruction::r#return(true), Span(39, 40)),
                     ],
                     vec![ConcreteValue::string("a"), ConcreteValue::string("b")],
                     vec![
-                        Local::new(0, Type::Integer, false, Scope::default()),
-                        Local::new(1, Type::Integer, false, Scope::default())
+                        Local::new(0, 0, false, Scope::default()),
+                        Local::new(1, 1, false, Scope::default())
                     ]
                 )),
                 ConcreteValue::string("add"),
             ],
-            vec![Local::new(
-                1,
-                Type::Function(FunctionType {
-                    type_parameters: None,
-                    value_parameters: Some(vec![(0, Type::Integer), (1, Type::Integer)]),
-                    return_type: Box::new(Type::Integer),
-                }),
-                false,
-                Scope::default(),
-            ),],
+            vec![Local::new(1, 0, false, Scope::default(),),],
         )),
     );
 

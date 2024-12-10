@@ -11,25 +11,16 @@ fn true_and_true_and_true() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Boolean),
+                return_type: Type::Boolean,
             },
             vec![
-                (
-                    Instruction::load_boolean(Destination::Register(0), true, false),
-                    Span(0, 4)
-                ),
+                (Instruction::load_boolean(0, true, false), Span(0, 4)),
                 (Instruction::test(Argument::Register(0), true), Span(5, 7)),
                 (Instruction::jump(1, true), Span(5, 7)),
-                (
-                    Instruction::load_boolean(Destination::Register(1), true, false),
-                    Span(8, 12)
-                ),
+                (Instruction::load_boolean(1, true, false), Span(8, 12)),
                 (Instruction::test(Argument::Register(1), true), Span(13, 15)),
                 (Instruction::jump(1, true), Span(13, 15)),
-                (
-                    Instruction::load_boolean(Destination::Register(2), true, false),
-                    Span(16, 20)
-                ),
+                (Instruction::load_boolean(2, true, false), Span(16, 20)),
                 (Instruction::r#return(true), Span(20, 20)),
             ],
             vec![],

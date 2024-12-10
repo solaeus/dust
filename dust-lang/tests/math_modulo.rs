@@ -11,15 +11,11 @@ fn modulo_floats() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Float),
+                return_type: Type::Float,
             },
             vec![
                 (
-                    Instruction::modulo(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(0)
-                    ),
+                    Instruction::modulo(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -43,15 +39,11 @@ fn modulo_integers() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
                 (
-                    Instruction::modulo(
-                        Destination::Register(0),
-                        Argument::Constant(0),
-                        Argument::Constant(0)
-                    ),
+                    Instruction::modulo(0, Argument::Constant(0), Argument::Constant(0)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))
