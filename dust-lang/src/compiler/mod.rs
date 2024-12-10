@@ -1249,6 +1249,30 @@ impl<'src> Compiler<'src> {
 
         self.parse_expression()?;
 
+        let (expression_instruction, expression_type, expression_position) =
+            self.instructions.last().unwrap();
+
+        if expression_type != &Type::Boolean {
+            return Err(CompileError::ExpectedFunction {
+                found: self.previous_token.to_owned(),
+                actual_type: expression_type.clone(),
+                position: *expression_position,
+            });
+        }
+
+        let test_argument = match expression_instruction.as_argument() {
+            Some(argument) => argument,
+            None => {
+                return Err(CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: *expression_position,
+                })
+            }
+        };
+        let test = Instruction::test(test_argument, true);
+
+        self.emit_instruction(test, Type::None, self.current_position);
+
         if matches!(
             self.get_last_operations(),
             Some([

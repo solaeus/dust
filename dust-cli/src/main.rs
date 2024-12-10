@@ -4,11 +4,12 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use clap::{Args, Parser};
 use colored::Colorize;
-use dust_lang::{compile, run, CompileError, DustError, Lexer, Span, Token};
+use dust_lang::{compile, CompileError, Compiler, DustError, Lexer, Span, Token, Vm};
 use log::{Level, LevelFilter};
 
 #[derive(Parser)]
 #[clap(
+    name = env!("CARGO_PKG_NAME"),
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS"),
     about = env!("CARGO_PKG_DESCRIPTION"),
@@ -33,6 +34,10 @@ struct ModeFlags {
     /// Run the source code (default)
     #[arg(short, long)]
     run: bool,
+
+    /// Print the time taken to compile and run the source code
+    #[arg(long, requires("run"))]
+    time: bool,
 
     #[arg(long, requires("run"))]
     /// Do not print the run result
@@ -172,9 +177,31 @@ fn main() {
         return;
     }
 
-    let run_result = run(&source);
+    let lexer = Lexer::new(&source);
+    let mut compiler = match Compiler::new(lexer) {
+        Ok(compiler) => compiler,
+        Err(error) => {
+            handle_compile_error(error, &source);
 
-    match run_result {
+            return;
+        }
+    };
+
+    match compiler.compile() {
+        Ok(()) => {}
+        Err(error) => {
+            handle_compile_error(error, &source);
+
+            return;
+        }
+    }
+
+    let compile_end = start_time.elapsed();
+
+    let chunk = compiler.finish(None, None);
+    let mut vm = Vm::new(&source, &chunk, None);
+
+    match vm.run() {
         Ok(Some(value)) => {
             if !mode.no_output {
                 println!("{}", value)
@@ -182,9 +209,33 @@ fn main() {
         }
         Ok(None) => {}
         Err(error) => {
-            eprintln!("{}", error);
+            let dust_error = DustError::runtime(error, &source);
+            let report = dust_error.report();
+
+            eprintln!("{report}");
         }
     }
+
+    let run_end = start_time.elapsed();
+
+    if mode.time {
+        let compile_time = compile_end.as_micros();
+        let run_time = run_end - compile_end;
+
+        println!(
+            "Compile time: {compile_time}µs Run time: {}s{}ms{}µs",
+            run_time.as_secs(),
+            run_time.subsec_millis(),
+            run_time.subsec_micros()
+        );
+    }
+}
+
+fn handle_compile_error(error: CompileError, source: &str) {
+    let dust_error = DustError::compile(error, source);
+    let report = dust_error.report();
+
+    eprintln!("{report}");
 }
 
 #[cfg(test)]

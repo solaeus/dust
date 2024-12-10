@@ -157,7 +157,7 @@ Dust supports the following basic values:
 - Float: A 64-bit floating-point number
 - Function: An executable chunk of code
 - Integer: A signed 64-bit integer
-- String: A UTF-8 encoded string
+- String: A UTF-8 encoded byte sequence
 
 Dust's "basic" values are conceptually similar because they are singular as opposed to composite.
 Most of these values are stored on the stack but some are heap-allocated. A Dust string is a

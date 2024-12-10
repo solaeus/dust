@@ -2,7 +2,7 @@
 //! annotations.
 use std::fmt::{self, Display, Formatter};
 
-use annotate_snippets::{Annotation, Level, Renderer, Snippet};
+use annotate_snippets::{Level, Renderer, Snippet};
 use smallvec::SmallVec;
 
 use crate::{CompileError, Span, VmError};

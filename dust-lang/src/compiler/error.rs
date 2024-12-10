@@ -23,6 +23,10 @@ pub enum CompileError {
     CannotChainComparison {
         position: Span,
     },
+    ExpectedBoolean {
+        found: TokenOwned,
+        position: Span,
+    },
     ExpectedExpression {
         found: TokenOwned,
         position: Span,
@@ -185,6 +189,7 @@ impl AnnotatedError for CompileError {
             Self::CannotSubtractType { .. } => "Cannot subtract from this type",
             Self::CannotSubtractArguments { .. } => "Cannot subtract these types",
             Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
+            Self::ExpectedBoolean { .. } => "Expected a boolean",
             Self::ExpectedExpression { .. } => "Expected an expression",
             Self::ExpectedFunction { .. } => "Expected a function",
             Self::ExpectedFunctionType { .. } => "Expected a function type",

@@ -94,13 +94,14 @@ impl Chunk {
         self.instructions()
             .iter()
             .rev()
-            .find_map(|(instruction, _)| {
+            .filter_map(|(instruction, _)| {
                 if instruction.yields_value() {
                     Some(instruction.a as usize + 1)
                 } else {
                     None
                 }
             })
+            .max()
             .unwrap_or(0)
     }
 
