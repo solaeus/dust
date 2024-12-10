@@ -1,0 +1,7 @@
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `target/debug/dust -c '42 + true'`
+[1m[91merror[0m: [1mCompilation Error: Cannot add to this type[0m
+[1m[94m  |[0m
+[1m[94m1 |[0m 42 + true
+[1m[94m  |[0m[1m[91m      ^^^^[0m [1m[91mWhile parsing this code[0m
+[1m[94m  |[0m

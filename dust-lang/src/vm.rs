@@ -911,39 +911,11 @@ impl AnnotatedError for VmError {
         }
     }
 
-    fn details(&self) -> Option<String> {
-        match self {
-            Self::EmptyRegister { index, .. } => Some(format!("Register R{index} is empty")),
-            Self::ExpectedFunction { found, .. } => Some(format!("{found} is not a function")),
-
-            Self::RegisterIndexOutOfBounds { index, .. } => {
-                Some(format!("Register {index} does not exist"))
-            }
-            Self::NativeFunction(error) => error.details(),
-            Self::Value { error, .. } => Some(error.to_string()),
-            Self::ValueDisplay { error, .. } => Some(error.to_string() + " while displaying value"),
-            _ => None,
-        }
+    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 
-    fn position(&self) -> Span {
-        match self {
-            Self::ConstantIndexOutOfBounds { position, .. } => *position,
-            Self::EmptyRegister { position, .. } => *position,
-            Self::ExpectedBoolean { position, .. } => *position,
-            Self::ExpectedConcreteValue { position, .. } => *position,
-            Self::ExpectedFunction { position, .. } => *position,
-            Self::ExpectedParent { position } => *position,
-            Self::ExpectedValue { position, .. } => *position,
-            Self::InstructionIndexOutOfBounds { position, .. } => *position,
-            Self::LocalIndexOutOfBounds { position, .. } => *position,
-            Self::NativeFunction(error) => error.position(),
-            Self::RegisterIndexOutOfBounds { position, .. } => *position,
-            Self::StackOverflow { position } => *position,
-            Self::StackUnderflow { position } => *position,
-            Self::UndefinedLocal { position, .. } => *position,
-            Self::Value { position, .. } => *position,
-            Self::ValueDisplay { position, .. } => *position,
-        }
+    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 }

@@ -20,11 +20,11 @@ use crate::{Compiler, Operation};
 /// ```
 ///
 /// The instructions must be in the following order:
-///     - `Equal`, `Less` or `LessEqual`
-///     - `Test`
-///     - `Jump`
-///     - `LoadBoolean`
-///     - `LoadBoolean`
+///     - `EQUAL`, `LESS` or `LESS_EQUAL`
+///     - `TEST`
+///     - `JUMP`
+///     - `LOAD_BOOLEAN`
+///     - `LOAD_BOOLEAN`
 pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
     if matches!(
         compiler.get_last_operations(),
@@ -54,7 +54,7 @@ pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
 
 /// Optimizes a control flow pattern.
 ///
-/// Test instructions (which are always followed by a jump) can be optimized when the next
+/// TEST instructions (which are always followed by a JUMP) can be optimized when the next
 /// instructions are two constant or boolean loaders. The first loader is set to skip an instruction
 /// if it is run while the second loader is modified to use the first's register. Foregoing the use
 /// a jump instruction is an optimization but consolidating the registers is a necessity. This is
@@ -62,10 +62,10 @@ pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
 /// would not know at compile time which branch would be executed at runtime.
 ///
 /// The instructions must be in the following order:
-///     - `Test`
-///     - `Jump`
-///     - `LoadBoolean` or `LoadConstant`
-///     - `LoadBoolean` or `LoadConstant`
+///     - `TEST`
+///     - `JUMP`
+///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
+///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
 pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
     if !matches!(
         compiler.get_last_operations(),

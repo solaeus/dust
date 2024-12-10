@@ -4,7 +4,7 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use clap::{Args, Parser};
 use colored::Colorize;
-use dust_lang::{compile, lex, run, CompileError, DustError, Lexer, Span, Token};
+use dust_lang::{compile, run, CompileError, DustError, Lexer, Span, Token};
 use log::{Level, LevelFilter};
 
 #[derive(Parser)]

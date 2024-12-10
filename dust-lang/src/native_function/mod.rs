@@ -289,25 +289,11 @@ impl AnnotatedError for NativeFunctionError {
         }
     }
 
-    fn details(&self) -> Option<String> {
-        match self {
-            NativeFunctionError::ExpectedArgumentCount {
-                expected, found, ..
-            } => Some(format!("Expected {} arguments, found {}", expected, found)),
-            NativeFunctionError::Panic { message, .. } => message.clone(),
-            NativeFunctionError::Parse { error, .. } => Some(format!("{}", error)),
-            NativeFunctionError::Io { error, .. } => Some(format!("{}", error)),
-            NativeFunctionError::Vm(error) => error.details(),
-        }
+    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 
-    fn position(&self) -> Span {
-        match self {
-            NativeFunctionError::ExpectedArgumentCount { position, .. } => *position,
-            NativeFunctionError::Panic { position, .. } => *position,
-            NativeFunctionError::Parse { position, .. } => *position,
-            NativeFunctionError::Io { position, .. } => *position,
-            NativeFunctionError::Vm(error) => error.position(),
-        }
+    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 }

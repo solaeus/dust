@@ -2,7 +2,8 @@
 //! annotations.
 use std::fmt::{self, Display, Formatter};
 
-use annotate_snippets::{Level, Renderer, Snippet};
+use annotate_snippets::{Annotation, Level, Renderer, Snippet};
+use smallvec::SmallVec;
 
 use crate::{CompileError, Span, VmError};
 
@@ -29,14 +30,18 @@ impl<'src> DustError<'src> {
     }
 
     pub fn report(&self) -> String {
-        let (position, title, description, details) = self.error_data();
+        let (title, description, detail_snippets, help_snippets) = self.error_data();
         let label = format!("{}: {}", title, description);
-        let details = details.unwrap_or_else(|| "While parsing this code".to_string());
-        let message = Level::Error.title(&label).snippet(
-            Snippet::source(self.source())
-                .fold(false)
-                .annotation(Level::Error.span(position.0..position.1).label(&details)),
-        );
+        let message = Level::Error
+            .title(&label)
+            .snippets(detail_snippets.iter().map(|(details, position)| {
+                Snippet::source(self.source())
+                    .annotation(Level::Info.span(position.0..position.1).label(details))
+            }))
+            .snippets(help_snippets.iter().map(|(help, position)| {
+                Snippet::source(self.source())
+                    .annotation(Level::Help.span(position.0..position.1).label(help))
+            }));
         let mut report = String::new();
         let renderer = Renderer::styled();
 
@@ -45,19 +50,26 @@ impl<'src> DustError<'src> {
         report
     }
 
-    fn error_data(&self) -> (Span, &str, &str, Option<String>) {
+    fn error_data(
+        &self,
+    ) -> (
+        &str,
+        &str,
+        SmallVec<[(String, Span); 2]>,
+        SmallVec<[(String, Span); 2]>,
+    ) {
         match self {
             Self::Compile { error, .. } => (
-                error.position(),
                 CompileError::title(),
                 error.description(),
-                error.details(),
+                error.detail_snippets(),
+                error.help_snippets(),
             ),
             Self::Runtime { error, .. } => (
-                error.position(),
                 VmError::title(),
                 error.description(),
-                error.details(),
+                error.detail_snippets(),
+                error.help_snippets(),
             ),
         }
     }
@@ -79,6 +91,6 @@ impl Display for DustError<'_> {
 pub trait AnnotatedError {
     fn title() -> &'static str;
     fn description(&self) -> &'static str;
-    fn details(&self) -> Option<String>;
-    fn position(&self) -> Span;
+    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]>;
+    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]>;
 }

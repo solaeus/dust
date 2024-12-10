@@ -3,9 +3,6 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
-
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 
 use crate::{dust_error::AnnotatedError, CompileError, DustError, Span, Token};
@@ -747,65 +744,12 @@ impl AnnotatedError for LexError {
         }
     }
 
-    fn details(&self) -> Option<String> {
-        match self {
-            Self::ExpectedAsciiHexDigit { actual, .. } => Some(format!(
-                "Expected ASCII hex digit (0-9 or A-F), found \"{}\"",
-                actual
-                    .map(|character| character.to_string())
-                    .unwrap_or("end of input".to_string())
-            )),
-            Self::ExpectedCharacter {
-                expected, actual, ..
-            } => Some(format!(
-                "Expected character \"{}\", found \"{}\"",
-                expected, actual
-            )),
-            Self::ExpectedCharacterMultiple {
-                expected, actual, ..
-            } => {
-                let mut details = "Expected one of the following characters ".to_string();
-
-                for (i, c) in expected.iter().enumerate() {
-                    if i == expected.len() - 1 {
-                        details.push_str(", or ");
-                    } else if i > 0 {
-                        details.push_str(", ");
-                    }
-                    details.push(*c);
-                }
-
-                details.push_str(&format!(" but found {}", actual));
-
-                Some(details)
-            }
-            Self::UnexpectedCharacter { actual, .. } => {
-                Some(format!("Unexpected character \"{}\"", actual))
-            }
-            Self::UnexpectedEndOfFile { .. } => Some("Unexpected end of file".to_string()),
-        }
+    fn detail_snippets(&self) -> smallvec::SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 
-    fn position(&self) -> Span {
-        match self {
-            Self::ExpectedAsciiHexDigit { position, .. } => Span(*position, *position),
-            Self::ExpectedCharacter { position, .. } => Span(*position, *position),
-            Self::ExpectedCharacterMultiple { position, .. } => Span(*position, *position),
-            Self::UnexpectedCharacter { position, .. } => Span(*position, *position),
-            Self::UnexpectedEndOfFile { position } => Span(*position, *position),
-        }
-    }
-}
-
-impl Display for LexError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.description())?;
-
-        if let Some(details) = self.details() {
-            write!(f, ": {}", details)?;
-        }
-
-        Ok(())
+    fn help_snippets(&self) -> smallvec::SmallVec<[(String, Span); 2]> {
+        todo!()
     }
 }
 

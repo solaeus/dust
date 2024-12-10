@@ -4,12 +4,14 @@
 //! - [`compile`] borrows a string and returns a chunk, handling the entire compilation process and
 //!   turning any resulting [`ComplileError`] into a [`DustError`].
 //! - [`Compiler`] uses a lexer to get tokens and assembles a chunk.
+mod error;
 mod optimize;
+
+pub use error::CompileError;
 
 use std::{
     fmt::{self, Display, Formatter},
     mem::replace,
-    num::{ParseFloatError, ParseIntError},
 };
 
 use colored::Colorize;
@@ -21,9 +23,8 @@ use crate::{
         Call, CallNative, Close, GetLocal, Jump, LoadConstant, LoadList, LoadSelf, Move, Negate,
         Not, Return, SetLocal, Test,
     },
-    AnnotatedError, Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType,
-    Instruction, LexError, Lexer, Local, NativeFunction, Operation, Scope, Span, Token, TokenKind,
-    TokenOwned, Type, TypeConflict,
+    Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
+    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type,
 };
 
 /// Compiles the input and returns a chunk.
@@ -1755,8 +1756,9 @@ impl<'src> Compiler<'src> {
         } else {
             Err(CompileError::CannotAddArguments {
                 left_type: left.clone(),
+                left_position: *left_position,
                 right_type: right.clone(),
-                position: Span(left_position.0, right_position.1),
+                right_position: *right_position,
             })
         }
     }
@@ -2202,321 +2204,5 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
         }
-    }
-}
-
-/// Compilation errors
-#[derive(Clone, Debug, PartialEq)]
-pub enum CompileError {
-    // Token errors
-    ExpectedToken {
-        expected: TokenKind,
-        found: TokenOwned,
-        position: Span,
-    },
-    ExpectedTokenMultiple {
-        expected: &'static [TokenKind],
-        found: TokenOwned,
-        position: Span,
-    },
-
-    // Parsing errors
-    CannotChainComparison {
-        position: Span,
-    },
-    ExpectedExpression {
-        found: TokenOwned,
-        position: Span,
-    },
-    ExpectedFunction {
-        found: TokenOwned,
-        actual_type: Type,
-        position: Span,
-    },
-    ExpectedFunctionType {
-        found: Type,
-        position: Span,
-    },
-    InvalidAssignmentTarget {
-        found: TokenOwned,
-        position: Span,
-    },
-    UnexpectedReturn {
-        position: Span,
-    },
-
-    // Variable errors
-    CannotMutateImmutableVariable {
-        identifier: String,
-        position: Span,
-    },
-    ExpectedMutableVariable {
-        found: TokenOwned,
-        position: Span,
-    },
-    UndeclaredVariable {
-        identifier: String,
-        position: Span,
-    },
-    VariableOutOfScope {
-        identifier: String,
-        variable_scope: Scope,
-        access_scope: Scope,
-        position: Span,
-    },
-
-    // Type errors
-    CannotAddType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotAddArguments {
-        left_type: Type,
-        right_type: Type,
-        position: Span,
-    },
-    CannotDivideType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotDivideArguments {
-        left_type: Type,
-        right_type: Type,
-        position: Span,
-    },
-    CannotModuloType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotModuloArguments {
-        left_type: Type,
-        right_type: Type,
-        position: Span,
-    },
-    CannotMultiplyType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotMultiplyArguments {
-        left_type: Type,
-        right_type: Type,
-        position: Span,
-    },
-    CannotSubtractType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotSubtractArguments {
-        left_type: Type,
-        right_type: Type,
-        position: Span,
-    },
-    CannotResolveRegisterType {
-        register_index: usize,
-        position: Span,
-    },
-    CannotResolveVariableType {
-        identifier: String,
-        position: Span,
-    },
-    IfElseBranchMismatch {
-        conflict: TypeConflict,
-        position: Span,
-    },
-    IfMissingElse {
-        position: Span,
-    },
-    ListItemTypeConflict {
-        conflict: TypeConflict,
-        position: Span,
-    },
-    ReturnTypeConflict {
-        conflict: TypeConflict,
-        position: Span,
-    },
-
-    // Chunk errors
-    ConstantIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    InstructionIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    LocalIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-
-    // Wrappers around foreign errors
-    Lex(LexError),
-    ParseFloatError {
-        error: ParseFloatError,
-        position: Span,
-    },
-    ParseIntError {
-        error: ParseIntError,
-        position: Span,
-    },
-}
-
-impl AnnotatedError for CompileError {
-    fn title() -> &'static str {
-        "Compilation Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            Self::CannotAddArguments { .. } => "Cannot add these types",
-            Self::CannotAddType { .. } => "Cannot add to this type",
-            Self::CannotChainComparison { .. } => "Cannot chain comparison operations",
-            Self::CannotDivideArguments { .. } => "Cannot divide these types",
-            Self::CannotDivideType { .. } => "Cannot divide this type",
-            Self::CannotModuloArguments { .. } => "Cannot modulo these types",
-            Self::CannotModuloType { .. } => "Cannot modulo this type",
-            Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
-            Self::CannotMultiplyArguments { .. } => "Cannot multiply these types",
-            Self::CannotMultiplyType { .. } => "Cannot multiply this type",
-            Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
-            Self::CannotResolveVariableType { .. } => "Cannot resolve type",
-            Self::CannotSubtractType { .. } => "Cannot subtract from this type",
-            Self::CannotSubtractArguments { .. } => "Cannot subtract these types",
-            Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
-            Self::ExpectedExpression { .. } => "Expected an expression",
-            Self::ExpectedFunction { .. } => "Expected a function",
-            Self::ExpectedFunctionType { .. } => "Expected a function type",
-            Self::ExpectedMutableVariable { .. } => "Expected a mutable variable",
-            Self::ExpectedToken { .. } => "Expected a specific token",
-            Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
-            Self::IfElseBranchMismatch { .. } => "Type mismatch in if/else branches",
-            Self::IfMissingElse { .. } => "If statement missing else branch",
-            Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
-            Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
-            Self::Lex(error) => error.description(),
-            Self::ListItemTypeConflict { .. } => "List item type conflict",
-            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
-            Self::ParseFloatError { .. } => "Failed to parse float",
-            Self::ParseIntError { .. } => "Failed to parse integer",
-            Self::ReturnTypeConflict { .. } => "Return type conflict",
-            Self::UndeclaredVariable { .. } => "Undeclared variable",
-            Self::UnexpectedReturn { .. } => "Unexpected return",
-            Self::VariableOutOfScope { .. } => "Variable out of scope",
-        }
-    }
-
-    fn details(&self) -> Option<String> {
-        match self {
-            Self::CannotMutateImmutableVariable { identifier, .. } => {
-                Some(format!("{identifier} is immutable"))
-            }
-            Self::ExpectedExpression { found, .. } => Some(format!("Found {found}")),
-            Self::ExpectedFunction { found, actual_type, .. } => {
-                Some(format!("Expected \"{found}\" to be a function but it has type {actual_type}"))
-            }
-            Self::ExpectedFunctionType { found, .. } => {
-                Some(format!("Expected a function type but found {found}"))
-            }
-            Self::ExpectedToken {
-                expected, found, ..
-            } => Some(format!("Expected {expected} but found {found}")),
-            Self::ExpectedTokenMultiple {
-                expected, found, ..
-            } => {
-                let mut details = String::from("Expected");
-
-                for (index, token) in expected.iter().enumerate() {
-                    details.push_str(&format!(" {token}"));
-
-                    if index < expected.len() - 2 {
-                        details.push_str(", ");
-                    }
-
-                    if index == expected.len() - 2 {
-                        details.push_str(" or");
-                    }
-                }
-
-                details.push_str(&format!(" but found {found}"));
-
-                Some(details)
-            }
-            Self::ExpectedMutableVariable { found, .. } => Some(format!("Found {found}")),
-            Self::IfElseBranchMismatch {
-                conflict: TypeConflict { expected, actual },
-                ..
-            } => Some(
-                format!("This if block evaluates to type \"{expected}\" but the else block evaluates to \"{actual}\"")
-            ),
-            Self::IfMissingElse { .. } => Some(
-                "This \"if\" expression evaluates to a value but is missing an else block"
-                    .to_string(),
-            ),
-            Self::InvalidAssignmentTarget { found, .. } => {
-                Some(format!("Cannot assign to {found}"))
-            }
-            Self::Lex(error) => error.details(),
-            Self::ParseFloatError { error, .. } => Some(error.to_string()),
-            Self::ParseIntError { error, .. } => Some(error.to_string()),
-            Self::ReturnTypeConflict {
-                conflict: TypeConflict { expected, actual },
-                ..
-            } => Some(format!(
-                "Expected return type \"{expected}\" but found \"{actual}\""
-            )),
-            Self::UndeclaredVariable { identifier, .. } => {
-                Some(format!("{identifier} has not been declared"))
-            }
-            Self::UnexpectedReturn { .. } => None,
-            Self::VariableOutOfScope { identifier, .. } => {
-                Some(format!("{identifier} is out of scope"))
-            }
-            _ => None,
-        }
-    }
-
-    fn position(&self) -> Span {
-        match self {
-            Self::CannotAddArguments { position, .. } => *position,
-            Self::CannotAddType { position, .. } => *position,
-            Self::CannotChainComparison { position } => *position,
-            Self::CannotDivideArguments { position, .. } => *position,
-            Self::CannotDivideType { position, .. } => *position,
-            Self::CannotModuloArguments { position, .. } => *position,
-            Self::CannotModuloType { position, .. } => *position,
-            Self::CannotMutateImmutableVariable { position, .. } => *position,
-            Self::CannotMultiplyArguments { position, .. } => *position,
-            Self::CannotMultiplyType { position, .. } => *position,
-            Self::CannotResolveRegisterType { position, .. } => *position,
-            Self::CannotResolveVariableType { position, .. } => *position,
-            Self::CannotSubtractArguments { position, .. } => *position,
-            Self::CannotSubtractType { position, .. } => *position,
-            Self::ConstantIndexOutOfBounds { position, .. } => *position,
-            Self::ExpectedExpression { position, .. } => *position,
-            Self::ExpectedFunction { position, .. } => *position,
-            Self::ExpectedFunctionType { position, .. } => *position,
-            Self::ExpectedMutableVariable { position, .. } => *position,
-            Self::ExpectedToken { position, .. } => *position,
-            Self::ExpectedTokenMultiple { position, .. } => *position,
-            Self::IfElseBranchMismatch { position, .. } => *position,
-            Self::IfMissingElse { position } => *position,
-            Self::InstructionIndexOutOfBounds { position, .. } => *position,
-            Self::InvalidAssignmentTarget { position, .. } => *position,
-            Self::Lex(error) => error.position(),
-            Self::ListItemTypeConflict { position, .. } => *position,
-            Self::LocalIndexOutOfBounds { position, .. } => *position,
-            Self::ParseFloatError { position, .. } => *position,
-            Self::ParseIntError { position, .. } => *position,
-            Self::ReturnTypeConflict { position, .. } => *position,
-            Self::UndeclaredVariable { position, .. } => *position,
-            Self::UnexpectedReturn { position } => *position,
-            Self::VariableOutOfScope { position, .. } => *position,
-        }
-    }
-}
-
-impl From<LexError> for CompileError {
-    fn from(error: LexError) -> Self {
-        Self::Lex(error)
     }
 }
