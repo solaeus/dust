@@ -198,10 +198,6 @@ impl<'src> Lexer<'src> {
                     self.next_char();
 
                     while let Some(peek_char) = self.peek_char() {
-                        if peek_char == ' ' {
-                            break;
-                        }
-
                         if let '0'..='9' = peek_char {
                             self.next_char();
 
@@ -224,14 +220,7 @@ impl<'src> Lexer<'src> {
                             continue;
                         }
 
-                        return Err(LexError::ExpectedCharacterMultiple {
-                            expected: &[
-                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', 'E', '+',
-                                '-',
-                            ],
-                            actual: peek_char,
-                            position: self.position,
-                        });
+                        break;
                     }
                 } else {
                     break;

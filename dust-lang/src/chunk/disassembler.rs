@@ -59,7 +59,7 @@ const INSTRUCTION_BORDERS: [&str; 3] = [
 const LOCAL_COLUMNS: [(&str, usize); 5] = [
     ("i", 5),
     ("IDENTIFIER", 16),
-    ("VALUE", 10),
+    ("REGISTER", 10),
     ("SCOPE", 7),
     ("MUTABLE", 7),
 ];
@@ -142,11 +142,11 @@ impl<'a, W: Write> Disassembler<'a, W> {
         write!(&mut self.writer, "{}", c)
     }
 
-    fn write_str(&mut self, text: &str) -> Result<(), io::Error> {
+    fn write_colored(&mut self, text: &ColoredString) -> Result<(), io::Error> {
         write!(&mut self.writer, "{}", text)
     }
 
-    fn write_colored(&mut self, text: &ColoredString) -> Result<(), io::Error> {
+    fn write_str(&mut self, text: &str) -> Result<(), io::Error> {
         write!(&mut self.writer, "{}", text)
     }
 
@@ -343,8 +343,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
             } else {
                 let mut value_string = value.to_string();
 
-                if value_string.len() > 15 {
-                    value_string = format!("{value_string:.12}...");
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
                 }
 
                 value_string

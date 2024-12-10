@@ -1,11 +1,16 @@
 # Dust
 
-Dust is a high-level interpreted programming language with static types that focuses on ease of use,
-performance and correctness. The syntax, safety features and evaluation model are inspired by Rust.
-The instruction set, optimization strategies and virtual machine are inspired by Lua. Unlike Rust
-and other compiled languages, Dust has a very low time to execution. Simple programs compile in
-under a millisecond on a modern processor. Unlike Lua and most other interpreted languages, Dust is
-type-safe, with a simple yet powerful type system that enhances clarity and prevent bugs.
+A programming language that is **fast**, **safe** and **easy to use**.
+
+Dust has a simple, expressive syntax that is easy to read and write. This includes a powerful yet
+syntactically modest type system with extensive inference capabilities.
+
+The syntax, safety features and evaluation model are inspired by Rust. The instruction set,
+optimization strategies and virtual machine are inspired by Lua and academic research (see the
+[Inspiration][] section below). Unlike Rust and other compiled languages, Dust has a very low time
+to execution. Simple programs compile in milliseconds, even on modest hardware. Unlike Lua and most
+other interpreted languages, Dust is type-safe, with a simple yet powerful type system that enhances
+clarity and prevent bugs.
 
 ```dust
 write_line("Enter your name...")
@@ -15,15 +20,28 @@ let name = read_line()
 write_line("Hello " + name + "!")
 ```
 
+## Overview
+
+## Project Status
+
+**Dust is under active development and is not yet ready for general use.** Dust is an ambitious
+project that acts as a continuous experiment in language design. Features may be redesigned and
+reimplemented at will when they do not meet the project's performance and usability goals. This
+approach maximizes the development experience as a learning opportunity and enforces a high standard
+of quality but slows down the process of delivering features to users.
+
 ## Feature Progress
 
-Dust is still in development. This list may change as the language evolves.
+This list is a rough outline of the features that are planned to be implemented as soon as possible.
+*This is not an exhaustive list of all planned features.* This list is updated and rearranged to
+maintain a docket of what is being worked on, what is coming next and what can be revisited later.
 
 - [X] Lexer
 - [X] Compiler
 - [X] VM
-- [ ] Formatter
 - [X] Disassembler (for chunk debugging)
+- [ ] Formatter
+- [ ] REPL
 - CLI
   - [X] Run source
   - [X] Compile to chunk and show disassembly
@@ -32,6 +50,7 @@ Dust is still in development. This list may change as the language evolves.
   - [ ] Compile to and run from intermediate formats
     - [ ] JSON
     - [ ] Postcard
+  - [ ] Integrated REPL
 - Basic Values
   - [X] No `null` or `undefined` values
   - [X] Booleans
@@ -40,13 +59,13 @@ Dust is still in development. This list may change as the language evolves.
   - [X] Floats (64-bit)
   - [X] Functions
   - [X] Integers (signed 64-bit)
-  - [ ] Ranges
   - [X] Strings (UTF-8)
 - Composite Values
   - [X] Concrete lists
   - [X] Abstract lists (optimization)
   - [ ] Concrete maps
   - [ ] Abstract maps (optimization)
+  - [ ] Ranges
   - [ ] Tuples (fixed-size constant lists)
   - [ ] Structs
   - [ ] Enums
@@ -142,8 +161,8 @@ Dust's virtual machine uses 32-bit instructions, which encode seven pieces of in
 Bit   | Description
 ----- | -----------
 0-4   | Operation code
-5     | Flag indicating if the B argument is a constant
-6     | Flag indicating if the C argument is a constant
+5     | Flag indicating if the B field is a constant
+6     | Flag indicating if the C field is a constant
 7     | D field (boolean)
 8-15  | A field (unsigned 8-bit integer)
 16-23 | B field (unsigned 8-bit integer)
@@ -151,7 +170,8 @@ Bit   | Description
 
 #### Operations
 
-Five bits are used for the operation, which allows for up to 32 operations.
+The 1.0 version of Dust will have more than the current number of operations but cannot exceed 32
+because of the 5 bit format.
 
 ##### Stack manipulation
 
@@ -161,8 +181,10 @@ Five bits are used for the operation, which allows for up to 32 operations.
 
 ##### Value loaders
 
-- LOAD_BOOLEAN: Loads a boolean, the value of which is encoded in the instruction, to a register.
-- LOAD_CONSTANT: Loads a constant from the constant list to a register.
+- LOAD_BOOLEAN: Loads a boolean to a register. Booleans known at compile-time are not stored in the
+  constant list. Instead, they are encoded in the instruction itself.
+- LOAD_CONSTANT: Loads a constant from the constant list to a register. The VM avoids copying the
+  constant by using a pointer with the constant's index.
 - LOAD_LIST: Creates a list abstraction from a range of registers and loads it to a register.
 - LOAD_MAP: Creates a map abstraction from a range of registers and loads it to a register.
 - LOAD_SELF: Creates an abstraction that represents the current function and loads it to a register.
@@ -226,7 +248,7 @@ other information, like the number of arguments for a function call.
 ### Virtual Machine
 
 The virtual machine is simple and efficient. It uses a stack of registers, which can hold values or
-pointers. Pointers can point to values in the constant list, locals list, or the stack itself.
+pointers. Pointers can point to values in the constant list or the stack itself.
 
 While the compiler has multiple responsibilities that warrant more complexity, the VM is simple
 enough to use a very straightforward design. The VM's `run` function uses a simple `while` loop with
@@ -249,19 +271,27 @@ reintroduced in the future.
 ## Inspiration
 
 [Crafting Interpreters] by Bob Nystrom was a great resource for writing the compiler, especially the
-Pratt parser. The book is a great introduction to writing interpreters.
-
-[A No-Frills Introduction to Lua 5.1 VM Instructions] by Kein-Hong Man was a great resource for the
-design of Dust's instructions and operation codes. The Lua VM is simple and efficient, and Dust's VM
-attempts to be the same, though it is not as optimized for different platforms. Dust's instructions
-were originally 32-bit like Lua's, but were changed to 64-bit to allow for more complex information
-about the instruction's arguments. Dust's compile-time optimizations are inspired by Lua
-optimizations covered in this paper.
+Pratt parser. The book is a great introduction to writing interpreters. Had it been discovered
+sooner, some early implementations of Dust would have been both simpler in design and more ambitious
+in scope.
 
 [The Implementation of Lua 5.0] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and Waldemar
 Celes was a great resource for understanding register-based virtual machines and their instructions.
-This paper is a great resource when designing new features.
+This paper was recommended by Bob Nystrom in [Crafting Interpreters].
+
+[A No-Frills Introduction to Lua 5.1 VM Instructions] by Kein-Hong Man has a wealth of detailed
+information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
+essential in the design of Dust's instructions. Dust uses compile-time optimizations that are based
+on Lua optimizations covered in this paper.
+
+[A Performance Survey on Stack-based and Register-based Virtual Machines] by Ruijie Fang and Siqi
+Liup was helpful for a quick yet efficient primer on getting stack-based and register-based virtual
+machines up and running. The included code examples show how to implement both types of VMs in C.
+The performance comparison between the two types of VMs is worth reading for anyone who is trying to
+choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks
+used in this project to compare Dust to other languages.
 
 [Crafting Interpreters]: https://craftinginterpreters.com/
 [The Implementation of Lua 5.0]: https://www.lua.org/doc/jucs05.pdf
 [A No-Frills Introduction to Lua 5.1 VM Instructions]: https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf
+[A Performance Survey on Stack-based and Register-based Virtual Machines^3]: https://arxiv.org/abs/1611.00467

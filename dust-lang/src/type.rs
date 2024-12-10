@@ -35,7 +35,7 @@ pub enum Type {
     String,
     Struct(StructType),
     Tuple {
-        fields: Option<Box<SmallVec<[Type; 4]>>>,
+        fields: Box<SmallVec<[Type; 4]>>,
     },
 }
 
@@ -198,21 +198,17 @@ impl Display for Type {
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple { fields } => {
-                if let Some(fields) = fields {
-                    write!(f, "(")?;
+                write!(f, "(")?;
 
-                    for (index, r#type) in fields.iter().enumerate() {
-                        write!(f, "{type}")?;
-
-                        if index != fields.len() - 1 {
-                            write!(f, ", ")?;
-                        }
+                for (index, r#type) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
                     }
 
-                    write!(f, ")")
-                } else {
-                    write!(f, "tuple")
+                    write!(f, "{type}")?;
                 }
+
+                write!(f, ")")
             }
         }
     }

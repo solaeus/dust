@@ -1,0 +1,9 @@
+fn decrement(i: int) -> str {
+    if i == 0 {
+        return "Done!";
+    }
+
+    decrement(i - 1)
+}
+
+decrement(1000)

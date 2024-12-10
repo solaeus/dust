@@ -13,10 +13,7 @@ use std::{
 };
 
 use colored::Colorize;
-use optimize::{
-    condense_set_local_to_math, optimize_test_with_explicit_booleans,
-    optimize_test_with_loader_arguments,
-};
+use optimize::{optimize_test_with_explicit_booleans, optimize_test_with_loader_arguments};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -617,14 +614,47 @@ impl<'src> Compiler<'src> {
         &mut self,
         instruction: &Instruction,
     ) -> Result<(Argument, bool), CompileError> {
-        let argument =
-            instruction
-                .as_argument()
-                .ok_or_else(|| CompileError::ExpectedExpression {
+        let (argument, push_back) = match instruction.operation() {
+            Operation::LoadConstant => (Argument::Constant(instruction.b), false),
+            Operation::GetLocal => {
+                let local_index = instruction.b;
+                let (local, _) = self.get_local(local_index)?;
+
+                (Argument::Register(local.register_index), false)
+            }
+            Operation::LoadBoolean
+            | Operation::LoadList
+            | Operation::LoadSelf
+            | Operation::Add
+            | Operation::Subtract
+            | Operation::Multiply
+            | Operation::Divide
+            | Operation::Modulo
+            | Operation::Equal
+            | Operation::Less
+            | Operation::LessEqual
+            | Operation::Negate
+            | Operation::Not
+            | Operation::Call => (Argument::Register(instruction.a), true),
+            Operation::CallNative => {
+                let function = NativeFunction::from(instruction.b);
+
+                if function.returns_value() {
+                    (Argument::Register(instruction.a), true)
+                } else {
+                    return Err(CompileError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    });
+                }
+            }
+            _ => {
+                return Err(CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                })?;
-        let push_back = matches!(argument, Argument::Register(_));
+                })
+            }
+        };
 
         Ok((argument, push_back))
     }
@@ -648,6 +678,12 @@ impl<'src> Compiler<'src> {
         } else {
             false
         };
+
+        if push_back_left {
+            self.instructions
+                .push((left_instruction, left_type.clone(), left_position));
+        }
+
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -660,44 +696,12 @@ impl<'src> Compiler<'src> {
                 | Token::PercentEqual
         );
 
-        if push_back_left {
-            self.instructions
-                .push((left_instruction, left_type.clone(), left_position));
-        }
-
         if is_assignment && !left_is_mutable_local {
             return Err(CompileError::ExpectedMutableVariable {
                 found: self.previous_token.to_owned(),
                 position: left_position,
             });
         }
-
-        match operator {
-            Token::Plus | Token::PlusEqual => {
-                Compiler::expect_addable_type(&left_type, &left_position)?
-            }
-            Token::Minus | Token::MinusEqual => {
-                Compiler::expect_subtractable_type(&left_type, &left_position)?
-            }
-            Token::Slash | Token::SlashEqual => {
-                Compiler::expect_dividable_type(&left_type, &left_position)?
-            }
-            Token::Star | Token::StarEqual => {
-                Compiler::expect_multipliable_type(&left_type, &left_position)?
-            }
-            Token::Percent | Token::PercentEqual => {
-                Compiler::expect_modulable_type(&left_type, &left_position)?
-            }
-            _ => {}
-        }
-
-        let r#type = if is_assignment {
-            Type::None
-        } else if left_type == Type::Character {
-            Type::String
-        } else {
-            left_type.clone()
-        };
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -707,6 +711,7 @@ impl<'src> Compiler<'src> {
 
         match operator {
             Token::Plus | Token::PlusEqual => {
+                Compiler::expect_addable_type(&left_type, &left_position)?;
                 Compiler::expect_addable_type(&right_type, &right_position)?;
                 Compiler::expect_addable_types(
                     &left_type,
@@ -716,6 +721,7 @@ impl<'src> Compiler<'src> {
                 )?;
             }
             Token::Minus | Token::MinusEqual => {
+                Compiler::expect_subtractable_type(&left_type, &left_position)?;
                 Compiler::expect_subtractable_type(&right_type, &right_position)?;
                 Compiler::expect_subtractable_types(
                     &left_type,
@@ -725,6 +731,7 @@ impl<'src> Compiler<'src> {
                 )?;
             }
             Token::Slash | Token::SlashEqual => {
+                Compiler::expect_dividable_type(&left_type, &left_position)?;
                 Compiler::expect_dividable_type(&right_type, &right_position)?;
                 Compiler::expect_dividable_types(
                     &left_type,
@@ -734,6 +741,7 @@ impl<'src> Compiler<'src> {
                 )?;
             }
             Token::Star | Token::StarEqual => {
+                Compiler::expect_multipliable_type(&left_type, &left_position)?;
                 Compiler::expect_multipliable_type(&right_type, &right_position)?;
                 Compiler::expect_multipliable_types(
                     &left_type,
@@ -743,6 +751,7 @@ impl<'src> Compiler<'src> {
                 )?;
             }
             Token::Percent | Token::PercentEqual => {
+                Compiler::expect_modulable_type(&left_type, &left_position)?;
                 Compiler::expect_modulable_type(&right_type, &right_position)?;
                 Compiler::expect_modulable_types(
                     &left_type,
@@ -759,6 +768,13 @@ impl<'src> Compiler<'src> {
                 .push((right_instruction, right_type, right_position));
         }
 
+        let r#type = if is_assignment {
+            Type::None
+        } else if left_type == Type::Character {
+            Type::String
+        } else {
+            left_type.clone()
+        };
         let destination = if is_assignment {
             match left {
                 Argument::Register(register) => register,
@@ -983,6 +999,7 @@ impl<'src> Compiler<'src> {
             .get_local(local_index)
             .map(|(local, r#type)| (local, r#type.clone()))?;
         let is_mutable = local.is_mutable;
+        let local_register_index = local.register_index;
 
         if !self.current_scope.contains(&local.scope) {
             return Err(CompileError::VariableOutOfScope {
@@ -1003,14 +1020,23 @@ impl<'src> Compiler<'src> {
 
             self.parse_expression()?;
 
-            let register = self.next_register() - 1;
-            let set_local = Instruction::from(SetLocal {
-                register_index: register,
-                local_index,
-            });
+            if self
+                .instructions
+                .last()
+                .map_or(false, |(instruction, _, _)| instruction.is_math())
+            {
+                let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
 
-            self.emit_instruction(set_local, Type::None, start_position);
-            condense_set_local_to_math(self)?;
+                math_instruction.a = local_register_index;
+            } else {
+                let register = self.next_register() - 1;
+                let set_local = Instruction::from(SetLocal {
+                    register_index: register,
+                    local_index,
+                });
+
+                self.emit_instruction(set_local, Type::None, start_position);
+            }
 
             return Ok(());
         }
@@ -1181,10 +1207,12 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some(skippable) =
-                    self.get_last_jumpable_mut_between(1, if_block_distance as usize)
+                if let Some([Operation::LoadBoolean | Operation::LoadConstant]) =
+                    self.get_last_operations()
                 {
-                    skippable.c = true as u8;
+                    let (mut loader, _, _) = self.instructions.last_mut().unwrap();
+
+                    loader.c = true as u8;
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {

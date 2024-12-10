@@ -1,4 +1,0 @@
-input = fs.read_file('examples/assets/data.json')
-data = json.parse(input)
-
-length(data)

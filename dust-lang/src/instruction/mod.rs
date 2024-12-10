@@ -5,8 +5,8 @@
 //! Bit   | Description
 //! ----- | -----------
 //! 0-4   | Operation code
-//! 5     | Flag indicating if the B argument is a constant
-//! 6     | Flag indicating if the C argument is a constant
+//! 5     | Flag indicating if the B field is a constant
+//! 6     | Flag indicating if the C field is a constant
 //! 7     | D field (boolean)
 //! 8-15  | A field (unsigned 8-bit integer)
 //! 16-23 | B field (unsigned 8-bit integer)
@@ -351,6 +351,24 @@ impl Instruction {
         Instruction::from(Return {
             should_return_value,
         })
+    }
+
+    pub fn is_math(&self) -> bool {
+        matches!(
+            self.operation(),
+            Operation::Add
+                | Operation::Subtract
+                | Operation::Multiply
+                | Operation::Divide
+                | Operation::Modulo
+        )
+    }
+
+    pub fn is_comparison(&self) -> bool {
+        matches!(
+            self.operation(),
+            Operation::Equal | Operation::Less | Operation::LessEqual
+        )
     }
 
     pub fn as_argument(&self) -> Option<Argument> {

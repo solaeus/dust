@@ -1,6 +1,6 @@
-//! Tools used by the compiler to optimize a chunk's bytecode.
+//! Functions used by the compiler to optimize a chunk's bytecode during compilation.
 
-use crate::{instruction::SetLocal, CompileError, Compiler, Operation};
+use crate::{Compiler, Operation};
 
 /// Optimizes a control flow pattern by removing redundant instructions.
 ///
@@ -56,8 +56,10 @@ pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
 ///
 /// Test instructions (which are always followed by a jump) can be optimized when the next
 /// instructions are two constant or boolean loaders. The first loader is set to skip an instruction
-/// if it is run while the second loader is modified to use the first's register. This foregoes the
-/// use of a jump instruction and uses one fewer register.
+/// if it is run while the second loader is modified to use the first's register. Foregoing the use
+/// a jump instruction is an optimization but consolidating the registers is a necessity. This is
+/// because test instructions are essentially control flow and a subsequent SET_LOCAL instruction
+/// would not know at compile time which branch would be executed at runtime.
 ///
 /// The instructions must be in the following order:
 ///     - `Test`
@@ -87,49 +89,4 @@ pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
     let second_loader = &mut compiler.instructions.last_mut().unwrap().0;
 
     second_loader.a = first_loader_destination;
-}
-
-/// Optimizes a math assignment pattern.
-///
-/// The SetLocal instruction is removed and the math instruction is modified to use the local as
-/// its destination. This makes the following two code snippets compile to the same bytecode:
-///
-/// ```dust
-/// let a = 0;
-/// a = a + 1;
-/// ```
-///
-/// ```dust
-/// let a = 0;
-/// a += 1;
-/// ```
-///
-/// The instructions must be in the following order:
-///     - `Add`, `Subtract`, `Multiply`, `Divide` or `Modulo`
-///     - `SetLocal`
-pub fn condense_set_local_to_math(compiler: &mut Compiler) -> Result<(), CompileError> {
-    if !matches!(
-        compiler.get_last_operations(),
-        Some([
-            Operation::Add
-                | Operation::Subtract
-                | Operation::Multiply
-                | Operation::Divide
-                | Operation::Modulo,
-            Operation::SetLocal,
-        ])
-    ) {
-        return Ok(());
-    }
-
-    log::debug!("Condensing math and SetLocal to math instruction");
-
-    let set_local = SetLocal::from(&compiler.instructions.pop().unwrap().0);
-    let (local, _) = compiler.get_local(set_local.local_index)?;
-    let local_register_index = local.register_index;
-    let math_instruction = &mut compiler.instructions.last_mut().unwrap().0;
-
-    math_instruction.a = local_register_index;
-
-    Ok(())
 }
