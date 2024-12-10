@@ -40,9 +40,7 @@
 //! ```
 use std::{
     env::current_exe,
-    io::{self, ErrorKind, Write},
-    iter::empty,
-    str::Chars,
+    io::{self, Write},
 };
 
 use colored::{ColoredString, Colorize};
@@ -147,6 +145,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
         write!(&mut self.writer, "{}", text)
     }
 
+    fn write_colored(&mut self, text: &ColoredString) -> Result<(), io::Error> {
+        write!(&mut self.writer, "{}", text)
+    }
+
     fn write_content(
         &mut self,
         text: &str,
@@ -196,7 +198,13 @@ impl<'a, W: Write> Disassembler<'a, W> {
             }
         }
 
-        self.write_str(line_content)?;
+        if style_bold {
+            self.write_colored(&line_content.bold())?;
+        } else if style_dim {
+            self.write_colored(&line_content.dimmed())?;
+        } else {
+            self.write_str(line_content)?;
+        }
 
         if center {
             for _ in 0..right_pad_length {
