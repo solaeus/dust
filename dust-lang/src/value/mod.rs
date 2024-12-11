@@ -154,7 +154,7 @@ impl ValueRef<'_> {
     }
 
     #[inline(always)]
-    pub fn less_than(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn less(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
                 left.less_than(right).map(Value::Concrete)
@@ -163,7 +163,7 @@ impl ValueRef<'_> {
         }
     }
 
-    pub fn less_than_or_equal(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn less_equal(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
                 left.less_than_or_equal(right).map(Value::Concrete)

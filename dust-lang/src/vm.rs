@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 
 use crate::{
     compile, instruction::*, AbstractValue, AnnotatedError, Chunk, ConcreteValue, DustError,
-    Instruction, NativeFunctionError, Operation, Span, Value, ValueError, ValueRef,
+    Instruction, NativeFunction, NativeFunctionError, Operation, Span, Value, ValueError, ValueRef,
 };
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
@@ -17,6 +17,34 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
 
     vm.run().map_err(|error| DustError::runtime(error, source))
 }
+
+type Runner = fn(&mut Vm, InstructionData) -> Result<(), VmError>;
+
+const RUNNERS: [Runner; 23] = [
+    Vm::r#move,
+    Vm::close,
+    Vm::load_boolean,
+    Vm::load_constant,
+    Vm::load_list,
+    Vm::load_self,
+    Vm::get_local,
+    Vm::set_local,
+    Vm::add,
+    Vm::subtract,
+    Vm::multiply,
+    Vm::divide,
+    Vm::modulo,
+    Vm::test,
+    Vm::test_set,
+    Vm::equal,
+    Vm::less,
+    Vm::less_equal,
+    Vm::negate,
+    Vm::not,
+    Vm::call,
+    Vm::call_native,
+    Vm::jump,
+];
 
 /// Dust virtual machine.
 ///
@@ -62,18 +90,572 @@ impl<'a> Vm<'a> {
         position
     }
 
+    fn r#move<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { b, c, .. } = instruction_data;
+        let from_register_has_value = vm
+            .stack
+            .get(b as usize)
+            .is_some_and(|register| !matches!(register, Register::Empty));
+        let register = Register::Pointer(Pointer::Stack(b));
+
+        if from_register_has_value {
+            vm.set_register(c, register)?;
+        }
+
+        Ok(())
+    }
+
+    fn close<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData { b, c, .. } = instruction_data;
+
+        if vm.stack.len() < c as usize {
+            return Err(VmError::StackUnderflow {
+                position: vm.current_position(),
+            });
+        }
+
+        for register_index in b..c {
+            vm.stack[register_index as usize] = Register::Empty;
+        }
+
+        Ok(())
+    }
+
+    fn load_boolean<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, b, c, .. } = instruction_data;
+        let boolean = ConcreteValue::Boolean(b != 0).to_value();
+        let register = Register::Value(boolean);
+
+        vm.set_register(a, register)?;
+
+        if c != 0 {
+            vm.jump_instructions(1, true);
+        }
+
+        Ok(())
+    }
+
+    fn load_constant<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, b, c, .. } = instruction_data;
+        let register = Register::Pointer(Pointer::Constant(b));
+
+        vm.set_register(a, register)?;
+
+        if c != 0 {
+            vm.jump_instructions(1, true);
+        }
+
+        Ok(())
+    }
+
+    fn load_list<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, b, .. } = instruction_data;
+        let mut item_pointers = Vec::new();
+        let stack = vm.stack.as_slice();
+
+        for register_index in b..a {
+            if let Register::Empty = stack[register_index as usize] {
+                continue;
+            }
+
+            let pointer = Pointer::Stack(register_index);
+
+            item_pointers.push(pointer);
+        }
+
+        let list_value = AbstractValue::List { item_pointers }.to_value();
+        let register = Register::Value(list_value);
+
+        vm.set_register(a, register)
+    }
+
+    fn load_self<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, .. } = instruction_data;
+        let register = Register::Value(AbstractValue::FunctionSelf.to_value());
+
+        vm.set_register(a, register)
+    }
+
+    fn get_local<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, b, .. } = instruction_data;
+        let local_register_index = vm.get_local_register(b)?;
+        let register = Register::Pointer(Pointer::Stack(local_register_index));
+
+        vm.set_register(a, register)
+    }
+
+    fn set_local<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { b, c, .. } = instruction_data;
+        let local_register_index = vm.get_local_register(c)?;
+        let register = Register::Pointer(Pointer::Stack(b));
+
+        vm.set_register(local_register_index, register)
+    }
+
+    fn add<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let sum_result = left.add(right);
+        let sum = match sum_result {
+            Ok(sum) => sum,
+            Err(error) => {
+                return Err(VmError::Value {
+                    error,
+                    position: vm.current_position(),
+                });
+            }
+        };
+        let register = Register::Value(sum);
+
+        vm.set_register(a, register)
+    }
+
+    fn subtract<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let subtraction_result = left.subtract(right);
+        let difference = match subtraction_result {
+            Ok(difference) => difference,
+            Err(error) => {
+                return Err(VmError::Value {
+                    error,
+                    position: vm.current_position(),
+                });
+            }
+        };
+        let register = Register::Value(difference);
+
+        vm.set_register(a, register)
+    }
+
+    fn multiply<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let multiplication_result = left.multiply(right);
+        let product = match multiplication_result {
+            Ok(product) => product,
+            Err(error) => {
+                return Err(VmError::Value {
+                    error,
+                    position: vm.current_position(),
+                });
+            }
+        };
+        let register = Register::Value(product);
+
+        vm.set_register(a, register)
+    }
+
+    fn divide<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let division_result = left.divide(right);
+        let quotient = match division_result {
+            Ok(quotient) => quotient,
+            Err(error) => {
+                return Err(VmError::Value {
+                    error,
+                    position: vm.current_position(),
+                });
+            }
+        };
+        let register = Register::Value(quotient);
+
+        vm.set_register(a, register)
+    }
+
+    fn modulo<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let modulo_result = left.modulo(right);
+        let remainder = match modulo_result {
+            Ok(remainder) => remainder,
+            Err(error) => {
+                return Err(VmError::Value {
+                    error,
+                    position: vm.current_position(),
+                });
+            }
+        };
+        let register = Register::Value(remainder);
+
+        vm.set_register(a, register)
+    }
+
+    fn test<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            b,
+            b_is_constant,
+            c,
+            ..
+        } = instruction_data;
+        let value = vm.get_argument(b, b_is_constant)?;
+        let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value {
+            *boolean
+        } else {
+            panic!(
+                "VM Error: Expected boolean value for TEST operation at {}",
+                vm.current_position()
+            );
+        };
+        let test_value = c != 0;
+
+        if boolean == test_value {
+            vm.jump_instructions(1, true);
+        }
+
+        Ok(())
+    }
+
+    fn test_set<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            ..
+        } = instruction_data;
+        let value = vm.get_argument(b, b_is_constant)?;
+        let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value {
+            *boolean
+        } else {
+            panic!(
+                "VM Error: Expected boolean value for TEST_SET operation at {}",
+                vm.current_position()
+            );
+        };
+        let test_value = c != 0;
+
+        if boolean == test_value {
+            vm.jump_instructions(1, true);
+        } else {
+            let pointer = if b_is_constant {
+                Pointer::Constant(b)
+            } else {
+                Pointer::Stack(b)
+            };
+            let register = Register::Pointer(pointer);
+
+            vm.set_register(a, register)?;
+        }
+
+        Ok(())
+    }
+
+    fn equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            d,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let equal_result = left.equal(right).map_err(|error| VmError::Value {
+            error,
+            position: vm.current_position(),
+        })?;
+        let is_equal = if let Value::Concrete(ConcreteValue::Boolean(is_equal)) = equal_result {
+            is_equal
+        } else {
+            panic!(
+                "VM Error: Expected boolean value for EQUAL operation at {}",
+                vm.current_position()
+            );
+        };
+        let comparison = is_equal == d;
+        let register = Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
+
+        vm.set_register(a, register)
+    }
+
+    fn less<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            d,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let less_result = left.less(right).map_err(|error| VmError::Value {
+            error,
+            position: vm.current_position(),
+        })?;
+        let is_less = if let Value::Concrete(ConcreteValue::Boolean(is_less)) = less_result {
+            is_less
+        } else {
+            panic!(
+                "VM Error: Expected boolean value for LESS operation at {}",
+                vm.current_position()
+            );
+        };
+        let comparison = is_less == d;
+        let register = Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
+
+        vm.set_register(a, register)
+    }
+
+    fn less_equal<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            c_is_constant,
+            d,
+            ..
+        } = instruction_data;
+        let left = vm.get_argument(b, b_is_constant)?;
+        let right = vm.get_argument(c, c_is_constant)?;
+        let less_or_equal_result = left.less_equal(right).map_err(|error| VmError::Value {
+            error,
+            position: vm.current_position(),
+        })?;
+        let is_less_or_equal = if let Value::Concrete(ConcreteValue::Boolean(is_less_or_equal)) =
+            less_or_equal_result
+        {
+            is_less_or_equal
+        } else {
+            panic!(
+                "VM Error: Expected boolean value for LESS_EQUAl operation at {}",
+                vm.current_position()
+            );
+        };
+        let comparison = is_less_or_equal == d;
+        let register = Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
+
+        vm.set_register(a, register)
+    }
+
+    fn negate<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            b_is_constant,
+            ..
+        } = instruction_data;
+        let value = vm.get_argument(b, b_is_constant)?;
+        let negated = value.negate().map_err(|error| VmError::Value {
+            error,
+            position: vm.current_position(),
+        })?;
+        let register = Register::Value(negated);
+
+        vm.set_register(a, register)
+    }
+
+    fn not<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            b_is_constant,
+            ..
+        } = instruction_data;
+        let value = vm.get_argument(b, b_is_constant)?;
+        let not = value.not().map_err(|error| VmError::Value {
+            error,
+            position: vm.current_position(),
+        })?;
+        let register = Register::Value(not);
+
+        vm.set_register(a, register)
+    }
+
+    fn jump<'b, 'c>(vm: &mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData { b, c, .. } = instruction_data;
+        let is_positive = c != 0;
+
+        vm.jump_instructions(b as usize, is_positive);
+
+        Ok(())
+    }
+
+    fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
+        let InstructionData {
+            a,
+            b,
+            c,
+            b_is_constant,
+            ..
+        } = instruction_data;
+        let function = vm.get_argument(b, b_is_constant)?;
+        let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = function {
+            chunk
+        } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = function {
+            vm.chunk
+        } else {
+            return Err(VmError::ExpectedFunction {
+                found: function.into_concrete_owned(vm)?,
+                position: vm.current_position(),
+            });
+        };
+        let mut function_vm = Vm::new(vm.source, chunk, Some(vm));
+        let first_argument_index = a - c;
+        let mut argument_index = 0;
+
+        for argument_register_index in first_argument_index..a {
+            let target_register_is_empty =
+                matches!(vm.stack[argument_register_index as usize], Register::Empty);
+
+            if target_register_is_empty {
+                continue;
+            }
+
+            function_vm.set_register(
+                argument_index as u8,
+                Register::Pointer(Pointer::ParentStack(argument_register_index)),
+            )?;
+
+            argument_index += 1;
+        }
+
+        let return_value = function_vm.run()?;
+
+        if let Some(concrete_value) = return_value {
+            let register = Register::Value(concrete_value.to_value());
+
+            vm.set_register(a, register)?;
+        }
+
+        Ok(())
+    }
+
+    fn call_native<'b, 'c>(
+        vm: &'b mut Vm<'c>,
+        instruction_data: InstructionData,
+    ) -> Result<(), VmError> {
+        let InstructionData { a, b, c, .. } = instruction_data;
+        let first_argument_index = (a - c) as usize;
+        let argument_range = first_argument_index..a as usize;
+        let mut arguments: SmallVec<[ValueRef; 4]> = SmallVec::new();
+
+        for register_index in argument_range {
+            let register = &vm.stack[register_index];
+            let value = match register {
+                Register::Value(value) => value.to_ref(),
+                Register::Pointer(pointer) => {
+                    let value_option = vm.follow_pointer_allow_empty(*pointer)?;
+
+                    match value_option {
+                        Some(value) => value,
+                        None => continue,
+                    }
+                }
+                Register::Empty => continue,
+            };
+
+            arguments.push(value);
+        }
+
+        let function = NativeFunction::from(b);
+        let call_result = function.call(vm, arguments);
+        let return_value = match call_result {
+            Ok(value_option) => value_option,
+            Err(error) => return Err(VmError::NativeFunction(error)),
+        };
+
+        if let Some(value) = return_value {
+            let register = Register::Value(value);
+
+            vm.set_register(a, register)?;
+        }
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> Result<Option<ConcreteValue>, VmError> {
         loop {
             let instruction = self.read();
-            let InstructionData {
-                operation,
-                a,
-                b,
-                c,
-                b_is_constant,
-                c_is_constant,
-                d,
-            } = instruction.decode();
+            let (operation, instruction_data) = instruction.decode();
 
             log::info!(
                 "{} | {} | {} | {}",
@@ -83,474 +665,28 @@ impl<'a> Vm<'a> {
                 instruction.disassembly_info()
             );
 
-            match operation {
-                Operation::Move => {
-                    let Move { from, to } = Move::from(&instruction);
-                    let from_register_has_value = self
-                        .stack
-                        .get(from as usize)
-                        .is_some_and(|register| !matches!(register, Register::Empty));
-                    let register = Register::Pointer(Pointer::Stack(from));
+            if let Operation::Return = operation {
+                let should_return_value = instruction_data.b != 0;
 
-                    if from_register_has_value {
-                        self.set_register(to, register)?;
-                    }
+                if !should_return_value {
+                    return Ok(None);
                 }
-                Operation::Close => {
-                    let Close { from, to } = Close::from(&instruction);
 
-                    if self.stack.len() < to as usize {
-                        return Err(VmError::StackUnderflow {
-                            position: self.current_position(),
-                        });
-                    }
+                return if let Some(register_index) = &self.last_assigned_register {
+                    let return_value = self
+                        .open_register(*register_index)?
+                        .into_concrete_owned(self)?;
 
-                    for register_index in from..to {
-                        self.stack[register_index as usize] = Register::Empty;
-                    }
-                }
-                Operation::LoadBoolean => {
-                    let LoadBoolean {
-                        destination,
-                        value,
-                        jump_next,
-                    } = LoadBoolean::from(&instruction);
-                    let boolean = ConcreteValue::Boolean(value).to_value();
-                    let register = Register::Value(boolean);
-
-                    self.set_register(destination, register)?;
-
-                    if jump_next {
-                        self.jump(1, true);
-                    }
-                }
-                Operation::LoadConstant => {
-                    let register = Register::Pointer(Pointer::Constant(b));
-
-                    self.set_register(a, register)?;
-
-                    if c != 0 {
-                        self.jump(1, true);
-                    }
-                }
-                Operation::LoadList => {
-                    let LoadList {
-                        destination,
-                        start_register,
-                    } = LoadList::from(&instruction);
-                    let mut pointers = Vec::new();
-
-                    for register in start_register..destination {
-                        if let Some(Register::Empty) = self.stack.get(register as usize) {
-                            continue;
-                        }
-
-                        let pointer = Pointer::Stack(register);
-
-                        pointers.push(pointer);
-                    }
-
-                    let register = Register::Value(
-                        AbstractValue::List {
-                            item_pointers: pointers,
-                        }
-                        .to_value(),
-                    );
-
-                    self.set_register(destination, register)?;
-                }
-                Operation::LoadSelf => {
-                    let LoadSelf { destination } = LoadSelf::from(&instruction);
-                    let register = Register::Value(AbstractValue::FunctionSelf.to_value());
-
-                    self.set_register(destination, register)?;
-                }
-                Operation::GetLocal => {
-                    let GetLocal {
-                        destination,
-                        local_index,
-                    } = GetLocal::from(&instruction);
-                    let local_register = self.get_local_register(local_index)?;
-                    let register = Register::Pointer(Pointer::Stack(local_register));
-
-                    self.set_register(destination, register)?;
-                }
-                Operation::SetLocal => {
-                    let SetLocal {
-                        register_index,
-                        local_index,
-                    } = SetLocal::from(&instruction);
-                    let local_register_index = self.get_local_register(local_index)?;
-                    let register = Register::Pointer(Pointer::Stack(register_index));
-
-                    self.set_register(local_register_index, register)?;
-                }
-                Operation::Add => {
-                    let left = if b_is_constant {
-                        self.get_constant(b).to_value_ref()
-                    } else {
-                        self.open_register(b)?
-                    };
-                    let right = if c_is_constant {
-                        self.get_constant(c).to_value_ref()
-                    } else {
-                        self.open_register(c)?
-                    };
-                    let sum_result = left.add(right);
-                    let sum = match sum_result {
-                        Ok(sum) => sum,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-
-                    self.set_register(a, Register::Value(sum))?;
-                }
-                Operation::Subtract => {
-                    let left = self.get_argument(b, b_is_constant)?;
-                    let right = self.get_argument(c, c_is_constant)?;
-                    let subtraction_result = left.subtract(right);
-                    let difference = match subtraction_result {
-                        Ok(difference) => difference,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-
-                    self.set_register(a, Register::Value(difference))?;
-                }
-                Operation::Multiply => {
-                    let left = self.get_argument(b, b_is_constant)?;
-                    let right = self.get_argument(c, c_is_constant)?;
-                    let multiplication_result = left.multiply(right);
-                    let product = match multiplication_result {
-                        Ok(product) => product,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-
-                    self.set_register(a, Register::Value(product))?;
-                }
-                Operation::Divide => {
-                    let Divide {
-                        destination,
-                        left,
-                        right,
-                    } = Divide::from(&instruction);
-                    let left = self.get_argument(b, b_is_constant)?;
-                    let right = self.get_argument(c, c_is_constant)?;
-                    let division_result = left.divide(right);
-                    let quotient = match division_result {
-                        Ok(quotient) => quotient,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-
-                    self.set_register(destination, Register::Value(quotient))?;
-                }
-                Operation::Modulo => {
-                    let Modulo {
-                        destination,
-                        left,
-                        right,
-                    } = Modulo::from(&instruction);
-                    let left = self.get_argument(b, b_is_constant)?;
-                    let right = self.get_argument(c, c_is_constant)?;
-                    let modulo_result = left.modulo(right);
-                    let remainder = match modulo_result {
-                        Ok(remainder) => remainder,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-
-                    self.set_register(destination, Register::Value(remainder))?;
-                }
-                Operation::Test => {
-                    let value = if b_is_constant {
-                        self.get_constant(b).to_value_ref()
-                    } else {
-                        self.open_register(b)?
-                    };
-                    let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
-                    {
-                        *boolean
-                    } else {
-                        return Err(VmError::ExpectedBoolean {
-                            found: value.to_owned(),
-                            position: self.current_position(),
-                        });
-                    };
-
-                    if boolean == (c != 0) {
-                        self.jump(1, true);
-                    }
-                }
-                Operation::TestSet => {
-                    let value = self.get_argument(b, b_is_constant)?;
-                    let boolean = if let ValueRef::Concrete(ConcreteValue::Boolean(boolean)) = value
-                    {
-                        *boolean
-                    } else {
-                        return Err(VmError::ExpectedBoolean {
-                            found: value.to_owned(),
-                            position: self.current_position(),
-                        });
-                    };
-                    let test_value = c != 0;
-
-                    if boolean == test_value {
-                        self.jump(1, true);
-                    } else {
-                        let pointer = if b_is_constant {
-                            Pointer::Constant(b)
-                        } else {
-                            Pointer::Stack(b)
-                        };
-                        let register = Register::Pointer(pointer);
-
-                        self.set_register(a, register)?;
-                    }
-                }
-                Operation::Equal => {
-                    let left = self.get_argument(b, b_is_constant)?;
-                    let right = self.get_argument(c, c_is_constant)?;
-                    let equal_result = left.equal(right).map_err(|error| VmError::Value {
-                        error,
+                    Ok(Some(return_value))
+                } else {
+                    Err(VmError::StackUnderflow {
                         position: self.current_position(),
-                    })?;
-                    let is_equal =
-                        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = equal_result {
-                            boolean
-                        } else {
-                            return Err(VmError::ExpectedBoolean {
-                                found: equal_result,
-                                position: self.current_position(),
-                            });
-                        };
-                    let comparison = is_equal == d;
-                    let register =
-                        Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
+                    })
+                };
+            } else {
+                let runner = RUNNERS[operation as usize];
 
-                    self.set_register(a, register)?;
-                }
-                Operation::Less => {
-                    let left = if b_is_constant {
-                        self.get_constant(b).to_value_ref()
-                    } else {
-                        self.open_register(b)?
-                    };
-                    let right = if c_is_constant {
-                        self.get_constant(c).to_value_ref()
-                    } else {
-                        self.open_register(c)?
-                    };
-                    let less_result = left.less_than(right);
-                    let less_than_value = match less_result {
-                        Ok(value) => value,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-                    let is_less_than = match less_than_value {
-                        Value::Concrete(ConcreteValue::Boolean(boolean)) => boolean,
-                        _ => {
-                            return Err(VmError::ExpectedBoolean {
-                                found: less_than_value,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-                    let comparison = is_less_than == d;
-                    let register =
-                        Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
-
-                    self.set_register(a, register)?;
-                }
-                Operation::LessEqual => {
-                    let left = if b_is_constant {
-                        self.get_constant(b).to_value_ref()
-                    } else {
-                        self.open_register(b)?
-                    };
-                    let right = if c_is_constant {
-                        self.get_constant(c).to_value_ref()
-                    } else {
-                        self.open_register(c)?
-                    };
-                    let less_or_equal_result = left.less_than_or_equal(right);
-                    let less_or_equal_value = match less_or_equal_result {
-                        Ok(value) => value,
-                        Err(error) => {
-                            return Err(VmError::Value {
-                                error,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-                    let is_less_than_or_equal = match less_or_equal_value {
-                        Value::Concrete(ConcreteValue::Boolean(boolean)) => boolean,
-                        _ => {
-                            return Err(VmError::ExpectedBoolean {
-                                found: less_or_equal_value,
-                                position: self.current_position(),
-                            });
-                        }
-                    };
-                    let comparison = is_less_than_or_equal == d;
-                    let register =
-                        Register::Value(Value::Concrete(ConcreteValue::Boolean(comparison)));
-
-                    self.set_register(a, register)?;
-                }
-                Operation::Negate => {
-                    let value = self.get_argument(b, b_is_constant)?;
-                    let negated = value.negate().map_err(|error| VmError::Value {
-                        error,
-                        position: self.current_position(),
-                    })?;
-                    let register = Register::Value(negated);
-
-                    self.set_register(a, register)?;
-                }
-                Operation::Not => {
-                    let value = self.get_argument(b, b_is_constant)?;
-                    let not = value.not().map_err(|error| VmError::Value {
-                        error,
-                        position: self.current_position(),
-                    })?;
-                    let register = Register::Value(not);
-
-                    self.set_register(a, register)?;
-                }
-                Operation::Jump => {
-                    self.jump(b as usize, c != 0);
-                }
-                Operation::Call => {
-                    let function = self.get_argument(b, b_is_constant)?;
-                    let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = function
-                    {
-                        chunk
-                    } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = function {
-                        self.chunk
-                    } else {
-                        return Err(VmError::ExpectedFunction {
-                            found: function.into_concrete_owned(self)?,
-                            position: self.current_position(),
-                        });
-                    };
-                    let mut function_vm = Vm::new(self.source, chunk, Some(self));
-                    let first_argument_index = a - c;
-                    let mut argument_index = 0;
-
-                    for argument_register_index in first_argument_index..a {
-                        let target_register_is_empty = matches!(
-                            self.stack[argument_register_index as usize],
-                            Register::Empty
-                        );
-
-                        if target_register_is_empty {
-                            continue;
-                        }
-
-                        function_vm.set_register(
-                            argument_index as u8,
-                            Register::Pointer(Pointer::ParentStack(argument_register_index)),
-                        )?;
-
-                        argument_index += 1;
-                    }
-
-                    let return_value = function_vm.run()?;
-
-                    if let Some(concrete_value) = return_value {
-                        let register = Register::Value(concrete_value.to_value());
-
-                        self.set_register(a, register)?;
-                    }
-                }
-                Operation::CallNative => {
-                    let CallNative {
-                        destination,
-                        function,
-                        argument_count,
-                    } = CallNative::from(&instruction);
-                    let first_argument_index = (destination - argument_count) as usize;
-                    let argument_range = first_argument_index..destination as usize;
-                    let mut arguments: SmallVec<[ValueRef; 4]> = SmallVec::new();
-
-                    for register_index in argument_range {
-                        let register = &self.stack[register_index];
-                        let value = match register {
-                            Register::Value(value) => value.to_ref(),
-                            Register::Pointer(pointer) => {
-                                let value_option = self.follow_pointer_allow_empty(*pointer)?;
-
-                                match value_option {
-                                    Some(value) => value,
-                                    None => continue,
-                                }
-                            }
-                            Register::Empty => continue,
-                        };
-
-                        arguments.push(value);
-                    }
-
-                    let call_result = function.call(self, arguments);
-                    let return_value = match call_result {
-                        Ok(value_option) => value_option,
-                        Err(error) => return Err(VmError::NativeFunction(error)),
-                    };
-
-                    if let Some(value) = return_value {
-                        let register = Register::Value(value);
-
-                        self.set_register(destination, register)?;
-                    }
-                }
-                Operation::Return => {
-                    let Return {
-                        should_return_value,
-                    } = Return::from(&instruction);
-
-                    if !should_return_value {
-                        return Ok(None);
-                    }
-
-                    return if let Some(register_index) = self.last_assigned_register {
-                        let return_value = self
-                            .open_register(register_index)?
-                            .into_concrete_owned(self)?;
-
-                        Ok(Some(return_value))
-                    } else {
-                        Err(VmError::StackUnderflow {
-                            position: self.current_position(),
-                        })
-                    };
-                }
-                _ => unreachable!(),
+                runner(self, instruction_data).unwrap();
             }
         }
     }
@@ -659,7 +795,7 @@ impl<'a> Vm<'a> {
     }
 
     /// DRY helper for handling JUMP instructions
-    fn jump(&mut self, offset: usize, is_positive: bool) {
+    fn jump_instructions(&mut self, offset: usize, is_positive: bool) {
         log::trace!(
             "Jumping {}",
             if is_positive {
@@ -899,5 +1035,50 @@ impl AnnotatedError for VmError {
 
     fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::any::Any;
+
+    use super::*;
+
+    const ALL_OPERATIONS: [(Operation, Runner); 23] = [
+        (Operation::Move, Vm::r#move),
+        (Operation::Close, Vm::close),
+        (Operation::LoadBoolean, Vm::load_boolean),
+        (Operation::LoadConstant, Vm::load_constant),
+        (Operation::LoadList, Vm::load_list),
+        (Operation::LoadSelf, Vm::load_self),
+        (Operation::GetLocal, Vm::get_local),
+        (Operation::SetLocal, Vm::set_local),
+        (Operation::Add, Vm::add),
+        (Operation::Subtract, Vm::subtract),
+        (Operation::Multiply, Vm::multiply),
+        (Operation::Divide, Vm::divide),
+        (Operation::Modulo, Vm::modulo),
+        (Operation::Test, Vm::test),
+        (Operation::TestSet, Vm::test_set),
+        (Operation::Equal, Vm::equal),
+        (Operation::Less, Vm::less),
+        (Operation::LessEqual, Vm::less_equal),
+        (Operation::Negate, Vm::negate),
+        (Operation::Not, Vm::not),
+        (Operation::Call, Vm::call),
+        (Operation::CallNative, Vm::call_native),
+        (Operation::Jump, Vm::jump),
+    ];
+
+    #[test]
+    fn operations_map_to_the_correct_runner() {
+        for (operation, expected_runner) in ALL_OPERATIONS {
+            let actual_runner = RUNNERS[operation as usize];
+
+            assert_eq!(
+                expected_runner, actual_runner,
+                "{operation} runner is incorrect"
+            );
+        }
     }
 }

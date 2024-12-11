@@ -154,7 +154,6 @@ pub struct Instruction(u32);
 
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct InstructionData {
-    pub operation: Operation,
     pub a: u8,
     pub b: u8,
     pub c: u8,
@@ -226,16 +225,18 @@ impl Instruction {
         self.0 = (self.0 & 0xFF00FFFF) | ((bits as u32) << 24);
     }
 
-    pub fn decode(self) -> InstructionData {
-        InstructionData {
-            operation: self.operation(),
-            a: self.a_field(),
-            b: self.b_field(),
-            c: self.c_field(),
-            b_is_constant: self.b_is_constant(),
-            c_is_constant: self.c_is_constant(),
-            d: self.d_field(),
-        }
+    pub fn decode(self) -> (Operation, InstructionData) {
+        (
+            self.operation(),
+            InstructionData {
+                a: self.a_field(),
+                b: self.b_field(),
+                c: self.c_field(),
+                b_is_constant: self.b_is_constant(),
+                c_is_constant: self.c_is_constant(),
+                d: self.d_field(),
+            },
+        )
     }
 
     pub fn r#move(from: u8, to: u8) -> Instruction {
@@ -498,7 +499,6 @@ impl Instruction {
             Operation::LoadBoolean
             | Operation::LoadConstant
             | Operation::LoadList
-            | Operation::LoadMap
             | Operation::LoadSelf
             | Operation::GetLocal
             | Operation::Add
@@ -506,7 +506,6 @@ impl Instruction {
             | Operation::Multiply
             | Operation::Divide
             | Operation::Modulo
-            | Operation::Power
             | Operation::Negate
             | Operation::Not
             | Operation::Equal

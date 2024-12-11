@@ -9,27 +9,25 @@ pub const CLOSE_BYTE: u8 = 1;
 pub const LOAD_BOOLEAN_BYTE: u8 = 2;
 pub const LOAD_CONSTANT_BYTE: u8 = 3;
 pub const LOAD_LIST_BYTE: u8 = 4;
-pub const LOAD_MAP_BYTE: u8 = 5;
-pub const LOAD_SELF_BYTE: u8 = 6;
-pub const GET_LOCAL_BYTE: u8 = 7;
-pub const SET_LOCAL_BYTE: u8 = 8;
-pub const ADD_BYTE: u8 = 9;
-pub const SUBTRACT_BYTE: u8 = 10;
-pub const MULTIPLY_BYTE: u8 = 11;
-pub const DIVIDE_BYTE: u8 = 12;
-pub const MODULO_BYTE: u8 = 13;
-pub const POWER_BYTE: u8 = 14;
-pub const TEST_BYTE: u8 = 15;
-pub const TEST_SET_BYTE: u8 = 16;
-pub const EQUAL_BYTE: u8 = 17;
-pub const LESS_BYTE: u8 = 18;
-pub const LESS_EQUAL_BYTE: u8 = 19;
-pub const NEGATE_BYTE: u8 = 20;
-pub const NOT_BYTE: u8 = 21;
-pub const CALL_BYTE: u8 = 22;
-pub const CALL_NATIVE_BYTE: u8 = 23;
-pub const JUMP_BYTE: u8 = 24;
-pub const RETURN_BYTE: u8 = 25;
+pub const LOAD_SELF_BYTE: u8 = 5;
+pub const GET_LOCAL_BYTE: u8 = 6;
+pub const SET_LOCAL_BYTE: u8 = 7;
+pub const ADD_BYTE: u8 = 8;
+pub const SUBTRACT_BYTE: u8 = 9;
+pub const MULTIPLY_BYTE: u8 = 10;
+pub const DIVIDE_BYTE: u8 = 11;
+pub const MODULO_BYTE: u8 = 12;
+pub const TEST_BYTE: u8 = 13;
+pub const TEST_SET_BYTE: u8 = 14;
+pub const EQUAL_BYTE: u8 = 15;
+pub const LESS_BYTE: u8 = 16;
+pub const LESS_EQUAL_BYTE: u8 = 17;
+pub const NEGATE_BYTE: u8 = 18;
+pub const NOT_BYTE: u8 = 19;
+pub const CALL_BYTE: u8 = 20;
+pub const CALL_NATIVE_BYTE: u8 = 21;
+pub const JUMP_BYTE: u8 = 22;
+pub const RETURN_BYTE: u8 = 23;
 
 /// Part of an [Instruction][crate::Instruction] that is encoded as a single byte.
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -40,7 +38,6 @@ pub enum Operation {
     LoadBoolean = LOAD_BOOLEAN_BYTE,
     LoadConstant = LOAD_CONSTANT_BYTE,
     LoadList = LOAD_LIST_BYTE,
-    LoadMap = LOAD_MAP_BYTE,
     LoadSelf = LOAD_SELF_BYTE,
     GetLocal = GET_LOCAL_BYTE,
     SetLocal = SET_LOCAL_BYTE,
@@ -49,7 +46,6 @@ pub enum Operation {
     Multiply = MULTIPLY_BYTE,
     Divide = DIVIDE_BYTE,
     Modulo = MODULO_BYTE,
-    Power = POWER_BYTE,
     Test = TEST_BYTE,
     TestSet = TEST_SET_BYTE,
     Equal = EQUAL_BYTE,
@@ -71,7 +67,6 @@ impl From<u8> for Operation {
             LOAD_BOOLEAN_BYTE => Self::LoadBoolean,
             LOAD_CONSTANT_BYTE => Self::LoadConstant,
             LOAD_LIST_BYTE => Self::LoadList,
-            LOAD_MAP_BYTE => Self::LoadMap,
             LOAD_SELF_BYTE => Self::LoadSelf,
             GET_LOCAL_BYTE => Self::GetLocal,
             SET_LOCAL_BYTE => Self::SetLocal,
@@ -80,7 +75,6 @@ impl From<u8> for Operation {
             MULTIPLY_BYTE => Self::Multiply,
             DIVIDE_BYTE => Self::Divide,
             MODULO_BYTE => Self::Modulo,
-            POWER_BYTE => Self::Power,
             TEST_BYTE => Self::Test,
             TEST_SET_BYTE => Self::TestSet,
             EQUAL_BYTE => Self::Equal,
@@ -111,7 +105,6 @@ impl Operation {
             Self::LoadBoolean => "LOAD_BOOLEAN",
             Self::LoadConstant => "LOAD_CONSTANT",
             Self::LoadList => "LOAD_LIST",
-            Self::LoadMap => "LOAD_MAP",
             Self::LoadSelf => "LOAD_SELF",
             Self::GetLocal => "GET_LOCAL",
             Self::SetLocal => "SET_LOCAL",
@@ -120,7 +113,6 @@ impl Operation {
             Self::Multiply => "MULTIPLY",
             Self::Divide => "DIVIDE",
             Self::Modulo => "MODULO",
-            Self::Power => "POWER",
             Self::Test => "TEST",
             Self::TestSet => "TEST_SET",
             Self::Equal => "EQUAL",
@@ -152,13 +144,12 @@ impl Display for Operation {
 mod tests {
     use super::*;
 
-    const ALL_OPERATIONS: [Operation; 26] = [
+    const ALL_OPERATIONS: [Operation; 24] = [
         Operation::Move,
         Operation::Close,
         Operation::LoadBoolean,
         Operation::LoadConstant,
         Operation::LoadList,
-        Operation::LoadMap,
         Operation::LoadSelf,
         Operation::GetLocal,
         Operation::SetLocal,
@@ -167,7 +158,6 @@ mod tests {
         Operation::Multiply,
         Operation::Divide,
         Operation::Modulo,
-        Operation::Power,
         Operation::Test,
         Operation::TestSet,
         Operation::Equal,
