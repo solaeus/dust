@@ -655,7 +655,7 @@ impl Instruction {
                 if is_positive {
                     format!("JUMP +{offset}")
                 } else {
-                    format!("JUMP -{offset}")
+                    format!("JUMP -{}", offset - 1)
                 }
             }
             Operation::Call => {

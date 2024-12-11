@@ -4,7 +4,8 @@ use std::{
     io,
 };
 
-use smallvec::{smallvec, SmallVec};
+use slab::Slab;
+use smallvec::SmallVec;
 
 use crate::{
     compile, instruction::*, AbstractValue, AnnotatedError, Argument, Chunk, ConcreteValue,
@@ -23,7 +24,7 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Debug)]
 pub struct Vm<'a> {
-    stack: SmallVec<[Register; 64]>,
+    stack: Slab<Register>,
 
     chunk: &'a Chunk,
     parent: Option<&'a Vm<'a>>,
@@ -35,9 +36,15 @@ pub struct Vm<'a> {
 
 impl<'a> Vm<'a> {
     pub fn new(source: &'a str, chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
+        let mut stack = Slab::with_capacity(chunk.stack_size());
+
+        for _ in 0..chunk.stack_size() {
+            stack.insert(Register::Empty);
+        }
+
         Self {
             chunk,
-            stack: smallvec![Register::Empty; chunk.stack_size()],
+            stack,
             parent,
             ip: 0,
             last_assigned_register: None,
@@ -511,10 +518,10 @@ impl<'a> Vm<'a> {
                     } = CallNative::from(&instruction);
                     let first_argument_index = (destination - argument_count) as usize;
                     let argument_range = first_argument_index..destination as usize;
-                    let argument_registers = &self.stack[argument_range];
                     let mut arguments: SmallVec<[ValueRef; 4]> = SmallVec::new();
 
-                    for register in argument_registers {
+                    for register_index in argument_range {
+                        let register = &self.stack[register_index];
                         let value = match register {
                             Register::Value(value) => value.to_ref(),
                             Register::Pointer(pointer) => {
@@ -639,23 +646,20 @@ impl<'a> Vm<'a> {
     fn open_register(&self, register_index: u8) -> Result<ValueRef, VmError> {
         let register_index = register_index as usize;
 
-        assert!(
-            register_index < self.stack.len(),
-            "VM Error: Register index out of bounds"
-        );
+        if register_index < self.stack.len() {
+            let register = &self.stack[register_index];
 
-        let register = &self.stack[register_index];
-
-        log::trace!("Open R{register_index} to {register}");
-
-        match register {
-            Register::Value(value) => Ok(value.to_ref()),
-            Register::Pointer(pointer) => self.follow_pointer(*pointer),
-            Register::Empty => Err(VmError::EmptyRegister {
-                index: register_index,
-                position: self.current_position(),
-            }),
+            return match register {
+                Register::Value(value) => Ok(value.to_ref()),
+                Register::Pointer(pointer) => self.follow_pointer(*pointer),
+                Register::Empty => Err(VmError::EmptyRegister {
+                    index: register_index,
+                    position: self.current_position(),
+                }),
+            };
         }
+
+        panic!("VM Error: Register index out of bounds");
     }
 
     fn open_register_allow_empty(&self, register_index: u8) -> Result<Option<ValueRef>, VmError> {
@@ -688,12 +692,11 @@ impl<'a> Vm<'a> {
             }
         );
 
-        let new_ip = if is_positive {
-            self.ip + offset
+        if is_positive {
+            self.ip += offset
         } else {
-            self.ip - offset - 1
-        };
-        self.ip = new_ip;
+            self.ip -= offset + 1
+        }
     }
 
     /// DRY helper to get a value from an Argument
@@ -708,71 +711,55 @@ impl<'a> Vm<'a> {
         Ok(value_ref)
     }
 
-    #[inline(always)]
     fn set_register(&mut self, to_register: u8, register: Register) -> Result<(), VmError> {
         self.last_assigned_register = Some(to_register);
-
         let to_register = to_register as usize;
 
-        assert!(
-            self.stack.len() > to_register,
-            "VM Error: Register index out of bounds"
-        );
+        if to_register < self.stack.len() {
+            self.stack[to_register] = register;
 
-        self.stack[to_register] = register;
+            return Ok(());
+        }
 
-        Ok(())
+        panic!("VM Error: Register index out of bounds");
     }
 
-    #[inline(always)]
     fn get_constant(&self, constant_index: u8) -> &ConcreteValue {
         let constant_index = constant_index as usize;
-        let constants = self.chunk.constants();
+        let constants = self.chunk.constants().as_slice();
 
-        assert!(
-            constant_index < constants.len(),
-            "VM Error: Constant index out of bounds"
-        );
+        if constant_index < constants.len() {
+            return &constants[constant_index];
+        }
 
-        &constants[constant_index]
+        panic!("VM Error: Constant index out of bounds");
     }
 
-    #[inline(always)]
     fn get_local_register(&self, local_index: u8) -> Result<u8, VmError> {
         let local_index = local_index as usize;
-        let locals = self.chunk.locals();
+        let locals = self.chunk.locals().as_slice();
 
-        assert!(
-            local_index < locals.len(),
-            "VM Error: Local index out of bounds"
-        );
+        if local_index < locals.len() {
+            let register_index = locals[local_index].register_index;
 
-        let register_index = locals[local_index].register_index;
+            return Ok(register_index);
+        }
 
-        Ok(register_index)
+        panic!("VM Error: Local index out of bounds");
     }
 
-    #[inline(always)]
     fn read(&mut self) -> Instruction {
-        let instructions = self.chunk.instructions();
+        let instructions = self.chunk.instructions().as_slice();
 
-        assert!(
-            self.ip < instructions.len(),
-            "{}",
-            DustError::runtime(
-                VmError::InstructionIndexOutOfBounds {
-                    index: self.ip,
-                    position: self.current_position()
-                },
-                self.source,
-            )
-        );
+        if self.ip < instructions.len() {
+            let (instruction, _) = instructions[self.ip];
 
-        let (instruction, _) = instructions[self.ip];
+            self.ip += 1;
 
-        self.ip += 1;
+            return instruction;
+        }
 
-        instruction
+        panic!("VM Error: Instruction pointer out of bounds");
     }
 }
 

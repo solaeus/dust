@@ -196,9 +196,9 @@ fn main() {
         }
     }
 
+    let chunk = compiler.finish(None, None);
     let compile_end = start_time.elapsed();
 
-    let chunk = compiler.finish(None, None);
     let mut vm = Vm::new(&source, &chunk, None);
 
     match vm.run() {
