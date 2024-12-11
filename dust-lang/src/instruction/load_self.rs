@@ -14,7 +14,7 @@ impl From<&Instruction> for LoadSelf {
 
 impl From<LoadSelf> for Instruction {
     fn from(load_self: LoadSelf) -> Self {
-        let operation = Operation::LoadSelf;
+        let operation = Operation::LOAD_SELF;
         let a = load_self.destination;
 
         Instruction::new(operation, a, 0, 0, false, false, false)

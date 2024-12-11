@@ -19,7 +19,7 @@ impl From<&Instruction> for Negate {
 
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
-        let operation = Operation::Negate;
+        let operation = Operation::NEGATE;
         let a = negate.destination;
         let (b, b_is_constant) = negate.argument.as_index_and_constant_flag();
         let c = 0;

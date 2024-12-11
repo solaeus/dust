@@ -16,7 +16,7 @@ impl From<&Instruction> for Move {
 
 impl From<Move> for Instruction {
     fn from(r#move: Move) -> Self {
-        let operation = Operation::Move;
+        let operation = Operation::MOVE;
         let b = r#move.from;
         let c = r#move.to;
 

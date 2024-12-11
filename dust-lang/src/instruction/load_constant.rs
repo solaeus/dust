@@ -22,7 +22,7 @@ impl From<&Instruction> for LoadConstant {
 
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
-        let operation = Operation::LoadConstant;
+        let operation = Operation::LOAD_CONSTANT;
         let a = load_constant.destination;
         let b = load_constant.constant_index;
         let c = load_constant.jump_next as u8;

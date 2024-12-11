@@ -21,7 +21,7 @@ impl From<&Instruction> for CallNative {
 
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
-        let operation = Operation::CallNative;
+        let operation = Operation::CALL_NATIVE;
         let a = call_native.destination;
         let b = call_native.function as u8;
         let c = call_native.argument_count;

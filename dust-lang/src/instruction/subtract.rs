@@ -21,7 +21,7 @@ impl From<&Instruction> for Subtract {
 
 impl From<Subtract> for Instruction {
     fn from(subtract: Subtract) -> Self {
-        let operation = Operation::Subtract;
+        let operation = Operation::SUBTRACT;
         let a = subtract.destination;
         let (b, b_is_constant) = subtract.left.as_index_and_constant_flag();
         let (c, c_is_constant) = subtract.right.as_index_and_constant_flag();

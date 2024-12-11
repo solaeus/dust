@@ -301,7 +301,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
-        let mut n_operations = [Operation::Return; COUNT];
+        let mut n_operations = [Operation::RETURN; COUNT];
 
         for (nth, operation) in n_operations.iter_mut().rev().zip(
             self.instructions
@@ -338,14 +338,14 @@ impl<'src> Compiler<'src> {
 
             let operation = instruction.operation();
 
-            if let Operation::LoadList = operation {
+            if let Operation::LOAD_LIST = operation {
                 let LoadList { start_register, .. } = LoadList::from(instruction);
                 let item_type = self.get_register_type(start_register)?;
 
                 return Ok(Type::List(Box::new(item_type)));
             }
 
-            if let Operation::LoadSelf = operation {
+            if let Operation::LOAD_SELF = operation {
                 return Ok(Type::SelfChunk);
             }
 
@@ -612,28 +612,28 @@ impl<'src> Compiler<'src> {
         instruction: &Instruction,
     ) -> Result<(Argument, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
-            Operation::LoadConstant => (Argument::Constant(instruction.b_field()), false),
-            Operation::GetLocal => {
+            Operation::LOAD_CONSTANT => (Argument::Constant(instruction.b_field()), false),
+            Operation::GET_LOCAL => {
                 let local_index = instruction.b_field();
                 let (local, _) = self.get_local(local_index)?;
 
                 (Argument::Register(local.register_index), false)
             }
-            Operation::LoadBoolean
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::Add
-            | Operation::Subtract
-            | Operation::Multiply
-            | Operation::Divide
-            | Operation::Modulo
-            | Operation::Equal
-            | Operation::Less
-            | Operation::LessEqual
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Call => (Argument::Register(instruction.a_field()), true),
-            Operation::CallNative => {
+            Operation::LOAD_BOOLEAN
+            | Operation::LOAD_LIST
+            | Operation::LOAD_SELF
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::EQUAL
+            | Operation::LESS
+            | Operation::LESS_EQUAL
+            | Operation::NEGATE
+            | Operation::NOT
+            | Operation::CALL => (Argument::Register(instruction.a_field()), true),
+            Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(instruction.b_field());
 
                 if function.returns_value() {
@@ -665,7 +665,7 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
-        let left_is_mutable_local = if let Operation::GetLocal = left_instruction.operation() {
+        let left_is_mutable_local = if let Operation::GET_LOCAL = left_instruction.operation() {
             let GetLocal { local_index, .. } = GetLocal::from(&left_instruction);
 
             self.locals
@@ -812,7 +812,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some([Operation::Equal | Operation::Less | Operation::LessEqual, _, _]) =
+        if let Some([Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL, _, _]) =
             self.get_last_operations()
         {
             return Err(CompileError::CannotChainComparison {
@@ -886,7 +886,7 @@ impl<'src> Compiler<'src> {
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
         let is_logic_chain = matches!(
             self.get_last_operations(),
-            Some([Operation::Test, Operation::Jump, _])
+            Some([Operation::TEST, Operation::JUMP, _])
         );
 
         let (mut left_instruction, left_type, left_position) = self.pop_last_instruction()?;
@@ -1204,7 +1204,7 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some([Operation::LoadBoolean | Operation::LoadConstant]) =
+                if let Some([Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT]) =
                     self.get_last_operations()
                 {
                     let (mut loader, _, _) = self.instructions.last_mut().unwrap();
@@ -1291,10 +1291,10 @@ impl<'src> Compiler<'src> {
         if matches!(
             self.get_last_operations(),
             Some([
-                Operation::Equal | Operation::Less | Operation::LessEqual,
-                Operation::Jump,
-                Operation::LoadBoolean,
-                Operation::LoadBoolean,
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::JUMP,
+                Operation::LOAD_BOOLEAN,
+                Operation::LOAD_BOOLEAN,
             ],)
         ) {
             self.instructions.pop();

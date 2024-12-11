@@ -19,7 +19,7 @@ impl From<&Instruction> for LoadList {
 
 impl From<LoadList> for Instruction {
     fn from(load_list: LoadList) -> Self {
-        let operation = Operation::LoadList;
+        let operation = Operation::LOAD_LIST;
         let a = load_list.destination;
         let b = load_list.start_register;
 

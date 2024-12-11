@@ -90,6 +90,7 @@ impl<'a> Vm<'a> {
         position
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn r#move<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -108,6 +109,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn close<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData { b, c, .. } = instruction_data;
 
@@ -124,6 +126,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn load_boolean<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -141,6 +144,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn load_constant<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -157,6 +161,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn load_list<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -181,6 +186,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn load_self<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -191,6 +197,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn get_local<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -202,6 +209,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn set_local<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -213,6 +221,7 @@ impl<'a> Vm<'a> {
         vm.set_register(local_register_index, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn add<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             a,
@@ -239,6 +248,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn subtract<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -268,6 +278,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn multiply<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -297,6 +308,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn divide<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -326,6 +338,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn modulo<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -355,6 +368,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn test<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             b,
@@ -380,6 +394,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn test_set<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -418,6 +433,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             a,
@@ -448,6 +464,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn less<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             a,
@@ -478,6 +495,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn less_equal<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -513,6 +531,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn negate<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -533,6 +552,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn not<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             a,
@@ -550,6 +570,7 @@ impl<'a> Vm<'a> {
         vm.set_register(a, register)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn jump<'b, 'c>(vm: &mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData { b, c, .. } = instruction_data;
         let is_positive = c != 0;
@@ -559,6 +580,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) -> Result<(), VmError> {
         let InstructionData {
             a,
@@ -609,6 +631,7 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn call_native<'b, 'c>(
         vm: &'b mut Vm<'c>,
         instruction_data: InstructionData,
@@ -665,7 +688,7 @@ impl<'a> Vm<'a> {
                 instruction.disassembly_info()
             );
 
-            if let Operation::Return = operation {
+            if let Operation::RETURN = operation {
                 let should_return_value = instruction_data.b != 0;
 
                 if !should_return_value {
@@ -684,7 +707,7 @@ impl<'a> Vm<'a> {
                     })
                 };
             } else {
-                let runner = RUNNERS[operation as usize];
+                let runner = RUNNERS[operation.0 as usize];
 
                 runner(self, instruction_data).unwrap();
             }
@@ -1045,35 +1068,35 @@ mod tests {
     use super::*;
 
     const ALL_OPERATIONS: [(Operation, Runner); 23] = [
-        (Operation::Move, Vm::r#move),
-        (Operation::Close, Vm::close),
-        (Operation::LoadBoolean, Vm::load_boolean),
-        (Operation::LoadConstant, Vm::load_constant),
-        (Operation::LoadList, Vm::load_list),
-        (Operation::LoadSelf, Vm::load_self),
-        (Operation::GetLocal, Vm::get_local),
-        (Operation::SetLocal, Vm::set_local),
-        (Operation::Add, Vm::add),
-        (Operation::Subtract, Vm::subtract),
-        (Operation::Multiply, Vm::multiply),
-        (Operation::Divide, Vm::divide),
-        (Operation::Modulo, Vm::modulo),
-        (Operation::Test, Vm::test),
-        (Operation::TestSet, Vm::test_set),
-        (Operation::Equal, Vm::equal),
-        (Operation::Less, Vm::less),
-        (Operation::LessEqual, Vm::less_equal),
-        (Operation::Negate, Vm::negate),
-        (Operation::Not, Vm::not),
-        (Operation::Call, Vm::call),
-        (Operation::CallNative, Vm::call_native),
-        (Operation::Jump, Vm::jump),
+        (Operation::MOVE, Vm::r#move),
+        (Operation::CLOSE, Vm::close),
+        (Operation::LOAD_BOOLEAN, Vm::load_boolean),
+        (Operation::LOAD_CONSTANT, Vm::load_constant),
+        (Operation::LOAD_LIST, Vm::load_list),
+        (Operation::LOAD_SELF, Vm::load_self),
+        (Operation::GET_LOCAL, Vm::get_local),
+        (Operation::SET_LOCAL, Vm::set_local),
+        (Operation::ADD, Vm::add),
+        (Operation::SUBTRACT, Vm::subtract),
+        (Operation::MULTIPLY, Vm::multiply),
+        (Operation::DIVIDE, Vm::divide),
+        (Operation::MODULO, Vm::modulo),
+        (Operation::TEST, Vm::test),
+        (Operation::TEST_SET, Vm::test_set),
+        (Operation::EQUAL, Vm::equal),
+        (Operation::LESS, Vm::less),
+        (Operation::LESS_EQUAL, Vm::less_equal),
+        (Operation::NEGATE, Vm::negate),
+        (Operation::NOT, Vm::not),
+        (Operation::CALL, Vm::call),
+        (Operation::CALL_NATIVE, Vm::call_native),
+        (Operation::JUMP, Vm::jump),
     ];
 
     #[test]
     fn operations_map_to_the_correct_runner() {
         for (operation, expected_runner) in ALL_OPERATIONS {
-            let actual_runner = RUNNERS[operation as usize];
+            let actual_runner = RUNNERS[operation.0 as usize];
 
             assert_eq!(
                 expected_runner, actual_runner,

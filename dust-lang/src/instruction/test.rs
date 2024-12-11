@@ -19,7 +19,7 @@ impl From<&Instruction> for Test {
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        let operation = Operation::Test;
+        let operation = Operation::TEST;
         let (b, b_is_constant) = test.argument.as_index_and_constant_flag();
         let c = test.test_value as u8;
 

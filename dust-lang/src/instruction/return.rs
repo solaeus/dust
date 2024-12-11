@@ -16,7 +16,7 @@ impl From<&Instruction> for Return {
 
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
-        let operation = Operation::Return;
+        let operation = Operation::RETURN;
         let b = r#return.should_return_value as u8;
 
         Instruction::new(operation, 0, b, 0, false, false, false)

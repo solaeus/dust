@@ -21,7 +21,7 @@ impl From<&Instruction> for Add {
 
 impl From<Add> for Instruction {
     fn from(add: Add) -> Self {
-        let operation = Operation::Add;
+        let operation = Operation::ADD;
         let a = add.destination;
         let (b, b_is_constant) = add.left.as_index_and_constant_flag();
         let (c, c_is_constant) = add.right.as_index_and_constant_flag();

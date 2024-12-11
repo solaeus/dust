@@ -172,7 +172,7 @@ impl Instruction {
         c_is_constant: bool,
         d: bool,
     ) -> Instruction {
-        let bits = operation as u32
+        let bits = operation.0 as u32
             | ((b_is_constant as u32) << 5)
             | ((c_is_constant as u32) << 6)
             | ((d as u32) << 7)
@@ -186,7 +186,7 @@ impl Instruction {
     pub fn operation(&self) -> Operation {
         let operation_bits = self.0 & 0b0001_1111;
 
-        Operation::from(operation_bits as u8)
+        Operation(operation_bits as u8)
     }
 
     pub fn b_is_constant(&self) -> bool {
@@ -425,40 +425,40 @@ impl Instruction {
     pub fn is_math(&self) -> bool {
         matches!(
             self.operation(),
-            Operation::Add
-                | Operation::Subtract
-                | Operation::Multiply
-                | Operation::Divide
-                | Operation::Modulo
+            Operation::ADD
+                | Operation::SUBTRACT
+                | Operation::MULTIPLY
+                | Operation::DIVIDE
+                | Operation::MODULO
         )
     }
 
     pub fn is_comparison(&self) -> bool {
         matches!(
             self.operation(),
-            Operation::Equal | Operation::Less | Operation::LessEqual
+            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
         )
     }
 
     pub fn as_argument(&self) -> Option<Argument> {
         match self.operation() {
-            Operation::LoadConstant => Some(Argument::Constant(self.b_field())),
-            Operation::LoadBoolean
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::GetLocal
-            | Operation::Add
-            | Operation::Subtract
-            | Operation::Multiply
-            | Operation::Divide
-            | Operation::Modulo
-            | Operation::Equal
-            | Operation::Less
-            | Operation::LessEqual
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Call => Some(Argument::Register(self.a_field())),
-            Operation::CallNative => {
+            Operation::LOAD_CONSTANT => Some(Argument::Constant(self.b_field())),
+            Operation::LOAD_BOOLEAN
+            | Operation::LOAD_LIST
+            | Operation::LOAD_SELF
+            | Operation::GET_LOCAL
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::EQUAL
+            | Operation::LESS
+            | Operation::LESS_EQUAL
+            | Operation::NEGATE
+            | Operation::NOT
+            | Operation::CALL => Some(Argument::Register(self.a_field())),
+            Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
 
                 if function.returns_value() {
@@ -496,50 +496,51 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::LoadBoolean
-            | Operation::LoadConstant
-            | Operation::LoadList
-            | Operation::LoadSelf
-            | Operation::GetLocal
-            | Operation::Add
-            | Operation::Subtract
-            | Operation::Multiply
-            | Operation::Divide
-            | Operation::Modulo
-            | Operation::Negate
-            | Operation::Not
-            | Operation::Equal
-            | Operation::Less
-            | Operation::LessEqual
-            | Operation::Call => true,
-            Operation::CallNative => {
+            Operation::LOAD_BOOLEAN
+            | Operation::LOAD_CONSTANT
+            | Operation::LOAD_LIST
+            | Operation::LOAD_SELF
+            | Operation::GET_LOCAL
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::NEGATE
+            | Operation::NOT
+            | Operation::EQUAL
+            | Operation::LESS
+            | Operation::LESS_EQUAL
+            | Operation::CALL => true,
+            Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
 
                 function.returns_value()
             }
-            Operation::Move
-            | Operation::Close
-            | Operation::SetLocal
-            | Operation::Test
-            | Operation::TestSet
-            | Operation::Jump
-            | Operation::Return => false,
+            Operation::MOVE
+            | Operation::CLOSE
+            | Operation::SET_LOCAL
+            | Operation::TEST
+            | Operation::TEST_SET
+            | Operation::JUMP
+            | Operation::RETURN => false,
+            _ => Operation::panic_from_unknown_code(self.operation().0),
         }
     }
 
     pub fn disassembly_info(&self) -> String {
         match self.operation() {
-            Operation::Move => {
+            Operation::MOVE => {
                 let Move { from, to } = Move::from(self);
 
                 format!("R{to} = R{from}")
             }
-            Operation::Close => {
+            Operation::CLOSE => {
                 let Close { from, to } = Close::from(self);
 
                 format!("R{from}..R{to}")
             }
-            Operation::LoadBoolean => {
+            Operation::LOAD_BOOLEAN => {
                 let LoadBoolean {
                     destination,
                     value,
@@ -552,7 +553,7 @@ impl Instruction {
                     format!("R{destination} = {value}")
                 }
             }
-            Operation::LoadConstant => {
+            Operation::LOAD_CONSTANT => {
                 let LoadConstant {
                     destination,
                     constant_index,
@@ -565,7 +566,7 @@ impl Instruction {
                     format!("R{destination} = C{constant_index}")
                 }
             }
-            Operation::LoadList => {
+            Operation::LOAD_LIST => {
                 let LoadList {
                     destination,
                     start_register,
@@ -574,12 +575,12 @@ impl Instruction {
 
                 format!("R{destination} = [R{start_register}..=R{end_register}]",)
             }
-            Operation::LoadSelf => {
+            Operation::LOAD_SELF => {
                 let LoadSelf { destination } = LoadSelf::from(self);
 
                 format!("R{destination} = self")
             }
-            Operation::GetLocal => {
+            Operation::GET_LOCAL => {
                 let GetLocal {
                     destination,
                     local_index,
@@ -587,7 +588,7 @@ impl Instruction {
 
                 format!("R{destination} = L{local_index}")
             }
-            Operation::SetLocal => {
+            Operation::SET_LOCAL => {
                 let SetLocal {
                     register_index,
                     local_index,
@@ -595,7 +596,7 @@ impl Instruction {
 
                 format!("L{local_index} = R{register_index}")
             }
-            Operation::Add => {
+            Operation::ADD => {
                 let Add {
                     destination,
                     left,
@@ -604,7 +605,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} + {right}")
             }
-            Operation::Subtract => {
+            Operation::SUBTRACT => {
                 let Subtract {
                     destination,
                     left,
@@ -613,7 +614,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} - {right}")
             }
-            Operation::Multiply => {
+            Operation::MULTIPLY => {
                 let Multiply {
                     destination,
                     left,
@@ -622,7 +623,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} * {right}")
             }
-            Operation::Divide => {
+            Operation::DIVIDE => {
                 let Divide {
                     destination,
                     left,
@@ -631,7 +632,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} / {right}")
             }
-            Operation::Modulo => {
+            Operation::MODULO => {
                 let Modulo {
                     destination,
                     left,
@@ -640,7 +641,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} % {right}")
             }
-            Operation::Test => {
+            Operation::TEST => {
                 let Test {
                     argument,
                     test_value: value,
@@ -649,7 +650,7 @@ impl Instruction {
 
                 format!("if {bang}{argument} {{ JUMP +1 }}",)
             }
-            Operation::TestSet => {
+            Operation::TEST_SET => {
                 let TestSet {
                     destination,
                     argument,
@@ -659,7 +660,7 @@ impl Instruction {
 
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
             }
-            Operation::Equal => {
+            Operation::EQUAL => {
                 let Equal {
                     destination,
                     value,
@@ -670,7 +671,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} {comparison_symbol} {right}")
             }
-            Operation::Less => {
+            Operation::LESS => {
                 let Less {
                     destination,
                     value,
@@ -681,7 +682,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} {comparison_symbol} {right}")
             }
-            Operation::LessEqual => {
+            Operation::LESS_EQUAL => {
                 let LessEqual {
                     destination,
                     value,
@@ -692,7 +693,7 @@ impl Instruction {
 
                 format!("R{destination} = {left} {comparison_symbol} {right}")
             }
-            Operation::Negate => {
+            Operation::NEGATE => {
                 let Negate {
                     destination,
                     argument,
@@ -700,7 +701,7 @@ impl Instruction {
 
                 format!("R{destination} = -{argument}")
             }
-            Operation::Not => {
+            Operation::NOT => {
                 let Not {
                     destination,
                     argument,
@@ -708,7 +709,7 @@ impl Instruction {
 
                 format!("R{destination} = !{argument}")
             }
-            Operation::Jump => {
+            Operation::JUMP => {
                 let Jump {
                     offset,
                     is_positive,
@@ -720,7 +721,7 @@ impl Instruction {
                     format!("JUMP -{offset}")
                 }
             }
-            Operation::Call => {
+            Operation::CALL => {
                 let Call {
                     destination,
                     function,
@@ -737,7 +738,7 @@ impl Instruction {
                     }
                 }
             }
-            Operation::CallNative => {
+            Operation::CALL_NATIVE => {
                 let CallNative {
                     destination,
                     function,
@@ -763,7 +764,7 @@ impl Instruction {
 
                 info_string
             }
-            Operation::Return => {
+            Operation::RETURN => {
                 let Return {
                     should_return_value,
                 } = Return::from(self);

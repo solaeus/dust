@@ -24,7 +24,7 @@ impl From<&Instruction> for LessEqual {
 
 impl From<LessEqual> for Instruction {
     fn from(less_equal: LessEqual) -> Self {
-        let operation = Operation::LessEqual;
+        let operation = Operation::LESS_EQUAL;
         let a = less_equal.destination;
         let (b, b_options) = less_equal.left.as_index_and_constant_flag();
         let (c, c_options) = less_equal.right.as_index_and_constant_flag();

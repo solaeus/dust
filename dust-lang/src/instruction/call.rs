@@ -26,6 +26,6 @@ impl From<Call> for Instruction {
         let (b, b_is_constant) = call.function.as_index_and_constant_flag();
         let c = call.argument_count;
 
-        Instruction::new(Operation::Call, a, b, c, b_is_constant, false, false)
+        Instruction::new(Operation::CALL, a, b, c, b_is_constant, false, false)
     }
 }

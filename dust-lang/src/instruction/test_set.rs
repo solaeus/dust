@@ -22,7 +22,7 @@ impl From<&Instruction> for TestSet {
 
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
-        let operation = Operation::Test;
+        let operation = Operation::TEST;
         let a = test_set.destination;
         let (b, b_is_constant) = test_set.argument.as_index_and_constant_flag();
         let c = test_set.test_value as u8;

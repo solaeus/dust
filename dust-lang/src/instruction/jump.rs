@@ -16,7 +16,7 @@ impl From<&Instruction> for Jump {
 
 impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
-        let operation = Operation::Jump;
+        let operation = Operation::JUMP;
         let b = jump.offset;
         let c = jump.is_positive as u8;
 

@@ -22,7 +22,7 @@ impl From<&Instruction> for LoadBoolean {
 
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
-        let operation = Operation::LoadBoolean;
+        let operation = Operation::LOAD_BOOLEAN;
         let a = load_boolean.destination;
         let b = load_boolean.value as u8;
         let c = load_boolean.jump_next as u8;

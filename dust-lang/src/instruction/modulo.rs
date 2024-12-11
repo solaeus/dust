@@ -21,7 +21,7 @@ impl From<&Instruction> for Modulo {
 
 impl From<Modulo> for Instruction {
     fn from(modulo: Modulo) -> Self {
-        let operation = Operation::Modulo;
+        let operation = Operation::MODULO;
         let a = modulo.destination;
         let (b, b_is_constant) = modulo.left.as_index_and_constant_flag();
         let (c, c_is_constant) = modulo.right.as_index_and_constant_flag();

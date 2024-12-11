@@ -21,7 +21,7 @@ impl From<&Instruction> for Multiply {
 
 impl From<Multiply> for Instruction {
     fn from(multiply: Multiply) -> Self {
-        let operation = Operation::Multiply;
+        let operation = Operation::MULTIPLY;
         let a = multiply.destination;
         let (b, b_options) = multiply.left.as_index_and_constant_flag();
         let (c, c_options) = multiply.right.as_index_and_constant_flag();

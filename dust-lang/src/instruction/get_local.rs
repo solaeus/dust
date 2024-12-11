@@ -19,7 +19,7 @@ impl From<&Instruction> for GetLocal {
 
 impl From<GetLocal> for Instruction {
     fn from(get_local: GetLocal) -> Self {
-        let operation = Operation::GetLocal;
+        let operation = Operation::GET_LOCAL;
         let a = get_local.destination;
         let b = get_local.local_index;
 

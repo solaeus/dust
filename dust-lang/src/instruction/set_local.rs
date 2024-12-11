@@ -19,7 +19,7 @@ impl From<&Instruction> for SetLocal {
 
 impl From<SetLocal> for Instruction {
     fn from(set_local: SetLocal) -> Self {
-        let operation = Operation::SetLocal;
+        let operation = Operation::SET_LOCAL;
         let b = set_local.register_index;
         let c = set_local.local_index;
 

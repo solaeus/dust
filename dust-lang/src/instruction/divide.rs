@@ -21,7 +21,7 @@ impl From<&Instruction> for Divide {
 
 impl From<Divide> for Instruction {
     fn from(divide: Divide) -> Self {
-        let operation = Operation::Divide;
+        let operation = Operation::DIVIDE;
         let a = divide.destination;
         let (b, b_is_constant) = divide.left.as_index_and_constant_flag();
         let (c, c_is_constant) = divide.right.as_index_and_constant_flag();

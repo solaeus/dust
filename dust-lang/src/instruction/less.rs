@@ -24,7 +24,7 @@ impl From<&Instruction> for Less {
 
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
-        let operation = Operation::Less;
+        let operation = Operation::LESS;
         let a = less.destination;
         let (b, b_is_constant) = less.left.as_index_and_constant_flag();
         let (c, c_is_constant) = less.right.as_index_and_constant_flag();

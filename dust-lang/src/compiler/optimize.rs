@@ -29,11 +29,11 @@ pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
     if matches!(
         compiler.get_last_operations(),
         Some([
-            Operation::Equal | Operation::Less | Operation::LessEqual,
-            Operation::Test,
-            Operation::Jump,
-            Operation::LoadBoolean,
-            Operation::LoadBoolean,
+            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+            Operation::TEST,
+            Operation::JUMP,
+            Operation::LOAD_BOOLEAN,
+            Operation::LOAD_BOOLEAN,
         ])
     ) {
         log::debug!("Removing redundant test, jump and boolean loaders after comparison");
@@ -70,10 +70,10 @@ pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
     if !matches!(
         compiler.get_last_operations(),
         Some([
-            Operation::Test,
-            Operation::Jump,
-            Operation::LoadBoolean | Operation::LoadConstant,
-            Operation::LoadBoolean | Operation::LoadConstant,
+            Operation::TEST,
+            Operation::JUMP,
+            Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
+            Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
         ])
     ) {
         return;

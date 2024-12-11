@@ -19,7 +19,7 @@ impl From<&Instruction> for Not {
 
 impl From<Not> for Instruction {
     fn from(not: Not) -> Self {
-        let operation = Operation::Not;
+        let operation = Operation::NOT;
         let a = not.destination;
         let (b, b_is_constant) = not.argument.as_index_and_constant_flag();
 

@@ -24,7 +24,7 @@ impl From<&Instruction> for Equal {
 
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
-        let operation = Operation::Equal;
+        let operation = Operation::EQUAL;
         let a = equal.destination;
         let (b, b_is_constant) = equal.left.as_index_and_constant_flag();
         let (c, c_is_constant) = equal.right.as_index_and_constant_flag();

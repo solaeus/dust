@@ -16,7 +16,7 @@ impl From<&Instruction> for Close {
 
 impl From<Close> for Instruction {
     fn from(close: Close) -> Self {
-        let operation = Operation::Close;
+        let operation = Operation::CLOSE;
         let (a, b, c) = (0, close.from, close.to);
 
         Instruction::new(operation, a, b, c, false, false, false)
