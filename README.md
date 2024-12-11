@@ -19,6 +19,36 @@ approach to syntax that offers flexibility and expressiveness while still being 
 audience of programmers, even those who don't know the language. Dust is for programmers who prefer
 their code to be simple and clear rather than complex and clever.
 
+```rust
+write_line("Enter your name...")
+
+let name = read_line()
+
+write_line("Hello " + name + "!")
+```
+
+```rust
+fn fib (n: int) -> int {
+    if n <= 0 { return 0 }
+    if n == 1 { return 1 }
+
+    fib(n - 1) + fib(n - 2)
+}
+
+write_line(fib(25))
+```
+
+Dust uses a register-based VM with its own set of 32-bit instructions and a custom compiler to emit
+the instructions. This should not be confused with a machine code compiler. Despite its compile-time
+guarantees, Dust falls into the category of interpreted languages. Competing with the runtime
+performance of Rust or C++ *is not* a goal. Competing with the approachability and simplicity of
+those languages *is* a goal. On the other hand Dust *does* intend to be faster than Python, Ruby and
+NodeJS while also offering a superior development experience and more reliable code due to its
+static typing. Dust's development approach is informed by some books[^1] and
+academic research[^4] as well as practical insight from papers[^2] written by language authors.
+See the [Inspiration](README#Inspiration) section for more information or keep reading to learn
+about Dust's features.
+
 ## Goals
 
 This project has lofty goals. In addition to being a wishlist, these goals should be used to provide
@@ -71,54 +101,6 @@ purpose for both the developers and the users.
 - **Gradual Typing**: Dust's compiler handles the complexities of *static* typing and all value and
   variable types are known before a program runs. The VM is and should remain type-agnostic, leaving
   it to the sole responsibility of execution.
-
-Dust uses a register-based VM with its own set of 32-bit instructions and a custom compiler to emit
-the instructions. This should not be confused with a machine code compiler. Despite its compile-time
-guarantees, Dust falls into the category of interpreted languages. Competing with the runtime
-performance of Rust or C++ *is not* a goal. Competing with the approachability and simplicity of
-those languages *is* a goal. On the other hand Dust *does* intend to be faster than Python, Ruby and
-NodeJS while also offering a superior development experience and more reliable code due to its
-static typing. Dust's development approach is informed by some [books][^1] and
-[academic research][^4] as well as practical insight from [papers][^2] written by language authors.
-See the [Inspiration](README#Inspiration) section for more information or keep reading to learn
-about Dust's features.
-
-```rust
-write_line("Enter your name...")
-
-let name = read_line()
-
-write_line("Hello " + name + "!")
-```
-
-```rust
-fn fib (n: int) -> int {
-    if n <= 0 { return 0 }
-    if n == 1 { return 1 }
-
-    fib(n - 1) + fib(n - 2)
-}
-
-write_line(fib(25))
-```
-
-Dust uses the same library for error reporting as Rust, which provides ample opportunities to show
-the user where they went wrong and how to fix it. Helpful error messages are a high priority and the
-language will not be considered stable until they are consistently informative and actionable.
-
-```
-error: Compilation Error: Cannot add these types
-  |
-1 | 40 + 2.0
-  | -- info: A value of type "int" was used here.
-  |
-1 | 40 + 2.0
-  |      --- info: A value of type "float" was used here.
-  |
-1 | 40 + 2.0
-  | -------- help: Type "int" cannot be added to type "float". Try converting one of the values to the other type.
-  |
-```
 
 ## Project Status
 
@@ -595,7 +577,7 @@ on Lua optimizations covered in this paper.
 Liup was helpful for a quick yet efficient primer on getting stack-based and register-based virtual
 machines up and running. The included code examples show how to implement both types of VMs in C.
 The performance comparison between the two types of VMs is worth reading for anyone who is trying to
-choose between the two[^1]. Some of the benchmarks described in the paper inspired similar benchmarks
+choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks
 used in this project to compare Dust to other languages.
 
 ## License
