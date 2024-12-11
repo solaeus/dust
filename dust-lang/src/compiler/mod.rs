@@ -60,6 +60,7 @@ pub struct Compiler<'src> {
     instructions: SmallVec<[(Instruction, Type, Span); 32]>,
     constants: SmallVec<[ConcreteValue; 16]>,
     locals: SmallVec<[(Local, Type); 8]>,
+    stack_size: usize,
 
     lexer: Lexer<'src>,
 
@@ -89,6 +90,7 @@ impl<'src> Compiler<'src> {
             instructions: SmallVec::new(),
             constants: SmallVec::new(),
             locals: SmallVec::new(),
+            stack_size: 0,
             lexer,
             current_token,
             current_position,
@@ -124,7 +126,14 @@ impl<'src> Compiler<'src> {
             .map(|(local, _)| local)
             .collect::<SmallVec<[Local; 8]>>();
 
-        Chunk::with_data(self.self_name, r#type, instructions, self.constants, locals)
+        Chunk::new(
+            self.self_name,
+            r#type,
+            instructions,
+            self.constants,
+            locals,
+            self.stack_size,
+        )
     }
 
     pub fn compile(&mut self) -> Result<(), CompileError> {
@@ -151,7 +160,7 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(instruction, _, _)| {
                 if instruction.yields_value() {
-                    Some(instruction.a + 1)
+                    Some(instruction.a_field() + 1)
                 } else {
                     None
                 }
@@ -381,6 +390,12 @@ impl<'src> Compiler<'src> {
             position.to_string()
         );
 
+        if instruction.yields_value() {
+            let destination = instruction.a_field() as usize;
+
+            self.stack_size = (destination + 1).max(self.stack_size);
+        }
+
         self.instructions.push((instruction, r#type, position));
     }
 
@@ -597,9 +612,9 @@ impl<'src> Compiler<'src> {
         instruction: &Instruction,
     ) -> Result<(Argument, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
-            Operation::LoadConstant => (Argument::Constant(instruction.b), false),
+            Operation::LoadConstant => (Argument::Constant(instruction.b_field()), false),
             Operation::GetLocal => {
-                let local_index = instruction.b;
+                let local_index = instruction.b_field();
                 let (local, _) = self.get_local(local_index)?;
 
                 (Argument::Register(local.register_index), false)
@@ -617,12 +632,12 @@ impl<'src> Compiler<'src> {
             | Operation::LessEqual
             | Operation::Negate
             | Operation::Not
-            | Operation::Call => (Argument::Register(instruction.a), true),
+            | Operation::Call => (Argument::Register(instruction.a_field()), true),
             Operation::CallNative => {
-                let function = NativeFunction::from(instruction.b);
+                let function = NativeFunction::from(instruction.b_field());
 
                 if function.returns_value() {
-                    (Argument::Register(instruction.a), true)
+                    (Argument::Register(instruction.a_field()), true)
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
@@ -882,9 +897,9 @@ impl<'src> Compiler<'src> {
                 .iter()
                 .rev()
                 .nth(2)
-                .map_or(0, |(instruction, _, _)| instruction.a);
+                .map_or(0, |(instruction, _, _)| instruction.a_field());
 
-            left_instruction.a = destination;
+            left_instruction.set_a_field(destination);
         }
 
         let jump_index = self.instructions.len().saturating_sub(1);
@@ -932,7 +947,7 @@ impl<'src> Compiler<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (mut right_instruction, _, _) = self.instructions.last_mut().unwrap();
-        right_instruction.a = left_instruction.a;
+        right_instruction.set_a_field(left_instruction.a_field());
 
         if is_logic_chain {
             let expression_length = self.instructions.len() - jump_index - 1;
@@ -1005,11 +1020,11 @@ impl<'src> Compiler<'src> {
             if self
                 .instructions
                 .last()
-                .map_or(false, |(instruction, _, _)| instruction.is_math())
+                .is_some_and(|(instruction, _, _)| instruction.is_math())
             {
                 let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
 
-                math_instruction.a = local_register_index;
+                math_instruction.set_a_field(local_register_index);
             } else {
                 let register = self.next_register() - 1;
                 let set_local = Instruction::from(SetLocal {
@@ -1194,7 +1209,7 @@ impl<'src> Compiler<'src> {
                 {
                     let (mut loader, _, _) = self.instructions.last_mut().unwrap();
 
-                    loader.c = true as u8;
+                    loader.set_c_field(true as u8);
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {

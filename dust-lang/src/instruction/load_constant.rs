@@ -8,9 +8,9 @@ pub struct LoadConstant {
 
 impl From<&Instruction> for LoadConstant {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let constant_index = instruction.b;
-        let jump_next = instruction.c != 0;
+        let destination = instruction.a_field();
+        let constant_index = instruction.b_field();
+        let jump_next = instruction.c_field() != 0;
 
         LoadConstant {
             destination,
@@ -22,11 +22,11 @@ impl From<&Instruction> for LoadConstant {
 
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
-        let metadata = Operation::LoadConstant as u8;
+        let operation = Operation::LoadConstant;
         let a = load_constant.destination;
         let b = load_constant.constant_index;
         let c = load_constant.jump_next as u8;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, false, false, false)
     }
 }

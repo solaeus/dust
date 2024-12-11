@@ -8,7 +8,7 @@ pub struct Divide {
 
 impl From<&Instruction> for Divide {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Divide {
@@ -21,11 +21,11 @@ impl From<&Instruction> for Divide {
 
 impl From<Divide> for Instruction {
     fn from(divide: Divide) -> Self {
+        let operation = Operation::Divide;
         let a = divide.destination;
-        let (b, b_options) = divide.left.as_index_and_b_options();
-        let (c, c_options) = divide.right.as_index_and_c_options();
-        let metadata = Operation::Divide as u8 | b_options.bits() | c_options.bits();
+        let (b, b_is_constant) = divide.left.as_index_and_constant_flag();
+        let (c, c_is_constant) = divide.right.as_index_and_constant_flag();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_is_constant, c_is_constant, false)
     }
 }

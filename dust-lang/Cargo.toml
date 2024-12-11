@@ -23,13 +23,16 @@ smartstring = { version = "1.0.1", features = [
     "serde",
 ], default-features = false }
 bitflags = { version = "2.6.0", features = ["serde"] }
-slab = "0.4.9"
 
 [dev-dependencies]
 criterion = { version = "0.3.4", features = ["html_reports"] }
 
 [[bench]]
 name = "addictive_addition"
+harness = false
+
+[[bench]]
+name = "fibonacci"
 harness = false
 
 [[test]]

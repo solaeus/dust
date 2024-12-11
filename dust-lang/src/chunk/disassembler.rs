@@ -407,10 +407,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
         let info_line = format!(
             "{} instructions, {} constants, {} locals, returns {}",
-            self.chunk.len(),
-            self.chunk.constants().len(),
-            self.chunk.locals().len(),
-            self.chunk.r#type().return_type
+            self.chunk.instructions.len(),
+            self.chunk.constants.len(),
+            self.chunk.locals.len(),
+            self.chunk.r#type.return_type
         );
 
         self.write_centered_with_border_dim(&info_line)?;

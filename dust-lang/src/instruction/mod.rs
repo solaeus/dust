@@ -109,7 +109,6 @@ mod multiply;
 mod negate;
 mod not;
 mod operation;
-mod options;
 mod r#return;
 mod set_local;
 mod subtract;
@@ -135,7 +134,6 @@ pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
 pub use operation::Operation;
-pub use options::InstructionOptions;
 pub use r#move::Move;
 pub use r#return::Return;
 pub use set_local::SetLocal;
@@ -152,22 +150,92 @@ use crate::NativeFunction;
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Instruction {
-    pub metadata: u8,
+pub struct Instruction(u32);
+
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct InstructionData {
+    pub operation: Operation,
     pub a: u8,
     pub b: u8,
     pub c: u8,
+    pub b_is_constant: bool,
+    pub c_is_constant: bool,
+    pub d: bool,
 }
 
 impl Instruction {
-    pub fn operation(&self) -> Operation {
-        let operation_bits = self.metadata & 0b0001_1111;
+    pub fn new(
+        operation: Operation,
+        a: u8,
+        b: u8,
+        c: u8,
+        b_is_constant: bool,
+        c_is_constant: bool,
+        d: bool,
+    ) -> Instruction {
+        let bits = operation as u32
+            | ((b_is_constant as u32) << 5)
+            | ((c_is_constant as u32) << 6)
+            | ((d as u32) << 7)
+            | ((a as u32) << 8)
+            | ((b as u32) << 16)
+            | ((c as u32) << 24);
 
-        Operation::from(operation_bits)
+        Instruction(bits)
     }
 
-    pub fn d(&self) -> bool {
-        self.metadata & 0b1000_0000 != 0
+    pub fn operation(&self) -> Operation {
+        let operation_bits = self.0 & 0b0001_1111;
+
+        Operation::from(operation_bits as u8)
+    }
+
+    pub fn b_is_constant(&self) -> bool {
+        (self.0 >> 5) & 1 == 1
+    }
+
+    pub fn c_is_constant(&self) -> bool {
+        (self.0 >> 6) & 1 == 1
+    }
+
+    pub fn d_field(&self) -> bool {
+        (self.0 >> 7) & 1 == 1
+    }
+
+    pub fn a_field(&self) -> u8 {
+        (self.0 >> 8) as u8
+    }
+
+    pub fn b_field(&self) -> u8 {
+        (self.0 >> 16) as u8
+    }
+
+    pub fn c_field(&self) -> u8 {
+        (self.0 >> 24) as u8
+    }
+
+    pub fn set_a_field(&mut self, bits: u8) {
+        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 8);
+    }
+
+    pub fn set_b_field(&mut self, bits: u8) {
+        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 16);
+    }
+
+    pub fn set_c_field(&mut self, bits: u8) {
+        self.0 = (self.0 & 0xFF00FFFF) | ((bits as u32) << 24);
+    }
+
+    pub fn decode(self) -> InstructionData {
+        InstructionData {
+            operation: self.operation(),
+            a: self.a_field(),
+            b: self.b_field(),
+            c: self.c_field(),
+            b_is_constant: self.b_is_constant(),
+            c_is_constant: self.c_is_constant(),
+            d: self.d_field(),
+        }
     }
 
     pub fn r#move(from: u8, to: u8) -> Instruction {
@@ -373,7 +441,7 @@ impl Instruction {
 
     pub fn as_argument(&self) -> Option<Argument> {
         match self.operation() {
-            Operation::LoadConstant => Some(Argument::Constant(self.b)),
+            Operation::LoadConstant => Some(Argument::Constant(self.b_field())),
             Operation::LoadBoolean
             | Operation::LoadList
             | Operation::LoadSelf
@@ -388,12 +456,12 @@ impl Instruction {
             | Operation::LessEqual
             | Operation::Negate
             | Operation::Not
-            | Operation::Call => Some(Argument::Register(self.a)),
+            | Operation::Call => Some(Argument::Register(self.a_field())),
             Operation::CallNative => {
-                let function = NativeFunction::from(self.b);
+                let function = NativeFunction::from(self.b_field());
 
                 if function.returns_value() {
-                    Some(Argument::Register(self.a))
+                    Some(Argument::Register(self.a_field()))
                 } else {
                     None
                 }
@@ -403,28 +471,23 @@ impl Instruction {
     }
 
     pub fn b_as_argument(&self) -> Argument {
-        let b_is_constant = self.metadata & 0b0010_0000 != 0;
-
-        if b_is_constant {
-            Argument::Constant(self.b)
+        if self.b_is_constant() {
+            Argument::Constant(self.b_field())
         } else {
-            Argument::Register(self.b)
+            Argument::Register(self.b_field())
         }
     }
 
     pub fn b_and_c_as_arguments(&self) -> (Argument, Argument) {
-        let b_is_constant = self.metadata & 0b0010_0000 != 0;
-        let c_is_constant = self.metadata & 0b0100_0000 != 0;
-
-        let left = if b_is_constant {
-            Argument::Constant(self.b)
+        let left = if self.b_is_constant() {
+            Argument::Constant(self.b_field())
         } else {
-            Argument::Register(self.b)
+            Argument::Register(self.b_field())
         };
-        let right = if c_is_constant {
-            Argument::Constant(self.c)
+        let right = if self.c_is_constant() {
+            Argument::Constant(self.c_field())
         } else {
-            Argument::Register(self.c)
+            Argument::Register(self.c_field())
         };
 
         (left, right)
@@ -451,7 +514,7 @@ impl Instruction {
             | Operation::LessEqual
             | Operation::Call => true,
             Operation::CallNative => {
-                let function = NativeFunction::from(self.b);
+                let function = NativeFunction::from(self.b_field());
 
                 function.returns_value()
             }
@@ -655,7 +718,7 @@ impl Instruction {
                 if is_positive {
                     format!("JUMP +{offset}")
                 } else {
-                    format!("JUMP -{}", offset - 1)
+                    format!("JUMP -{offset}")
                 }
             }
             Operation::Call => {
@@ -751,17 +814,10 @@ impl Argument {
         matches!(self, Argument::Register(_))
     }
 
-    pub fn as_index_and_b_options(&self) -> (u8, InstructionOptions) {
+    pub fn as_index_and_constant_flag(&self) -> (u8, bool) {
         match self {
-            Argument::Constant(index) => (*index, InstructionOptions::B_IS_CONSTANT),
-            Argument::Register(index) => (*index, InstructionOptions::empty()),
-        }
-    }
-
-    pub fn as_index_and_c_options(&self) -> (u8, InstructionOptions) {
-        match self {
-            Argument::Constant(index) => (*index, InstructionOptions::C_IS_CONSTANT),
-            Argument::Register(index) => (*index, InstructionOptions::empty()),
+            Argument::Constant(index) => (*index, true),
+            Argument::Register(index) => (*index, false),
         }
     }
 }
@@ -772,25 +828,5 @@ impl Display for Argument {
             Argument::Constant(index) => write!(f, "C{index}"),
             Argument::Register(index) => write!(f, "R{index}"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::mem::offset_of;
-
-    use super::*;
-
-    #[test]
-    fn instruction_is_4_bytes() {
-        assert_eq!(size_of::<Instruction>(), 4);
-    }
-
-    #[test]
-    fn instruction_layout() {
-        assert_eq!(offset_of!(Instruction, metadata), 0);
-        assert_eq!(offset_of!(Instruction, a), 1);
-        assert_eq!(offset_of!(Instruction, b), 2);
-        assert_eq!(offset_of!(Instruction, c), 3);
     }
 }

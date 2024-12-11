@@ -8,24 +8,24 @@ pub struct CallNative {
 
 impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let function = NativeFunction::from(instruction.b);
+        let destination = instruction.a_field();
+        let function = NativeFunction::from(instruction.b_field());
 
         CallNative {
             destination,
             function,
-            argument_count: instruction.c,
+            argument_count: instruction.c_field(),
         }
     }
 }
 
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
-        let metadata = Operation::CallNative as u8;
+        let operation = Operation::CallNative;
         let a = call_native.destination;
         let b = call_native.function as u8;
         let c = call_native.argument_count;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, false, false, false)
     }
 }

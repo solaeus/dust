@@ -1,7 +1,5 @@
 use crate::{Argument, Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Equal {
     pub destination: u8,
     pub value: bool,
@@ -11,8 +9,8 @@ pub struct Equal {
 
 impl From<&Instruction> for Equal {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let value = instruction.d();
+        let destination = instruction.a_field();
+        let value = instruction.d_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Equal {
@@ -26,17 +24,12 @@ impl From<&Instruction> for Equal {
 
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
+        let operation = Operation::Equal;
         let a = equal.destination;
-        let (b, b_options) = equal.left.as_index_and_b_options();
-        let (c, c_options) = equal.right.as_index_and_c_options();
-        let d_options = if equal.value {
-            InstructionOptions::D_IS_TRUE
-        } else {
-            InstructionOptions::empty()
-        };
-        let metadata =
-            Operation::Equal as u8 | b_options.bits() | c_options.bits() | d_options.bits();
+        let (b, b_is_constant) = equal.left.as_index_and_constant_flag();
+        let (c, c_is_constant) = equal.right.as_index_and_constant_flag();
+        let d = equal.value;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_is_constant, c_is_constant, d)
     }
 }

@@ -8,9 +8,9 @@ pub struct LoadBoolean {
 
 impl From<&Instruction> for LoadBoolean {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let value = instruction.b != 0;
-        let jump_next = instruction.c != 0;
+        let destination = instruction.a_field();
+        let value = instruction.b_field() != 0;
+        let jump_next = instruction.c_field() != 0;
 
         LoadBoolean {
             destination,
@@ -22,11 +22,11 @@ impl From<&Instruction> for LoadBoolean {
 
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
-        let metadata = Operation::LoadBoolean as u8;
+        let operation = Operation::LoadBoolean;
         let a = load_boolean.destination;
         let b = load_boolean.value as u8;
         let c = load_boolean.jump_next as u8;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, false, false, false)
     }
 }

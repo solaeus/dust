@@ -40,8 +40,8 @@ pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
 
         let first_loader = compiler.instructions.iter().nth_back(1).unwrap();
         let second_loader = compiler.instructions.last().unwrap();
-        let first_boolean = first_loader.0.b != 0;
-        let second_boolean = second_loader.0.b != 0;
+        let first_boolean = first_loader.0.b_field() != 0;
+        let second_boolean = second_loader.0.b_field() != 0;
 
         if first_boolean && !second_boolean {
             compiler.instructions.pop();
@@ -83,10 +83,10 @@ pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
 
     let first_loader = &mut compiler.instructions.iter_mut().nth_back(1).unwrap().0;
 
-    first_loader.c = true as u8;
+    first_loader.set_c_field(true as u8);
 
-    let first_loader_destination = first_loader.a;
+    let first_loader_destination = first_loader.a_field();
     let second_loader = &mut compiler.instructions.last_mut().unwrap().0;
 
-    second_loader.a = first_loader_destination;
+    second_loader.set_a_field(first_loader_destination);
 }

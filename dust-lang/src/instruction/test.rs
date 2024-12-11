@@ -8,7 +8,7 @@ pub struct Test {
 impl From<&Instruction> for Test {
     fn from(instruction: &Instruction) -> Self {
         let argument = instruction.b_as_argument();
-        let test_value = instruction.c != 0;
+        let test_value = instruction.c_field() != 0;
 
         Test {
             argument,
@@ -19,11 +19,10 @@ impl From<&Instruction> for Test {
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        let a = 0;
-        let (b, options) = test.argument.as_index_and_b_options();
+        let operation = Operation::Test;
+        let (b, b_is_constant) = test.argument.as_index_and_constant_flag();
         let c = test.test_value as u8;
-        let metadata = Operation::Test as u8 | options.bits();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, 0, b, c, b_is_constant, false, false)
     }
 }

@@ -8,9 +8,9 @@ pub struct TestSet {
 
 impl From<&Instruction> for TestSet {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let argument = instruction.b_as_argument();
-        let test_value = instruction.c != 0;
+        let test_value = instruction.c_field() != 0;
 
         TestSet {
             destination,
@@ -22,11 +22,11 @@ impl From<&Instruction> for TestSet {
 
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
+        let operation = Operation::Test;
         let a = test_set.destination;
-        let (b, b_options) = test_set.argument.as_index_and_b_options();
+        let (b, b_is_constant) = test_set.argument.as_index_and_constant_flag();
         let c = test_set.test_value as u8;
-        let metadata = Operation::TestSet as u8 | b_options.bits();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_is_constant, false, false)
     }
 }

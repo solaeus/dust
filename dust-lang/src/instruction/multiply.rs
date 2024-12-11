@@ -8,7 +8,7 @@ pub struct Multiply {
 
 impl From<&Instruction> for Multiply {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Multiply {
@@ -21,11 +21,11 @@ impl From<&Instruction> for Multiply {
 
 impl From<Multiply> for Instruction {
     fn from(multiply: Multiply) -> Self {
+        let operation = Operation::Multiply;
         let a = multiply.destination;
-        let (b, b_options) = multiply.left.as_index_and_b_options();
-        let (c, c_options) = multiply.right.as_index_and_c_options();
-        let metadata = Operation::Multiply as u8 | b_options.bits() | c_options.bits();
+        let (b, b_options) = multiply.left.as_index_and_constant_flag();
+        let (c, c_options) = multiply.right.as_index_and_constant_flag();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_options, c_options, false)
     }
 }

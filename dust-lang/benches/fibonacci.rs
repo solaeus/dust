@@ -4,11 +4,14 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dust_lang::run;
 
 const SOURCE: &str = r"
-    let mut i = 0
+    fn fib (n: int) -> int {
+        if n <= 0 { return 0 }
+        if n == 1 { return 1 }
 
-    while i < 5_000_000 {
-        i += 1
+        fib(n - 1) + fib(n - 2)
     }
+
+    fib(25)
 ";
 
 fn addictive_addition(source: &str) {
@@ -16,10 +19,10 @@ fn addictive_addition(source: &str) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("addictive_addition");
+    let mut group = c.benchmark_group("fibonacci");
 
     group.measurement_time(Duration::from_secs(15));
-    group.bench_function("addictive_addition", |b| {
+    group.bench_function("fibonacci", |b| {
         b.iter(|| addictive_addition(black_box(SOURCE)))
     });
     group.finish();

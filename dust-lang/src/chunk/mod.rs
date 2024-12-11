@@ -30,22 +30,29 @@ pub struct Chunk {
     instructions: SmallVec<[(Instruction, Span); 32]>,
     constants: SmallVec<[ConcreteValue; 16]>,
     locals: SmallVec<[Local; 8]>,
+
+    stack_size: usize,
 }
 
 impl Chunk {
-    pub fn new(name: Option<DustString>) -> Self {
+    pub fn new(
+        name: Option<DustString>,
+        r#type: FunctionType,
+        instructions: SmallVec<[(Instruction, Span); 32]>,
+        constants: SmallVec<[ConcreteValue; 16]>,
+        locals: SmallVec<[Local; 8]>,
+        stack_size: usize,
+    ) -> Self {
         Self {
             name,
-            instructions: SmallVec::new(),
-            constants: SmallVec::new(),
-            locals: SmallVec::new(),
-            r#type: FunctionType {
-                type_parameters: None,
-                value_parameters: None,
-                return_type: Type::None,
-            },
+            r#type,
+            instructions,
+            constants,
+            locals,
+            stack_size,
         }
     }
+
     pub fn with_data(
         name: Option<DustString>,
         r#type: FunctionType,
@@ -59,6 +66,7 @@ impl Chunk {
             instructions: instructions.into(),
             constants: constants.into(),
             locals: locals.into(),
+            stack_size: 0,
         }
     }
 
@@ -68,10 +76,6 @@ impl Chunk {
 
     pub fn r#type(&self) -> &FunctionType {
         &self.r#type
-    }
-
-    pub fn len(&self) -> usize {
-        self.instructions.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -91,21 +95,10 @@ impl Chunk {
     }
 
     pub fn stack_size(&self) -> usize {
-        self.instructions()
-            .iter()
-            .rev()
-            .filter_map(|(instruction, _)| {
-                if instruction.yields_value() {
-                    Some(instruction.a as usize + 1)
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or(0)
+        self.stack_size
     }
 
-    pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<W> {
+    pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, W> {
         Disassembler::new(self, writer)
     }
 }

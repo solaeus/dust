@@ -619,7 +619,7 @@ pub struct LexRule<'src> {
     lexer: LexerFn<'src>,
 }
 
-impl<'src> From<&char> for LexRule<'src> {
+impl From<&char> for LexRule<'_> {
     fn from(char: &char) -> Self {
         match char {
             '0'..='9' => LexRule {

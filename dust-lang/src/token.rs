@@ -93,7 +93,7 @@ define_tokens! {
     StarEqual,
 }
 
-impl<'src> Token<'src> {
+impl Token<'_> {
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
@@ -382,7 +382,7 @@ impl<'src> Token<'src> {
     }
 }
 
-impl<'src> Display for Token<'src> {
+impl Display for Token<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::ArrowThin => write!(f, "->"),

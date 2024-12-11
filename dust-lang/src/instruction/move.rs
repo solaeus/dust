@@ -8,19 +8,18 @@ pub struct Move {
 impl From<&Instruction> for Move {
     fn from(instruction: &Instruction) -> Self {
         Move {
-            from: instruction.b,
-            to: instruction.c,
+            from: instruction.b_field(),
+            to: instruction.c_field(),
         }
     }
 }
 
 impl From<Move> for Instruction {
     fn from(r#move: Move) -> Self {
-        let metadata = Operation::Move as u8;
-        let a = 0;
+        let operation = Operation::Move;
         let b = r#move.from;
         let c = r#move.to;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, 0, b, c, false, false, false)
     }
 }

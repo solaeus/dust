@@ -7,8 +7,8 @@ pub struct GetLocal {
 
 impl From<&Instruction> for GetLocal {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let local_index = instruction.b;
+        let destination = instruction.a_field();
+        let local_index = instruction.b_field();
 
         GetLocal {
             destination,
@@ -19,11 +19,10 @@ impl From<&Instruction> for GetLocal {
 
 impl From<GetLocal> for Instruction {
     fn from(get_local: GetLocal) -> Self {
+        let operation = Operation::GetLocal;
         let a = get_local.destination;
         let b = get_local.local_index;
-        let c = 0;
-        let metadata = Operation::GetLocal as u8;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, 0, false, false, false)
     }
 }

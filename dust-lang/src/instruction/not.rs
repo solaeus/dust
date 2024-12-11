@@ -7,7 +7,7 @@ pub struct Not {
 
 impl From<&Instruction> for Not {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let argument = instruction.b_as_argument();
 
         Not {
@@ -19,11 +19,10 @@ impl From<&Instruction> for Not {
 
 impl From<Not> for Instruction {
     fn from(not: Not) -> Self {
+        let operation = Operation::Not;
         let a = not.destination;
-        let (b, b_options) = not.argument.as_index_and_b_options();
-        let c = 0;
-        let metadata = Operation::Not as u8 | b_options.bits();
+        let (b, b_is_constant) = not.argument.as_index_and_constant_flag();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, 0, b_is_constant, false, false)
     }
 }

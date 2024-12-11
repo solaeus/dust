@@ -42,7 +42,7 @@ pub mod vm;
 pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{compile, CompileError, Compiler};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Argument, Instruction, Operation};
+pub use crate::instruction::{Argument, Instruction, InstructionData, Operation};
 pub use crate::lexer::{lex, LexError, Lexer};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};

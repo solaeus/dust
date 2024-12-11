@@ -7,8 +7,8 @@ pub struct SetLocal {
 
 impl From<&Instruction> for SetLocal {
     fn from(instruction: &Instruction) -> Self {
-        let register_index = instruction.b;
-        let local_index = instruction.c;
+        let register_index = instruction.b_field();
+        let local_index = instruction.c_field();
 
         SetLocal {
             register_index,
@@ -19,11 +19,10 @@ impl From<&Instruction> for SetLocal {
 
 impl From<SetLocal> for Instruction {
     fn from(set_local: SetLocal) -> Self {
-        let metadata = Operation::SetLocal as u8;
-        let a = 0;
+        let operation = Operation::SetLocal;
         let b = set_local.register_index;
         let c = set_local.local_index;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, 0, b, c, false, false, false)
     }
 }

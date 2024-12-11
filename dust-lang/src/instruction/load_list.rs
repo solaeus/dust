@@ -7,8 +7,8 @@ pub struct LoadList {
 
 impl From<&Instruction> for LoadList {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let start_register = instruction.b;
+        let destination = instruction.a_field();
+        let start_register = instruction.b_field();
 
         LoadList {
             destination,
@@ -19,11 +19,10 @@ impl From<&Instruction> for LoadList {
 
 impl From<LoadList> for Instruction {
     fn from(load_list: LoadList) -> Self {
-        let metadata = Operation::LoadList as u8;
+        let operation = Operation::LoadList;
         let a = load_list.destination;
         let b = load_list.start_register;
-        let c = 0;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, 0, false, false, false)
     }
 }

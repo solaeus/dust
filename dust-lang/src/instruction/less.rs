@@ -1,7 +1,5 @@
 use crate::{Argument, Instruction, Operation};
 
-use super::InstructionOptions;
-
 pub struct Less {
     pub destination: u8,
     pub value: bool,
@@ -11,8 +9,8 @@ pub struct Less {
 
 impl From<&Instruction> for Less {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
-        let value = instruction.d();
+        let destination = instruction.a_field();
+        let value = instruction.d_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Less {
@@ -26,17 +24,12 @@ impl From<&Instruction> for Less {
 
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
+        let operation = Operation::Less;
         let a = less.destination;
-        let (b, b_options) = less.left.as_index_and_b_options();
-        let (c, c_options) = less.right.as_index_and_c_options();
-        let d_options = if less.value {
-            InstructionOptions::D_IS_TRUE
-        } else {
-            InstructionOptions::empty()
-        };
-        let metadata =
-            Operation::Less as u8 | b_options.bits() | c_options.bits() | d_options.bits();
+        let (b, b_is_constant) = less.left.as_index_and_constant_flag();
+        let (c, c_is_constant) = less.right.as_index_and_constant_flag();
+        let d = less.value;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_is_constant, c_is_constant, d)
     }
 }

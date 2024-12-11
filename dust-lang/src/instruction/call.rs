@@ -8,9 +8,9 @@ pub struct Call {
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let function = instruction.b_as_argument();
-        let argument_count = instruction.c;
+        let argument_count = instruction.c_field();
 
         Call {
             destination,
@@ -23,10 +23,9 @@ impl From<&Instruction> for Call {
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
         let a = call.destination;
-        let (b, b_options) = call.function.as_index_and_b_options();
+        let (b, b_is_constant) = call.function.as_index_and_constant_flag();
         let c = call.argument_count;
-        let metadata = Operation::Call as u8 | b_options.bits();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(Operation::Call, a, b, c, b_is_constant, false, false)
     }
 }

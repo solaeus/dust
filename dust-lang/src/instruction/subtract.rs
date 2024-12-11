@@ -8,7 +8,7 @@ pub struct Subtract {
 
 impl From<&Instruction> for Subtract {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a;
+        let destination = instruction.a_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
         Subtract {
@@ -21,11 +21,11 @@ impl From<&Instruction> for Subtract {
 
 impl From<Subtract> for Instruction {
     fn from(subtract: Subtract) -> Self {
+        let operation = Operation::Subtract;
         let a = subtract.destination;
-        let (b, b_options) = subtract.left.as_index_and_b_options();
-        let (c, c_options) = subtract.right.as_index_and_c_options();
-        let metadata = Operation::Subtract as u8 | b_options.bits() | c_options.bits();
+        let (b, b_is_constant) = subtract.left.as_index_and_constant_flag();
+        let (c, c_is_constant) = subtract.right.as_index_and_constant_flag();
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, a, b, c, b_is_constant, c_is_constant, false)
     }
 }

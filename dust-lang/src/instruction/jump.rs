@@ -8,19 +8,18 @@ pub struct Jump {
 impl From<&Instruction> for Jump {
     fn from(instruction: &Instruction) -> Self {
         Jump {
-            offset: instruction.b,
-            is_positive: instruction.c != 0,
+            offset: instruction.b_field(),
+            is_positive: instruction.c_field() != 0,
         }
     }
 }
 
 impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
-        let metadata = Operation::Jump as u8;
-        let a = 0;
+        let operation = Operation::Jump;
         let b = jump.offset;
         let c = jump.is_positive as u8;
 
-        Instruction { metadata, a, b, c }
+        Instruction::new(operation, 0, b, c, false, false, false)
     }
 }
