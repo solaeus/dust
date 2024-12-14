@@ -4,6 +4,7 @@ mod runners;
 use std::{
     fmt::{self, Display, Formatter},
     io, iter,
+    rc::Rc,
 };
 
 use runners::Runner;
@@ -11,10 +12,10 @@ use smallvec::SmallVec;
 
 use crate::{
     compile, instruction::*, AbstractValue, AnnotatedError, Chunk, ConcreteValue, DustError,
-    NativeFunctionError, Span, Value, ValueError, ValueRef,
+    NativeFunctionError, Span, Value, ValueError,
 };
 
-pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
+pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
     let vm = Vm::new(source, &chunk, None, None);
 
@@ -35,7 +36,7 @@ pub struct Vm<'a> {
     ip: usize,
     last_assigned_register: Option<u8>,
     source: &'a str,
-    return_value: Option<ConcreteValue>,
+    return_value: Option<Value>,
 }
 
 impl<'a> Vm<'a> {
@@ -85,26 +86,31 @@ impl<'a> Vm<'a> {
         position
     }
 
-    pub fn run(mut self) -> Option<ConcreteValue> {
+    pub fn run(mut self) -> Option<Value> {
         while self.ip < self.runners.len() && self.return_value.is_none() {
-            let runner = self.runners[self.ip];
-
-            runner.run(&mut self);
+            self.execute_next_runner();
         }
 
         self.return_value
     }
 
-    pub(crate) fn follow_pointer(&self, pointer: Pointer) -> ValueRef {
+    pub fn execute_next_runner(&mut self) {
+        assert!(
+            self.ip < self.runners.len(),
+            "Runtime Error: IP out of bounds"
+        );
+
+        let runner = self.runners[self.ip];
+
+        runner.run(self);
+    }
+
+    pub(crate) fn follow_pointer(&self, pointer: Pointer) -> &Value {
         log::trace!("Follow pointer {pointer}");
 
         match pointer {
             Pointer::Stack(register_index) => self.open_register(register_index),
-            Pointer::Constant(constant_index) => {
-                let constant = self.get_constant(constant_index);
-
-                ValueRef::Concrete(constant)
-            }
+            Pointer::Constant(constant_index) => self.get_constant(constant_index),
             Pointer::ParentStack(register_index) => {
                 assert!(self.parent.is_some(), "Vm Error: Expected parent");
 
@@ -113,15 +119,12 @@ impl<'a> Vm<'a> {
             Pointer::ParentConstant(constant_index) => {
                 assert!(self.parent.is_some(), "Vm Error: Expected parent");
 
-                self.parent
-                    .unwrap()
-                    .get_constant(constant_index)
-                    .to_value_ref()
+                self.parent.unwrap().get_constant(constant_index)
             }
         }
     }
 
-    pub(crate) fn follow_pointer_allow_empty(&self, pointer: Pointer) -> Option<ValueRef> {
+    pub(crate) fn follow_pointer_allow_empty(&self, pointer: Pointer) -> Option<&Value> {
         log::trace!("Follow pointer {pointer}");
 
         match pointer {
@@ -129,7 +132,7 @@ impl<'a> Vm<'a> {
             Pointer::Constant(constant_index) => {
                 let constant = self.get_constant(constant_index);
 
-                Some(ValueRef::Concrete(constant))
+                Some(constant)
             }
             Pointer::ParentStack(register_index) => {
                 assert!(self.parent.is_some(), "Vm Error: Expected parent");
@@ -141,18 +144,14 @@ impl<'a> Vm<'a> {
             Pointer::ParentConstant(constant_index) => {
                 assert!(self.parent.is_some(), "Vm Error: Expected parent");
 
-                let constant = self
-                    .parent
-                    .unwrap()
-                    .get_constant(constant_index)
-                    .to_value_ref();
+                let constant = self.parent.unwrap().get_constant(constant_index);
 
                 Some(constant)
             }
         }
     }
 
-    fn open_register(&self, register_index: u8) -> ValueRef {
+    fn open_register(&self, register_index: u8) -> &Value {
         log::trace!("Open register R{register_index}");
 
         let register_index = register_index as usize;
@@ -165,13 +164,13 @@ impl<'a> Vm<'a> {
         let register = &self.stack[register_index];
 
         match register {
-            Register::Value(value) => value.to_ref(),
+            Register::Value(value) => value,
             Register::Pointer(pointer) => self.follow_pointer(*pointer),
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
 
-    fn open_register_allow_empty(&self, register_index: u8) -> Option<ValueRef> {
+    fn open_register_allow_empty(&self, register_index: u8) -> Option<&Value> {
         log::trace!("Open register R{register_index}");
 
         let register_index = register_index as usize;
@@ -184,7 +183,7 @@ impl<'a> Vm<'a> {
         let register = &self.stack[register_index];
 
         match register {
-            Register::Value(value) => Some(value.to_ref()),
+            Register::Value(value) => Some(value),
             Register::Pointer(pointer) => Some(self.follow_pointer(*pointer)),
             Register::Empty => None,
         }
@@ -209,9 +208,9 @@ impl<'a> Vm<'a> {
     }
 
     /// DRY helper to get a value from an Argument
-    fn get_argument(&self, index: u8, is_constant: bool) -> ValueRef {
+    fn get_argument(&self, index: u8, is_constant: bool) -> &Value {
         if is_constant {
-            self.get_constant(index).to_value_ref()
+            self.get_constant(index)
         } else {
             self.open_register(index)
         }
@@ -229,7 +228,7 @@ impl<'a> Vm<'a> {
         self.stack[to_register] = register;
     }
 
-    fn get_constant(&self, constant_index: u8) -> &ConcreteValue {
+    fn get_constant(&self, constant_index: u8) -> &Value {
         let constant_index = constant_index as usize;
         let constants = self.chunk.constants();
 

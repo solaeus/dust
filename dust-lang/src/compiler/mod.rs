@@ -24,7 +24,7 @@ use crate::{
         Not, Return, SetLocal, Test,
     },
     Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type,
+    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
 };
 
 /// Compiles the input and returns a chunk.
@@ -58,7 +58,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 pub struct Compiler<'src> {
     self_name: Option<DustString>,
     instructions: SmallVec<[(Instruction, Type, Span); 32]>,
-    constants: SmallVec<[ConcreteValue; 16]>,
+    constants: SmallVec<[Value; 16]>,
     locals: SmallVec<[(Local, Type); 8]>,
     stack_size: usize,
 
@@ -203,11 +203,12 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(index, (local, _))| {
                 let constant = self.constants.get(local.identifier_index as usize)?;
-                let identifier = if let ConcreteValue::String(identifier) = constant {
-                    identifier
-                } else {
-                    return None;
-                };
+                let identifier =
+                    if let Value::Concrete(ConcreteValue::String(identifier)) = constant {
+                        identifier
+                    } else {
+                        return None;
+                    };
 
                 if identifier == identifier_text {
                     Some(index as u8)
@@ -231,7 +232,7 @@ impl<'src> Compiler<'src> {
     ) -> (u8, u8) {
         log::info!("Declaring local {identifier}");
 
-        let identifier = ConcreteValue::string(identifier);
+        let identifier = Value::Concrete(ConcreteValue::string(identifier));
         let identifier_index = self.push_or_get_constant(identifier);
         let local_index = self.locals.len() as u8;
 
@@ -253,7 +254,7 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn push_or_get_constant(&mut self, value: ConcreteValue) -> u8 {
+    fn push_or_get_constant(&mut self, value: Value) -> u8 {
         if let Some(index) = self
             .constants
             .iter()
@@ -405,7 +406,7 @@ impl<'src> Compiler<'src> {
         position: Span,
     ) -> Result<(), CompileError> {
         let r#type = constant.r#type();
-        let constant_index = self.push_or_get_constant(constant);
+        let constant_index = self.push_or_get_constant(Value::Concrete(constant));
         let destination = self.next_register();
         let load_constant = Instruction::load_constant(destination, constant_index, false);
 
@@ -1618,7 +1619,7 @@ impl<'src> Compiler<'src> {
 
         let function_end = function_compiler.previous_position.1;
         let chunk = function_compiler.finish(None, value_parameters.clone());
-        let function = ConcreteValue::function(chunk);
+        let function = Value::Concrete(ConcreteValue::function(chunk));
         let constant_index = self.push_or_get_constant(function);
         let destination = self.next_register();
         let function_type = FunctionType {

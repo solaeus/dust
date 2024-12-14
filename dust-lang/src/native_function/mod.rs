@@ -15,7 +15,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
-use crate::{AnnotatedError, FunctionType, Span, Type, Value, ValueRef, Vm, VmError};
+use crate::{AnnotatedError, FunctionType, Span, Type, Value, Vm, VmError};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -33,7 +33,7 @@ macro_rules! define_native_function {
             pub fn call<'a>(
                 &self,
                 vm: &Vm<'a>,
-                arguments: SmallVec<[ValueRef<'a>; 4]>,
+                arguments: SmallVec<[&Value; 4]>,
             ) -> Result<Option<Value>, NativeFunctionError> {
                 match self {
                     $(

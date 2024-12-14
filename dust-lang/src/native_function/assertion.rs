@@ -3,11 +3,11 @@ use std::panic;
 use annotate_snippets::{Level, Renderer, Snippet};
 use smallvec::SmallVec;
 
-use crate::{DustString, NativeFunctionError, Value, ValueRef, Vm};
+use crate::{DustString, NativeFunctionError, Value, Vm};
 
 pub fn panic(
     vm: &Vm,
-    arguments: SmallVec<[ValueRef; 4]>,
+    arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut message: Option<DustString> = None;
 

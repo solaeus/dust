@@ -46,7 +46,7 @@ use std::{
 
 use colored::{ColoredString, Colorize};
 
-use crate::{value::ConcreteValue, Chunk, Local};
+use crate::{value::ConcreteValue, Chunk, Local, Value};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 24)];
@@ -336,7 +336,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_centered_with_border(CONSTANT_BORDERS[1])?;
 
         for (index, value) in self.chunk.constants().iter().enumerate() {
-            let is_function = matches!(value, ConcreteValue::Function(_));
+            let is_function = matches!(value, Value::Concrete(ConcreteValue::Function(_)));
             let type_display = value.r#type().to_string();
             let value_display = if is_function {
                 "Function displayed below".to_string()
@@ -353,7 +353,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
             self.write_centered_with_border(&constant_display)?;
 
-            if let ConcreteValue::Function(chunk) = value {
+            if let Value::Concrete(ConcreteValue::Function(chunk)) = value {
                 let function_disassembler = chunk
                     .disassembler(self.writer)
                     .style(self.style)

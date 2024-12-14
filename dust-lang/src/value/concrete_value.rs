@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 
-use crate::{Chunk, Type, Value, ValueError, ValueRef};
+use crate::{Chunk, Type, Value, ValueError};
 
 use super::RangeValue;
 
@@ -25,10 +25,6 @@ pub enum ConcreteValue {
 impl ConcreteValue {
     pub fn to_value(self) -> Value {
         Value::Concrete(self)
-    }
-
-    pub fn to_value_ref(&self) -> ValueRef {
-        ValueRef::Concrete(self)
     }
 
     pub fn function(chunk: Chunk) -> Self {

@@ -17,7 +17,7 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{ConcreteValue, DustString, FunctionType, Instruction, Span};
+use crate::{ConcreteValue, DustString, FunctionType, Instruction, Span, Value};
 
 /// In-memory representation of a Dust program or function.
 ///
@@ -28,7 +28,7 @@ pub struct Chunk {
     r#type: FunctionType,
 
     instructions: SmallVec<[(Instruction, Span); 32]>,
-    constants: SmallVec<[ConcreteValue; 16]>,
+    constants: SmallVec<[Value; 16]>,
     locals: SmallVec<[Local; 8]>,
 
     stack_size: usize,
@@ -39,7 +39,7 @@ impl Chunk {
         name: Option<DustString>,
         r#type: FunctionType,
         instructions: SmallVec<[(Instruction, Span); 32]>,
-        constants: SmallVec<[ConcreteValue; 16]>,
+        constants: SmallVec<[Value; 16]>,
         locals: SmallVec<[Local; 8]>,
         stack_size: usize,
     ) -> Self {
@@ -57,7 +57,7 @@ impl Chunk {
         name: Option<DustString>,
         r#type: FunctionType,
         instructions: impl Into<SmallVec<[(Instruction, Span); 32]>>,
-        constants: impl Into<SmallVec<[ConcreteValue; 16]>>,
+        constants: impl Into<SmallVec<[Value; 16]>>,
         locals: impl Into<SmallVec<[Local; 8]>>,
     ) -> Self {
         Self {
@@ -82,7 +82,7 @@ impl Chunk {
         self.instructions.is_empty()
     }
 
-    pub fn constants(&self) -> &SmallVec<[ConcreteValue; 16]> {
+    pub fn constants(&self) -> &SmallVec<[Value; 16]> {
         &self.constants
     }
 

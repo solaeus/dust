@@ -1,20 +1,19 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Pointer, ConcreteValue, DustString, Value, ValueRef, Vm, VmError};
+use crate::{vm::Pointer, ConcreteValue, DustString, Type, Value, Vm, VmError};
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum AbstractValue {
     FunctionSelf,
-    List { item_pointers: Vec<Pointer> },
+    List {
+        item_type: Type,
+        item_pointers: Vec<Pointer>,
+    },
 }
 
 impl AbstractValue {
     pub fn to_value(self) -> Value {
         Value::Abstract(self)
-    }
-
-    pub fn to_value_ref(&self) -> ValueRef {
-        ValueRef::Abstract(self)
     }
 
     pub fn to_concrete_owned(&self, vm: &Vm) -> ConcreteValue {
@@ -26,7 +25,7 @@ impl AbstractValue {
                 for pointer in item_pointers {
                     let item_option = vm.follow_pointer_allow_empty(*pointer);
                     let item = match item_option {
-                        Some(value_ref) => value_ref.into_concrete_owned(vm),
+                        Some(value) => value.clone().into_concrete_owned(vm),
                         None => continue,
                     };
 
@@ -65,6 +64,13 @@ impl AbstractValue {
 
         Ok(display)
     }
+
+    pub fn r#type(&self) -> Type {
+        match self {
+            AbstractValue::FunctionSelf => Type::SelfChunk,
+            AbstractValue::List { item_type, .. } => Type::List(Box::new(item_type.clone())),
+        }
+    }
 }
 
 impl Clone for AbstractValue {
@@ -74,8 +80,10 @@ impl Clone for AbstractValue {
         match self {
             AbstractValue::FunctionSelf => AbstractValue::FunctionSelf,
             AbstractValue::List {
+                item_type: r#type,
                 item_pointers: items,
             } => AbstractValue::List {
+                item_type: r#type.clone(),
                 item_pointers: items.clone(),
             },
         }

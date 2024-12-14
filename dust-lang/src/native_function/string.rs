@@ -1,10 +1,10 @@
 use smallvec::SmallVec;
 
-use crate::{ConcreteValue, NativeFunctionError, Value, ValueRef, Vm};
+use crate::{ConcreteValue, NativeFunctionError, Value, Vm};
 
 pub fn to_string(
     vm: &Vm,
-    arguments: SmallVec<[ValueRef; 4]>,
+    arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     if arguments.len() != 1 {
         return Err(NativeFunctionError::ExpectedArgumentCount {

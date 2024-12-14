@@ -2,12 +2,9 @@ use std::io::{stdin, stdout, Write};
 
 use smallvec::SmallVec;
 
-use crate::{ConcreteValue, NativeFunctionError, Value, ValueRef, Vm};
+use crate::{ConcreteValue, NativeFunctionError, Value, Vm};
 
-pub fn read_line(
-    vm: &Vm,
-    _: SmallVec<[ValueRef; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
+pub fn read_line(vm: &Vm, _: SmallVec<[&Value; 4]>) -> Result<Option<Value>, NativeFunctionError> {
     let mut buffer = String::new();
 
     match stdin().read_line(&mut buffer) {
@@ -27,7 +24,7 @@ pub fn read_line(
 
 pub fn write(
     vm: &Vm,
-    arguments: SmallVec<[ValueRef; 4]>,
+    arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut stdout = stdout();
 
@@ -50,7 +47,7 @@ pub fn write(
 
 pub fn write_line(
     vm: &Vm,
-    arguments: SmallVec<[ValueRef; 4]>,
+    arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut stdout = stdout();
 
