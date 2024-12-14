@@ -856,12 +856,12 @@ impl<'src> Compiler<'src> {
 
         let destination = self.next_register();
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(destination, true, left, right),
-            Token::BangEqual => Instruction::equal(destination, false, left, right),
-            Token::Less => Instruction::less(destination, true, left, right),
-            Token::LessEqual => Instruction::less_equal(destination, true, left, right),
-            Token::Greater => Instruction::less_equal(destination, false, left, right),
-            Token::GreaterEqual => Instruction::less(destination, false, left, right),
+            Token::DoubleEqual => Instruction::equal(true, left, right),
+            Token::BangEqual => Instruction::equal(false, left, right),
+            Token::Less => Instruction::less(true, left, right),
+            Token::LessEqual => Instruction::less_equal(true, left, right),
+            Token::Greater => Instruction::less_equal(false, left, right),
+            Token::GreaterEqual => Instruction::less(false, left, right),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -877,8 +877,14 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
+        let jump = Instruction::jump(1, true);
+        let load_false = Instruction::load_boolean(destination, false, true);
+        let load_true = Instruction::load_boolean(destination, true, false);
 
         self.emit_instruction(comparison, Type::Boolean, operator_position);
+        self.emit_instruction(jump, Type::None, operator_position);
+        self.emit_instruction(load_false, Type::Boolean, operator_position);
+        self.emit_instruction(load_true, Type::Boolean, operator_position);
 
         Ok(())
     }
@@ -1132,7 +1138,19 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        if let Some((instruction, _, _)) = self.instructions.last() {
+        if matches!(
+            self.get_last_operations(),
+            Some([
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::JUMP,
+                Operation::LOAD_BOOLEAN,
+                Operation::LOAD_BOOLEAN
+            ]),
+        ) {
+            self.instructions.pop();
+            self.instructions.pop();
+            self.instructions.pop();
+        } else if let Some((instruction, _, _)) = self.instructions.last() {
             let argument = match instruction.as_argument() {
                 Some(argument) => argument,
                 None => {
@@ -1264,42 +1282,42 @@ impl<'src> Compiler<'src> {
 
         self.parse_expression()?;
 
-        let (expression_instruction, expression_type, expression_position) =
-            self.instructions.last().unwrap();
-
-        if expression_type != &Type::Boolean {
-            return Err(CompileError::ExpectedFunction {
-                found: self.previous_token.to_owned(),
-                actual_type: expression_type.clone(),
-                position: *expression_position,
-            });
-        }
-
-        let test_argument = match expression_instruction.as_argument() {
-            Some(argument) => argument,
-            None => {
-                return Err(CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: *expression_position,
-                })
-            }
-        };
-        let test = Instruction::test(test_argument, true);
-
-        self.emit_instruction(test, Type::None, self.current_position);
-
         if matches!(
             self.get_last_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
                 Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN,
-            ],)
+                Operation::LOAD_BOOLEAN
+            ]),
         ) {
             self.instructions.pop();
             self.instructions.pop();
             self.instructions.pop();
+        } else {
+            let (expression_instruction, expression_type, expression_position) =
+                self.instructions.last().unwrap();
+
+            if expression_type != &Type::Boolean {
+                return Err(CompileError::ExpectedFunction {
+                    found: self.previous_token.to_owned(),
+                    actual_type: expression_type.clone(),
+                    position: *expression_position,
+                });
+            }
+
+            let test_argument = match expression_instruction.as_argument() {
+                Some(argument) => argument,
+                None => {
+                    return Err(CompileError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: *expression_position,
+                    })
+                }
+            };
+            let test = Instruction::test(test_argument, true);
+
+            self.emit_instruction(test, Type::None, self.current_position);
         }
 
         let block_start = self.instructions.len();

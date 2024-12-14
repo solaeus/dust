@@ -152,7 +152,7 @@ use crate::NativeFunction;
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Instruction(u32);
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct InstructionData {
     pub a: u8,
     pub b: u8,
@@ -343,36 +343,16 @@ impl Instruction {
         })
     }
 
-    pub fn equal(destination: u8, value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Equal {
-            destination,
-            value,
-            left,
-            right,
-        })
+    pub fn equal(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Equal { value, left, right })
     }
 
-    pub fn less(destination: u8, value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Less {
-            destination,
-            value,
-            left,
-            right,
-        })
+    pub fn less(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(Less { value, left, right })
     }
 
-    pub fn less_equal(
-        destination: u8,
-        value: bool,
-        left: Argument,
-        right: Argument,
-    ) -> Instruction {
-        Instruction::from(LessEqual {
-            destination,
-            value,
-            left,
-            right,
-        })
+    pub fn less_equal(value: bool, left: Argument, right: Argument) -> Instruction {
+        Instruction::from(LessEqual { value, left, right })
     }
 
     pub fn negate(destination: u8, argument: Argument) -> Instruction {
@@ -661,37 +641,22 @@ impl Instruction {
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
             }
             Operation::EQUAL => {
-                let Equal {
-                    destination,
-                    value,
-                    left,
-                    right,
-                } = Equal::from(self);
+                let Equal { value, left, right } = Equal::from(self);
                 let comparison_symbol = if value { "==" } else { "!=" };
 
-                format!("R{destination} = {left} {comparison_symbol} {right}")
+                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::LESS => {
-                let Less {
-                    destination,
-                    value,
-                    left,
-                    right,
-                } = Less::from(self);
+                let Less { value, left, right } = Less::from(self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
-                format!("R{destination} = {left} {comparison_symbol} {right}")
+                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::LESS_EQUAL => {
-                let LessEqual {
-                    destination,
-                    value,
-                    left,
-                    right,
-                } = LessEqual::from(self);
+                let LessEqual { value, left, right } = LessEqual::from(self);
                 let comparison_symbol = if value { "<=" } else { ">" };
 
-                format!("R{destination} = {left} {comparison_symbol} {right}")
+                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::NEGATE => {
                 let Negate {

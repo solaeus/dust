@@ -199,24 +199,15 @@ fn main() {
     let chunk = compiler.finish(None, None);
     let compile_end = start_time.elapsed();
 
-    let mut vm = Vm::new(&source, &chunk, None);
+    let vm = Vm::new(&source, &chunk, None);
+    let return_value = vm.run();
+    let run_end = start_time.elapsed();
 
-    match vm.run() {
-        Ok(Some(value)) => {
-            if !mode.no_output {
-                println!("{}", value)
-            }
-        }
-        Ok(None) => {}
-        Err(error) => {
-            let dust_error = DustError::runtime(error, &source);
-            let report = dust_error.report();
-
-            eprintln!("{report}");
+    if let Some(value) = return_value {
+        if !mode.no_output {
+            println!("{}", value)
         }
     }
-
-    let run_end = start_time.elapsed();
 
     if mode.time {
         let compile_time = compile_end.as_micros();

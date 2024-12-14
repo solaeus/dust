@@ -17,23 +17,23 @@ impl AbstractValue {
         ValueRef::Abstract(self)
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
+    pub fn to_concrete_owned(&self, vm: &Vm) -> ConcreteValue {
         match self {
-            AbstractValue::FunctionSelf => Ok(ConcreteValue::function(vm.chunk().clone())),
+            AbstractValue::FunctionSelf => ConcreteValue::function(vm.chunk().clone()),
             AbstractValue::List { item_pointers, .. } => {
                 let mut items: Vec<ConcreteValue> = Vec::with_capacity(item_pointers.len());
 
                 for pointer in item_pointers {
-                    let item_option = vm.follow_pointer_allow_empty(*pointer)?;
+                    let item_option = vm.follow_pointer_allow_empty(*pointer);
                     let item = match item_option {
-                        Some(value_ref) => value_ref.into_concrete_owned(vm)?,
+                        Some(value_ref) => value_ref.into_concrete_owned(vm),
                         None => continue,
                     };
 
                     items.push(item);
                 }
 
-                Ok(ConcreteValue::List(items))
+                ConcreteValue::List(items)
             }
         }
     }
@@ -54,7 +54,7 @@ impl AbstractValue {
                         display.push_str(", ");
                     }
 
-                    let item_display = vm.follow_pointer(*item)?.display(vm)?;
+                    let item_display = vm.follow_pointer(*item).display(vm)?;
 
                     display.push_str(&item_display);
                 }
