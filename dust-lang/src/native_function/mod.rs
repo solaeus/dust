@@ -15,7 +15,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
-use crate::{AnnotatedError, FunctionType, Span, Type, Value, Vm, VmError};
+use crate::{AnnotatedError, FunctionType, Span, Type, Value, Vm};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -30,9 +30,9 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            pub fn call<'a>(
+            pub fn call(
                 &self,
-                vm: &Vm<'a>,
+                vm: &Vm<'_>,
                 arguments: SmallVec<[&Value; 4]>,
             ) -> Result<Option<Value>, NativeFunctionError> {
                 match self {
@@ -269,7 +269,6 @@ pub enum NativeFunctionError {
         error: IoErrorKind,
         position: Span,
     },
-    Vm(Box<VmError>),
 }
 
 impl AnnotatedError for NativeFunctionError {
@@ -285,7 +284,6 @@ impl AnnotatedError for NativeFunctionError {
             NativeFunctionError::Panic { .. } => "Explicit panic",
             NativeFunctionError::Parse { .. } => "Failed to parse value",
             NativeFunctionError::Io { .. } => "I/O error",
-            NativeFunctionError::Vm(error) => error.description(),
         }
     }
 

@@ -29,10 +29,7 @@ pub fn write(
     let mut stdout = stdout();
 
     for argument in arguments {
-        let string = match argument.display(vm) {
-            Ok(string) => string,
-            Err(error) => return Err(NativeFunctionError::Vm(Box::new(error))),
-        };
+        let string = argument.display(vm);
 
         stdout
             .write_all(string.as_bytes())
@@ -52,10 +49,7 @@ pub fn write_line(
     let mut stdout = stdout();
 
     for argument in arguments {
-        let string = match argument.display(vm) {
-            Ok(string) => string,
-            Err(error) => return Err(NativeFunctionError::Vm(Box::new(error))),
-        };
+        let string = argument.display(vm);
 
         stdout
             .write_all(string.as_bytes())

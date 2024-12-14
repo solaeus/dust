@@ -48,7 +48,7 @@ pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
 pub use crate::token::{Token, TokenKind, TokenOwned};
 pub use crate::value::{AbstractValue, ConcreteValue, DustString, RangeValue, Value, ValueError};
-pub use crate::vm::{run, Vm, VmError};
+pub use crate::vm::{run, Vm};
 
 use std::fmt::Display;
 

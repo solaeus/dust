@@ -1,5 +1,3 @@
-use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
-
 use smallvec::SmallVec;
 
 use crate::{AbstractValue, ConcreteValue, NativeFunction, Type, Value};
@@ -24,7 +22,7 @@ impl Runner {
         Self { logic, data }
     }
 
-    pub fn run(&self, vm: &mut Vm) {
+    pub fn run(self, vm: &mut Vm) {
         (self.logic)(vm, self.data);
     }
 }
@@ -75,8 +73,7 @@ pub fn r#move(vm: &mut Vm, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn close<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn close(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { b, c, .. } = instruction_data;
 
     assert!(b < c, "Runtime Error: Malformed instruction");
@@ -95,8 +92,7 @@ pub fn close<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn load_boolean<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn load_boolean(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, b, c, .. } = instruction_data;
     let boolean = ConcreteValue::Boolean(b != 0).to_value();
     let register = Register::Value(boolean);
@@ -112,8 +108,7 @@ pub fn load_boolean<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionDat
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn load_constant<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn load_constant(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, b, c, .. } = instruction_data;
     let register = Register::Pointer(Pointer::Constant(b));
 
@@ -128,8 +123,7 @@ pub fn load_constant<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionDa
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn load_list<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn load_list(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, b, .. } = instruction_data;
     let mut item_pointers = Vec::with_capacity((a - b) as usize);
     let stack = vm.stack.as_slice();
@@ -155,11 +149,10 @@ pub fn load_list<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
         item_pointers.push(pointer);
     }
 
-    let list_value = AbstractValue::List {
+    let list_value = Value::Abstract(AbstractValue::List {
         item_type,
         item_pointers,
-    }
-    .to_value();
+    });
     let register = Register::Value(list_value);
 
     vm.set_register(a, register);
@@ -169,8 +162,7 @@ pub fn load_list<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn load_self<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn load_self(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, .. } = instruction_data;
     let register = Register::Value(AbstractValue::FunctionSelf.to_value());
 
@@ -181,8 +173,7 @@ pub fn load_self<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn get_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn get_local(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, b, .. } = instruction_data;
     let local_register_index = vm.get_local_register(b);
     let register = Register::Pointer(Pointer::Stack(local_register_index));
@@ -194,8 +185,7 @@ pub fn get_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn set_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn set_local(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { b, c, .. } = instruction_data;
     let local_register_index = vm.get_local_register(c);
     let register = Register::Pointer(Pointer::Stack(b));
@@ -207,8 +197,7 @@ pub fn set_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn add<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn add(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -237,8 +226,7 @@ pub fn add<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn subtract<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn subtract(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -267,8 +255,7 @@ pub fn subtract<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn multiply<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn multiply(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -297,8 +284,7 @@ pub fn multiply<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn divide<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn divide(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -327,8 +313,7 @@ pub fn divide<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn modulo<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn modulo(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -357,8 +342,7 @@ pub fn modulo<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn test<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn test(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         b,
         b_is_constant,
@@ -385,8 +369,7 @@ pub fn test<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn test_set<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn test_set(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -423,8 +406,7 @@ pub fn test_set<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn equal(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         b,
         c,
@@ -468,8 +450,7 @@ pub fn less(vm: &mut Vm, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn less_equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn less_equal(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         b,
         c,
@@ -491,8 +472,7 @@ pub fn less_equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData)
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn negate<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn negate(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -517,8 +497,7 @@ pub fn negate<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn not<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn not(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -539,8 +518,7 @@ pub fn not<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn jump<'c>(vm: &mut Vm<'c>, instruction_data: InstructionData) {
+pub fn jump(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { b, c, .. } = instruction_data;
     let offset = b as usize;
     let is_positive = c != 0;
@@ -554,8 +532,7 @@ pub fn jump<'c>(vm: &mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn call(vm: &mut Vm<'_>, instruction_data: InstructionData) {
     let InstructionData {
         a,
         b,
@@ -565,9 +542,9 @@ pub fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     } = instruction_data;
     let function = vm.get_argument(b, b_is_constant);
     let mut function_vm = if let Value::Concrete(ConcreteValue::Function(chunk)) = function {
-        Vm::new(vm.source, chunk, Some(vm), None)
+        Vm::new(chunk, Some(vm), None)
     } else if let Value::Abstract(AbstractValue::FunctionSelf) = function {
-        Vm::new(vm.source, vm.chunk, Some(vm), Some(vm.runners.clone()))
+        Vm::new(vm.chunk, Some(vm), Some(vm.runners.clone()))
     } else {
         panic!("VM Error: Expected function")
     };
@@ -603,8 +580,7 @@ pub fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn call_native<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn call_native(vm: &mut Vm, instruction_data: InstructionData) {
     let InstructionData { a, b, c, .. } = instruction_data;
     let first_argument_index = (a - c) as usize;
     let argument_range = first_argument_index..a as usize;
@@ -642,8 +618,7 @@ pub fn call_native<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData
     vm.execute_next_runner();
 }
 
-#[allow(clippy::needless_lifetimes)]
-pub fn r#return<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
+pub fn r#return(vm: &mut Vm, instruction_data: InstructionData) {
     let should_return_value = instruction_data.b != 0;
 
     if !should_return_value {

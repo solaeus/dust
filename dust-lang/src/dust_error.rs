@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 use annotate_snippets::{Level, Renderer, Snippet};
 use smallvec::SmallVec;
 
-use crate::{CompileError, Span, VmError};
+use crate::{CompileError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
@@ -14,19 +14,11 @@ pub enum DustError<'src> {
         error: CompileError,
         source: &'src str,
     },
-    Runtime {
-        error: VmError,
-        source: &'src str,
-    },
 }
 
 impl<'src> DustError<'src> {
     pub fn compile(error: CompileError, source: &'src str) -> Self {
         DustError::Compile { error, source }
-    }
-
-    pub fn runtime(error: VmError, source: &'src str) -> Self {
-        DustError::Runtime { error, source }
     }
 
     pub fn report(&self) -> String {
@@ -65,19 +57,12 @@ impl<'src> DustError<'src> {
                 error.detail_snippets(),
                 error.help_snippets(),
             ),
-            Self::Runtime { error, .. } => (
-                VmError::title(),
-                error.description(),
-                error.detail_snippets(),
-                error.help_snippets(),
-            ),
         }
     }
 
     fn source(&self) -> &str {
         match self {
             Self::Compile { source, .. } => source,
-            Self::Runtime { source, .. } => source,
         }
     }
 }

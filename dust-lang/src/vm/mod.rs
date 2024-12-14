@@ -1,23 +1,15 @@
 //! Virtual machine and errors
-mod runners;
+mod runner;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    io, iter,
-    rc::Rc,
-};
+use std::fmt::{self, Display, Formatter};
 
-use runners::Runner;
-use smallvec::SmallVec;
+use runner::Runner;
 
-use crate::{
-    compile, instruction::*, AbstractValue, AnnotatedError, Chunk, ConcreteValue, DustError,
-    NativeFunctionError, Span, Value, ValueError,
-};
+use crate::{compile, instruction::*, Chunk, DustError, Span, Value};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
-    let vm = Vm::new(source, &chunk, None, None);
+    let vm = Vm::new(&chunk, None, None);
 
     Ok(vm.run())
 }
@@ -35,17 +27,11 @@ pub struct Vm<'a> {
 
     ip: usize,
     last_assigned_register: Option<u8>,
-    source: &'a str,
     return_value: Option<Value>,
 }
 
 impl<'a> Vm<'a> {
-    pub fn new(
-        source: &'a str,
-        chunk: &'a Chunk,
-        parent: Option<&'a Vm<'a>>,
-        runners: Option<Vec<Runner>>,
-    ) -> Self {
+    pub fn new(chunk: &'a Chunk, parent: Option<&'a Vm<'a>>, runners: Option<Vec<Runner>>) -> Self {
         let stack = vec![Register::Empty; chunk.stack_size()];
         let runners = runners.unwrap_or_else(|| {
             let mut runners = Vec::with_capacity(chunk.instructions().len());
@@ -66,17 +52,12 @@ impl<'a> Vm<'a> {
             parent,
             ip: 0,
             last_assigned_register: None,
-            source,
             return_value: None,
         }
     }
 
-    pub fn chunk(&self) -> &Chunk {
+    pub fn chunk(&'a self) -> &'a Chunk {
         self.chunk
-    }
-
-    pub fn source(&self) -> &'a str {
-        self.source
     }
 
     pub fn current_position(&self) -> Span {
@@ -87,9 +68,7 @@ impl<'a> Vm<'a> {
     }
 
     pub fn run(mut self) -> Option<Value> {
-        while self.ip < self.runners.len() && self.return_value.is_none() {
-            self.execute_next_runner();
-        }
+        self.execute_next_runner();
 
         self.return_value
     }
@@ -189,24 +168,6 @@ impl<'a> Vm<'a> {
         }
     }
 
-    /// DRY helper for handling JUMP instructions
-    fn jump_instructions(&mut self, offset: usize, is_positive: bool) {
-        log::trace!(
-            "Jumping {}",
-            if is_positive {
-                format!("+{}", offset)
-            } else {
-                format!("-{}", offset)
-            }
-        );
-
-        if is_positive {
-            self.ip += offset
-        } else {
-            self.ip -= offset + 1
-        }
-    }
-
     /// DRY helper to get a value from an Argument
     fn get_argument(&self, index: u8, is_constant: bool) -> &Value {
         if is_constant {
@@ -289,165 +250,37 @@ impl Display for Pointer {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum VmError {
-    // Stack errors
-    StackOverflow {
-        position: Span,
-    },
-    StackUnderflow {
-        position: Span,
-    },
-
-    // Register errors
-    EmptyRegister {
-        index: usize,
-        position: Span,
-    },
-    ExpectedConcreteValue {
-        found: AbstractValue,
-        position: Span,
-    },
-    ExpectedValue {
-        found: Register,
-        position: Span,
-    },
-    RegisterIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-
-    // Local errors
-    UndefinedLocal {
-        local_index: u8,
-        position: Span,
-    },
-
-    // Execution errors
-    ExpectedBoolean {
-        found: Value,
-        position: Span,
-    },
-    ExpectedFunction {
-        found: ConcreteValue,
-        position: Span,
-    },
-    ExpectedParent {
-        position: Span,
-    },
-    ValueDisplay {
-        error: io::ErrorKind,
-        position: Span,
-    },
-
-    // Chunk errors
-    ConstantIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    InstructionIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-    LocalIndexOutOfBounds {
-        index: usize,
-        position: Span,
-    },
-
-    // Wrappers for foreign errors
-    NativeFunction(NativeFunctionError),
-    Value {
-        error: ValueError,
-        position: Span,
-    },
-}
-
-impl AnnotatedError for VmError {
-    fn title() -> &'static str {
-        "Runtime Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
-            Self::EmptyRegister { .. } => "Empty register",
-            Self::ExpectedBoolean { .. } => "Expected boolean",
-            Self::ExpectedConcreteValue { .. } => "Expected concrete value",
-            Self::ExpectedFunction { .. } => "Expected function",
-            Self::ExpectedParent { .. } => "Expected parent",
-            Self::ExpectedValue { .. } => "Expected value",
-            Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
-            Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
-            Self::NativeFunction(error) => error.description(),
-            Self::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
-            Self::StackOverflow { .. } => "Stack overflow",
-            Self::StackUnderflow { .. } => "Stack underflow",
-            Self::UndefinedLocal { .. } => "Undefined local",
-            Self::Value { .. } => "Value error",
-            Self::ValueDisplay { .. } => "Value display error",
-        }
-    }
-
-    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
-        match self {
-            VmError::StackOverflow { position } => todo!(),
-            VmError::StackUnderflow { position } => todo!(),
-            VmError::EmptyRegister { index, position } => todo!(),
-            VmError::ExpectedConcreteValue { found, position } => todo!(),
-            VmError::ExpectedValue { found, position } => todo!(),
-            VmError::RegisterIndexOutOfBounds { index, position } => todo!(),
-            VmError::UndefinedLocal {
-                local_index,
-                position,
-            } => todo!(),
-            VmError::ExpectedBoolean { found, position } => todo!(),
-            VmError::ExpectedFunction { found, position } => todo!(),
-            VmError::ExpectedParent { position } => todo!(),
-            VmError::ValueDisplay { error, position } => todo!(),
-            VmError::ConstantIndexOutOfBounds { index, position } => todo!(),
-            VmError::InstructionIndexOutOfBounds { index, position } => todo!(),
-            VmError::LocalIndexOutOfBounds { index, position } => todo!(),
-            VmError::NativeFunction(native_function_error) => todo!(),
-            VmError::Value { error, position } => todo!(),
-        }
-    }
-
-    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
-        todo!()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use runners::{RunnerLogic, RUNNER_LOGIC_TABLE};
+    use runner::{RunnerLogic, RUNNER_LOGIC_TABLE};
 
     use super::*;
 
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
-        (Operation::MOVE, runners::r#move),
-        (Operation::CLOSE, runners::close),
-        (Operation::LOAD_BOOLEAN, runners::load_boolean),
-        (Operation::LOAD_CONSTANT, runners::load_constant),
-        (Operation::LOAD_LIST, runners::load_list),
-        (Operation::LOAD_SELF, runners::load_self),
-        (Operation::GET_LOCAL, runners::get_local),
-        (Operation::SET_LOCAL, runners::set_local),
-        (Operation::ADD, runners::add),
-        (Operation::SUBTRACT, runners::subtract),
-        (Operation::MULTIPLY, runners::multiply),
-        (Operation::DIVIDE, runners::divide),
-        (Operation::MODULO, runners::modulo),
-        (Operation::TEST, runners::test),
-        (Operation::TEST_SET, runners::test_set),
-        (Operation::EQUAL, runners::equal),
-        (Operation::LESS, runners::less),
-        (Operation::LESS_EQUAL, runners::less_equal),
-        (Operation::NEGATE, runners::negate),
-        (Operation::NOT, runners::not),
-        (Operation::CALL, runners::call),
-        (Operation::CALL_NATIVE, runners::call_native),
-        (Operation::JUMP, runners::jump),
-        (Operation::RETURN, runners::r#return),
+        (Operation::MOVE, runner::r#move),
+        (Operation::CLOSE, runner::close),
+        (Operation::LOAD_BOOLEAN, runner::load_boolean),
+        (Operation::LOAD_CONSTANT, runner::load_constant),
+        (Operation::LOAD_LIST, runner::load_list),
+        (Operation::LOAD_SELF, runner::load_self),
+        (Operation::GET_LOCAL, runner::get_local),
+        (Operation::SET_LOCAL, runner::set_local),
+        (Operation::ADD, runner::add),
+        (Operation::SUBTRACT, runner::subtract),
+        (Operation::MULTIPLY, runner::multiply),
+        (Operation::DIVIDE, runner::divide),
+        (Operation::MODULO, runner::modulo),
+        (Operation::TEST, runner::test),
+        (Operation::TEST_SET, runner::test_set),
+        (Operation::EQUAL, runner::equal),
+        (Operation::LESS, runner::less),
+        (Operation::LESS_EQUAL, runner::less_equal),
+        (Operation::NEGATE, runner::negate),
+        (Operation::NOT, runner::not),
+        (Operation::CALL, runner::call),
+        (Operation::CALL_NATIVE, runner::call_native),
+        (Operation::JUMP, runner::jump),
+        (Operation::RETURN, runner::r#return),
     ];
 
     #[test]

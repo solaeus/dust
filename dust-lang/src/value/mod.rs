@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Type, Vm, VmError};
+use crate::{Type, Vm};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
@@ -20,7 +20,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn into_concrete_owned(self, vm: &Vm) -> ConcreteValue {
+    pub fn into_concrete_owned<'a>(self, vm: &'a Vm<'a>) -> ConcreteValue {
         match self {
             Value::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
             Value::Concrete(concrete_value) => concrete_value,
@@ -132,10 +132,10 @@ impl Value {
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> Result<DustString, VmError> {
+    pub fn display(&self, vm: &Vm) -> DustString {
         match self {
-            Value::Abstract(abstract_value) => abstract_value.to_dust_string(vm),
-            Value::Concrete(concrete_value) => Ok(concrete_value.to_dust_string()),
+            Value::Abstract(abstract_value) => abstract_value.display(vm),
+            Value::Concrete(concrete_value) => concrete_value.display(),
         }
     }
 }

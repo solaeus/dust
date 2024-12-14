@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Pointer, ConcreteValue, DustString, Type, Value, Vm, VmError};
+use crate::{vm::Pointer, ConcreteValue, DustString, Type, Value, Vm};
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum AbstractValue {
@@ -16,7 +16,7 @@ impl AbstractValue {
         Value::Abstract(self)
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> ConcreteValue {
+    pub fn to_concrete_owned<'a>(&self, vm: &'a Vm<'a>) -> ConcreteValue {
         match self {
             AbstractValue::FunctionSelf => ConcreteValue::function(vm.chunk().clone()),
             AbstractValue::List { item_pointers, .. } => {
@@ -37,7 +37,7 @@ impl AbstractValue {
         }
     }
 
-    pub fn to_dust_string(&self, vm: &Vm) -> Result<DustString, VmError> {
+    pub fn display(&self, vm: &Vm) -> DustString {
         let mut display = DustString::new();
 
         match self {
@@ -53,7 +53,7 @@ impl AbstractValue {
                         display.push_str(", ");
                     }
 
-                    let item_display = vm.follow_pointer(*item).display(vm)?;
+                    let item_display = vm.follow_pointer(*item).display(vm);
 
                     display.push_str(&item_display);
                 }
@@ -62,7 +62,7 @@ impl AbstractValue {
             }
         }
 
-        Ok(display)
+        display
     }
 
     pub fn r#type(&self) -> Type {

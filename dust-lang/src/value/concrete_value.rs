@@ -47,7 +47,7 @@ impl ConcreteValue {
         }
     }
 
-    pub fn to_dust_string(&self) -> DustString {
+    pub fn display(&self) -> DustString {
         DustString::from(self.to_string())
     }
 

@@ -14,10 +14,7 @@ pub fn to_string(
         });
     }
 
-    let argument_string = match arguments[0].display(vm) {
-        Ok(string) => string,
-        Err(error) => return Err(NativeFunctionError::Vm(Box::new(error))),
-    };
+    let argument_string = arguments[0].display(vm);
 
     Ok(Some(Value::Concrete(ConcreteValue::string(
         argument_string,
