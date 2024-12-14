@@ -633,3 +633,50 @@ pub fn r#return(vm: &mut Vm, instruction_data: InstructionData) {
         panic!("Stack underflow");
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::Operation;
+
+    use super::*;
+
+    const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
+        (Operation::MOVE, r#move),
+        (Operation::CLOSE, close),
+        (Operation::LOAD_BOOLEAN, load_boolean),
+        (Operation::LOAD_CONSTANT, load_constant),
+        (Operation::LOAD_LIST, load_list),
+        (Operation::LOAD_SELF, load_self),
+        (Operation::GET_LOCAL, get_local),
+        (Operation::SET_LOCAL, set_local),
+        (Operation::ADD, add),
+        (Operation::SUBTRACT, subtract),
+        (Operation::MULTIPLY, multiply),
+        (Operation::DIVIDE, divide),
+        (Operation::MODULO, modulo),
+        (Operation::TEST, test),
+        (Operation::TEST_SET, test_set),
+        (Operation::EQUAL, equal),
+        (Operation::LESS, less),
+        (Operation::LESS_EQUAL, less_equal),
+        (Operation::NEGATE, negate),
+        (Operation::NOT, not),
+        (Operation::CALL, call),
+        (Operation::CALL_NATIVE, call_native),
+        (Operation::JUMP, jump),
+        (Operation::RETURN, r#return),
+    ];
+
+    #[test]
+    fn operations_map_to_the_correct_runner() {
+        for (operation, expected_runner) in ALL_OPERATIONS {
+            let actual_runner = RUNNER_LOGIC_TABLE[operation.0 as usize];
+
+            assert_eq!(
+                expected_runner, actual_runner,
+                "{operation} runner is incorrect"
+            );
+        }
+    }
+}
