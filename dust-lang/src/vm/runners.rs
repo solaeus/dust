@@ -2,11 +2,34 @@ use smallvec::SmallVec;
 
 use crate::{AbstractValue, ConcreteValue, NativeFunction, Value, ValueRef};
 
-use super::{InstructionData, Pointer, Register, Vm};
+use super::{Instruction, InstructionData, Pointer, Register, Vm};
 
-pub type Runner = fn(&mut Vm, InstructionData);
+#[derive(Clone, Copy, Debug)]
+pub struct Runner {
+    logic: RunnerLogic,
+    data: InstructionData,
+}
 
-pub const RUNNERS: [Runner; 24] = [
+impl Runner {
+    pub fn new(instruction: Instruction) -> Self {
+        let (operation, data) = instruction.decode();
+        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
+
+        Self { logic, data }
+    }
+
+    pub fn from_parts(logic: RunnerLogic, data: InstructionData) -> Self {
+        Self { logic, data }
+    }
+
+    pub fn run(&self, vm: &mut Vm) {
+        (self.logic)(vm, self.data);
+    }
+}
+
+pub type RunnerLogic = fn(&mut Vm, InstructionData);
+
+pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 24] = [
     r#move,
     close,
     load_boolean,
@@ -45,6 +68,12 @@ pub fn r#move<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     if from_register_has_value {
         vm.set_register(c, register);
     }
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -61,6 +90,12 @@ pub fn close<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
 
         vm.stack[register_index as usize] = Register::Empty;
     }
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -72,8 +107,14 @@ pub fn load_boolean<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionDat
     vm.set_register(a, register);
 
     if c != 0 {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -84,8 +125,14 @@ pub fn load_constant<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionDa
     vm.set_register(a, register);
 
     if c != 0 {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -107,7 +154,13 @@ pub fn load_list<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     let list_value = AbstractValue::List { item_pointers }.to_value();
     let register = Register::Value(list_value);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -115,7 +168,13 @@ pub fn load_self<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     let InstructionData { a, .. } = instruction_data;
     let register = Register::Value(AbstractValue::FunctionSelf.to_value());
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -124,7 +183,13 @@ pub fn get_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     let local_register_index = vm.get_local_register(b);
     let register = Register::Pointer(Pointer::Stack(local_register_index));
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -133,7 +198,13 @@ pub fn set_local<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) 
     let local_register_index = vm.get_local_register(c);
     let register = Register::Pointer(Pointer::Stack(b));
 
-    vm.set_register(local_register_index, register)
+    vm.set_register(local_register_index, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -159,7 +230,13 @@ pub fn add<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(sum);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -185,7 +262,13 @@ pub fn subtract<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(difference);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -211,7 +294,13 @@ pub fn multiply<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(product);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -237,7 +326,13 @@ pub fn divide<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(quotient);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -263,7 +358,13 @@ pub fn modulo<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(remainder);
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -286,8 +387,14 @@ pub fn test<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     let test_value = c != 0;
 
     if boolean == test_value {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -311,7 +418,7 @@ pub fn test_set<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     let test_value = c != 0;
 
     if boolean == test_value {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
     } else {
         let pointer = if b_is_constant {
             Pointer::Constant(b)
@@ -321,7 +428,13 @@ pub fn test_set<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
         let register = Register::Pointer(pointer);
 
         vm.set_register(a, register);
+
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -339,8 +452,14 @@ pub fn equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     let is_equal = left == right;
 
     if is_equal == d {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -358,8 +477,14 @@ pub fn less<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     let is_less = left < right;
 
     if is_less == d {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -377,8 +502,14 @@ pub fn less_equal<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData)
     let is_less_or_equal = left <= right;
 
     if is_less_or_equal == d {
-        vm.jump_instructions(1, true);
+        vm.ip += 2;
+    } else {
+        vm.ip += 1;
     }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -400,7 +531,13 @@ pub fn negate<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(Value::Concrete(negated));
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -418,15 +555,30 @@ pub fn not<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     };
     let register = Register::Value(Value::Concrete(not));
 
-    vm.set_register(a, register)
+    vm.set_register(a, register);
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
 pub fn jump<'c>(vm: &mut Vm<'c>, instruction_data: InstructionData) {
     let InstructionData { b, c, .. } = instruction_data;
+    let offset = b as usize;
     let is_positive = c != 0;
 
-    vm.jump_instructions(b as usize, is_positive);
+    if is_positive {
+        vm.ip += offset + 1
+    } else {
+        vm.ip -= offset
+    }
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -439,14 +591,13 @@ pub fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
         ..
     } = instruction_data;
     let function = vm.get_argument(b, b_is_constant);
-    let chunk = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = function {
-        chunk
+    let mut function_vm = if let ValueRef::Concrete(ConcreteValue::Function(chunk)) = function {
+        Vm::new(vm.source, chunk, Some(vm), None)
     } else if let ValueRef::Abstract(AbstractValue::FunctionSelf) = function {
-        vm.chunk
+        Vm::new(vm.source, vm.chunk, Some(vm), Some(vm.runners.clone()))
     } else {
         panic!("VM Error: Expected function")
     };
-    let mut function_vm = Vm::new(vm.source, chunk, Some(vm));
     let first_argument_index = a - c;
     let mut argument_index = 0;
 
@@ -473,6 +624,12 @@ pub fn call<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
 
         vm.set_register(a, register);
     }
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -508,6 +665,12 @@ pub fn call_native<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData
 
         vm.set_register(a, register);
     }
+
+    vm.ip += 1;
+
+    let next = vm.runners[vm.ip];
+
+    next.run(vm);
 }
 
 #[allow(clippy::needless_lifetimes)]
@@ -515,7 +678,7 @@ pub fn r#return<'b, 'c>(vm: &'b mut Vm<'c>, instruction_data: InstructionData) {
     let should_return_value = instruction_data.b != 0;
 
     if !should_return_value {
-        return;
+        return vm.ip += 1;
     }
 
     if let Some(register_index) = &vm.last_assigned_register {

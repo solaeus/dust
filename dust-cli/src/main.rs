@@ -199,7 +199,7 @@ fn main() {
     let chunk = compiler.finish(None, None);
     let compile_end = start_time.elapsed();
 
-    let vm = Vm::new(&source, &chunk, None);
+    let vm = Vm::new(&source, &chunk, None, None);
     let return_value = vm.run();
     let run_end = start_time.elapsed();
 

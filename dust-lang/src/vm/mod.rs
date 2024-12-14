@@ -3,10 +3,10 @@ mod runners;
 
 use std::{
     fmt::{self, Display, Formatter},
-    io,
+    io, iter,
 };
 
-use runners::{Runner, RUNNERS};
+use runners::Runner;
 use smallvec::SmallVec;
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
-    let vm = Vm::new(source, &chunk, None);
+    let vm = Vm::new(source, &chunk, None, None);
 
     Ok(vm.run())
 }
@@ -28,6 +28,7 @@ pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
 pub struct Vm<'a> {
     stack: Vec<Register>,
 
+    runners: Vec<Runner>,
     chunk: &'a Chunk,
     parent: Option<&'a Vm<'a>>,
 
@@ -38,11 +39,28 @@ pub struct Vm<'a> {
 }
 
 impl<'a> Vm<'a> {
-    pub fn new(source: &'a str, chunk: &'a Chunk, parent: Option<&'a Vm<'a>>) -> Self {
+    pub fn new(
+        source: &'a str,
+        chunk: &'a Chunk,
+        parent: Option<&'a Vm<'a>>,
+        runners: Option<Vec<Runner>>,
+    ) -> Self {
         let stack = vec![Register::Empty; chunk.stack_size()];
+        let runners = runners.unwrap_or_else(|| {
+            let mut runners = Vec::with_capacity(chunk.instructions().len());
+
+            for (instruction, _) in chunk.instructions() {
+                let runner = Runner::new(*instruction);
+
+                runners.push(runner);
+            }
+
+            runners
+        });
 
         Self {
             chunk,
+            runners,
             stack,
             parent,
             ip: 0,
@@ -68,27 +86,13 @@ impl<'a> Vm<'a> {
     }
 
     pub fn run(mut self) -> Option<ConcreteValue> {
-        let runners = self
-            .chunk
-            .instructions()
-            .iter()
-            .map(|(instruction, _)| {
-                let (operation, data) = instruction.decode();
-                let runner = RUNNERS[operation.0 as usize];
+        while self.ip < self.runners.len() && self.return_value.is_none() {
+            let runner = self.runners[self.ip];
 
-                (runner, data)
-            })
-            .collect::<Vec<(Runner, InstructionData)>>();
-
-        while self.ip < runners.len() && self.return_value.is_none() {
-            let (runner, data) = runners[self.ip];
-
-            self.ip += 1;
-
-            runner(&mut self, data);
+            runner.run(&mut self);
         }
 
-        self.return_value.take()
+        self.return_value
     }
 
     pub(crate) fn follow_pointer(&self, pointer: Pointer) -> ValueRef {
@@ -179,8 +183,6 @@ impl<'a> Vm<'a> {
 
         let register = &self.stack[register_index];
 
-        log::trace!("Open R{register_index} to {register}");
-
         match register {
             Register::Value(value) => Some(value.to_ref()),
             Register::Pointer(pointer) => Some(self.follow_pointer(*pointer)),
@@ -218,19 +220,18 @@ impl<'a> Vm<'a> {
     fn set_register(&mut self, to_register: u8, register: Register) {
         self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
-        let stack = self.stack.as_mut_slice();
 
         assert!(
-            to_register < stack.len(),
+            to_register < self.stack.len(),
             "VM Error: Register index out of bounds"
         );
 
-        stack[to_register] = register;
+        self.stack[to_register] = register;
     }
 
     fn get_constant(&self, constant_index: u8) -> &ConcreteValue {
         let constant_index = constant_index as usize;
-        let constants = self.chunk.constants().as_slice();
+        let constants = self.chunk.constants();
 
         assert!(
             constant_index < constants.len(),
@@ -242,7 +243,7 @@ impl<'a> Vm<'a> {
 
     fn get_local_register(&self, local_index: u8) -> u8 {
         let local_index = local_index as usize;
-        let locals = self.chunk.locals().as_slice();
+        let locals = self.chunk.locals();
 
         assert!(
             local_index < locals.len(),
@@ -419,9 +420,11 @@ impl AnnotatedError for VmError {
 
 #[cfg(test)]
 mod tests {
+    use runners::{RunnerLogic, RUNNER_LOGIC_TABLE};
+
     use super::*;
 
-    const ALL_OPERATIONS: [(Operation, Runner); 24] = [
+    const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
         (Operation::MOVE, runners::r#move),
         (Operation::CLOSE, runners::close),
         (Operation::LOAD_BOOLEAN, runners::load_boolean),
@@ -451,7 +454,7 @@ mod tests {
     #[test]
     fn operations_map_to_the_correct_runner() {
         for (operation, expected_runner) in ALL_OPERATIONS {
-            let actual_runner = RUNNERS[operation.0 as usize];
+            let actual_runner = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
             assert_eq!(
                 expected_runner, actual_runner,

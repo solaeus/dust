@@ -153,7 +153,6 @@ impl ValueRef<'_> {
         }
     }
 
-    #[inline(always)]
     pub fn less(&self, other: ValueRef) -> Result<Value, ValueError> {
         match (self, other) {
             (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
