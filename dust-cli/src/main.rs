@@ -4,8 +4,10 @@ use std::{fs::read_to_string, path::PathBuf};
 
 use clap::{Args, Parser};
 use colored::Colorize;
-use dust_lang::{compile, CompileError, Compiler, DustError, Lexer, Span, Token, Vm};
+use dust_lang::{compile, CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use log::{Level, LevelFilter};
+
+const DEFAULT_PROGRAM_NAME: &str = "Dust CLI Input";
 
 #[derive(Parser)]
 #[clap(
@@ -196,7 +198,7 @@ fn main() {
         }
     }
 
-    let chunk = compiler.finish();
+    let chunk = compiler.finish(Some(DEFAULT_PROGRAM_NAME));
     let compile_end = start_time.elapsed();
 
     let vm = Vm::new(chunk);

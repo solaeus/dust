@@ -1,9 +1,12 @@
-//! Compilation tools and errors
+//! The Dust compiler and its accessories.
 //!
 //! This module provides two compilation options:
-//! - [`compile`] borrows a string and returns a chunk, handling the entire compilation process and
-//!   turning any resulting [`ComplileError`] into a [`DustError`].
-//! - [`Compiler`] uses a lexer to get tokens and assembles a chunk.
+//! - [`compile`] is a simple function that borrows a string and returns a chunk, handling
+//!   compilation and turning any resulting error into a [`DustError`], which can easily display a
+//!   detailed report. The main chunk will be named "main".
+//! - [`Compiler`] is created with a [`Lexer`] and protentially emits a [`CompileError`] or
+//!   [`LexError`] if the input is invalid. Allows passing a name for the main chunk when
+//!   [`Compiler::finish`] is called.
 mod error;
 mod optimize;
 
@@ -15,12 +18,12 @@ use std::{
 };
 
 use colored::Colorize;
-use optimize::{optimize_test_with_explicit_booleans, optimize_test_with_loader_arguments};
+use optimize::control_flow_register_consolidation;
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
     instruction::{
-        CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Point, Return, SetLocal, Test,
+        CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal, Test,
     },
     Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
@@ -35,7 +38,7 @@ use crate::{
 /// let source = "40 + 2 == 42";
 /// let chunk = compile(source).unwrap();
 ///
-/// assert_eq!(chunk.len(), 3);
+/// assert_eq!(chunk.instructions().len(), 3);
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
@@ -45,12 +48,14 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         .compile()
         .map_err(|error| DustError::compile(error, source))?;
 
-    let chunk = compiler.finish();
+    let name = DustString::from("main");
+    let chunk = compiler.finish(Some(name));
 
     Ok(chunk)
 }
 
-/// Tool for compiling the input a token at a time while assembling a chunk.
+/// The Dust compiler assembles a [`Chunk`] for the Dust VM. Any unrecognized symbols, disallowed
+/// syntax or conflicting type usage will result in an error.
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
@@ -58,9 +63,10 @@ pub struct Compiler<'src> {
     /// Used to get tokens for the compiler.
     lexer: Lexer<'src>,
 
-    /// Name of the function or program being compiled. This is assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    self_name: Option<DustString>,
+    /// Name of the function being compiled. This is used to identify recursive calls, so it should
+    /// be `None` for the main chunk. The main chunk can still be named by passing a name to
+    /// [`Compiler::finish`], which will override this value.
+    function_name: Option<DustString>,
 
     /// Type of the function being compiled. This is assigned to the chunk when [`Compiler::finish`]
     /// is called.
@@ -116,6 +122,7 @@ pub struct Compiler<'src> {
 }
 
 impl<'src> Compiler<'src> {
+    /// Creates a new compiler with the given lexer.
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
@@ -126,7 +133,7 @@ impl<'src> Compiler<'src> {
         );
 
         Ok(Compiler {
-            self_name: None,
+            function_name: None,
             r#type: FunctionType {
                 type_parameters: None,
                 value_parameters: None,
@@ -150,7 +157,12 @@ impl<'src> Compiler<'src> {
         })
     }
 
-    pub fn finish(self) -> Chunk {
+    /// Creates a new chunk with the compiled data, optionally assigning a name to the chunk.
+    ///
+    /// Note for maintainers: Do not give a name when compiling functions, only the main chunk. This
+    /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
+    /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
+    pub fn finish(self, name: Option<impl Into<DustString>>) -> Chunk {
         log::info!("End chunk");
 
         let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
@@ -163,9 +175,12 @@ impl<'src> Compiler<'src> {
             .into_iter()
             .map(|(local, _)| local)
             .collect::<SmallVec<[Local; 8]>>();
+        let chunk_name = name
+            .map(|into_name| into_name.into())
+            .or(self.function_name);
 
         Chunk::new(
-            self.self_name,
+            chunk_name,
             self.r#type,
             instructions,
             positions,
@@ -173,9 +188,13 @@ impl<'src> Compiler<'src> {
             locals,
             self.prototypes,
             self.stack_size,
+            self.record_index,
         )
     }
 
+    /// Compiles the source while checking for errors and returning a [`CompileError`] if any are
+    /// found. After calling this function, check its return value for an error, then call
+    /// [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
         loop {
             self.parse(Precedence::None)?;
@@ -852,7 +871,7 @@ impl<'src> Compiler<'src> {
         if let Some([Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL, _, _]) =
             self.get_last_operations()
         {
-            return Err(CompileError::CannotChainComparison {
+            return Err(CompileError::ComparisonChain {
                 position: self.current_position,
             });
         }
@@ -915,13 +934,13 @@ impl<'src> Compiler<'src> {
             }
         };
         let jump = Instruction::jump(1, true);
-        let load_false = Instruction::load_boolean(destination, false, true);
-        let load_true = Instruction::load_boolean(destination, true, false);
+        let load_true = Instruction::load_boolean(destination, true, true);
+        let load_false = Instruction::load_boolean(destination, false, false);
 
         self.emit_instruction(comparison, Type::Boolean, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
-        self.emit_instruction(load_false, Type::Boolean, operator_position);
         self.emit_instruction(load_true, Type::Boolean, operator_position);
+        self.emit_instruction(load_false, Type::Boolean, operator_position);
 
         Ok(())
     }
@@ -932,29 +951,19 @@ impl<'src> Compiler<'src> {
             Some([Operation::TEST, Operation::JUMP, _])
         );
 
-        let (mut left_instruction, left_type, left_position) = self.pop_last_instruction()?;
+        let (left_instruction, left_type, left_position) = self.pop_last_instruction()?;
+        let (left, _) = self.handle_binary_argument(&left_instruction)?;
 
-        if is_logic_chain {
-            let destination = self
-                .instructions
-                .iter()
-                .rev()
-                .nth(2)
-                .map_or(0, |(instruction, _, _)| instruction.a_field());
+        // if is_logic_chain {
+        //     let destination = self
+        //         .instructions
+        //         .iter()
+        //         .rev()
+        //         .nth(2)
+        //         .map_or(0, |(instruction, _, _)| instruction.a_field());
 
-            left_instruction.set_a_field(destination);
-        }
-
-        let jump_index = self.instructions.len().saturating_sub(1);
-        let mut jump_distance = if is_logic_chain {
-            self.instructions.pop().map_or(0, |(jump, _, _)| {
-                let Jump { offset, .. } = Jump::from(&jump);
-
-                offset
-            })
-        } else {
-            0
-        };
+        //     left_instruction.set_a_field(destination);
+        // }
 
         if !left_instruction.yields_value() {
             return Err(CompileError::ExpectedExpression {
@@ -963,10 +972,19 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let (left, _) = self.handle_binary_argument(&left_instruction)?;
+        // self.instructions
+        //     .push((left_instruction, left_type.clone(), left_position));
 
-        self.instructions
-            .push((left_instruction, left_type.clone(), left_position));
+        // let short_circuit_jump_index = self.instructions.len();
+        // let mut short_circuit_jump_distance = if is_logic_chain {
+        //     self.instructions.pop().map_or(0, |(jump, _, _)| {
+        //         let Jump { offset, .. } = Jump::from(&jump);
+
+        //         offset
+        //     })
+        // } else {
+        //     1
+        // };
 
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -986,20 +1004,28 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
         self.emit_instruction(test, Type::None, operator_position);
-        self.emit_instruction(Instruction::jump(1, true), Type::None, operator_position);
+
+        let jump_index = self.instructions.len();
+
         self.parse_sub_expression(&rule.precedence)?;
 
+        let jump_distance = (self.instructions.len() - jump_index) as u8;
+        let jump = Instruction::jump(jump_distance, true);
+
+        self.instructions
+            .insert(jump_index, (jump, Type::None, operator_position));
+
         let (mut right_instruction, _, _) = self.instructions.last_mut().unwrap();
+
         right_instruction.set_a_field(left_instruction.a_field());
 
-        if is_logic_chain {
-            let expression_length = self.instructions.len() - jump_index - 1;
-            jump_distance += expression_length as u8;
-            let jump = Instruction::jump(jump_distance, true);
+        // short_circuit_jump_distance += (self.instructions.len() - short_circuit_jump_index) as u8;
+        // let jump = Instruction::jump(short_circuit_jump_distance, true);
 
-            self.instructions
-                .insert(jump_index, (jump, Type::None, operator_position));
-        }
+        // self.instructions.insert(
+        //     short_circuit_jump_index,
+        //     (jump, Type::None, operator_position),
+        // );
 
         Ok(())
     }
@@ -1021,7 +1047,7 @@ impl<'src> Compiler<'src> {
             local_index
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_call_native(native_function);
-        } else if self.self_name.as_deref() == Some(identifier) {
+        } else if self.function_name.as_deref() == Some(identifier) {
             let destination = self.next_register();
             let load_function = Instruction::load_function(destination, self.record_index);
 
@@ -1175,35 +1201,22 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        if matches!(
-            self.get_last_operations(),
-            Some([
-                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
-                Operation::JUMP,
-                Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN
-            ]),
-        ) {
-            self.instructions.pop();
-            self.instructions.pop();
-            self.instructions.pop();
-        } else if let Some((instruction, _, _)) = self.instructions.last() {
-            let argument = match instruction.as_argument() {
-                Some(argument) => argument,
-                None => {
-                    return Err(CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    });
-                }
-            };
-            let test = Instruction::from(Test {
-                argument,
-                test_value: true,
-            });
+        let (last_instruction, _, _) = self.instructions.last().unwrap();
+        let argument = match last_instruction.as_argument() {
+            Some(argument) => argument,
+            None => {
+                return Err(CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            }
+        };
+        let test = Instruction::from(Test {
+            argument,
+            test_value: true,
+        });
 
-            self.emit_instruction(test, Type::None, self.current_position)
-        }
+        self.emit_instruction(test, Type::None, self.current_position);
 
         let if_block_start = self.instructions.len();
         let if_block_start_position = self.current_position;
@@ -1211,8 +1224,8 @@ impl<'src> Compiler<'src> {
         if let Token::LeftBrace = self.current_token {
             self.parse_block()?;
         } else {
-            return Err(CompileError::ExpectedToken {
-                expected: TokenKind::LeftBrace,
+            return Err(CompileError::ExpectedTokenMultiple {
+                expected: &[TokenKind::If, TokenKind::LeftBrace],
                 found: self.current_token.to_owned(),
                 position: self.current_position,
             });
@@ -1235,15 +1248,11 @@ impl<'src> Compiler<'src> {
                     position: self.current_position,
                 });
             }
-
-            true
         } else if if_block_type != Type::None {
             return Err(CompileError::IfMissingElse {
                 position: Span(if_block_start_position.0, self.current_position.1),
             });
-        } else {
-            false
-        };
+        }
 
         let else_block_end = self.instructions.len();
         let else_block_distance = (else_block_end - if_block_end) as u8;
@@ -1288,25 +1297,18 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let jump = Instruction::from(Jump {
-            offset: if_block_distance,
-            is_positive: true,
-        });
+        let jump = Instruction::jump(if_block_distance, true);
 
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
 
-        optimize_test_with_explicit_booleans(self);
-        optimize_test_with_loader_arguments(self);
+        control_flow_register_consolidation(self);
 
         let else_last_register = self.next_register().saturating_sub(1);
-        let r#move = Instruction::from(Point {
-            from: else_last_register,
-            to: if_last_register,
-        });
+        let point = Instruction::point(else_last_register, if_last_register);
 
         if if_last_register < else_last_register {
-            self.emit_instruction(r#move, Type::None, self.current_position);
+            self.emit_instruction(point, else_block_type, self.current_position);
         }
 
         Ok(())
@@ -1490,9 +1492,7 @@ impl<'src> Compiler<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::from(Return {
-                should_return_value: false,
-            });
+            let r#return = Instruction::r#return(false);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
@@ -1507,9 +1507,7 @@ impl<'src> Compiler<'src> {
                         }
                     });
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::from(Return {
-                should_return_value,
-            });
+            let r#return = Instruction::r#return(should_return_value);
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -1577,7 +1575,7 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            function_compiler.self_name = Some(text.into());
+            function_compiler.function_name = Some(text.into());
 
             Some((text, position))
         } else {
@@ -1664,7 +1662,8 @@ impl<'src> Compiler<'src> {
         self.lexer.skip_to(self.current_position.1);
 
         let function_end = function_compiler.previous_position.1;
-        let chunk = function_compiler.finish();
+        let record_index = function_compiler.record_index;
+        let chunk = function_compiler.finish(None::<&str>);
         let destination = self.next_register();
 
         self.prototypes.push(chunk);
@@ -1679,7 +1678,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        let load_function = Instruction::load_function(destination, self.record_index);
+        let load_function = Instruction::load_function(destination, record_index);
 
         self.emit_instruction(
             load_function,
@@ -1703,7 +1702,10 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
 
-        if last_instruction.operation() != Operation::LOAD_FUNCTION {
+        if !matches!(
+            last_instruction_type,
+            Type::Function(_) | Type::SelfFunction
+        ) {
             return Err(CompileError::ExpectedFunction {
                 found: self.previous_token.to_owned(),
                 actual_type: last_instruction_type.clone(),
@@ -1970,29 +1972,25 @@ impl<'src> Compiler<'src> {
 /// Operator precedence levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
-    None,
-    Assignment,
-    Conditional,
-    LogicalOr,
-    LogicalAnd,
-    Equality,
-    Comparison,
-    Term,
-    Factor,
-    Unary,
-    Call,
-    Primary,
+    Primary = 9,
+    Call = 8,
+    Unary = 7,
+    Factor = 6,
+    Term = 5,
+    Comparison = 4,
+    LogicalAnd = 3,
+    LogicalOr = 2,
+    Assignment = 1,
+    None = 0,
 }
 
 impl Precedence {
     fn increment(&self) -> Self {
         match self {
             Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::Conditional,
-            Precedence::Conditional => Precedence::LogicalOr,
+            Precedence::Assignment => Precedence::LogicalOr,
             Precedence::LogicalOr => Precedence::LogicalAnd,
-            Precedence::LogicalAnd => Precedence::Equality,
-            Precedence::Equality => Precedence::Comparison,
+            Precedence::LogicalAnd => Precedence::Comparison,
             Precedence::Comparison => Precedence::Term,
             Precedence::Term => Precedence::Factor,
             Precedence::Factor => Precedence::Unary,
@@ -2036,7 +2034,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
             Token::BangEqual => ParseRule {
                 prefix: None,
                 infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Equality,
+                precedence: Precedence::Comparison,
             },
             Token::Bool => ParseRule {
                 prefix: Some(Compiler::expect_expression),
@@ -2082,7 +2080,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
             Token::DoubleEqual => ParseRule {
                 prefix: None,
                 infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Equality,
+                precedence: Precedence::Comparison,
             },
             Token::DoublePipe => ParseRule {
                 prefix: None,

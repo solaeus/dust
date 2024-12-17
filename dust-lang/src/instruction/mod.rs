@@ -105,11 +105,11 @@ mod load_function;
 mod load_list;
 mod load_self;
 mod modulo;
-mod r#move;
 mod multiply;
 mod negate;
 mod not;
 mod operation;
+mod point;
 mod r#return;
 mod set_local;
 mod subtract;
@@ -136,7 +136,7 @@ pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
 pub use operation::Operation;
-pub use r#move::Point;
+pub use point::Point;
 pub use r#return::Return;
 pub use set_local::SetLocal;
 pub use subtract::Subtract;
@@ -475,7 +475,8 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::LOAD_BOOLEAN
+            Operation::POINT
+            | Operation::LOAD_BOOLEAN
             | Operation::LOAD_CONSTANT
             | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
@@ -488,18 +489,17 @@ impl Instruction {
             | Operation::MODULO
             | Operation::NEGATE
             | Operation::NOT
-            | Operation::EQUAL
-            | Operation::LESS
-            | Operation::LESS_EQUAL
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
 
                 function.returns_value()
             }
-            Operation::POINT
-            | Operation::CLOSE
+            Operation::CLOSE
             | Operation::SET_LOCAL
+            | Operation::EQUAL
+            | Operation::LESS
+            | Operation::LESS_EQUAL
             | Operation::TEST
             | Operation::TEST_SET
             | Operation::JUMP
@@ -688,17 +688,17 @@ impl Instruction {
             Operation::CALL => {
                 let Call {
                     destination,
-                    function_register: record_index,
+                    function_register,
                     argument_count,
                 } = Call::from(self);
                 let arguments_start = destination.saturating_sub(argument_count);
 
                 match argument_count {
-                    0 => format!("R{destination} = P{record_index}()"),
-                    1 => format!("R{destination} = P{record_index}(R{arguments_start})"),
+                    0 => format!("R{destination} = R{function_register}()"),
+                    1 => format!("R{destination} = R{function_register}(R{arguments_start})"),
                     _ => {
                         format!(
-                            "R{destination} = P{record_index}(R{arguments_start}..R{destination})"
+                            "R{destination} = R{function_register}(R{arguments_start}..R{destination})"
                         )
                     }
                 }

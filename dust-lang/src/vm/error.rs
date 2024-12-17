@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{DustString, InstructionData, Value};
+use crate::{InstructionData, Value};
 
 use super::call_stack::CallStack;
 

@@ -39,7 +39,7 @@ impl Operation {
 impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
-            Self::POINT => "MOVE",
+            Self::POINT => "POINT",
             Self::CLOSE => "CLOSE",
             Self::LOAD_BOOLEAN => "LOAD_BOOLEAN",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",

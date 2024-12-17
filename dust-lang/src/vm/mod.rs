@@ -2,7 +2,7 @@
 mod call_stack;
 mod error;
 mod record;
-mod runner;
+mod run_action;
 mod thread;
 
 use std::{
@@ -11,9 +11,10 @@ use std::{
     thread::spawn,
 };
 
-pub use call_stack::CallStack;
+pub use call_stack::{CallStack, FunctionCall};
 pub use error::VmError;
 pub use record::Record;
+pub use run_action::RunAction;
 pub use thread::{Thread, ThreadSignal};
 
 use crate::{compile, Chunk, DustError, Value};
@@ -91,11 +92,4 @@ impl Display for Pointer {
             Self::Constant(index) => write!(f, "C{}", index),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct FunctionCall {
-    record_index: usize,
-    return_register: u8,
-    argument_count: u8,
 }

@@ -26,7 +26,20 @@ impl<'src> DustError<'src> {
     }
 
     pub fn report(&self) -> String {
-        let (title, description, detail_snippets, help_snippets) = self.error_data();
+        let (title, description, detail_snippets, help_snippets) = match self {
+            Self::Compile { error, .. } => (
+                CompileError::title(),
+                error.description(),
+                error.detail_snippets(),
+                error.help_snippets(),
+            ),
+            Self::NativeFunction { error, .. } => (
+                NativeFunctionError::title(),
+                error.description(),
+                error.detail_snippets(),
+                error.help_snippets(),
+            ),
+        };
         let label = format!("{}: {}", title, description);
         let message = Level::Error
             .title(&label)
@@ -44,30 +57,6 @@ impl<'src> DustError<'src> {
         report.push_str(&renderer.render(message).to_string());
 
         report
-    }
-
-    fn error_data(
-        &self,
-    ) -> (
-        &str,
-        &str,
-        SmallVec<[(String, Span); 2]>,
-        SmallVec<[(String, Span); 2]>,
-    ) {
-        match self {
-            Self::Compile { error, .. } => (
-                CompileError::title(),
-                error.description(),
-                error.detail_snippets(),
-                error.help_snippets(),
-            ),
-            Self::NativeFunction { error, .. } => (
-                NativeFunctionError::title(),
-                error.description(),
-                error.detail_snippets(),
-                error.help_snippets(),
-            ),
-        }
     }
 
     fn source(&self) -> &str {

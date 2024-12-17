@@ -91,8 +91,16 @@ impl ConcreteValue {
 
                 Integer(sum)
             }
-            (String(left), Character(_)) => todo!(),
-            (String(left), String(right)) => todo!(),
+            (String(left), Character(right)) => {
+                let concatenated = format!("{}{}", left, right);
+
+                String(DustString::from(concatenated))
+            }
+            (String(left), String(right)) => {
+                let concatenated = format!("{}{}", left, right);
+
+                String(DustString::from(concatenated))
+            }
             _ => panic!(
                 "{}",
                 ValueError::CannotAdd(

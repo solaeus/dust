@@ -27,7 +27,8 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{DustString, FunctionType, Instruction, Span, Value};
+use crate::vm::{Record, Register, RunAction};
+use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
 
 /// Representation of a Dust program or function.
 ///
@@ -44,6 +45,7 @@ pub struct Chunk {
     prototypes: Vec<Chunk>,
 
     stack_size: usize,
+    record_index: u8,
 }
 
 impl Chunk {
@@ -56,6 +58,7 @@ impl Chunk {
         locals: impl Into<SmallVec<[Local; 8]>>,
         prototypes: impl Into<Vec<Chunk>>,
         stack_size: usize,
+        record_index: u8,
     ) -> Self {
         Self {
             name,
@@ -66,6 +69,7 @@ impl Chunk {
             locals: locals.into(),
             prototypes: prototypes.into(),
             stack_size,
+            record_index,
         }
     }
 
@@ -88,31 +92,47 @@ impl Chunk {
             locals: locals.into(),
             prototypes,
             stack_size: 0,
+            record_index: 0,
         }
     }
 
-    pub fn take_data(
-        self,
-    ) -> (
-        Option<DustString>,
-        FunctionType,
-        SmallVec<[Instruction; 32]>,
-        SmallVec<[Span; 32]>,
-        SmallVec<[Value; 16]>,
-        SmallVec<[Local; 8]>,
-        Vec<Chunk>,
-        usize,
-    ) {
-        (
+    pub fn as_function(&self) -> Function {
+        Function {
+            name: self.name.clone(),
+            r#type: self.r#type.clone(),
+            record_index: self.record_index,
+        }
+    }
+
+    pub fn into_records(self, records: &mut Vec<Record>) {
+        let actions = self.instructions().iter().map(RunAction::from).collect();
+        let record = Record::new(
+            actions,
+            None,
             self.name,
             self.r#type,
-            self.instructions,
             self.positions,
             self.constants,
             self.locals,
-            self.prototypes,
             self.stack_size,
-        )
+            self.record_index,
+        );
+
+        if records.is_empty() {
+            records.push(record);
+
+            for chunk in self.prototypes {
+                chunk.into_records(records);
+            }
+        } else {
+            for chunk in self.prototypes {
+                chunk.into_records(records);
+            }
+
+            debug_assert!(record.index() as usize == records.len());
+
+            records.push(record);
+        }
     }
 
     pub fn name(&self) -> Option<&DustString> {

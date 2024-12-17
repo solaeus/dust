@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{vm::Record, Type, Vm};
+use crate::{vm::Record, Type};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
@@ -23,9 +23,6 @@ pub enum Value {
 
     #[serde(skip)]
     Function(Function),
-
-    #[serde(skip)]
-    SelfFunction,
 }
 
 impl Value {
@@ -60,7 +57,6 @@ impl Value {
                 Type::List(Box::new(item_type.clone()))
             }
             Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
-            Value::SelfFunction => Type::SelfFunction,
         }
     }
 
@@ -163,7 +159,6 @@ impl Value {
             Value::AbstractList(list) => list.display(record),
             Value::Concrete(concrete_value) => concrete_value.display(),
             Value::Function(function) => DustString::from(function.to_string()),
-            Value::SelfFunction => DustString::from("self"),
         }
     }
 }
@@ -174,7 +169,6 @@ impl Display for Value {
             Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
             Value::AbstractList(list) => write!(f, "{list}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::SelfFunction => write!(f, "self"),
         }
     }
 }

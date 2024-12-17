@@ -44,6 +44,6 @@ impl From<LoadFunction> for Instruction {
 
 impl Display for LoadFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "R{} = P{}", self.destination, self.record_index)
+        write!(f, "R{} = F{}", self.destination, self.record_index)
     }
 }

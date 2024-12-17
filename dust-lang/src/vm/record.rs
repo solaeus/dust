@@ -2,39 +2,61 @@ use std::mem::replace;
 
 use smallvec::SmallVec;
 
-use crate::{Local, Span, Value};
+use crate::{DustString, Function, FunctionType, Local, Span, Value};
 
-use super::{runner::RunAction, Pointer, Register};
+use super::{run_action::RunAction, Pointer, Register};
 
 pub struct Record {
     pub ip: usize,
     pub actions: SmallVec<[RunAction; 32]>,
-    positions: SmallVec<[Span; 32]>,
 
     stack: Vec<Register>,
+    last_assigned_register: Option<u8>,
+
+    name: Option<DustString>,
+    r#type: FunctionType,
+
+    positions: SmallVec<[Span; 32]>,
     constants: SmallVec<[Value; 16]>,
     locals: SmallVec<[Local; 8]>,
 
-    last_assigned_register: Option<u8>,
+    stack_size: usize,
+    index: u8,
 }
 
 impl Record {
     pub fn new(
-        stack: Vec<Register>,
+        actions: SmallVec<[RunAction; 32]>,
+        last_assigned_register: Option<u8>,
+        name: Option<DustString>,
+        r#type: FunctionType,
+        positions: SmallVec<[Span; 32]>,
         constants: SmallVec<[Value; 16]>,
         locals: SmallVec<[Local; 8]>,
-        actions: SmallVec<[RunAction; 32]>,
-        positions: SmallVec<[Span; 32]>,
+        stack_size: usize,
+        index: u8,
     ) -> Self {
         Self {
             ip: 0,
             actions,
+            stack: vec![Register::Empty; stack_size],
+            last_assigned_register,
+            name,
+            r#type,
             positions,
-            stack,
             constants,
             locals,
-            last_assigned_register: None,
+            stack_size,
+            index,
         }
+    }
+
+    pub fn name(&self) -> Option<&DustString> {
+        self.name.as_ref()
+    }
+
+    pub fn index(&self) -> u8 {
+        self.index
     }
 
     pub fn stack_size(&self) -> usize {
@@ -47,6 +69,14 @@ impl Record {
 
     pub fn last_assigned_register(&self) -> Option<u8> {
         self.last_assigned_register
+    }
+
+    pub fn as_function(&self) -> Function {
+        Function {
+            name: self.name.clone(),
+            r#type: self.r#type.clone(),
+            record_index: self.index,
+        }
     }
 
     pub(crate) fn follow_pointer(&self, pointer: Pointer) -> &Value {

@@ -20,7 +20,7 @@ pub enum CompileError {
     },
 
     // Parsing errors
-    CannotChainComparison {
+    ComparisonChain {
         position: Span,
     },
     ExpectedBoolean {
@@ -176,7 +176,7 @@ impl AnnotatedError for CompileError {
         match self {
             Self::CannotAddArguments { .. } => "Cannot add these types",
             Self::CannotAddType { .. } => "Cannot add to this type",
-            Self::CannotChainComparison { .. } => "Cannot chain comparison operations",
+            Self::ComparisonChain { .. } => "Cannot chain comparison operations",
             Self::CannotDivideArguments { .. } => "Cannot divide these types",
             Self::CannotDivideType { .. } => "Cannot divide this type",
             Self::CannotModuloArguments { .. } => "Cannot modulo these types",

@@ -17,7 +17,7 @@ pub fn panic(
         let value = record.open_register(register_index);
 
         if let Some(string) = value.as_string() {
-            message.push_str(&string);
+            message.push_str(string);
             message.push('\n');
         }
     }

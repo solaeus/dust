@@ -1,10 +1,12 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
-use super::{FunctionCall, VmError};
+use crate::DustString;
+
+use super::VmError;
 
 #[derive(Clone, PartialEq)]
 pub struct CallStack {
-    pub calls: Vec<FunctionCall>,
+    calls: Vec<FunctionCall>,
 }
 
 impl CallStack {
@@ -47,6 +49,18 @@ impl CallStack {
 
         self.calls.last().unwrap()
     }
+
+    pub fn last_mut_or_panic(&mut self) -> &mut FunctionCall {
+        assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+
+        self.calls.last_mut().unwrap()
+    }
+}
+
+impl Default for CallStack {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Debug for CallStack {
@@ -60,9 +74,37 @@ impl Display for CallStack {
         writeln!(f, "-- DUST CALL STACK --")?;
 
         for function_call in &self.calls {
-            writeln!(f, "{function_call:?}")?;
+            writeln!(f, "{function_call}")?;
         }
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionCall {
+    pub name: Option<DustString>,
+    pub record_index: u8,
+    pub return_register: u8,
+    pub ip: usize,
+}
+
+impl Display for FunctionCall {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let FunctionCall {
+            name,
+            record_index,
+            return_register,
+            ..
+        } = self;
+        let name = name
+            .as_ref()
+            .map(|name| name.as_str())
+            .unwrap_or("anonymous");
+
+        write!(
+            f,
+            "{name} (Record: {record_index}, Return register: {return_register})"
+        )
     }
 }

@@ -1,15 +1,12 @@
-use smallvec::SmallVec;
-
 use crate::{
     instruction::{
         Call, CallNative, Close, LoadBoolean, LoadConstant, LoadFunction, LoadList, LoadSelf, Point,
     },
     vm::VmError,
-    AbstractList, ConcreteValue, Function, Instruction, InstructionData, NativeFunction, Type,
-    Value,
+    AbstractList, ConcreteValue, Instruction, InstructionData, Type, Value,
 };
 
-use super::{thread::ThreadSignal, FunctionCall, Pointer, Record, Register};
+use super::{thread::ThreadSignal, Pointer, Record, Register};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RunAction {
@@ -122,6 +119,8 @@ pub fn load_constant(instruction_data: InstructionData, record: &mut Record) -> 
     } = instruction_data.into();
     let register = Register::Pointer(Pointer::Constant(constant_index));
 
+    log::trace!("Load constant {constant_index} into R{destination}");
+
     record.set_register(destination, register);
 
     if jump_next {
@@ -170,18 +169,22 @@ pub fn load_list(instruction_data: InstructionData, record: &mut Record) -> Thre
     ThreadSignal::Continue
 }
 
-pub fn load_function(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn load_function(instruction_data: InstructionData, _: &mut Record) -> ThreadSignal {
     let LoadFunction {
         destination,
         record_index,
     } = instruction_data.into();
 
-    ThreadSignal::Continue
+    ThreadSignal::LoadFunction {
+        from_record_index: record_index,
+        to_register_index: destination,
+    }
 }
 
 pub fn load_self(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let LoadSelf { destination } = instruction_data.into();
-    let register = Register::Value(Value::SelfFunction);
+    let function = record.as_function();
+    let register = Register::Value(Value::Function(function));
 
     record.set_register(destination, register);
 
@@ -510,9 +513,9 @@ pub fn jump(instruction_data: InstructionData, record: &mut Record) -> ThreadSig
     let is_positive = c != 0;
 
     if is_positive {
-        record.ip += offset + 1
+        record.ip += offset;
     } else {
-        record.ip -= offset
+        record.ip -= offset + 1;
     }
 
     ThreadSignal::Continue
@@ -535,11 +538,11 @@ pub fn call(instruction_data: InstructionData, record: &mut Record) -> ThreadSig
         ),
     };
 
-    ThreadSignal::Call(FunctionCall {
+    ThreadSignal::Call {
         record_index: function.record_index,
         return_register: destination,
         argument_count,
-    })
+    }
 }
 
 pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
@@ -551,12 +554,9 @@ pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> Th
     let first_argument_index = destination - argument_count;
     let argument_range = first_argument_index..destination;
 
-    let function = NativeFunction::from(function);
-    let thread_signal = function
+    function
         .call(record, Some(destination), argument_range)
-        .unwrap_or_else(|error| panic!("{error:?}"));
-
-    thread_signal
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
 pub fn r#return(instruction_data: InstructionData, _: &mut Record) -> ThreadSignal {

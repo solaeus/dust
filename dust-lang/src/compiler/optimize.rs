@@ -1,15 +1,11 @@
 //! Functions used by the compiler to optimize a chunk's bytecode during compilation.
 
-use crate::{Compiler, Operation};
+use crate::{Compiler, Instruction, Operation};
 
-/// Optimizes a control flow pattern by removing redundant instructions.
+/// Optimizes a control flow pattern to use fewer registers and avoid using a `POINT` instruction.
+/// Use this after parsing an if/else statement.
 ///
-/// If a comparison instruction is followed by a test instruction, the test instruction may be
-/// redundant because the comparison instruction already sets the correct value. If the test's
-/// arguments (i.e. the boolean loaders) are `true` and `false` (in that order) then the boolean
-/// loaders, jump and test instructions are removed, leaving a single comparison instruction.
-///
-/// This makes the following two code snippets compile to the same bytecode:
+/// This makes the following examples compile to the same bytecode:
 ///
 /// ```dust
 /// 4 == 4
@@ -19,58 +15,27 @@ use crate::{Compiler, Operation};
 /// if 4 == 4 { true } else { false }
 /// ```
 ///
-/// The instructions must be in the following order:
-///     - `EQUAL`, `LESS` or `LESS_EQUAL`
-///     - `TEST`
-///     - `JUMP`
-///     - `LOAD_BOOLEAN`
-///     - `LOAD_BOOLEAN`
-pub fn optimize_test_with_explicit_booleans(compiler: &mut Compiler) {
-    if matches!(
-        compiler.get_last_operations(),
-        Some([
-            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
-            Operation::TEST,
-            Operation::JUMP,
-            Operation::LOAD_BOOLEAN,
-            Operation::LOAD_BOOLEAN,
-        ])
-    ) {
-        log::debug!("Removing redundant test, jump and boolean loaders after comparison");
-
-        let first_loader = compiler.instructions.iter().nth_back(1).unwrap();
-        let second_loader = compiler.instructions.last().unwrap();
-        let first_boolean = first_loader.0.b_field() != 0;
-        let second_boolean = second_loader.0.b_field() != 0;
-
-        if first_boolean && !second_boolean {
-            compiler.instructions.pop();
-            compiler.instructions.pop();
-            compiler.instructions.pop();
-            compiler.instructions.pop();
-        }
-    }
-}
-
-/// Optimizes a control flow pattern.
-///
-/// TEST instructions (which are always followed by a JUMP) can be optimized when the next
-/// instructions are two constant or boolean loaders. The first loader is set to skip an instruction
-/// if it is run while the second loader is modified to use the first's register. Foregoing the use
-/// a jump instruction is an optimization but consolidating the registers is a necessity. This is
-/// because test instructions are essentially control flow and a subsequent SET_LOCAL instruction
-/// would not know at compile time which branch would be executed at runtime.
+/// When they occur in the sequence shown below, instructions can be optimized by taking advantage
+/// of the loaders' ability to skip an instruction after loading a value. If these instructions are
+/// the result of a binary expression, this will not change anything because they were already
+/// emitted optimally. Control flow patterns, however, can be optimized because the load
+/// instructions are from seperate expressions that each uses its own register. Since only one of
+/// the two branches will be executed, this is wasteful. It would also require the compiler to emit
+/// a `POINT` instruction to prevent the VM from encountering an empty register.
 ///
 /// The instructions must be in the following order:
-///     - `TEST`
+///     - `EQUAL` | `LESS` | `LESS_EQUAL` | `TEST`
 ///     - `JUMP`
 ///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
 ///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
-pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
+///
+/// This optimization was taken from `A No-Frills Introduction to Lua 5.1 VM Instructions` by
+/// Kein-Hong Man.
+pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
     if !matches!(
         compiler.get_last_operations(),
         Some([
-            Operation::TEST,
+            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL | Operation::TEST,
             Operation::JUMP,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
@@ -81,12 +46,17 @@ pub fn optimize_test_with_loader_arguments(compiler: &mut Compiler) {
 
     log::debug!("Consolidating registers for control flow optimization");
 
-    let first_loader = &mut compiler.instructions.iter_mut().nth_back(1).unwrap().0;
-
-    first_loader.set_c_field(true as u8);
-
+    let first_loader_index = compiler.instructions.len() - 2;
+    let (first_loader, _, _) = &mut compiler.instructions.get_mut(first_loader_index).unwrap();
     let first_loader_destination = first_loader.a_field();
-    let second_loader = &mut compiler.instructions.last_mut().unwrap().0;
+    *first_loader =
+        Instruction::load_boolean(first_loader.a_field(), first_loader.b_field() != 0, true);
 
-    second_loader.set_a_field(first_loader_destination);
+    let second_loader_index = compiler.instructions.len() - 1;
+    let (second_loader, _, _) = &mut compiler.instructions.get_mut(second_loader_index).unwrap();
+    *second_loader = Instruction::load_boolean(
+        first_loader_destination,
+        second_loader.b_field() != 0,
+        false,
+    );
 }

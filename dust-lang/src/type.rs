@@ -314,12 +314,12 @@ impl Display for FunctionType {
         write!(f, "(")?;
 
         if let Some(value_parameters) = &self.value_parameters {
-            for (index, (identifier, r#type)) in value_parameters.iter().enumerate() {
+            for (index, (_, r#type)) in value_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
 
-                write!(f, "{identifier}: {type}")?;
+                write!(f, "{type}")?;
             }
         }
 
