@@ -7,6 +7,17 @@
 //! - [`Compiler`] is created with a [`Lexer`] and protentially emits a [`CompileError`] or
 //!   [`LexError`] if the input is invalid. Allows passing a name for the main chunk when
 //!   [`Compiler::finish`] is called.
+//!
+//! # Errors
+//!
+//! The compiler can return errors due to:
+//!     - Lexing errors
+//!     - Parsing errors
+//!     - Type conflicts
+//!
+//! It is a logic error to call [`Compiler::finish`] on a compiler that has emitted an error and
+//! pass that chunk to the VM. Otherwise, if the compiler gives no errors and the VM encounters a
+//! runtime error, it is the compiler's fault and the error should be fixed here.
 mod error;
 mod optimize;
 
@@ -22,9 +33,7 @@ use optimize::control_flow_register_consolidation;
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    instruction::{
-        CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal, Test,
-    },
+    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
     Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
 };
@@ -192,9 +201,9 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    /// Compiles the source while checking for errors and returning a [`CompileError`] if any are
-    /// found. After calling this function, check its return value for an error, then call
-    /// [`Compiler::finish`] to get the compiled chunk.
+    /// Compiles the source (which is in the lexer) while checking for errors and returning a
+    /// [`CompileError`] if any are found. After calling this function, check its return value for
+    /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
         loop {
             self.parse(Precedence::None)?;
@@ -349,15 +358,6 @@ impl<'src> Compiler<'src> {
                 position: self.current_position,
             })
         }
-    }
-
-    fn pop_last_instruction(&mut self) -> Result<(Instruction, Type, Span), CompileError> {
-        self.instructions
-            .pop()
-            .ok_or_else(|| CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })
     }
 
     fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
@@ -628,7 +628,7 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
 
         let (previous_instruction, previous_type, previous_position) =
-            self.pop_last_instruction()?;
+            self.instructions.pop().unwrap();
         let (argument, push_back) = self.handle_binary_argument(&previous_instruction)?;
 
         if push_back {
@@ -759,7 +759,7 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        let (right_instruction, right_type, right_position) = self.pop_last_instruction()?;
+        let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
 
         match operator {
@@ -948,44 +948,17 @@ impl<'src> Compiler<'src> {
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
         let is_logic_chain = matches!(
             self.get_last_operations(),
-            Some([Operation::TEST, Operation::JUMP, _])
+            Some([_, Operation::TEST, Operation::JUMP, _])
         );
+        let jump_over_index = self.instructions.len() - 2;
+        let jump_over = if is_logic_chain {
+            let (instruction, _, _) = self.instructions.remove(jump_over_index);
 
-        let (left_instruction, left_type, left_position) = self.pop_last_instruction()?;
-        let (left, _) = self.handle_binary_argument(&left_instruction)?;
-
-        // if is_logic_chain {
-        //     let destination = self
-        //         .instructions
-        //         .iter()
-        //         .rev()
-        //         .nth(2)
-        //         .map_or(0, |(instruction, _, _)| instruction.a_field());
-
-        //     left_instruction.set_a_field(destination);
-        // }
-
-        if !left_instruction.yields_value() {
-            return Err(CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            });
-        }
-
-        // self.instructions
-        //     .push((left_instruction, left_type.clone(), left_position));
-
-        // let short_circuit_jump_index = self.instructions.len();
-        // let mut short_circuit_jump_distance = if is_logic_chain {
-        //     self.instructions.pop().map_or(0, |(jump, _, _)| {
-        //         let Jump { offset, .. } = Jump::from(&jump);
-
-        //         offset
-        //     })
-        // } else {
-        //     1
-        // };
-
+            Some(instruction)
+        } else {
+            None
+        };
+        let operand_register = self.next_register() - 1;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -1000,7 +973,7 @@ impl<'src> Compiler<'src> {
                 })
             }
         };
-        let test = Instruction::test(left, test_boolean);
+        let test = Instruction::test(operand_register, test_boolean);
 
         self.advance()?;
         self.emit_instruction(test, Type::None, operator_position);
@@ -1015,9 +988,21 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(jump_index, (jump, Type::None, operator_position));
 
-        let (mut right_instruction, _, _) = self.instructions.last_mut().unwrap();
+        if let Some(jump_over) = jump_over {
+            let is_end_of_context = matches!(self.current_token, Token::RightBrace | Token::Eof);
+            let jump_over_distance =
+                jump_over.b_field() + (self.instructions.len() - jump_over_index) as u8 - {
+                    if is_end_of_context {
+                        1
+                    } else {
+                        0
+                    }
+                };
+            let jump_over = Instruction::jump(jump_over_distance, true);
 
-        right_instruction.set_a_field(left_instruction.a_field());
+            self.instructions
+                .insert(jump_over_index, (jump_over, Type::None, operator_position));
+        }
 
         // short_circuit_jump_distance += (self.instructions.len() - short_circuit_jump_index) as u8;
         // let jump = Instruction::jump(short_circuit_jump_distance, true);
@@ -1201,20 +1186,8 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        let (last_instruction, _, _) = self.instructions.last().unwrap();
-        let argument = match last_instruction.as_argument() {
-            Some(argument) => argument,
-            None => {
-                return Err(CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                });
-            }
-        };
-        let test = Instruction::from(Test {
-            argument,
-            test_value: true,
-        });
+        let operand_register = self.next_register() - 1;
+        let test = Instruction::test(operand_register, true);
 
         self.emit_instruction(test, Type::None, self.current_position);
 
@@ -1334,27 +1307,8 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let (expression_instruction, expression_type, expression_position) =
-                self.instructions.last().unwrap();
-
-            if expression_type != &Type::Boolean {
-                return Err(CompileError::ExpectedFunction {
-                    found: self.previous_token.to_owned(),
-                    actual_type: expression_type.clone(),
-                    position: *expression_position,
-                });
-            }
-
-            let test_argument = match expression_instruction.as_argument() {
-                Some(argument) => argument,
-                None => {
-                    return Err(CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: *expression_position,
-                    })
-                }
-            };
-            let test = Instruction::test(test_argument, true);
+            let operand_register = self.next_register() - 1;
+            let test = Instruction::test(operand_register, true);
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -1427,8 +1381,7 @@ impl<'src> Compiler<'src> {
 
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
         self.advance()?;
-
-        Ok(())
+        self.parse(Precedence::None)
     }
 
     fn parse_expression(&mut self) -> Result<(), CompileError> {

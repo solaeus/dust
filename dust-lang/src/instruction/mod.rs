@@ -327,9 +327,9 @@ impl Instruction {
         })
     }
 
-    pub fn test(argument: Argument, value: bool) -> Instruction {
+    pub fn test(operand_register: u8, value: bool) -> Instruction {
         Instruction::from(Test {
-            argument,
+            operand_register,
             test_value: value,
         })
     }
@@ -622,12 +622,12 @@ impl Instruction {
             }
             Operation::TEST => {
                 let Test {
-                    argument,
-                    test_value: value,
+                    operand_register,
+                    test_value,
                 } = Test::from(self);
-                let bang = if value { "" } else { "!" };
+                let bang = if test_value { "" } else { "!" };
 
-                format!("if {bang}{argument} {{ JUMP +1 }}",)
+                format!("if {bang}R{operand_register} {{ JUMP +1 }}",)
             }
             Operation::TEST_SET => {
                 let TestSet {

@@ -27,7 +27,7 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::vm::{Record, Register, RunAction};
+use crate::vm::{Record, RunAction};
 use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
 
 /// Representation of a Dust program or function.

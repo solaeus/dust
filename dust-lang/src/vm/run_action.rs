@@ -356,18 +356,15 @@ pub fn modulo(instruction_data: InstructionData, record: &mut Record) -> ThreadS
 
 pub fn test(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
-        b_field: b,
-        b_is_constant,
-        c_field: c,
-        ..
+        b_field, c_field, ..
     } = instruction_data;
-    let value = record.get_argument(b, b_is_constant);
+    let value = record.open_register(b_field);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
         panic!("VM Error: Expected boolean value for TEST operation",);
     };
-    let test_value = c != 0;
+    let test_value = c_field != 0;
 
     if boolean == test_value {
         record.ip += 1;
