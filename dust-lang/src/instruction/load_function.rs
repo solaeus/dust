@@ -1,32 +1,39 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, Operation};
+use super::{Instruction, InstructionData, Operation};
 
 pub struct LoadFunction {
     pub destination: u8,
-    pub prototype_index: u8,
+    pub record_index: u8,
 }
 
 impl From<&Instruction> for LoadFunction {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
-        let prototype_index = instruction.b_field();
+        let record_index = instruction.b_field();
 
         LoadFunction {
             destination,
-            prototype_index,
+            record_index,
+        }
+    }
+}
+
+impl From<InstructionData> for LoadFunction {
+    fn from(instruction: InstructionData) -> Self {
+        LoadFunction {
+            destination: instruction.a_field,
+            record_index: instruction.b_field,
         }
     }
 }
 
 impl From<LoadFunction> for Instruction {
     fn from(load_function: LoadFunction) -> Self {
-        let operation = Operation::LOAD_FUNCTION;
-
         Instruction::new(
-            operation,
+            Operation::LOAD_FUNCTION,
             load_function.destination,
-            load_function.prototype_index,
+            load_function.record_index,
             0,
             false,
             false,
@@ -37,6 +44,6 @@ impl From<LoadFunction> for Instruction {
 
 impl Display for LoadFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "R{} = P{}", self.destination, self.prototype_index)
+        write!(f, "R{} = P{}", self.destination, self.record_index)
     }
 }

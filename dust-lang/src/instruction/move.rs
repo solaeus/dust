@@ -21,8 +21,8 @@ impl From<&Instruction> for Point {
 impl From<InstructionData> for Point {
     fn from(instruction: InstructionData) -> Self {
         Point {
-            from: instruction.b,
-            to: instruction.c,
+            from: instruction.b_field,
+            to: instruction.c_field,
         }
     }
 }

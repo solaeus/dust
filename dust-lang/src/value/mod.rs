@@ -45,6 +45,14 @@ impl Value {
         }
     }
 
+    pub fn as_string(&self) -> Option<&DustString> {
+        if let Value::Concrete(ConcreteValue::String(value)) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             Value::Concrete(concrete_value) => concrete_value.r#type(),

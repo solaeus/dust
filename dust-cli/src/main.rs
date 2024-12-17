@@ -196,10 +196,10 @@ fn main() {
         }
     }
 
-    let chunk = compiler.finish(None, None);
+    let chunk = compiler.finish();
     let compile_end = start_time.elapsed();
 
-    let vm = Vm::new(&chunk, None, None);
+    let vm = Vm::new(chunk);
     let return_value = vm.run();
     let run_end = start_time.elapsed();
 

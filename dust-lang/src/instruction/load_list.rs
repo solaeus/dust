@@ -1,5 +1,7 @@
 use crate::{Instruction, Operation};
 
+use super::InstructionData;
+
 pub struct LoadList {
     pub destination: u8,
     pub start_register: u8,
@@ -9,6 +11,18 @@ impl From<&Instruction> for LoadList {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let start_register = instruction.b_field();
+
+        LoadList {
+            destination,
+            start_register,
+        }
+    }
+}
+
+impl From<InstructionData> for LoadList {
+    fn from(instruction: InstructionData) -> Self {
+        let destination = instruction.a_field;
+        let start_register = instruction.b_field;
 
         LoadList {
             destination,

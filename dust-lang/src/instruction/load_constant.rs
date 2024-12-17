@@ -26,9 +26,9 @@ impl From<&Instruction> for LoadConstant {
 
 impl From<InstructionData> for LoadConstant {
     fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a;
-        let constant_index = instruction.b;
-        let jump_next = instruction.c != 0;
+        let destination = instruction.a_field;
+        let constant_index = instruction.b_field;
+        let jump_next = instruction.c_field != 0;
 
         LoadConstant {
             destination,

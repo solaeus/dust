@@ -9,13 +9,17 @@ mod string;
 use std::{
     fmt::{self, Display, Formatter},
     io::ErrorKind as IoErrorKind,
+    ops::Range,
     string::ParseError,
 };
 
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
-use crate::{AnnotatedError, FunctionType, Span, Type, Value, Vm};
+use crate::{
+    vm::{Record, ThreadSignal},
+    AnnotatedError, FunctionType, Span, Type,
+};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -32,12 +36,13 @@ macro_rules! define_native_function {
         impl NativeFunction {
             pub fn call(
                 &self,
-                vm: &Vm<'_>,
-                arguments: SmallVec<[&Value; 4]>,
-            ) -> Result<Option<Value>, NativeFunctionError> {
+                record: &mut Record,
+                destination: Option<u8>,
+                argument_range: Range<u8>,
+            ) -> Result<ThreadSignal, NativeFunctionError> {
                 match self {
                     $(
-                        NativeFunction::$name => $function(vm, arguments),
+                        NativeFunction::$name => $function(record, destination, argument_range),
                     )*
                 }
             }
@@ -258,7 +263,7 @@ pub enum NativeFunctionError {
         position: Span,
     },
     Panic {
-        message: Option<String>,
+        message: String,
         position: Span,
     },
     Parse {
@@ -288,10 +293,28 @@ impl AnnotatedError for NativeFunctionError {
     }
 
     fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
-        todo!()
+        match self {
+            NativeFunctionError::ExpectedArgumentCount {
+                expected,
+                found,
+                position,
+            } => smallvec![(
+                format!("Expected {expected} arguments, found {found}"),
+                *position
+            )],
+            NativeFunctionError::Panic { message, position } => {
+                smallvec![(format!("Dust panic!\n{message}"), *position)]
+            }
+            NativeFunctionError::Parse { error, position } => {
+                smallvec![(format!("{error}"), *position)]
+            }
+            NativeFunctionError::Io { error, position } => {
+                smallvec![(format!("{error}"), *position)]
+            }
+        }
     }
 
     fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
-        todo!()
+        SmallVec::new()
     }
 }

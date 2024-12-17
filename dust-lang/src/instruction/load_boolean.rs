@@ -10,9 +10,9 @@ pub struct LoadBoolean {
 
 impl From<InstructionData> for LoadBoolean {
     fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a;
-        let value = instruction.b != 0;
-        let jump_next = instruction.c != 0;
+        let destination = instruction.a_field;
+        let value = instruction.b_field != 0;
+        let jump_next = instruction.c_field != 0;
 
         LoadBoolean {
             destination,

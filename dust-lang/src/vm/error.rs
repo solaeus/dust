@@ -1,12 +1,13 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::DustString;
+use crate::{DustString, InstructionData, Value};
 
 use super::call_stack::CallStack;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
-    CallStackUnderflow { thread_name: DustString },
+    CallStackUnderflow,
+    ExpectedFunction { value: Value },
     InstructionIndexOutOfBounds { call_stack: CallStack, ip: usize },
     MalformedInstruction { instruction: InstructionData },
 }
@@ -14,11 +15,17 @@ pub enum VmError {
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::CallStackUnderflow { thread_name } => {
-                write!(f, "Call stack underflow in thread {thread_name}")
+            Self::CallStackUnderflow => {
+                write!(f, "Call stack underflow")
+            }
+            Self::ExpectedFunction { value } => {
+                write!(f, "Expected function, found {value}")
             }
             Self::InstructionIndexOutOfBounds { call_stack, ip } => {
                 write!(f, "Instruction index {} out of bounds\n{call_stack}", ip)
+            }
+            Self::MalformedInstruction { instruction } => {
+                write!(f, "Malformed instruction {instruction}")
             }
         }
     }

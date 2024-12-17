@@ -1,22 +1,21 @@
-use smallvec::SmallVec;
+use std::ops::Range;
 
-use crate::{ConcreteValue, NativeFunctionError, Value, Vm};
+use crate::{
+    vm::{Record, Register, ThreadSignal},
+    ConcreteValue, NativeFunctionError, Value,
+};
 
 pub fn to_string(
-    vm: &Vm,
-    arguments: SmallVec<[&Value; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
-    if arguments.len() != 1 {
-        return Err(NativeFunctionError::ExpectedArgumentCount {
-            expected: 1,
-            found: 0,
-            position: vm.current_position(),
-        });
-    }
+    record: &mut Record,
+    destination: Option<u8>,
+    argument_range: Range<u8>,
+) -> Result<ThreadSignal, NativeFunctionError> {
+    let argument_value = record.open_register(argument_range.start);
+    let argument_string = argument_value.display(record);
+    let destination = destination.unwrap();
+    let register = Register::Value(Value::Concrete(ConcreteValue::string(argument_string)));
 
-    let argument_string = arguments[0].display(vm);
+    record.set_register(destination, register);
 
-    Ok(Some(Value::Concrete(ConcreteValue::string(
-        argument_string,
-    ))))
+    Ok(ThreadSignal::Continue)
 }

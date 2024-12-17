@@ -1,27 +1,26 @@
-use std::panic;
+use std::{ops::Range, panic};
 
-use smallvec::SmallVec;
-
-use crate::{vm::Record, DustString, NativeFunctionError, Value};
+use crate::{
+    vm::{Record, ThreadSignal},
+    NativeFunctionError,
+};
 
 pub fn panic(
     record: &mut Record,
-    arguments: SmallVec<[&Value; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
-    let mut message: Option<DustString> = None;
+    _: Option<u8>,
+    argument_range: Range<u8>,
+) -> Result<ThreadSignal, NativeFunctionError> {
+    let position = record.current_position();
+    let mut message = format!("Dust panic at {position}!");
 
-    for value_ref in arguments {
-        let string = value_ref.display(record);
+    for register_index in argument_range {
+        let value = record.open_register(register_index);
 
-        match message {
-            Some(ref mut message) => message.push_str(&string),
-            None => message = Some(string),
+        if let Some(string) = value.as_string() {
+            message.push_str(&string);
+            message.push('\n');
         }
     }
 
-    if let Some(message) = message {
-        panic!("{message}");
-    } else {
-        panic!("Explicit panic");
-    }
+    panic!("{}", message)
 }

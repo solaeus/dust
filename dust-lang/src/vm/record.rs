@@ -1,4 +1,4 @@
-use std::env::consts::OS;
+use std::mem::replace;
 
 use smallvec::SmallVec;
 
@@ -131,6 +131,30 @@ impl Record {
             Register::Value(value) => Some(value),
             Register::Pointer(pointer) => Some(self.follow_pointer(*pointer)),
             Register::Empty => None,
+        }
+    }
+
+    pub fn replace_register_or_clone_constant(
+        &mut self,
+        register_index: u8,
+        new_register: Register,
+    ) -> Value {
+        let register_index = register_index as usize;
+
+        assert!(
+            register_index < self.stack.len(),
+            "VM Error: Register index out of bounds"
+        );
+
+        let old_register = replace(&mut self.stack[register_index], new_register);
+
+        match old_register {
+            Register::Value(value) => value,
+            Register::Pointer(pointer) => match pointer {
+                Pointer::Stack(register_index) => self.open_register(register_index).clone(),
+                Pointer::Constant(constant_index) => self.get_constant(constant_index).clone(),
+            },
+            Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
 

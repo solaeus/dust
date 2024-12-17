@@ -11,9 +11,10 @@ use std::{
     thread::spawn,
 };
 
+pub use call_stack::CallStack;
 pub use error::VmError;
 pub use record::Record;
-use thread::Thread;
+pub use thread::{Thread, ThreadSignal};
 
 use crate::{compile, Chunk, DustError, Value};
 
@@ -94,7 +95,7 @@ impl Display for Pointer {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionCall {
-    prototype_index: usize,
     record_index: usize,
     return_register: u8,
+    argument_count: u8,
 }

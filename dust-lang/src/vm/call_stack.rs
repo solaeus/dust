@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
-use super::FunctionCall;
+use super::{FunctionCall, VmError};
 
 #[derive(Clone, PartialEq)]
 pub struct CallStack {
@@ -31,6 +31,22 @@ impl CallStack {
     pub fn pop(&mut self) -> Option<FunctionCall> {
         self.calls.pop()
     }
+
+    pub fn last(&self) -> Option<&FunctionCall> {
+        self.calls.last()
+    }
+
+    pub fn pop_or_panic(&mut self) -> FunctionCall {
+        assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+
+        self.calls.pop().unwrap()
+    }
+
+    pub fn last_or_panic(&self) -> &FunctionCall {
+        assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+
+        self.calls.last().unwrap()
+    }
 }
 
 impl Debug for CallStack {
@@ -43,8 +59,8 @@ impl Display for CallStack {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(f, "-- DUST CALL STACK --")?;
 
-        for FunctionCall { function, .. } in &self.calls {
-            writeln!(f, "{function}")?;
+        for function_call in &self.calls {
+            writeln!(f, "{function_call:?}")?;
         }
 
         Ok(())

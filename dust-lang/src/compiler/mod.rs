@@ -20,8 +20,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::{
     instruction::{
-        CallNative, Close, GetLocal, Jump, LoadList, LoadSelf, Negate, Not, Point, Return,
-        SetLocal, Test,
+        CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Point, Return, SetLocal, Test,
     },
     Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
@@ -46,7 +45,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         .compile()
         .map_err(|error| DustError::compile(error, source))?;
 
-    let chunk = compiler.finish(None, None);
+    let chunk = compiler.finish();
 
     Ok(chunk)
 }
@@ -63,9 +62,9 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     self_name: Option<DustString>,
 
-    /// Return type of the function being compiled. This is assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    return_type: Option<Type>,
+    /// Type of the function being compiled. This is assigned to the chunk when [`Compiler::finish`]
+    /// is called.
+    r#type: FunctionType,
 
     /// Instructions, along with their types and positions, that have been compiled. The
     /// instructions and positions are assigned to the chunk when [`Compiler::finish`] is called.
@@ -76,8 +75,8 @@ pub struct Compiler<'src> {
     /// is called.
     constants: SmallVec<[Value; 16]>,
 
-    /// Locals that have been compiled. These are assigned to the chunk when [`Compiler::finish`] is
-    /// called.
+    /// Block-local variables and their types. The locals are assigned to the chunk when
+    /// [`Compiler::finish`] is called. The types are discarded after compilation.
     locals: SmallVec<[(Local, Type); 8]>,
 
     /// Prototypes that have been compiled. These are assigned to the chunk when
@@ -108,6 +107,12 @@ pub struct Compiler<'src> {
     /// Index of the record (i.e. runtime data) that the VM will use when calling the function. This
     /// is a depth-first index.
     record_index: u8,
+
+    /// Record index for the next nested chunk that is compiled. When a function is compiled, its
+    /// `record_index` is assigned from this value. Then `next_record_index` is incremented to
+    /// maintain the depth-first index. After the function is compiled, the its `next_record_index`
+    /// is assigned to this chunk.
+    next_record_index: u8,
 }
 
 impl<'src> Compiler<'src> {
@@ -122,6 +127,11 @@ impl<'src> Compiler<'src> {
 
         Ok(Compiler {
             self_name: None,
+            r#type: FunctionType {
+                type_parameters: None,
+                value_parameters: None,
+                return_type: Type::None,
+            },
             instructions: SmallVec::new(),
             constants: SmallVec::new(),
             locals: SmallVec::new(),
@@ -132,26 +142,17 @@ impl<'src> Compiler<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
-            return_type: None,
             minimum_register: 0,
             block_index: 0,
             current_scope: Scope::default(),
             record_index: 0,
+            next_record_index: 1,
         })
     }
 
-    pub fn finish(
-        self,
-        type_parameters: Option<SmallVec<[u8; 4]>>,
-        value_parameters: Option<SmallVec<[(u8, Type); 4]>>,
-    ) -> Chunk {
+    pub fn finish(self) -> Chunk {
         log::info!("End chunk");
 
-        let r#type = FunctionType {
-            type_parameters,
-            value_parameters,
-            return_type: self.return_type.unwrap_or(Type::None),
-        };
         let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
             .instructions
             .into_iter()
@@ -165,7 +166,7 @@ impl<'src> Compiler<'src> {
 
         Chunk::new(
             self.self_name,
-            r#type,
+            self.r#type,
             instructions,
             positions,
             self.constants,
@@ -400,25 +401,21 @@ impl<'src> Compiler<'src> {
         })
     }
 
-    /// Updates [Self::return_type] with the given [Type].
+    /// Updates [`Self::type`] with the given [Type] as `return_type`.
     ///
-    /// If [Self::return_type] is already set, it will check if the given [Type] is compatible with
-    /// it and set it to the least restrictive of the two.
+    /// If [`Self::type`] is already set, it will check if the given [Type] is compatible.
     fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
-        if let Some(return_type) = &self.return_type {
-            return_type.check(&new_return_type).map_err(|conflict| {
-                CompileError::ReturnTypeConflict {
+        if self.r#type.return_type != Type::None {
+            self.r#type
+                .return_type
+                .check(&new_return_type)
+                .map_err(|conflict| CompileError::ReturnTypeConflict {
                     conflict,
                     position: self.current_position,
-                }
-            })?;
-
-            if *return_type != Type::Any {
-                self.return_type = Some(new_return_type);
-            };
-        } else {
-            self.return_type = Some(new_return_type);
+                })?;
         }
+
+        self.r#type.return_type = new_return_type;
 
         Ok(())
     }
@@ -1026,9 +1023,9 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function);
         } else if self.self_name.as_deref() == Some(identifier) {
             let destination = self.next_register();
-            let load_self = Instruction::from(LoadSelf { destination });
+            let load_function = Instruction::load_function(destination, self.record_index);
 
-            self.emit_instruction(load_self, Type::SelfFunction, start_position);
+            self.emit_instruction(load_function, Type::SelfFunction, start_position);
 
             return Ok(());
         } else {
@@ -1572,8 +1569,8 @@ impl<'src> Compiler<'src> {
         let function_start = self.current_position.0;
         let mut function_compiler = Compiler::new(self.lexer)?;
 
-        self.record_index += 1;
-        function_compiler.record_index = self.record_index;
+        function_compiler.record_index = self.next_record_index;
+        function_compiler.next_record_index = self.next_record_index + 1;
 
         let identifier_info = if let Token::Identifier(text) = function_compiler.current_token {
             let position = function_compiler.current_position;
@@ -1646,8 +1643,13 @@ impl<'src> Compiler<'src> {
         } else {
             Type::None
         };
+        let function_type = FunctionType {
+            type_parameters: None,
+            value_parameters,
+            return_type,
+        };
 
-        function_compiler.return_type = Some((return_type).clone());
+        function_compiler.r#type = function_type.clone();
 
         function_compiler.expect(Token::LeftBrace)?;
         function_compiler.compile()?;
@@ -1657,20 +1659,15 @@ impl<'src> Compiler<'src> {
         self.previous_position = function_compiler.previous_position;
         self.current_token = function_compiler.current_token;
         self.current_position = function_compiler.current_position;
-        self.record_index = function_compiler.record_index;
+        self.next_record_index = function_compiler.next_record_index;
 
         self.lexer.skip_to(self.current_position.1);
 
         let function_end = function_compiler.previous_position.1;
-        let prototype = function_compiler.finish(None, value_parameters.clone());
+        let chunk = function_compiler.finish();
         let destination = self.next_register();
-        let function_type = FunctionType {
-            type_parameters: None,
-            value_parameters,
-            return_type,
-        };
 
-        self.prototypes.push(prototype);
+        self.prototypes.push(chunk);
 
         if let Some((identifier, _)) = identifier_info {
             self.declare_local(
@@ -1680,20 +1677,24 @@ impl<'src> Compiler<'src> {
                 false,
                 self.current_scope,
             );
-        } else {
-            let load_function = Instruction::load_function(destination, self.record_index);
-
-            self.emit_instruction(
-                load_function,
-                Type::function(function_type),
-                Span(function_start, function_end),
-            );
         }
+
+        let load_function = Instruction::load_function(destination, self.record_index);
+
+        self.emit_instruction(
+            load_function,
+            Type::function(function_type),
+            Span(function_start, function_end),
+        );
 
         Ok(())
     }
 
     fn parse_call(&mut self) -> Result<(), CompileError> {
+        let start = self.current_position.0;
+
+        self.advance()?;
+
         let (last_instruction, last_instruction_type, _) =
             self.instructions
                 .last()
@@ -1710,10 +1711,10 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let prototype_index = last_instruction.b_field();
+        let function_register = last_instruction.a_field();
         let function_return_type = match last_instruction_type {
             Type::Function(function_type) => function_type.return_type.clone(),
-            Type::SelfFunction => self.return_type.clone().unwrap_or(Type::None),
+            Type::SelfFunction => self.r#type.return_type.clone(),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
@@ -1722,9 +1723,6 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let start = self.current_position.0;
-
-        self.advance()?;
 
         let mut argument_count = 0;
 
@@ -1752,7 +1750,7 @@ impl<'src> Compiler<'src> {
 
         let end = self.current_position.1;
         let destination = self.next_register();
-        let call = Instruction::call(destination, prototype_index, argument_count);
+        let call = Instruction::call(destination, function_register, argument_count);
 
         self.emit_instruction(call, function_return_type, Span(start, end));
 

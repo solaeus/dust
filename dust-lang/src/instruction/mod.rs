@@ -154,16 +154,6 @@ use crate::NativeFunction;
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Instruction(u32);
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct InstructionData {
-    pub a: u8,
-    pub b: u8,
-    pub c: u8,
-    pub b_is_constant: bool,
-    pub c_is_constant: bool,
-    pub d: bool,
-}
-
 impl Instruction {
     pub fn new(
         operation: Operation,
@@ -231,12 +221,12 @@ impl Instruction {
         (
             self.operation(),
             InstructionData {
-                a: self.a_field(),
-                b: self.b_field(),
-                c: self.c_field(),
+                a_field: self.a_field(),
+                b_field: self.b_field(),
+                c_field: self.c_field(),
                 b_is_constant: self.b_is_constant(),
                 c_is_constant: self.c_is_constant(),
-                d: self.d_field(),
+                d_field: self.d_field(),
             },
         )
     }
@@ -265,10 +255,10 @@ impl Instruction {
         })
     }
 
-    pub fn load_function(destination: u8, prototype_index: u8) -> Instruction {
+    pub fn load_function(destination: u8, record_index: u8) -> Instruction {
         Instruction::from(LoadFunction {
             destination,
-            prototype_index,
+            record_index,
         })
     }
 
@@ -385,10 +375,10 @@ impl Instruction {
         })
     }
 
-    pub fn call(destination: u8, prototype_index: u8, argument_count: u8) -> Instruction {
+    pub fn call(destination: u8, function_register: u8, argument_count: u8) -> Instruction {
         Instruction::from(Call {
             destination,
-            prototype_index,
+            function_register,
             argument_count,
         })
     }
@@ -487,6 +477,7 @@ impl Instruction {
         match self.operation() {
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_CONSTANT
+            | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::GET_LOCAL
@@ -697,16 +688,18 @@ impl Instruction {
             Operation::CALL => {
                 let Call {
                     destination,
-                    prototype_index,
+                    function_register: record_index,
                     argument_count,
                 } = Call::from(self);
                 let arguments_start = destination.saturating_sub(argument_count);
 
                 match argument_count {
-                    0 => format!("R{destination} = P{prototype_index}()"),
-                    1 => format!("R{destination} = P{prototype_index}(R{arguments_start})"),
+                    0 => format!("R{destination} = P{record_index}()"),
+                    1 => format!("R{destination} = P{record_index}(R{arguments_start})"),
                     _ => {
-                        format!("R{destination} = P{prototype_index}(R{arguments_start}..R{destination})")
+                        format!(
+                            "R{destination} = P{record_index}(R{arguments_start}..R{destination})"
+                        )
                     }
                 }
             }
@@ -760,7 +753,29 @@ impl Instruction {
 
 impl Debug for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{} {}", self.operation(), self.disassembly_info())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct InstructionData {
+    pub a_field: u8,
+    pub b_field: u8,
+    pub c_field: u8,
+    pub d_field: bool,
+    pub b_is_constant: bool,
+    pub c_is_constant: bool,
+}
+
+impl Display for InstructionData {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 

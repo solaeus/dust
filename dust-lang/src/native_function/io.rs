@@ -1,13 +1,15 @@
 use std::io::{stdin, stdout, Write};
+use std::ops::Range;
 
-use smallvec::SmallVec;
-
+use crate::vm::{Register, ThreadSignal};
 use crate::{vm::Record, ConcreteValue, NativeFunctionError, Value};
 
 pub fn read_line(
     record: &mut Record,
-    _: SmallVec<[&Value; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
+    destination: Option<u8>,
+    _argument_range: Range<u8>,
+) -> Result<ThreadSignal, NativeFunctionError> {
+    let destination = destination.unwrap();
     let mut buffer = String::new();
 
     match stdin().read_line(&mut buffer) {
@@ -16,54 +18,77 @@ pub fn read_line(
 
             buffer.truncate(length.saturating_sub(1));
 
-            Ok(Some(Value::Concrete(ConcreteValue::string(buffer))))
+            let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
+
+            record.set_register(destination, register);
         }
-        Err(error) => Err(NativeFunctionError::Io {
-            error: error.kind(),
-        }),
+        Err(error) => {
+            return Err(NativeFunctionError::Io {
+                error: error.kind(),
+                position: record.current_position(),
+            })
+        }
     }
+
+    Ok(ThreadSignal::Continue)
 }
 
 pub fn write(
     record: &mut Record,
-    arguments: SmallVec<[&Value; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
+    _destination: Option<u8>,
+    argument_range: Range<u8>,
+) -> Result<ThreadSignal, NativeFunctionError> {
     let mut stdout = stdout();
 
-    for argument in arguments {
-        let string = argument.display(record);
+    for register_index in argument_range {
+        let value = record.open_register(register_index);
+        let string = value.display(record);
 
         stdout
-            .write_all(string.as_bytes())
+            .write(string.as_bytes())
             .map_err(|io_error| NativeFunctionError::Io {
                 error: io_error.kind(),
+                position: record.current_position(),
             })?;
     }
 
-    Ok(None)
+    stdout.flush().map_err(|io_error| NativeFunctionError::Io {
+        error: io_error.kind(),
+        position: record.current_position(),
+    })?;
+
+    Ok(ThreadSignal::Continue)
 }
 
 pub fn write_line(
     record: &mut Record,
-    arguments: SmallVec<[&Value; 4]>,
-) -> Result<Option<Value>, NativeFunctionError> {
-    let mut stdout = stdout();
+    _destination: Option<u8>,
+    argument_range: Range<u8>,
+) -> Result<ThreadSignal, NativeFunctionError> {
+    let mut stdout = stdout().lock();
 
-    for argument in arguments {
-        let string = argument.display(record);
+    for register_index in argument_range {
+        let value = record.open_register(register_index);
+        let string = value.display(record);
 
         stdout
-            .write_all(string.as_bytes())
+            .write(string.as_bytes())
             .map_err(|io_error| NativeFunctionError::Io {
                 error: io_error.kind(),
+                position: record.current_position(),
+            })?;
+        stdout
+            .write(b"\n")
+            .map_err(|io_error| NativeFunctionError::Io {
+                error: io_error.kind(),
+                position: record.current_position(),
             })?;
     }
 
-    stdout
-        .write(b"\n")
-        .map_err(|io_error| NativeFunctionError::Io {
-            error: io_error.kind(),
-        })?;
+    stdout.flush().map_err(|io_error| NativeFunctionError::Io {
+        error: io_error.kind(),
+        position: record.current_position(),
+    })?;
 
-    Ok(None)
+    Ok(ThreadSignal::Continue)
 }

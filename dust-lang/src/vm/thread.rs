@@ -1,16 +1,15 @@
-use crate::{Chunk, Value};
+use std::mem::swap;
 
-use super::{call_stack::CallStack, record::Record, runner::RunAction, FunctionCall, VmError};
+use crate::{vm::Register, Chunk, Value};
+
+use super::{record::Record, runner::RunAction, CallStack, FunctionCall, VmError};
 
 fn create_records(chunk: Chunk, records: &mut Vec<Record>) {
     let (_, _, instructions, positions, constants, locals, prototypes, stack_size) =
         chunk.take_data();
-    let actions = instructions
-        .into_iter()
-        .map(|instruction| RunAction::from(instruction))
-        .collect();
+    let actions = instructions.into_iter().map(RunAction::from).collect();
     let record = Record::new(
-        Vec::with_capacity(stack_size),
+        vec![Register::Empty; stack_size],
         constants,
         locals,
         actions,
@@ -27,27 +26,23 @@ fn create_records(chunk: Chunk, records: &mut Vec<Record>) {
 pub struct Thread {
     call_stack: CallStack,
     records: Vec<Record>,
-    return_register: Option<u8>,
 }
 
 impl Thread {
     pub fn new(chunk: Chunk) -> Self {
-        let call_stack = CallStack::new();
-        let mut records = Vec::with_capacity(chunk.prototypes().len());
+        let call_stack = CallStack::with_capacity(chunk.prototypes().len() + 1);
+        let mut records = Vec::with_capacity(chunk.prototypes().len() + 1);
 
         create_records(chunk, &mut records);
 
         Thread {
             call_stack,
             records,
-            return_register: None,
         }
     }
 
     pub fn run(&mut self) -> Option<Value> {
-        assert!(!self.call_stack.is_empty());
-
-        let mut record = &mut self.records[0];
+        let (record, remaining_records) = self.records.split_first_mut().unwrap();
 
         loop {
             assert!(
@@ -60,25 +55,46 @@ impl Thread {
             );
 
             let action = record.actions[record.ip];
-            let signal = (action.logic)(action.data, &mut record);
+            let signal = (action.logic)(action.data, record);
 
             match signal {
                 ThreadSignal::Continue => {
                     record.ip += 1;
                 }
-                ThreadSignal::Call(FunctionCall {
-                    record_index,
-                    return_register,
-                    ..
-                }) => {
-                    record = &mut self.records[record_index];
-                    self.return_register = Some(return_register);
+                ThreadSignal::Call(function_call) => {
+                    swap(record, &mut remaining_records[function_call.record_index]);
+                    self.call_stack.push(function_call);
                 }
-                ThreadSignal::Return(value_option) => {
-                    let outer_call = self.call_stack.pop();
+                ThreadSignal::Return(should_return_value) => {
+                    let returning_call = match self.call_stack.pop() {
+                        Some(function_call) => function_call,
+                        None => {
+                            if should_return_value {
+                                return record.last_assigned_register().map(|register| {
+                                    record.replace_register_or_clone_constant(
+                                        register,
+                                        Register::Empty,
+                                    )
+                                });
+                            } else {
+                                return None;
+                            }
+                        }
+                    };
+                    let outer_call = self.call_stack.last_or_panic();
 
-                    if outer_call.is_none() {
-                        return value_option;
+                    if should_return_value {
+                        let return_register = record
+                            .last_assigned_register()
+                            .unwrap_or_else(|| panic!("Expected return value"));
+                        let value = record
+                            .replace_register_or_clone_constant(return_register, Register::Empty);
+
+                        swap(record, &mut remaining_records[outer_call.record_index]);
+
+                        record.set_register(returning_call.return_register, Register::Value(value));
+                    } else {
+                        swap(record, &mut remaining_records[outer_call.record_index]);
                     }
                 }
             }
@@ -89,5 +105,5 @@ impl Thread {
 pub enum ThreadSignal {
     Continue,
     Call(FunctionCall),
-    Return(Option<Value>),
+    Return(bool),
 }

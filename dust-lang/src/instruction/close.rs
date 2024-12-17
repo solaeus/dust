@@ -19,8 +19,8 @@ impl From<&Instruction> for Close {
 impl From<InstructionData> for Close {
     fn from(instruction: InstructionData) -> Self {
         Close {
-            from: instruction.b,
-            to: instruction.c,
+            from: instruction.b_field,
+            to: instruction.c_field,
         }
     }
 }

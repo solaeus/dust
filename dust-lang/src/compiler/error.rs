@@ -231,7 +231,7 @@ impl AnnotatedError for CompileError {
                     )
                 ]
             }
-            _ => todo!(),
+            _ => SmallVec::new(),
         }
     }
 
@@ -248,7 +248,7 @@ impl AnnotatedError for CompileError {
                     Span(left_position.0, right_position.1)
                 )]
             }
-            _ => todo!(),
+            _ => SmallVec::new(),
         }
     }
 }

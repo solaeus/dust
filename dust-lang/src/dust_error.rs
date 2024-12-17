@@ -5,13 +5,17 @@ use std::fmt::{self, Display, Formatter};
 use annotate_snippets::{Level, Renderer, Snippet};
 use smallvec::SmallVec;
 
-use crate::{CompileError, Span};
+use crate::{CompileError, NativeFunctionError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
 pub enum DustError<'src> {
     Compile {
         error: CompileError,
+        source: &'src str,
+    },
+    NativeFunction {
+        error: NativeFunctionError,
         source: &'src str,
     },
 }
@@ -57,12 +61,19 @@ impl<'src> DustError<'src> {
                 error.detail_snippets(),
                 error.help_snippets(),
             ),
+            Self::NativeFunction { error, .. } => (
+                NativeFunctionError::title(),
+                error.description(),
+                error.detail_snippets(),
+                error.help_snippets(),
+            ),
         }
     }
 
     fn source(&self) -> &str {
         match self {
             Self::Compile { source, .. } => source,
+            Self::NativeFunction { source, .. } => source,
         }
     }
 }
