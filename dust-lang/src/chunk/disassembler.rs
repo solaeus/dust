@@ -46,7 +46,7 @@ use std::{
 
 use colored::{ColoredString, Colorize};
 
-use crate::{value::ConcreteValue, Chunk, Local, Value};
+use crate::{Chunk, Local};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 24)];
@@ -93,7 +93,8 @@ pub struct Disassembler<'a, W> {
     // Options
     style: bool,
     indent: usize,
-    output_width: usize,
+    width: usize,
+    show_type: bool,
 }
 
 impl<'a, W: Write> Disassembler<'a, W> {
@@ -104,7 +105,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
             source: None,
             style: false,
             indent: 0,
-            output_width: Self::content_length(),
+            width: Self::content_length(),
+            show_type: false,
         }
     }
 
@@ -116,6 +118,18 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
     pub fn style(mut self, styled: bool) -> Self {
         self.style = styled;
+
+        self
+    }
+
+    pub fn width(mut self, width: usize) -> Self {
+        self.width = width.max(Self::content_length());
+
+        self
+    }
+
+    pub fn show_type(mut self, show_type: bool) -> Self {
+        self.show_type = show_type;
 
         self
     }
@@ -135,7 +149,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
     fn line_length(&self) -> usize {
         let indentation_length = INDENTATION.chars().count();
 
-        self.output_width + (indentation_length * self.indent) + 2 // Left and right border
+        self.width + (indentation_length * self.indent) + 2 // Left and right border
     }
 
     fn write_char(&mut self, c: char) -> Result<(), io::Error> {
@@ -159,10 +173,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
         add_border: bool,
     ) -> Result<(), io::Error> {
         let (line_content, overflow) = {
-            if text.len() > self.output_width {
+            if text.len() > self.width {
                 let split_index = text
                     .char_indices()
-                    .nth(self.output_width)
+                    .nth(self.width)
                     .map(|(index, _)| index)
                     .unwrap_or_else(|| text.len());
 
@@ -226,15 +240,15 @@ impl<'a, W: Write> Disassembler<'a, W> {
         Ok(())
     }
 
-    fn write_centered_with_border(&mut self, text: &str) -> Result<(), io::Error> {
+    fn write_center_border(&mut self, text: &str) -> Result<(), io::Error> {
         self.write_content(text, true, false, false, true)
     }
 
-    fn write_centered_with_border_dim(&mut self, text: &str) -> Result<(), io::Error> {
+    fn write_center_border_dim(&mut self, text: &str) -> Result<(), io::Error> {
         self.write_content(text, true, false, self.style, true)
     }
 
-    fn write_centered_with_border_bold(&mut self, text: &str) -> Result<(), io::Error> {
+    fn write_center_border_bold(&mut self, text: &str) -> Result<(), io::Error> {
         self.write_content(text, true, self.style, false, true)
     }
 
@@ -249,7 +263,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_char(border[1])?;
         }
 
-        self.write_char(border[2])
+        self.write_char(border[2]);
+        self.write_char('\n')
     }
 
     fn write_instruction_section(&mut self) -> Result<(), io::Error> {
@@ -260,21 +275,26 @@ impl<'a, W: Write> Disassembler<'a, W> {
         }
 
         column_name_line.push('│');
-        self.write_centered_with_border_bold("Instructions")?;
-        self.write_centered_with_border(INSTRUCTION_BORDERS[0])?;
-        self.write_centered_with_border(&column_name_line)?;
-        self.write_centered_with_border(INSTRUCTION_BORDERS[1])?;
+        self.write_center_border_bold("Instructions")?;
+        self.write_center_border(INSTRUCTION_BORDERS[0])?;
+        self.write_center_border(&column_name_line)?;
+        self.write_center_border(INSTRUCTION_BORDERS[1])?;
 
-        for (index, (instruction, position)) in self.chunk.instructions().iter().enumerate() {
-            let position = position.to_string();
+        for (index, instruction) in self.chunk.instructions().iter().enumerate() {
+            let position = self
+                .chunk
+                .positions()
+                .get(index)
+                .map(|position| position.to_string())
+                .unwrap_or("stripped".to_string());
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
             let row = format!("│{index:^5}│{position:^12}│{operation:^17}│{info:^24}│");
 
-            self.write_centered_with_border(&row)?;
+            self.write_center_border(&row)?;
         }
 
-        self.write_centered_with_border(INSTRUCTION_BORDERS[2])?;
+        self.write_center_border(INSTRUCTION_BORDERS[2])?;
 
         Ok(())
     }
@@ -287,10 +307,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
         }
 
         column_name_line.push('│');
-        self.write_centered_with_border_bold("Locals")?;
-        self.write_centered_with_border(LOCAL_BORDERS[0])?;
-        self.write_centered_with_border(&column_name_line)?;
-        self.write_centered_with_border(LOCAL_BORDERS[1])?;
+        self.write_center_border_bold("Locals")?;
+        self.write_center_border(LOCAL_BORDERS[0])?;
+        self.write_center_border(&column_name_line)?;
+        self.write_center_border(LOCAL_BORDERS[1])?;
 
         for (
             index,
@@ -314,10 +334,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 "│{index:^5}│{identifier_display:^16}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
             );
 
-            self.write_centered_with_border(&row)?;
+            self.write_center_border(&row)?;
         }
 
-        self.write_centered_with_border(LOCAL_BORDERS[2])?;
+        self.write_center_border(LOCAL_BORDERS[2])?;
 
         Ok(())
     }
@@ -330,17 +350,14 @@ impl<'a, W: Write> Disassembler<'a, W> {
         }
 
         column_name_line.push('│');
-        self.write_centered_with_border_bold("Constants")?;
-        self.write_centered_with_border(CONSTANT_BORDERS[0])?;
-        self.write_centered_with_border(&column_name_line)?;
-        self.write_centered_with_border(CONSTANT_BORDERS[1])?;
+        self.write_center_border_bold("Constants")?;
+        self.write_center_border(CONSTANT_BORDERS[0])?;
+        self.write_center_border(&column_name_line)?;
+        self.write_center_border(CONSTANT_BORDERS[1])?;
 
         for (index, value) in self.chunk.constants().iter().enumerate() {
-            let is_function = matches!(value, Value::Concrete(ConcreteValue::Function(_)));
             let type_display = value.r#type().to_string();
-            let value_display = if is_function {
-                "Function displayed below".to_string()
-            } else {
+            let value_display = {
                 let mut value_string = value.to_string();
 
                 if value_string.len() > 26 {
@@ -351,29 +368,35 @@ impl<'a, W: Write> Disassembler<'a, W> {
             };
             let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
 
-            self.write_centered_with_border(&constant_display)?;
-
-            if let Value::Concrete(ConcreteValue::Function(chunk)) = value {
-                let function_disassembler = chunk
-                    .disassembler(self.writer)
-                    .style(self.style)
-                    .indent(self.indent + 1);
-                let original_output_width = self.output_width;
-                self.output_width = function_disassembler.output_width;
-
-                function_disassembler.disassemble()?;
-                self.write_char('\n')?;
-
-                self.output_width = original_output_width;
-            }
+            self.write_center_border(&constant_display)?;
         }
 
-        self.write_centered_with_border(CONSTANT_BORDERS[2])?;
+        self.write_center_border(CONSTANT_BORDERS[2])?;
 
         Ok(())
     }
 
-    pub fn disassemble(mut self) -> Result<(), io::Error> {
+    pub fn write_prototype_section(&mut self) -> Result<(), io::Error> {
+        self.write_center_border_bold("Functions");
+
+        for chunk in &self.chunk.prototypes {
+            chunk
+                .disassembler(self.writer)
+                .indent(self.indent + 1)
+                .width(self.width)
+                .style(true)
+                .show_type(true)
+                .disassemble()?;
+
+            self.write_center_border("")?;
+        }
+
+        Ok(())
+    }
+
+    pub fn disassemble(&mut self) -> Result<(), io::Error> {
+        self.write_page_border(TOP_BORDER)?;
+
         let name_display = self
             .chunk
             .name()
@@ -393,16 +416,20 @@ impl<'a, W: Write> Disassembler<'a, W> {
                     .unwrap_or("Dust Chunk Disassembly".to_string())
             });
 
-        self.write_page_border(TOP_BORDER)?;
-        self.write_char('\n')?;
-        self.write_centered_with_border_bold(&name_display)?;
+        self.write_center_border_bold(&name_display)?;
+
+        if self.show_type {
+            let type_display = self.chunk.r#type.to_string();
+
+            self.write_center_border(&type_display)?;
+        }
 
         if let Some(source) = self.source {
             let lazily_formatted = source.split_whitespace().collect::<Vec<&str>>().join(" ");
 
-            self.write_centered_with_border("")?;
-            self.write_centered_with_border(&lazily_formatted)?;
-            self.write_centered_with_border("")?;
+            self.write_center_border("")?;
+            self.write_center_border(&lazily_formatted)?;
+            self.write_center_border("")?;
         }
 
         let info_line = format!(
@@ -413,19 +440,23 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.chunk.r#type.return_type
         );
 
-        self.write_centered_with_border_dim(&info_line)?;
-        self.write_centered_with_border("")?;
+        self.write_center_border_dim(&info_line)?;
+        self.write_center_border("")?;
 
-        if !self.chunk.is_empty() {
+        if !self.chunk.instructions.is_empty() {
             self.write_instruction_section()?;
         }
 
-        if !self.chunk.locals().is_empty() {
+        if !self.chunk.locals.is_empty() {
             self.write_local_section()?;
         }
 
-        if !self.chunk.constants().is_empty() {
+        if !self.chunk.constants.is_empty() {
             self.write_constant_section()?;
+        }
+
+        if !self.chunk.prototypes.is_empty() {
+            self.write_prototype_section()?;
         }
 
         self.write_page_border(BOTTOM_BORDER)

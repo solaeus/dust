@@ -1,32 +1,34 @@
 //! Runtime values used by the VM.
-mod abstract_value;
+mod abstract_list;
 mod concrete_value;
+mod function;
 mod range_value;
 
-pub use abstract_value::AbstractValue;
+pub use abstract_list::AbstractList;
 pub use concrete_value::{ConcreteValue, DustString};
+pub use function::Function;
 pub use range_value::RangeValue;
 use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Type, Vm};
+use crate::{vm::Record, Type, Vm};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
-    #[serde(skip)]
-    Abstract(AbstractValue),
     Concrete(ConcreteValue),
+
+    #[serde(skip)]
+    AbstractList(AbstractList),
+
+    #[serde(skip)]
+    Function(Function),
+
+    #[serde(skip)]
+    SelfFunction,
 }
 
 impl Value {
-    pub fn into_concrete_owned<'a>(self, vm: &'a Vm<'a>) -> ConcreteValue {
-        match self {
-            Value::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            Value::Concrete(concrete_value) => concrete_value,
-        }
-    }
-
     pub fn as_boolean(&self) -> Option<&bool> {
         if let Value::Concrete(ConcreteValue::Boolean(value)) = self {
             Some(value)
@@ -35,18 +37,32 @@ impl Value {
         }
     }
 
-    pub fn r#type(&self) -> Type {
-        match self {
-            Value::Abstract(abstract_value) => abstract_value.r#type(),
-            Value::Concrete(concrete_value) => concrete_value.r#type(),
+    pub fn as_function(&self) -> Option<&Function> {
+        if let Value::Function(function) = self {
+            Some(function)
+        } else {
+            None
         }
     }
 
-    pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => left.add(right).map(Value::Concrete),
-            _ => Err(ValueError::CannotAdd(self.to_owned(), other.to_owned())),
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::Concrete(concrete_value) => concrete_value.r#type(),
+            Value::AbstractList(AbstractList { item_type, .. }) => {
+                Type::List(Box::new(item_type.clone()))
+            }
+            Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
+            Value::SelfFunction => Type::SelfFunction,
         }
+    }
+
+    pub fn add(&self, other: &Value) -> Value {
+        let concrete = match (self, other) {
+            (Value::Concrete(left), Value::Concrete(right)) => left.add(right),
+            _ => panic!("{}", ValueError::CannotAdd(self.clone(), other.clone())),
+        };
+
+        Value::Concrete(concrete)
     }
 
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
@@ -91,11 +107,13 @@ impl Value {
         }
     }
 
-    pub fn negate(&self) -> Result<Value, ValueError> {
-        match self {
-            Value::Concrete(concrete_value) => concrete_value.negate().map(Value::Concrete),
-            _ => Err(ValueError::CannotNegate(self.to_owned())),
-        }
+    pub fn negate(&self) -> Value {
+        let concrete = match self {
+            Value::Concrete(concrete_value) => concrete_value.negate(),
+            _ => panic!("{}", ValueError::CannotNegate(self.clone())),
+        };
+
+        Value::Concrete(concrete)
     }
 
     pub fn not(&self) -> Result<Value, ValueError> {
@@ -132,10 +150,12 @@ impl Value {
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> DustString {
+    pub fn display(&self, record: &Record) -> DustString {
         match self {
-            Value::Abstract(abstract_value) => abstract_value.display(vm),
+            Value::AbstractList(list) => list.display(record),
             Value::Concrete(concrete_value) => concrete_value.display(),
+            Value::Function(function) => DustString::from(function.to_string()),
+            Value::SelfFunction => DustString::from("self"),
         }
     }
 }
@@ -143,8 +163,10 @@ impl Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Abstract(abstract_value) => write!(f, "{}", abstract_value),
-            Value::Concrete(concrete_value) => write!(f, "{}", concrete_value),
+            Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
+            Value::AbstractList(list) => write!(f, "{list}"),
+            Value::Function(function) => write!(f, "{function}"),
+            Value::SelfFunction => write!(f, "self"),
         }
     }
 }

@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 
-use crate::{Chunk, Type, Value, ValueError};
+use crate::{Type, Value, ValueError};
 
 use super::RangeValue;
 
@@ -15,7 +15,6 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(Box<Chunk>),
     Integer(i64),
     List(Vec<ConcreteValue>),
     Range(RangeValue),
@@ -25,10 +24,6 @@ pub enum ConcreteValue {
 impl ConcreteValue {
     pub fn to_value(self) -> Value {
         Value::Concrete(self)
-    }
-
-    pub fn function(chunk: Chunk) -> Self {
-        ConcreteValue::Function(Box::new(chunk))
     }
 
     pub fn list<T: Into<Vec<ConcreteValue>>>(into_list: T) -> Self {
@@ -57,7 +52,6 @@ impl ConcreteValue {
             ConcreteValue::Byte(_) => Type::Byte,
             ConcreteValue::Character(_) => Type::Character,
             ConcreteValue::Float(_) => Type::Float,
-            ConcreteValue::Function(chunk) => Type::function(chunk.r#type().clone()),
             ConcreteValue::Integer(_) => Type::Integer,
             ConcreteValue::List(list) => {
                 let item_type = list.first().map_or(Type::Any, |item| item.r#type());
@@ -70,28 +64,43 @@ impl ConcreteValue {
     }
 
     #[inline(always)]
-    pub fn add(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
+    pub fn add(&self, other: &Self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let sum = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_add(*right)),
-            (Character(left), Character(right)) => {
-                ConcreteValue::string(format!("{}{}", left, right))
-            }
-            (Character(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
-            (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
-            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
-            (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
-            (String(left), Character(right)) => ConcreteValue::string(format!("{}{}", left, right)),
-            _ => {
-                return Err(ValueError::CannotAdd(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
-            }
-        };
+        match (self, other) {
+            (Byte(left), Byte(right)) => {
+                let sum = left.saturating_add(*right);
 
-        Ok(sum)
+                Byte(sum)
+            }
+            (Character(left), Character(right)) => {
+                let mut concatenated = DustString::new();
+
+                concatenated.push(*left);
+                concatenated.push(*right);
+
+                String(concatenated)
+            }
+            (Float(left), Float(right)) => {
+                let sum = left + right;
+
+                Float(sum)
+            }
+            (Integer(left), Integer(right)) => {
+                let sum = left.saturating_add(*right);
+
+                Integer(sum)
+            }
+            (String(left), Character(_)) => todo!(),
+            (String(left), String(right)) => todo!(),
+            _ => panic!(
+                "{}",
+                ValueError::CannotAdd(
+                    Value::Concrete(self.clone()),
+                    Value::Concrete(other.clone())
+                )
+            ),
+        }
     }
 
     pub fn subtract(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
@@ -168,18 +177,16 @@ impl ConcreteValue {
         Ok(product)
     }
 
-    pub fn negate(&self) -> Result<ConcreteValue, ValueError> {
+    pub fn negate(&self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let negated = match self {
+        match self {
             Boolean(value) => ConcreteValue::Boolean(!value),
             Byte(value) => ConcreteValue::Byte(value.wrapping_neg()),
             Float(value) => ConcreteValue::Float(-value),
             Integer(value) => ConcreteValue::Integer(value.wrapping_neg()),
-            _ => return Err(ValueError::CannotNegate(self.clone().to_value())),
-        };
-
-        Ok(negated)
+            _ => panic!("{}", ValueError::CannotNegate(self.clone().to_value())),
+        }
     }
 
     pub fn not(&self) -> Result<ConcreteValue, ValueError> {
@@ -201,7 +208,6 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Boolean(left == right),
             (Character(left), Character(right)) => ConcreteValue::Boolean(left == right),
             (Float(left), Float(right)) => ConcreteValue::Boolean(left == right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left == right),
             (Integer(left), Integer(right)) => ConcreteValue::Boolean(left == right),
             (List(left), List(right)) => ConcreteValue::Boolean(left == right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left == right),
@@ -226,7 +232,6 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Boolean(left < right),
             (Character(left), Character(right)) => ConcreteValue::Boolean(left < right),
             (Float(left), Float(right)) => ConcreteValue::Boolean(left < right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left < right),
             (Integer(left), Integer(right)) => ConcreteValue::Boolean(left < right),
             (List(left), List(right)) => ConcreteValue::Boolean(left < right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left < right),
@@ -250,7 +255,6 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Boolean(left <= right),
             (Character(left), Character(right)) => ConcreteValue::Boolean(left <= right),
             (Float(left), Float(right)) => ConcreteValue::Boolean(left <= right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left <= right),
             (Integer(left), Integer(right)) => ConcreteValue::Boolean(left <= right),
             (List(left), List(right)) => ConcreteValue::Boolean(left <= right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left <= right),
@@ -276,7 +280,6 @@ impl Clone for ConcreteValue {
             ConcreteValue::Byte(byte) => ConcreteValue::Byte(*byte),
             ConcreteValue::Character(character) => ConcreteValue::Character(*character),
             ConcreteValue::Float(float) => ConcreteValue::Float(*float),
-            ConcreteValue::Function(function) => ConcreteValue::Function(function.clone()),
             ConcreteValue::Integer(integer) => ConcreteValue::Integer(*integer),
             ConcreteValue::List(list) => ConcreteValue::List(list.clone()),
             ConcreteValue::Range(range) => ConcreteValue::Range(*range),
@@ -300,7 +303,6 @@ impl Display for ConcreteValue {
 
                 Ok(())
             }
-            ConcreteValue::Function(chunk) => write!(f, "{}", chunk.r#type()),
             ConcreteValue::Integer(integer) => write!(f, "{integer}"),
             ConcreteValue::List(list) => {
                 write!(f, "[")?;

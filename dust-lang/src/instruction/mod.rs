@@ -76,18 +76,18 @@
 //! //  - `a = 2 + a`
 //!
 //! let operation = mystery_instruction.operation();
-//!
-//! match operation {
+//! let is_add_assign = match operation {
 //!     Operation::Add => {
 //!         let Add { destination, left, right } = Add::from(&mystery_instruction);
-//!         let is_add_assign =
-//!             left == Argument::Register(destination)
-//!             || right == Argument::Register(destination);
 //!
-//!         assert!(is_add_assign);
+//!         left == Argument::Register(destination)
+//!         || right == Argument::Register(destination);
+//!
 //!     }
-//!     _ => {} // Handle other operations...
-//! }
+//!     _ => false,
+//! };
+//!
+//! assert!(is_add_assign);
 //! ```
 mod add;
 mod call;
@@ -101,6 +101,7 @@ mod less;
 mod less_equal;
 mod load_boolean;
 mod load_constant;
+mod load_function;
 mod load_list;
 mod load_self;
 mod modulo;
@@ -127,6 +128,7 @@ pub use less::Less;
 pub use less_equal::LessEqual;
 pub use load_boolean::LoadBoolean;
 pub use load_constant::LoadConstant;
+pub use load_function::LoadFunction;
 pub use load_list::LoadList;
 pub use load_self::LoadSelf;
 pub use modulo::Modulo;
@@ -134,7 +136,7 @@ pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
 pub use operation::Operation;
-pub use r#move::Move;
+pub use r#move::Point;
 pub use r#return::Return;
 pub use set_local::SetLocal;
 pub use subtract::Subtract;
@@ -239,8 +241,8 @@ impl Instruction {
         )
     }
 
-    pub fn r#move(from: u8, to: u8) -> Instruction {
-        Instruction::from(Move { from, to })
+    pub fn point(from: u8, to: u8) -> Instruction {
+        Instruction::from(Point { from, to })
     }
 
     pub fn close(from: u8, to: u8) -> Instruction {
@@ -260,6 +262,13 @@ impl Instruction {
             destination,
             constant_index,
             jump_next,
+        })
+    }
+
+    pub fn load_function(destination: u8, prototype_index: u8) -> Instruction {
+        Instruction::from(LoadFunction {
+            destination,
+            prototype_index,
         })
     }
 
@@ -376,10 +385,10 @@ impl Instruction {
         })
     }
 
-    pub fn call(destination: u8, function: Argument, argument_count: u8) -> Instruction {
+    pub fn call(destination: u8, prototype_index: u8, argument_count: u8) -> Instruction {
         Instruction::from(Call {
             destination,
-            function,
+            prototype_index,
             argument_count,
         })
     }
@@ -497,7 +506,7 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::MOVE
+            Operation::POINT
             | Operation::CLOSE
             | Operation::SET_LOCAL
             | Operation::TEST
@@ -509,14 +518,12 @@ impl Instruction {
     }
 
     pub fn disassembly_info(&self) -> String {
-        match self.operation() {
-            Operation::MOVE => {
-                let Move { from, to } = Move::from(self);
+        let (operation, data) = self.decode();
 
-                format!("R{to} = R{from}")
-            }
+        match operation {
+            Operation::POINT => Point::from(data).to_string(),
             Operation::CLOSE => {
-                let Close { from, to } = Close::from(self);
+                let Close { from, to } = Close::from(data);
 
                 format!("R{from}..R{to}")
             }
@@ -525,7 +532,7 @@ impl Instruction {
                     destination,
                     value,
                     jump_next,
-                } = LoadBoolean::from(self);
+                } = LoadBoolean::from(data);
 
                 if jump_next {
                     format!("R{destination} = {value} && JUMP +1")
@@ -546,6 +553,7 @@ impl Instruction {
                     format!("R{destination} = C{constant_index}")
                 }
             }
+            Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
             Operation::LOAD_LIST => {
                 let LoadList {
                     destination,
@@ -689,17 +697,16 @@ impl Instruction {
             Operation::CALL => {
                 let Call {
                     destination,
-                    function,
+                    prototype_index,
                     argument_count,
                 } = Call::from(self);
                 let arguments_start = destination.saturating_sub(argument_count);
-                let arguments_end = arguments_start + argument_count;
 
                 match argument_count {
-                    0 => format!("R{destination} = {function}()"),
-                    1 => format!("R{destination} = {function}(R{arguments_start})"),
+                    0 => format!("R{destination} = P{prototype_index}()"),
+                    1 => format!("R{destination} = P{prototype_index}(R{arguments_start})"),
                     _ => {
-                        format!("R{destination} = {function}(R{arguments_start}..R{arguments_end})")
+                        format!("R{destination} = P{prototype_index}(R{arguments_start}..R{destination})")
                     }
                 }
             }

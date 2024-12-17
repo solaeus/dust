@@ -1,22 +1,43 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
-pub struct Move {
+use super::InstructionData;
+
+pub struct Point {
     pub from: u8,
     pub to: u8,
 }
 
-impl From<&Instruction> for Move {
+impl From<&Instruction> for Point {
     fn from(instruction: &Instruction) -> Self {
-        Move {
+        Point {
             from: instruction.b_field(),
             to: instruction.c_field(),
         }
     }
 }
 
-impl From<Move> for Instruction {
-    fn from(r#move: Move) -> Self {
-        let operation = Operation::MOVE;
+impl From<InstructionData> for Point {
+    fn from(instruction: InstructionData) -> Self {
+        Point {
+            from: instruction.b,
+            to: instruction.c,
+        }
+    }
+}
+
+impl Display for Point {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Point { from, to } = self;
+
+        write!(f, "{from} -> {to}")
+    }
+}
+
+impl From<Point> for Instruction {
+    fn from(r#move: Point) -> Self {
+        let operation = Operation::POINT;
         let b = r#move.from;
         let c = r#move.to;
 

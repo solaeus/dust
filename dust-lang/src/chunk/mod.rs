@@ -1,8 +1,18 @@
-//! In-memory representation of a Dust program or function.
+//! Representation of a Dust program or function.
 //!
-//! A chunk consists of a sequence of instructions and their positions, a list of constants, and a
-//! list of locals that can be executed by the Dust virtual machine. Chunks have a name when they
-//! belong to a named function.
+//! A chunk is output by the compiler to represent all of the information needed to execute a Dust
+//! program. In addition to the program itself, each function in the source is compiled into its own
+//! chunk and stored in the `prototypes` field of its parent. Thus, a chunk is also the
+//! representation of a function prototype, i.e. a function declaration as opposed to an individual
+//! instance.
+//!
+//! Chunks have a name when they belong to a named function. They also have a type, so the input
+//! parameters and the type of the return value are statically known. The [`Chunk::stack_size`]
+//! method can provide the necessary stack size that will be needed by the virtual machine. Chunks
+//! cannot be instantiated directly and must be created by the compiler. However, when the Rust
+//! compiler is in the "test" configuration (used for all types of test), [`Chunk::with_data`] can
+//! be used to create a chunk for comparison to the compiler output. Do not try to run these chunks
+//! in a virtual machine. Due to their missing stack size, they will cause a panic.
 mod disassembler;
 mod local;
 mod scope;
@@ -19,7 +29,7 @@ use smallvec::SmallVec;
 
 use crate::{DustString, FunctionType, Instruction, Span, Value};
 
-/// In-memory representation of a Dust program or function.
+/// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, PartialOrd, Serialize, Deserialize)]
@@ -27,47 +37,82 @@ pub struct Chunk {
     name: Option<DustString>,
     r#type: FunctionType,
 
-    instructions: SmallVec<[(Instruction, Span); 32]>,
+    instructions: SmallVec<[Instruction; 32]>,
+    positions: SmallVec<[Span; 32]>,
     constants: SmallVec<[Value; 16]>,
     locals: SmallVec<[Local; 8]>,
+    prototypes: Vec<Chunk>,
 
     stack_size: usize,
 }
 
 impl Chunk {
-    pub fn new(
+    pub(crate) fn new(
         name: Option<DustString>,
         r#type: FunctionType,
-        instructions: SmallVec<[(Instruction, Span); 32]>,
-        constants: SmallVec<[Value; 16]>,
-        locals: SmallVec<[Local; 8]>,
+        instructions: impl Into<SmallVec<[Instruction; 32]>>,
+        positions: impl Into<SmallVec<[Span; 32]>>,
+        constants: impl Into<SmallVec<[Value; 16]>>,
+        locals: impl Into<SmallVec<[Local; 8]>>,
+        prototypes: impl Into<Vec<Chunk>>,
         stack_size: usize,
     ) -> Self {
         Self {
             name,
             r#type,
-            instructions,
-            constants,
-            locals,
+            instructions: instructions.into(),
+            positions: positions.into(),
+            constants: constants.into(),
+            locals: locals.into(),
+            prototypes: prototypes.into(),
             stack_size,
         }
     }
 
+    #[cfg(test)]
     pub fn with_data(
         name: Option<DustString>,
         r#type: FunctionType,
-        instructions: impl Into<SmallVec<[(Instruction, Span); 32]>>,
+        instructions: impl Into<SmallVec<[Instruction; 32]>>,
+        positions: impl Into<SmallVec<[Span; 32]>>,
         constants: impl Into<SmallVec<[Value; 16]>>,
         locals: impl Into<SmallVec<[Local; 8]>>,
+        prototypes: Vec<Chunk>,
     ) -> Self {
         Self {
             name,
             r#type,
             instructions: instructions.into(),
+            positions: positions.into(),
             constants: constants.into(),
             locals: locals.into(),
+            prototypes,
             stack_size: 0,
         }
+    }
+
+    pub fn take_data(
+        self,
+    ) -> (
+        Option<DustString>,
+        FunctionType,
+        SmallVec<[Instruction; 32]>,
+        SmallVec<[Span; 32]>,
+        SmallVec<[Value; 16]>,
+        SmallVec<[Local; 8]>,
+        Vec<Chunk>,
+        usize,
+    ) {
+        (
+            self.name,
+            self.r#type,
+            self.instructions,
+            self.positions,
+            self.constants,
+            self.locals,
+            self.prototypes,
+            self.stack_size,
+        )
     }
 
     pub fn name(&self) -> Option<&DustString> {
@@ -78,20 +123,24 @@ impl Chunk {
         &self.r#type
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.instructions.is_empty()
+    pub fn instructions(&self) -> &SmallVec<[Instruction; 32]> {
+        &self.instructions
+    }
+
+    pub fn positions(&self) -> &SmallVec<[Span; 32]> {
+        &self.positions
     }
 
     pub fn constants(&self) -> &SmallVec<[Value; 16]> {
         &self.constants
     }
 
-    pub fn instructions(&self) -> &SmallVec<[(Instruction, Span); 32]> {
-        &self.instructions
-    }
-
     pub fn locals(&self) -> &SmallVec<[Local; 8]> {
         &self.locals
+    }
+
+    pub fn prototypes(&self) -> &Vec<Chunk> {
+        &self.prototypes
     }
 
     pub fn stack_size(&self) -> usize {
@@ -141,8 +190,14 @@ impl Eq for Chunk {}
 
 impl PartialEq for Chunk {
     fn eq(&self, other: &Self) -> bool {
-        self.instructions == other.instructions
+        // Do not compare stack size because the chunks created for testing will not have one due to
+        // not being compiled.
+
+        self.name == other.name
+            && self.r#type == other.r#type
+            && self.instructions == other.instructions
             && self.constants == other.constants
             && self.locals == other.locals
+            && self.prototypes == other.prototypes
     }
 }

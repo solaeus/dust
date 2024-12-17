@@ -1,4 +1,8 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
+
+use super::InstructionData;
 
 pub struct LoadConstant {
     pub destination: u8,
@@ -20,6 +24,20 @@ impl From<&Instruction> for LoadConstant {
     }
 }
 
+impl From<InstructionData> for LoadConstant {
+    fn from(instruction: InstructionData) -> Self {
+        let destination = instruction.a;
+        let constant_index = instruction.b;
+        let jump_next = instruction.c != 0;
+
+        LoadConstant {
+            destination,
+            constant_index,
+            jump_next,
+        }
+    }
+}
+
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
         let operation = Operation::LOAD_CONSTANT;
@@ -28,5 +46,23 @@ impl From<LoadConstant> for Instruction {
         let c = load_constant.jump_next as u8;
 
         Instruction::new(operation, a, b, c, false, false, false)
+    }
+}
+
+impl Display for LoadConstant {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let LoadConstant {
+            destination,
+            constant_index,
+            jump_next,
+        } = self;
+
+        write!(f, "R{destination} = Constant {constant_index}")?;
+
+        if *jump_next {
+            write!(f, " JUMP +1")
+        } else {
+            Ok(())
+        }
     }
 }

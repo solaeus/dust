@@ -31,7 +31,7 @@ pub enum Type {
     Range {
         r#type: Box<Type>,
     },
-    SelfChunk,
+    SelfFunction,
     String,
     Struct(StructType),
     Tuple {
@@ -194,7 +194,7 @@ impl Display for Type {
             }
             Type::None => write!(f, "none"),
             Type::Range { r#type } => write!(f, "{type} range"),
-            Type::SelfChunk => write!(f, "self"),
+            Type::SelfFunction => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple { fields } => {
@@ -257,8 +257,8 @@ impl Ord for Type {
                 left_type.cmp(right_type)
             }
             (Type::Range { .. }, _) => Ordering::Greater,
-            (Type::SelfChunk, Type::SelfChunk) => Ordering::Equal,
-            (Type::SelfChunk, _) => Ordering::Greater,
+            (Type::SelfFunction, Type::SelfFunction) => Ordering::Equal,
+            (Type::SelfFunction, _) => Ordering::Greater,
             (Type::String, Type::String) => Ordering::Equal,
             (Type::String { .. }, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {

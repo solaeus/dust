@@ -2,9 +2,12 @@ use std::io::{stdin, stdout, Write};
 
 use smallvec::SmallVec;
 
-use crate::{ConcreteValue, NativeFunctionError, Value, Vm};
+use crate::{vm::Record, ConcreteValue, NativeFunctionError, Value};
 
-pub fn read_line(vm: &Vm, _: SmallVec<[&Value; 4]>) -> Result<Option<Value>, NativeFunctionError> {
+pub fn read_line(
+    record: &mut Record,
+    _: SmallVec<[&Value; 4]>,
+) -> Result<Option<Value>, NativeFunctionError> {
     let mut buffer = String::new();
 
     match stdin().read_line(&mut buffer) {
@@ -17,25 +20,23 @@ pub fn read_line(vm: &Vm, _: SmallVec<[&Value; 4]>) -> Result<Option<Value>, Nat
         }
         Err(error) => Err(NativeFunctionError::Io {
             error: error.kind(),
-            position: vm.current_position(),
         }),
     }
 }
 
 pub fn write(
-    vm: &Vm,
+    record: &mut Record,
     arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut stdout = stdout();
 
     for argument in arguments {
-        let string = argument.display(vm);
+        let string = argument.display(record);
 
         stdout
             .write_all(string.as_bytes())
             .map_err(|io_error| NativeFunctionError::Io {
                 error: io_error.kind(),
-                position: vm.current_position(),
             })?;
     }
 
@@ -43,19 +44,18 @@ pub fn write(
 }
 
 pub fn write_line(
-    vm: &Vm,
+    record: &mut Record,
     arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut stdout = stdout();
 
     for argument in arguments {
-        let string = argument.display(vm);
+        let string = argument.display(record);
 
         stdout
             .write_all(string.as_bytes())
             .map_err(|io_error| NativeFunctionError::Io {
                 error: io_error.kind(),
-                position: vm.current_position(),
             })?;
     }
 
@@ -63,7 +63,6 @@ pub fn write_line(
         .write(b"\n")
         .map_err(|io_error| NativeFunctionError::Io {
             error: io_error.kind(),
-            position: vm.current_position(),
         })?;
 
     Ok(None)

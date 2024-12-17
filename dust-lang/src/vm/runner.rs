@@ -1,33 +1,37 @@
 use smallvec::SmallVec;
 
-use crate::{AbstractValue, ConcreteValue, NativeFunction, Type, Value};
+use crate::{
+    instruction::{Close, LoadBoolean, LoadConstant, Point},
+    AbstractList, ConcreteValue, Instruction, InstructionData, NativeFunction, Type, Value,
+};
 
-use super::{Instruction, InstructionData, Pointer, Register, Vm};
+use super::{thread::ThreadSignal, Pointer, Record, Register};
 
-#[derive(Clone, Copy, Debug)]
-pub struct Runner {
-    logic: RunnerLogic,
-    data: InstructionData,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RunAction {
+    pub logic: RunnerLogic,
+    pub data: InstructionData,
 }
 
-impl Runner {
-    pub fn new(instruction: Instruction) -> Self {
+impl From<&Instruction> for RunAction {
+    fn from(instruction: &Instruction) -> Self {
         let (operation, data) = instruction.decode();
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
-        Self { logic, data }
-    }
-
-    pub fn from_parts(logic: RunnerLogic, data: InstructionData) -> Self {
-        Self { logic, data }
-    }
-
-    pub fn run(self, vm: &mut Vm) {
-        (self.logic)(vm, self.data);
+        RunAction { logic, data }
     }
 }
 
-pub type RunnerLogic = fn(&mut Vm, InstructionData);
+impl From<Instruction> for RunAction {
+    fn from(instruction: Instruction) -> Self {
+        let (operation, data) = instruction.decode();
+        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
+
+        RunAction { logic, data }
+    }
+}
+
+pub type RunnerLogic = fn(InstructionData, &mut Record) -> ThreadSignal;
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 24] = [
     r#move,
@@ -56,81 +60,79 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 24] = [
     r#return,
 ];
 
-pub fn r#move(vm: &mut Vm, instruction_data: InstructionData) {
-    let InstructionData { b, c, .. } = instruction_data;
-    let from_register_has_value = vm
-        .stack
-        .get(b as usize)
-        .is_some_and(|register| !matches!(register, Register::Empty));
-    let register = Register::Pointer(Pointer::Stack(b));
+pub fn r#move(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+    let Point { from, to } = instruction_data.into();
+    let from_register = record.get_register(from);
+    let from_register_is_empty = matches!(from_register, Register::Empty);
 
-    if from_register_has_value {
-        vm.set_register(c, register);
+    if !from_register_is_empty {
+        let register = Register::Pointer(Pointer::Stack(to));
+
+        record.set_register(from, register);
     }
 
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    ThreadSignal::Continue
 }
 
-pub fn close(vm: &mut Vm, instruction_data: InstructionData) {
-    let InstructionData { b, c, .. } = instruction_data;
+pub fn close(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+    let Close { from, to } = instruction_data.into();
 
-    assert!(b < c, "Runtime Error: Malformed instruction");
+    assert!(from < to, "Runtime Error: Malformed instruction");
 
-    for register_index in b..c {
+    for register_index in from..to {
         assert!(
-            (register_index as usize) < vm.stack.len(),
+            (register_index as usize) < record.stack_size(),
             "Runtime Error: Register index out of bounds"
         );
 
-        vm.stack[register_index as usize] = Register::Empty;
+        record.set_register(register_index, Register::Empty);
     }
 
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    ThreadSignal::Continue
 }
 
-pub fn load_boolean(vm: &mut Vm, instruction_data: InstructionData) {
-    let InstructionData { a, b, c, .. } = instruction_data;
-    let boolean = ConcreteValue::Boolean(b != 0).to_value();
+pub fn load_boolean(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+    let LoadBoolean {
+        destination,
+        value,
+        jump_next,
+    } = instruction_data.into();
+    let boolean = Value::Concrete(ConcreteValue::Boolean(value));
     let register = Register::Value(boolean);
 
-    vm.set_register(a, register);
+    record.set_register(destination, register);
 
-    if c != 0 {
-        vm.ip += 2;
-    } else {
-        vm.ip += 1;
+    if jump_next {
+        record.ip += 1;
     }
 
-    vm.execute_next_runner();
+    ThreadSignal::Continue
 }
 
-pub fn load_constant(vm: &mut Vm, instruction_data: InstructionData) {
-    let InstructionData { a, b, c, .. } = instruction_data;
-    let register = Register::Pointer(Pointer::Constant(b));
+pub fn load_constant(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+    let LoadConstant {
+        destination,
+        constant_index,
+        jump_next,
+    } = instruction_data.into();
+    let register = Register::Pointer(Pointer::Constant(constant_index));
 
-    vm.set_register(a, register);
+    record.set_register(destination, register);
 
-    if c != 0 {
-        vm.ip += 2;
-    } else {
-        vm.ip += 1;
+    if jump_next {
+        record.ip += 1;
     }
 
-    vm.execute_next_runner();
+    ThreadSignal::Continue
 }
 
-pub fn load_list(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn load_list(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { a, b, .. } = instruction_data;
     let mut item_pointers = Vec::with_capacity((a - b) as usize);
-    let stack = vm.stack.as_slice();
     let mut item_type = Type::Any;
 
     for register_index in b..a {
-        match &stack[register_index as usize] {
+        match record.get_register(register_index) {
             Register::Empty => continue,
             Register::Value(value) => {
                 if item_type == Type::Any {
@@ -139,7 +141,7 @@ pub fn load_list(vm: &mut Vm, instruction_data: InstructionData) {
             }
             Register::Pointer(pointer) => {
                 if item_type == Type::Any {
-                    item_type = vm.follow_pointer(*pointer).r#type();
+                    item_type = record.follow_pointer(*pointer).r#type();
                 }
             }
         }
@@ -149,55 +151,39 @@ pub fn load_list(vm: &mut Vm, instruction_data: InstructionData) {
         item_pointers.push(pointer);
     }
 
-    let list_value = Value::Abstract(AbstractValue::List {
+    let list_value = Value::AbstractList(AbstractList {
         item_type,
         item_pointers,
     });
     let register = Register::Value(list_value);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn load_self(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn load_self(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { a, .. } = instruction_data;
-    let register = Register::Value(AbstractValue::FunctionSelf.to_value());
+    let register = Register::Value(Value::SelfFunction);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn get_local(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn get_local(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { a, b, .. } = instruction_data;
-    let local_register_index = vm.get_local_register(b);
+    let local_register_index = record.get_local_register(b);
     let register = Register::Pointer(Pointer::Stack(local_register_index));
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn set_local(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn set_local(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { b, c, .. } = instruction_data;
-    let local_register_index = vm.get_local_register(c);
+    let local_register_index = record.get_local_register(c);
     let register = Register::Pointer(Pointer::Stack(b));
 
-    vm.set_register(local_register_index, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(local_register_index, register);
 }
 
-pub fn add(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn add(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -206,8 +192,8 @@ pub fn add(vm: &mut Vm, instruction_data: InstructionData) {
         c_is_constant,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let sum = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -219,14 +205,10 @@ pub fn add(vm: &mut Vm, instruction_data: InstructionData) {
     };
     let register = Register::Value(sum);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn subtract(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn subtract(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -235,8 +217,8 @@ pub fn subtract(vm: &mut Vm, instruction_data: InstructionData) {
         c_is_constant,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let difference = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -248,14 +230,10 @@ pub fn subtract(vm: &mut Vm, instruction_data: InstructionData) {
     };
     let register = Register::Value(difference);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn multiply(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn multiply(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -264,8 +242,8 @@ pub fn multiply(vm: &mut Vm, instruction_data: InstructionData) {
         c_is_constant,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let product = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -277,14 +255,10 @@ pub fn multiply(vm: &mut Vm, instruction_data: InstructionData) {
     };
     let register = Register::Value(product);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn divide(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn divide(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -293,8 +267,8 @@ pub fn divide(vm: &mut Vm, instruction_data: InstructionData) {
         c_is_constant,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let quotient = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -306,14 +280,10 @@ pub fn divide(vm: &mut Vm, instruction_data: InstructionData) {
     };
     let register = Register::Value(quotient);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn modulo(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn modulo(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -322,8 +292,8 @@ pub fn modulo(vm: &mut Vm, instruction_data: InstructionData) {
         c_is_constant,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let remainder = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -335,41 +305,31 @@ pub fn modulo(vm: &mut Vm, instruction_data: InstructionData) {
     };
     let register = Register::Value(remainder);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn test(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn test(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         b,
         b_is_constant,
         c,
         ..
     } = instruction_data;
-    let value = vm.get_argument(b, b_is_constant);
+    let value = record.get_argument(b, b_is_constant);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
-        panic!(
-            "VM Error: Expected boolean value for TEST operation at {}",
-            vm.current_position()
-        );
+        panic!("VM Error: Expected boolean value for TEST operation",);
     };
     let test_value = c != 0;
 
     if boolean == test_value {
-        vm.ip += 2;
+        record.ip += 2;
     } else {
-        vm.ip += 1;
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn test_set(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn test_set(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
@@ -377,19 +337,16 @@ pub fn test_set(vm: &mut Vm, instruction_data: InstructionData) {
         b_is_constant,
         ..
     } = instruction_data;
-    let value = vm.get_argument(b, b_is_constant);
+    let value = record.get_argument(b, b_is_constant);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
-        panic!(
-            "VM Error: Expected boolean value for TEST_SET operation at {}",
-            vm.current_position()
-        );
+        panic!("VM Error: Expected boolean value for TEST_SET operation",);
     };
     let test_value = c != 0;
 
     if boolean == test_value {
-        vm.ip += 2;
+        record.ip += 2;
     } else {
         let pointer = if b_is_constant {
             Pointer::Constant(b)
@@ -398,15 +355,11 @@ pub fn test_set(vm: &mut Vm, instruction_data: InstructionData) {
         };
         let register = Register::Pointer(pointer);
 
-        vm.set_register(a, register);
-
-        vm.ip += 1;
+        record.set_register(a, register);
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn equal(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn equal(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         b,
         c,
@@ -415,20 +368,17 @@ pub fn equal(vm: &mut Vm, instruction_data: InstructionData) {
         d,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let is_equal = left == right;
 
     if is_equal == d {
-        vm.ip += 2;
+        record.ip += 2;
     } else {
-        vm.ip += 1;
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn less(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn less(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         b,
         c,
@@ -437,20 +387,17 @@ pub fn less(vm: &mut Vm, instruction_data: InstructionData) {
         d,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let is_less = left < right;
 
     if is_less == d {
-        vm.ip += 2;
+        record.ip += 2;
     } else {
-        vm.ip += 1;
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn less_equal(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn less_equal(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         b,
         c,
@@ -459,107 +406,77 @@ pub fn less_equal(vm: &mut Vm, instruction_data: InstructionData) {
         d,
         ..
     } = instruction_data;
-    let left = vm.get_argument(b, b_is_constant);
-    let right = vm.get_argument(c, c_is_constant);
+    let left = record.get_argument(b, b_is_constant);
+    let right = record.get_argument(c, c_is_constant);
     let is_less_or_equal = left <= right;
 
     if is_less_or_equal == d {
-        vm.ip += 2;
+        record.ip += 2;
     } else {
-        vm.ip += 1;
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn negate(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn negate(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
         b_is_constant,
         ..
     } = instruction_data;
-    let argument = vm.get_argument(b, b_is_constant);
-    let negated = match argument {
-        Value::Concrete(value) => match value {
-            ConcreteValue::Float(float) => ConcreteValue::Float(-float),
-            ConcreteValue::Integer(integer) => ConcreteValue::Integer(-integer),
-            _ => panic!("Value Error: Cannot negate value"),
-        },
-        Value::Abstract(_) => panic!("VM Error: Cannot negate value"),
-    };
-    let register = Register::Value(Value::Concrete(negated));
+    let argument = record.get_argument(b, b_is_constant);
+    let negated = argument.negate();
+    let register = Register::Value(negated);
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn not(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn not(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData {
         a,
         b,
         b_is_constant,
         ..
     } = instruction_data;
-    let argument = vm.get_argument(b, b_is_constant);
+    let argument = record.get_argument(b, b_is_constant);
     let not = match argument {
         Value::Concrete(ConcreteValue::Boolean(boolean)) => ConcreteValue::Boolean(!boolean),
         _ => panic!("VM Error: Expected boolean value for NOT operation"),
     };
     let register = Register::Value(Value::Concrete(not));
 
-    vm.set_register(a, register);
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
+    record.set_register(a, register);
 }
 
-pub fn jump(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn jump(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { b, c, .. } = instruction_data;
     let offset = b as usize;
     let is_positive = c != 0;
 
     if is_positive {
-        vm.ip += offset + 1
+        record.ip += offset + 1
     } else {
-        vm.ip -= offset
+        record.ip -= offset
     }
-
-    vm.execute_next_runner();
 }
 
-pub fn call(vm: &mut Vm<'_>, instruction_data: InstructionData) {
-    let InstructionData {
-        a,
-        b,
-        c,
-        b_is_constant,
-        ..
-    } = instruction_data;
-    let function = vm.get_argument(b, b_is_constant);
-    let mut function_vm = if let Value::Concrete(ConcreteValue::Function(chunk)) = function {
-        Vm::new(chunk, Some(vm), None)
-    } else if let Value::Abstract(AbstractValue::FunctionSelf) = function {
-        Vm::new(vm.chunk, Some(vm), Some(vm.runners.clone()))
-    } else {
-        panic!("VM Error: Expected function")
-    };
+pub fn call(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+    let InstructionData { a, b, c, .. } = instruction_data;
+    let prototype = record.get_prototype(b);
+
     let first_argument_index = a - c;
     let mut argument_index = 0;
 
     for argument_register_index in first_argument_index..a {
-        let target_register_is_empty =
-            matches!(vm.stack[argument_register_index as usize], Register::Empty);
+        let target_register_is_empty = matches!(
+            record.stack[argument_register_index as usize],
+            Register::Empty
+        );
 
         if target_register_is_empty {
             continue;
         }
 
-        function_vm.set_register(
+        function_record.set_register(
             argument_index as u8,
             Register::Pointer(Pointer::ParentStack(argument_register_index)),
         );
@@ -567,31 +484,27 @@ pub fn call(vm: &mut Vm<'_>, instruction_data: InstructionData) {
         argument_index += 1;
     }
 
-    let return_value = function_vm.run();
+    let return_value = function_record.run();
 
     if let Some(concrete_value) = return_value {
         let register = Register::Value(concrete_value);
 
-        vm.set_register(a, register);
+        record.set_register(a, register);
     }
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
 }
 
-pub fn call_native(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let InstructionData { a, b, c, .. } = instruction_data;
     let first_argument_index = (a - c) as usize;
     let argument_range = first_argument_index..a as usize;
     let mut arguments: SmallVec<[&Value; 4]> = SmallVec::new();
 
     for register_index in argument_range {
-        let register = &vm.stack[register_index];
+        let register = &record.stack[register_index];
         let value = match register {
             Register::Value(value) => value,
             Register::Pointer(pointer) => {
-                let value_option = vm.follow_pointer_allow_empty(*pointer);
+                let value_option = record.follow_pointer_allow_empty(*pointer);
 
                 match value_option {
                     Some(value) => value,
@@ -605,30 +518,24 @@ pub fn call_native(vm: &mut Vm, instruction_data: InstructionData) {
     }
 
     let function = NativeFunction::from(b);
-    let return_value = function.call(vm, arguments).unwrap();
+    let return_value = function.call(record.arguments).unwrap();
 
     if let Some(value) = return_value {
         let register = Register::Value(value);
 
-        vm.set_register(a, register);
+        record.set_register(a, register);
     }
-
-    vm.ip += 1;
-
-    vm.execute_next_runner();
 }
 
-pub fn r#return(vm: &mut Vm, instruction_data: InstructionData) {
+pub fn r#return(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
     let should_return_value = instruction_data.b != 0;
 
-    if !should_return_value {
-        return vm.ip += 1;
-    }
+    if !should_return_value {}
 
-    if let Some(register_index) = &vm.last_assigned_register {
-        let return_value = vm.open_register(*register_index).clone();
+    if let Some(register_index) = &record.last_assigned_register {
+        let return_value = record.open_register(*register_index).clone();
 
-        vm.return_value = Some(return_value);
+        record.return_value = Some(return_value);
     } else {
         panic!("Stack underflow");
     }
@@ -642,7 +549,7 @@ mod tests {
     use super::*;
 
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
-        (Operation::MOVE, r#move),
+        (Operation::POINT, r#move),
         (Operation::CLOSE, close),
         (Operation::LOAD_BOOLEAN, load_boolean),
         (Operation::LOAD_CONSTANT, load_constant),

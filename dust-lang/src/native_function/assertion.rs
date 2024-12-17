@@ -2,16 +2,16 @@ use std::panic;
 
 use smallvec::SmallVec;
 
-use crate::{DustString, NativeFunctionError, Value, Vm};
+use crate::{vm::Record, DustString, NativeFunctionError, Value};
 
 pub fn panic(
-    vm: &Vm,
+    record: &mut Record,
     arguments: SmallVec<[&Value; 4]>,
 ) -> Result<Option<Value>, NativeFunctionError> {
     let mut message: Option<DustString> = None;
 
     for value_ref in arguments {
-        let string = value_ref.display(vm);
+        let string = value_ref.display(record);
 
         match message {
             Some(ref mut message) => message.push_str(&string),

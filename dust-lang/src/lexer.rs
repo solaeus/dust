@@ -46,7 +46,7 @@ pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, DustError> {
     Ok(tokens)
 }
 
-/// Low-level tool for lexing a single token at a time.
+/// Tool for lexing a single token at a time.
 ///
 /// See the [`lex`] function for an example of how to create and use a Lexer.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]

@@ -9,39 +9,41 @@ use serde::{Deserialize, Serialize};
 pub struct Operation(pub u8);
 
 impl Operation {
-    pub const MOVE: Operation = Operation(0);
+    pub const POINT: Operation = Operation(0);
     pub const CLOSE: Operation = Operation(1);
     pub const LOAD_BOOLEAN: Operation = Operation(2);
     pub const LOAD_CONSTANT: Operation = Operation(3);
-    pub const LOAD_LIST: Operation = Operation(4);
-    pub const LOAD_SELF: Operation = Operation(5);
-    pub const GET_LOCAL: Operation = Operation(6);
-    pub const SET_LOCAL: Operation = Operation(7);
-    pub const ADD: Operation = Operation(8);
-    pub const SUBTRACT: Operation = Operation(9);
-    pub const MULTIPLY: Operation = Operation(10);
-    pub const DIVIDE: Operation = Operation(11);
-    pub const MODULO: Operation = Operation(12);
-    pub const TEST: Operation = Operation(13);
-    pub const TEST_SET: Operation = Operation(14);
-    pub const EQUAL: Operation = Operation(15);
-    pub const LESS: Operation = Operation(16);
-    pub const LESS_EQUAL: Operation = Operation(17);
-    pub const NEGATE: Operation = Operation(18);
-    pub const NOT: Operation = Operation(19);
-    pub const CALL: Operation = Operation(20);
-    pub const CALL_NATIVE: Operation = Operation(21);
-    pub const JUMP: Operation = Operation(22);
-    pub const RETURN: Operation = Operation(23);
+    pub const LOAD_FUNCTION: Operation = Operation(4);
+    pub const LOAD_LIST: Operation = Operation(5);
+    pub const LOAD_SELF: Operation = Operation(6);
+    pub const GET_LOCAL: Operation = Operation(7);
+    pub const SET_LOCAL: Operation = Operation(8);
+    pub const ADD: Operation = Operation(9);
+    pub const SUBTRACT: Operation = Operation(10);
+    pub const MULTIPLY: Operation = Operation(11);
+    pub const DIVIDE: Operation = Operation(12);
+    pub const MODULO: Operation = Operation(13);
+    pub const TEST: Operation = Operation(14);
+    pub const TEST_SET: Operation = Operation(15);
+    pub const EQUAL: Operation = Operation(16);
+    pub const LESS: Operation = Operation(17);
+    pub const LESS_EQUAL: Operation = Operation(18);
+    pub const NEGATE: Operation = Operation(19);
+    pub const NOT: Operation = Operation(20);
+    pub const CALL: Operation = Operation(21);
+    pub const CALL_NATIVE: Operation = Operation(22);
+    pub const JUMP: Operation = Operation(23);
+    pub const RETURN: Operation = Operation(24);
 }
 
 impl Operation {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::MOVE => "MOVE",
+    pub fn name(&self) -> &'static str {
+        match *self {
+            Self::POINT => "MOVE",
             Self::CLOSE => "CLOSE",
             Self::LOAD_BOOLEAN => "LOAD_BOOLEAN",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",
+            Self::LOAD_FUNCTION => "LOAD_FUNCTION",
             Self::LOAD_LIST => "LOAD_LIST",
             Self::LOAD_SELF => "LOAD_SELF",
             Self::GET_LOCAL => "GET_LOCAL",
