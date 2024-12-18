@@ -21,11 +21,13 @@
 mod error;
 mod optimize;
 mod parse_rule;
+mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
+use type_checks::{check_math_type, check_math_types};
 
-use std::mem::{replace, swap};
+use std::mem::replace;
 
 use colored::Colorize;
 use optimize::control_flow_register_consolidation;
@@ -754,6 +756,8 @@ impl<'src> Compiler<'src> {
                 | Token::PercentEqual
         );
 
+        check_math_type(&left_type, operator, &left_position)?;
+
         if is_assignment && !left_is_mutable_local {
             return Err(CompileError::ExpectedMutableVariable {
                 found: self.previous_token.to_owned(),
@@ -767,59 +771,14 @@ impl<'src> Compiler<'src> {
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
 
-        match operator {
-            Token::Plus | Token::PlusEqual => {
-                Compiler::expect_addable_type(&left_type, &left_position)?;
-                Compiler::expect_addable_type(&right_type, &right_position)?;
-                Compiler::expect_addable_types(
-                    &left_type,
-                    &left_position,
-                    &right_type,
-                    &right_position,
-                )?;
-            }
-            Token::Minus | Token::MinusEqual => {
-                Compiler::expect_subtractable_type(&left_type, &left_position)?;
-                Compiler::expect_subtractable_type(&right_type, &right_position)?;
-                Compiler::expect_subtractable_types(
-                    &left_type,
-                    &left_position,
-                    &right_type,
-                    &right_position,
-                )?;
-            }
-            Token::Slash | Token::SlashEqual => {
-                Compiler::expect_dividable_type(&left_type, &left_position)?;
-                Compiler::expect_dividable_type(&right_type, &right_position)?;
-                Compiler::expect_dividable_types(
-                    &left_type,
-                    &left_position,
-                    &right_type,
-                    &right_position,
-                )?;
-            }
-            Token::Star | Token::StarEqual => {
-                Compiler::expect_multipliable_type(&left_type, &left_position)?;
-                Compiler::expect_multipliable_type(&right_type, &right_position)?;
-                Compiler::expect_multipliable_types(
-                    &left_type,
-                    &left_position,
-                    &right_type,
-                    &right_position,
-                )?;
-            }
-            Token::Percent | Token::PercentEqual => {
-                Compiler::expect_modulable_type(&left_type, &left_position)?;
-                Compiler::expect_modulable_type(&right_type, &right_position)?;
-                Compiler::expect_modulable_types(
-                    &left_type,
-                    &left_position,
-                    &right_type,
-                    &right_position,
-                )?;
-            }
-            _ => {}
-        }
+        check_math_type(&right_type, operator, &right_position)?;
+        check_math_types(
+            &left_type,
+            &left_position,
+            operator,
+            &right_type,
+            &right_position,
+        )?;
 
         if push_back_right {
             self.instructions
@@ -1755,170 +1714,5 @@ impl<'src> Compiler<'src> {
         }
 
         Ok(())
-    }
-
-    fn expect_addable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(
-            argument_type,
-            Type::Byte | Type::Character | Type::Float | Type::Integer | Type::String
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotAddType {
-                argument_type: argument_type.clone(),
-                position: *position,
-            })
-        }
-    }
-
-    fn expect_addable_types(
-        left: &Type,
-        left_position: &Span,
-        right: &Type,
-        right_position: &Span,
-    ) -> Result<(), CompileError> {
-        if matches!(
-            (left, right),
-            (Type::Byte, Type::Byte)
-                | (Type::Character, Type::String)
-                | (Type::Character, Type::Character)
-                | (Type::Float, Type::Float)
-                | (Type::Integer, Type::Integer)
-                | (Type::String, Type::Character)
-                | (Type::String, Type::String),
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotAddArguments {
-                left_type: left.clone(),
-                left_position: *left_position,
-                right_type: right.clone(),
-                right_position: *right_position,
-            })
-        }
-    }
-
-    fn expect_dividable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotDivideType {
-                argument_type: argument_type.clone(),
-                position: *position,
-            })
-        }
-    }
-
-    fn expect_dividable_types(
-        left: &Type,
-        left_position: &Span,
-        right: &Type,
-        right_position: &Span,
-    ) -> Result<(), CompileError> {
-        if matches!(
-            (left, right),
-            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotDivideArguments {
-                left_type: left.clone(),
-                right_type: right.clone(),
-                position: Span(left_position.0, right_position.1),
-            })
-        }
-    }
-
-    fn expect_modulable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(argument_type, Type::Byte | Type::Integer | Type::Float) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotModuloType {
-                argument_type: argument_type.clone(),
-                position: *position,
-            })
-        }
-    }
-
-    fn expect_modulable_types(
-        left: &Type,
-        left_position: &Span,
-        right: &Type,
-        right_position: &Span,
-    ) -> Result<(), CompileError> {
-        if matches!(
-            (left, right),
-            (Type::Byte, Type::Byte) | (Type::Integer, Type::Integer) | (Type::Float, Type::Float)
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotModuloArguments {
-                left_type: left.clone(),
-                right_type: right.clone(),
-                position: Span(left_position.0, right_position.1),
-            })
-        }
-    }
-
-    fn expect_multipliable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotMultiplyType {
-                argument_type: argument_type.clone(),
-                position: *position,
-            })
-        }
-    }
-
-    fn expect_multipliable_types(
-        left: &Type,
-        left_position: &Span,
-        right: &Type,
-        right_position: &Span,
-    ) -> Result<(), CompileError> {
-        if matches!(
-            (left, right),
-            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotMultiplyArguments {
-                left_type: left.clone(),
-                right_type: right.clone(),
-                position: Span(left_position.0, right_position.1),
-            })
-        }
-    }
-
-    fn expect_subtractable_type(argument_type: &Type, position: &Span) -> Result<(), CompileError> {
-        if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotSubtractType {
-                argument_type: argument_type.clone(),
-                position: *position,
-            })
-        }
-    }
-
-    fn expect_subtractable_types(
-        left: &Type,
-        left_position: &Span,
-        right: &Type,
-        right_position: &Span,
-    ) -> Result<(), CompileError> {
-        if matches!(
-            (left, right),
-            (Type::Byte, Type::Byte) | (Type::Float, Type::Float) | (Type::Integer, Type::Integer)
-        ) {
-            Ok(())
-        } else {
-            Err(CompileError::CannotSubtractArguments {
-                left_type: left.clone(),
-                right_type: right.clone(),
-                position: Span(left_position.0, right_position.1),
-            })
-        }
     }
 }
