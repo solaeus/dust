@@ -26,6 +26,30 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn boolean(boolean: bool) -> Self {
+        Value::Concrete(ConcreteValue::Boolean(boolean))
+    }
+
+    pub fn byte(byte: u8) -> Self {
+        Value::Concrete(ConcreteValue::Byte(byte))
+    }
+
+    pub fn character(character: char) -> Self {
+        Value::Concrete(ConcreteValue::Character(character))
+    }
+
+    pub fn float(float: f64) -> Self {
+        Value::Concrete(ConcreteValue::Float(float))
+    }
+
+    pub fn integer(integer: i64) -> Self {
+        Value::Concrete(ConcreteValue::Integer(integer))
+    }
+
+    pub fn string(string: DustString) -> Self {
+        Value::Concrete(ConcreteValue::String(string))
+    }
+
     pub fn as_boolean(&self) -> Option<&bool> {
         if let Value::Concrete(ConcreteValue::Boolean(value)) = self {
             Some(value)

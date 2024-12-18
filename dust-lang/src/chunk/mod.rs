@@ -74,7 +74,7 @@ impl Chunk {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, debug_assertions))]
     pub fn with_data(
         name: Option<DustString>,
         r#type: FunctionType,

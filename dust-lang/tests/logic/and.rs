@@ -1,4 +1,5 @@
 use dust_lang::*;
+use smallvec::smallvec;
 
 #[test]
 fn true_and_true() {
@@ -13,19 +14,27 @@ fn true_and_true() {
                 value_parameters: None,
                 return_type: Type::Boolean,
             },
-            vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(Argument::Register(0), true), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, true, false), Span(8, 12)),
-                (Instruction::r#return(true), Span(12, 12)),
+            smallvec![
+                Instruction::load_boolean(0, true, false),
+                Instruction::test(0, true),
+                Instruction::jump(1, true),
+                Instruction::load_boolean(1, true, false),
+                Instruction::r#return(true),
             ],
-            vec![],
+            smallvec![
+                Span(0, 4),
+                Span(5, 7),
+                Span(5, 7),
+                Span(8, 12),
+                Span(12, 12),
+            ],
+            smallvec![],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
 }
 
 #[test]
@@ -41,19 +50,27 @@ fn false_and_false() {
                 value_parameters: None,
                 return_type: Type::Boolean,
             },
-            vec![
-                (Instruction::load_boolean(0, false, false), Span(0, 5)),
-                (Instruction::test(Argument::Register(0), true), Span(6, 8)),
-                (Instruction::jump(1, true), Span(6, 8)),
-                (Instruction::load_boolean(1, false, false), Span(9, 14)),
-                (Instruction::r#return(true), Span(14, 14)),
+            smallvec![
+                Instruction::load_boolean(0, false, false),
+                Instruction::test(0, true),
+                Instruction::jump(1, true),
+                Instruction::load_boolean(1, false, false),
+                Instruction::r#return(true),
             ],
-            vec![],
+            smallvec![
+                Span(0, 5),
+                Span(6, 8),
+                Span(6, 8),
+                Span(9, 14),
+                Span(14, 14),
+            ],
+            smallvec![],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
@@ -69,19 +86,27 @@ fn false_and_true() {
                 value_parameters: None,
                 return_type: Type::Boolean,
             },
-            vec![
-                (Instruction::load_boolean(0, false, false), Span(0, 5)),
-                (Instruction::test(Argument::Register(0), true), Span(6, 8)),
-                (Instruction::jump(1, true), Span(6, 8)),
-                (Instruction::load_boolean(1, true, false), Span(9, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
+            smallvec![
+                Instruction::load_boolean(0, false, false),
+                Instruction::test(0, true),
+                Instruction::jump(1, true),
+                Instruction::load_boolean(1, true, false),
+                Instruction::r#return(true),
             ],
-            vec![],
+            smallvec![
+                Span(0, 5),
+                Span(6, 8),
+                Span(6, 8),
+                Span(9, 13),
+                Span(13, 13)
+            ],
+            smallvec![],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
 }
 
 #[test]
@@ -97,17 +122,25 @@ fn true_and_false() {
                 value_parameters: None,
                 return_type: Type::Boolean,
             },
-            vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(Argument::Register(0), true), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
+            smallvec![
+                Instruction::load_boolean(0, true, false),
+                Instruction::test(0, true),
+                Instruction::jump(1, true),
+                Instruction::load_boolean(1, false, false),
+                Instruction::r#return(true),
             ],
-            vec![],
+            smallvec![
+                Span(0, 4),
+                Span(5, 7),
+                Span(5, 7),
+                Span(8, 13),
+                Span(13, 13)
+            ],
+            smallvec![],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
 }

@@ -20,13 +20,12 @@
 //! runtime error, it is the compiler's fault and the error should be fixed here.
 mod error;
 mod optimize;
+mod parse_rule;
 
 pub use error::CompileError;
+use parse_rule::{ParseRule, Precedence};
 
-use std::{
-    fmt::{self, Display, Formatter},
-    mem::replace,
-};
+use std::mem::{replace, swap};
 
 use colored::Colorize;
 use optimize::control_flow_register_consolidation;
@@ -119,14 +118,14 @@ pub struct Compiler<'src> {
     /// The current scope of the compiler. This is used to test if a variable is in scope.
     current_scope: Scope,
 
-    /// Index of the record (i.e. runtime data) that the VM will use when calling the function. This
-    /// is a depth-first index.
+    /// Index of the [`Record`] that the VM will use when calling the function. This is a
+    /// depth-first index.
     record_index: u8,
 
     /// Record index for the next nested chunk that is compiled. When a function is compiled, its
     /// `record_index` is assigned from this value. Then `next_record_index` is incremented to
-    /// maintain the depth-first index. After the function is compiled, the its `next_record_index`
-    /// is assigned to this chunk.
+    /// maintain the depth-first index. After the function is compiled, its `next_record_index`
+    /// is assigned back to this chunk.
     next_record_index: u8,
 }
 
@@ -358,6 +357,12 @@ impl<'src> Compiler<'src> {
                 position: self.current_position,
             })
         }
+    }
+
+    fn get_last_operation(&self) -> Option<Operation> {
+        self.instructions
+            .last()
+            .map(|(instruction, _, _)| instruction.operation())
     }
 
     fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
@@ -946,19 +951,30 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
-        let is_logic_chain = matches!(
-            self.get_last_operations(),
-            Some([_, Operation::TEST, Operation::JUMP, _])
-        );
-        let jump_over_index = self.instructions.len() - 2;
-        let jump_over = if is_logic_chain {
-            let (instruction, _, _) = self.instructions.remove(jump_over_index);
+        let (last_instruction, last_type, last_position) =
+            self.instructions
+                .pop()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+        let operand_register = if last_instruction.operation() == Operation::GET_LOCAL {
+            let (local, _) = self.get_local(last_instruction.b_field())?;
 
-            Some(instruction)
+            local.register_index
+        } else if last_instruction.yields_value() {
+            let register = last_instruction.a_field();
+
+            self.instructions
+                .push((last_instruction, last_type, last_position));
+
+            register
         } else {
-            None
+            self.instructions
+                .push((last_instruction, last_type, last_position));
+
+            self.next_register() - 1
         };
-        let operand_register = self.next_register() - 1;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -974,43 +990,28 @@ impl<'src> Compiler<'src> {
             }
         };
         let test = Instruction::test(operand_register, test_boolean);
+        let jump = Instruction::jump(1, true);
 
-        self.advance()?;
         self.emit_instruction(test, Type::None, operator_position);
-
-        let jump_index = self.instructions.len();
-
+        self.emit_instruction(jump, Type::None, operator_position);
+        self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        let jump_distance = (self.instructions.len() - jump_index) as u8;
-        let jump = Instruction::jump(jump_distance, true);
+        let instructions_length = self.instructions.len() - 1;
 
-        self.instructions
-            .insert(jump_index, (jump, Type::None, operator_position));
+        for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
+            if instructions[0].0.operation() != Operation::TEST
+                || instructions[1].0.operation() != Operation::JUMP
+            {
+                continue;
+            }
 
-        if let Some(jump_over) = jump_over {
-            let is_end_of_context = matches!(self.current_token, Token::RightBrace | Token::Eof);
-            let jump_over_distance =
-                jump_over.b_field() + (self.instructions.len() - jump_over_index) as u8 - {
-                    if is_end_of_context {
-                        1
-                    } else {
-                        0
-                    }
-                };
-            let jump_over = Instruction::jump(jump_over_distance, true);
+            let jump = &mut instructions[1].0;
+            let jump_index = instructions_length - group_index * 3 - 1;
+            let short_circuit_distance = (instructions_length - jump_index) as u8;
 
-            self.instructions
-                .insert(jump_over_index, (jump_over, Type::None, operator_position));
+            *jump = Instruction::jump(short_circuit_distance, true);
         }
-
-        // short_circuit_jump_distance += (self.instructions.len() - short_circuit_jump_index) as u8;
-        // let jump = Instruction::jump(short_circuit_jump_distance, true);
-
-        // self.instructions.insert(
-        //     short_circuit_jump_index,
-        //     (jump, Type::None, operator_position),
-        // );
 
         Ok(())
     }
@@ -1241,8 +1242,8 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some([Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT]) =
-                    self.get_last_operations()
+                if let Some(Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT) =
+                    self.get_last_operation()
                 {
                     let (mut loader, _, _) = self.instructions.last_mut().unwrap();
 
@@ -1918,321 +1919,6 @@ impl<'src> Compiler<'src> {
                 right_type: right.clone(),
                 position: Span(left_position.0, right_position.1),
             })
-        }
-    }
-}
-
-/// Operator precedence levels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Precedence {
-    Primary = 9,
-    Call = 8,
-    Unary = 7,
-    Factor = 6,
-    Term = 5,
-    Comparison = 4,
-    LogicalAnd = 3,
-    LogicalOr = 2,
-    Assignment = 1,
-    None = 0,
-}
-
-impl Precedence {
-    fn increment(&self) -> Self {
-        match self {
-            Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::LogicalOr,
-            Precedence::LogicalOr => Precedence::LogicalAnd,
-            Precedence::LogicalAnd => Precedence::Comparison,
-            Precedence::Comparison => Precedence::Term,
-            Precedence::Term => Precedence::Factor,
-            Precedence::Factor => Precedence::Unary,
-            Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Primary,
-            Precedence::Primary => Precedence::Primary,
-        }
-    }
-}
-
-impl Display for Precedence {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-type Parser<'a> = fn(&mut Compiler<'a>) -> Result<(), CompileError>;
-
-/// Rule that defines how to parse a token.
-#[derive(Debug, Clone, Copy)]
-struct ParseRule<'a> {
-    pub prefix: Option<Parser<'a>>,
-    pub infix: Option<Parser<'a>>,
-    pub precedence: Precedence,
-}
-
-impl From<&Token<'_>> for ParseRule<'_> {
-    fn from(token: &Token) -> Self {
-        match token {
-            Token::ArrowThin => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Async => todo!(),
-            Token::Bang => ParseRule {
-                prefix: Some(Compiler::parse_unary),
-                infix: None,
-                precedence: Precedence::Unary,
-            },
-            Token::BangEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::Bool => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Boolean(_) => ParseRule {
-                prefix: Some(Compiler::parse_boolean),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Break => todo!(),
-            Token::Byte(_) => ParseRule {
-                prefix: Some(Compiler::parse_byte),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Character(_) => ParseRule {
-                prefix: Some(Compiler::parse_character),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Colon => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Comma => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Dot => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::DoubleAmpersand => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_logical_binary),
-                precedence: Precedence::LogicalAnd,
-            },
-            Token::DoubleEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::DoublePipe => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_logical_binary),
-                precedence: Precedence::LogicalOr,
-            },
-            Token::DoubleDot => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Eof => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Equal => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::Assignment,
-            },
-            Token::Else => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Float(_) => ParseRule {
-                prefix: Some(Compiler::parse_float),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::FloatKeyword => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Fn => ParseRule {
-                prefix: Some(Compiler::parse_function),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Greater => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::GreaterEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::Identifier(_) => ParseRule {
-                prefix: Some(Compiler::parse_variable),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::If => ParseRule {
-                prefix: Some(Compiler::parse_if),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Int => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Integer(_) => ParseRule {
-                prefix: Some(Compiler::parse_integer),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::LeftBrace => ParseRule {
-                prefix: Some(Compiler::parse_block),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::LeftParenthesis => ParseRule {
-                prefix: Some(Compiler::parse_grouped),
-                infix: Some(Compiler::parse_call),
-                precedence: Precedence::Call,
-            },
-            Token::LeftBracket => ParseRule {
-                prefix: Some(Compiler::parse_list),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Less => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::LessEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
-                precedence: Precedence::Comparison,
-            },
-            Token::Let => ParseRule {
-                prefix: Some(Compiler::parse_let_statement),
-                infix: None,
-                precedence: Precedence::Assignment,
-            },
-            Token::Loop => todo!(),
-            Token::Map => todo!(),
-            Token::Minus => ParseRule {
-                prefix: Some(Compiler::parse_unary),
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Term,
-            },
-            Token::MinusEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Assignment,
-            },
-            Token::Mut => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Percent => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Factor,
-            },
-            Token::PercentEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Assignment,
-            },
-            Token::Plus => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Term,
-            },
-            Token::PlusEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Assignment,
-            },
-            Token::Return => ParseRule {
-                prefix: Some(Compiler::parse_return_statement),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::RightBrace => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::RightParenthesis => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::RightBracket => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Semicolon => ParseRule {
-                prefix: Some(Compiler::parse_semicolon),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Slash => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Factor,
-            },
-            Token::SlashEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Assignment,
-            },
-            Token::Star => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Factor,
-            },
-            Token::StarEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::parse_math_binary),
-                precedence: Precedence::Assignment,
-            },
-            Token::Str => ParseRule {
-                prefix: Some(Compiler::expect_expression),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::String(_) => ParseRule {
-                prefix: Some(Compiler::parse_string),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Token::Struct => todo!(),
-            Token::While => ParseRule {
-                prefix: Some(Compiler::parse_while),
-                infix: None,
-                precedence: Precedence::None,
-            },
         }
     }
 }
