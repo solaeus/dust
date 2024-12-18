@@ -3,46 +3,64 @@ use std::time::{Duration, Instant};
 use std::{fs::read_to_string, path::PathBuf};
 
 use clap::builder::StyledStr;
+use clap::Args;
 use clap::{
     builder::{styling::AnsiColor, Styles},
-    crate_authors, crate_description, crate_version, ArgAction, Args, ColorChoice, Parser,
-    Subcommand, ValueHint,
+    crate_authors, crate_description, crate_version, ColorChoice, Parser, Subcommand, ValueHint,
 };
 use color_print::cstr;
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use log::{Level, LevelFilter};
 
-const HELP_TEMPLATE: &str = cstr!(
-    "\
-<bold,bright-magenta>Dust CLI</bold,bright-magenta>
-────────
-{about}
-Version: {version}
-Author: {author}
-License: GPL-3.0 ⚖️
+const CLI_HELP_TEMPLATE: &str = cstr!(
+    r#"
+<bright-magenta><bold>Dust CLI
+────────</bold>
+{about}</bright-magenta>
 
-<bold,bright-magenta>Usage</bold,bright-magenta>
-─────
+ ☑  Version: {version}
+ ✎  Author: {author}
+ ⚖️ License: GPL-3.0
+ 🌐 Repository: git.jeffa.io/jeff/dust
+
+<bright-magenta,bold>Usage
+─────</bright-magenta,bold>
 {tab}{usage}
 
-<bold,bright-magenta>Options</bold,bright-magenta>
-───────
-{options}
-
-<bold,bright-magenta>Modes</bold,bright-magenta>
-─────
+<bright-magenta,bold>Modes
+─────</bright-magenta,bold>
 {subcommands}
 
-<bold,bright-magenta>Arguments</bold,bright-magenta>
-─────────
-{positionals}
+<bright-magenta,bold>Options
+───────</bright-magenta,bold>
+{options}
+"#
+);
 
-"
+const MODE_HELP_TEMPLATE: &str = cstr!(
+    r#"
+<bright-magenta><bold>Dust CLI
+────────</bold>
+{about}</bright-magenta>
+
+ ☑  Version: {version}
+ ✎  Author: {author}
+ ⚖️ License: GPL-3.0
+ 🌐 Repository: git.jeffa.io/jeff/dust
+
+<bright-magenta,bold>Usage
+─────</bright-magenta,bold>
+{tab}{usage}
+
+<bright-magenta,bold>Options
+───────</bright-magenta,bold>
+{options}
+"#
 );
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold())
-    .usage(AnsiColor::BrightWhite.on_default().bold())
+    .usage(AnsiColor::BrightCyan.on_default().bold())
     .literal(AnsiColor::BrightCyan.on_default())
     .placeholder(AnsiColor::BrightMagenta.on_default())
     .error(AnsiColor::BrightRed.on_default().bold())
@@ -55,40 +73,31 @@ const STYLES: Styles = Styles::styled()
     author = crate_authors!(),
     about = crate_description!(),
     color = ColorChoice::Auto,
-    disable_help_flag = true,
-    disable_version_flag = true,
-    help_template = StyledStr::from(HELP_TEMPLATE),
+    help_template = StyledStr::from(CLI_HELP_TEMPLATE),
     styles = STYLES,
-    term_width = 80,
 )]
 struct Cli {
-    /// Print help information for this or the selected subcommand
-    #[arg(short, long, action = ArgAction::Help)]
-    help: bool,
-
-    /// Print version information
-    #[arg(short, long, action = ArgAction::Version)]
-    version: bool,
-
-    /// Log level, overrides the DUST_LOG environment variable
-    #[arg(
-        short,
-        long,
-        value_name = "LOG_LEVEL",
-        value_parser = ["info", "trace", "debug"],
-    )]
+    /// Overrides the DUST_LOG environment variable
+    #[arg(short, long, value_name = "LOG_LEVEL")]
     log: Option<LevelFilter>,
 
+    #[command(subcommand)]
+    mode: Mode,
+}
+
+#[derive(Args)]
+#[clap(
+    styles = STYLES,
+)]
+#[group()]
+struct Input {
     /// Source code to run instead of a file
-    #[arg(short, long, value_hint = ValueHint::Other, value_name = "SOURCE")]
+    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
     command: Option<String>,
 
     /// Read source code from stdin
     #[arg(long)]
     stdin: bool,
-
-    #[command(subcommand)]
-    mode: Mode,
 
     /// Path to a source code file
     #[arg(value_hint = ValueHint::FilePath)]
@@ -96,134 +105,116 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-#[clap(
-    help_template = StyledStr::from(HELP_TEMPLATE),
-    styles = STYLES,
-)]
+#[clap(subcommand_value_name = "MODE", flatten_help = true)]
 enum Mode {
     /// Compile and run the program (default)
-    #[command(short_flag = 'r')]
+    #[command(
+        short_flag = 'r',
+        help_template = MODE_HELP_TEMPLATE
+    )]
     Run {
-        #[arg(short, long, action = ArgAction::Help)]
-        #[clap(help_heading = Some("Options"))]
-        help: bool,
-
         /// Print the time taken for compilation and execution
         #[arg(long)]
-        #[clap(help_heading = Some("Run Options"))]
         time: bool,
 
         /// Do not print the program's return value
         #[arg(long)]
-        #[clap(help_heading = Some("Run Options"))]
         no_output: bool,
 
         /// Custom program name, overrides the file name
         #[arg(long)]
-        #[clap(help_heading = Some("Run Options"))]
         name: Option<DustString>,
+
+        #[command(flatten)]
+        input: Input,
     },
 
     /// Compile and print the bytecode disassembly
-    #[command(short_flag = 'd')]
+    #[command(
+        short_flag = 'd',
+        help_template = MODE_HELP_TEMPLATE
+    )]
     Disassemble {
-        #[arg(short, long, action = ArgAction::Help)]
-        #[clap(help_heading = Some("Options"))]
-        help: bool,
-
         /// Style disassembly output
         #[arg(short, long, default_value = "true")]
-        #[clap(help_heading = Some("Disassemble Options"))]
         style: bool,
 
         /// Custom program name, overrides the file name
         #[arg(long)]
-        #[clap(help_heading = Some("Disassemble Options"))]
         name: Option<DustString>,
+
+        #[command(flatten)]
+        input: Input,
     },
 
     /// Lex the source code and print the tokens
-    #[command(short_flag = 't')]
+    #[command(
+        short_flag = 't',
+        help_template = MODE_HELP_TEMPLATE
+    )]
     Tokenize {
-        #[arg(short, long, action = ArgAction::Help)]
-        #[clap(help_heading = Some("Options"))]
-        help: bool,
-
         /// Style token output
         #[arg(short, long, default_value = "true")]
-        #[clap(help_heading = Some("Tokenize Options"))]
         style: bool,
+
+        #[command(flatten)]
+        input: Input,
     },
 }
 
-#[derive(Args, Clone)]
-#[group(required = true, multiple = false)]
-struct Source {}
-
-fn main() {
-    let start_time = Instant::now();
-    // let mut logger = env_logger::builder();
-
-    // logger.format(move |buf, record| {
-    //     let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32()).dimmed();
-    //     let level_display = match record.level() {
-    //         Level::Info => "INFO".bold().white(),
-    //         Level::Debug => "DEBUG".bold().blue(),
-    //         Level::Warn => "WARN".bold().yellow(),
-    //         Level::Error => "ERROR".bold().red(),
-    //         Level::Trace => "TRACE".bold().purple(),
-    //     };
-    //     let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
-
-    //     writeln!(buf, "{display}")
-    // });
-
-    let Cli {
-        log,
-        command,
-        stdin,
-        mode,
-        file,
-        ..
-    } = Cli::parse();
-
-    // if let Some(level) = log {
-    //     logger.filter_level(level).init();
-    // } else {
-    //     logger.parse_env("DUST_LOG").init();
-    // }
-
-    let (source, file_name) = if let Some(source) = command {
-        (source, None)
-    } else if stdin {
-        let mut source = String::new();
-
-        io::stdin()
-            .read_to_string(&mut source)
-            .expect("Failed to read from stdin");
-
-        (source, None)
-    } else {
-        let path = file.expect("Path is required when command is not provided");
-        let source = read_to_string(&path).expect("Failed to read file");
+fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
+    if let Some(path) = input.file {
+        let source = read_to_string(&path).expect("Failed to read source file");
         let file_name = path
             .file_name()
             .and_then(|os_str| os_str.to_str())
             .map(DustString::from);
 
-        (source, file_name)
-    };
-    let program_name = match &mode {
-        Mode::Run { name, .. } => name,
-        Mode::Disassemble { name, .. } => name,
-        Mode::Tokenize { .. } => &None,
+        return (source, file_name);
     }
-    .iter()
-    .next()
-    .cloned()
-    .or(file_name);
 
-    if let Mode::Disassemble { style, .. } = mode {
+    if input.stdin {
+        let mut source = String::new();
+        io::stdin()
+            .read_to_string(&mut source)
+            .expect("Failed to read from stdin");
+
+        return (source, None);
+    }
+
+    let source = input.command.expect("No source code provided");
+
+    (source, None)
+}
+
+fn main() {
+    let start_time = Instant::now();
+    let mut logger = env_logger::builder();
+
+    logger.format(move |buf, record| {
+        let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32());
+        let level_display = match record.level() {
+            Level::Info => cstr!("<bright-magenta,bold>INFO<bright-magenta,bold>"),
+            Level::Trace => cstr!("<bright-cyan,bold>TRACE<bright-cyan,bold>"),
+            Level::Debug => cstr!("<bright-blue,bold>DEBUG<bright-blue,bold>"),
+            Level::Warn => cstr!("<bright-yellow,bold>WARN<bright-yellow,bold>"),
+            Level::Error => cstr!("<bright-red,bold>ERROR<bright-red,bold>"),
+        };
+        let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
+
+        writeln!(buf, "{display}")
+    });
+
+    let Cli { log, mode } = Cli::parse();
+
+    if let Some(level) = log {
+        logger.filter_level(level).init();
+    } else {
+        logger.parse_env("DUST_LOG").init();
+    }
+
+    if let Mode::Disassemble { style, name, input } = mode {
+        let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(lexer) {
             Ok(compiler) => compiler,
@@ -243,21 +234,22 @@ fn main() {
             }
         }
 
-        let chunk = compiler.finish(program_name);
+        let chunk = compiler.finish(file_name);
         let mut stdout = stdout().lock();
 
         chunk
             .disassembler(&mut stdout)
             .style(style)
             .source(&source)
-            .width(80)
+            .width(65)
             .disassemble()
             .expect("Failed to write disassembly to stdout");
 
         return;
     }
 
-    if let Mode::Tokenize { style, .. } = mode {
+    if let Mode::Tokenize { input, .. } = mode {
+        let (source, _) = get_source_and_file_name(input);
         let mut lexer = Lexer::new(&source);
         let mut next_token = || -> Option<(Token, Span, bool)> {
             match lexer.next_token() {
@@ -303,9 +295,13 @@ fn main() {
     }
 
     if let Mode::Run {
-        time, no_output, ..
+        name,
+        time,
+        no_output,
+        input,
     } = mode
     {
+        let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(lexer) {
             Ok(compiler) => compiler,
@@ -325,7 +321,7 @@ fn main() {
             }
         }
 
-        let chunk = compiler.finish(program_name);
+        let chunk = compiler.finish(name.or(file_name));
         let compile_end = start_time.elapsed();
 
         if time {

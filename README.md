@@ -170,9 +170,9 @@ coincidence.
 ### Semicolons
 
 Dust borrowed Rust's approach to semicolons and their effect on evaluation and relaxed the rules to
-accomated different styles of coding. Rust, for example, isn't design for command lines or REPLs but
-Dust could be well-suited to those applications. Dust needs to work in a source file or in an ad-hoc
-one-liner sent to the CLI. Thus, semicolons are optional in most cases.
+accomated different styles of coding. Rust, isn't designed for command lines or REPLs but Dust could
+be well-suited to those applications. Dust needs to work in a source file or in an ad-hoc one-liner
+sent to the CLI. Thus, semicolons are optional in most cases.
 
 There are two things you need to know about semicolons in Dust:
 

@@ -1,6 +1,6 @@
 [package]
 name = "dust-cli"
-description = "Tool for running and debugging Dust programs"
+description = "Command line interface for the Dust programming language"
 authors = ["Jeff Anderson"]
 edition.workspace = true
 license.workspace = true
@@ -13,7 +13,13 @@ name = "dust"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5.14", features = ["cargo", "color", "derive", "help", "wrap_help"] }
+clap = { version = "4.5.14", features = [
+    "cargo",
+    "color",
+    "derive",
+    "help",
+    "wrap_help",
+] }
 color-print = "0.3.7"
 dust-lang = { path = "../dust-lang" }
 env_logger = "0.11.5"
