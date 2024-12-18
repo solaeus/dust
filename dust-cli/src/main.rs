@@ -5,44 +5,71 @@ use std::{fs::read_to_string, path::PathBuf};
 use clap::builder::StyledStr;
 use clap::{
     builder::{styling::AnsiColor, Styles},
-    ArgAction, Args, ColorChoice, Parser, ValueHint,
+    crate_authors, crate_description, crate_version, ArgAction, Args, ColorChoice, Parser,
+    Subcommand, ValueHint,
 };
-use clap::{crate_authors, crate_description, crate_version};
-use colored::Colorize;
+use color_print::cstr;
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use log::{Level, LevelFilter};
 
-const HELP_TEMPLATE: &str = "\
+const HELP_TEMPLATE: &str = cstr!(
+    "\
+<bold,bright-magenta>Dust CLI</bold,bright-magenta>
+────────
 {about}
-{version}
-{author}
+Version: {version}
+Author: {author}
+License: GPL-3.0 ⚖️
 
-{usage-heading}
-{usage}
+<bold,bright-magenta>Usage</bold,bright-magenta>
+─────
+{tab}{usage}
 
-{all-args}
-";
+<bold,bright-magenta>Options</bold,bright-magenta>
+───────
+{options}
+
+<bold,bright-magenta>Modes</bold,bright-magenta>
+─────
+{subcommands}
+
+<bold,bright-magenta>Arguments</bold,bright-magenta>
+─────────
+{positionals}
+
+"
+);
+
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::BrightMagenta.on_default().bold())
+    .usage(AnsiColor::BrightWhite.on_default().bold())
+    .literal(AnsiColor::BrightCyan.on_default())
+    .placeholder(AnsiColor::BrightMagenta.on_default())
+    .error(AnsiColor::BrightRed.on_default().bold())
+    .valid(AnsiColor::Blue.on_default())
+    .invalid(AnsiColor::BrightRed.on_default());
 
 #[derive(Parser)]
 #[clap(
     version = crate_version!(),
     author = crate_authors!(),
     about = crate_description!(),
-    term_width = 80,
     color = ColorChoice::Auto,
-    styles = Styles::styled()
-        .header(AnsiColor::BrightMagenta.on_default().bold())
-        .usage(AnsiColor::BrightWhite.on_default().bold())
-        .literal(AnsiColor::BrightCyan.on_default())
-        .placeholder(AnsiColor::BrightGreen.on_default())
-        .error(AnsiColor::BrightRed.on_default().bold())
-        .valid(AnsiColor::Blue.on_default())
-        .invalid(AnsiColor::BrightRed.on_default()),
     disable_help_flag = true,
     disable_version_flag = true,
-    help_template = StyledStr::from(HELP_TEMPLATE.bright_white().bold().to_string()),
+    help_template = StyledStr::from(HELP_TEMPLATE),
+    styles = STYLES,
+    term_width = 80,
 )]
 struct Cli {
+    /// Print help information for this or the selected subcommand
+    #[arg(short, long, action = ArgAction::Help)]
+    help: bool,
+
+    /// Print version information
+    #[arg(short, long, action = ArgAction::Version)]
+    version: bool,
+
     /// Log level, overrides the DUST_LOG environment variable
     #[arg(
         short,
@@ -50,125 +77,121 @@ struct Cli {
         value_name = "LOG_LEVEL",
         value_parser = ["info", "trace", "debug"],
     )]
-    #[clap(help_heading = Some("- Options"))]
     log: Option<LevelFilter>,
 
-    #[arg(short, long, action = ArgAction::Help)]
-    #[clap(help_heading = Some("- Options"))]
-    help: bool,
-
-    #[arg(short, long, action = ArgAction::Version)]
-    #[clap(help_heading = Some("- Options"))]
-    version: bool,
-
-    #[command(flatten)]
-    mode: Modes,
-
-    #[command(flatten)]
-    source: Source,
-}
-
-#[derive(Args)]
-#[group(multiple = true, requires = "run")]
-struct RunOptions {
-    /// Print the time taken for compilation and execution
-    #[arg(long)]
-    #[clap(help_heading = Some("- Run Options"))]
-    time: bool,
-
-    /// Do not print the run result
-    #[arg(long)]
-    #[clap(help_heading = Some("- Run Options"))]
-    no_output: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(long)]
-    #[clap(help_heading = Some("- Run Options"))]
-    program_name: Option<DustString>,
-}
-
-#[derive(Args)]
-#[group(multiple = false)]
-struct Modes {
-    /// Run the source code (default)
-    ///
-    /// Use the RUN OPTIONS to control this mode
-    #[arg(short, long, default_value = "true")]
-    #[clap(help_heading = Some("- Modes"))]
-    run: bool,
-
-    #[command(flatten)]
-    run_options: RunOptions,
-
-    /// Compile a chunk and show the disassembly
-    #[arg(short, long)]
-    #[clap(help_heading = Some("- Modes"))]
-    disassemble: bool,
-
-    /// Lex and display tokens from the source code
-    #[arg(short, long)]
-    #[clap(help_heading = Some("- Modes"))]
-    tokenize: bool,
-
-    /// Style disassembly or tokenization output
-    #[arg(short, long, default_value = "true")]
-    #[clap(help_heading = Some("- Modes"))]
-    style: bool,
-}
-
-#[derive(Args, Clone)]
-#[group(required = true, multiple = false)]
-struct Source {
-    /// Source code to use instead of a file
+    /// Source code to run instead of a file
     #[arg(short, long, value_hint = ValueHint::Other, value_name = "SOURCE")]
-    #[clap(help_heading = Some("- Input"))]
     command: Option<String>,
 
     /// Read source code from stdin
     #[arg(long)]
-    #[clap(help_heading = Some("- Input"))]
     stdin: bool,
+
+    #[command(subcommand)]
+    mode: Mode,
 
     /// Path to a source code file
     #[arg(value_hint = ValueHint::FilePath)]
-    #[clap(help_heading = Some("- Input"))]
     file: Option<PathBuf>,
 }
 
+#[derive(Subcommand)]
+#[clap(
+    help_template = StyledStr::from(HELP_TEMPLATE),
+    styles = STYLES,
+)]
+enum Mode {
+    /// Compile and run the program (default)
+    #[command(short_flag = 'r')]
+    Run {
+        #[arg(short, long, action = ArgAction::Help)]
+        #[clap(help_heading = Some("Options"))]
+        help: bool,
+
+        /// Print the time taken for compilation and execution
+        #[arg(long)]
+        #[clap(help_heading = Some("Run Options"))]
+        time: bool,
+
+        /// Do not print the program's return value
+        #[arg(long)]
+        #[clap(help_heading = Some("Run Options"))]
+        no_output: bool,
+
+        /// Custom program name, overrides the file name
+        #[arg(long)]
+        #[clap(help_heading = Some("Run Options"))]
+        name: Option<DustString>,
+    },
+
+    /// Compile and print the bytecode disassembly
+    #[command(short_flag = 'd')]
+    Disassemble {
+        #[arg(short, long, action = ArgAction::Help)]
+        #[clap(help_heading = Some("Options"))]
+        help: bool,
+
+        /// Style disassembly output
+        #[arg(short, long, default_value = "true")]
+        #[clap(help_heading = Some("Disassemble Options"))]
+        style: bool,
+
+        /// Custom program name, overrides the file name
+        #[arg(long)]
+        #[clap(help_heading = Some("Disassemble Options"))]
+        name: Option<DustString>,
+    },
+
+    /// Lex the source code and print the tokens
+    #[command(short_flag = 't')]
+    Tokenize {
+        #[arg(short, long, action = ArgAction::Help)]
+        #[clap(help_heading = Some("Options"))]
+        help: bool,
+
+        /// Style token output
+        #[arg(short, long, default_value = "true")]
+        #[clap(help_heading = Some("Tokenize Options"))]
+        style: bool,
+    },
+}
+
+#[derive(Args, Clone)]
+#[group(required = true, multiple = false)]
+struct Source {}
+
 fn main() {
     let start_time = Instant::now();
-    let mut logger = env_logger::builder();
+    // let mut logger = env_logger::builder();
 
-    logger.format(move |buf, record| {
-        let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32()).dimmed();
-        let level_display = match record.level() {
-            Level::Info => "INFO".bold().white(),
-            Level::Debug => "DEBUG".bold().blue(),
-            Level::Warn => "WARN".bold().yellow(),
-            Level::Error => "ERROR".bold().red(),
-            Level::Trace => "TRACE".bold().purple(),
-        };
-        let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
+    // logger.format(move |buf, record| {
+    //     let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32()).dimmed();
+    //     let level_display = match record.level() {
+    //         Level::Info => "INFO".bold().white(),
+    //         Level::Debug => "DEBUG".bold().blue(),
+    //         Level::Warn => "WARN".bold().yellow(),
+    //         Level::Error => "ERROR".bold().red(),
+    //         Level::Trace => "TRACE".bold().purple(),
+    //     };
+    //     let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
 
-        writeln!(buf, "{display}")
-    });
+    //     writeln!(buf, "{display}")
+    // });
 
     let Cli {
         log,
-        source: Source {
-            command,
-            file,
-            stdin,
-        },
+        command,
+        stdin,
         mode,
+        file,
         ..
     } = Cli::parse();
 
-    if let Some(level) = log {
-        logger.filter_level(level).init();
-    } else {
-        logger.parse_env("DUST_LOG").init();
-    }
+    // if let Some(level) = log {
+    //     logger.filter_level(level).init();
+    // } else {
+    //     logger.parse_env("DUST_LOG").init();
+    // }
 
     let (source, file_name) = if let Some(source) = command {
         (source, None)
@@ -190,9 +213,17 @@ fn main() {
 
         (source, file_name)
     };
-    let program_name = mode.run_options.program_name.or(file_name);
+    let program_name = match &mode {
+        Mode::Run { name, .. } => name,
+        Mode::Disassemble { name, .. } => name,
+        Mode::Tokenize { .. } => &None,
+    }
+    .iter()
+    .next()
+    .cloned()
+    .or(file_name);
 
-    if mode.disassemble {
+    if let Mode::Disassemble { style, .. } = mode {
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(lexer) {
             Ok(compiler) => compiler,
@@ -217,16 +248,16 @@ fn main() {
 
         chunk
             .disassembler(&mut stdout)
-            .style(mode.style)
+            .style(style)
             .source(&source)
-            .width(70)
+            .width(80)
             .disassemble()
             .expect("Failed to write disassembly to stdout");
 
         return;
     }
 
-    if mode.tokenize {
+    if let Mode::Tokenize { style, .. } = mode {
         let mut lexer = Lexer::new(&source);
         let mut next_token = || -> Option<(Token, Span, bool)> {
             match lexer.next_token() {
@@ -271,46 +302,51 @@ fn main() {
         return;
     }
 
-    let lexer = Lexer::new(&source);
-    let mut compiler = match Compiler::new(lexer) {
-        Ok(compiler) => compiler,
-        Err(error) => {
-            handle_compile_error(error, &source);
+    if let Mode::Run {
+        time, no_output, ..
+    } = mode
+    {
+        let lexer = Lexer::new(&source);
+        let mut compiler = match Compiler::new(lexer) {
+            Ok(compiler) => compiler,
+            Err(error) => {
+                handle_compile_error(error, &source);
 
-            return;
+                return;
+            }
+        };
+
+        match compiler.compile() {
+            Ok(()) => {}
+            Err(error) => {
+                handle_compile_error(error, &source);
+
+                return;
+            }
         }
-    };
 
-    match compiler.compile() {
-        Ok(()) => {}
-        Err(error) => {
-            handle_compile_error(error, &source);
+        let chunk = compiler.finish(program_name);
+        let compile_end = start_time.elapsed();
 
-            return;
+        if time {
+            print_time(compile_end);
         }
-    }
 
-    let chunk = compiler.finish(program_name);
-    let compile_end = start_time.elapsed();
+        let vm = Vm::new(chunk);
+        let return_value = vm.run();
+        let run_end = start_time.elapsed();
 
-    if mode.run_options.time {
-        print_time(compile_end);
-    }
-
-    let vm = Vm::new(chunk);
-    let return_value = vm.run();
-    let run_end = start_time.elapsed();
-
-    if let Some(value) = return_value {
-        if !mode.run_options.no_output {
-            println!("{}", value)
+        if let Some(value) = return_value {
+            if !no_output {
+                println!("{}", value)
+            }
         }
-    }
 
-    if mode.run_options.time {
-        let run_time = run_end - compile_end;
+        if time {
+            let run_time = run_end - compile_end;
 
-        print_time(run_time);
+            print_time(run_time);
+        }
     }
 }
 
