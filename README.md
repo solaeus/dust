@@ -1,31 +1,31 @@
-# Dust
+# The Dust Programming Language
 
-A programming language that is **fast**, **safe** and **easy to use**.
+A **fast**, **safe** and **easy to use** language for general-purpose programming.
 
-Dust is **statically typed** to ensure that each program is valid before it is run. It offers
-compile times of less than 100 microseconds on modern hardware. As a **bytecode interpreter** with a
-**register-based virtual machine**, Dust leverages compile-time safety guarantees and optimizations
-along with beautiful syntax to deliver a unique set of features rarely found in other languages. It
-is designed to deliver the best qualities of two disparate categories of programming language: the
-highly optimized but slow-to-compile languages like Rust and C++ and the quick-to-start but often
-slow and error-prone languages like Python and JavaScript.
+Dust is **statically typed** to ensure that each program is valid before it is run. Compiling is
+fast due to the purpose-built lexer and parser. Execution is fast because Dust uses instructions in
+a highly optimizable, custom bytecode format that runs in a multi-threaded VM. Dust combines
+compile-time safety guarantees and optimizations with negligible compile times and satisfying speed
+to deliver a unique set of features. It offers the best qualities of two disparate categories of
+programming language: the highly optimized but slow-to-compile languages like Rust and C++ and the
+quick-to-start but often slow and error-prone languages like Python and JavaScript.
 
 Dust's syntax, safety features and evaluation model are based on Rust. Its instruction set,
 optimization strategies and virtual machine are based on Lua. Unlike Rust and other languages that
 compile to machine code, Dust has a very low time to execution. Unlike Lua and most other
-interpreted languages, Dust enforces static typing to improve clarity and prevent bugs. While some
-languages currently offer high-level features and strict typing (e.g. TypeScript), Dust has a simple
-approach to syntax that offers flexibility and expressiveness while still being *obvious*, even
-those who know how to code but don't know the language. Dust is developed with an emphasis on
-achieving foundational soundness before adding new features. Dust's planned features and design
-favor programmers who prefer their code to be simple and clear rather than clever and complex.
+interpreted languages, Dust enforces static typing to improve clarity and prevent bugs.
+
+Dust is developed with an emphasis on achieving foundational soundness before adding new features.
+Dust's planned features and design favor programmers who prefer their code to be simple and clear
+rather than clever and complex.
 
 **Dust is under active development and is not yet ready for general use.**
 
 **Features discussed in this README may be unimplemented, partially implemented or temporarily
-removed**
+removed.**
 
 ```rust
+// "Hello, world" using Dust's built-in I/O functions
 write_line("Enter your name...")
 
 let name = read_line()
@@ -34,6 +34,7 @@ write_line("Hello " + name + "!")
 ```
 
 ```rust
+// The classic, unoptimized Fibonacci sequence
 fn fib (n: int) -> int {
     if n <= 0 {
         return 0
@@ -47,16 +48,15 @@ fn fib (n: int) -> int {
 write_line(fib(25))
 ```
 
-Dust uses a custom register-based virtual machine with its own set of instructions and a compiler
-based on recursive descet to emit them. This should not be confused with a machine code compiler.
-Despite having **compile-time guarantees**, Dust falls into the category of interpreted languages.
-Competing with the runtime performance of Rust or C++ *is not* a goal. Competing with the
-approachability and simplicity of those languages *is* a goal. On the other hand Dust *does* intend
-to be faster than Python, Ruby and NodeJS while also offering a superior development experience and
-more reliable code due to its static typing. Dust's development approach is informed by some
-books[^1] and academic research[^4] as well as practical insight from papers[^2] written by language
-authors. See the [Inspiration](README#Inspiration) section for more information or keep reading to
-learn about Dust's features.
+Dust is an interpreted language that is compiled to bytecode by a hand-written lexer and parser. It
+uses a custom multi-threaded register-based virtual machine with separate-thread garbage collection.
+Competing with the runtime performance of Rust or C++ *is not* a goal. But competing with the
+approachability and simplicity of those languages *is* a goal. Dust *does* intend to be faster than
+Python, Ruby and NodeJS while also offering a superior development experience and more reliable code
+due to its static typing. Dust's development approach is informed by some books[^1] and academic
+research[^4] as well as practical insight from papers[^2] written by language authors. See the
+[Inspiration](README#Inspiration) section for more information or keep reading to learn about Dust's
+features.
 
 ## Goals
 
