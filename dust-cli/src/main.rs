@@ -86,10 +86,6 @@ struct Cli {
 }
 
 #[derive(Args)]
-#[clap(
-    styles = STYLES,
-)]
-#[group()]
 struct Input {
     /// Source code to run instead of a file
     #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
@@ -234,7 +230,7 @@ fn main() {
             }
         }
 
-        let chunk = compiler.finish(file_name);
+        let chunk = compiler.finish(name.or(file_name));
         let mut stdout = stdout().lock();
 
         chunk

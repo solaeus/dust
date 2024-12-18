@@ -49,6 +49,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         name: Option<DustString>,
         r#type: FunctionType,

@@ -20,11 +20,11 @@ pub struct Record {
     constants: SmallVec<[Value; 16]>,
     locals: SmallVec<[Local; 8]>,
 
-    stack_size: usize,
     index: u8,
 }
 
 impl Record {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         actions: SmallVec<[RunAction; 32]>,
         last_assigned_register: Option<u8>,
@@ -46,7 +46,6 @@ impl Record {
             positions,
             constants,
             locals,
-            stack_size,
             index,
         }
     }
@@ -85,19 +84,6 @@ impl Record {
         match pointer {
             Pointer::Stack(register_index) => self.open_register(register_index),
             Pointer::Constant(constant_index) => self.get_constant(constant_index),
-        }
-    }
-
-    pub(crate) fn follow_pointer_allow_empty(&self, pointer: Pointer) -> Option<&Value> {
-        log::trace!("Follow pointer {pointer}");
-
-        match pointer {
-            Pointer::Stack(register_index) => self.open_register_allow_empty(register_index),
-            Pointer::Constant(constant_index) => {
-                let constant = self.get_constant(constant_index);
-
-                Some(constant)
-            }
         }
     }
 
