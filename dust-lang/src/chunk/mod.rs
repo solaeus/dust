@@ -211,9 +211,6 @@ impl Eq for Chunk {}
 
 impl PartialEq for Chunk {
     fn eq(&self, other: &Self) -> bool {
-        // Do not compare stack size because the chunks created for testing will not have one due to
-        // not being compiled.
-
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions

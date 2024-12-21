@@ -1,6 +1,7 @@
 use std::mem::replace;
 
 use smallvec::SmallVec;
+use tracing::trace;
 
 use crate::{DustString, Function, FunctionType, Local, Span, Value};
 
@@ -79,7 +80,7 @@ impl Record {
     }
 
     pub(crate) fn follow_pointer(&self, pointer: Pointer) -> &Value {
-        log::trace!("Follow pointer {pointer}");
+        trace!("Follow pointer {pointer}");
 
         match pointer {
             Pointer::Stack(register_index) => self.open_register(register_index),
@@ -88,7 +89,7 @@ impl Record {
     }
 
     pub fn get_register(&self, register_index: u8) -> &Register {
-        log::trace!("Get register R{register_index}");
+        trace!("Get register R{register_index}");
 
         let register_index = register_index as usize;
 
@@ -113,7 +114,7 @@ impl Record {
     }
 
     pub fn open_register(&self, register_index: u8) -> &Value {
-        log::trace!("Open register R{register_index}");
+        trace!("Open register R{register_index}");
 
         let register_index = register_index as usize;
 
@@ -132,7 +133,7 @@ impl Record {
     }
 
     pub fn open_register_allow_empty(&self, register_index: u8) -> Option<&Value> {
-        log::trace!("Open register R{register_index}");
+        trace!("Open register R{register_index}");
 
         let register_index = register_index as usize;
 

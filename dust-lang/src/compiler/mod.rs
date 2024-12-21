@@ -25,11 +25,11 @@ mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
+use tracing::{debug, info};
 use type_checks::{check_math_type, check_math_types};
 
 use std::mem::replace;
 
-use colored::Colorize;
 use optimize::control_flow_register_consolidation;
 use smallvec::{smallvec, SmallVec};
 
@@ -58,8 +58,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
         .compile()
         .map_err(|error| DustError::compile(error, source))?;
 
-    let name = DustString::from("main");
-    let chunk = compiler.finish(Some(name));
+    let chunk = compiler.finish(None::<DustString>);
 
     Ok(chunk)
 }
@@ -136,9 +135,9 @@ impl<'src> Compiler<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
-        log::info!(
+        info!(
             "Begin chunk with {} at {}",
-            current_token.to_string().bold(),
+            current_token.to_string(),
             current_position.to_string()
         );
 
@@ -173,7 +172,7 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(self, name: Option<impl Into<DustString>>) -> Chunk {
-        log::info!("End chunk");
+        info!("End chunk");
 
         let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
             .instructions
@@ -210,6 +209,10 @@ impl<'src> Compiler<'src> {
             self.parse(Precedence::None)?;
 
             if matches!(self.current_token, Token::Eof | Token::RightBrace) {
+                if self.get_last_operation() == Some(Operation::RETURN) {
+                    break;
+                }
+
                 self.parse_implicit_return()?;
 
                 break;
@@ -244,9 +247,9 @@ impl<'src> Compiler<'src> {
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        log::info!(
+        info!(
             "Parsing {} at {}",
-            new_token.to_string().bold(),
+            new_token.to_string(),
             position.to_string()
         );
 
@@ -299,7 +302,7 @@ impl<'src> Compiler<'src> {
         is_mutable: bool,
         scope: Scope,
     ) -> (u8, u8) {
-        log::info!("Declaring local {identifier}");
+        info!("Declaring local {identifier}");
 
         let identifier = Value::Concrete(ConcreteValue::string(identifier));
         let identifier_index = self.push_or_get_constant(identifier);
@@ -447,9 +450,9 @@ impl<'src> Compiler<'src> {
     }
 
     fn emit_instruction(&mut self, instruction: Instruction, r#type: Type, position: Span) {
-        log::debug!(
+        debug!(
             "Emitting {} at {}",
-            instruction.operation().to_string().bold(),
+            instruction.operation().to_string(),
             position.to_string()
         );
 
@@ -965,11 +968,11 @@ impl<'src> Compiler<'src> {
                 continue;
             }
 
-            let jump = &mut instructions[1].0;
+            let old_jump = &mut instructions[1].0;
             let jump_index = instructions_length - group_index * 3 - 1;
             let short_circuit_distance = (instructions_length - jump_index) as u8;
 
-            *jump = Instruction::jump(short_circuit_distance, true);
+            *old_jump = Instruction::jump(short_circuit_distance, true);
         }
 
         Ok(())
@@ -1681,9 +1684,9 @@ impl<'src> Compiler<'src> {
 
     fn parse(&mut self, precedence: Precedence) -> Result<(), CompileError> {
         if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
-            log::debug!(
+            debug!(
                 "{} is prefix with precedence {precedence}",
-                self.current_token.to_string().bold(),
+                self.current_token.to_string(),
             );
 
             prefix_parser(self)?;
@@ -1693,9 +1696,9 @@ impl<'src> Compiler<'src> {
 
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
-                log::debug!(
+                debug!(
                     "{} is infix with precedence {precedence}",
-                    self.current_token.to_string().bold(),
+                    self.current_token.to_string(),
                 );
 
                 if self.current_token == Token::Equal {

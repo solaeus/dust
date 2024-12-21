@@ -1,3 +1,5 @@
+use tracing::trace;
+
 use crate::{
     instruction::{
         Call, CallNative, Close, LoadBoolean, LoadConstant, LoadFunction, LoadList, LoadSelf, Point,
@@ -119,7 +121,7 @@ pub fn load_constant(instruction_data: InstructionData, record: &mut Record) -> 
     } = instruction_data.into();
     let register = Register::Pointer(Pointer::Constant(constant_index));
 
-    log::trace!("Load constant {constant_index} into R{destination}");
+    trace!("Load constant {constant_index} into R{destination}");
 
     record.set_register(destination, register);
 

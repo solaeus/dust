@@ -2,6 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
+use tracing::trace;
 
 use crate::{Type, Value, ValueError};
 
@@ -281,7 +282,7 @@ impl ConcreteValue {
 
 impl Clone for ConcreteValue {
     fn clone(&self) -> Self {
-        log::trace!("Cloning concrete value {}", self);
+        trace!("Cloning concrete value {}", self);
 
         match self {
             ConcreteValue::Boolean(boolean) => ConcreteValue::Boolean(*boolean),

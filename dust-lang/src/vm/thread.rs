@@ -1,3 +1,5 @@
+use tracing::{info, trace};
+
 use crate::{
     vm::{FunctionCall, Register},
     Chunk, DustString, Value,
@@ -26,7 +28,7 @@ impl Thread {
     pub fn run(&mut self) -> Option<Value> {
         let mut active = &mut self.records[0];
 
-        log::info!(
+        info!(
             "Starting thread with {}",
             active
                 .as_function()
@@ -44,7 +46,7 @@ impl Thread {
                 }
             );
 
-            log::trace!(
+            trace!(
                 "Run \"{}\" | Record = {} | IP = {}",
                 active
                     .name()
@@ -78,7 +80,7 @@ impl Thread {
                     }
 
                     if record_index == active.index() as usize {
-                        log::trace!("Recursion detected");
+                        trace!("Recursion detected");
 
                         self.call_stack.last_mut_or_panic().ip = active.ip;
                         active.ip = 0;
@@ -134,7 +136,7 @@ impl Thread {
                     let outer_call = self.call_stack.last_or_panic();
                     let record_index = outer_call.record_index as usize;
 
-                    log::trace!("Return from {returning_call} to {outer_call}");
+                    trace!("Return from {returning_call} to {outer_call}");
 
                     if should_return_value {
                         let return_register = active

@@ -21,7 +21,7 @@
 //! │                                                                 │
 //! │                   write_line("Hello world!")                    │
 //! │                                                                 │
-//! │       3 instructions, 1 constants, 0 locals, returns str        │
+//! │      3 instructions, 1 constants, 0 locals, returns none        │
 //! │                                                                 │
 //! │                          Instructions                           │
 //! │ ╭─────┬────────────┬─────────────────┬────────────────────────╮ │
@@ -39,10 +39,7 @@
 //! │  ╰─────┴──────────────────────────┴──────────────────────────╯  │
 //! ╰─────────────────────────────────────────────────────────────────╯
 //! ```
-use std::{
-    env::current_exe,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
@@ -397,26 +394,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.write_page_border(TOP_BORDER)?;
 
-        let name_display = self
-            .chunk
-            .name()
-            .map(|identifier| identifier.to_string())
-            .unwrap_or_else(|| {
-                current_exe()
-                    .map(|path| {
-                        let path_string = path.to_string_lossy();
-                        let file_name = path_string
-                            .split('/')
-                            .last()
-                            .map(|slice| slice.to_string())
-                            .unwrap_or(path_string.to_string());
-
-                        file_name
-                    })
-                    .unwrap_or("Dust Chunk Disassembly".to_string())
-            });
-
-        self.write_center_border_bold(&name_display)?;
+        if let Some(name) = &self.chunk.name {
+            self.write_center_border_bold(name)?;
+        }
 
         if self.show_type {
             let type_display = self.chunk.r#type.to_string();

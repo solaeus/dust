@@ -1,5 +1,7 @@
 //! Functions used by the compiler to optimize a chunk's bytecode during compilation.
 
+use tracing::debug;
+
 use crate::{Compiler, Instruction, Operation};
 
 /// Optimizes a control flow pattern to use fewer registers and avoid using a `POINT` instruction.
@@ -44,7 +46,7 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
         return;
     }
 
-    log::debug!("Consolidating registers for control flow optimization");
+    debug!("Consolidating registers for control flow optimization");
 
     let first_loader_index = compiler.instructions.len() - 2;
     let (first_loader, _, _) = &mut compiler.instructions.get_mut(first_loader_index).unwrap();

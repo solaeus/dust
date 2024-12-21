@@ -1,16 +1,22 @@
-use std::io::{self, stdout, Read, Write};
+use std::fmt::Write;
+use std::io::{self, stdout, Read};
 use std::time::{Duration, Instant};
 use std::{fs::read_to_string, path::PathBuf};
 
 use clap::builder::StyledStr;
-use clap::Args;
+use clap::error::ErrorKind;
 use clap::{
     builder::{styling::AnsiColor, Styles},
     crate_authors, crate_description, crate_version, ColorChoice, Parser, Subcommand, ValueHint,
 };
+use clap::{Args, Error};
 use color_print::cstr;
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
-use log::{Level, LevelFilter};
+use tracing::subscriber::set_global_default;
+use tracing::{span, warn, Level};
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::{FmtContext, MakeWriter};
+use tracing_subscriber::FmtSubscriber;
 
 const CLI_HELP_TEMPLATE: &str = cstr!(
     r#"
@@ -18,10 +24,10 @@ const CLI_HELP_TEMPLATE: &str = cstr!(
 ────────</bold>
 {about}</bright-magenta>
 
- ☑  Version: {version}
- ✎  Author: {author}
- ⚖️ License: GPL-3.0
- 🌐 Repository: git.jeffa.io/jeff/dust
+{tab}☑  Version: {version}
+{tab}✎  Author: {author}
+{tab}⚖️ License: GPL-3.0
+{tab}🌐 Repository: git.jeffa.io/jeff/dust
 
 <bright-magenta,bold>Usage
 ─────</bright-magenta,bold>
@@ -43,10 +49,10 @@ const MODE_HELP_TEMPLATE: &str = cstr!(
 ────────</bold>
 {about}</bright-magenta>
 
- ☑  Version: {version}
- ✎  Author: {author}
- ⚖️ License: GPL-3.0
- 🌐 Repository: git.jeffa.io/jeff/dust
+{tab}☑  Version: {version}
+{tab}✎  Author: {author}
+{tab}⚖️ License: GPL-3.0
+{tab}🌐 Repository: git.jeffa.io/jeff/dust
 
 <bright-magenta,bold>Usage
 ─────</bright-magenta,bold>
@@ -78,11 +84,25 @@ const STYLES: Styles = Styles::styled()
 )]
 struct Cli {
     /// Overrides the DUST_LOG environment variable
-    #[arg(short, long, value_name = "LOG_LEVEL")]
-    log: Option<LevelFilter>,
+    #[arg(
+        short,
+        long,
+        value_parser = |input: &str| match input.to_uppercase().as_str() {
+            "TRACE" => Ok(Level::TRACE),
+            "DEBUG" => Ok(Level::DEBUG),
+            "INFO" => Ok(Level::INFO),
+            "WARN" => Ok(Level::WARN),
+            "ERROR" => Ok(Level::ERROR),
+            _ => Err(Error::new(ErrorKind::ValueValidation)),
+        }
+    )]
+    log_level: Option<Level>,
 
     #[command(subcommand)]
-    mode: Mode,
+    mode: Option<Mode>,
+
+    #[command(flatten)]
+    run: Run,
 }
 
 #[derive(Args)]
@@ -100,30 +120,33 @@ struct Input {
     file: Option<PathBuf>,
 }
 
+/// Compile and run the program (default)
+#[derive(Args)]
+#[command(
+    short_flag = 'r',
+    help_template = MODE_HELP_TEMPLATE
+)]
+struct Run {
+    /// Print the time taken for compilation and execution
+    #[arg(long)]
+    time: bool,
+
+    /// Do not print the program's return value
+    #[arg(long)]
+    no_output: bool,
+
+    /// Custom program name, overrides the file name
+    #[arg(long)]
+    name: Option<DustString>,
+
+    #[command(flatten)]
+    input: Input,
+}
+
 #[derive(Subcommand)]
 #[clap(subcommand_value_name = "MODE", flatten_help = true)]
 enum Mode {
-    /// Compile and run the program (default)
-    #[command(
-        short_flag = 'r',
-        help_template = MODE_HELP_TEMPLATE
-    )]
-    Run {
-        /// Print the time taken for compilation and execution
-        #[arg(long)]
-        time: bool,
-
-        /// Do not print the program's return value
-        #[arg(long)]
-        no_output: bool,
-
-        /// Custom program name, overrides the file name
-        #[arg(long)]
-        name: Option<DustString>,
-
-        #[command(flatten)]
-        input: Input,
-    },
+    Run(Run),
 
     /// Compile and print the bytecode disassembly
     #[command(
@@ -185,29 +208,18 @@ fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
 
 fn main() {
     let start_time = Instant::now();
-    let mut logger = env_logger::builder();
+    let Cli {
+        log_level,
+        mode,
+        run,
+    } = Cli::parse();
+    let mode = mode.unwrap_or(Mode::Run(run));
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .with_thread_names(true)
+        .finish();
 
-    logger.format(move |buf, record| {
-        let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32());
-        let level_display = match record.level() {
-            Level::Info => cstr!("<bright-magenta,bold>INFO<bright-magenta,bold>"),
-            Level::Trace => cstr!("<bright-cyan,bold>TRACE<bright-cyan,bold>"),
-            Level::Debug => cstr!("<bright-blue,bold>DEBUG<bright-blue,bold>"),
-            Level::Warn => cstr!("<bright-yellow,bold>WARN<bright-yellow,bold>"),
-            Level::Error => cstr!("<bright-red,bold>ERROR<bright-red,bold>"),
-        };
-        let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
-
-        writeln!(buf, "{display}")
-    });
-
-    let Cli { log, mode } = Cli::parse();
-
-    if let Some(level) = log {
-        logger.filter_level(level).init();
-    } else {
-        logger.parse_env("DUST_LOG").init();
-    }
+    set_global_default(subscriber).expect("Failed to set tracing subscriber");
 
     if let Mode::Disassemble { style, name, input } = mode {
         let (source, file_name) = get_source_and_file_name(input);
@@ -235,9 +247,9 @@ fn main() {
 
         chunk
             .disassembler(&mut stdout)
+            .width(65)
             .style(style)
             .source(&source)
-            .width(65)
             .disassemble()
             .expect("Failed to write disassembly to stdout");
 
@@ -290,13 +302,16 @@ fn main() {
         return;
     }
 
-    if let Mode::Run {
-        name,
+    if let Mode::Run(Run {
         time,
         no_output,
+        name,
         input,
-    } = mode
+    }) = mode
     {
+        let run_span = span!(Level::TRACE, "CLI Run Mode");
+        let _run_guard = run_span.enter();
+
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(lexer) {
