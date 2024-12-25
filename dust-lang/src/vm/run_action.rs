@@ -232,15 +232,7 @@ pub fn add(instruction_data: InstructionData, record: &mut Record) -> ThreadSign
     } = instruction_data;
     let left = record.get_argument(b, b_is_constant);
     let right = record.get_argument(c, c_is_constant);
-    let sum = match (left, right) {
-        (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                ConcreteValue::Integer(left + right).to_value()
-            }
-            _ => panic!("Value Error: Cannot add values"),
-        },
-        _ => panic!("Value Error: Cannot add values {left} and {right}"),
-    };
+    let sum = left.add(right);
     let register = Register::Value(sum);
 
     record.set_register(a, register);

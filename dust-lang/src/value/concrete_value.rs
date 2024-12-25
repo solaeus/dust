@@ -82,6 +82,14 @@ impl ConcreteValue {
 
                 String(concatenated)
             }
+            (Character(left), String(right)) => {
+                let mut concatenated = DustString::new();
+
+                concatenated.push(*left);
+                concatenated.push_str(right);
+
+                String(concatenated)
+            }
             (Float(left), Float(right)) => {
                 let sum = left + right;
 

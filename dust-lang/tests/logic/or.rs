@@ -1,4 +1,5 @@
 use dust_lang::*;
+use smallvec::smallvec;
 
 #[test]
 fn true_or_false() {
@@ -13,17 +14,25 @@ fn true_or_false() {
                 value_parameters: None,
                 return_type: Type::Boolean,
             },
-            vec![
-                (Instruction::load_boolean(0, true, false), Span(0, 4)),
-                (Instruction::test(Argument::Register(0), false), Span(5, 7)),
-                (Instruction::jump(1, true), Span(5, 7)),
-                (Instruction::load_boolean(1, false, false), Span(8, 13)),
-                (Instruction::r#return(true), Span(13, 13)),
+            smallvec![
+                Instruction::load_boolean(0, true, false),
+                Instruction::test(0, false),
+                Instruction::jump(1, true),
+                Instruction::load_boolean(1, false, false),
+                Instruction::r#return(true),
             ],
-            vec![],
+            smallvec![
+                Span(0, 4),
+                Span(5, 7),
+                Span(5, 7),
+                Span(8, 13),
+                Span(13, 13),
+            ],
+            smallvec![],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Boolean(true))));
+    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
 }

@@ -46,8 +46,8 @@ impl Value {
         Value::Concrete(ConcreteValue::Integer(integer))
     }
 
-    pub fn string(string: DustString) -> Self {
-        Value::Concrete(ConcreteValue::String(string))
+    pub fn string(string: impl Into<DustString>) -> Self {
+        Value::Concrete(ConcreteValue::String(string.into()))
     }
 
     pub fn as_boolean(&self) -> Option<&bool> {

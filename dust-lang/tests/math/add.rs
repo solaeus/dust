@@ -1,4 +1,5 @@
 use dust_lang::*;
+use smallvec::smallvec;
 
 #[test]
 fn add_bytes() {
@@ -13,19 +14,18 @@ fn add_bytes() {
                 value_parameters: None,
                 return_type: Type::Byte,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(5, 6)
-                ),
-                (Instruction::r#return(true), Span(11, 11))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![ConcreteValue::Byte(0xfe), ConcreteValue::Byte(0x01)],
+            smallvec![Span(5, 6), Span(11, 11),],
+            smallvec![Value::byte(0xfe), Value::byte(0x01)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Byte(0xff))));
+    assert_eq!(run(source), Ok(Some(Value::byte(0xff))));
 }
 
 #[test]
@@ -41,19 +41,18 @@ fn add_bytes_saturate() {
                 value_parameters: None,
                 return_type: Type::Byte,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(5, 6)
-                ),
-                (Instruction::r#return(true), Span(11, 11))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![ConcreteValue::Byte(0xff), ConcreteValue::Byte(0x01)],
+            smallvec![Span(5, 6), Span(11, 11)],
+            smallvec![Value::byte(0xff), Value::byte(0x01)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Byte(0xff))));
+    assert_eq!(run(source), Ok(Some(Value::byte(0xff))));
 }
 
 #[test]
@@ -69,19 +68,18 @@ fn add_characters() {
                 value_parameters: None,
                 return_type: Type::String,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(4, 5)
-                ),
-                (Instruction::r#return(true), Span(9, 9))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true)
             ],
-            vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
+            smallvec![Span(4, 5), Span(11, 11)],
+            smallvec![Value::character('a'), Value::character('b')],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::string("ab"))));
+    assert_eq!(run(source), Ok(Some(Value::string("ab"))));
 }
 
 #[test]
@@ -97,19 +95,18 @@ fn add_character_and_string() {
                 value_parameters: None,
                 return_type: Type::String,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(4, 5)
-                ),
-                (Instruction::r#return(true), Span(9, 9))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![ConcreteValue::Character('a'), ConcreteValue::string("b")],
+            smallvec![Span(4, 5), Span(9, 9),],
+            smallvec![Value::character('a'), Value::string("b")],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::string("ab"))));
+    assert_eq!(run(source), Ok(Some(Value::string("ab"))));
 }
 
 #[test]
@@ -125,19 +122,18 @@ fn add_floats() {
                 value_parameters: None,
                 return_type: Type::Float,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(4, 5)
-                ),
-                (Instruction::r#return(true), Span(9, 9))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![ConcreteValue::Float(1.0), ConcreteValue::Float(2.0)],
+            smallvec![Span(4, 5), Span(9, 9),],
+            smallvec![Value::float(1.0), Value::float(2.0)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Float(3.0))));
+    assert_eq!(run(source), Ok(Some(Value::float(3.0))));
 }
 
 #[test]
@@ -153,22 +149,18 @@ fn add_floats_saturatate() {
                 value_parameters: None,
                 return_type: Type::Float,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(24, 25)
-                ),
-                (Instruction::r#return(true), Span(36, 36))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![
-                ConcreteValue::Float(f64::MAX),
-                ConcreteValue::Float(0.00000001)
-            ],
+            smallvec![Span(24, 25), Span(36, 36),],
+            smallvec![Value::float(f64::MAX), Value::float(0.00000001)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Float(f64::MAX))));
+    assert_eq!(run(source), Ok(Some(Value::float(f64::MAX))));
 }
 
 #[test]
@@ -184,19 +176,18 @@ fn add_integers() {
                 value_parameters: None,
                 return_type: Type::Integer,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(2, 3)
-                ),
-                (Instruction::r#return(true), Span(5, 5))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true)
             ],
-            vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
+            smallvec![Span(2, 3), Span(5, 5),],
+            smallvec![Value::integer(1), Value::integer(2)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run(source), Ok(Some(Value::integer(3))));
 }
 
 #[test]
@@ -212,19 +203,18 @@ fn add_integers_saturate() {
                 value_parameters: None,
                 return_type: Type::Integer,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(20, 21)
-                ),
-                (Instruction::r#return(true), Span(23, 23))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true)
             ],
-            vec![ConcreteValue::Integer(i64::MAX), ConcreteValue::Integer(1)],
+            smallvec![Span(20, 21), Span(23, 23),],
+            smallvec![Value::integer(i64::MAX), Value::integer(1)],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(i64::MAX))));
+    assert_eq!(run(source), Ok(Some(Value::integer(i64::MAX))));
 }
 
 #[test]
@@ -240,17 +230,13 @@ fn add_strings() {
                 value_parameters: None,
                 return_type: Type::String,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(10, 11)
-                ),
-                (Instruction::r#return(true), Span(20, 20))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![
-                ConcreteValue::string("Hello, "),
-                ConcreteValue::string("world!")
-            ],
+            smallvec![Span(10, 11), Span(20, 20)],
+            smallvec![Value::string("Hello, "), Value::string("world!")],
+            smallvec![],
             vec![]
         ))
     );
@@ -269,17 +255,16 @@ fn add_string_and_character() {
                 value_parameters: None,
                 return_type: Type::String,
             },
-            vec![
-                (
-                    Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
-                    Span(4, 5)
-                ),
-                (Instruction::r#return(true), Span(9, 9))
+            smallvec![
+                Instruction::add(0, Argument::Constant(0), Argument::Constant(1)),
+                Instruction::r#return(true),
             ],
-            vec![ConcreteValue::string("a"), ConcreteValue::Character('b')],
+            smallvec![Span(4, 5), Span(9, 9),],
+            smallvec![Value::string("a"), Value::character('b')],
+            smallvec![],
             vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::string("ab"))));
+    assert_eq!(run(source), Ok(Some(Value::string("ab"))));
 }
