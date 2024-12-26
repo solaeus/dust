@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::io::{self, stdout, Read};
 use std::time::{Duration, Instant};
 use std::{fs::read_to_string, path::PathBuf};
@@ -13,21 +12,19 @@ use clap::{Args, Error};
 use color_print::cstr;
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use tracing::subscriber::set_global_default;
-use tracing::{span, warn, Level};
-use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, MakeWriter};
+use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 const CLI_HELP_TEMPLATE: &str = cstr!(
     r#"
 <bright-magenta><bold>Dust CLI
-────────</bold>
-{about}</bright-magenta>
+────────</bold></bright-magenta>
+{about}
 
-{tab}☑  Version: {version}
-{tab}✎  Author: {author}
-{tab}⚖️ License: GPL-3.0
-{tab}🌐 Repository: git.jeffa.io/jeff/dust
+<bold>Version:</bold> {version}
+<bold>Author:</bold> {author}
+<bold>License:</bold> GPL-3.0
+<bold>Repository:</bold> git.jeffa.io/jeff/dust
 
 <bright-magenta,bold>Usage
 ─────</bright-magenta,bold>
@@ -45,18 +42,18 @@ const CLI_HELP_TEMPLATE: &str = cstr!(
 
 const MODE_HELP_TEMPLATE: &str = cstr!(
     r#"
-<bright-magenta><bold>Dust CLI
-────────</bold>
-{about}</bright-magenta>
+<bright-magenta,bold>Dust CLI
+────────</bright-magenta,bold>
+{about}
 
-{tab}☑  Version: {version}
-{tab}✎  Author: {author}
-{tab}⚖️ License: GPL-3.0
-{tab}🌐 Repository: git.jeffa.io/jeff/dust
+<bold>Version:</bold> {version}
+<bold>Author:</bold> {author}
+<bold>License:</bold> GPL-3.0
+<bold>Repository:</bold> git.jeffa.io/jeff/dust
 
 <bright-magenta,bold>Usage
 ─────</bright-magenta,bold>
-{tab}{usage}
+{usage}
 
 <bright-magenta,bold>Options
 ───────</bright-magenta,bold>
