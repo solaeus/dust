@@ -16,6 +16,7 @@ pub use error::VmError;
 pub use record::Record;
 pub use run_action::RunAction;
 pub use thread::{Thread, ThreadSignal};
+use tracing::{span, Level};
 
 use crate::{compile, Chunk, DustError, Value};
 
@@ -40,6 +41,9 @@ impl Vm {
     }
 
     pub fn run(mut self) -> Option<Value> {
+        let span = span!(Level::INFO, "Running");
+        let _enter = span.enter();
+
         if self.threads.len() == 1 {
             return self.threads[0].run();
         }

@@ -309,9 +309,6 @@ fn main() {
         input,
     }) = mode
     {
-        let run_span = span!(Level::TRACE, "CLI Run Mode");
-        let _run_guard = run_span.enter();
-
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(lexer) {

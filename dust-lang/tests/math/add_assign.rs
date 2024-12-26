@@ -1,4 +1,5 @@
 use dust_lang::*;
+use smallvec::smallvec;
 
 #[test]
 fn add_assign() {
@@ -13,23 +14,18 @@ fn add_assign() {
                 value_parameters: None,
                 return_type: Type::Integer,
             },
-            vec![
-                (Instruction::load_constant(0, 0, false), Span(12, 13)),
-                (
-                    Instruction::add(0, Argument::Register(0), Argument::Constant(2)),
-                    Span(17, 19)
-                ),
-                (Instruction::get_local(1, 0), Span(23, 24)),
-                (Instruction::r#return(true), Span(24, 24))
+            smallvec![
+                Instruction::load_constant(0, 0, false),
+                Instruction::add(0, Argument::Register(0), Argument::Constant(2)),
+                Instruction::get_local(1, 0),
+                Instruction::r#return(true)
             ],
-            vec![
-                ConcreteValue::Integer(1),
-                ConcreteValue::string("a"),
-                ConcreteValue::Integer(2)
-            ],
-            vec![Local::new(1, 0, true, Scope::default())]
+            smallvec![Span(12, 13), Span(17, 19), Span(23, 24), Span(24, 24)],
+            smallvec![Value::integer(1), Value::string("a"), Value::integer(2)],
+            smallvec![Local::new(1, 0, true, Scope::default())],
+            vec![]
         ))
     );
 
-    assert_eq!(run(source), Ok(Some(ConcreteValue::Integer(3))));
+    assert_eq!(run(source), Ok(Some(Value::integer(3))));
 }

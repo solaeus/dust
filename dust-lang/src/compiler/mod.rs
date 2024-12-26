@@ -25,7 +25,7 @@ mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
-use tracing::{debug, info};
+use tracing::{debug, info, span, Level};
 use type_checks::{check_math_type, check_math_types};
 
 use std::mem::replace;
@@ -135,12 +135,6 @@ impl<'src> Compiler<'src> {
     pub fn new(mut lexer: Lexer<'src>) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
-        info!(
-            "Begin chunk with {} at {}",
-            current_token.to_string(),
-            current_position.to_string()
-        );
-
         Ok(Compiler {
             function_name: None,
             r#type: FunctionType {
@@ -172,8 +166,6 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(self, name: Option<impl Into<DustString>>) -> Chunk {
-        info!("End chunk");
-
         let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
             .instructions
             .into_iter()
@@ -205,6 +197,15 @@ impl<'src> Compiler<'src> {
     /// [`CompileError`] if any are found. After calling this function, check its return value for
     /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
+        let span = span!(Level::INFO, "Compiling");
+        let _enter = span.enter();
+
+        info!(
+            "Begin chunk with {} at {}",
+            self.current_token.to_string(),
+            self.current_position.to_string()
+        );
+
         loop {
             self.parse(Precedence::None)?;
 
@@ -218,6 +219,8 @@ impl<'src> Compiler<'src> {
                 break;
             }
         }
+
+        info!("End chunk");
 
         Ok(())
     }
