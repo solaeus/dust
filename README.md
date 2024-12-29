@@ -15,10 +15,6 @@ optimization strategies and virtual machine are based on Lua. Unlike Rust and ot
 compile to machine code, Dust has a very low time to execution. Unlike Lua and most other
 interpreted languages, Dust enforces static typing to improve clarity and prevent bugs.
 
-Dust is developed with an emphasis on achieving foundational soundness before adding new features.
-Dust's planned features and design favor programmers who prefer their code to be simple and clear
-rather than clever and complex.
-
 **Dust is under active development and is not yet ready for general use.**
 
 **Features discussed in this README may be unimplemented, partially implemented or temporarily
