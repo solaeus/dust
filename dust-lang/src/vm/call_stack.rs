@@ -38,6 +38,10 @@ impl CallStack {
         self.calls.last()
     }
 
+    pub fn last_mut(&mut self) -> Option<&mut FunctionCall> {
+        self.calls.last_mut()
+    }
+
     pub fn pop_or_panic(&mut self) -> FunctionCall {
         assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
 

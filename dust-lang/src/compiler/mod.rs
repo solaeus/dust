@@ -938,7 +938,7 @@ impl<'src> Compiler<'src> {
             self.instructions
                 .push((last_instruction, last_type, last_position));
 
-            self.next_register() - 1
+            self.next_register().saturating_sub(1)
         };
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -962,11 +962,17 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        let instructions_length = self.instructions.len() - 1;
+        let instructions_length = self.instructions.len();
 
         for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
-            if instructions[0].0.operation() != Operation::TEST
-                || instructions[1].0.operation() != Operation::JUMP
+            if instructions.len() < 3 {
+                continue;
+            }
+
+            if !matches!(
+                instructions[0].0.operation(),
+                Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
+            ) || !matches!(instructions[1].0.operation(), Operation::JUMP)
             {
                 continue;
             }
@@ -1152,10 +1158,29 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        let operand_register = self.next_register() - 1;
-        let test = Instruction::test(operand_register, true);
+        let emit_test_and_jump = if matches!(
+            self.get_last_operations(),
+            Some([
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::JUMP,
+                Operation::LOAD_BOOLEAN,
+                Operation::LOAD_BOOLEAN
+            ]),
+        ) {
+            self.instructions.pop();
+            self.instructions.pop();
 
-        self.emit_instruction(test, Type::None, self.current_position);
+            false
+        } else {
+            true
+        };
+
+        if emit_test_and_jump {
+            let operand_register = self.next_register() - 1;
+            let test = Instruction::test(operand_register, true);
+
+            self.emit_instruction(test, Type::None, self.current_position);
+        }
 
         let if_block_start = self.instructions.len();
         let if_block_start_position = self.current_position;
@@ -1173,7 +1198,7 @@ impl<'src> Compiler<'src> {
         let if_block_end = self.instructions.len();
         let mut if_block_distance = (if_block_end - if_block_start) as u8;
         let if_block_type = self.get_last_instruction_type();
-        let if_last_register = self.next_register().saturating_sub(1);
+        // let if_last_register = self.next_register().saturating_sub(1);
 
         if let Token::Else = self.current_token {
             self.advance()?;
@@ -1236,19 +1261,21 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let jump = Instruction::jump(if_block_distance, true);
+        if emit_test_and_jump {
+            let jump = Instruction::jump(if_block_distance, true);
 
-        self.instructions
-            .insert(if_block_start, (jump, Type::None, if_block_start_position));
+            self.instructions
+                .insert(if_block_start, (jump, Type::None, if_block_start_position));
+        }
 
         control_flow_register_consolidation(self);
 
-        let else_last_register = self.next_register().saturating_sub(1);
-        let point = Instruction::point(else_last_register, if_last_register);
+        // let else_last_register = self.next_register().saturating_sub(1);
+        // let point = Instruction::point(else_last_register, if_last_register);
 
-        if if_last_register < else_last_register {
-            self.emit_instruction(point, else_block_type, self.current_position);
-        }
+        // if if_last_register < else_last_register {
+        //     self.emit_instruction(point, else_block_type, self.current_position);
+        // }
 
         Ok(())
     }
@@ -1406,6 +1433,22 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
 
+        let instruction_length = self.instructions.len();
+
+        for (index, (instruction, _, _)) in self.instructions.iter_mut().enumerate() {
+            if instruction.operation() == Operation::JUMP {
+                let Jump {
+                    offset,
+                    is_positive,
+                } = Jump::from(&*instruction);
+                let offset = offset as usize;
+
+                if is_positive && offset + index == instruction_length - 2 {
+                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -1430,6 +1473,22 @@ impl<'src> Compiler<'src> {
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
+        }
+
+        let instruction_length = self.instructions.len();
+
+        for (index, (instruction, _, _)) in self.instructions.iter_mut().enumerate() {
+            if instruction.operation() == Operation::JUMP {
+                let Jump {
+                    offset,
+                    is_positive,
+                } = Jump::from(&*instruction);
+                let offset = offset as usize;
+
+                if is_positive && offset + index == instruction_length - 2 {
+                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                }
+            }
         }
 
         Ok(())

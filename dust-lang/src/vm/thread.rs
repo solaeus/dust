@@ -82,7 +82,10 @@ impl Thread {
                     if record_index == active.index() as usize {
                         trace!("Recursion detected");
 
-                        self.call_stack.last_mut_or_panic().ip = active.ip;
+                        if let Some(record) = self.call_stack.last_mut() {
+                            record.ip = active.ip;
+                        }
+
                         active.ip = 0;
                     }
 
@@ -133,10 +136,8 @@ impl Thread {
                             }
                         }
                     };
-                    let outer_call = self.call_stack.last_or_panic();
-                    let record_index = outer_call.record_index as usize;
-
-                    trace!("Return from {returning_call} to {outer_call}");
+                    let outer_call = self.call_stack.last();
+                    let record_index = outer_call.map_or(0, |call| call.record_index as usize);
 
                     if should_return_value {
                         let return_register = active
@@ -153,7 +154,7 @@ impl Thread {
                         );
                     } else {
                         active = &mut self.records[record_index];
-                        active.ip = outer_call.ip;
+                        active.ip = record_index;
                     }
                 }
             }

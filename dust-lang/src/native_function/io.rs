@@ -41,15 +41,16 @@ pub fn write(
     let mut stdout = stdout();
 
     for register_index in argument_range {
-        let value = record.open_register(register_index);
-        let string = value.display(record);
+        if let Some(value) = record.open_register_allow_empty(register_index) {
+            let string = value.display(record);
 
-        stdout
-            .write(string.as_bytes())
-            .map_err(|io_error| NativeFunctionError::Io {
-                error: io_error.kind(),
-                position: record.current_position(),
-            })?;
+            stdout
+                .write(string.as_bytes())
+                .map_err(|io_error| NativeFunctionError::Io {
+                    error: io_error.kind(),
+                    position: record.current_position(),
+                })?;
+        }
     }
 
     stdout.flush().map_err(|io_error| NativeFunctionError::Io {
@@ -68,21 +69,22 @@ pub fn write_line(
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
-        let value = record.open_register(register_index);
-        let string = value.display(record);
+        if let Some(value) = record.open_register_allow_empty(register_index) {
+            let string = value.display(record);
 
-        stdout
-            .write(string.as_bytes())
-            .map_err(|io_error| NativeFunctionError::Io {
-                error: io_error.kind(),
-                position: record.current_position(),
-            })?;
-        stdout
-            .write(b"\n")
-            .map_err(|io_error| NativeFunctionError::Io {
-                error: io_error.kind(),
-                position: record.current_position(),
-            })?;
+            stdout
+                .write(string.as_bytes())
+                .map_err(|io_error| NativeFunctionError::Io {
+                    error: io_error.kind(),
+                    position: record.current_position(),
+                })?;
+            stdout
+                .write(b"\n")
+                .map_err(|io_error| NativeFunctionError::Io {
+                    error: io_error.kind(),
+                    position: record.current_position(),
+                })?;
+        }
     }
 
     stdout.flush().map_err(|io_error| NativeFunctionError::Io {
