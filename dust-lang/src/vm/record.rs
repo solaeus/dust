@@ -7,6 +7,7 @@ use crate::{DustString, Function, FunctionType, Local, Span, Value};
 
 use super::{run_action::RunAction, Pointer, Register};
 
+#[derive(Debug)]
 pub struct Record {
     pub ip: usize,
     pub actions: SmallVec<[RunAction; 32]>,
@@ -113,6 +114,12 @@ impl Record {
         self.stack[to_register] = register;
     }
 
+    pub fn reserve_registers(&mut self, count: usize) {
+        for _ in 0..count {
+            self.stack.push(Register::Empty);
+        }
+    }
+
     pub fn open_register(&self, register_index: u8) -> &Value {
         trace!("Open register R{register_index}");
 
@@ -151,7 +158,7 @@ impl Record {
         }
     }
 
-    pub fn replace_register_or_clone_constant(
+    pub fn empty_register_or_clone_constant(
         &mut self,
         register_index: u8,
         new_register: Register,
@@ -170,6 +177,24 @@ impl Record {
             Register::Pointer(pointer) => match pointer {
                 Pointer::Stack(register_index) => self.open_register(register_index).clone(),
                 Pointer::Constant(constant_index) => self.get_constant(constant_index).clone(),
+            },
+            Register::Empty => panic!("VM Error: Register {register_index} is empty"),
+        }
+    }
+
+    pub fn clone_register_value_or_constant(&self, register_index: u8) -> Value {
+        assert!(
+            (register_index as usize) < self.stack.len(),
+            "VM Error: Register index out of bounds"
+        );
+
+        let register = &self.stack[register_index as usize];
+
+        match register {
+            Register::Value(value) => value.clone(),
+            Register::Pointer(pointer) => match pointer {
+                Pointer::Stack(register_index) => self.open_register(*register_index).clone(),
+                Pointer::Constant(constant_index) => self.get_constant(*constant_index).clone(),
             },
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }

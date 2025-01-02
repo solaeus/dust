@@ -197,7 +197,7 @@ impl<'src> Compiler<'src> {
     /// [`CompileError`] if any are found. After calling this function, check its return value for
     /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
-        let span = span!(Level::INFO, "Compiling");
+        let span = span!(Level::INFO, "Compile");
         let _enter = span.enter();
 
         info!(

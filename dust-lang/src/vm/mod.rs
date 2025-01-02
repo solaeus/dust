@@ -41,7 +41,7 @@ impl Vm {
     }
 
     pub fn run(mut self) -> Option<Value> {
-        let span = span!(Level::INFO, "Running");
+        let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 
         if self.threads.len() == 1 {

@@ -1,18 +1,19 @@
-use std::io::{self, stdout, Read};
-use std::time::{Duration, Instant};
-use std::{fs::read_to_string, path::PathBuf};
-
-use clap::builder::StyledStr;
-use clap::error::ErrorKind;
-use clap::{
-    builder::{styling::AnsiColor, Styles},
-    crate_authors, crate_description, crate_version, ColorChoice, Parser, Subcommand, ValueHint,
+use std::{
+    fs::read_to_string,
+    io::{self, stdout, Read},
+    path::PathBuf,
+    time::{Duration, Instant},
 };
-use clap::{Args, Error};
+
+use clap::{
+    builder::{styling::AnsiColor, StyledStr, Styles},
+    crate_authors, crate_description, crate_version,
+    error::ErrorKind,
+    Args, ColorChoice, Error, Parser, Subcommand, ValueHint,
+};
 use color_print::cstr;
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
-use tracing::subscriber::set_global_default;
-use tracing::Level;
+use tracing::{subscriber::set_global_default, Level};
 use tracing_subscriber::FmtSubscriber;
 
 const CLI_HELP_TEMPLATE: &str = cstr!(
@@ -214,6 +215,7 @@ fn main() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(log_level)
         .with_thread_names(true)
+        .with_file(false)
         .finish();
 
     set_global_default(subscriber).expect("Failed to set tracing subscriber");

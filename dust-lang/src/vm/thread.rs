@@ -1,4 +1,4 @@
-use tracing::{info, trace};
+use tracing::{info, span, trace, Level};
 
 use crate::{
     vm::{FunctionCall, Register},
@@ -26,6 +26,12 @@ impl Thread {
     }
 
     pub fn run(&mut self) -> Option<Value> {
+        let mut current_call = FunctionCall {
+            name: None,
+            record_index: 0,
+            return_register: 0,
+            ip: 0,
+        };
         let mut active = &mut self.records[0];
 
         info!(
@@ -59,6 +65,8 @@ impl Thread {
             let action = active.actions[active.ip];
             let signal = (action.logic)(action.data, active);
 
+            trace!("Thread Signal: {:?}", signal);
+
             active.ip += 1;
 
             match signal {
@@ -73,8 +81,7 @@ impl Thread {
                     let mut arguments = Vec::with_capacity(argument_count as usize);
 
                     for register_index in first_argument_register..return_register {
-                        let value = active
-                            .replace_register_or_clone_constant(register_index, Register::Empty);
+                        let value = active.clone_register_value_or_constant(register_index);
 
                         arguments.push(value);
                     }
@@ -89,20 +96,21 @@ impl Thread {
                         active.ip = 0;
                     }
 
+                    self.call_stack.push(current_call);
+                    active.reserve_registers(arguments.len());
+
+                    current_call = FunctionCall {
+                        name: active.name().cloned(),
+                        record_index: active.index(),
+                        return_register,
+                        ip: active.ip,
+                    };
+
                     active = &mut self.records[record_index];
 
                     for (index, argument) in arguments.into_iter().enumerate() {
                         active.set_register(index as u8, Register::Value(argument));
                     }
-
-                    let function_call = FunctionCall {
-                        name: active.name().cloned(),
-                        record_index: active.index(),
-                        return_register,
-                        ip: 0,
-                    };
-
-                    self.call_stack.push(function_call);
                 }
                 ThreadSignal::LoadFunction {
                     from_record_index,
@@ -121,47 +129,41 @@ impl Thread {
                     active.set_register(to_register_index, register);
                 }
                 ThreadSignal::Return(should_return_value) => {
-                    let returning_call = match self.call_stack.pop() {
-                        Some(function_call) => function_call,
-                        None => {
-                            if should_return_value {
-                                return active.last_assigned_register().map(|register| {
-                                    active.replace_register_or_clone_constant(
-                                        register,
-                                        Register::Empty,
-                                    )
-                                });
-                            } else {
-                                return None;
-                            }
-                        }
-                    };
-                    let outer_call = self.call_stack.last();
-                    let record_index = outer_call.map_or(0, |call| call.record_index as usize);
+                    trace!("{:#?}", self.call_stack);
+
+                    if self.call_stack.is_empty() {
+                        return None;
+                    }
+
+                    let outer_call = self.call_stack.pop().unwrap();
+                    let record_index = outer_call.record_index as usize;
 
                     if should_return_value {
                         let return_register = active
                             .last_assigned_register()
                             .unwrap_or_else(|| panic!("Expected return value"));
                         let return_value = active
-                            .replace_register_or_clone_constant(return_register, Register::Empty);
+                            .empty_register_or_clone_constant(return_register, Register::Empty);
 
                         active = &mut self.records[record_index];
 
+                        active.reserve_registers((current_call.return_register + 1) as usize);
                         active.set_register(
-                            returning_call.return_register,
+                            current_call.return_register,
                             Register::Value(return_value),
                         );
                     } else {
                         active = &mut self.records[record_index];
-                        active.ip = record_index;
                     }
+
+                    current_call = outer_call;
                 }
             }
         }
     }
 }
 
+#[derive(Debug)]
 pub enum ThreadSignal {
     Continue,
     Call {

@@ -2,7 +2,8 @@ use tracing::trace;
 
 use crate::{
     instruction::{
-        Call, CallNative, Close, LoadBoolean, LoadConstant, LoadFunction, LoadList, LoadSelf, Point,
+        Call, CallNative, Close, GetLocal, LoadBoolean, LoadConstant, LoadFunction, LoadList,
+        LoadSelf, Point,
     },
     vm::VmError,
     AbstractList, ConcreteValue, Instruction, InstructionData, Type, Value,
@@ -194,15 +195,14 @@ pub fn load_self(instruction_data: InstructionData, record: &mut Record) -> Thre
 }
 
 pub fn get_local(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        ..
-    } = instruction_data;
-    let local_register_index = record.get_local_register(b);
+    let GetLocal {
+        destination,
+        local_index,
+    } = instruction_data.into();
+    let local_register_index = record.get_local_register(local_index);
     let register = Register::Pointer(Pointer::Stack(local_register_index));
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }

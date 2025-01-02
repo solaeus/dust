@@ -26,6 +26,10 @@ impl CallStack {
         self.calls.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.calls.len()
+    }
+
     pub fn push(&mut self, call: FunctionCall) {
         self.calls.push(call);
     }
