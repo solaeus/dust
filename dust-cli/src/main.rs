@@ -331,10 +331,6 @@ fn main() {
         let chunk = compiler.finish(name.or(file_name));
         let compile_end = start_time.elapsed();
 
-        if time {
-            print_time(compile_end);
-        }
-
         let vm = Vm::new(chunk);
         let return_value = vm.run();
         let run_end = start_time.elapsed();
@@ -347,30 +343,33 @@ fn main() {
 
         if time {
             let run_time = run_end - compile_end;
+            let total_time = compile_end + run_time;
 
-            print_time(run_time);
+            print_time("Compile Time", compile_end);
+            print_time("Run Time", run_time);
+            print_time("Total Time", total_time);
         }
     }
 }
 
-fn print_time(instant: Duration) {
+fn print_time(phase: &str, instant: Duration) {
     let seconds = instant.as_secs_f64();
 
     match seconds {
         ..=0.001 => {
             println!(
-                "Compile time: {microseconds} microseconds",
-                microseconds = seconds * 1_000_000.0
+                "{phase:12}: {microseconds}µs",
+                microseconds = (seconds * 1_000_000.0).round()
             );
         }
-        ..=0.1 => {
+        ..=0.199 => {
             println!(
-                "Compile time: {milliseconds} milliseconds",
-                milliseconds = seconds * 1000.0
+                "{phase:12}: {milliseconds}ms",
+                milliseconds = (seconds * 1000.0).round()
             );
         }
         _ => {
-            println!("Compile time: {seconds} seconds");
+            println!("{phase:12}: {seconds}s");
         }
     }
 }

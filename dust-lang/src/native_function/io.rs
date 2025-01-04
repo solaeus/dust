@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout, Write};
+use std::io::{self, stdin, stdout, Write};
 use std::ops::Range;
 
 use crate::vm::{Register, ThreadSignal};
@@ -66,31 +66,22 @@ pub fn write_line(
     _destination: Option<u8>,
     argument_range: Range<u8>,
 ) -> Result<ThreadSignal, NativeFunctionError> {
+    let map_err = |io_error: io::Error| NativeFunctionError::Io {
+        error: io_error.kind(),
+        position: record.current_position(),
+    };
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
         if let Some(value) = record.open_register_allow_empty(register_index) {
             let string = value.display(record);
 
-            stdout
-                .write(string.as_bytes())
-                .map_err(|io_error| NativeFunctionError::Io {
-                    error: io_error.kind(),
-                    position: record.current_position(),
-                })?;
-            stdout
-                .write(b"\n")
-                .map_err(|io_error| NativeFunctionError::Io {
-                    error: io_error.kind(),
-                    position: record.current_position(),
-                })?;
+            stdout.write(string.as_bytes()).map_err(map_err)?;
+            stdout.write(b"\n").map_err(map_err)?;
         }
     }
 
-    stdout.flush().map_err(|io_error| NativeFunctionError::Io {
-        error: io_error.kind(),
-        position: record.current_position(),
-    })?;
+    stdout.flush().map_err(map_err)?;
 
     Ok(ThreadSignal::Continue)
 }

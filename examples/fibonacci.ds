@@ -5,4 +5,4 @@ fn fib (n: int) -> int {
     fib(n - 1) + fib(n - 2)
 }
 
-write_line(fib(2))
+write_line(fib(10))

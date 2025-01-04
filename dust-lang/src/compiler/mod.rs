@@ -53,6 +53,7 @@ use crate::{
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
     let mut compiler = Compiler::new(lexer).map_err(|error| DustError::compile(error, source))?;
+    compiler.is_main_chunk = true;
 
     compiler
         .compile()
@@ -102,11 +103,6 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     stack_size: usize,
 
-    current_token: Token<'src>,
-    current_position: Span,
-    previous_token: Token<'src>,
-    previous_position: Span,
-
     /// The first register index that the compiler should use. This is used to avoid reusing the
     /// registers that are used for the function's arguments, thus it is zero in the program's main
     /// chunk.
@@ -128,6 +124,14 @@ pub struct Compiler<'src> {
     /// maintain the depth-first index. After the function is compiled, its `next_record_index`
     /// is assigned back to this chunk.
     next_record_index: u8,
+
+    /// Whether the compiler is compiling the main chunk.
+    is_main_chunk: bool,
+
+    current_token: Token<'src>,
+    current_position: Span,
+    previous_token: Token<'src>,
+    previous_position: Span,
 }
 
 impl<'src> Compiler<'src> {
@@ -148,15 +152,16 @@ impl<'src> Compiler<'src> {
             prototypes: Vec::new(),
             stack_size: 0,
             lexer,
-            current_token,
-            current_position,
-            previous_token: Token::Eof,
-            previous_position: Span(0, 0),
             minimum_register: 0,
             block_index: 0,
             current_scope: Scope::default(),
             record_index: 0,
             next_record_index: 1,
+            is_main_chunk: true,
+            current_token,
+            current_position,
+            previous_token: Token::Eof,
+            previous_position: Span(0, 0),
         })
     }
 
@@ -437,6 +442,15 @@ impl<'src> Compiler<'src> {
     ///
     /// If [`Self::type`] is already set, it will check if the given [Type] is compatible.
     fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
+        if !self.is_main_chunk {
+            Type::function(self.r#type.clone())
+                .check(&new_return_type)
+                .map_err(|conflict| CompileError::ReturnTypeConflict {
+                    conflict,
+                    position: self.current_position,
+                })?;
+        }
+
         if self.r#type.return_type != Type::None {
             self.r#type
                 .return_type
@@ -1427,8 +1441,10 @@ impl<'src> Compiler<'src> {
                 true
             };
         let end = self.current_position.1;
+        let return_register = self.next_register() - 1;
         let r#return = Instruction::from(Return {
             should_return_value,
+            return_register,
         });
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
@@ -1454,22 +1470,27 @@ impl<'src> Compiler<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false);
+            let r#return = Instruction::r#return(false, 0);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
-            let previous_expression_type =
-                self.instructions
-                    .last()
-                    .map_or(Type::None, |(instruction, r#type, _)| {
-                        if instruction.yields_value() {
-                            r#type.clone()
-                        } else {
-                            Type::None
-                        }
-                    });
+            let (previous_expression_type, previous_register) = self
+                .instructions
+                .last()
+                .map(|(instruction, r#type, _)| {
+                    if instruction.yields_value() {
+                        (r#type.clone(), instruction.a_field())
+                    } else {
+                        (Type::None, 0)
+                    }
+                })
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::r#return(should_return_value);
+            let r#return = Instruction::r#return(should_return_value, previous_register);
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);

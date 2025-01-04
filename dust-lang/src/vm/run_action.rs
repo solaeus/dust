@@ -3,7 +3,7 @@ use tracing::trace;
 use crate::{
     instruction::{
         Call, CallNative, Close, GetLocal, LoadBoolean, LoadConstant, LoadFunction, LoadList,
-        LoadSelf, Point,
+        LoadSelf, Point, Return,
     },
     vm::VmError,
     AbstractList, ConcreteValue, Instruction, InstructionData, Type, Value,
@@ -551,9 +551,15 @@ pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> Th
 }
 
 pub fn r#return(instruction_data: InstructionData, _: &mut Record) -> ThreadSignal {
-    let should_return_value = instruction_data.b_field != 0;
+    let Return {
+        should_return_value,
+        return_register,
+    } = instruction_data.into();
 
-    ThreadSignal::Return(should_return_value)
+    ThreadSignal::Return {
+        should_return_value,
+        return_register,
+    }
 }
 
 #[cfg(test)]

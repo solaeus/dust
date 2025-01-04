@@ -121,8 +121,6 @@ impl Record {
     }
 
     pub fn open_register(&self, register_index: u8) -> &Value {
-        trace!("Open register R{register_index}");
-
         let register_index = register_index as usize;
 
         assert!(
@@ -133,8 +131,16 @@ impl Record {
         let register = &self.stack[register_index];
 
         match register {
-            Register::Value(value) => value,
-            Register::Pointer(pointer) => self.follow_pointer(*pointer),
+            Register::Value(value) => {
+                trace!("Register R{register_index} openned to value {value}");
+
+                value
+            }
+            Register::Pointer(pointer) => {
+                trace!("Open register R{register_index} openned to pointer {pointer}");
+
+                self.follow_pointer(*pointer)
+            }
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
@@ -152,8 +158,16 @@ impl Record {
         let register = &self.stack[register_index];
 
         match register {
-            Register::Value(value) => Some(value),
-            Register::Pointer(pointer) => Some(self.follow_pointer(*pointer)),
+            Register::Value(value) => {
+                trace!("Register R{register_index} openned to value {value}");
+
+                Some(value)
+            }
+            Register::Pointer(pointer) => {
+                trace!("Open register R{register_index} openned to pointer {pointer}");
+
+                Some(self.follow_pointer(*pointer))
+            }
             Register::Empty => None,
         }
     }

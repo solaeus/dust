@@ -395,9 +395,10 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool) -> Instruction {
+    pub fn r#return(should_return_value: bool, return_register: u8) -> Instruction {
         Instruction::from(Return {
             should_return_value,
+            return_register,
         })
     }
 
@@ -732,12 +733,13 @@ impl Instruction {
             Operation::RETURN => {
                 let Return {
                     should_return_value,
+                    return_register,
                 } = Return::from(self);
 
                 if should_return_value {
-                    "RETURN".to_string()
+                    format!("RETURN R{return_register}")
                 } else {
-                    "".to_string()
+                    String::new()
                 }
             }
             _ => {

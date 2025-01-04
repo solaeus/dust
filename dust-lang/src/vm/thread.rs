@@ -1,11 +1,11 @@
-use tracing::{info, span, trace, Level};
+use tracing::{info, trace};
 
 use crate::{
     vm::{FunctionCall, Register},
     Chunk, DustString, Value,
 };
 
-use super::{record::Record, CallStack, VmError};
+use super::{record::Record, CallStack};
 
 pub struct Thread {
     call_stack: CallStack,
@@ -26,13 +26,13 @@ impl Thread {
     }
 
     pub fn run(&mut self) -> Option<Value> {
-        let mut current_call = FunctionCall {
-            name: None,
-            record_index: 0,
-            return_register: 0,
-            ip: 0,
-        };
         let mut active = &mut self.records[0];
+        let mut current_call = FunctionCall {
+            name: active.name().cloned(),
+            record_index: active.index(),
+            return_register: active.stack_size() as u8 - 1,
+            ip: active.ip,
+        };
 
         info!(
             "Starting thread with {}",
@@ -43,15 +43,6 @@ impl Thread {
         );
 
         loop {
-            assert!(
-                active.ip < active.actions.len(),
-                "{}",
-                VmError::InstructionIndexOutOfBounds {
-                    call_stack: self.call_stack.clone(),
-                    ip: active.ip,
-                }
-            );
-
             trace!(
                 "Run \"{}\" | Record = {} | IP = {}",
                 active
@@ -61,6 +52,10 @@ impl Thread {
                 active.index(),
                 active.ip
             );
+
+            if active.ip >= active.actions.len() {
+                return None;
+            }
 
             let action = active.actions[active.ip];
             let signal = (action.logic)(action.data, active);
@@ -96,15 +91,23 @@ impl Thread {
                         active.ip = 0;
                     }
 
-                    self.call_stack.push(current_call);
-                    active.reserve_registers(arguments.len());
-
-                    current_call = FunctionCall {
+                    let next_call = FunctionCall {
                         name: active.name().cloned(),
                         record_index: active.index(),
                         return_register,
                         ip: active.ip,
                     };
+
+                    if self
+                        .call_stack
+                        .last()
+                        .is_some_and(|call| call != &next_call)
+                        || self.call_stack.is_empty()
+                    {
+                        self.call_stack.push(current_call);
+                    }
+
+                    current_call = next_call;
 
                     active = &mut self.records[record_index];
 
@@ -128,34 +131,50 @@ impl Thread {
 
                     active.set_register(to_register_index, register);
                 }
-                ThreadSignal::Return(should_return_value) => {
-                    trace!("{:#?}", self.call_stack);
+                ThreadSignal::Return {
+                    should_return_value,
+                    return_register,
+                } => {
+                    trace!("\n{:#?}{}", self.call_stack, current_call);
 
-                    if self.call_stack.is_empty() {
-                        return None;
-                    }
-
-                    let outer_call = self.call_stack.pop().unwrap();
-                    let record_index = outer_call.record_index as usize;
-
-                    if should_return_value {
-                        let return_register = active
-                            .last_assigned_register()
-                            .unwrap_or_else(|| panic!("Expected return value"));
+                    let outer_call = if let Some(call) = self.call_stack.pop() {
+                        call
+                    } else if should_return_value {
                         let return_value = active
                             .empty_register_or_clone_constant(return_register, Register::Empty);
+                        let next_call = self.call_stack.pop();
 
-                        active = &mut self.records[record_index];
+                        if next_call.is_none() {
+                            return Some(return_value);
+                        }
 
-                        active.reserve_registers((current_call.return_register + 1) as usize);
-                        active.set_register(
+                        let next_index = active.index() as usize - 1;
+                        let next_record = &mut self.records[next_index];
+
+                        next_record.set_register(
                             current_call.return_register,
                             Register::Value(return_value),
                         );
+
+                        current_call = next_call.unwrap();
+                        active = next_record;
+
+                        continue;
                     } else {
-                        active = &mut self.records[record_index];
+                        return None;
+                    };
+                    let record_index = outer_call.record_index as usize;
+                    let destination = current_call.return_register;
+
+                    if should_return_value {
+                        let return_value = active
+                            .empty_register_or_clone_constant(return_register, Register::Empty);
+                        let outer_record = &mut self.records[record_index];
+
+                        outer_record.set_register(destination, Register::Value(return_value));
                     }
 
+                    active = &mut self.records[record_index];
                     current_call = outer_call;
                 }
             }
@@ -171,7 +190,10 @@ pub enum ThreadSignal {
         return_register: u8,
         argument_count: u8,
     },
-    Return(bool),
+    Return {
+        should_return_value: bool,
+        return_register: u8,
+    },
     LoadFunction {
         from_record_index: u8,
         to_register_index: u8,

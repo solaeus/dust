@@ -119,20 +119,10 @@ impl Chunk {
             self.record_index,
         );
 
-        if records.is_empty() {
-            records.push(record);
+        records.push(record);
 
-            for chunk in self.prototypes {
-                chunk.into_records(records);
-            }
-        } else {
-            for chunk in self.prototypes {
-                chunk.into_records(records);
-            }
-
-            debug_assert!(record.index() as usize == records.len());
-
-            records.push(record);
+        for chunk in self.prototypes {
+            chunk.into_records(records);
         }
     }
 
