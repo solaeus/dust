@@ -42,7 +42,7 @@ pub struct Chunk {
     pub(crate) locals: SmallVec<[Local; 8]>,
     pub(crate) prototypes: Vec<Chunk>,
 
-    pub(crate) stack_size: usize,
+    pub(crate) register_count: usize,
     pub(crate) prototype_index: u8,
 }
 
@@ -65,7 +65,7 @@ impl Chunk {
             constants: constants.into(),
             locals: locals.into(),
             prototypes,
-            stack_size: 0,
+            register_count: 0,
             prototype_index: 0,
         }
     }

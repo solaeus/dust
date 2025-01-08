@@ -375,11 +375,17 @@ impl Instruction {
         })
     }
 
-    pub fn call(destination: u8, function_register: u8, argument_count: u8) -> Instruction {
+    pub fn call(
+        destination: u8,
+        function_register: u8,
+        argument_count: u8,
+        is_recursive: bool,
+    ) -> Instruction {
         Instruction::from(Call {
             destination,
             function_register,
             argument_count,
+            is_recursive,
         })
     }
 
@@ -691,6 +697,7 @@ impl Instruction {
                     destination,
                     function_register,
                     argument_count,
+                    ..
                 } = Call::from(*self);
                 let arguments_start = destination.saturating_sub(argument_count);
 

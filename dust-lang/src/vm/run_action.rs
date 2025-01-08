@@ -6,27 +6,28 @@ use crate::{
         LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
         Return, SetLocal, Subtract, Test, TestSet,
     },
-    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
+    vm::FunctionCall,
+    AbstractList, Argument, ConcreteValue, DustString, Instruction, Type, Value,
 };
 
-use super::{thread::ThreadSignal, Pointer, Record, Register};
+use super::{thread::ThreadData, Pointer, Record, Register};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RunAction {
+pub struct RecordAction {
     pub logic: RunnerLogic,
     pub instruction: Instruction,
 }
 
-impl From<Instruction> for RunAction {
+impl From<Instruction> for RecordAction {
     fn from(instruction: Instruction) -> Self {
         let operation = instruction.operation();
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
-        RunAction { logic, instruction }
+        RecordAction { logic, instruction }
     }
 }
 
-pub type RunnerLogic = fn(Instruction, &mut Record) -> ThreadSignal;
+pub type RunnerLogic = fn(Instruction, &mut ThreadData) -> Option<Value>;
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     point,
@@ -56,9 +57,10 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     r#return,
 ];
 
-pub fn point(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn point(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Point { from, to } = instruction.into();
-    let from_register = record.get_register(from);
+    let from_register = record.get_register_unchecked(from);
     let from_register_is_empty = matches!(from_register, Register::Empty);
 
     if !from_register_is_empty {
@@ -67,10 +69,13 @@ pub fn point(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.set_register(from, register);
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn close(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn close(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Close { from, to } = instruction.into();
 
     assert!(from < to, "Runtime Error: Malformed instruction");
@@ -84,10 +89,13 @@ pub fn close(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.set_register(register_index, Register::Empty);
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn load_boolean(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LoadBoolean {
         destination,
         value,
@@ -102,10 +110,13 @@ pub fn load_boolean(instruction: Instruction, record: &mut Record) -> ThreadSign
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn load_constant(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn load_constant(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LoadConstant {
         destination,
         constant_index,
@@ -121,10 +132,13 @@ pub fn load_constant(instruction: Instruction, record: &mut Record) -> ThreadSig
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn load_list(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LoadList {
         destination,
         start_register,
@@ -133,7 +147,7 @@ pub fn load_list(instruction: Instruction, record: &mut Record) -> ThreadSignal 
     let mut item_type = Type::Any;
 
     for register_index in start_register..destination {
-        match record.get_register(register_index) {
+        match record.get_register_unchecked(register_index) {
             Register::Empty => continue,
             Register::Value(value) => {
                 if item_type == Type::Any {
@@ -160,32 +174,43 @@ pub fn load_list(instruction: Instruction, record: &mut Record) -> ThreadSignal 
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn load_function(instruction: Instruction, _: &mut Record) -> ThreadSignal {
+pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LoadFunction {
         destination,
         prototype_index,
     } = instruction.into();
+    let prototype_index = prototype_index as usize;
+    let function = record.chunk.prototypes[prototype_index].as_function();
+    let register = Register::Value(Value::Function(function));
 
-    ThreadSignal::LoadFunction {
-        destination,
-        prototype_index,
-    }
+    record.set_register(destination, register);
+
+    record.ip += 1;
+
+    None
 }
 
-pub fn load_self(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LoadSelf { destination } = instruction.into();
     let function = record.as_function();
     let register = Register::Value(Value::Function(function));
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn get_local(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn get_local(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let GetLocal {
         destination,
         local_index,
@@ -195,10 +220,13 @@ pub fn get_local(instruction: Instruction, record: &mut Record) -> ThreadSignal 
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn set_local(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn set_local(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let SetLocal {
         register_index,
         local_index,
@@ -208,10 +236,13 @@ pub fn set_local(instruction: Instruction, record: &mut Record) -> ThreadSignal 
 
     record.set_register(local_register_index, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn add(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn add(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Add {
         destination,
         left,
@@ -224,10 +255,13 @@ pub fn add(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn subtract(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn subtract(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Subtract {
         destination,
         left,
@@ -240,10 +274,13 @@ pub fn subtract(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn multiply(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Multiply {
         destination,
         left,
@@ -264,10 +301,13 @@ pub fn multiply(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn divide(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn divide(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Divide {
         destination,
         left,
@@ -288,10 +328,13 @@ pub fn divide(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn modulo(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Modulo {
         destination,
         left,
@@ -312,15 +355,18 @@ pub fn modulo(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn test(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn test(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Test {
         operand_register,
         test_value,
     } = instruction.into();
-    let value = record.open_register(operand_register);
+    let value = record.open_register_unchecked(operand_register);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
@@ -331,10 +377,13 @@ pub fn test(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn test_set(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let TestSet {
         destination,
         argument,
@@ -359,10 +408,13 @@ pub fn test_set(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.set_register(destination, register);
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn equal(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn equal(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Equal { value, left, right } = instruction.into();
     let left = record.get_argument(left);
     let right = record.get_argument(right);
@@ -372,10 +424,13 @@ pub fn equal(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn less(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn less(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Less { value, left, right } = instruction.into();
     let left = record.get_argument(left);
     let right = record.get_argument(right);
@@ -385,10 +440,13 @@ pub fn less(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn less_equal(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let LessEqual { value, left, right } = instruction.into();
     let left = record.get_argument(left);
     let right = record.get_argument(right);
@@ -398,10 +456,13 @@ pub fn less_equal(instruction: Instruction, record: &mut Record) -> ThreadSignal
         record.ip += 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn negate(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn negate(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Negate {
         destination,
         argument,
@@ -412,10 +473,13 @@ pub fn negate(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn not(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn not(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Not {
         destination,
         argument,
@@ -429,10 +493,13 @@ pub fn not(instruction: Instruction, record: &mut Record) -> ThreadSignal {
 
     record.set_register(destination, register);
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn jump(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn jump(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Jump {
         offset,
         is_positive,
@@ -445,24 +512,61 @@ pub fn jump(instruction: Instruction, record: &mut Record) -> ThreadSignal {
         record.ip -= offset + 1;
     }
 
-    ThreadSignal::Continue
+    record.ip += 1;
+
+    None
 }
 
-pub fn call(instruction: Instruction, _: &mut Record) -> ThreadSignal {
+pub fn call(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Call {
         destination: return_register,
         function_register,
         argument_count,
+        is_recursive,
     } = instruction.into();
 
-    ThreadSignal::Call {
-        function_register,
+    let function = record
+        .open_register_unchecked(function_register)
+        .as_function()
+        .unwrap();
+    let first_argument_register = return_register - argument_count;
+    let prototype = if is_recursive {
+        record.chunk
+    } else {
+        &record.chunk.prototypes[function.prototype_index as usize]
+    };
+    let mut next_record = Record::new(prototype);
+    let next_call = FunctionCall {
+        name: next_record.name().cloned(),
         return_register,
-        argument_count,
+        ip: record.ip,
+    };
+
+    for (argument_index, register_index) in (first_argument_register..return_register).enumerate() {
+        let argument = record.clone_register_value_or_constant(register_index);
+
+        trace!(
+            "Passing argument \"{argument}\" to {}",
+            function
+                .name
+                .clone()
+                .unwrap_or_else(|| DustString::from("anonymous"))
+        );
+
+        next_record.set_register(argument_index as u8, Register::Value(argument));
     }
+
+    record.ip += 1;
+
+    data.call_stack.push(next_call);
+    data.records.push(next_record);
+
+    None
 }
 
-pub fn call_native(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+pub fn call_native(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let CallNative {
         destination,
         function,
@@ -473,19 +577,47 @@ pub fn call_native(instruction: Instruction, record: &mut Record) -> ThreadSigna
 
     function
         .call(record, Some(destination), argument_range)
-        .unwrap_or_else(|error| panic!("{error:?}"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+
+    record.ip += 1;
+
+    None
 }
 
-pub fn r#return(instruction: Instruction, _: &mut Record) -> ThreadSignal {
+pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> Option<Value> {
+    let record = data.records.last_mut_unchecked();
     let Return {
         should_return_value,
         return_register,
     } = instruction.into();
 
-    ThreadSignal::Return {
-        should_return_value,
-        return_register,
+    trace!("Returning with call stack:\n{}", data.call_stack);
+
+    let return_value = if should_return_value {
+        Some(record.empty_register_or_clone_constant(return_register))
+    } else {
+        None
+    };
+
+    let current_call = data.call_stack.pop_unchecked();
+    let _current_record = data.records.pop_unchecked();
+    let destination = current_call.return_register;
+
+    if data.call_stack.is_empty() {
+        return if should_return_value {
+            return_value
+        } else {
+            None
+        };
     }
+
+    let outer_record = data.records.last_mut_unchecked();
+
+    if should_return_value {
+        outer_record.set_register(destination, Register::Value(return_value.unwrap()));
+    }
+
+    None
 }
 
 #[cfg(test)]

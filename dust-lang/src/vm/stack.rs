@@ -33,6 +33,16 @@ impl<T> Stack<T> {
         self.items.len()
     }
 
+    pub fn get_unchecked(&self, index: usize) -> &T {
+        if cfg!(debug_assertions) {
+            assert!(index < self.len(), "{}", VmError::StackUnderflow);
+
+            &self.items[index]
+        } else {
+            unsafe { self.items.get_unchecked(index) }
+        }
+    }
+
     pub fn push(&mut self, item: T) {
         self.items.push(item);
     }
@@ -51,7 +61,7 @@ impl<T> Stack<T> {
 
     pub fn pop_unchecked(&mut self) -> T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
 
             self.items.pop().unwrap()
         } else {
@@ -61,7 +71,7 @@ impl<T> Stack<T> {
 
     pub fn last_unchecked(&self) -> &T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
 
             self.items.last().unwrap()
         } else {
@@ -71,7 +81,7 @@ impl<T> Stack<T> {
 
     pub fn last_mut_unchecked(&mut self) -> &mut T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::CallStackUnderflow);
+            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
 
             self.items.last_mut().unwrap()
         } else {
@@ -100,9 +110,9 @@ impl<T> IndexMut<Range<usize>> for Stack<T> {
     }
 }
 
-impl Debug for Stack<FunctionCall> {
+impl<T: Debug> Debug for Stack<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{self}")
+        write!(f, "{:?}", self.items)
     }
 }
 

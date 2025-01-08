@@ -22,6 +22,7 @@ smartstring = { version = "1.0.1", features = [
     "serde",
 ], default-features = false }
 tracing = "0.1.41"
+typed-arena = "2.0.2"
 
 [dev-dependencies]
 criterion = { version = "0.3.4", features = ["html_reports"] }

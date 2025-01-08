@@ -6,7 +6,7 @@ use super::{stack::Stack, FunctionCall};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
-    CallStackUnderflow,
+    StackUnderflow,
     ExpectedFunction {
         value: Value,
     },
@@ -22,7 +22,7 @@ pub enum VmError {
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::CallStackUnderflow => {
+            Self::StackUnderflow => {
                 write!(f, "Call stack underflow")
             }
             Self::ExpectedFunction { value } => {

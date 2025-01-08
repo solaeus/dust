@@ -214,7 +214,7 @@ impl<'src> Compiler<'src> {
             constants: self.constants,
             locals,
             prototypes: self.prototypes,
-            stack_size: self.stack_size,
+            register_count: self.stack_size,
             prototype_index: self.prototype_index,
         }
     }
@@ -1000,9 +1000,9 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) {
             let destination = self.next_register();
-            let load_function = Instruction::load_function(destination, self.prototype_index);
+            let load_self = Instruction::load_self(destination);
 
-            self.emit_instruction(load_function, Type::SelfFunction, start_position);
+            self.emit_instruction(load_self, Type::SelfFunction, start_position);
 
             return Ok(());
         } else {
@@ -1700,6 +1700,7 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
+        let is_recursive = last_instruction_type == &Type::SelfFunction;
 
         let mut argument_count = 0;
 
@@ -1727,7 +1728,7 @@ impl<'src> Compiler<'src> {
 
         let end = self.current_position.1;
         let destination = self.next_register();
-        let call = Instruction::call(destination, function_register, argument_count);
+        let call = Instruction::call(destination, function_register, argument_count, is_recursive);
 
         self.emit_instruction(call, function_return_type, Span(start, end));
 

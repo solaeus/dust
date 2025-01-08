@@ -14,7 +14,7 @@ pub fn panic(
     let mut message = format!("Dust panic at {position}!");
 
     for register_index in argument_range {
-        let value = record.open_register(register_index);
+        let value = record.open_register_unchecked(register_index);
 
         if let Some(string) = value.as_string() {
             message.push_str(string);
