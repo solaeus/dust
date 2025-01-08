@@ -1,8 +1,8 @@
 //! Virtual machine and errors
-mod call_stack;
 mod error;
 mod record;
 mod run_action;
+mod stack;
 mod thread;
 
 use std::{
@@ -11,10 +11,10 @@ use std::{
     thread::spawn,
 };
 
-pub use call_stack::{CallStack, FunctionCall};
 pub use error::VmError;
 pub use record::Record;
 pub use run_action::RunAction;
+pub use stack::{FunctionCall, Stack};
 pub use thread::{Thread, ThreadSignal};
 use tracing::{span, Level};
 

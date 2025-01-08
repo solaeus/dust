@@ -2,14 +2,21 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{InstructionData, Value};
 
-use super::call_stack::CallStack;
+use super::{stack::Stack, FunctionCall};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
     CallStackUnderflow,
-    ExpectedFunction { value: Value },
-    InstructionIndexOutOfBounds { call_stack: CallStack, ip: usize },
-    MalformedInstruction { instruction: InstructionData },
+    ExpectedFunction {
+        value: Value,
+    },
+    InstructionIndexOutOfBounds {
+        call_stack: Stack<FunctionCall>,
+        ip: usize,
+    },
+    MalformedInstruction {
+        instruction: InstructionData,
+    },
 }
 
 impl Display for VmError {

@@ -7,7 +7,7 @@ use crate::{
     Chunk, DustString, Value,
 };
 
-use super::{record::Record, CallStack, RunAction};
+use super::{record::Record, RunAction, Stack};
 
 pub struct Thread {
     chunk: Chunk,
@@ -19,9 +19,8 @@ impl Thread {
     }
 
     pub fn run(&mut self) -> Option<Value> {
-        let mut call_stack = CallStack::with_capacity(self.chunk.prototypes.len() + 1);
-        let mut records = Vec::with_capacity(self.chunk.prototypes.len() + 1);
-
+        let mut call_stack = Stack::with_capacity(self.chunk.prototypes.len() + 1);
+        let mut records = Stack::with_capacity(self.chunk.prototypes.len() + 1);
         let main_call = FunctionCall {
             name: self.chunk.name.clone(),
             return_register: 0,
@@ -32,7 +31,7 @@ impl Thread {
         call_stack.push(main_call);
         records.push(main_record);
 
-        let mut active_record = &mut records[0];
+        let mut active_record = records.last_mut_unchecked();
 
         info!(
             "Starting thread with {}",
@@ -62,6 +61,16 @@ impl Thread {
 
             match signal {
                 ThreadSignal::Continue => {}
+                ThreadSignal::LoadFunction {
+                    destination,
+                    prototype_index,
+                } => {
+                    let function_record_index = prototype_index as usize;
+                    let function = self.chunk.prototypes[function_record_index].as_function();
+                    let register = Register::Value(Value::Function(function));
+
+                    active_record.set_register(destination, register);
+                }
                 ThreadSignal::Call {
                     function_register,
                     return_register,
@@ -93,21 +102,11 @@ impl Thread {
                     call_stack.push(next_call);
                     records.push(next_record);
 
-                    active_record = records.last_mut().unwrap();
+                    active_record = records.last_mut_unchecked();
 
                     for (index, argument) in arguments.into_iter().enumerate() {
                         active_record.set_register(index as u8, Register::Value(argument));
                     }
-                }
-                ThreadSignal::LoadFunction {
-                    destination,
-                    prototype_index,
-                } => {
-                    let function_record_index = prototype_index as usize;
-                    let function = self.chunk.prototypes[function_record_index].as_function();
-                    let register = Register::Value(Value::Function(function));
-
-                    active_record.set_register(destination, register);
                 }
                 ThreadSignal::Return {
                     should_return_value,
@@ -124,8 +123,8 @@ impl Thread {
                         None
                     };
 
-                    let current_call = call_stack.pop_or_panic();
-                    let _current_record = records.pop().unwrap();
+                    let current_call = call_stack.pop_unchecked();
+                    let _current_record = records.pop_unchecked();
                     let destination = current_call.return_register;
 
                     if call_stack.is_empty() {
@@ -136,7 +135,7 @@ impl Thread {
                         };
                     }
 
-                    let outer_record = records.last_mut().unwrap();
+                    let outer_record = records.last_mut_unchecked();
 
                     if should_return_value {
                         outer_record
