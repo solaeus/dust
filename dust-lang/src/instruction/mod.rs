@@ -255,10 +255,10 @@ impl Instruction {
         })
     }
 
-    pub fn load_function(destination: u8, record_index: u8) -> Instruction {
+    pub fn load_function(destination: u8, prototype_index: u8) -> Instruction {
         Instruction::from(LoadFunction {
             destination,
-            record_index,
+            prototype_index,
         })
     }
 
@@ -510,12 +510,12 @@ impl Instruction {
     }
 
     pub fn disassembly_info(&self) -> String {
-        let (operation, data) = self.decode();
+        let operation = self.operation();
 
         match operation {
-            Operation::POINT => Point::from(data).to_string(),
+            Operation::POINT => Point::from(*self).to_string(),
             Operation::CLOSE => {
-                let Close { from, to } = Close::from(data);
+                let Close { from, to } = Close::from(*self);
 
                 format!("R{from}..R{to}")
             }
@@ -524,7 +524,7 @@ impl Instruction {
                     destination,
                     value,
                     jump_next,
-                } = LoadBoolean::from(data);
+                } = LoadBoolean::from(*self);
 
                 if jump_next {
                     format!("R{destination} = {value} && JUMP +1")
@@ -537,7 +537,7 @@ impl Instruction {
                     destination,
                     constant_index,
                     jump_next,
-                } = LoadConstant::from(self);
+                } = LoadConstant::from(*self);
 
                 if jump_next {
                     format!("R{destination} = C{constant_index} JUMP +1")
@@ -545,18 +545,18 @@ impl Instruction {
                     format!("R{destination} = C{constant_index}")
                 }
             }
-            Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
+            Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => {
                 let LoadList {
                     destination,
                     start_register,
-                } = LoadList::from(self);
+                } = LoadList::from(*self);
                 let end_register = destination.saturating_sub(1);
 
                 format!("R{destination} = [R{start_register}..=R{end_register}]",)
             }
             Operation::LOAD_SELF => {
-                let LoadSelf { destination } = LoadSelf::from(self);
+                let LoadSelf { destination } = LoadSelf::from(*self);
 
                 format!("R{destination} = self")
             }
@@ -564,7 +564,7 @@ impl Instruction {
                 let GetLocal {
                     destination,
                     local_index,
-                } = GetLocal::from(self);
+                } = GetLocal::from(*self);
 
                 format!("R{destination} = L{local_index}")
             }
@@ -572,7 +572,7 @@ impl Instruction {
                 let SetLocal {
                     register_index,
                     local_index,
-                } = SetLocal::from(self);
+                } = SetLocal::from(*self);
 
                 format!("L{local_index} = R{register_index}")
             }
@@ -581,7 +581,7 @@ impl Instruction {
                     destination,
                     left,
                     right,
-                } = Add::from(self);
+                } = Add::from(*self);
 
                 format!("R{destination} = {left} + {right}")
             }
@@ -590,7 +590,7 @@ impl Instruction {
                     destination,
                     left,
                     right,
-                } = Subtract::from(self);
+                } = Subtract::from(*self);
 
                 format!("R{destination} = {left} - {right}")
             }
@@ -599,7 +599,7 @@ impl Instruction {
                     destination,
                     left,
                     right,
-                } = Multiply::from(self);
+                } = Multiply::from(*self);
 
                 format!("R{destination} = {left} * {right}")
             }
@@ -608,7 +608,7 @@ impl Instruction {
                     destination,
                     left,
                     right,
-                } = Divide::from(self);
+                } = Divide::from(*self);
 
                 format!("R{destination} = {left} / {right}")
             }
@@ -617,7 +617,7 @@ impl Instruction {
                     destination,
                     left,
                     right,
-                } = Modulo::from(self);
+                } = Modulo::from(*self);
 
                 format!("R{destination} = {left} % {right}")
             }
@@ -625,7 +625,7 @@ impl Instruction {
                 let Test {
                     operand_register,
                     test_value,
-                } = Test::from(self);
+                } = Test::from(*self);
                 let bang = if test_value { "" } else { "!" };
 
                 format!("if {bang}R{operand_register} {{ JUMP +1 }}",)
@@ -635,25 +635,25 @@ impl Instruction {
                     destination,
                     argument,
                     test_value,
-                } = TestSet::from(self);
+                } = TestSet::from(*self);
                 let bang = if test_value { "" } else { "!" };
 
                 format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
             }
             Operation::EQUAL => {
-                let Equal { value, left, right } = Equal::from(self);
+                let Equal { value, left, right } = Equal::from(*self);
                 let comparison_symbol = if value { "==" } else { "!=" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::LESS => {
-                let Less { value, left, right } = Less::from(self);
+                let Less { value, left, right } = Less::from(*self);
                 let comparison_symbol = if value { "<" } else { ">=" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
             }
             Operation::LESS_EQUAL => {
-                let LessEqual { value, left, right } = LessEqual::from(self);
+                let LessEqual { value, left, right } = LessEqual::from(*self);
                 let comparison_symbol = if value { "<=" } else { ">" };
 
                 format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
@@ -662,7 +662,7 @@ impl Instruction {
                 let Negate {
                     destination,
                     argument,
-                } = Negate::from(self);
+                } = Negate::from(*self);
 
                 format!("R{destination} = -{argument}")
             }
@@ -670,7 +670,7 @@ impl Instruction {
                 let Not {
                     destination,
                     argument,
-                } = Not::from(self);
+                } = Not::from(*self);
 
                 format!("R{destination} = !{argument}")
             }
@@ -678,7 +678,7 @@ impl Instruction {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(self);
+                } = Jump::from(*self);
 
                 if is_positive {
                     format!("JUMP +{offset}")
@@ -691,7 +691,7 @@ impl Instruction {
                     destination,
                     function_register,
                     argument_count,
-                } = Call::from(self);
+                } = Call::from(*self);
                 let arguments_start = destination.saturating_sub(argument_count);
 
                 match argument_count {
@@ -709,7 +709,7 @@ impl Instruction {
                     destination,
                     function,
                     argument_count,
-                } = CallNative::from(self);
+                } = CallNative::from(*self);
                 let arguments_start = destination.saturating_sub(argument_count);
                 let arguments_end = arguments_start + argument_count;
                 let mut info_string = if function.returns_value() {
@@ -734,7 +734,7 @@ impl Instruction {
                 let Return {
                     should_return_value,
                     return_register,
-                } = Return::from(self);
+                } = Return::from(*self);
 
                 if should_return_value {
                     format!("RETURN R{return_register}")

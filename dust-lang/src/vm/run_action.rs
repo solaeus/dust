@@ -2,11 +2,11 @@ use tracing::trace;
 
 use crate::{
     instruction::{
-        Call, CallNative, Close, GetLocal, LoadBoolean, LoadConstant, LoadFunction, LoadList,
-        LoadSelf, Point, Return,
+        Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
+        LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
+        Return, SetLocal, Subtract, Test, TestSet,
     },
-    vm::VmError,
-    AbstractList, ConcreteValue, Instruction, InstructionData, Type, Value,
+    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
 };
 
 use super::{thread::ThreadSignal, Pointer, Record, Register};
@@ -14,31 +14,22 @@ use super::{thread::ThreadSignal, Pointer, Record, Register};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RunAction {
     pub logic: RunnerLogic,
-    pub data: InstructionData,
-}
-
-impl From<&Instruction> for RunAction {
-    fn from(instruction: &Instruction) -> Self {
-        let (operation, data) = instruction.decode();
-        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
-
-        RunAction { logic, data }
-    }
+    pub instruction: Instruction,
 }
 
 impl From<Instruction> for RunAction {
     fn from(instruction: Instruction) -> Self {
-        let (operation, data) = instruction.decode();
+        let operation = instruction.operation();
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
-        RunAction { logic, data }
+        RunAction { logic, instruction }
     }
 }
 
-pub type RunnerLogic = fn(InstructionData, &mut Record) -> ThreadSignal;
+pub type RunnerLogic = fn(Instruction, &mut Record) -> ThreadSignal;
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
-    r#move,
+    point,
     close,
     load_boolean,
     load_constant,
@@ -65,8 +56,8 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     r#return,
 ];
 
-pub fn r#move(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let Point { from, to } = instruction_data.into();
+pub fn point(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Point { from, to } = instruction.into();
     let from_register = record.get_register(from);
     let from_register_is_empty = matches!(from_register, Register::Empty);
 
@@ -79,8 +70,8 @@ pub fn r#move(instruction_data: InstructionData, record: &mut Record) -> ThreadS
     ThreadSignal::Continue
 }
 
-pub fn close(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let Close { from, to } = instruction_data.into();
+pub fn close(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Close { from, to } = instruction.into();
 
     assert!(from < to, "Runtime Error: Malformed instruction");
 
@@ -96,12 +87,12 @@ pub fn close(instruction_data: InstructionData, record: &mut Record) -> ThreadSi
     ThreadSignal::Continue
 }
 
-pub fn load_boolean(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn load_boolean(instruction: Instruction, record: &mut Record) -> ThreadSignal {
     let LoadBoolean {
         destination,
         value,
         jump_next,
-    } = instruction_data.into();
+    } = instruction.into();
     let boolean = Value::Concrete(ConcreteValue::Boolean(value));
     let register = Register::Value(boolean);
 
@@ -114,12 +105,12 @@ pub fn load_boolean(instruction_data: InstructionData, record: &mut Record) -> T
     ThreadSignal::Continue
 }
 
-pub fn load_constant(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn load_constant(instruction: Instruction, record: &mut Record) -> ThreadSignal {
     let LoadConstant {
         destination,
         constant_index,
         jump_next,
-    } = instruction_data.into();
+    } = instruction.into();
     let register = Register::Pointer(Pointer::Constant(constant_index));
 
     trace!("Load constant {constant_index} into R{destination}");
@@ -133,11 +124,11 @@ pub fn load_constant(instruction_data: InstructionData, record: &mut Record) -> 
     ThreadSignal::Continue
 }
 
-pub fn load_list(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn load_list(instruction: Instruction, record: &mut Record) -> ThreadSignal {
     let LoadList {
         destination,
         start_register,
-    } = instruction_data.into();
+    } = instruction.into();
     let mut item_pointers = Vec::with_capacity((destination - start_register) as usize);
     let mut item_type = Type::Any;
 
@@ -172,20 +163,20 @@ pub fn load_list(instruction_data: InstructionData, record: &mut Record) -> Thre
     ThreadSignal::Continue
 }
 
-pub fn load_function(instruction_data: InstructionData, _: &mut Record) -> ThreadSignal {
+pub fn load_function(instruction: Instruction, _: &mut Record) -> ThreadSignal {
     let LoadFunction {
         destination,
-        record_index,
-    } = instruction_data.into();
+        prototype_index,
+    } = instruction.into();
 
     ThreadSignal::LoadFunction {
-        from_record_index: record_index,
-        to_register_index: destination,
+        destination,
+        prototype_index,
     }
 }
 
-pub fn load_self(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let LoadSelf { destination } = instruction_data.into();
+pub fn load_self(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let LoadSelf { destination } = instruction.into();
     let function = record.as_function();
     let register = Register::Value(Value::Function(function));
 
@@ -194,11 +185,11 @@ pub fn load_self(instruction_data: InstructionData, record: &mut Record) -> Thre
     ThreadSignal::Continue
 }
 
-pub fn get_local(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn get_local(instruction: Instruction, record: &mut Record) -> ThreadSignal {
     let GetLocal {
         destination,
         local_index,
-    } = instruction_data.into();
+    } = instruction.into();
     let local_register_index = record.get_local_register(local_index);
     let register = Register::Pointer(Pointer::Stack(local_register_index));
 
@@ -207,77 +198,59 @@ pub fn get_local(instruction_data: InstructionData, record: &mut Record) -> Thre
     ThreadSignal::Continue
 }
 
-pub fn set_local(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field: b,
-        c_field: c,
-        ..
-    } = instruction_data;
-    let local_register_index = record.get_local_register(c);
-    let register = Register::Pointer(Pointer::Stack(b));
+pub fn set_local(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let SetLocal {
+        register_index,
+        local_index,
+    } = instruction.into();
+    let local_register_index = record.get_local_register(local_index);
+    let register = Register::Pointer(Pointer::Stack(register_index));
 
     record.set_register(local_register_index, register);
 
     ThreadSignal::Continue
 }
 
-pub fn add(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn add(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Add {
+        destination,
+        left,
+        right,
+    } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let sum = left.add(right);
     let register = Register::Value(sum);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn subtract(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
-    let difference = match (left, right) {
-        (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                ConcreteValue::Integer(left - right).to_value()
-            }
-            _ => panic!("Value Error: Cannot subtract values {left} and {right}"),
-        },
-        _ => panic!("Value Error: Cannot subtract values {left} and {right}"),
-    };
+pub fn subtract(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Subtract {
+        destination,
+        left,
+        right,
+    } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
+    let difference = left.subtract(right);
     let register = Register::Value(difference);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn multiply(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn multiply(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Multiply {
+        destination,
+        left,
+        right,
+    } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let product = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -289,22 +262,19 @@ pub fn multiply(instruction_data: InstructionData, record: &mut Record) -> Threa
     };
     let register = Register::Value(product);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn divide(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn divide(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Divide {
+        destination,
+        left,
+        right,
+    } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let quotient = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -316,22 +286,19 @@ pub fn divide(instruction_data: InstructionData, record: &mut Record) -> ThreadS
     };
     let register = Register::Value(quotient);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn modulo(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn modulo(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Modulo {
+        destination,
+        left,
+        right,
+    } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let remainder = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -343,22 +310,22 @@ pub fn modulo(instruction_data: InstructionData, record: &mut Record) -> ThreadS
     };
     let register = Register::Value(remainder);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn test(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field, c_field, ..
-    } = instruction_data;
-    let value = record.open_register(b_field);
+pub fn test(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Test {
+        operand_register,
+        test_value,
+    } = instruction.into();
+    let value = record.open_register(operand_register);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
         panic!("VM Error: Expected boolean value for TEST operation",);
     };
-    let test_value = c_field != 0;
 
     if boolean == test_value {
         record.ip += 1;
@@ -367,141 +334,110 @@ pub fn test(instruction_data: InstructionData, record: &mut Record) -> ThreadSig
     ThreadSignal::Continue
 }
 
-pub fn test_set(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        ..
-    } = instruction_data;
-    let value = record.get_argument(b, b_is_constant);
+pub fn test_set(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let TestSet {
+        destination,
+        argument,
+        test_value,
+    } = instruction.into();
+    let value = record.get_argument(argument);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
         panic!("VM Error: Expected boolean value for TEST_SET operation",);
     };
-    let test_value = c != 0;
 
     if boolean == test_value {
         record.ip += 1;
     } else {
-        let pointer = if b_is_constant {
-            Pointer::Constant(b)
-        } else {
-            Pointer::Stack(b)
+        let pointer = match argument {
+            Argument::Constant(constant_index) => Pointer::Constant(constant_index),
+            Argument::Register(register_index) => Pointer::Stack(register_index),
         };
         let register = Register::Pointer(pointer);
 
-        record.set_register(a, register);
+        record.set_register(destination, register);
     }
 
     ThreadSignal::Continue
 }
 
-pub fn equal(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        d_field: d,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
-    let is_equal = left == right;
+pub fn equal(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Equal { value, left, right } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
+    let is_equal = left.equals(right);
 
-    if is_equal == d {
+    if is_equal == value {
         record.ip += 1;
     }
 
     ThreadSignal::Continue
 }
 
-pub fn less(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        d_field: d,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn less(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Less { value, left, right } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let is_less = left < right;
 
-    if is_less == d {
+    if is_less == value {
         record.ip += 1;
     }
 
     ThreadSignal::Continue
 }
 
-pub fn less_equal(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field: b,
-        c_field: c,
-        b_is_constant,
-        c_is_constant,
-        d_field: d,
-        ..
-    } = instruction_data;
-    let left = record.get_argument(b, b_is_constant);
-    let right = record.get_argument(c, c_is_constant);
+pub fn less_equal(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let LessEqual { value, left, right } = instruction.into();
+    let left = record.get_argument(left);
+    let right = record.get_argument(right);
     let is_less_or_equal = left <= right;
 
-    if is_less_or_equal == d {
+    if is_less_or_equal == value {
         record.ip += 1;
     }
 
     ThreadSignal::Continue
 }
 
-pub fn negate(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        b_is_constant,
-        ..
-    } = instruction_data;
-    let argument = record.get_argument(b, b_is_constant);
+pub fn negate(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Negate {
+        destination,
+        argument,
+    } = instruction.into();
+    let argument = record.get_argument(argument);
     let negated = argument.negate();
     let register = Register::Value(negated);
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn not(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        a_field: a,
-        b_field: b,
-        b_is_constant,
-        ..
-    } = instruction_data;
-    let argument = record.get_argument(b, b_is_constant);
+pub fn not(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Not {
+        destination,
+        argument,
+    } = instruction.into();
+    let argument = record.get_argument(argument);
     let not = match argument {
         Value::Concrete(ConcreteValue::Boolean(boolean)) => ConcreteValue::Boolean(!boolean),
         _ => panic!("VM Error: Expected boolean value for NOT operation"),
     };
     let register = Register::Value(Value::Concrete(not));
 
-    record.set_register(a, register);
+    record.set_register(destination, register);
 
     ThreadSignal::Continue
 }
 
-pub fn jump(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
-    let InstructionData {
-        b_field: b,
-        c_field: c,
-        ..
-    } = instruction_data;
-    let offset = b as usize;
-    let is_positive = c != 0;
+pub fn jump(instruction: Instruction, record: &mut Record) -> ThreadSignal {
+    let Jump {
+        offset,
+        is_positive,
+    } = instruction.into();
+    let offset = offset as usize;
 
     if is_positive {
         record.ip += offset;
@@ -512,36 +448,26 @@ pub fn jump(instruction_data: InstructionData, record: &mut Record) -> ThreadSig
     ThreadSignal::Continue
 }
 
-pub fn call(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn call(instruction: Instruction, _: &mut Record) -> ThreadSignal {
     let Call {
-        destination,
+        destination: return_register,
         function_register,
         argument_count,
-    } = instruction_data.into();
-    let function_value = record.open_register(function_register);
-    let function = match function_value {
-        Value::Function(function) => function,
-        _ => panic!(
-            "{}",
-            VmError::ExpectedFunction {
-                value: function_value.clone()
-            }
-        ),
-    };
+    } = instruction.into();
 
     ThreadSignal::Call {
-        record_index: function.record_index,
-        return_register: destination,
+        function_register,
+        return_register,
         argument_count,
     }
 }
 
-pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> ThreadSignal {
+pub fn call_native(instruction: Instruction, record: &mut Record) -> ThreadSignal {
     let CallNative {
         destination,
         function,
         argument_count,
-    } = instruction_data.into();
+    } = instruction.into();
     let first_argument_index = destination - argument_count;
     let argument_range = first_argument_index..destination;
 
@@ -550,11 +476,11 @@ pub fn call_native(instruction_data: InstructionData, record: &mut Record) -> Th
         .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-pub fn r#return(instruction_data: InstructionData, _: &mut Record) -> ThreadSignal {
+pub fn r#return(instruction: Instruction, _: &mut Record) -> ThreadSignal {
     let Return {
         should_return_value,
         return_register,
-    } = instruction_data.into();
+    } = instruction.into();
 
     ThreadSignal::Return {
         should_return_value,
@@ -570,7 +496,7 @@ mod tests {
     use super::*;
 
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
-        (Operation::POINT, r#move),
+        (Operation::POINT, point),
         (Operation::CLOSE, close),
         (Operation::LOAD_BOOLEAN, load_boolean),
         (Operation::LOAD_CONSTANT, load_constant),

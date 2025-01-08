@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use tracing::{info, trace};
 
 use crate::{
@@ -5,38 +7,36 @@ use crate::{
     Chunk, DustString, Value,
 };
 
-use super::{record::Record, CallStack};
+use super::{record::Record, CallStack, RunAction};
 
 pub struct Thread {
-    call_stack: CallStack,
-    records: Vec<Record>,
+    chunk: Chunk,
 }
 
 impl Thread {
     pub fn new(chunk: Chunk) -> Self {
-        let call_stack = CallStack::with_capacity(chunk.prototypes().len() + 1);
-        let mut records = Vec::with_capacity(chunk.prototypes().len() + 1);
-
-        chunk.into_records(&mut records);
-
-        Thread {
-            call_stack,
-            records,
-        }
+        Thread { chunk }
     }
 
     pub fn run(&mut self) -> Option<Value> {
-        let mut active = &mut self.records[0];
-        let mut current_call = FunctionCall {
-            name: active.name().cloned(),
-            record_index: active.index(),
-            return_register: active.stack_size() as u8 - 1,
-            ip: active.ip,
+        let mut call_stack = CallStack::with_capacity(self.chunk.prototypes.len() + 1);
+        let mut records = Vec::with_capacity(self.chunk.prototypes.len() + 1);
+
+        let main_call = FunctionCall {
+            name: self.chunk.name.clone(),
+            return_register: 0,
+            ip: 0,
         };
+        let main_record = Record::new(&self.chunk);
+
+        call_stack.push(main_call);
+        records.push(main_record);
+
+        let mut active_record = &mut records[0];
 
         info!(
             "Starting thread with {}",
-            active
+            active_record
                 .as_function()
                 .name
                 .unwrap_or_else(|| DustString::from("anonymous"))
@@ -44,138 +44,106 @@ impl Thread {
 
         loop {
             trace!(
-                "Run \"{}\" | Record = {} | IP = {}",
-                active
+                "Run \"{}\" | IP = {}",
+                active_record
                     .name()
                     .cloned()
                     .unwrap_or_else(|| DustString::from("anonymous")),
-                active.index(),
-                active.ip
+                active_record.ip
             );
 
-            if active.ip >= active.actions.len() {
-                return None;
-            }
+            let instruction = active_record.chunk.instructions[active_record.ip];
+            let action = RunAction::from(instruction);
+            let signal = (action.logic)(action.instruction, active_record);
 
-            let action = active.actions[active.ip];
-            let signal = (action.logic)(action.data, active);
+            trace!("Thread Signal: {}", signal);
 
-            trace!("Thread Signal: {:?}", signal);
-
-            active.ip += 1;
+            active_record.ip += 1;
 
             match signal {
                 ThreadSignal::Continue => {}
                 ThreadSignal::Call {
-                    record_index,
+                    function_register,
                     return_register,
                     argument_count,
                 } => {
-                    let record_index = record_index as usize;
+                    let function = active_record
+                        .open_register(function_register)
+                        .as_function()
+                        .unwrap();
                     let first_argument_register = return_register - argument_count;
                     let mut arguments = Vec::with_capacity(argument_count as usize);
 
                     for register_index in first_argument_register..return_register {
-                        let value = active.clone_register_value_or_constant(register_index);
+                        let value = active_record.clone_register_value_or_constant(register_index);
 
                         arguments.push(value);
                     }
 
-                    if record_index == active.index() as usize {
-                        trace!("Recursion detected");
+                    trace!("Passing arguments: {arguments:?}");
 
-                        if let Some(record) = self.call_stack.last_mut() {
-                            record.ip = active.ip;
-                        }
-
-                        active.ip = 0;
-                    }
-
+                    let prototype = &self.chunk.prototypes[function.prototype_index as usize];
+                    let next_record = Record::new(prototype);
                     let next_call = FunctionCall {
-                        name: active.name().cloned(),
-                        record_index: active.index(),
+                        name: next_record.name().cloned(),
                         return_register,
-                        ip: active.ip,
+                        ip: active_record.ip,
                     };
 
-                    if self
-                        .call_stack
-                        .last()
-                        .is_some_and(|call| call != &next_call)
-                        || self.call_stack.is_empty()
-                    {
-                        self.call_stack.push(current_call);
-                    }
+                    call_stack.push(next_call);
+                    records.push(next_record);
 
-                    current_call = next_call;
-
-                    active = &mut self.records[record_index];
+                    active_record = records.last_mut().unwrap();
 
                     for (index, argument) in arguments.into_iter().enumerate() {
-                        active.set_register(index as u8, Register::Value(argument));
+                        active_record.set_register(index as u8, Register::Value(argument));
                     }
                 }
                 ThreadSignal::LoadFunction {
-                    from_record_index,
-                    to_register_index,
+                    destination,
+                    prototype_index,
                 } => {
-                    let function_record_index = from_record_index as usize;
-                    let original_record_index = active.index() as usize;
-
-                    active = &mut self.records[function_record_index];
-
-                    let function = active.as_function();
+                    let function_record_index = prototype_index as usize;
+                    let function = self.chunk.prototypes[function_record_index].as_function();
                     let register = Register::Value(Value::Function(function));
 
-                    active = &mut self.records[original_record_index];
-
-                    active.set_register(to_register_index, register);
+                    active_record.set_register(destination, register);
                 }
                 ThreadSignal::Return {
                     should_return_value,
                     return_register,
                 } => {
-                    trace!("\n{:#?}{}", self.call_stack, current_call);
+                    trace!("Returning with call stack:\n{call_stack}");
 
-                    let outer_call = if let Some(call) = self.call_stack.pop() {
-                        call
-                    } else if should_return_value {
-                        let return_value = active
-                            .empty_register_or_clone_constant(return_register, Register::Empty);
-                        let next_call = self.call_stack.pop();
-
-                        if next_call.is_none() {
-                            return Some(return_value);
-                        }
-
-                        let next_index = active.index() as usize - 1;
-                        let next_record = &mut self.records[next_index];
-
-                        next_record.set_register(
-                            current_call.return_register,
-                            Register::Value(return_value),
-                        );
-
-                        current_call = next_call.unwrap();
-                        active = next_record;
-
-                        continue;
+                    let return_value = if should_return_value {
+                        Some(
+                            active_record
+                                .empty_register_or_clone_constant(return_register, Register::Empty),
+                        )
                     } else {
-                        return None;
+                        None
                     };
-                    let record_index = outer_call.record_index as usize;
+
+                    let current_call = call_stack.pop_or_panic();
+                    let _current_record = records.pop().unwrap();
                     let destination = current_call.return_register;
 
-                    if should_return_value {
-                        let return_value = active
-                            .empty_register_or_clone_constant(return_register, Register::Empty);
-                        let outer_record = &mut self.records[record_index];
-
-                        outer_record.set_register(destination, Register::Value(return_value));
+                    if call_stack.is_empty() {
+                        return if should_return_value {
+                            Some(return_value.unwrap())
+                        } else {
+                            None
+                        };
                     }
 
-                    active = &mut self.records[record_index];
-                    current_call = outer_call;
+                    let outer_record = records.last_mut().unwrap();
+
+                    if should_return_value {
+                        outer_record
+                            .set_register(destination, Register::Value(return_value.unwrap()));
+                    }
+
+                    active_record = outer_record;
                 }
             }
         }
@@ -186,7 +154,7 @@ impl Thread {
 pub enum ThreadSignal {
     Continue,
     Call {
-        record_index: u8,
+        function_register: u8,
         return_register: u8,
         argument_count: u8,
     },
@@ -195,7 +163,13 @@ pub enum ThreadSignal {
         return_register: u8,
     },
     LoadFunction {
-        from_record_index: u8,
-        to_register_index: u8,
+        prototype_index: u8,
+        destination: u8,
     },
+}
+
+impl Display for ThreadSignal {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }

@@ -223,7 +223,8 @@ fn main() {
     if let Mode::Disassemble { style, name, input } = mode {
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
-        let mut compiler = match Compiler::new(lexer) {
+        let program_name = name.or(file_name);
+        let mut compiler = match Compiler::new(lexer, program_name) {
             Ok(compiler) => compiler,
             Err(error) => {
                 handle_compile_error(error, &source);
@@ -241,7 +242,7 @@ fn main() {
             }
         }
 
-        let chunk = compiler.finish(name.or(file_name));
+        let chunk = compiler.finish();
         let mut stdout = stdout().lock();
 
         chunk
@@ -310,7 +311,8 @@ fn main() {
     {
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
-        let mut compiler = match Compiler::new(lexer) {
+        let program_name = name.or(file_name);
+        let mut compiler = match Compiler::new(lexer, program_name) {
             Ok(compiler) => compiler,
             Err(error) => {
                 handle_compile_error(error, &source);
@@ -328,7 +330,7 @@ fn main() {
             }
         }
 
-        let chunk = compiler.finish(name.or(file_name));
+        let chunk = compiler.finish();
         let compile_end = start_time.elapsed();
 
         let vm = Vm::new(chunk);

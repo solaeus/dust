@@ -1,23 +1,17 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct LoadBoolean {
     pub destination: u8,
     pub value: bool,
     pub jump_next: bool,
 }
 
-impl From<InstructionData> for LoadBoolean {
-    fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a_field;
-        let value = instruction.b_field != 0;
-        let jump_next = instruction.c_field != 0;
-
+impl From<Instruction> for LoadBoolean {
+    fn from(instruction: Instruction) -> Self {
         LoadBoolean {
-            destination,
-            value,
-            jump_next,
+            destination: instruction.a_field(),
+            value: instruction.b_field() != 0,
+            jump_next: instruction.c_field() != 0,
         }
     }
 }

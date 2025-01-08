@@ -6,8 +6,8 @@ pub struct Divide {
     pub right: Argument,
 }
 
-impl From<&Instruction> for Divide {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Divide {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 

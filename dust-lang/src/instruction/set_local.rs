@@ -5,8 +5,8 @@ pub struct SetLocal {
     pub local_index: u8,
 }
 
-impl From<&Instruction> for SetLocal {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for SetLocal {
+    fn from(instruction: Instruction) -> Self {
         let register_index = instruction.b_field();
         let local_index = instruction.c_field();
 

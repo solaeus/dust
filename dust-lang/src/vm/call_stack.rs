@@ -81,18 +81,17 @@ impl Display for CallStack {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(f, "-- DUST CALL STACK --")?;
 
-        for function_call in &self.calls {
+        for function_call in self.calls.iter().rev() {
             writeln!(f, "{function_call}")?;
         }
 
-        Ok(())
+        writeln!(f, "--")
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionCall {
     pub name: Option<DustString>,
-    pub record_index: u8,
     pub return_register: u8,
     pub ip: usize,
 }
@@ -101,7 +100,6 @@ impl Display for FunctionCall {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let FunctionCall {
             name,
-            record_index,
             return_register,
             ..
         } = self;
@@ -110,9 +108,6 @@ impl Display for FunctionCall {
             .map(|name| name.as_str())
             .unwrap_or("anonymous");
 
-        write!(
-            f,
-            "{name} (Record: {record_index}, Return register: {return_register})"
-        )
+        write!(f, "{name} (Return register: {return_register})")
     }
 }

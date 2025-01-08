@@ -2,27 +2,16 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct Point {
     pub from: u8,
     pub to: u8,
 }
 
-impl From<&Instruction> for Point {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Point {
+    fn from(instruction: Instruction) -> Self {
         Point {
             from: instruction.b_field(),
             to: instruction.c_field(),
-        }
-    }
-}
-
-impl From<InstructionData> for Point {
-    fn from(instruction: InstructionData) -> Self {
-        Point {
-            from: instruction.b_field,
-            to: instruction.c_field,
         }
     }
 }

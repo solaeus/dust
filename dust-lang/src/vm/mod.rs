@@ -18,10 +18,10 @@ pub use run_action::RunAction;
 pub use thread::{Thread, ThreadSignal};
 use tracing::{span, Level};
 
-use crate::{compile, Chunk, DustError, Value};
+use crate::{compile, Chunk, DustError, DustString, Value};
 
-pub fn run(source: &str) -> Result<Option<Value>, DustError> {
-    let chunk = compile(source)?;
+pub fn run(program_name: Option<DustString>, source: &str) -> Result<Option<Value>, DustError> {
+    let chunk = compile(program_name, source)?;
     let vm = Vm::new(chunk);
 
     Ok(vm.run())

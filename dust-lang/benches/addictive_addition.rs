@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dust_lang::run;
+use dust_lang::{run, DustString};
 
 const SOURCE: &str = r"
     let mut i = 0
@@ -12,7 +12,7 @@ const SOURCE: &str = r"
 ";
 
 fn addictive_addition(source: &str) {
-    let _ = run(source).unwrap();
+    run(Some(DustString::from("addictive_addition")), source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

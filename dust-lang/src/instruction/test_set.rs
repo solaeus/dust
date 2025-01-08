@@ -6,8 +6,8 @@ pub struct TestSet {
     pub test_value: bool,
 }
 
-impl From<&Instruction> for TestSet {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for TestSet {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let argument = instruction.b_as_argument();
         let test_value = instruction.c_field() != 0;

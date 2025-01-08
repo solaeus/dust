@@ -1,63 +1,30 @@
 use std::mem::replace;
 
-use smallvec::SmallVec;
 use tracing::trace;
 
-use crate::{DustString, Function, FunctionType, Local, Span, Value};
+use crate::{Argument, Chunk, DustString, Function, Span, Value};
 
-use super::{run_action::RunAction, Pointer, Register};
+use super::{Pointer, Register};
 
 #[derive(Debug)]
-pub struct Record {
+pub struct Record<'a> {
     pub ip: usize,
-    pub actions: SmallVec<[RunAction; 32]>,
-
+    pub chunk: &'a Chunk,
     stack: Vec<Register>,
-    last_assigned_register: Option<u8>,
-
-    name: Option<DustString>,
-    r#type: FunctionType,
-
-    positions: SmallVec<[Span; 32]>,
-    constants: SmallVec<[Value; 16]>,
-    locals: SmallVec<[Local; 8]>,
-
-    index: u8,
 }
 
-impl Record {
+impl<'a> Record<'a> {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        actions: SmallVec<[RunAction; 32]>,
-        last_assigned_register: Option<u8>,
-        name: Option<DustString>,
-        r#type: FunctionType,
-        positions: SmallVec<[Span; 32]>,
-        constants: SmallVec<[Value; 16]>,
-        locals: SmallVec<[Local; 8]>,
-        stack_size: usize,
-        index: u8,
-    ) -> Self {
+    pub fn new(chunk: &'a Chunk) -> Self {
         Self {
             ip: 0,
-            actions,
-            stack: vec![Register::Empty; stack_size],
-            last_assigned_register,
-            name,
-            r#type,
-            positions,
-            constants,
-            locals,
-            index,
+            stack: vec![Register::Empty; chunk.stack_size],
+            chunk,
         }
     }
 
     pub fn name(&self) -> Option<&DustString> {
-        self.name.as_ref()
-    }
-
-    pub fn index(&self) -> u8 {
-        self.index
+        self.chunk.name.as_ref()
     }
 
     pub fn stack_size(&self) -> usize {
@@ -65,19 +32,11 @@ impl Record {
     }
 
     pub fn current_position(&self) -> Span {
-        self.positions[self.ip]
-    }
-
-    pub fn last_assigned_register(&self) -> Option<u8> {
-        self.last_assigned_register
+        self.chunk.positions[self.ip]
     }
 
     pub fn as_function(&self) -> Function {
-        Function {
-            name: self.name.clone(),
-            r#type: self.r#type.clone(),
-            record_index: self.index,
-        }
+        self.chunk.as_function()
     }
 
     pub(crate) fn follow_pointer(&self, pointer: Pointer) -> &Value {
@@ -103,7 +62,6 @@ impl Record {
     }
 
     pub fn set_register(&mut self, to_register: u8, register: Register) {
-        self.last_assigned_register = Some(to_register);
         let to_register = to_register as usize;
 
         assert!(
@@ -215,11 +173,10 @@ impl Record {
     }
 
     /// DRY helper to get a value from an Argument
-    pub fn get_argument(&self, index: u8, is_constant: bool) -> &Value {
-        if is_constant {
-            self.get_constant(index)
-        } else {
-            self.open_register(index)
+    pub fn get_argument(&self, argument: Argument) -> &Value {
+        match argument {
+            Argument::Constant(constant_index) => self.get_constant(constant_index),
+            Argument::Register(register_index) => self.open_register(register_index),
         }
     }
 
@@ -227,21 +184,21 @@ impl Record {
         let constant_index = constant_index as usize;
 
         assert!(
-            constant_index < self.constants.len(),
+            constant_index < self.chunk.constants.len(),
             "VM Error: Constant index out of bounds"
         );
 
-        &self.constants[constant_index]
+        &self.chunk.constants[constant_index]
     }
 
     pub fn get_local_register(&self, local_index: u8) -> u8 {
         let local_index = local_index as usize;
 
         assert!(
-            local_index < self.locals.len(),
+            local_index < self.chunk.locals.len(),
             "VM Error: Local index out of bounds"
         );
 
-        self.locals[local_index].register_index
+        self.chunk.locals[local_index].register_index
     }
 }

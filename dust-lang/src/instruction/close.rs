@@ -1,26 +1,15 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct Close {
     pub from: u8,
     pub to: u8,
 }
 
-impl From<&Instruction> for Close {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Close {
+    fn from(instruction: Instruction) -> Self {
         Close {
             from: instruction.b_field(),
             to: instruction.c_field(),
-        }
-    }
-}
-
-impl From<InstructionData> for Close {
-    fn from(instruction: InstructionData) -> Self {
-        Close {
-            from: instruction.b_field,
-            to: instruction.c_field,
         }
     }
 }

@@ -277,10 +277,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border(&column_name_line)?;
         self.write_center_border(INSTRUCTION_BORDERS[1])?;
 
-        for (index, instruction) in self.chunk.instructions().iter().enumerate() {
+        for (index, instruction) in self.chunk.instructions.iter().enumerate() {
             let position = self
                 .chunk
-                .positions()
+                .positions
                 .get(index)
                 .map(|position| position.to_string())
                 .unwrap_or("stripped".to_string());
@@ -317,11 +317,11 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 scope,
                 is_mutable,
             },
-        ) in self.chunk.locals().iter().enumerate()
+        ) in self.chunk.locals.iter().enumerate()
         {
             let identifier_display = self
                 .chunk
-                .constants()
+                .constants
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
@@ -352,7 +352,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.constants().iter().enumerate() {
+        for (index, value) in self.chunk.constants.iter().enumerate() {
             let type_display = value.r#type().to_string();
             let value_display = {
                 let mut value_string = value.to_string();

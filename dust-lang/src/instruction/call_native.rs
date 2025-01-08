@@ -1,15 +1,13 @@
 use crate::{Instruction, NativeFunction, Operation};
 
-use super::InstructionData;
-
 pub struct CallNative {
     pub destination: u8,
     pub function: NativeFunction,
     pub argument_count: u8,
 }
 
-impl From<&Instruction> for CallNative {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for CallNative {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let function = NativeFunction::from(instruction.b_field());
 
@@ -17,16 +15,6 @@ impl From<&Instruction> for CallNative {
             destination,
             function,
             argument_count: instruction.c_field(),
-        }
-    }
-}
-
-impl From<InstructionData> for CallNative {
-    fn from(data: InstructionData) -> Self {
-        CallNative {
-            destination: data.a_field,
-            function: NativeFunction::from(data.b_field),
-            argument_count: data.c_field,
         }
     }
 }

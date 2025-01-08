@@ -5,8 +5,8 @@ pub struct Jump {
     pub is_positive: bool,
 }
 
-impl From<&Instruction> for Jump {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Jump {
+    fn from(instruction: Instruction) -> Self {
         Jump {
             offset: instruction.b_field(),
             is_positive: instruction.c_field() != 0,

@@ -2,33 +2,17 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct LoadConstant {
     pub destination: u8,
     pub constant_index: u8,
     pub jump_next: bool,
 }
 
-impl From<&Instruction> for LoadConstant {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for LoadConstant {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let constant_index = instruction.b_field();
         let jump_next = instruction.c_field() != 0;
-
-        LoadConstant {
-            destination,
-            constant_index,
-            jump_next,
-        }
-    }
-}
-
-impl From<InstructionData> for LoadConstant {
-    fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a_field;
-        let constant_index = instruction.b_field;
-        let jump_next = instruction.c_field != 0;
 
         LoadConstant {
             destination,

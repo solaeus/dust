@@ -6,8 +6,8 @@ pub struct Equal {
     pub right: Argument,
 }
 
-impl From<&Instruction> for Equal {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Equal {
+    fn from(instruction: Instruction) -> Self {
         let value = instruction.d_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 

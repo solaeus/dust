@@ -1,22 +1,12 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct LoadSelf {
     pub destination: u8,
 }
 
-impl From<&Instruction> for LoadSelf {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for LoadSelf {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
-
-        LoadSelf { destination }
-    }
-}
-
-impl From<InstructionData> for LoadSelf {
-    fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a_field;
 
         LoadSelf { destination }
     }

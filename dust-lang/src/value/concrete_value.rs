@@ -64,7 +64,6 @@ impl ConcreteValue {
         }
     }
 
-    #[inline(always)]
     pub fn add(&self, other: &Self) -> ConcreteValue {
         use ConcreteValue::*;
 
@@ -120,22 +119,21 @@ impl ConcreteValue {
         }
     }
 
-    pub fn subtract(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
+    pub fn subtract(&self, other: &Self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let difference = match (self, other) {
+        match (self, other) {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_sub(*right)),
             (Float(left), Float(right)) => ConcreteValue::Float(left - right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_sub(*right)),
-            _ => {
-                return Err(ValueError::CannotSubtract(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
-            }
-        };
-
-        Ok(difference)
+            _ => panic!(
+                "{}",
+                ValueError::CannotSubtract(
+                    Value::Concrete(self.clone()),
+                    Value::Concrete(other.clone())
+                )
+            ),
+        }
     }
 
     pub fn multiply(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
@@ -217,30 +215,30 @@ impl ConcreteValue {
         Ok(not)
     }
 
-    pub fn equal(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
+    pub fn equals(&self, other: &ConcreteValue) -> bool {
         use ConcreteValue::*;
 
-        let equal = match (self, other) {
-            (Boolean(left), Boolean(right)) => ConcreteValue::Boolean(left == right),
-            (Byte(left), Byte(right)) => ConcreteValue::Boolean(left == right),
-            (Character(left), Character(right)) => ConcreteValue::Boolean(left == right),
-            (Float(left), Float(right)) => ConcreteValue::Boolean(left == right),
-            (Integer(left), Integer(right)) => ConcreteValue::Boolean(left == right),
-            (List(left), List(right)) => ConcreteValue::Boolean(left == right),
-            (Range(left), Range(right)) => ConcreteValue::Boolean(left == right),
-            (String(left), String(right)) => ConcreteValue::Boolean(left == right),
+        match (self, other) {
+            (Boolean(left), Boolean(right)) => left == right,
+            (Byte(left), Byte(right)) => left == right,
+            (Character(left), Character(right)) => left == right,
+            (Float(left), Float(right)) => left == right,
+            (Integer(left), Integer(right)) => left == right,
+            (List(left), List(right)) => left == right,
+            (Range(left), Range(right)) => left == right,
+            (String(left), String(right)) => left == right,
             _ => {
-                return Err(ValueError::CannotCompare(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
+                panic!(
+                    "{}",
+                    ValueError::CannotCompare(
+                        Value::Concrete(self.clone()),
+                        Value::Concrete(other.clone())
+                    )
+                )
             }
-        };
-
-        Ok(equal)
+        }
     }
 
-    #[inline(always)]
     pub fn less_than(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 
@@ -264,7 +262,7 @@ impl ConcreteValue {
         Ok(less_than)
     }
 
-    pub fn less_than_or_equal(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
+    pub fn less_than_or_equals(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 
         let less_than_or_equal = match (self, other) {

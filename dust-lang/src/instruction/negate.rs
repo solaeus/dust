@@ -5,8 +5,8 @@ pub struct Negate {
     pub argument: Argument,
 }
 
-impl From<&Instruction> for Negate {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Negate {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let argument = instruction.b_as_argument();
 

@@ -46,19 +46,19 @@ write_line(fib(25))
 
 ## Goals
 
-This project's goal is to deliver a language that not only *works* but that offers genunine value
-due to a unique combination of design choices and a high-quality implementation. As mentioned in the
-first sentence, Dust's general aspirations are to be **fast**, **safe** and **easy**.
+This project's goal is to deliver a language with features that stand out due to a combination of
+design choices and a high-quality implementation. As mentioned in the first sentence, Dust's general
+aspirations are to be **fast**, **safe** and **easy**.
 
 - **Easy**
   - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
     should be familiar to users of other C-like languages to the point that even a new user can read
-    Dust code and understand what it does. Rather than being dumbed down by a lack of features, Dust
+    Dust code and understand what it does. Rather than being held back by a lack of features, Dust
     should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum
     of complexity. When advanced features are added, they should never obstruct existing features,
     including readability. Even the advanced type system should be clear and unintimidating.
   - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
-    source of the problem and suggest a solution. Errors should be a helpful learning ressource for
+    source of the problem and suggest a solution. Errors should be a helpful learning resource for
     users rather than a source of frustration.
   - **Relevant Documentation** Users should have the resources they need to learn Dust and write
     code in it. They should know where to look for answers and how to reach out for help.
@@ -68,7 +68,7 @@ first sentence, Dust's general aspirations are to be **fast**, **safe** and **ea
     typed language, users should feel confident in the type-consistency of their code and not want
     to go back to a dynamically typed language.
   - **Memory Safety** Dust should be free of memory bugs. Being implemented in Rust makes this easy
-    but, to accomodate long-running programs, Dust still requires a memory management strategy.
+    but, to accommodate long-running programs, Dust still requires a memory management strategy.
     Dust's design is to use a separate thread for garbage collection, allowing the main thread to
     continue executing code while the garbage collector looks for unused memory.
 - **Fast**
@@ -76,7 +76,7 @@ first sentence, Dust's general aspirations are to be **fast**, **safe** and **ea
     executing quickly. The compilation time should feel negligible to the user.
   - **Fast Execution** Dust should be generally faster than Python, Ruby and NodeJS. It should be
     competitive with highly optimized, modern, register-based VM languages like Lua. Dust should
-    be benchmarked during development to inform decisions about performance.
+    be bench tested during development to inform decisions about performance.
   - **Low Resource Usage** Despite its performance, Dust's use of memory and CPU power should be
     conservative and predictable enough to accomodate a wide range of devices.
 
@@ -94,10 +94,10 @@ the family but Rust is its primary point of reference for syntax. Rust was chose
 because its imperative code is *obvious by design* and *widely familiar*. Those qualities are
 aligned with Dust's emphasis on usability.
 
-However, some differences exist. Dust *evaluates* all of the code in the file while Rust only
-initiates from a "main" function. Dust's execution model is more like one found in a scripting
-language. If we put `42 + 42 == 84` into a file and run it, it will return `true` because the outer
-context is, in a sense, the "main" function.
+However, some differences exist. Dust *evaluates* all the code in the file while Rust only initiates
+from a "main" function. Dust's execution model is more like one found in a scripting language. If we
+put `42 + 42 == 84` into a file and run it, it will return `true` because the outer context is, in a
+sense, the "main" function.
 
 So while the syntax is by no means compatible, it is superficially similar, even to the point that
 syntax highlighting for Rust code works well with Dust code. This is not a design goal but a happy

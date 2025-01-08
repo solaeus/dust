@@ -1,32 +1,16 @@
 use crate::{Instruction, Operation};
 
-use super::InstructionData;
-
 pub struct Call {
     pub destination: u8,
     pub function_register: u8,
     pub argument_count: u8,
 }
 
-impl From<&Instruction> for Call {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Call {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
         let function_register = instruction.b_field();
         let argument_count = instruction.c_field();
-
-        Call {
-            destination,
-            function_register,
-            argument_count,
-        }
-    }
-}
-
-impl From<InstructionData> for Call {
-    fn from(instruction: InstructionData) -> Self {
-        let destination = instruction.a_field;
-        let function_register = instruction.b_field;
-        let argument_count = instruction.c_field;
 
         Call {
             destination,

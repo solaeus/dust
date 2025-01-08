@@ -231,6 +231,15 @@ impl AnnotatedError for CompileError {
                     )
                 ]
             }
+            Self::ReturnTypeConflict { conflict, position } => {
+                smallvec![(
+                    format!(
+                        "Expected type {} but found type {}",
+                        conflict.expected, conflict.actual
+                    ),
+                    *position
+                )]
+            }
             _ => SmallVec::new(),
         }
     }

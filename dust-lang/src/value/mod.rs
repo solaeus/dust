@@ -85,24 +85,24 @@ impl Value {
     }
 
     pub fn add(&self, other: &Value) -> Value {
-        let concrete = match (self, other) {
+        let sum = match (self, other) {
             (Value::Concrete(left), Value::Concrete(right)) => left.add(right),
             _ => panic!("{}", ValueError::CannotAdd(self.clone(), other.clone())),
         };
 
-        Value::Concrete(concrete)
+        Value::Concrete(sum)
     }
 
-    pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.subtract(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotSubtract(
-                self.to_owned(),
-                other.to_owned(),
-            )),
-        }
+    pub fn subtract(&self, other: &Value) -> Value {
+        let difference = match (self, other) {
+            (Value::Concrete(left), Value::Concrete(right)) => left.subtract(right),
+            _ => panic!(
+                "{}",
+                ValueError::CannotSubtract(self.clone(), other.clone())
+            ),
+        };
+
+        Value::Concrete(difference)
     }
 
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
@@ -151,12 +151,13 @@ impl Value {
         }
     }
 
-    pub fn equal(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn equals(&self, other: &Value) -> bool {
         match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.equal(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
+            (Value::Concrete(left), Value::Concrete(right)) => left.equals(right),
+            _ => panic!(
+                "{}",
+                ValueError::CannotCompare(self.to_owned(), other.to_owned())
+            ),
         }
     }
 
@@ -169,10 +170,10 @@ impl Value {
         }
     }
 
-    pub fn less_equal(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn less_than_or_equals(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Concrete(left), Value::Concrete(right)) => {
-                left.less_than_or_equal(right).map(Value::Concrete)
+                left.less_than_or_equals(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }

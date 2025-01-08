@@ -50,16 +50,16 @@ use crate::{
 ///
 /// assert_eq!(chunk.instructions().len(), 3);
 /// ```
-pub fn compile(source: &str) -> Result<Chunk, DustError> {
+pub fn compile(program_name: Option<DustString>, source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler = Compiler::new(lexer).map_err(|error| DustError::compile(error, source))?;
-    compiler.is_main_chunk = true;
+    let mut compiler =
+        Compiler::new(lexer, program_name).map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
         .map_err(|error| DustError::compile(error, source))?;
 
-    let chunk = compiler.finish(None::<DustString>);
+    let chunk = compiler.finish();
 
     Ok(chunk)
 }
@@ -112,21 +112,12 @@ pub struct Compiler<'src> {
     /// incremented when a new block is entered.
     block_index: u8,
 
-    /// The current scope of the compiler. This is used to test if a variable is in scope.
+    /// The current block scope of the compiler. This is used to test if a variable is in scope.
     current_scope: Scope,
 
-    /// Index of the [`Record`] that the VM will use when calling the function. This is a
-    /// depth-first index.
-    record_index: u8,
-
-    /// Record index for the next nested chunk that is compiled. When a function is compiled, its
-    /// `record_index` is assigned from this value. Then `next_record_index` is incremented to
-    /// maintain the depth-first index. After the function is compiled, its `next_record_index`
-    /// is assigned back to this chunk.
-    next_record_index: u8,
-
-    /// Whether the compiler is compiling the main chunk.
-    is_main_chunk: bool,
+    /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
+    /// that value is never read because the main chunk is not a callable function.
+    prototype_index: u8,
 
     current_token: Token<'src>,
     current_position: Span,
@@ -135,12 +126,15 @@ pub struct Compiler<'src> {
 }
 
 impl<'src> Compiler<'src> {
-    /// Creates a new compiler with the given lexer.
-    pub fn new(mut lexer: Lexer<'src>) -> Result<Self, CompileError> {
+    /// Creates a new top-level compiler with the given lexer.
+    pub fn new(
+        mut lexer: Lexer<'src>,
+        function_name: Option<DustString>,
+    ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
         Ok(Compiler {
-            function_name: None,
+            function_name,
             r#type: FunctionType {
                 type_parameters: None,
                 value_parameters: None,
@@ -155,47 +149,12 @@ impl<'src> Compiler<'src> {
             minimum_register: 0,
             block_index: 0,
             current_scope: Scope::default(),
-            record_index: 0,
-            next_record_index: 1,
-            is_main_chunk: true,
+            prototype_index: 0,
             current_token,
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
         })
-    }
-
-    /// Creates a new chunk with the compiled data, optionally assigning a name to the chunk.
-    ///
-    /// Note for maintainers: Do not give a name when compiling functions, only the main chunk. This
-    /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
-    /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
-    pub fn finish(self, name: Option<impl Into<DustString>>) -> Chunk {
-        let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
-            .instructions
-            .into_iter()
-            .map(|(instruction, _, position)| (instruction, position))
-            .unzip();
-        let locals = self
-            .locals
-            .into_iter()
-            .map(|(local, _)| local)
-            .collect::<SmallVec<[Local; 8]>>();
-        let chunk_name = name
-            .map(|into_name| into_name.into())
-            .or(self.function_name);
-
-        Chunk::new(
-            chunk_name,
-            self.r#type,
-            instructions,
-            positions,
-            self.constants,
-            locals,
-            self.prototypes,
-            self.stack_size,
-            self.record_index,
-        )
     }
 
     /// Compiles the source (which is in the lexer) while checking for errors and returning a
@@ -228,6 +187,36 @@ impl<'src> Compiler<'src> {
         info!("End chunk");
 
         Ok(())
+    }
+
+    /// Creates a new chunk with the compiled data, optionally assigning a name to the chunk.
+    ///
+    /// Note for maintainers: Do not give a name when compiling functions, only the main chunk. This
+    /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
+    /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
+    pub fn finish(self) -> Chunk {
+        let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
+            .instructions
+            .into_iter()
+            .map(|(instruction, _, position)| (instruction, position))
+            .unzip();
+        let locals = self
+            .locals
+            .into_iter()
+            .map(|(local, _)| local)
+            .collect::<SmallVec<[Local; 8]>>();
+
+        Chunk {
+            name: self.function_name,
+            r#type: self.r#type,
+            instructions,
+            positions,
+            constants: self.constants,
+            locals,
+            prototypes: self.prototypes,
+            stack_size: self.stack_size,
+            prototype_index: self.prototype_index,
+        }
     }
 
     fn is_eof(&self) -> bool {
@@ -417,7 +406,7 @@ impl<'src> Compiler<'src> {
             let operation = instruction.operation();
 
             if let Operation::LOAD_LIST = operation {
-                let LoadList { start_register, .. } = LoadList::from(instruction);
+                let LoadList { start_register, .. } = LoadList::from(*instruction);
                 let item_type = self.get_register_type(start_register)?;
 
                 return Ok(Type::List(Box::new(item_type)));
@@ -442,22 +431,13 @@ impl<'src> Compiler<'src> {
     ///
     /// If [`Self::type`] is already set, it will check if the given [Type] is compatible.
     fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
-        if !self.is_main_chunk {
-            Type::function(self.r#type.clone())
-                .check(&new_return_type)
-                .map_err(|conflict| CompileError::ReturnTypeConflict {
-                    conflict,
-                    position: self.current_position,
-                })?;
-        }
-
         if self.r#type.return_type != Type::None {
             self.r#type
                 .return_type
                 .check(&new_return_type)
                 .map_err(|conflict| CompileError::ReturnTypeConflict {
                     conflict,
-                    position: self.current_position,
+                    position: self.previous_position,
                 })?;
         }
 
@@ -749,7 +729,7 @@ impl<'src> Compiler<'src> {
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
         let left_is_mutable_local = if let Operation::GET_LOCAL = left_instruction.operation() {
-            let GetLocal { local_index, .. } = GetLocal::from(&left_instruction);
+            let GetLocal { local_index, .. } = GetLocal::from(left_instruction);
 
             self.locals
                 .get(local_index as usize)
@@ -1020,7 +1000,7 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) {
             let destination = self.next_register();
-            let load_function = Instruction::load_function(destination, self.record_index);
+            let load_function = Instruction::load_function(destination, self.prototype_index);
 
             self.emit_instruction(load_function, Type::SelfFunction, start_position);
 
@@ -1172,7 +1152,7 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_expression()?;
 
-        let emit_test_and_jump = if matches!(
+        if matches!(
             self.get_last_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
@@ -1183,13 +1163,8 @@ impl<'src> Compiler<'src> {
         ) {
             self.instructions.pop();
             self.instructions.pop();
-
-            false
+            self.instructions.pop();
         } else {
-            true
-        };
-
-        if emit_test_and_jump {
             let operand_register = self.next_register() - 1;
             let test = Instruction::test(operand_register, true);
 
@@ -1212,7 +1187,6 @@ impl<'src> Compiler<'src> {
         let if_block_end = self.instructions.len();
         let mut if_block_distance = (if_block_end - if_block_start) as u8;
         let if_block_type = self.get_last_instruction_type();
-        // let if_last_register = self.next_register().saturating_sub(1);
 
         if let Token::Else = self.current_token {
             self.advance()?;
@@ -1275,21 +1249,11 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        if emit_test_and_jump {
-            let jump = Instruction::jump(if_block_distance, true);
+        let jump = Instruction::jump(if_block_distance, true);
 
-            self.instructions
-                .insert(if_block_start, (jump, Type::None, if_block_start_position));
-        }
-
+        self.instructions
+            .insert(if_block_start, (jump, Type::None, if_block_start_position));
         control_flow_register_consolidation(self);
-
-        // let else_last_register = self.next_register().saturating_sub(1);
-        // let point = Instruction::point(else_last_register, if_last_register);
-
-        // if if_last_register < else_last_register {
-        //     self.emit_instruction(point, else_block_type, self.current_position);
-        // }
 
         Ok(())
     }
@@ -1456,10 +1420,10 @@ impl<'src> Compiler<'src> {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(&*instruction);
+                } = Jump::from(*instruction);
                 let offset = offset as usize;
 
-                if is_positive && offset + index == instruction_length - 2 {
+                if is_positive && offset + index == instruction_length - 1 {
                     *instruction = Instruction::jump((offset + 1) as u8, true);
                 }
             }
@@ -1469,7 +1433,14 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if self.allow(Token::Semicolon)? {
+        if matches!(self.get_last_operation(), Some(Operation::RETURN))
+            || matches!(
+                self.get_last_operations(),
+                Some([Operation::RETURN, Operation::JUMP])
+            )
+        {
+            // Do nothing if the last instruction is a return or a return followed by a jump
+        } else if self.allow(Token::Semicolon)? {
             let r#return = Instruction::r#return(false, 0);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -1503,10 +1474,10 @@ impl<'src> Compiler<'src> {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(&*instruction);
+                } = Jump::from(*instruction);
                 let offset = offset as usize;
 
-                if is_positive && offset + index == instruction_length - 2 {
+                if is_positive && offset + index == instruction_length - 1 {
                     *instruction = Instruction::jump((offset + 1) as u8, true);
                 }
             }
@@ -1564,24 +1535,30 @@ impl<'src> Compiler<'src> {
 
     fn parse_function(&mut self) -> Result<(), CompileError> {
         let function_start = self.current_position.0;
-        let mut function_compiler = Compiler::new(self.lexer)?;
 
-        function_compiler.record_index = self.next_record_index;
-        function_compiler.next_record_index = self.next_record_index + 1;
+        self.advance()?;
 
-        let identifier_info = if let Token::Identifier(text) = function_compiler.current_token {
-            let position = function_compiler.current_position;
+        let identifier = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
 
-            function_compiler.advance()?;
-
-            function_compiler.function_name = Some(text.into());
-
-            Some((text, position))
+            Some(text)
         } else {
             None
         };
 
-        function_compiler.expect(Token::LeftParenthesis)?;
+        let mut function_compiler = if self.current_token == Token::LeftParenthesis {
+            let function_name = identifier.map(DustString::from);
+
+            Compiler::new(self.lexer, function_name)? // This will consume the left parenthesis
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::LeftParenthesis,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        function_compiler.prototype_index = self.prototypes.len() as u8;
 
         let mut value_parameters: Option<SmallVec<[(u8, Type); 4]>> = None;
 
@@ -1656,18 +1633,17 @@ impl<'src> Compiler<'src> {
         self.previous_position = function_compiler.previous_position;
         self.current_token = function_compiler.current_token;
         self.current_position = function_compiler.current_position;
-        self.next_record_index = function_compiler.next_record_index;
 
         self.lexer.skip_to(self.current_position.1);
 
         let function_end = function_compiler.previous_position.1;
-        let record_index = function_compiler.record_index;
-        let chunk = function_compiler.finish(None::<&str>);
+        let prototype_index = function_compiler.prototype_index;
+        let chunk = function_compiler.finish();
         let destination = self.next_register();
 
         self.prototypes.push(chunk);
 
-        if let Some((identifier, _)) = identifier_info {
+        if let Some(identifier) = identifier {
             self.declare_local(
                 identifier,
                 destination,
@@ -1677,7 +1653,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        let load_function = Instruction::load_function(destination, record_index);
+        let load_function = Instruction::load_function(destination, prototype_index);
 
         self.emit_instruction(
             load_function,
