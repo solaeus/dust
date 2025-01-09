@@ -25,7 +25,7 @@ mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
-use tracing::{debug, info, span, Level};
+use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
 use std::mem::replace;
@@ -33,9 +33,9 @@ use std::mem::replace;
 use optimize::control_flow_register_consolidation;
 
 use crate::{
-    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
     Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
+    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
 };
 
 /// Compiles the input and returns a chunk.
@@ -665,7 +665,7 @@ impl<'src> Compiler<'src> {
                     expected: &[TokenKind::Bang, TokenKind::Minus],
                     found: operator.to_owned(),
                     position: operator_position,
-                })
+                });
             }
         };
 
@@ -716,7 +716,7 @@ impl<'src> Compiler<'src> {
                 return Err(CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                })
+                });
             }
         };
 
@@ -826,7 +826,7 @@ impl<'src> Compiler<'src> {
                     ],
                     found: operator.to_owned(),
                     position: operator_position,
-                })
+                });
             }
         };
 
@@ -836,8 +836,13 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some([Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL, _, _]) =
-            self.get_last_operations()
+        if let Some(
+            [
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                _,
+                _,
+            ],
+        ) = self.get_last_operations()
         {
             return Err(CompileError::ComparisonChain {
                 position: self.current_position,
@@ -898,7 +903,7 @@ impl<'src> Compiler<'src> {
                     ],
                     found: operator.to_owned(),
                     position: operator_position,
-                })
+                });
             }
         };
         let jump = Instruction::jump(1, true);
@@ -949,7 +954,7 @@ impl<'src> Compiler<'src> {
                     expected: &[TokenKind::DoubleAmpersand, TokenKind::DoublePipe],
                     found: operator.to_owned(),
                     position: operator_position,
-                })
+                });
             }
         };
         let test = Instruction::test(operand_register, test_boolean);
@@ -1227,7 +1232,7 @@ impl<'src> Compiler<'src> {
                 if let Some(Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT) =
                     self.get_last_operation()
                 {
-                    let (mut loader, _, _) = self.instructions.last_mut().unwrap();
+                    let (loader, _, _) = self.instructions.last_mut().unwrap();
 
                     loader.set_c_field(true as u8);
                 } else {

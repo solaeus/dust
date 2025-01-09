@@ -16,7 +16,7 @@ serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 getrandom = { version = "0.2", features = [
     "js",
-] } # Indirect dependency, for wasm builds
+] } # Indirect dependency, for WASM builds
 smartstring = { version = "1.0.1", features = [
     "serde",
 ], default-features = false }
