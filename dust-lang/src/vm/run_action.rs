@@ -544,11 +544,17 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
         ip: current_call.ip,
         record: Record::new(prototype),
     };
+    let mut argument_index = 0;
 
-    for (argument_index, register_index) in (first_argument_register..return_register).enumerate() {
-        let argument = current_call
+    for register_index in first_argument_register..return_register {
+        let value_option = current_call
             .record
-            .clone_register_value_or_constant_unchecked(register_index);
+            .open_register_allow_empty_unchecked(register_index);
+        let argument = if let Some(value) = value_option {
+            value.clone()
+        } else {
+            continue;
+        };
 
         trace!(
             "Passing argument \"{argument}\" to {}",
@@ -560,7 +566,9 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
 
         next_call
             .record
-            .set_register(argument_index as u8, Register::Value(argument));
+            .set_register(argument_index, Register::Value(argument));
+
+        argument_index += 1;
     }
 
     data.next_action = get_next_action(&mut next_call.record);
@@ -601,12 +609,12 @@ pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> bool {
     };
 
     let outer_call = data.call_stack.last_mut_unchecked();
-    let destination = current_call.return_register;
 
     if should_return_value {
         let return_value = current_call
             .record
             .empty_register_or_clone_constant_unchecked(return_register);
+        let destination = current_call.return_register;
 
         outer_call
             .record

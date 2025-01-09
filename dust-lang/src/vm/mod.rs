@@ -18,10 +18,10 @@ pub use thread::{Thread, ThreadData};
 
 use tracing::{span, Level};
 
-use crate::{compile, Chunk, DustError, DustString, Value};
+use crate::{compile, Chunk, DustError, Value};
 
-pub fn run(program_name: Option<DustString>, source: &str) -> Result<Option<Value>, DustError> {
-    let chunk = compile(program_name, source)?;
+pub fn run(source: &str) -> Result<Option<Value>, DustError> {
+    let chunk = compile(source)?;
     let vm = Vm::new(chunk);
 
     Ok(vm.run())
@@ -92,8 +92,8 @@ pub enum Pointer {
 impl Display for Pointer {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Stack(index) => write!(f, "R{}", index),
-            Self::Constant(index) => write!(f, "C{}", index),
+            Self::Stack(index) => write!(f, "PR{}", index),
+            Self::Constant(index) => write!(f, "PC{}", index),
         }
     }
 }

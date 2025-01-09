@@ -49,10 +49,10 @@ use crate::{
 ///
 /// assert_eq!(chunk.instructions().len(), 3);
 /// ```
-pub fn compile(program_name: Option<DustString>, source: &str) -> Result<Chunk, DustError> {
+pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler = Compiler::new(lexer, program_name, true)
-        .map_err(|error| DustError::compile(error, source))?;
+    let mut compiler =
+        Compiler::new(lexer, None, true).map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()

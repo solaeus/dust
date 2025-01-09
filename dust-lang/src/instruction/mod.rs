@@ -768,7 +768,7 @@ impl Debug for Instruction {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.operation(), self.disassembly_info())
+        write!(f, "{} | {}", self.operation(), self.disassembly_info())
     }
 }
 
