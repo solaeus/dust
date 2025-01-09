@@ -9,9 +9,10 @@
 //! parameters and the type of the return value are statically known. The [`Chunk::stack_size`]
 //! field can provide the necessary stack size that will be needed by the virtual machine. Chunks
 //! cannot be instantiated directly and must be created by the compiler. However, when the Rust
-//! compiler is in the "test" configuration (used for all types of test), [`Chunk::with_data`] can
-//! be used to create a chunk for comparison to the compiler output. Do not try to run these chunks
-//! in a virtual machine. Due to their missing stack size and record index, they will cause a panic.
+//! compiler is in the "test" or "debug_assertions" configuration (used for all types of test),
+//! [`Chunk::with_data`] can be used to create a chunk for comparison to the compiler output. Do not
+//! try to run these chunks in a virtual machine. Due to their missing stack size and record index,
+//! they will cause a panic or undefined behavior.
 mod disassembler;
 mod local;
 mod scope;

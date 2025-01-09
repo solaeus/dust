@@ -3,12 +3,12 @@
 A **fast**, **safe** and **easy to use** language for general-purpose programming.
 
 Dust is **statically typed** to ensure that each program is valid before it is run. Compiling is
-fast due to the purpose-built lexer and parser. Execution is fast because Dust uses instructions in
-a highly optimizable, custom bytecode format that runs in a multi-threaded VM. Dust combines
-compile-time safety guarantees and optimizations with negligible compile times and satisfying speed
-to deliver a unique set of features. It offers the best qualities of two disparate categories of
-programming language: the highly optimized but slow-to-compile languages like Rust and C++ and the
-quick-to-start but often slow and error-prone languages like Python and JavaScript.
+fast due to the purpose-built lexer and parser. Execution is fast because Dust uses a custom
+bytecode that runs in a multi-threaded VM. Dust combines compile-time safety guarantees and
+optimizations with negligible compile times and satisfying runtime speed to deliver a unique set of
+features. It offers the best qualities of two disparate categories of programming language: the
+highly optimized but slow-to-compile languages like Rust and C++ and the quick-to-start but often
+slow and error-prone languages like Python and JavaScript.
 
 Dust's syntax, safety features and evaluation model are based on Rust. Its instruction set,
 optimization strategies and virtual machine are based on Lua. Unlike Rust and other languages that
@@ -16,9 +16,6 @@ compile to machine code, Dust has a very low time to execution. Unlike Lua and m
 interpreted languages, Dust enforces static typing to improve clarity and prevent bugs.
 
 **Dust is under active development and is not yet ready for general use.**
-
-**Features discussed in this README may be unimplemented, partially implemented or temporarily
-removed.**
 
 ```rust
 // "Hello, world" using Dust's built-in I/O functions
@@ -32,11 +29,8 @@ write_line("Hello " + name + "!")
 ```rust
 // The classic, unoptimized Fibonacci sequence
 fn fib (n: int) -> int {
-    if n <= 0 {
-        return 0
-    } else if n == 1 {
-        return 1
-    }
+    if n <= 0 { return 0 }
+    if n == 1 { return 1 }
 
     fib(n - 1) + fib(n - 2)
 }
@@ -50,18 +44,14 @@ This project's goal is to deliver a language with features that stand out due to
 design choices and a high-quality implementation. As mentioned in the first sentence, Dust's general
 aspirations are to be **fast**, **safe** and **easy**.
 
-- **Easy**
-  - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
-    should be familiar to users of other C-like languages to the point that even a new user can read
-    Dust code and understand what it does. Rather than being held back by a lack of features, Dust
-    should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum
-    of complexity. When advanced features are added, they should never obstruct existing features,
-    including readability. Even the advanced type system should be clear and unintimidating.
-  - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
-    source of the problem and suggest a solution. Errors should be a helpful learning resource for
-    users rather than a source of frustration.
-  - **Relevant Documentation** Users should have the resources they need to learn Dust and write
-    code in it. They should know where to look for answers and how to reach out for help.
+- **Fast**
+  - **Fast Compilation** Despite its compile-time abstractions, Dust should compile and start
+    executing quickly. The compilation time should feel negligible to the user.
+  - **Fast Execution** Dust should be generally faster than Python, Ruby and NodeJS. It should be
+    competitive with highly optimized, modern, register-based VM languages like Lua. Dust should
+    be bench tested during development to inform decisions about performance.
+  - **Low Resource Usage** Despite its performance, Dust's use of memory and CPU power should be
+    conservative and predictable enough to accomodate a wide range of devices.
 - **Safe**
   - **Static Types** Typing should prevent runtime errors and improve code quality, offering a
     superior development experience despite some additional constraints. Like any good statically
@@ -71,14 +61,17 @@ aspirations are to be **fast**, **safe** and **easy**.
     but, to accommodate long-running programs, Dust still requires a memory management strategy.
     Dust's design is to use a separate thread for garbage collection, allowing the main thread to
     continue executing code while the garbage collector looks for unused memory.
-- **Fast**
-  - **Fast Compilation** Despite its compile-time abstractions, Dust should compile and start
-    executing quickly. The compilation time should feel negligible to the user.
-  - **Fast Execution** Dust should be generally faster than Python, Ruby and NodeJS. It should be
-    competitive with highly optimized, modern, register-based VM languages like Lua. Dust should
-    be bench tested during development to inform decisions about performance.
-  - **Low Resource Usage** Despite its performance, Dust's use of memory and CPU power should be
-    conservative and predictable enough to accomodate a wide range of devices.
+- **Easy**
+  - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
+    should be familiar to users of other C-like languages to the point that even a new user can read
+    Dust code and understand what it does. Rather than being held back by a lack of features, Dust
+    should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum
+    of complexity.
+  - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
+    source of the problem and suggest a solution. Errors should be a helpful learning resource for
+    users rather than a source of frustration.
+  - **Relevant Documentation** Users should have the resources they need to learn Dust and write
+    code in it. They should know where to look for answers and how to reach out for help.
 
 ## Language Overview
 
@@ -129,8 +122,7 @@ let a = { 40 + 2 }  // This is also fine
 ```
 
 Only the final expression in a block is returned. When a `let` statement is combined with an
-`if/else` statement, the program can perform side effects before evaluating the value that will be
-assigned to the variable.
+`if/else` statement, the program can perform conditional side effects before assigning the variable.
 
 ```rust
 let random: int = random(0..100)
@@ -156,7 +148,7 @@ and *meaningful*, which provides excellent consistency but lacks flexibility. In
 semicolons are *required* and *meaningless*, which is a source of confusion for many developers.
 
 Dust borrowed Rust's approach to semicolons and their effect on evaluation and relaxed the rules to
-accomated different styles of coding. Rust isn't designed for command lines or REPLs but Dust is
+accommodate different styles of coding. Rust isn't designed for command lines or REPLs but Dust is
 well-suited to those applications. Dust needs to work in a source file or in an ad-hoc one-liner
 sent to the CLI. Thus, semicolons are optional in most cases.
 
@@ -187,10 +179,14 @@ let y = 3
 write_line("The remainder is ", x % y)
 ```
 
-The next example produces a compiler error because the `if` block returns a value of type `int` but
-the `else` block does not return a value at all. Dust does not allow branches of the same `if/else`
-statement to have different types. In this case, adding a semicolon after the `777` expression fixes
-the error by supressing the value.
+### Type System
+
+All variables have a type that is established when the variable is declared. This usually does not
+require that the type be explicitly stated, Dust can infer the type from the value.
+
+The next example produces a compiler error because the `if` block evaluates to and `int` but the
+`else` block evaluates to a `str`. Dust does not allow branches of the same `if/else` statement to
+have different types.
 
 ```rust
 // !!! Compile Error !!!
@@ -198,29 +194,13 @@ let input = read_line()
 let reward = if input == "42" {
     write_line("You got it! Here's your reward.")
 
-    777 // <- We need a semicolon here
+    777 // <- This is an int
 } else {
     write_line(input, " is not the answer.")
+
+    "777" // <- This is a string
 }
 ```
-
-#### Type System
-
-All variables have a type that is established when the variable is declared. This usually does not
-require that the type be explicitly stated, Dust can infer the type from the value. Types are also
-associated with the arms of `if/else` statements and the return values of functions, which prevents
-different runtime scenarios from producing different types of values.
-
-#### Null-Free
-
-There is no `null` or `undefined` value in Dust. All values and variables must be initialized to one
-of the supported value types. This eliminates a whole class of bugs that permeate many other
-languages. "I call it my billion-dollar mistake. It was the invention of the null reference in
-1965." - Tony Hoare
-
-Dust *does* have a `none` type, which should not be confused for being `null`-like. Like the `()` or
-"unit" type in Rust, `none` exists as a type but not as a value. It indicates the lack of a value
-from a function, expression or statement. A variable cannot be assigned to `none`.
 
 ### Basic Values
 
@@ -241,6 +221,17 @@ values, strings are considered "basic" because they are parsed directly from tok
 singular values. Shorter strings are stored on the stack while longer strings are heap-allocated.
 Dust offers built-in native functions that can manipulate strings by accessing their bytes or
 reading them as a sequence of characters.
+
+There is no `null` or `undefined` value in Dust. All values and variables must be initialized to one
+of the supported value types. This eliminates a whole class of bugs that permeate many other
+languages.
+
+> I call it my billion-dollar mistake. It was the invention of the null reference in 1965.
+> - Tony Hoare
+
+Dust *does* have a `none` type, which should not be confused for being `null`-like. Like the `()` or
+"unit" type in Rust, `none` exists as a type but not as a value. It indicates the lack of a value
+from a function, expression or statement. A variable cannot be assigned to `none`.
 
 ## Previous Implementations
 
