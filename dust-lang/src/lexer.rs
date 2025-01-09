@@ -3,9 +3,6 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
-
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 
 use crate::{dust_error::AnnotatedError, CompileError, DustError, Span, Token};
@@ -35,10 +32,9 @@ pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, DustError> {
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer.next_token().map_err(|error| DustError::Compile {
-            error: CompileError::Lex(error),
-            source,
-        })?;
+        let (token, span) = lexer
+            .next_token()
+            .map_err(|error| DustError::compile(CompileError::Lex(error), source))?;
 
         tokens.push((token, span));
 
@@ -50,7 +46,7 @@ pub fn lex(source: &str) -> Result<Vec<(Token, Span)>, DustError> {
     Ok(tokens)
 }
 
-/// Low-level tool for lexing a single token at a time.
+/// Tool for lexing a single token at a time.
 ///
 /// See the [`lex`] function for an example of how to create and use a Lexer.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -199,10 +195,6 @@ impl<'src> Lexer<'src> {
                     self.next_char();
 
                     while let Some(peek_char) = self.peek_char() {
-                        if peek_char == ' ' {
-                            break;
-                        }
-
                         if let '0'..='9' = peek_char {
                             self.next_char();
 
@@ -211,32 +203,28 @@ impl<'src> Lexer<'src> {
 
                         let peek_second_char = self.peek_second_char();
 
-                        if let ('e', Some('0'..='9')) = (peek_char, peek_second_char) {
+                        if let ('e' | 'E', Some('0'..='9')) = (peek_char, peek_second_char) {
                             self.next_char();
                             self.next_char();
 
                             continue;
                         }
 
-                        if let ('e', Some('-')) = (peek_char, peek_second_char) {
+                        if let ('e' | 'E', Some('+' | '-')) = (peek_char, peek_second_char) {
                             self.next_char();
                             self.next_char();
 
                             continue;
                         }
 
-                        return Err(LexError::ExpectedCharacterMultiple {
-                            expected: &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', '-'],
-                            actual: peek_char,
-                            position: self.position,
-                        });
+                        break;
                     }
                 } else {
                     break;
                 }
             }
 
-            if c.is_ascii_digit() {
+            if c.is_ascii_digit() || c == '_' {
                 self.next_char();
             } else {
                 break;
@@ -631,7 +619,7 @@ pub struct LexRule<'src> {
     lexer: LexerFn<'src>,
 }
 
-impl<'src> From<&char> for LexRule<'src> {
+impl From<&char> for LexRule<'_> {
     fn from(char: &char) -> Self {
         match char {
             '0'..='9' => LexRule {
@@ -756,65 +744,12 @@ impl AnnotatedError for LexError {
         }
     }
 
-    fn details(&self) -> Option<String> {
-        match self {
-            Self::ExpectedAsciiHexDigit { actual, .. } => Some(format!(
-                "Expected ASCII hex digit (0-9 or A-F), found \"{}\"",
-                actual
-                    .map(|character| character.to_string())
-                    .unwrap_or("end of input".to_string())
-            )),
-            Self::ExpectedCharacter {
-                expected, actual, ..
-            } => Some(format!(
-                "Expected character \"{}\", found \"{}\"",
-                expected, actual
-            )),
-            Self::ExpectedCharacterMultiple {
-                expected, actual, ..
-            } => {
-                let mut details = "Expected one of the following characters ".to_string();
-
-                for (i, c) in expected.iter().enumerate() {
-                    if i == expected.len() - 1 {
-                        details.push_str(", or ");
-                    } else if i > 0 {
-                        details.push_str(", ");
-                    }
-                    details.push(*c);
-                }
-
-                details.push_str(&format!(" but found {}", actual));
-
-                Some(details)
-            }
-            Self::UnexpectedCharacter { actual, .. } => {
-                Some(format!("Unexpected character \"{}\"", actual))
-            }
-            Self::UnexpectedEndOfFile { .. } => Some("Unexpected end of file".to_string()),
-        }
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 
-    fn position(&self) -> Span {
-        match self {
-            Self::ExpectedAsciiHexDigit { position, .. } => Span(*position, *position),
-            Self::ExpectedCharacter { position, .. } => Span(*position, *position),
-            Self::ExpectedCharacterMultiple { position, .. } => Span(*position, *position),
-            Self::UnexpectedCharacter { position, .. } => Span(*position, *position),
-            Self::UnexpectedEndOfFile { position } => Span(*position, *position),
-        }
-    }
-}
-
-impl Display for LexError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.description())?;
-
-        if let Some(details) = self.details() {
-            write!(f, ": {}", details)?;
-        }
-
-        Ok(())
+    fn help_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 }
 

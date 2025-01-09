@@ -6,27 +6,22 @@ pub struct Equal {
     pub right: Argument,
 }
 
-impl From<&Instruction> for Equal {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Equal {
+    fn from(instruction: Instruction) -> Self {
+        let value = instruction.d_field();
         let (left, right) = instruction.b_and_c_as_arguments();
 
-        Equal {
-            value: instruction.a_as_boolean(),
-            left,
-            right,
-        }
+        Equal { value, left, right }
     }
 }
 
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
-        *Instruction::new(Operation::Equal)
-            .set_a_to_boolean(equal.value)
-            .set_b(equal.left.index())
-            .set_b_is_constant(equal.left.is_constant())
-            .set_b_is_local(equal.left.is_local())
-            .set_c(equal.right.index())
-            .set_c_is_constant(equal.right.is_constant())
-            .set_c_is_local(equal.right.is_local())
+        let operation = Operation::EQUAL;
+        let (b, b_is_constant) = equal.left.as_index_and_constant_flag();
+        let (c, c_is_constant) = equal.right.as_index_and_constant_flag();
+        let d = equal.value;
+
+        Instruction::new(operation, 0, b, c, b_is_constant, c_is_constant, d)
     }
 }

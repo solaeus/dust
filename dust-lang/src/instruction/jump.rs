@@ -1,23 +1,25 @@
 use crate::{Instruction, Operation};
 
 pub struct Jump {
-    pub offset: u16,
+    pub offset: u8,
     pub is_positive: bool,
 }
 
-impl From<&Instruction> for Jump {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Jump {
+    fn from(instruction: Instruction) -> Self {
         Jump {
-            offset: instruction.b(),
-            is_positive: instruction.c_as_boolean(),
+            offset: instruction.b_field(),
+            is_positive: instruction.c_field() != 0,
         }
     }
 }
 
 impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
-        *Instruction::new(Operation::Jump)
-            .set_b(jump.offset)
-            .set_c_to_boolean(jump.is_positive)
+        let operation = Operation::JUMP;
+        let b = jump.offset;
+        let c = jump.is_positive as u8;
+
+        Instruction::new(operation, 0, b, c, false, false, false)
     }
 }

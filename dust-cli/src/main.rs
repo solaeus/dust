@@ -1,192 +1,387 @@
-use std::io::{stdout, Write};
-use std::time::Instant;
-use std::{fs::read_to_string, path::PathBuf};
+use std::{
+    fs::read_to_string,
+    io::{self, stdout, Read},
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
-use clap::{Args, Parser, Subcommand};
-use colored::Colorize;
-use dust_lang::{compile, lex, run, write_token_list};
-use log::{Level, LevelFilter};
+use clap::{
+    builder::{styling::AnsiColor, Styles},
+    crate_authors, crate_description, crate_version,
+    error::ErrorKind,
+    Args, ColorChoice, Error, Parser, Subcommand, ValueHint,
+};
+use color_print::{cformat, cstr};
+use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
+use tracing::{subscriber::set_global_default, Level};
+use tracing_subscriber::FmtSubscriber;
+
+const ABOUT: &str = cstr!(
+    r#"
+<bright-magenta,bold>Dust CLI
+────────</>
+{about}
+
+<bold>⚙️ Version:</> {version}
+<bold>🦀 Author:</> {author}
+<bold>⚖️ License:</> GPL-3.0
+<bold>🔬 Repository:</> https://git.jeffa.io/jeff/dust
+"#
+);
+
+const PLAIN_ABOUT: &str = r#"
+{about}
+"#;
+
+const USAGE: &str = cstr!(
+    r#"
+<bright-magenta,bold>Usage:</> {usage}
+"#
+);
+
+const SUBCOMMANDS: &str = cstr!(
+    r#"
+<bright-magenta,bold>Modes:</>
+{subcommands}
+"#
+);
+
+const OPTIONS: &str = cstr!(
+    r#"
+<bright-magenta,bold>Options:</>
+{options}
+"#
+);
+
+const CREATE_MAIN_HELP_TEMPLATE: fn() -> String =
+    || cformat!("{ABOUT}{USAGE}{SUBCOMMANDS}{OPTIONS}");
+
+const CREATE_MODE_HELP_TEMPLATE: fn(&str) -> String = |title| {
+    cformat!(
+        "\
+        <bright-magenta,bold>{title}\n────────</>\
+        {PLAIN_ABOUT}{USAGE}{OPTIONS}
+        "
+    )
+};
+
+const STYLES: Styles = Styles::styled()
+    .literal(AnsiColor::Cyan.on_default())
+    .placeholder(AnsiColor::Cyan.on_default())
+    .valid(AnsiColor::BrightCyan.on_default())
+    .invalid(AnsiColor::BrightYellow.on_default())
+    .error(AnsiColor::BrightRed.on_default());
 
 #[derive(Parser)]
 #[clap(
-    version = env!("CARGO_PKG_VERSION"),
-    author = env!("CARGO_PKG_AUTHORS"),
-    about = env!("CARGO_PKG_DESCRIPTION"),
+    version = crate_version!(),
+    author = crate_authors!(),
+    about = crate_description!(),
+    color = ColorChoice::Auto,
+    help_template = CREATE_MAIN_HELP_TEMPLATE(),
+    styles = STYLES,
 )]
-#[command(args_conflicts_with_subcommands = true)]
 struct Cli {
-    #[command(flatten)]
-    global_arguments: GlobalArguments,
+    /// Overrides the DUST_LOG environment variable
+    #[arg(
+        short,
+        long,
+        value_parser = |input: &str| match input.to_uppercase().as_str() {
+            "TRACE" => Ok(Level::TRACE),
+            "DEBUG" => Ok(Level::DEBUG),
+            "INFO" => Ok(Level::INFO),
+            "WARN" => Ok(Level::WARN),
+            "ERROR" => Ok(Level::ERROR),
+            _ => Err(Error::new(ErrorKind::ValueValidation)),
+        }
+    )]
+    log_level: Option<Level>,
 
     #[command(subcommand)]
-    mode: Option<CliMode>,
+    mode: Option<Mode>,
+
+    #[command(flatten)]
+    run: Run,
 }
 
-#[derive(Subcommand)]
-enum CliMode {
-    /// Run the source code (default)
-    #[command(short_flag = 'r')]
-    Run {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Do not print the program's output value
-        #[arg(short, long)]
-        no_output: bool,
-    },
-
-    /// Compile a chunk and show the disassembly
-    #[command(short_flag = 'd')]
-    Disassemble {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Style the disassembly output
-        #[arg(short, long)]
-        style: bool,
-    },
-
-    /// Create and display tokens from the source code
-    #[command(short_flag = 't')]
-    Tokenize {
-        #[command(flatten)]
-        global_arguments: GlobalArguments,
-
-        /// Style the disassembly output
-        #[arg(short, long)]
-        style: bool,
-    },
-}
-
-#[derive(Args, Clone)]
-struct GlobalArguments {
-    /// Log level, overrides the DUST_LOG environment variable
-    ///
-    /// Possible values: trace, debug, info, warn, error
-    #[arg(short, long, value_name = "LOG_LEVEL")]
-    log: Option<LevelFilter>,
-
-    /// Source code
-    ///
-    /// Conflicts with the file argument
-    #[arg(short, long, value_name = "SOURCE", conflicts_with = "file")]
+#[derive(Args)]
+struct Input {
+    /// Source code to run instead of a file
+    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
     command: Option<String>,
 
+    /// Read source code from stdin
+    #[arg(long)]
+    stdin: bool,
+
     /// Path to a source code file
-    #[arg(required_unless_present = "command")]
+    #[arg(value_hint = ValueHint::FilePath)]
     file: Option<PathBuf>,
 }
 
-fn set_log_and_get_source(arguments: GlobalArguments, start_time: Instant) -> String {
-    let GlobalArguments { command, file, log } = arguments;
-    let mut logger = env_logger::builder();
+/// Compile and run the program (default)
+#[derive(Args)]
+#[command(
+    short_flag = 'r',
+    help_template = CREATE_MODE_HELP_TEMPLATE("Run Mode")
+)]
+struct Run {
+    /// Print the time taken for compilation and execution
+    #[arg(long)]
+    time: bool,
 
-    logger.format(move |buf, record| {
-        let elapsed = format!("T+{:.04}", start_time.elapsed().as_secs_f32()).dimmed();
-        let level_display = match record.level() {
-            Level::Info => "INFO".bold().white(),
-            Level::Debug => "DEBUG".bold().blue(),
-            Level::Warn => "WARN".bold().yellow(),
-            Level::Error => "ERROR".bold().red(),
-            Level::Trace => "TRACE".bold().purple(),
-        };
-        let display = format!("[{elapsed}] {level_display:5} {args}", args = record.args());
+    /// Do not print the program's return value
+    #[arg(long)]
+    no_output: bool,
 
-        writeln!(buf, "{display}")
-    });
+    /// Custom program name, overrides the file name
+    #[arg(long)]
+    name: Option<DustString>,
 
-    if let Some(level) = log {
-        logger.filter_level(level).init();
-    } else {
-        logger.parse_env("DUST_LOG").init();
+    #[command(flatten)]
+    input: Input,
+}
+
+#[derive(Subcommand)]
+#[clap(subcommand_value_name = "MODE", flatten_help = true)]
+enum Mode {
+    Run(Run),
+
+    /// Compile and print the bytecode disassembly
+    #[command(
+        short_flag = 'd',
+        help_template = CREATE_MODE_HELP_TEMPLATE("Disassemble Mode")
+    )]
+    Disassemble {
+        /// Style disassembly output
+        #[arg(short, long, default_value = "true")]
+        style: bool,
+
+        /// Custom program name, overrides the file name
+        #[arg(long)]
+        name: Option<DustString>,
+
+        #[command(flatten)]
+        input: Input,
+    },
+
+    /// Lex the source code and print the tokens
+    #[command(
+        short_flag = 't',
+        help_template = CREATE_MODE_HELP_TEMPLATE("Tokenize Mode")
+    )]
+    Tokenize {
+        /// Style token output
+        #[arg(short, long, default_value = "true")]
+        style: bool,
+
+        #[command(flatten)]
+        input: Input,
+    },
+}
+
+fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
+    if let Some(path) = input.file {
+        let source = read_to_string(&path).expect("Failed to read source file");
+        let file_name = path
+            .file_name()
+            .and_then(|os_str| os_str.to_str())
+            .map(DustString::from);
+
+        return (source, file_name);
     }
 
-    if let Some(source) = command {
-        source
-    } else {
-        let path = file.expect("Path is required when command is not provided");
+    if input.stdin {
+        let mut source = String::new();
+        io::stdin()
+            .read_to_string(&mut source)
+            .expect("Failed to read from stdin");
 
-        read_to_string(path).expect("Failed to read file")
+        return (source, None);
     }
+
+    let source = input.command.expect("No source code provided");
+
+    (source, None)
 }
 
 fn main() {
     let start_time = Instant::now();
     let Cli {
-        global_arguments,
+        log_level,
         mode,
+        run,
     } = Cli::parse();
-    let mode = mode.unwrap_or(CliMode::Run {
-        global_arguments,
-        no_output: false,
-    });
+    let mode = mode.unwrap_or(Mode::Run(run));
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .with_thread_names(true)
+        .with_file(false)
+        .finish();
 
-    if let CliMode::Run {
-        global_arguments,
-        no_output,
-    } = mode
-    {
-        let source = set_log_and_get_source(global_arguments, start_time);
-        let run_result = run(&source);
+    set_global_default(subscriber).expect("Failed to set tracing subscriber");
 
-        match run_result {
-            Ok(Some(value)) => {
-                if !no_output {
-                    println!("{}", value)
+    if let Mode::Disassemble { style, name, input } = mode {
+        let (source, file_name) = get_source_and_file_name(input);
+        let lexer = Lexer::new(&source);
+        let program_name = name.or(file_name);
+        let mut compiler = match Compiler::new(lexer, program_name, true) {
+            Ok(compiler) => compiler,
+            Err(error) => {
+                handle_compile_error(error, &source);
+
+                return;
+            }
+        };
+
+        match compiler.compile() {
+            Ok(()) => {}
+            Err(error) => {
+                handle_compile_error(error, &source);
+
+                return;
+            }
+        }
+
+        let chunk = compiler.finish();
+        let mut stdout = stdout().lock();
+
+        chunk
+            .disassembler(&mut stdout)
+            .width(65)
+            .style(style)
+            .source(&source)
+            .disassemble()
+            .expect("Failed to write disassembly to stdout");
+
+        return;
+    }
+
+    if let Mode::Tokenize { input, .. } = mode {
+        let (source, _) = get_source_and_file_name(input);
+        let mut lexer = Lexer::new(&source);
+        let mut next_token = || -> Option<(Token, Span, bool)> {
+            match lexer.next_token() {
+                Ok((token, position)) => Some((token, position, lexer.is_eof())),
+                Err(error) => {
+                    let report = DustError::compile(CompileError::Lex(error), &source).report();
+
+                    eprintln!("{report}");
+
+                    None
                 }
             }
-            Ok(None) => {}
-            Err(error) => {
-                eprintln!("{}", error.report());
+        };
+
+        println!("{:^66}", "Tokens");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+        println!("{:^21}|{:^22}|{:^22}", "Kind", "Value", "Position");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+
+        while let Some((token, position, is_eof)) = next_token() {
+            if is_eof {
+                break;
             }
+
+            let token_kind = token.kind().to_string();
+            let token = token.to_string();
+            let position = position.to_string();
+
+            println!("{token_kind:^21}|{token:^22}|{position:^22}");
         }
 
         return;
     }
 
-    if let CliMode::Disassemble {
-        global_arguments,
-        style,
-    } = mode
+    if let Mode::Run(Run {
+        time,
+        no_output,
+        name,
+        input,
+    }) = mode
     {
-        let source = set_log_and_get_source(global_arguments, start_time);
-        let chunk = match compile(&source) {
-            Ok(chunk) => chunk,
+        let (source, file_name) = get_source_and_file_name(input);
+        let lexer = Lexer::new(&source);
+        let program_name = name.or(file_name);
+        let mut compiler = match Compiler::new(lexer, program_name, true) {
+            Ok(compiler) => compiler,
             Err(error) => {
-                eprintln!("{}", error.report());
+                handle_compile_error(error, &source);
 
                 return;
             }
         };
-        let disassembly = chunk
-            .disassembler()
-            .style(style)
-            .source(&source)
-            .disassemble();
 
-        println!("{}", disassembly);
-
-        return;
-    }
-
-    if let CliMode::Tokenize {
-        global_arguments,
-        style,
-    } = mode
-    {
-        let source = set_log_and_get_source(global_arguments, start_time);
-        let tokens = match lex(&source) {
-            Ok(tokens) => tokens,
+        match compiler.compile() {
+            Ok(()) => {}
             Err(error) => {
-                eprintln!("{}", error.report());
+                handle_compile_error(error, &source);
 
                 return;
             }
-        };
-        let mut stdout = stdout().lock();
+        }
 
-        write_token_list(&tokens, style, &mut stdout)
+        let chunk = compiler.finish();
+        let compile_end = start_time.elapsed();
+
+        let vm = Vm::new(chunk);
+        let return_value = vm.run();
+        let run_end = start_time.elapsed();
+
+        if let Some(value) = return_value {
+            if !no_output {
+                println!("{}", value)
+            }
+        }
+
+        if time {
+            let run_time = run_end - compile_end;
+            let total_time = compile_end + run_time;
+
+            print_time("Compile Time", compile_end);
+            print_time("Run Time", run_time);
+            print_time("Total Time", total_time);
+        }
     }
+}
+
+fn print_time(phase: &str, instant: Duration) {
+    let seconds = instant.as_secs_f64();
+
+    match seconds {
+        ..=0.001 => {
+            println!(
+                "{phase:12}: {microseconds}µs",
+                microseconds = (seconds * 1_000_000.0).round()
+            );
+        }
+        ..=0.199 => {
+            println!(
+                "{phase:12}: {milliseconds}ms",
+                milliseconds = (seconds * 1000.0).round()
+            );
+        }
+        _ => {
+            println!("{phase:12}: {seconds}s");
+        }
+    }
+}
+
+fn handle_compile_error(error: CompileError, source: &str) {
+    let dust_error = DustError::compile(error, source);
+    let report = dust_error.report();
+
+    eprintln!("{report}");
 }
 
 #[cfg(test)]

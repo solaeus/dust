@@ -11,25 +11,16 @@ fn panic() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None),
+                return_type: Type::None,
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(6, 22)),
+                (Instruction::load_constant(1, 1, false), Span(24, 26)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::String,
-                    Span(6, 22)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(1), 1, false),
-                    Type::Integer,
-                    Span(24, 26)
-                ),
-                (
-                    Instruction::call_native(Destination::Register(2), NativeFunction::Panic, 2),
-                    Type::None,
+                    Instruction::call_native(2, NativeFunction::Panic, 2),
                     Span(0, 27)
                 ),
-                (Instruction::r#return(false), Type::None, Span(27, 27))
+                (Instruction::r#return(false), Span(27, 27))
             ],
             vec![
                 ConcreteValue::string("Goodbye world!"),
@@ -62,20 +53,15 @@ fn to_string() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::String),
+                return_type: Type::String,
             },
             vec![
+                (Instruction::load_constant(0, 0, false), Span(10, 12)),
                 (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::Integer,
-                    Span(10, 12)
-                ),
-                (
-                    Instruction::call_native(Destination::Register(1), NativeFunction::ToString, 1),
-                    Type::String,
+                    Instruction::call_native(1, NativeFunction::ToString, 1),
                     Span(0, 13)
                 ),
-                (Instruction::r#return(true), Type::None, Span(13, 13))
+                (Instruction::r#return(true), Span(13, 13))
             ],
             vec![ConcreteValue::Integer(42)],
             vec![]

@@ -1,107 +1,114 @@
 //! Runtime values used by the VM.
-mod abstract_value;
+mod abstract_list;
 mod concrete_value;
+mod function;
 mod range_value;
 
-pub use abstract_value::AbstractValue;
-pub use concrete_value::ConcreteValue;
+pub use abstract_list::AbstractList;
+pub use concrete_value::{ConcreteValue, DustString};
+pub use function::Function;
 pub use range_value::RangeValue;
+use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Vm, VmError};
+use crate::{vm::ThreadData, Type};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
-    Abstract(AbstractValue),
     Concrete(ConcreteValue),
+
+    #[serde(skip)]
+    AbstractList(AbstractList),
+
+    #[serde(skip)]
+    Function(Function),
 }
 
 impl Value {
-    pub fn to_ref(&self) -> ValueRef {
-        match self {
-            Value::Abstract(abstract_value) => ValueRef::Abstract(abstract_value),
-            Value::Concrete(concrete_value) => ValueRef::Concrete(concrete_value),
+    pub fn boolean(boolean: bool) -> Self {
+        Value::Concrete(ConcreteValue::Boolean(boolean))
+    }
+
+    pub fn byte(byte: u8) -> Self {
+        Value::Concrete(ConcreteValue::Byte(byte))
+    }
+
+    pub fn character(character: char) -> Self {
+        Value::Concrete(ConcreteValue::Character(character))
+    }
+
+    pub fn float(float: f64) -> Self {
+        Value::Concrete(ConcreteValue::Float(float))
+    }
+
+    pub fn integer(integer: i64) -> Self {
+        Value::Concrete(ConcreteValue::Integer(integer))
+    }
+
+    pub fn string(string: impl Into<DustString>) -> Self {
+        Value::Concrete(ConcreteValue::String(string.into()))
+    }
+
+    pub fn as_boolean(&self) -> Option<&bool> {
+        if let Value::Concrete(ConcreteValue::Boolean(value)) = self {
+            Some(value)
+        } else {
+            None
         }
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
-        match self {
-            Value::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            Value::Concrete(concrete_value) => Ok(concrete_value.clone()),
+    pub fn as_function(&self) -> Option<&Function> {
+        if let Value::Function(function) = self {
+            Some(function)
+        } else {
+            None
         }
     }
 
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
-        match self {
-            Value::Abstract(abstract_value) => abstract_value.display(vm),
-            Value::Concrete(concrete_value) => Ok(concrete_value.to_string()),
-        }
-    }
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Abstract(abstract_value) => write!(f, "{}", abstract_value),
-            Value::Concrete(concrete_value) => write!(f, "{}", concrete_value),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub enum ValueRef<'a> {
-    Abstract(&'a AbstractValue),
-    Concrete(&'a ConcreteValue),
-}
-
-impl ValueRef<'_> {
-    pub fn to_owned(&self) -> Value {
-        match self {
-            ValueRef::Abstract(abstract_value) => Value::Abstract((*abstract_value).clone()),
-            ValueRef::Concrete(concrete_value) => Value::Concrete((*concrete_value).clone()),
+    pub fn as_string(&self) -> Option<&DustString> {
+        if let Value::Concrete(ConcreteValue::String(value)) = self {
+            Some(value)
+        } else {
+            None
         }
     }
 
-    pub fn to_concrete_owned(&self, vm: &Vm) -> Result<ConcreteValue, VmError> {
+    pub fn r#type(&self) -> Type {
         match self {
-            ValueRef::Abstract(abstract_value) => abstract_value.to_concrete_owned(vm),
-            ValueRef::Concrete(concrete_value) => Ok((*concrete_value).clone()),
-        }
-    }
-
-    pub fn display(&self, vm: &Vm) -> Result<String, VmError> {
-        match self {
-            ValueRef::Abstract(abstract_value) => abstract_value.display(vm),
-            ValueRef::Concrete(concrete_value) => Ok(concrete_value.to_string()),
-        }
-    }
-
-    pub fn add(&self, other: ValueRef) -> Result<Value, ValueError> {
-        match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.add(right).map(|result| result.to_value())
+            Value::Concrete(concrete_value) => concrete_value.r#type(),
+            Value::AbstractList(AbstractList { item_type, .. }) => {
+                Type::List(Box::new(item_type.clone()))
             }
-            _ => Err(ValueError::CannotAdd(self.to_owned(), other.to_owned())),
+            Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
         }
     }
 
-    pub fn subtract(&self, other: ValueRef) -> Result<Value, ValueError> {
-        match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.subtract(right).map(|result| result.to_value())
-            }
-            _ => Err(ValueError::CannotSubtract(
-                self.to_owned(),
-                other.to_owned(),
-            )),
-        }
+    pub fn add(&self, other: &Value) -> Value {
+        let sum = match (self, other) {
+            (Value::Concrete(left), Value::Concrete(right)) => left.add(right),
+            _ => panic!("{}", ValueError::CannotAdd(self.clone(), other.clone())),
+        };
+
+        Value::Concrete(sum)
     }
 
-    pub fn multiply(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn subtract(&self, other: &Value) -> Value {
+        let difference = match (self, other) {
+            (Value::Concrete(left), Value::Concrete(right)) => left.subtract(right),
+            _ => panic!(
+                "{}",
+                ValueError::CannotSubtract(self.clone(), other.clone())
+            ),
+        };
+
+        Value::Concrete(difference)
+    }
+
+    pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.multiply(right).map(|result| result.to_value())
+            (Value::Concrete(left), Value::Concrete(right)) => {
+                left.multiply(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotMultiply(
                 self.to_owned(),
@@ -110,75 +117,83 @@ impl ValueRef<'_> {
         }
     }
 
-    pub fn divide(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.divide(right).map(|result| result.to_value())
+            (Value::Concrete(left), Value::Concrete(right)) => {
+                left.divide(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotDivide(self.to_owned(), other.to_owned())),
         }
     }
 
-    pub fn modulo(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.modulo(right).map(|result| result.to_value())
+            (Value::Concrete(left), Value::Concrete(right)) => {
+                left.modulo(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotModulo(self.to_owned(), other.to_owned())),
         }
     }
 
-    pub fn negate(&self) -> Result<Value, ValueError> {
-        match self {
-            ValueRef::Concrete(concrete_value) => {
-                concrete_value.negate().map(|result| result.to_value())
-            }
-            _ => Err(ValueError::CannotNegate(self.to_owned())),
-        }
+    pub fn negate(&self) -> Value {
+        let concrete = match self {
+            Value::Concrete(concrete_value) => concrete_value.negate(),
+            _ => panic!("{}", ValueError::CannotNegate(self.clone())),
+        };
+
+        Value::Concrete(concrete)
     }
 
     pub fn not(&self) -> Result<Value, ValueError> {
         match self {
-            ValueRef::Concrete(concrete_value) => {
-                concrete_value.not().map(|result| result.to_value())
-            }
+            Value::Concrete(concrete_value) => concrete_value.not().map(Value::Concrete),
             _ => Err(ValueError::CannotNot(self.to_owned())),
         }
     }
 
-    pub fn equal(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn equals(&self, other: &Value) -> bool {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.equal(right).map(|result| result.to_value())
+            (Value::Concrete(left), Value::Concrete(right)) => left.equals(right),
+            _ => panic!(
+                "{}",
+                ValueError::CannotCompare(self.to_owned(), other.to_owned())
+            ),
+        }
+    }
+
+    pub fn less(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self, other) {
+            (Value::Concrete(left), Value::Concrete(right)) => {
+                left.less_than(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }
     }
 
-    pub fn less_than(&self, other: ValueRef) -> Result<Value, ValueError> {
+    pub fn less_than_or_equals(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => {
-                left.less_than(right).map(|result| result.to_value())
+            (Value::Concrete(left), Value::Concrete(right)) => {
+                left.less_than_or_equals(right).map(Value::Concrete)
             }
             _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
         }
     }
 
-    pub fn less_than_or_equal(&self, other: ValueRef) -> Result<Value, ValueError> {
-        match (self, other) {
-            (ValueRef::Concrete(left), ValueRef::Concrete(right)) => left
-                .less_than_or_equal(right)
-                .map(|result| result.to_value()),
-            _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
+    pub fn display(&self, data: &ThreadData) -> DustString {
+        match self {
+            Value::AbstractList(list) => list.display(data),
+            Value::Concrete(concrete_value) => concrete_value.display(),
+            Value::Function(function) => DustString::from(function.to_string()),
         }
     }
 }
 
-impl Display for ValueRef<'_> {
+impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ValueRef::Abstract(abstract_value) => write!(f, "{}", abstract_value),
-            ValueRef::Concrete(concrete_value) => write!(f, "{}", concrete_value),
+            Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
+            Value::AbstractList(list) => write!(f, "{list}"),
+            Value::Function(function) => write!(f, "{function}"),
         }
     }
 }

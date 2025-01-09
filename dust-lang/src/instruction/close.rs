@@ -1,23 +1,24 @@
 use crate::{Instruction, Operation};
 
 pub struct Close {
-    pub from: u16,
-    pub to: u16,
+    pub from: u8,
+    pub to: u8,
 }
 
-impl From<&Instruction> for Close {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Close {
+    fn from(instruction: Instruction) -> Self {
         Close {
-            from: instruction.b(),
-            to: instruction.c(),
+            from: instruction.b_field(),
+            to: instruction.c_field(),
         }
     }
 }
 
 impl From<Close> for Instruction {
-    fn from(r#move: Close) -> Self {
-        *Instruction::new(Operation::Close)
-            .set_b(r#move.from)
-            .set_c(r#move.to)
+    fn from(close: Close) -> Self {
+        let operation = Operation::CLOSE;
+        let (a, b, c) = (0, close.from, close.to);
+
+        Instruction::new(operation, a, b, c, false, false, false)
     }
 }

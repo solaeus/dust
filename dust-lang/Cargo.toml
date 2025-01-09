@@ -1,23 +1,110 @@
 [package]
 name = "dust-lang"
-description = "Interpreter library for the Dust programming language"
-version = "0.5.0"
+description = "Dust programming language library"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [dependencies]
 annotate-snippets = "0.11.4"
 colored = "2.1.0"
-log = "0.4.22"
 rand = "0.8.5"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 getrandom = { version = "0.2", features = [
     "js",
-] } # Indirect dependency, for wasm builds
+] } # Indirect dependency, for WASM builds
+smartstring = { version = "1.0.1", features = [
+    "serde",
+], default-features = false }
+tracing = "0.1.41"
 
 [dev-dependencies]
-env_logger = "0.11.5"
+criterion = { version = "0.3.4", features = ["html_reports"] }
+
+[[bench]]
+name = "addictive_addition"
+harness = false
+
+[[bench]]
+name = "fibonacci"
+harness = false
+
+[[test]]
+name = "logic_and"
+path = "tests/logic/and.rs"
+
+[[test]]
+name = "logic_and_and"
+path = "tests/logic/and_and.rs"
+
+[[test]]
+name = "logic_or"
+path = "tests/logic/or.rs"
+
+[[test]]
+name = "logic_variables"
+path = "tests/logic/variables.rs"
+
+[[test]]
+name = "math_add"
+path = "tests/math/add.rs"
+
+[[test]]
+name = "math_add_assign"
+path = "tests/math/add_assign.rs"
+
+[[test]]
+name = "math_add_errors"
+path = "tests/math/add_errors.rs"
+
+[[test]]
+name = "math_divide"
+path = "tests/math/divide.rs"
+
+[[test]]
+name = "math_divide_assign"
+path = "tests/math/divide_assign.rs"
+
+[[test]]
+name = "math_divide_erros"
+path = "tests/math/divide_errors.rs"
+
+[[test]]
+name = "math_modulo"
+path = "tests/math/modulo.rs"
+
+[[test]]
+name = "math_modulo_assign"
+path = "tests/math/modulo_assign.rs"
+
+[[test]]
+name = "math_modulo_errors"
+path = "tests/math/modulo_errors.rs"
+
+[[test]]
+name = "math_multiply"
+path = "tests/math/multiply.rs"
+
+[[test]]
+name = "math_multiply_assign"
+path = "tests/math/multiply_assign.rs"
+
+[[test]]
+name = "math_multiply_errors"
+path = "tests/math/multiply_errors.rs"
+
+[[test]]
+name = "math_subtract"
+path = "tests/math/subtract.rs"
+
+[[test]]
+name = "math_subtract_assign"
+path = "tests/math/subtract_assign.rs"
+
+[[test]]
+name = "math_subtract_errors"
+path = "tests/math/subtract_errors.rs"

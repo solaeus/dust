@@ -1,31 +1,7 @@
 //! Token, TokenOwned and TokenKind types.
-use std::{
-    fmt::{self, Display, Formatter},
-    io::Write,
-};
+use std::fmt::{self, Display, Formatter};
 
-use colored::Colorize;
 use serde::{Deserialize, Serialize};
-
-use crate::Span;
-
-pub fn write_token_list<W: Write>(tokens: &[(Token, Span)], styled: bool, writer: &mut W) {
-    const HEADER: [&str; 2] = ["    TOKEN      POSITION ", "------------- ----------"];
-
-    writeln!(writer, "{}", HEADER[0]).unwrap();
-    writeln!(writer, "{}", HEADER[1]).unwrap();
-
-    for (token, position) in tokens {
-        let token = if styled {
-            format!("{:^13}", token.as_str().bold())
-        } else {
-            token.to_string()
-        };
-        let position = position.to_string();
-
-        writeln!(writer, "{token:^13} {position:^10}").unwrap();
-    }
-}
 
 macro_rules! define_tokens {
     ($($variant:ident $(($data_type:ty))?),+) => {
@@ -116,7 +92,7 @@ define_tokens! {
     StarEqual
 }
 
-impl<'src> Token<'src> {
+impl Token<'_> {
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
@@ -405,7 +381,7 @@ impl<'src> Token<'src> {
     }
 }
 
-impl<'src> Display for Token<'src> {
+impl Display for Token<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::ArrowThin => write!(f, "->"),
@@ -603,63 +579,6 @@ impl Display for TokenOwned {
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            TokenKind::ArrowThin => Token::ArrowThin.fmt(f),
-            TokenKind::Async => Token::Async.fmt(f),
-            TokenKind::Bang => Token::Bang.fmt(f),
-            TokenKind::BangEqual => Token::BangEqual.fmt(f),
-            TokenKind::Bool => Token::Bool.fmt(f),
-            TokenKind::Boolean => write!(f, "boolean"),
-            TokenKind::Break => Token::Break.fmt(f),
-            TokenKind::Byte => write!(f, "byte"),
-            TokenKind::Character => write!(f, "character"),
-            TokenKind::Colon => Token::Colon.fmt(f),
-            TokenKind::Comma => Token::Comma.fmt(f),
-            TokenKind::Dot => Token::Dot.fmt(f),
-            TokenKind::DoubleAmpersand => Token::DoubleAmpersand.fmt(f),
-            TokenKind::DoubleDot => Token::DoubleDot.fmt(f),
-            TokenKind::DoubleEqual => Token::DoubleEqual.fmt(f),
-            TokenKind::DoublePipe => Token::DoublePipe.fmt(f),
-            TokenKind::Else => Token::Else.fmt(f),
-            TokenKind::Eof => Token::Eof.fmt(f),
-            TokenKind::Equal => Token::Equal.fmt(f),
-            TokenKind::Float => write!(f, "float"),
-            TokenKind::FloatKeyword => Token::FloatKeyword.fmt(f),
-            TokenKind::Fn => Token::Fn.fmt(f),
-            TokenKind::Greater => Token::Greater.fmt(f),
-            TokenKind::GreaterEqual => Token::GreaterEqual.fmt(f),
-            TokenKind::Identifier => write!(f, "identifier"),
-            TokenKind::If => Token::If.fmt(f),
-            TokenKind::Int => Token::Int.fmt(f),
-            TokenKind::Integer => write!(f, "integer"),
-            TokenKind::LeftBrace => Token::LeftBrace.fmt(f),
-            TokenKind::LeftParenthesis => Token::LeftParenthesis.fmt(f),
-            TokenKind::LeftBracket => Token::LeftBracket.fmt(f),
-            TokenKind::Let => Token::Let.fmt(f),
-            TokenKind::Less => Token::Less.fmt(f),
-            TokenKind::LessEqual => Token::LessEqual.fmt(f),
-            TokenKind::Loop => Token::Loop.fmt(f),
-            TokenKind::Map => Token::Map.fmt(f),
-            TokenKind::Minus => Token::Minus.fmt(f),
-            TokenKind::MinusEqual => Token::MinusEqual.fmt(f),
-            TokenKind::Mut => Token::Mut.fmt(f),
-            TokenKind::Percent => Token::Percent.fmt(f),
-            TokenKind::PercentEqual => Token::PercentEqual.fmt(f),
-            TokenKind::Plus => Token::Plus.fmt(f),
-            TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
-            TokenKind::Return => Token::Return.fmt(f),
-            TokenKind::RightBrace => Token::RightBrace.fmt(f),
-            TokenKind::RightParenthesis => Token::RightParenthesis.fmt(f),
-            TokenKind::RightBracket => Token::RightBracket.fmt(f),
-            TokenKind::Semicolon => Token::Semicolon.fmt(f),
-            TokenKind::Star => Token::Star.fmt(f),
-            TokenKind::StarEqual => Token::StarEqual.fmt(f),
-            TokenKind::Str => Token::Str.fmt(f),
-            TokenKind::Slash => Token::Slash.fmt(f),
-            TokenKind::SlashEqual => Token::SlashEqual.fmt(f),
-            TokenKind::String => write!(f, "string"),
-            TokenKind::Struct => Token::Struct.fmt(f),
-            TokenKind::While => Token::While.fmt(f),
-        }
+        write!(f, "{self:?}")
     }
 }

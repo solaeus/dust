@@ -1,25 +1,32 @@
-use crate::{Argument, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct Test {
-    pub argument: Argument,
+    pub operand_register: u8,
     pub test_value: bool,
 }
 
-impl From<&Instruction> for Test {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Test {
+    fn from(instruction: Instruction) -> Self {
+        let operand_register = instruction.b_field();
+        let test_value = instruction.c_field() != 0;
+
         Test {
-            argument: instruction.b_as_argument(),
-            test_value: instruction.c_as_boolean(),
+            operand_register,
+            test_value,
         }
     }
 }
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        *Instruction::new(Operation::Test)
-            .set_b(test.argument.index())
-            .set_b_is_constant(test.argument.is_constant())
-            .set_b_is_local(test.argument.is_local())
-            .set_c_to_boolean(test.test_value)
+        Instruction::new(
+            Operation::TEST,
+            0,
+            test.operand_register,
+            test.test_value as u8,
+            false,
+            false,
+            false,
+        )
     }
 }

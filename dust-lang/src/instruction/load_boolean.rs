@@ -1,38 +1,28 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct LoadBoolean {
-    pub destination: Destination,
+    pub destination: u8,
     pub value: bool,
     pub jump_next: bool,
 }
 
-impl From<&Instruction> for LoadBoolean {
-    fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
-
+impl From<Instruction> for LoadBoolean {
+    fn from(instruction: Instruction) -> Self {
         LoadBoolean {
-            destination,
-            value: instruction.b_as_boolean(),
-            jump_next: instruction.c_as_boolean(),
+            destination: instruction.a_field(),
+            value: instruction.b_field() != 0,
+            jump_next: instruction.c_field() != 0,
         }
     }
 }
 
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
-        let (a, a_is_local) = match load_boolean.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let operation = Operation::LOAD_BOOLEAN;
+        let a = load_boolean.destination;
+        let b = load_boolean.value as u8;
+        let c = load_boolean.jump_next as u8;
 
-        *Instruction::new(Operation::LoadBoolean)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b_to_boolean(load_boolean.value)
-            .set_c_to_boolean(load_boolean.jump_next)
+        Instruction::new(operation, a, b, c, false, false, false)
     }
 }

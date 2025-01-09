@@ -2,17 +2,20 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
-mod logic;
+mod assert;
+mod io;
+mod string;
 
 use std::{
     fmt::{self, Display, Formatter},
-    io::{self},
-    string::{self},
+    io::ErrorKind as IoErrorKind,
+    ops::Range,
+    string::ParseError,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, FunctionType, Instruction, Span, Type, Value, Vm, VmError};
+use crate::{vm::ThreadData, AnnotatedError, FunctionType, Span, Type};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -29,12 +32,13 @@ macro_rules! define_native_function {
         impl NativeFunction {
             pub fn call(
                 &self,
-                vm: &mut Vm,
-                instruction: Instruction,
-            ) -> Result<Option<Value>, VmError> {
+                data: &mut ThreadData,
+                destination: Option<u8>,
+                argument_range: Range<u8>,
+            ) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => $function(vm, instruction),
+                        NativeFunction::$name => $function(data, destination, argument_range),
                     )*
                 }
             }
@@ -68,14 +72,14 @@ macro_rules! define_native_function {
             pub fn returns_value(&self) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => *$type.return_type != Type::None,
+                        NativeFunction::$name => $type.return_type != Type::None,
                     )*
                 }
             }
         }
 
-        impl From<u16> for NativeFunction {
-            fn from(bytes: u16) -> Self {
+        impl From<u8> for NativeFunction {
+            fn from(bytes: u8) -> Self {
                 match bytes {
                     $(
                         $bytes => NativeFunction::$name,
@@ -129,11 +133,11 @@ define_native_function! {
         3,
         "panic",
         FunctionType {
-            type_parameters: None,
-            value_parameters: None,
-            return_type: Box::new(Type::None)
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: Vec::with_capacity(0),
+            return_type: Type::None
         },
-        logic::panic
+        assert::panic
     ),
 
     // // Type conversion
@@ -146,11 +150,11 @@ define_native_function! {
         8,
         "to_string",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(vec![(0, Type::Any)]),
-            return_type: Box::new(Type::String)
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::Any)],
+            return_type: Type::String
         },
-        logic::to_string
+        string::to_string
     ),
 
     // // List and string
@@ -207,11 +211,11 @@ define_native_function! {
         50,
         "read_line",
         FunctionType {
-            type_parameters: None,
-            value_parameters: None,
-            return_type: Box::new(Type::String)
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: Vec::with_capacity(0),
+            return_type: Type::String
         },
-        logic::read_line
+        io::read_line
     ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
@@ -223,11 +227,11 @@ define_native_function! {
         55,
         "write",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String)]),
-            return_type: Box::new(Type::None)
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::String)],
+            return_type: Type::None
         },
-        logic::write
+        io::write
     ),
     // (WriteFile, 56_u8, "write_file", false),
     (
@@ -235,11 +239,11 @@ define_native_function! {
         57,
         "write_line",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(vec![(0, Type::String)]),
-            return_type: Box::new(Type::None)
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::String)],
+            return_type: Type::None
         },
-        logic::write_line
+        io::write_line
     )
 
     // // Random
@@ -255,15 +259,15 @@ pub enum NativeFunctionError {
         position: Span,
     },
     Panic {
-        message: Option<String>,
+        message: String,
         position: Span,
     },
     Parse {
-        error: string::ParseError,
+        error: ParseError,
         position: Span,
     },
     Io {
-        error: io::ErrorKind,
+        error: IoErrorKind,
         position: Span,
     },
 }
@@ -284,23 +288,29 @@ impl AnnotatedError for NativeFunctionError {
         }
     }
 
-    fn details(&self) -> Option<String> {
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
             NativeFunctionError::ExpectedArgumentCount {
-                expected, found, ..
-            } => Some(format!("Expected {} arguments, found {}", expected, found)),
-            NativeFunctionError::Panic { message, .. } => message.clone(),
-            NativeFunctionError::Parse { error, .. } => Some(format!("{}", error)),
-            NativeFunctionError::Io { error, .. } => Some(format!("{}", error)),
+                expected,
+                found,
+                position,
+            } => vec![(
+                format!("Expected {expected} arguments, found {found}"),
+                *position,
+            )],
+            NativeFunctionError::Panic { message, position } => {
+                vec![(format!("Dust panic!\n{message}"), *position)]
+            }
+            NativeFunctionError::Parse { error, position } => {
+                vec![(format!("{error}"), *position)]
+            }
+            NativeFunctionError::Io { error, position } => {
+                vec![(format!("{error}"), *position)]
+            }
         }
     }
 
-    fn position(&self) -> Span {
-        match self {
-            NativeFunctionError::ExpectedArgumentCount { position, .. } => *position,
-            NativeFunctionError::Panic { position, .. } => *position,
-            NativeFunctionError::Parse { position, .. } => *position,
-            NativeFunctionError::Io { position, .. } => *position,
-        }
+    fn help_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 }

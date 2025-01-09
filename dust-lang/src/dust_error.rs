@@ -1,66 +1,80 @@
-//! Top-level Dust errors with source code annotations.
+//! Top-level error for the Dust language API that can create detailed reports with source code
+//! annotations.
+use std::fmt::{self, Display, Formatter};
+
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{vm::VmError, CompileError, Span};
+use crate::{CompileError, NativeFunctionError, Span};
 
-/// A top-level error that can occur during the execution of Dust code.
-///
-/// This error can display nicely formatted messages with source code annotations.
+/// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
 pub enum DustError<'src> {
     Compile {
         error: CompileError,
         source: &'src str,
     },
-    Runtime {
-        error: VmError,
+    NativeFunction {
+        error: NativeFunctionError,
         source: &'src str,
     },
 }
 
 impl<'src> DustError<'src> {
+    pub fn compile(error: CompileError, source: &'src str) -> Self {
+        DustError::Compile { error, source }
+    }
+
     pub fn report(&self) -> String {
+        let (title, description, detail_snippets, help_snippets) = match self {
+            Self::Compile { error, .. } => (
+                CompileError::title(),
+                error.description(),
+                error.detail_snippets(),
+                error.help_snippets(),
+            ),
+            Self::NativeFunction { error, .. } => (
+                NativeFunctionError::title(),
+                error.description(),
+                error.detail_snippets(),
+                error.help_snippets(),
+            ),
+        };
+        let label = format!("{}: {}", title, description);
+        let message = Level::Error
+            .title(&label)
+            .snippets(detail_snippets.iter().map(|(details, position)| {
+                Snippet::source(self.source())
+                    .annotation(Level::Info.span(position.0..position.1).label(details))
+            }))
+            .snippets(help_snippets.iter().map(|(help, position)| {
+                Snippet::source(self.source())
+                    .annotation(Level::Help.span(position.0..position.1).label(help))
+            }));
         let mut report = String::new();
         let renderer = Renderer::styled();
 
-        match self {
-            DustError::Runtime { error, source } => {
-                let position = error.position();
-                let label = format!("{}: {}", VmError::title(), error.description());
-                let details = error
-                    .details()
-                    .unwrap_or_else(|| "While running this code".to_string());
-                let message = Level::Error.title(&label).snippet(
-                    Snippet::source(source)
-                        .fold(false)
-                        .annotation(Level::Error.span(position.0..position.1).label(&details)),
-                );
-
-                report.push_str(&renderer.render(message).to_string());
-            }
-            DustError::Compile { error, source } => {
-                let position = error.position();
-                let label = format!("{}: {}", CompileError::title(), error.description());
-                let details = error
-                    .details()
-                    .unwrap_or_else(|| "While parsing this code".to_string());
-                let message = Level::Error.title(&label).snippet(
-                    Snippet::source(source)
-                        .fold(false)
-                        .annotation(Level::Error.span(position.0..position.1).label(&details)),
-                );
-
-                report.push_str(&renderer.render(message).to_string());
-            }
-        }
+        report.push_str(&renderer.render(message).to_string());
 
         report
+    }
+
+    fn source(&self) -> &str {
+        match self {
+            Self::Compile { source, .. } => source,
+            Self::NativeFunction { source, .. } => source,
+        }
+    }
+}
+
+impl Display for DustError<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.report())
     }
 }
 
 pub trait AnnotatedError {
     fn title() -> &'static str;
     fn description(&self) -> &'static str;
-    fn details(&self) -> Option<String>;
-    fn position(&self) -> Span;
+    fn detail_snippets(&self) -> Vec<(String, Span)>;
+    fn help_snippets(&self) -> Vec<(String, Span)>;
 }

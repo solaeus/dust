@@ -1,35 +1,28 @@
-use crate::{Destination, Instruction, Operation};
+use crate::{Instruction, Operation};
 
 pub struct LoadList {
-    pub destination: Destination,
-    pub start_register: u16,
+    pub destination: u8,
+    pub start_register: u8,
 }
 
-impl From<&Instruction> for LoadList {
-    fn from(instruction: &Instruction) -> Self {
-        let destination = if instruction.a_is_local() {
-            Destination::Local(instruction.a())
-        } else {
-            Destination::Register(instruction.a())
-        };
+impl From<Instruction> for LoadList {
+    fn from(instruction: Instruction) -> Self {
+        let destination = instruction.a_field();
+        let start_register = instruction.b_field();
 
         LoadList {
             destination,
-            start_register: instruction.b(),
+            start_register,
         }
     }
 }
 
 impl From<LoadList> for Instruction {
     fn from(load_list: LoadList) -> Self {
-        let (a, a_is_local) = match load_list.destination {
-            Destination::Local(local) => (local, true),
-            Destination::Register(register) => (register, false),
-        };
+        let operation = Operation::LOAD_LIST;
+        let a = load_list.destination;
+        let b = load_list.start_register;
 
-        *Instruction::new(Operation::LoadList)
-            .set_a(a)
-            .set_a_is_local(a_is_local)
-            .set_b(load_list.start_register)
+        Instruction::new(operation, a, b, 0, false, false, false)
     }
 }

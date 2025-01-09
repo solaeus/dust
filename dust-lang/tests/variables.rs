@@ -11,23 +11,14 @@ fn define_local() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::None),
+                return_type: Type::None,
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::Integer,
-                    Span(8, 10)
-                ),
-                (
-                    Instruction::define_local(0, 0, false),
-                    Type::None,
-                    Span(4, 5)
-                ),
-                (Instruction::r#return(false), Type::None, Span(11, 11))
+                (Instruction::load_constant(0, 0, false), Span(8, 10)),
+                (Instruction::r#return(false), Span(11, 11))
             ],
             vec![ConcreteValue::Integer(42), ConcreteValue::string("x")],
-            vec![Local::new(1, Type::Integer, false, Scope::default())]
+            vec![Local::new(1, 0, false, Scope::default())]
         )),
     );
 
@@ -62,38 +53,21 @@ fn set_local() {
             FunctionType {
                 type_parameters: None,
                 value_parameters: None,
-                return_type: Box::new(Type::Integer),
+                return_type: Type::Integer,
             },
             vec![
-                (
-                    Instruction::load_constant(Destination::Register(0), 0, false),
-                    Type::Integer,
-                    Span(12, 14)
-                ),
-                (
-                    Instruction::define_local(0, 0, true),
-                    Type::None,
-                    Span(8, 9)
-                ),
-                (
-                    Instruction::load_constant(Destination::Register(1), 2, false),
-                    Type::Integer,
-                    Span(20, 22)
-                ),
-                (Instruction::set_local(1, 0), Type::None, Span(16, 17)),
-                (
-                    Instruction::get_local(Destination::Register(2), 0),
-                    Type::Integer,
-                    Span(24, 25)
-                ),
-                (Instruction::r#return(true), Type::None, Span(25, 25)),
+                (Instruction::load_constant(0, 0, false), Span(12, 14)),
+                (Instruction::load_constant(1, 2, false), Span(20, 22)),
+                (Instruction::set_local(1, 0), Span(16, 17)),
+                (Instruction::get_local(2, 0), Span(24, 25)),
+                (Instruction::r#return(true), Span(25, 25)),
             ],
             vec![
                 ConcreteValue::Integer(41),
                 ConcreteValue::string("x"),
                 ConcreteValue::Integer(42)
             ],
-            vec![Local::new(1, Type::Integer, true, Scope::default())]
+            vec![Local::new(1, 0, true, Scope::default())]
         )),
     );
 

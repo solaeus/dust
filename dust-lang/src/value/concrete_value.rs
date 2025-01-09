@@ -1,10 +1,14 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use smartstring::{LazyCompact, SmartString};
+use tracing::trace;
 
-use crate::{Chunk, Type, Value, ValueError, ValueRef};
+use crate::{Type, Value, ValueError};
 
 use super::RangeValue;
+
+pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum ConcreteValue {
@@ -12,11 +16,10 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(Chunk),
     Integer(i64),
     List(Vec<ConcreteValue>),
     Range(RangeValue),
-    String(String),
+    String(DustString),
 }
 
 impl ConcreteValue {
@@ -24,24 +27,24 @@ impl ConcreteValue {
         Value::Concrete(self)
     }
 
-    pub fn to_value_ref(&self) -> ValueRef {
-        ValueRef::Concrete(self)
-    }
-
     pub fn list<T: Into<Vec<ConcreteValue>>>(into_list: T) -> Self {
         ConcreteValue::List(into_list.into())
     }
 
-    pub fn string<T: ToString>(to_string: T) -> Self {
-        ConcreteValue::String(to_string.to_string())
+    pub fn string<T: Into<SmartString<LazyCompact>>>(to_string: T) -> Self {
+        ConcreteValue::String(to_string.into())
     }
 
-    pub fn as_string(&self) -> Option<&String> {
+    pub fn as_string(&self) -> Option<&DustString> {
         if let ConcreteValue::String(string) = self {
             Some(string)
         } else {
             None
         }
+    }
+
+    pub fn display(&self) -> DustString {
+        DustString::from(self.to_string())
     }
 
     pub fn r#type(&self) -> Type {
@@ -50,7 +53,6 @@ impl ConcreteValue {
             ConcreteValue::Byte(_) => Type::Byte,
             ConcreteValue::Character(_) => Type::Character,
             ConcreteValue::Float(_) => Type::Float,
-            ConcreteValue::Function(chunk) => Type::Function(chunk.r#type().clone()),
             ConcreteValue::Integer(_) => Type::Integer,
             ConcreteValue::List(list) => {
                 let item_type = list.first().map_or(Type::Any, |item| item.r#type());
@@ -62,41 +64,76 @@ impl ConcreteValue {
         }
     }
 
-    pub fn add(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
+    pub fn add(&self, other: &Self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let sum = match (self, other) {
-            (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_add(*right)),
-            (Float(left), Float(right)) => ConcreteValue::Float(*left + *right),
-            (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_add(*right)),
-            (String(left), String(right)) => ConcreteValue::string(format!("{}{}", left, right)),
-            _ => {
-                return Err(ValueError::CannotAdd(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
-            }
-        };
+        match (self, other) {
+            (Byte(left), Byte(right)) => {
+                let sum = left.saturating_add(*right);
 
-        Ok(sum)
+                Byte(sum)
+            }
+            (Character(left), Character(right)) => {
+                let mut concatenated = DustString::new();
+
+                concatenated.push(*left);
+                concatenated.push(*right);
+
+                String(concatenated)
+            }
+            (Character(left), String(right)) => {
+                let mut concatenated = DustString::new();
+
+                concatenated.push(*left);
+                concatenated.push_str(right);
+
+                String(concatenated)
+            }
+            (Float(left), Float(right)) => {
+                let sum = left + right;
+
+                Float(sum)
+            }
+            (Integer(left), Integer(right)) => {
+                let sum = left.saturating_add(*right);
+
+                Integer(sum)
+            }
+            (String(left), Character(right)) => {
+                let concatenated = format!("{}{}", left, right);
+
+                String(DustString::from(concatenated))
+            }
+            (String(left), String(right)) => {
+                let concatenated = format!("{}{}", left, right);
+
+                String(DustString::from(concatenated))
+            }
+            _ => panic!(
+                "{}",
+                ValueError::CannotAdd(
+                    Value::Concrete(self.clone()),
+                    Value::Concrete(other.clone())
+                )
+            ),
+        }
     }
 
-    pub fn subtract(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
+    pub fn subtract(&self, other: &Self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let difference = match (self, other) {
+        match (self, other) {
             (Byte(left), Byte(right)) => ConcreteValue::Byte(left.saturating_sub(*right)),
             (Float(left), Float(right)) => ConcreteValue::Float(left - right),
             (Integer(left), Integer(right)) => ConcreteValue::Integer(left.saturating_sub(*right)),
-            _ => {
-                return Err(ValueError::CannotSubtract(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
-            }
-        };
-
-        Ok(difference)
+            _ => panic!(
+                "{}",
+                ValueError::CannotSubtract(
+                    Value::Concrete(self.clone()),
+                    Value::Concrete(other.clone())
+                )
+            ),
+        }
     }
 
     pub fn multiply(&self, other: &Self) -> Result<ConcreteValue, ValueError> {
@@ -155,18 +192,16 @@ impl ConcreteValue {
         Ok(product)
     }
 
-    pub fn negate(&self) -> Result<ConcreteValue, ValueError> {
+    pub fn negate(&self) -> ConcreteValue {
         use ConcreteValue::*;
 
-        let negated = match self {
+        match self {
             Boolean(value) => ConcreteValue::Boolean(!value),
             Byte(value) => ConcreteValue::Byte(value.wrapping_neg()),
             Float(value) => ConcreteValue::Float(-value),
             Integer(value) => ConcreteValue::Integer(value.wrapping_neg()),
-            _ => return Err(ValueError::CannotNegate(self.clone().to_value())),
-        };
-
-        Ok(negated)
+            _ => panic!("{}", ValueError::CannotNegate(self.clone().to_value())),
+        }
     }
 
     pub fn not(&self) -> Result<ConcreteValue, ValueError> {
@@ -180,28 +215,28 @@ impl ConcreteValue {
         Ok(not)
     }
 
-    pub fn equal(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
+    pub fn equals(&self, other: &ConcreteValue) -> bool {
         use ConcreteValue::*;
 
-        let equal = match (self, other) {
-            (Boolean(left), Boolean(right)) => ConcreteValue::Boolean(left == right),
-            (Byte(left), Byte(right)) => ConcreteValue::Boolean(left == right),
-            (Character(left), Character(right)) => ConcreteValue::Boolean(left == right),
-            (Float(left), Float(right)) => ConcreteValue::Boolean(left == right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left == right),
-            (Integer(left), Integer(right)) => ConcreteValue::Boolean(left == right),
-            (List(left), List(right)) => ConcreteValue::Boolean(left == right),
-            (Range(left), Range(right)) => ConcreteValue::Boolean(left == right),
-            (String(left), String(right)) => ConcreteValue::Boolean(left == right),
+        match (self, other) {
+            (Boolean(left), Boolean(right)) => left == right,
+            (Byte(left), Byte(right)) => left == right,
+            (Character(left), Character(right)) => left == right,
+            (Float(left), Float(right)) => left == right,
+            (Integer(left), Integer(right)) => left == right,
+            (List(left), List(right)) => left == right,
+            (Range(left), Range(right)) => left == right,
+            (String(left), String(right)) => left == right,
             _ => {
-                return Err(ValueError::CannotCompare(
-                    self.clone().to_value(),
-                    other.clone().to_value(),
-                ))
+                panic!(
+                    "{}",
+                    ValueError::CannotCompare(
+                        Value::Concrete(self.clone()),
+                        Value::Concrete(other.clone())
+                    )
+                )
             }
-        };
-
-        Ok(equal)
+        }
     }
 
     pub fn less_than(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
@@ -212,7 +247,6 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Boolean(left < right),
             (Character(left), Character(right)) => ConcreteValue::Boolean(left < right),
             (Float(left), Float(right)) => ConcreteValue::Boolean(left < right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left < right),
             (Integer(left), Integer(right)) => ConcreteValue::Boolean(left < right),
             (List(left), List(right)) => ConcreteValue::Boolean(left < right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left < right),
@@ -228,7 +262,7 @@ impl ConcreteValue {
         Ok(less_than)
     }
 
-    pub fn less_than_or_equal(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
+    pub fn less_than_or_equals(&self, other: &ConcreteValue) -> Result<ConcreteValue, ValueError> {
         use ConcreteValue::*;
 
         let less_than_or_equal = match (self, other) {
@@ -236,7 +270,6 @@ impl ConcreteValue {
             (Byte(left), Byte(right)) => ConcreteValue::Boolean(left <= right),
             (Character(left), Character(right)) => ConcreteValue::Boolean(left <= right),
             (Float(left), Float(right)) => ConcreteValue::Boolean(left <= right),
-            (Function(left), Function(right)) => ConcreteValue::Boolean(left <= right),
             (Integer(left), Integer(right)) => ConcreteValue::Boolean(left <= right),
             (List(left), List(right)) => ConcreteValue::Boolean(left <= right),
             (Range(left), Range(right)) => ConcreteValue::Boolean(left <= right),
@@ -255,14 +288,13 @@ impl ConcreteValue {
 
 impl Clone for ConcreteValue {
     fn clone(&self) -> Self {
-        log::trace!("Cloning concrete value {}", self);
+        trace!("Cloning concrete value {}", self);
 
         match self {
             ConcreteValue::Boolean(boolean) => ConcreteValue::Boolean(*boolean),
             ConcreteValue::Byte(byte) => ConcreteValue::Byte(*byte),
             ConcreteValue::Character(character) => ConcreteValue::Character(*character),
             ConcreteValue::Float(float) => ConcreteValue::Float(*float),
-            ConcreteValue::Function(function) => ConcreteValue::Function(function.clone()),
             ConcreteValue::Integer(integer) => ConcreteValue::Integer(*integer),
             ConcreteValue::List(list) => ConcreteValue::List(list.clone()),
             ConcreteValue::Range(range) => ConcreteValue::Range(*range),
@@ -286,7 +318,6 @@ impl Display for ConcreteValue {
 
                 Ok(())
             }
-            ConcreteValue::Function(chunk) => write!(f, "{}", chunk.r#type()),
             ConcreteValue::Integer(integer) => write!(f, "{integer}"),
             ConcreteValue::List(list) => {
                 write!(f, "[")?;

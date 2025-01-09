@@ -1,22 +1,28 @@
 [package]
 name = "dust-cli"
-description = "The Dust Programming Language CLI"
-version = "0.1.0"
+description = "Command line interface for the Dust programming language"
 authors = ["Jeff Anderson"]
 edition.workspace = true
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [[bin]]
 name = "dust"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5.14", features = ["derive"] }
-colored = "2.1.0"
+clap = { version = "4.5.14", features = [
+    "cargo",
+    "color",
+    "derive",
+    "help",
+    "wrap_help",
+] }
+color-print = "0.3.7"
 dust-lang = { path = "../dust-lang" }
-env_logger = "0.11.5"
-log = "0.4.22"
 postcard = "1.0.10"
 serde_json = "1.0.133"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"

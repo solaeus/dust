@@ -16,7 +16,7 @@ pub enum Type {
     Character,
     Enum(EnumType),
     Float,
-    Function(FunctionType),
+    Function(Box<FunctionType>),
     Generic {
         identifier_index: u8,
         concrete_type: Option<Box<Type>>,
@@ -24,21 +24,29 @@ pub enum Type {
     Integer,
     List(Box<Type>),
     Map {
-        pairs: HashMap<u8, Type>,
+        pairs: Vec<(u8, Type)>,
     },
     None,
     Range {
         r#type: Box<Type>,
     },
-    SelfChunk,
+    SelfFunction,
     String,
     Struct(StructType),
     Tuple {
-        fields: Option<Vec<Type>>,
+        fields: Vec<Type>,
     },
 }
 
 impl Type {
+    pub fn function(function_type: FunctionType) -> Self {
+        Type::Function(Box::new(function_type))
+    }
+
+    pub fn list(element_type: Type) -> Self {
+        Type::List(Box::new(element_type))
+    }
+
     /// Returns a concrete type, either the type itself or the concrete type of a generic type.
     pub fn concrete_type(&self) -> &Type {
         if let Type::Generic {
@@ -107,18 +115,18 @@ impl Type {
 
                 return Ok(());
             }
-            (
-                Type::Function(FunctionType {
+            (Type::Function(left_function_type), Type::Function(right_function_type)) => {
+                let FunctionType {
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
-                }),
-                Type::Function(FunctionType {
+                } = left_function_type.as_ref();
+                let FunctionType {
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
-                }),
-            ) => {
+                } = right_function_type.as_ref();
+
                 if left_return != right_return
                     || left_type_parameters != right_type_parameters
                     || left_value_parameters != right_value_parameters
@@ -185,25 +193,21 @@ impl Display for Type {
             }
             Type::None => write!(f, "none"),
             Type::Range { r#type } => write!(f, "{type} range"),
-            Type::SelfChunk => write!(f, "self"),
+            Type::SelfFunction => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple { fields } => {
-                if let Some(fields) = fields {
-                    write!(f, "(")?;
+                write!(f, "(")?;
 
-                    for (index, r#type) in fields.iter().enumerate() {
-                        write!(f, "{type}")?;
-
-                        if index != fields.len() - 1 {
-                            write!(f, ", ")?;
-                        }
+                for (index, r#type) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
                     }
 
-                    write!(f, ")")
-                } else {
-                    write!(f, "tuple")
+                    write!(f, "{type}")?;
                 }
+
+                write!(f, ")")
             }
         }
     }
@@ -252,8 +256,8 @@ impl Ord for Type {
                 left_type.cmp(right_type)
             }
             (Type::Range { .. }, _) => Ordering::Greater,
-            (Type::SelfChunk, Type::SelfChunk) => Ordering::Equal,
-            (Type::SelfChunk, _) => Ordering::Greater,
+            (Type::SelfFunction, Type::SelfFunction) => Ordering::Equal,
+            (Type::SelfFunction, _) => Ordering::Greater,
             (Type::String, Type::String) => Ordering::Equal,
             (Type::String { .. }, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
@@ -269,19 +273,33 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Option<Vec<u16>>,
-    pub value_parameters: Option<Vec<(u16, Type)>>,
-    pub return_type: Box<Type>,
+    pub type_parameters: Vec<u8>,
+    pub value_parameters: Vec<(u8, Type)>,
+    pub return_type: Type,
+}
+
+impl FunctionType {
+    pub fn new<T: Into<Vec<u8>>, U: Into<Vec<(u8, Type)>>>(
+        type_parameters: T,
+        value_parameters: U,
+        return_type: Type,
+    ) -> Self {
+        FunctionType {
+            type_parameters: type_parameters.into(),
+            value_parameters: value_parameters.into(),
+            return_type,
+        }
+    }
 }
 
 impl Display for FunctionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "fn ")?;
 
-        if let Some(type_parameters) = &self.type_parameters {
+        if !self.type_parameters.is_empty() {
             write!(f, "<")?;
 
-            for (index, type_parameter) in type_parameters.iter().enumerate() {
+            for (index, type_parameter) in self.type_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
@@ -294,19 +312,19 @@ impl Display for FunctionType {
 
         write!(f, "(")?;
 
-        if let Some(value_parameters) = &self.value_parameters {
-            for (index, (identifier, r#type)) in value_parameters.iter().enumerate() {
+        if !self.value_parameters.is_empty() {
+            for (index, (_, r#type)) in self.value_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
 
-                write!(f, "{identifier}: {type}")?;
+                write!(f, "{type}")?;
             }
         }
 
         write!(f, ")")?;
 
-        if *self.return_type != Type::None {
+        if self.return_type != Type::None {
             write!(f, " -> {}", self.return_type)?;
         }
 
