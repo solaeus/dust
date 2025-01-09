@@ -13,9 +13,11 @@ use std::{
 
 pub use error::VmError;
 pub use record::Record;
-pub use run_action::RecordAction;
+pub(crate) use run_action::get_next_action;
+pub use run_action::RunAction;
 pub use stack::{FunctionCall, Stack};
 pub use thread::{Thread, ThreadSignal};
+
 use tracing::{span, Level};
 
 use crate::{compile, Chunk, DustError, DustString, Value};

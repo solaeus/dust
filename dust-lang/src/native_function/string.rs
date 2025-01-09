@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    vm::{Record, Register, ThreadSignal},
+    vm::{get_next_action, Record, Register, ThreadSignal},
     ConcreteValue, NativeFunctionError, Value,
 };
 
@@ -17,5 +17,7 @@ pub fn to_string(
 
     record.set_register(destination, register);
 
-    Ok(ThreadSignal::Continue)
+    let next_action = get_next_action(record);
+
+    Ok(ThreadSignal::Continue(next_action))
 }

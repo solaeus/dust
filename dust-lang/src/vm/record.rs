@@ -14,7 +14,6 @@ pub struct Record<'a> {
 }
 
 impl<'a> Record<'a> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(chunk: &'a Chunk) -> Self {
         Self {
             ip: 0,
@@ -44,7 +43,7 @@ impl<'a> Record<'a> {
 
         match pointer {
             Pointer::Stack(register_index) => self.open_register_unchecked(register_index),
-            Pointer::Constant(constant_index) => self.get_constant(constant_index),
+            Pointer::Constant(constant_index) => self.get_constant_unchecked(constant_index),
         }
     }
 
@@ -90,17 +89,10 @@ impl<'a> Record<'a> {
         }
     }
 
-    pub fn open_register_allow_empty(&self, register_index: u8) -> Option<&Value> {
+    pub fn open_register_allow_empty_unchecked(&self, register_index: u8) -> Option<&Value> {
         trace!("Open register R{register_index}");
 
-        let register_index = register_index as usize;
-
-        assert!(
-            register_index < self.registers.len(),
-            "VM Error: Register index out of bounds"
-        );
-
-        let register = &self.registers[register_index];
+        let register = self.get_register_unchecked(register_index);
 
         match register {
             Register::Value(value) => {
@@ -117,7 +109,7 @@ impl<'a> Record<'a> {
         }
     }
 
-    pub fn empty_register_or_clone_constant(&mut self, register_index: u8) -> Value {
+    pub fn empty_register_or_clone_constant_unchecked(&mut self, register_index: u8) -> Value {
         let register_index = register_index as usize;
 
         assert!(
@@ -131,21 +123,18 @@ impl<'a> Record<'a> {
             Register::Value(value) => value,
             Register::Pointer(pointer) => match pointer {
                 Pointer::Stack(register_index) => {
-                    self.empty_register_or_clone_constant(register_index)
+                    self.empty_register_or_clone_constant_unchecked(register_index)
                 }
-                Pointer::Constant(constant_index) => self.get_constant(constant_index).clone(),
+                Pointer::Constant(constant_index) => {
+                    self.get_constant_unchecked(constant_index).clone()
+                }
             },
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
 
-    pub fn clone_register_value_or_constant(&self, register_index: u8) -> Value {
-        assert!(
-            (register_index as usize) < self.registers.len(),
-            "VM Error: Register index out of bounds"
-        );
-
-        let register = &self.registers[register_index as usize];
+    pub fn clone_register_value_or_constant_unchecked(&self, register_index: u8) -> Value {
+        let register = self.get_register_unchecked(register_index);
 
         match register {
             Register::Value(value) => value.clone(),
@@ -153,29 +142,30 @@ impl<'a> Record<'a> {
                 Pointer::Stack(register_index) => {
                     self.open_register_unchecked(*register_index).clone()
                 }
-                Pointer::Constant(constant_index) => self.get_constant(*constant_index).clone(),
+                Pointer::Constant(constant_index) => {
+                    self.get_constant_unchecked(*constant_index).clone()
+                }
             },
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
 
     /// DRY helper to get a value from an Argument
-    pub fn get_argument(&self, argument: Argument) -> &Value {
+    pub fn get_argument_unchecked(&self, argument: Argument) -> &Value {
         match argument {
-            Argument::Constant(constant_index) => self.get_constant(constant_index),
+            Argument::Constant(constant_index) => self.get_constant_unchecked(constant_index),
             Argument::Register(register_index) => self.open_register_unchecked(register_index),
         }
     }
 
-    pub fn get_constant(&self, constant_index: u8) -> &Value {
+    pub fn get_constant_unchecked(&self, constant_index: u8) -> &Value {
         let constant_index = constant_index as usize;
 
-        assert!(
-            constant_index < self.chunk.constants.len(),
-            "VM Error: Constant index out of bounds"
-        );
-
-        &self.chunk.constants[constant_index]
+        if cfg!(debug_assertions) {
+            &self.chunk.constants[constant_index]
+        } else {
+            unsafe { self.chunk.constants.get_unchecked(constant_index) }
+        }
     }
 
     pub fn get_local_register(&self, local_index: u8) -> u8 {

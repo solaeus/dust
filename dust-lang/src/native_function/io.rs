@@ -1,7 +1,7 @@
 use std::io::{self, stdin, stdout, Write};
 use std::ops::Range;
 
-use crate::vm::{Register, ThreadSignal};
+use crate::vm::{get_next_action, Register, ThreadSignal};
 use crate::{vm::Record, ConcreteValue, NativeFunctionError, Value};
 
 pub fn read_line(
@@ -30,7 +30,9 @@ pub fn read_line(
         }
     }
 
-    Ok(ThreadSignal::Continue)
+    let next_action = get_next_action(record);
+
+    Ok(ThreadSignal::Continue(next_action))
 }
 
 pub fn write(
@@ -41,7 +43,7 @@ pub fn write(
     let mut stdout = stdout();
 
     for register_index in argument_range {
-        if let Some(value) = record.open_register_allow_empty(register_index) {
+        if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
             let string = value.display(record);
 
             stdout
@@ -58,7 +60,9 @@ pub fn write(
         position: record.current_position(),
     })?;
 
-    Ok(ThreadSignal::Continue)
+    let next_action = get_next_action(record);
+
+    Ok(ThreadSignal::Continue(next_action))
 }
 
 pub fn write_line(
@@ -73,7 +77,7 @@ pub fn write_line(
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
-        if let Some(value) = record.open_register_allow_empty(register_index) {
+        if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
             let string = value.display(record);
 
             stdout.write(string.as_bytes()).map_err(map_err)?;
@@ -83,5 +87,7 @@ pub fn write_line(
 
     stdout.flush().map_err(map_err)?;
 
-    Ok(ThreadSignal::Continue)
+    let next_action = get_next_action(record);
+
+    Ok(ThreadSignal::Continue(next_action))
 }

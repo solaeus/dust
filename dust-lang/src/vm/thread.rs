@@ -1,10 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
-use tracing::{info, trace};
+use tracing::info;
 
 use crate::{vm::FunctionCall, Chunk, DustString, Value};
 
-use super::{record::Record, RecordAction, Stack};
+use super::{record::Record, RunAction, Stack};
 
 pub struct Thread {
     chunk: Chunk,
@@ -41,16 +41,20 @@ impl Thread {
             records,
         };
 
+        let mut next_action = RunAction::from(*self.chunk.instructions.first().unwrap());
+
         loop {
-            let active_record = thread_data.records.last_unchecked();
-            let instruction = active_record.chunk.instructions[active_record.ip];
-            let record_action = RecordAction::from(instruction);
-            let value_option = (record_action.logic)(record_action.instruction, &mut thread_data);
+            let signal = (next_action.logic)(next_action.instruction, &mut thread_data);
 
-            if thread_data.call_stack.is_empty() {
-                trace!("Returning {value_option:?} from function");
+            match signal {
+                ThreadSignal::Continue(action) => {
+                    next_action = action;
+                }
+                ThreadSignal::End(value_option) => {
+                    info!("Thread ended");
 
-                return value_option;
+                    return value_option;
+                }
             }
         }
     }
@@ -64,20 +68,8 @@ pub struct ThreadData<'a> {
 
 #[derive(Debug)]
 pub enum ThreadSignal {
-    Continue,
-    Call {
-        function_register: u8,
-        return_register: u8,
-        argument_count: u8,
-    },
-    Return {
-        should_return_value: bool,
-        return_register: u8,
-    },
-    LoadFunction {
-        prototype_index: u8,
-        destination: u8,
-    },
+    Continue(RunAction),
+    End(Option<Value>),
 }
 
 impl Display for ThreadSignal {
