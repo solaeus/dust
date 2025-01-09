@@ -6,70 +6,74 @@ use std::{
 };
 
 use clap::{
-    builder::{styling::AnsiColor, StyledStr, Styles},
+    builder::{
+        styling::{AnsiColor, Color},
+        StyledStr, Styles,
+    },
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
     Args, ColorChoice, Error, Parser, Subcommand, ValueHint,
 };
-use color_print::cstr;
+use color_print::{cformat, cstr};
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use tracing::{subscriber::set_global_default, Level};
 use tracing_subscriber::FmtSubscriber;
 
-const CLI_HELP_TEMPLATE: &str = cstr!(
-    r#"
-<bright-magenta><bold>Dust CLI
-────────</bold></bright-magenta>
-{about}
-
-<bold>Version:</bold> {version}
-<bold>Author:</bold> {author}
-<bold>License:</bold> GPL-3.0
-<bold>Repository:</bold> git.jeffa.io/jeff/dust
-
-<bright-magenta,bold>Usage
-─────</bright-magenta,bold>
-{tab}{usage}
-
-<bright-magenta,bold>Modes
-─────</bright-magenta,bold>
-{subcommands}
-
-<bright-magenta,bold>Options
-───────</bright-magenta,bold>
-{options}
-"#
-);
-
-const MODE_HELP_TEMPLATE: &str = cstr!(
+const ABOUT: &str = cstr!(
     r#"
 <bright-magenta,bold>Dust CLI
-────────</bright-magenta,bold>
+────────</>
 {about}
 
-<bold>Version:</bold> {version}
-<bold>Author:</bold> {author}
-<bold>License:</bold> GPL-3.0
-<bold>Repository:</bold> git.jeffa.io/jeff/dust
+<bold>⚙️ Version:</> {version}
+<bold>🦀 Author:</> {author}
+<bold>⚖️ License:</> GPL-3.0
+<bold>🔬 Repository:</> https://git.jeffa.io/jeff/dust
+"#
+);
 
-<bright-magenta,bold>Usage
-─────</bright-magenta,bold>
-{usage}
+const PLAIN_ABOUT: &str = r#"
+{about}
+"#;
 
-<bright-magenta,bold>Options
-───────</bright-magenta,bold>
+const USAGE: &str = cstr!(
+    r#"
+<bright-magenta,bold>Usage:</> {usage}
+"#
+);
+
+const SUBCOMMANDS: &str = cstr!(
+    r#"
+<bright-magenta,bold>Modes:</>
+{subcommands}
+"#
+);
+
+const OPTIONS: &str = cstr!(
+    r#"
+<bright-magenta,bold>Options:</>
 {options}
 "#
 );
 
+const CREATE_MAIN_HELP_TEMPLATE: fn() -> String =
+    || cformat!("{ABOUT}{USAGE}{SUBCOMMANDS}{OPTIONS}");
+
+const CREATE_MODE_HELP_TEMPLATE: fn(&str) -> String = |title| {
+    cformat!(
+        "\
+        <bright-magenta,bold>{title}\n────────</>\
+        {PLAIN_ABOUT}{USAGE}{OPTIONS}
+        "
+    )
+};
+
 const STYLES: Styles = Styles::styled()
-    .header(AnsiColor::BrightMagenta.on_default().bold())
-    .usage(AnsiColor::BrightCyan.on_default().bold())
-    .literal(AnsiColor::BrightCyan.on_default())
-    .placeholder(AnsiColor::BrightMagenta.on_default())
-    .error(AnsiColor::BrightRed.on_default().bold())
-    .valid(AnsiColor::Blue.on_default())
-    .invalid(AnsiColor::BrightRed.on_default());
+    .literal(AnsiColor::Cyan.on_default())
+    .placeholder(AnsiColor::Cyan.on_default())
+    .valid(AnsiColor::BrightCyan.on_default())
+    .invalid(AnsiColor::BrightYellow.on_default())
+    .error(AnsiColor::BrightRed.on_default());
 
 #[derive(Parser)]
 #[clap(
@@ -77,7 +81,7 @@ const STYLES: Styles = Styles::styled()
     author = crate_authors!(),
     about = crate_description!(),
     color = ColorChoice::Auto,
-    help_template = StyledStr::from(CLI_HELP_TEMPLATE),
+    help_template = CREATE_MAIN_HELP_TEMPLATE(),
     styles = STYLES,
 )]
 struct Cli {
@@ -122,7 +126,7 @@ struct Input {
 #[derive(Args)]
 #[command(
     short_flag = 'r',
-    help_template = MODE_HELP_TEMPLATE
+    help_template = CREATE_MODE_HELP_TEMPLATE("Run Mode")
 )]
 struct Run {
     /// Print the time taken for compilation and execution
@@ -149,7 +153,7 @@ enum Mode {
     /// Compile and print the bytecode disassembly
     #[command(
         short_flag = 'd',
-        help_template = MODE_HELP_TEMPLATE
+        help_template = CREATE_MODE_HELP_TEMPLATE("Disassemble Mode")
     )]
     Disassemble {
         /// Style disassembly output
@@ -167,7 +171,7 @@ enum Mode {
     /// Lex the source code and print the tokens
     #[command(
         short_flag = 't',
-        help_template = MODE_HELP_TEMPLATE
+        help_template = CREATE_MODE_HELP_TEMPLATE("Tokenize Mode")
     )]
     Tokenize {
         /// Style token output
@@ -224,7 +228,7 @@ fn main() {
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let program_name = name.or(file_name);
-        let mut compiler = match Compiler::new(lexer, program_name) {
+        let mut compiler = match Compiler::new(lexer, program_name, true) {
             Ok(compiler) => compiler,
             Err(error) => {
                 handle_compile_error(error, &source);
@@ -312,7 +316,7 @@ fn main() {
         let (source, file_name) = get_source_and_file_name(input);
         let lexer = Lexer::new(&source);
         let program_name = name.or(file_name);
-        let mut compiler = match Compiler::new(lexer, program_name) {
+        let mut compiler = match Compiler::new(lexer, program_name, true) {
             Ok(compiler) => compiler,
             Err(error) => {
                 handle_compile_error(error, &source);

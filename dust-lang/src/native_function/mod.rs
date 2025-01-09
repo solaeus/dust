@@ -2,7 +2,7 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
-mod assertion;
+mod assert;
 mod io;
 mod string;
 
@@ -14,7 +14,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use smallvec::{smallvec, SmallVec};
 
 use crate::{vm::ThreadData, AnnotatedError, FunctionType, Span, Type};
 
@@ -134,11 +133,11 @@ define_native_function! {
         3,
         "panic",
         FunctionType {
-            type_parameters: None,
-            value_parameters: None,
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: Vec::with_capacity(0),
             return_type: Type::None
         },
-        assertion::panic
+        assert::panic
     ),
 
     // // Type conversion
@@ -151,8 +150,8 @@ define_native_function! {
         8,
         "to_string",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(smallvec![(0, Type::Any)]),
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::Any)],
             return_type: Type::String
         },
         string::to_string
@@ -212,8 +211,8 @@ define_native_function! {
         50,
         "read_line",
         FunctionType {
-            type_parameters: None,
-            value_parameters: None,
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: Vec::with_capacity(0),
             return_type: Type::String
         },
         io::read_line
@@ -228,8 +227,8 @@ define_native_function! {
         55,
         "write",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(smallvec![(0, Type::String)]),
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::String)],
             return_type: Type::None
         },
         io::write
@@ -240,8 +239,8 @@ define_native_function! {
         57,
         "write_line",
         FunctionType {
-            type_parameters: None,
-            value_parameters: Some(smallvec![(0, Type::String)]),
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::String)],
             return_type: Type::None
         },
         io::write_line
@@ -289,29 +288,29 @@ impl AnnotatedError for NativeFunctionError {
         }
     }
 
-    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
             NativeFunctionError::ExpectedArgumentCount {
                 expected,
                 found,
                 position,
-            } => smallvec![(
+            } => vec![(
                 format!("Expected {expected} arguments, found {found}"),
-                *position
+                *position,
             )],
             NativeFunctionError::Panic { message, position } => {
-                smallvec![(format!("Dust panic!\n{message}"), *position)]
+                vec![(format!("Dust panic!\n{message}"), *position)]
             }
             NativeFunctionError::Parse { error, position } => {
-                smallvec![(format!("{error}"), *position)]
+                vec![(format!("{error}"), *position)]
             }
             NativeFunctionError::Io { error, position } => {
-                smallvec![(format!("{error}"), *position)]
+                vec![(format!("{error}"), *position)]
             }
         }
     }
 
-    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
-        SmallVec::new()
+    fn help_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 }

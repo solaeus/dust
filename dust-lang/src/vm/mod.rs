@@ -1,5 +1,4 @@
 //! Virtual machine and errors
-mod error;
 mod record;
 mod run_action;
 mod stack;
@@ -11,7 +10,6 @@ use std::{
     thread::spawn,
 };
 
-pub use error::VmError;
 pub use record::Record;
 pub(crate) use run_action::get_next_action;
 pub use run_action::RunAction;

@@ -3,7 +3,6 @@
 use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
-use smallvec::SmallVec;
 
 use crate::{CompileError, NativeFunctionError, Span};
 
@@ -76,6 +75,6 @@ impl Display for DustError<'_> {
 pub trait AnnotatedError {
     fn title() -> &'static str;
     fn description(&self) -> &'static str;
-    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]>;
-    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]>;
+    fn detail_snippets(&self) -> Vec<(String, Span)>;
+    fn help_snippets(&self) -> Vec<(String, Span)>;
 }

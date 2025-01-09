@@ -24,7 +24,6 @@ use std::fmt::{self, Debug, Display, Formatter, Write as FmtWrite};
 use std::io::Write;
 
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
 use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
 
@@ -36,10 +35,10 @@ pub struct Chunk {
     pub(crate) name: Option<DustString>,
     pub(crate) r#type: FunctionType,
 
-    pub(crate) instructions: SmallVec<[Instruction; 32]>,
-    pub(crate) positions: SmallVec<[Span; 32]>,
-    pub(crate) constants: SmallVec<[Value; 16]>,
-    pub(crate) locals: SmallVec<[Local; 8]>,
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) positions: Vec<Span>,
+    pub(crate) constants: Vec<Value>,
+    pub(crate) locals: Vec<Local>,
     pub(crate) prototypes: Vec<Chunk>,
 
     pub(crate) register_count: usize,
@@ -51,10 +50,10 @@ impl Chunk {
     pub fn with_data(
         name: Option<DustString>,
         r#type: FunctionType,
-        instructions: impl Into<SmallVec<[Instruction; 32]>>,
-        positions: impl Into<SmallVec<[Span; 32]>>,
-        constants: impl Into<SmallVec<[Value; 16]>>,
-        locals: impl Into<SmallVec<[Local; 8]>>,
+        instructions: impl Into<Vec<Instruction>>,
+        positions: impl Into<Vec<Span>>,
+        constants: impl Into<Vec<Value>>,
+        locals: impl Into<Vec<Local>>,
         prototypes: Vec<Chunk>,
     ) -> Self {
         Self {

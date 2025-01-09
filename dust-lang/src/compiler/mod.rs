@@ -31,7 +31,6 @@ use type_checks::{check_math_type, check_math_types};
 use std::mem::replace;
 
 use optimize::control_flow_register_consolidation;
-use smallvec::{smallvec, SmallVec};
 
 use crate::{
     instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
@@ -52,8 +51,8 @@ use crate::{
 /// ```
 pub fn compile(program_name: Option<DustString>, source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler =
-        Compiler::new(lexer, program_name).map_err(|error| DustError::compile(error, source))?;
+    let mut compiler = Compiler::new(lexer, program_name, true)
+        .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -85,15 +84,15 @@ pub struct Compiler<'src> {
     /// Instructions, along with their types and positions, that have been compiled. The
     /// instructions and positions are assigned to the chunk when [`Compiler::finish`] is called.
     /// The types are discarded after compilation.
-    instructions: SmallVec<[(Instruction, Type, Span); 32]>,
+    instructions: Vec<(Instruction, Type, Span)>,
 
     /// Constants that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    constants: SmallVec<[Value; 16]>,
+    constants: Vec<Value>,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
-    locals: SmallVec<[(Local, Type); 8]>,
+    locals: Vec<(Local, Type)>,
 
     /// Prototypes that have been compiled. These are assigned to the chunk when
     /// [`Compiler::finish`] is called.
@@ -104,12 +103,11 @@ pub struct Compiler<'src> {
     stack_size: usize,
 
     /// The first register index that the compiler should use. This is used to avoid reusing the
-    /// registers that are used for the function's arguments, thus it is zero in the program's main
-    /// chunk.
+    /// registers that are used for the function's arguments.
     minimum_register: u8,
 
-    /// Index of the current block. This is used to determine the scope of the locals and is
-    /// incremented when a new block is entered.
+    /// Index of the current block. This is used to determine the scope of locals and is incremented
+    /// when a new block is entered.
     block_index: u8,
 
     /// The current block scope of the compiler. This is used to test if a variable is in scope.
@@ -119,6 +117,10 @@ pub struct Compiler<'src> {
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: u8,
 
+    /// Whether the chunk is the program's main chunk. This is used to prevent recursive calls to
+    /// the main chunk.
+    is_main: bool,
+
     current_token: Token<'src>,
     current_position: Span,
     previous_token: Token<'src>,
@@ -126,23 +128,24 @@ pub struct Compiler<'src> {
 }
 
 impl<'src> Compiler<'src> {
-    /// Creates a new top-level compiler with the given lexer.
+    /// Creates a new compiler.
     pub fn new(
         mut lexer: Lexer<'src>,
         function_name: Option<DustString>,
+        is_main: bool,
     ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
         Ok(Compiler {
             function_name,
             r#type: FunctionType {
-                type_parameters: None,
-                value_parameters: None,
+                type_parameters: Vec::with_capacity(0),
+                value_parameters: Vec::with_capacity(0),
                 return_type: Type::None,
             },
-            instructions: SmallVec::new(),
-            constants: SmallVec::new(),
-            locals: SmallVec::new(),
+            instructions: Vec::new(),
+            constants: Vec::new(),
+            locals: Vec::new(),
             prototypes: Vec::new(),
             stack_size: 0,
             lexer,
@@ -150,6 +153,7 @@ impl<'src> Compiler<'src> {
             block_index: 0,
             current_scope: Scope::default(),
             prototype_index: 0,
+            is_main,
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -195,7 +199,7 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(self) -> Chunk {
-        let (instructions, positions): (SmallVec<[Instruction; 32]>, SmallVec<[Span; 32]>) = self
+        let (instructions, positions): (Vec<Instruction>, Vec<Span>) = self
             .instructions
             .into_iter()
             .map(|(instruction, _, position)| (instruction, position))
@@ -204,14 +208,14 @@ impl<'src> Compiler<'src> {
             .locals
             .into_iter()
             .map(|(local, _)| local)
-            .collect::<SmallVec<[Local; 8]>>();
+            .collect::<Vec<Local>>();
 
         Chunk {
             name: self.function_name,
             r#type: self.r#type,
             instructions,
             positions,
-            constants: self.constants,
+            constants: self.constants.to_vec(),
             locals,
             prototypes: self.prototypes,
             register_count: self.stack_size,
@@ -998,7 +1002,7 @@ impl<'src> Compiler<'src> {
             local_index
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_call_native(native_function);
-        } else if self.function_name.as_deref() == Some(identifier) {
+        } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
             let destination = self.next_register();
             let load_self = Instruction::load_self(destination);
 
@@ -1549,7 +1553,7 @@ impl<'src> Compiler<'src> {
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
             let function_name = identifier.map(DustString::from);
 
-            Compiler::new(self.lexer, function_name)? // This will consume the left parenthesis
+            Compiler::new(self.lexer, function_name, false)? // This will consume the parenthesis
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftParenthesis,
@@ -1560,7 +1564,7 @@ impl<'src> Compiler<'src> {
 
         function_compiler.prototype_index = self.prototypes.len() as u8;
 
-        let mut value_parameters: Option<SmallVec<[(u8, Type); 4]>> = None;
+        let mut value_parameters: Vec<(u8, Type)> = Vec::with_capacity(3);
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1594,15 +1598,10 @@ impl<'src> Compiler<'src> {
                 function_compiler.current_scope,
             );
 
-            if let Some(value_parameters) = value_parameters.as_mut() {
-                value_parameters.push((identifier_index, r#type));
-            } else {
-                value_parameters = Some(smallvec![(identifier_index, r#type)]);
-            };
+            value_parameters.push((identifier_index, r#type));
+            function_compiler.allow(Token::Comma)?;
 
             function_compiler.minimum_register += 1;
-
-            function_compiler.allow(Token::Comma)?;
         }
 
         let return_type = if function_compiler.allow(Token::ArrowThin)? {
@@ -1618,7 +1617,7 @@ impl<'src> Compiler<'src> {
             Type::None
         };
         let function_type = FunctionType {
-            type_parameters: None,
+            type_parameters: Vec::with_capacity(0),
             value_parameters,
             return_type,
         };

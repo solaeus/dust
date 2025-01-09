@@ -11,7 +11,7 @@ pub fn read_line(
     destination: Option<u8>,
     _argument_range: Range<u8>,
 ) -> bool {
-    let record = data.records.last_mut_unchecked();
+    let record = &mut data.call_stack.last_mut_unchecked().record;
     let destination = destination.unwrap();
     let mut buffer = String::new();
 
@@ -31,7 +31,7 @@ pub fn read_line(
 }
 
 pub fn write(data: &mut ThreadData, _destination: Option<u8>, argument_range: Range<u8>) -> bool {
-    let record = data.records.last_mut_unchecked();
+    let record = &mut data.call_stack.last_mut_unchecked().record;
     let mut stdout = stdout();
 
     for register_index in argument_range {
@@ -52,7 +52,7 @@ pub fn write_line(
     _destination: Option<u8>,
     argument_range: Range<u8>,
 ) -> bool {
-    let record = data.records.last_mut_unchecked();
+    let record = &mut data.call_stack.last_mut_unchecked().record;
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {

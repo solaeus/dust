@@ -5,7 +5,7 @@ use std::{
 
 use crate::DustString;
 
-use super::VmError;
+use super::Record;
 
 #[derive(Clone, PartialEq)]
 pub struct Stack<T> {
@@ -35,7 +35,7 @@ impl<T> Stack<T> {
 
     pub fn get_unchecked(&self, index: usize) -> &T {
         if cfg!(debug_assertions) {
-            assert!(index < self.len(), "{}", VmError::StackUnderflow);
+            assert!(index < self.len(), "Stack underflow");
 
             &self.items[index]
         } else {
@@ -61,7 +61,7 @@ impl<T> Stack<T> {
 
     pub fn pop_unchecked(&mut self) -> T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
+            assert!(!self.is_empty(), "Stack underflow");
 
             self.items.pop().unwrap()
         } else {
@@ -71,7 +71,7 @@ impl<T> Stack<T> {
 
     pub fn last_unchecked(&self) -> &T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
+            assert!(!self.is_empty(), "Stack underflow");
 
             self.items.last().unwrap()
         } else {
@@ -81,7 +81,7 @@ impl<T> Stack<T> {
 
     pub fn last_mut_unchecked(&mut self) -> &mut T {
         if cfg!(debug_assertions) {
-            assert!(!self.is_empty(), "{}", VmError::StackUnderflow);
+            assert!(!self.is_empty(), "Stack underflow");
 
             self.items.last_mut().unwrap()
         } else {
@@ -116,7 +116,7 @@ impl<T: Debug> Debug for Stack<T> {
     }
 }
 
-impl Display for Stack<FunctionCall> {
+impl Display for Stack<FunctionCall<'_>> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(f, "-- DUST CALL STACK --")?;
 
@@ -128,14 +128,15 @@ impl Display for Stack<FunctionCall> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct FunctionCall {
+#[derive(Debug)]
+pub struct FunctionCall<'a> {
     pub name: Option<DustString>,
     pub return_register: u8,
     pub ip: usize,
+    pub record: Record<'a>,
 }
 
-impl Display for FunctionCall {
+impl Display for FunctionCall<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let FunctionCall {
             name,

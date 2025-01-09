@@ -744,12 +744,12 @@ impl AnnotatedError for LexError {
         }
     }
 
-    fn detail_snippets(&self) -> smallvec::SmallVec<[(String, Span); 2]> {
-        todo!()
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 
-    fn help_snippets(&self) -> smallvec::SmallVec<[(String, Span); 2]> {
-        todo!()
+    fn help_snippets(&self) -> Vec<(String, Span)> {
+        Vec::with_capacity(0)
     }
 }
 

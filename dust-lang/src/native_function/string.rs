@@ -10,7 +10,7 @@ pub fn to_string(
     destination: Option<u8>,
     argument_range: Range<u8>,
 ) -> bool {
-    let record = data.records.last_mut_unchecked();
+    let record = &mut data.call_stack.last_mut_unchecked().record;
     let argument_value = record.open_register_unchecked(argument_range.start);
     let argument_string = argument_value.display(record);
     let destination = destination.unwrap();

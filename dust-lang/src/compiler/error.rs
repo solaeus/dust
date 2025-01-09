@@ -1,7 +1,5 @@
 use std::num::{ParseFloatError, ParseIntError};
 
-use smallvec::{smallvec, SmallVec};
-
 use crate::{AnnotatedError, LexError, Scope, Span, TokenKind, TokenOwned, Type, TypeConflict};
 
 /// Compilation errors
@@ -212,7 +210,7 @@ impl AnnotatedError for CompileError {
         }
     }
 
-    fn detail_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
             Self::CannotAddArguments {
                 left_type,
@@ -220,31 +218,31 @@ impl AnnotatedError for CompileError {
                 right_type,
                 right_position,
             } => {
-                smallvec![
+                vec![
                     (
                         format!("A value of type \"{left_type}\" was used here."),
-                        *left_position
+                        *left_position,
                     ),
                     (
                         format!("A value of type \"{right_type}\" was used here."),
-                        *right_position
-                    )
+                        *right_position,
+                    ),
                 ]
             }
             Self::ReturnTypeConflict { conflict, position } => {
-                smallvec![(
+                vec![(
                     format!(
                         "Expected type {} but found type {}",
                         conflict.expected, conflict.actual
                     ),
-                    *position
+                    *position,
                 )]
             }
-            _ => SmallVec::new(),
+            _ => Vec::with_capacity(0),
         }
     }
 
-    fn help_snippets(&self) -> SmallVec<[(String, Span); 2]> {
+    fn help_snippets(&self) -> Vec<(String, Span)> {
         match self {
             Self::CannotAddArguments {
                 left_type,
@@ -252,12 +250,12 @@ impl AnnotatedError for CompileError {
                 right_type,
                 right_position,
             } => {
-                smallvec![(
+                vec![(
                     format!("Type \"{left_type}\" cannot be added to type \"{right_type}\". Try converting one of the values to the other type."),
                     Span(left_position.0, right_position.1)
                 )]
             }
-            _ => SmallVec::new(),
+            _ => Vec::with_capacity(0),
         }
     }
 }

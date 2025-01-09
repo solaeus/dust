@@ -28,8 +28,6 @@
 //! println!("{}", report);
 //! ```
 
-#![feature(array_repeat)]
-
 pub mod chunk;
 pub mod compiler;
 pub mod dust_error;

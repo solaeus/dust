@@ -6,7 +6,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
 /// Description of a kind of value.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -25,7 +24,7 @@ pub enum Type {
     Integer,
     List(Box<Type>),
     Map {
-        pairs: Box<SmallVec<[(u8, Type); 8]>>,
+        pairs: Vec<(u8, Type)>,
     },
     None,
     Range {
@@ -35,7 +34,7 @@ pub enum Type {
     String,
     Struct(StructType),
     Tuple {
-        fields: Box<SmallVec<[Type; 4]>>,
+        fields: Vec<Type>,
     },
 }
 
@@ -274,20 +273,20 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Option<SmallVec<[u8; 4]>>,
-    pub value_parameters: Option<SmallVec<[(u8, Type); 4]>>,
+    pub type_parameters: Vec<u8>,
+    pub value_parameters: Vec<(u8, Type)>,
     pub return_type: Type,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<SmallVec<[u8; 4]>>, U: Into<SmallVec<[(u8, Type); 4]>>>(
-        type_parameters: Option<T>,
-        value_parameters: Option<U>,
+    pub fn new<T: Into<Vec<u8>>, U: Into<Vec<(u8, Type)>>>(
+        type_parameters: T,
+        value_parameters: U,
         return_type: Type,
     ) -> Self {
         FunctionType {
-            type_parameters: type_parameters.map(|into_types| into_types.into()),
-            value_parameters: value_parameters.map(|into_values| into_values.into()),
+            type_parameters: type_parameters.into(),
+            value_parameters: value_parameters.into(),
             return_type,
         }
     }
@@ -297,10 +296,10 @@ impl Display for FunctionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "fn ")?;
 
-        if let Some(type_parameters) = &self.type_parameters {
+        if !self.type_parameters.is_empty() {
             write!(f, "<")?;
 
-            for (index, type_parameter) in type_parameters.iter().enumerate() {
+            for (index, type_parameter) in self.type_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
@@ -313,8 +312,8 @@ impl Display for FunctionType {
 
         write!(f, "(")?;
 
-        if let Some(value_parameters) = &self.value_parameters {
-            for (index, (_, r#type)) in value_parameters.iter().enumerate() {
+        if !self.value_parameters.is_empty() {
+            for (index, (_, r#type)) in self.value_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
