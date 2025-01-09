@@ -6,10 +6,7 @@ use std::{
 };
 
 use clap::{
-    builder::{
-        styling::{AnsiColor, Color},
-        StyledStr, Styles,
-    },
+    builder::{styling::AnsiColor, Styles},
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
     Args, ColorChoice, Error, Parser, Subcommand, ValueHint,
