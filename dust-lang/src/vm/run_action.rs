@@ -7,10 +7,10 @@ use crate::{
         Return, SetLocal, Subtract, Test, TestSet,
     },
     vm::FunctionCall,
-    AbstractList, Argument, ConcreteValue, DustString, Instruction, Type, Value,
+    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
 };
 
-use super::{thread::ThreadData, Pointer, Record, Register};
+use super::{thread::ThreadData, Pointer, Register};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RunAction {
@@ -57,48 +57,46 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     r#return,
 ];
 
-pub(crate) fn get_next_action(record: &mut Record) -> RunAction {
-    let instruction = record.chunk.instructions[record.ip];
+pub(crate) fn get_next_action(data: &mut ThreadData) -> RunAction {
+    let current_call = data.call_stack.last_mut_unchecked();
+    let instruction = current_call.chunk.instructions[current_call.ip];
     let operation = instruction.operation();
     let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
-    record.ip += 1;
+    current_call.ip += 1;
 
     RunAction { logic, instruction }
 }
 
 pub fn point(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Point { from, to } = instruction.into();
-    let from_register = record.get_register_unchecked(from);
+    let from_register = data.get_register_unchecked(from);
     let from_register_is_empty = matches!(from_register, Register::Empty);
 
     if !from_register_is_empty {
-        let register = Register::Pointer(Pointer::Stack(to));
+        let register = Register::Pointer(Pointer::Register(to));
 
-        record.set_register(from, register);
+        data.set_register(from, register);
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn close(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Close { from, to } = instruction.into();
 
     for register_index in from..to {
-        record.set_register(register_index, Register::Empty);
+        data.set_register(register_index, Register::Empty);
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LoadBoolean {
         destination,
         value,
@@ -107,19 +105,20 @@ pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> bool {
     let boolean = Value::Concrete(ConcreteValue::Boolean(value));
     let register = Register::Value(boolean);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
     if jump_next {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn load_constant(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LoadConstant {
         destination,
         constant_index,
@@ -129,19 +128,20 @@ pub fn load_constant(instruction: Instruction, data: &mut ThreadData) -> bool {
 
     trace!("Load constant {constant_index} into R{destination}");
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
     if jump_next {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LoadList {
         destination,
         start_register,
@@ -150,7 +150,7 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
     let mut item_type = Type::Any;
 
     for register_index in start_register..destination {
-        match record.get_register_unchecked(register_index) {
+        match data.get_register_unchecked(register_index) {
             Register::Empty => continue,
             Register::Value(value) => {
                 if item_type == Type::Any {
@@ -159,12 +159,12 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
             }
             Register::Pointer(pointer) => {
                 if item_type == Type::Any {
-                    item_type = record.follow_pointer(*pointer).r#type();
+                    item_type = data.follow_pointer_unchecked(*pointer).r#type();
                 }
             }
         }
 
-        let pointer = Pointer::Stack(register_index);
+        let pointer = Pointer::Register(register_index);
 
         item_pointers.push(pointer);
     }
@@ -175,122 +175,119 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
     });
     let register = Register::Value(list_value);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LoadFunction {
         destination,
         prototype_index,
     } = instruction.into();
     let prototype_index = prototype_index as usize;
-    let function = record.chunk.prototypes[prototype_index].as_function();
+    let current_call = data.call_stack.last_mut_unchecked();
+    let prototype = &current_call.chunk.prototypes[prototype_index];
+    let function = prototype.as_function();
     let register = Register::Value(Value::Function(function));
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LoadSelf { destination } = instruction.into();
-    let function = record.as_function();
+    let current_call = data.call_stack.last_mut_unchecked();
+    let prototype = &current_call.chunk;
+    let function = prototype.as_function();
     let register = Register::Value(Value::Function(function));
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn get_local(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let GetLocal {
         destination,
         local_index,
     } = instruction.into();
-    let local_register_index = record.get_local_register(local_index);
-    let register = Register::Pointer(Pointer::Stack(local_register_index));
+    let local_register_index = data.get_local_register(local_index);
+    let register = Register::Pointer(Pointer::Register(local_register_index));
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn set_local(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let SetLocal {
         register_index,
         local_index,
     } = instruction.into();
-    let local_register_index = record.get_local_register(local_index);
-    let register = Register::Pointer(Pointer::Stack(register_index));
+    let local_register_index = data.get_local_register(local_index);
+    let register = Register::Pointer(Pointer::Register(register_index));
 
-    record.set_register(local_register_index, register);
+    data.set_register(local_register_index, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn add(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Add {
         destination,
         left,
         right,
     } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let sum = left.add(right);
     let register = Register::Value(sum);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn subtract(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Subtract {
         destination,
         left,
         right,
     } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let difference = left.subtract(right);
     let register = Register::Value(difference);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Multiply {
         destination,
         left,
         right,
     } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let product = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -302,22 +299,21 @@ pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> bool {
     };
     let register = Register::Value(product);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn divide(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Divide {
         destination,
         left,
         right,
     } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let quotient = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -329,22 +325,21 @@ pub fn divide(instruction: Instruction, data: &mut ThreadData) -> bool {
     };
     let register = Register::Value(quotient);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Modulo {
         destination,
         left,
         right,
     } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let remainder = match (left, right) {
         (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
             (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
@@ -356,20 +351,19 @@ pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> bool {
     };
     let register = Register::Value(remainder);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn test(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Test {
         operand_register,
         test_value,
     } = instruction.into();
-    let value = record.open_register_unchecked(operand_register);
+    let value = data.open_register_unchecked(operand_register);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
@@ -377,22 +371,23 @@ pub fn test(instruction: Instruction, data: &mut ThreadData) -> bool {
     };
 
     if boolean == test_value {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let TestSet {
         destination,
         argument,
         test_value,
     } = instruction.into();
-    let value = record.get_argument_unchecked(argument);
+    let value = data.get_argument_unchecked(argument);
     let boolean = if let Value::Concrete(ConcreteValue::Boolean(boolean)) = value {
         *boolean
     } else {
@@ -403,178 +398,160 @@ pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
     } else {
         let pointer = match argument {
             Argument::Constant(constant_index) => Pointer::Constant(constant_index),
-            Argument::Register(register_index) => Pointer::Stack(register_index),
+            Argument::Register(register_index) => Pointer::Register(register_index),
         };
         let register = Register::Pointer(pointer);
 
-        record.set_register(destination, register);
+        data.set_register(destination, register);
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Equal { value, left, right } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let is_equal = left.equals(right);
 
     if is_equal == value {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Less { value, left, right } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let is_less = left < right;
 
     if is_less == value {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let LessEqual { value, left, right } = instruction.into();
-    let left = record.get_argument_unchecked(left);
-    let right = record.get_argument_unchecked(right);
+    let left = data.get_argument_unchecked(left);
+    let right = data.get_argument_unchecked(right);
     let is_less_or_equal = left <= right;
 
     if is_less_or_equal == value {
-        record.ip += 1;
+        let current_call = data.call_stack.last_mut_unchecked();
+
+        current_call.ip += 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn negate(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Negate {
         destination,
         argument,
     } = instruction.into();
-    let argument = record.get_argument_unchecked(argument);
+    let argument = data.get_argument_unchecked(argument);
     let negated = argument.negate();
     let register = Register::Value(negated);
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn not(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Not {
         destination,
         argument,
     } = instruction.into();
-    let argument = record.get_argument_unchecked(argument);
+    let argument = data.get_argument_unchecked(argument);
     let not = match argument {
         Value::Concrete(ConcreteValue::Boolean(boolean)) => ConcreteValue::Boolean(!boolean),
         _ => panic!("VM Error: Expected boolean value for NOT operation"),
     };
     let register = Register::Value(Value::Concrete(not));
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn jump(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let Jump {
         offset,
         is_positive,
     } = instruction.into();
     let offset = offset as usize;
+    let current_call = data.call_stack.last_mut_unchecked();
 
     if is_positive {
-        record.ip += offset;
+        current_call.ip += offset;
     } else {
-        record.ip -= offset + 1;
+        current_call.ip -= offset + 1;
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let current_call = data.call_stack.pop_unchecked();
     let Call {
         destination: return_register,
         function_register,
         argument_count,
         is_recursive,
     } = instruction.into();
-    let function = current_call
-        .record
-        .open_register_unchecked(function_register)
-        .as_function()
-        .unwrap();
+    let current_call = data.call_stack.last_unchecked();
     let first_argument_register = return_register - argument_count;
     let prototype = if is_recursive {
-        current_call.record.chunk
+        current_call.chunk
     } else {
-        &current_call.record.chunk.prototypes[function.prototype_index as usize]
+        let function = data
+            .open_register_unchecked(function_register)
+            .as_function()
+            .unwrap();
+
+        &current_call.chunk.prototypes[function.prototype_index as usize]
     };
-    let mut next_call = FunctionCall {
-        name: prototype.name.clone(),
-        return_register,
-        ip: current_call.ip,
-        record: Record::new(prototype),
-    };
+    let mut next_call = FunctionCall::new(prototype, return_register);
     let mut argument_index = 0;
 
     for register_index in first_argument_register..return_register {
-        let value_option = current_call
-            .record
-            .open_register_allow_empty_unchecked(register_index);
+        let value_option = data.open_register_allow_empty_unchecked(register_index);
         let argument = if let Some(value) = value_option {
             value.clone()
         } else {
             continue;
         };
 
-        trace!(
-            "Passing argument \"{argument}\" to {}",
-            function
-                .name
-                .clone()
-                .unwrap_or_else(|| DustString::from("anonymous"))
-        );
-
-        next_call
-            .record
-            .set_register(argument_index, Register::Value(argument));
-
+        next_call.registers[argument_index] = Register::Value(argument);
         argument_index += 1;
     }
 
-    data.next_action = get_next_action(&mut next_call.record);
-
-    data.call_stack.push(current_call);
     data.call_stack.push(next_call);
+
+    data.next_action = get_next_action(data);
 
     false
 }
@@ -598,30 +575,24 @@ pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> bool {
         should_return_value,
         return_register,
     } = instruction.into();
-    let mut current_call = if data.call_stack.len() == 1 {
+    let (destination, return_value) = if data.call_stack.len() == 1 {
         if should_return_value {
             data.return_value_index = Some(return_register);
         };
 
         return true;
     } else {
-        data.call_stack.pop_unchecked()
+        let return_value = data.empty_register_or_clone_constant_unchecked(return_register);
+        let destination = data.call_stack.pop_unchecked().return_register;
+
+        (destination, return_value)
     };
 
-    let outer_call = data.call_stack.last_mut_unchecked();
-
     if should_return_value {
-        let return_value = current_call
-            .record
-            .empty_register_or_clone_constant_unchecked(return_register);
-        let destination = current_call.return_register;
-
-        outer_call
-            .record
-            .set_register(destination, Register::Value(return_value));
+        data.set_register(destination, Register::Value(return_value));
     }
 
-    data.next_action = get_next_action(&mut outer_call.record);
+    data.next_action = get_next_action(data);
 
     false
 }

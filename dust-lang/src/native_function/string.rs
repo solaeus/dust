@@ -10,15 +10,14 @@ pub fn to_string(
     destination: Option<u8>,
     argument_range: Range<u8>,
 ) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
-    let argument_value = record.open_register_unchecked(argument_range.start);
-    let argument_string = argument_value.display(record);
+    let argument_value = data.open_register_unchecked(argument_range.start);
+    let argument_string = argument_value.display(data);
     let destination = destination.unwrap();
     let register = Register::Value(Value::Concrete(ConcreteValue::string(argument_string)));
 
-    record.set_register(destination, register);
+    data.set_register(destination, register);
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }

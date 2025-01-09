@@ -11,7 +11,6 @@ pub fn read_line(
     destination: Option<u8>,
     _argument_range: Range<u8>,
 ) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let destination = destination.unwrap();
     let mut buffer = String::new();
 
@@ -22,27 +21,26 @@ pub fn read_line(
 
         let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
 
-        record.set_register(destination, register);
+        data.set_register(destination, register);
     }
 
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn write(data: &mut ThreadData, _destination: Option<u8>, argument_range: Range<u8>) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let mut stdout = stdout();
 
     for register_index in argument_range {
-        if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(record);
+        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
+            let string = value.display(data);
             let _ = stdout.write(string.as_bytes());
         }
     }
 
     let _ = stdout.flush();
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }
@@ -52,19 +50,18 @@ pub fn write_line(
     _destination: Option<u8>,
     argument_range: Range<u8>,
 ) -> bool {
-    let record = &mut data.call_stack.last_mut_unchecked().record;
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
-        if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(record);
+        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
+            let string = value.display(data);
             let _ = stdout.write(string.as_bytes());
             let _ = stdout.write(b"\n");
         }
     }
 
     let _ = stdout.flush();
-    data.next_action = get_next_action(record);
+    data.next_action = get_next_action(data);
 
     false
 }

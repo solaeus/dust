@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::Record, Pointer, Type};
+use crate::{vm::ThreadData, Pointer, Type};
 
 use super::DustString;
 
@@ -11,7 +11,7 @@ pub struct AbstractList {
 }
 
 impl AbstractList {
-    pub fn display(&self, record: &Record) -> DustString {
+    pub fn display(&self, data: &ThreadData) -> DustString {
         let mut display = DustString::new();
 
         display.push('[');
@@ -21,7 +21,7 @@ impl AbstractList {
                 display.push_str(", ");
             }
 
-            let item_display = record.follow_pointer(*item).display(record);
+            let item_display = data.follow_pointer_unchecked(*item).display(data);
 
             display.push_str(&item_display);
         }

@@ -3,9 +3,7 @@ use std::{
     ops::{Index, IndexMut, Range},
 };
 
-use crate::DustString;
-
-use super::Record;
+use super::FunctionCall;
 
 #[derive(Clone, PartialEq)]
 pub struct Stack<T> {
@@ -40,6 +38,16 @@ impl<T> Stack<T> {
             &self.items[index]
         } else {
             unsafe { self.items.get_unchecked(index) }
+        }
+    }
+
+    pub fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+        if cfg!(debug_assertions) {
+            assert!(index < self.len(), "Stack underflow");
+
+            &mut self.items[index]
+        } else {
+            unsafe { self.items.get_unchecked_mut(index) }
         }
     }
 
@@ -118,36 +126,12 @@ impl<T: Debug> Debug for Stack<T> {
 
 impl Display for Stack<FunctionCall<'_>> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(f, "-- DUST CALL STACK --")?;
+        writeln!(f, "----- DUST CALL STACK -----")?;
 
-        for function_call in self.items.iter().rev() {
-            writeln!(f, "{function_call}")?;
+        for (index, function_call) in self.items.iter().enumerate().rev() {
+            writeln!(f, "{index:02} | {function_call}")?;
         }
 
-        writeln!(f, "--")
-    }
-}
-
-#[derive(Debug)]
-pub struct FunctionCall<'a> {
-    pub name: Option<DustString>,
-    pub return_register: u8,
-    pub ip: usize,
-    pub record: Record<'a>,
-}
-
-impl Display for FunctionCall<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let FunctionCall {
-            name,
-            return_register,
-            ..
-        } = self;
-        let name = name
-            .as_ref()
-            .map(|name| name.as_str())
-            .unwrap_or("anonymous");
-
-        write!(f, "{name} (Return register: {return_register})")
+        write!(f, "---------------------------")
     }
 }

@@ -1,5 +1,5 @@
 //! Virtual machine and errors
-mod record;
+mod function_call;
 mod run_action;
 mod stack;
 mod thread;
@@ -10,10 +10,10 @@ use std::{
     thread::spawn,
 };
 
-pub use record::Record;
+pub use function_call::FunctionCall;
 pub(crate) use run_action::get_next_action;
 pub use run_action::RunAction;
-pub use stack::{FunctionCall, Stack};
+pub use stack::Stack;
 pub use thread::{Thread, ThreadData};
 
 use tracing::{span, Level};
@@ -85,15 +85,19 @@ impl Display for Register {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Pointer {
-    Stack(u8),
+    Register(u8),
     Constant(u8),
+    Stack(usize, u8),
 }
 
 impl Display for Pointer {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Stack(index) => write!(f, "PR{}", index),
+            Self::Register(index) => write!(f, "PR{}", index),
             Self::Constant(index) => write!(f, "PC{}", index),
+            Self::Stack(call_index, register_index) => {
+                write!(f, "PS{}R{}", call_index, register_index)
+            }
         }
     }
 }
