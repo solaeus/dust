@@ -1,15 +1,9 @@
 use std::{ops::Range, panic};
 
-use crate::{
-    vm::{Record, ThreadSignal},
-    NativeFunctionError,
-};
+use crate::vm::ThreadData;
 
-pub fn panic(
-    record: &mut Record,
-    _: Option<u8>,
-    argument_range: Range<u8>,
-) -> Result<ThreadSignal, NativeFunctionError> {
+pub fn panic(data: &mut ThreadData, _: Option<u8>, argument_range: Range<u8>) -> bool {
+    let record = data.records.last_mut_unchecked();
     let position = record.current_position();
     let mut message = format!("Dust panic at {position}!");
 

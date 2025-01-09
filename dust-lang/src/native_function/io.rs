@@ -1,93 +1,70 @@
-use std::io::{self, stdin, stdout, Write};
+use std::io::{stdin, stdout, Write};
 use std::ops::Range;
 
-use crate::vm::{get_next_action, Register, ThreadSignal};
-use crate::{vm::Record, ConcreteValue, NativeFunctionError, Value};
+use crate::{
+    vm::{get_next_action, Register, ThreadData},
+    ConcreteValue, Value,
+};
 
 pub fn read_line(
-    record: &mut Record,
+    data: &mut ThreadData,
     destination: Option<u8>,
     _argument_range: Range<u8>,
-) -> Result<ThreadSignal, NativeFunctionError> {
+) -> bool {
+    let record = data.records.last_mut_unchecked();
     let destination = destination.unwrap();
     let mut buffer = String::new();
 
-    match stdin().read_line(&mut buffer) {
-        Ok(_) => {
-            let length = buffer.len();
+    if stdin().read_line(&mut buffer).is_ok() {
+        let length = buffer.len();
 
-            buffer.truncate(length.saturating_sub(1));
+        buffer.truncate(length.saturating_sub(1));
 
-            let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
+        let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
 
-            record.set_register(destination, register);
-        }
-        Err(error) => {
-            return Err(NativeFunctionError::Io {
-                error: error.kind(),
-                position: record.current_position(),
-            })
-        }
+        record.set_register(destination, register);
     }
 
-    let next_action = get_next_action(record);
+    data.next_action = get_next_action(record);
 
-    Ok(ThreadSignal::Continue(next_action))
+    false
 }
 
-pub fn write(
-    record: &mut Record,
-    _destination: Option<u8>,
-    argument_range: Range<u8>,
-) -> Result<ThreadSignal, NativeFunctionError> {
+pub fn write(data: &mut ThreadData, _destination: Option<u8>, argument_range: Range<u8>) -> bool {
+    let record = data.records.last_mut_unchecked();
     let mut stdout = stdout();
 
     for register_index in argument_range {
         if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
             let string = value.display(record);
-
-            stdout
-                .write(string.as_bytes())
-                .map_err(|io_error| NativeFunctionError::Io {
-                    error: io_error.kind(),
-                    position: record.current_position(),
-                })?;
+            let _ = stdout.write(string.as_bytes());
         }
     }
 
-    stdout.flush().map_err(|io_error| NativeFunctionError::Io {
-        error: io_error.kind(),
-        position: record.current_position(),
-    })?;
+    let _ = stdout.flush();
+    data.next_action = get_next_action(record);
 
-    let next_action = get_next_action(record);
-
-    Ok(ThreadSignal::Continue(next_action))
+    false
 }
 
 pub fn write_line(
-    record: &mut Record,
+    data: &mut ThreadData,
     _destination: Option<u8>,
     argument_range: Range<u8>,
-) -> Result<ThreadSignal, NativeFunctionError> {
-    let map_err = |io_error: io::Error| NativeFunctionError::Io {
-        error: io_error.kind(),
-        position: record.current_position(),
-    };
+) -> bool {
+    let record = data.records.last_mut_unchecked();
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
         if let Some(value) = record.open_register_allow_empty_unchecked(register_index) {
             let string = value.display(record);
-
-            stdout.write(string.as_bytes()).map_err(map_err)?;
-            stdout.write(b"\n").map_err(map_err)?;
+            let _ = stdout.write(string.as_bytes());
+            let _ = stdout.write(b"\n");
         }
     }
 
-    stdout.flush().map_err(map_err)?;
+    let _ = stdout.flush();
+    data.next_action = get_next_action(record);
 
-    let next_action = get_next_action(record);
-
-    Ok(ThreadSignal::Continue(next_action))
+    false
 }

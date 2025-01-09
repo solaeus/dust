@@ -6,4 +6,4 @@ function decrement(i) {
   return decrement(i - 1);
 }
 
-decrement(1000);
+console.log(decrement(10_000));

@@ -16,10 +16,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
-use crate::{
-    vm::{Record, ThreadSignal},
-    AnnotatedError, FunctionType, Span, Type,
-};
+use crate::{vm::ThreadData, AnnotatedError, FunctionType, Span, Type};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -36,13 +33,13 @@ macro_rules! define_native_function {
         impl NativeFunction {
             pub fn call(
                 &self,
-                record: &mut Record,
+                data: &mut ThreadData,
                 destination: Option<u8>,
                 argument_range: Range<u8>,
-            ) -> Result<ThreadSignal, NativeFunctionError> {
+            ) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => $function(record, destination, argument_range),
+                        NativeFunction::$name => $function(data, destination, argument_range),
                     )*
                 }
             }

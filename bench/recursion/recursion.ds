@@ -6,4 +6,4 @@ fn decrement(i: int) -> str {
     decrement(i - 1)
 }
 
-decrement(1000)
+write_line(decrement(10_000))

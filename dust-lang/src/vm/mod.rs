@@ -16,7 +16,7 @@ pub use record::Record;
 pub(crate) use run_action::get_next_action;
 pub use run_action::RunAction;
 pub use stack::{FunctionCall, Stack};
-pub use thread::{Thread, ThreadSignal};
+pub use thread::{Thread, ThreadData};
 
 use tracing::{span, Level};
 
