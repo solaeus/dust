@@ -1,16 +1,17 @@
-//! Instructions for the Dust virtual machine.
+//! The Dust instruction set.
 //!
-//! Each instruction is 32 bits and uses up to seven distinct fields:
+//! Each instruction is 64 bits and uses up to eight distinct fields. The instruction's layout is:
 //!
-//! Bit   | Description
+//! Bits  | Description
 //! ----- | -----------
 //! 0-4   | Operation code
 //! 5     | Flag indicating if the B field is a constant
 //! 6     | Flag indicating if the C field is a constant
 //! 7     | D field (boolean)
-//! 8-15  | A field (unsigned 8-bit integer)
-//! 16-23 | B field (unsigned 8-bit integer)
-//! 24-31 | C field (unsigned 8-bit integer)
+//! 8-15  | Type specifier
+//! 16-31 | A field (unsigned 16-bit integer)
+//! 32-47 | B field (unsigned 16-bit integer)
+//! 48-63 | C field (unsigned 16-bit integer)
 //!
 //! **Be careful when working with instructions directly**. When modifying an instruction's fields,
 //! you may also need to modify its flags. It is usually best to remove instructions and insert new
@@ -71,9 +72,9 @@
 //! # );
 //! // Let's read an instruction and see if it performs addition-assignment,
 //! // like in one of the following examples:
-//! //  - `a += 2`
-//! //  - `a = a + 2`
-//! //  - `a = 2 + a`
+//! //   - `a += 2`
+//! //   - `a = a + 2`
+//! //   - `a = 2 + a`
 //!
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = match operation {
@@ -115,6 +116,7 @@ mod set_local;
 mod subtract;
 mod test;
 mod test_set;
+mod type_code;
 
 pub use add::Add;
 pub use call::Call;
@@ -152,25 +154,27 @@ use crate::NativeFunction;
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Instruction(u32);
+pub struct Instruction(u64);
 
 impl Instruction {
     pub fn new(
         operation: Operation,
-        a: u8,
-        b: u8,
-        c: u8,
+        type_specifier: u8,
+        a: u16,
+        b: u16,
+        c: u16,
+        d: bool,
         b_is_constant: bool,
         c_is_constant: bool,
-        d: bool,
     ) -> Instruction {
-        let bits = operation.0 as u32
-            | ((b_is_constant as u32) << 5)
-            | ((c_is_constant as u32) << 6)
-            | ((d as u32) << 7)
-            | ((a as u32) << 8)
-            | ((b as u32) << 16)
-            | ((c as u32) << 24);
+        let bits = operation.0 as u64
+            | ((b_is_constant as u64) << 5)
+            | ((c_is_constant as u64) << 6)
+            | ((d as u64) << 7)
+            | ((type_specifier as u64) << 15)
+            | ((a as u64) << 31)
+            | ((b as u64) << 47)
+            | ((c as u64) << 63);
 
         Instruction(bits)
     }
@@ -206,29 +210,24 @@ impl Instruction {
     }
 
     pub fn set_a_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 8);
+        self.0 &= 0xFFFFFFFF00000000 | ((bits as u64) << 31);
     }
 
     pub fn set_b_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 16);
+        self.0 &= 0xFFFF0000FFFFFFFF | ((bits as u64) << 47);
     }
 
-    pub fn set_c_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFF00FFFF) | ((bits as u32) << 24);
-    }
+    pub fn set_c_field(&mut self, bits: u8) {}
 
     pub fn decode(self) -> (Operation, InstructionData) {
-        (
-            self.operation(),
-            InstructionData {
-                a_field: self.a_field(),
-                b_field: self.b_field(),
-                c_field: self.c_field(),
-                b_is_constant: self.b_is_constant(),
-                c_is_constant: self.c_is_constant(),
-                d_field: self.d_field(),
-            },
-        )
+        (self.operation(), InstructionData {
+            a_field: self.a_field(),
+            b_field: self.b_field(),
+            c_field: self.c_field(),
+            b_is_constant: self.b_is_constant(),
+            c_is_constant: self.c_is_constant(),
+            d_field: self.d_field(),
+        })
     }
 
     pub fn point(from: u8, to: u8) -> Instruction {
