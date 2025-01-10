@@ -23,7 +23,7 @@ fn fib (n: int) -> int {
 write_line(fib(25))
 ```
 
-## 🌣 Highlights
+## Highlights
 
 - Easy to read and write
 - Single-pass, self-optimizing compiler
@@ -32,7 +32,7 @@ write_line(fib(25))
 - Beautiful, helpful error messages from the compiler
 - Safe execution, runtime errors are treated as bugs
 
-## 🛈 Overview
+## Overview
 
 Dust's syntax, safety features and evaluation model are based on Rust. Its instruction set
 and optimization strategies are based on Lua. Unlike Rust and other languages that compile to
@@ -77,11 +77,11 @@ aspirations are to be **fast**, **safe** and **easy**.
 
 ### Author
 
-I'm Jeff and I started this project to learn more about programming languages by implementing a
-simple expession evaluator. Initially, the project used an external parser and a tree-walking
-interpreter. After several books, papers and a lot of experimentation, Dust has evolved to an
-ambitious project that aims to implement lucrative features with a high-quality implementation that
-competes with established languages.
+I'm Jeff 🦀 and I started this project as simple expession evaluator. Initially, the project used an
+external parser and a tree-walking interpreter. After several books, a few papers, countless
+articles and a lot of experimentation, Dust has evolved to an ambitious project that aims to
+implement lucrative features with a high-quality implementation that competes with established
+languages.
 
 ## Usage
 
@@ -94,36 +94,51 @@ the only way to use Dust is to clone the repository and build it from source.
 
 ## Inspiration
 
-[Crafting Interpreters] by Bob Nystrom was a great resource for writing the compiler, especially the
-Pratt parser. The book is a great introduction to writing interpreters. Had it been discovered
+*Crafting Interpreters*[^0] by Bob Nystrom was a great resource for writing the compiler, especially
+the Pratt parser. The book is a great introduction to writing interpreters. Had it been discovered
 sooner, some early implementations of Dust would have been both simpler in design and more ambitious
 in scope.
 
-[The Implementation of Lua 5.0] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and Waldemar
-Celes was a great resource for understanding register-based virtual machines and their instructions.
-This paper was recommended by Bob Nystrom in [Crafting Interpreters].
+*The Implementation of Lua 5.0*[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
+Waldemar Celes was a great resource for understanding register-based virtual machines and their
+instructions. This paper was recommended by Bob Nystrom in [Crafting Interpreters].
 
-[A No-Frills Introduction to Lua 5.1 VM Instructions] by Kein-Hong Man has a wealth of detailed
+*A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed
 information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
 essential in the design of Dust's instructions. Dust uses compile-time optimizations that are based
 on Lua optimizations covered in this paper.
 
-[A Performance Survey on Stack-based and Register-based Virtual Machines] by Ruijie Fang and Siqi
+"A Performance Survey on Stack-based and Register-based Virtual Machines"[^3] by Ruijie Fang and Siqi
 Liup was helpful for a quick yet efficient primer on getting stack-based and register-based virtual
 machines up and running. The included code examples show how to implement both types of VMs in C.
 The performance comparison between the two types of VMs is worth reading for anyone who is trying to
 choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks
-used in this project to compare Dust to other languages.
+used in this project to compare Dust to other languages and inform design decisions.
+
+*Writing a Compiler in Go*[^6] by Thorsten Ball is a lot like [Crafting Interpreters][], they are the
+where I look for a generalized approach to solving a problem. Filled with code examples, this book
+helps the reader make the turn from evaluating a syntax tree to thinking about how problems are
+solved on physical hardware and how that informs the design of a virtual machine.
+
+> Let me get straight to the point: a virtual machine is a computer built with software.
+> -- Thorsten Ball, *Writing a Compiler in Go*
+
+*Structure and Interpretation of Computer Programs, Second Edition*[^7] by Harold Abelson and Gerald
+Jay Sussman with Julie Sussman is a classic text on computer science. It encourages an abstract
+view of programming, sometimes using diagrams to explain programs as though they were physical
+devices. It requires more effort than the books that immediately show you how to write a program,
+but the takeaway is a deep understanding of the the process a computer (or a VM) goes through to
+execute a program.
 
 ## License
 
 Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` file for details.
 
-## References
-
-[^1]: [Crafting Interpreters](https://craftinginterpreters.com/)
-[^2]: [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf)
-[^3]: [A No-Frills Introduction to Lua 5.1 VM Instructions](https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf)
-[^4]: [A Performance Survey on Stack-based and Register-based Virtual Machines](https://arxiv.org/abs/1611.00467)
-[^5]: [List of C-family programming languages](https://en.wikipedia.org/wiki/List_of_C-family_programming_languages)
-[^6]: [ripgrep is faster than {grep, ag, git grep, ucg, pt, sift}](https://blog.burntsushi.net/ripgrep/#mechanics)
+[^0]: [Crafting Interpreters](https://craftinginterpreters.com/)
+[^1]: [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf)
+[^2]: [A No-Frills Introduction to Lua 5.1 VM Instructions](https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf)
+[^3]: [A Performance Survey on Stack-based and Register-based Virtual Machines](https://arxiv.org/abs/1611.00467)
+[^4]: [List of C-family programming languages](https://en.wikipedia.org/wiki/List_of_C-family_programming_languages)
+[^5]: [ripgrep is faster than {grep, ag, git grep, ucg, pt, sift}](https://blog.burntsushi.net/ripgrep/#mechanics)
+[^6]: [Writing a Compiler in Go](https://compilerbook.com/)
+[^7]: [Structure and Interpretation of Computer Programs, Second Edition](https://mitpress.mit.edu/9780262510875/structure-and-interpretation-of-computer-programs/)
