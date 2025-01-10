@@ -6,19 +6,20 @@ mod thread;
 
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    sync::mpsc,
-    thread::spawn,
+    sync::Arc,
+    thread::Builder,
 };
 
 pub use function_call::FunctionCall;
-pub(crate) use run_action::get_next_action;
 pub use run_action::RunAction;
+pub(crate) use run_action::get_next_action;
 pub use stack::Stack;
 pub use thread::{Thread, ThreadData};
 
-use tracing::{span, Level};
+use crossbeam_channel::bounded;
+use tracing::{Level, span};
 
-use crate::{compile, Chunk, DustError, Value};
+use crate::{Chunk, DustError, Value, compile};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
@@ -28,41 +29,31 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 }
 
 pub struct Vm {
-    threads: Vec<Thread>,
+    main_chunk: Chunk,
 }
 
 impl Vm {
-    pub fn new(chunk: Chunk) -> Self {
-        let threads = vec![Thread::new(chunk)];
-
-        debug_assert_eq!(1, threads.capacity());
-
-        Self { threads }
+    pub fn new(main_chunk: Chunk) -> Self {
+        Self { main_chunk }
     }
 
-    pub fn run(mut self) -> Option<Value> {
+    pub fn run(self) -> Option<Value> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
+        let thread_name = self
+            .main_chunk
+            .name
+            .as_ref()
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| "anonymous".to_string());
+        let mut main_thread = Thread::new(Arc::new(self.main_chunk));
+        let (tx, rx) = bounded(1);
+        let _ = Builder::new().name(thread_name).spawn(move || {
+            let value_option = main_thread.run();
+            let _ = tx.send(value_option);
+        });
 
-        if self.threads.len() == 1 {
-            return self.threads[0].run();
-        }
-
-        let (tx, rx) = mpsc::channel();
-
-        for mut thread in self.threads {
-            let tx = tx.clone();
-
-            spawn(move || {
-                let return_value = thread.run();
-
-                if let Some(value) = return_value {
-                    tx.send(value).unwrap();
-                }
-            });
-        }
-
-        rx.into_iter().last()
+        rx.recv().unwrap()
     }
 }
 

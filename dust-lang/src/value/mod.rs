@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{vm::ThreadData, Type};
+use crate::{Type, vm::ThreadData};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
@@ -50,9 +50,9 @@ impl Value {
         Value::Concrete(ConcreteValue::String(string.into()))
     }
 
-    pub fn as_boolean(&self) -> Option<&bool> {
-        if let Value::Concrete(ConcreteValue::Boolean(value)) = self {
-            Some(value)
+    pub fn as_boolean(&self) -> Option<bool> {
+        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = self {
+            Some(*boolean)
         } else {
             None
         }
@@ -66,12 +66,28 @@ impl Value {
         }
     }
 
+    pub fn as_integer(&self) -> Option<i64> {
+        if let Value::Concrete(ConcreteValue::Integer(integer)) = self {
+            Some(*integer)
+        } else {
+            None
+        }
+    }
+
     pub fn as_string(&self) -> Option<&DustString> {
         if let Value::Concrete(ConcreteValue::String(value)) = self {
             Some(value)
         } else {
             None
         }
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::Concrete(ConcreteValue::String(_)))
+    }
+
+    pub fn is_function(&self) -> bool {
+        matches!(self, Value::Function(_))
     }
 
     pub fn r#type(&self) -> Type {

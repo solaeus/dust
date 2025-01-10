@@ -28,7 +28,7 @@ use parse_rule::{ParseRule, Precedence};
 use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
-use std::mem::replace;
+use std::{mem::replace, sync::Arc};
 
 use optimize::control_flow_register_consolidation;
 
@@ -96,7 +96,7 @@ pub struct Compiler<'src> {
 
     /// Prototypes that have been compiled. These are assigned to the chunk when
     /// [`Compiler::finish`] is called.
-    prototypes: Vec<Chunk>,
+    prototypes: Vec<Arc<Chunk>>,
 
     /// Maximum stack size required by the chunk. This is assigned to the chunk when
     /// [`Compiler::finish`] is called.
@@ -1645,7 +1645,7 @@ impl<'src> Compiler<'src> {
         let chunk = function_compiler.finish();
         let destination = self.next_register();
 
-        self.prototypes.push(chunk);
+        self.prototypes.push(Arc::new(chunk));
 
         if let Some(identifier) = identifier {
             self.declare_local(

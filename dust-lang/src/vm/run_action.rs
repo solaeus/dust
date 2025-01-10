@@ -1,16 +1,16 @@
 use tracing::trace;
 
 use crate::{
+    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
     instruction::{
         Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
         LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
         Return, SetLocal, Subtract, Test, TestSet,
     },
     vm::FunctionCall,
-    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
 };
 
-use super::{thread::ThreadData, Pointer, Register};
+use super::{Pointer, Register, thread::ThreadData};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RunAction {
@@ -525,14 +525,14 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
     let current_call = data.call_stack.last_unchecked();
     let first_argument_register = return_register - argument_count;
     let prototype = if is_recursive {
-        current_call.chunk
+        current_call.chunk.clone()
     } else {
         let function = data
             .open_register_unchecked(function_register)
             .as_function()
             .unwrap();
 
-        &current_call.chunk.prototypes[function.prototype_index as usize]
+        current_call.chunk.prototypes[function.prototype_index as usize].clone()
     };
     let mut next_call = FunctionCall::new(prototype, return_register);
     let mut argument_index = 0;
@@ -565,7 +565,7 @@ pub fn call_native(instruction: Instruction, data: &mut ThreadData) -> bool {
     let first_argument_index = destination - argument_count;
     let argument_range = first_argument_index..destination;
 
-    function.call(data, Some(destination), argument_range)
+    function.call(data, destination, argument_range)
 }
 
 pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> bool {

@@ -1,17 +1,17 @@
-use std::mem::replace;
+use std::{mem::replace, sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{vm::FunctionCall, Argument, Chunk, DustString, Span, Value};
+use crate::{Argument, Chunk, DustString, Span, Value, vm::FunctionCall};
 
 use super::{Pointer, Register, RunAction, Stack};
 
 pub struct Thread {
-    chunk: Chunk,
+    chunk: Arc<Chunk>,
 }
 
 impl Thread {
-    pub fn new(chunk: Chunk) -> Self {
+    pub fn new(chunk: Arc<Chunk>) -> Self {
         Thread { chunk }
     }
 
@@ -25,7 +25,7 @@ impl Thread {
         );
 
         let mut call_stack = Stack::with_capacity(self.chunk.prototypes.len() + 1);
-        let main_call = FunctionCall::new(&self.chunk, 0);
+        let main_call = FunctionCall::new(self.chunk.clone(), 0);
 
         call_stack.push(main_call);
 
@@ -34,6 +34,7 @@ impl Thread {
             call_stack,
             next_action: first_action,
             return_value_index: None,
+            spawned_threads: Vec::new(),
         };
 
         loop {
@@ -45,7 +46,7 @@ impl Thread {
             );
 
             if should_end {
-                let return_value = if let Some(register_index) = thread_data.return_value_index {
+                let value_option = if let Some(register_index) = thread_data.return_value_index {
                     let value =
                         thread_data.empty_register_or_clone_constant_unchecked(register_index);
 
@@ -54,20 +55,28 @@ impl Thread {
                     None
                 };
 
-                return return_value;
+                thread_data
+                    .spawned_threads
+                    .into_iter()
+                    .for_each(|join_handle| {
+                        let _ = join_handle.join();
+                    });
+
+                return value_option;
             }
         }
     }
 }
 
 #[derive(Debug)]
-pub struct ThreadData<'a> {
-    pub call_stack: Stack<FunctionCall<'a>>,
+pub struct ThreadData {
+    pub call_stack: Stack<FunctionCall>,
     pub next_action: RunAction,
     pub return_value_index: Option<u8>,
+    pub spawned_threads: Vec<JoinHandle<()>>,
 }
 
-impl ThreadData<'_> {
+impl ThreadData {
     pub fn current_position(&self) -> Span {
         let current_call = self.call_stack.last_unchecked();
 
@@ -75,7 +84,7 @@ impl ThreadData<'_> {
     }
 
     pub(crate) fn follow_pointer_unchecked(&self, pointer: Pointer) -> &Value {
-        trace!("Follow pointer {pointer}");
+        trace!("Follow {pointer}");
 
         match pointer {
             Pointer::Register(register_index) => self.open_register_unchecked(register_index),
@@ -97,7 +106,7 @@ impl ThreadData<'_> {
     }
 
     pub fn get_register_unchecked(&self, register_index: u8) -> &Register {
-        trace!("Get register R{register_index}");
+        trace!("Get R{register_index}");
 
         let register_index = register_index as usize;
 
@@ -133,37 +142,25 @@ impl ThreadData<'_> {
             }
         };
 
+        trace!("Open R{register_index} to {register}");
+
         match register {
-            Register::Value(value) => {
-                trace!("Register R{register_index} opened to value {value}");
-
-                value
-            }
-            Register::Pointer(pointer) => {
-                trace!("Open register R{register_index} opened to pointer {pointer}");
-
-                self.follow_pointer_unchecked(*pointer)
-            }
+            Register::Value(value) => value,
+            Register::Pointer(pointer) => self.follow_pointer_unchecked(*pointer),
             Register::Empty => panic!("VM Error: Register {register_index} is empty"),
         }
     }
 
     pub fn open_register_allow_empty_unchecked(&self, register_index: u8) -> Option<&Value> {
-        trace!("Open register R{register_index}");
+        trace!("Open R{register_index}");
 
         let register = self.get_register_unchecked(register_index);
 
+        trace!("Open R{register_index} to {register}");
+
         match register {
-            Register::Value(value) => {
-                trace!("Register R{register_index} openned to value {value}");
-
-                Some(value)
-            }
-            Register::Pointer(pointer) => {
-                trace!("Open register R{register_index} openned to pointer {pointer}");
-
-                Some(self.follow_pointer_unchecked(*pointer))
-            }
+            Register::Value(value) => Some(value),
+            Register::Pointer(pointer) => Some(self.follow_pointer_unchecked(*pointer)),
             Register::Empty => None,
         }
     }
@@ -260,7 +257,7 @@ impl ThreadData<'_> {
 
     pub fn get_local_register(&self, local_index: u8) -> u8 {
         let local_index = local_index as usize;
-        let chunk = self.call_stack.last_unchecked().chunk;
+        let chunk = &self.call_stack.last_unchecked().chunk;
 
         assert!(
             local_index < chunk.locals.len(),
