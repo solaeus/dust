@@ -43,7 +43,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Chunk, Local};
+use crate::{Chunk, Local, Type};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 24)];
@@ -322,6 +322,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             let identifier_display = self
                 .chunk
                 .constants
+                .strings
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
@@ -352,8 +353,88 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.constants.iter().enumerate() {
-            let type_display = value.r#type().to_string();
+        if self.chunk.constants.r#true {
+            let type_display = Type::Boolean.to_string();
+            let value_display = "true";
+            let constant_display = format!("│{:^5}│{:^26}│{:^26}│", 0, type_display, value_display);
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        if self.chunk.constants.r#false {
+            let type_display = Type::Boolean.to_string();
+            let value_display = "false";
+            let constant_display = format!("│{:^5}│{:^26}│{:^26}│", 1, type_display, value_display);
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constants.bytes.iter().enumerate() {
+            let type_display = Type::Byte.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constants.characters.iter().enumerate() {
+            let type_display = Type::Character.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constants.floats.iter().enumerate() {
+            let type_display = Type::Float.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constants.integers.iter().enumerate() {
+            let type_display = Type::Integer.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constants.strings.iter().enumerate() {
+            let type_display = Type::String.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
 
@@ -374,7 +455,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
     }
 
     pub fn write_prototype_section(&mut self) -> Result<(), io::Error> {
-        self.write_center_border_bold("Functions")?;
+        self.write_center_border_bold("Prototypes")?;
 
         for chunk in &self.chunk.prototypes {
             chunk

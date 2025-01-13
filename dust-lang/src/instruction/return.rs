@@ -1,8 +1,10 @@
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct Return {
     pub should_return_value: bool,
-    pub return_register: u8,
+    pub return_register: u16,
 }
 
 impl From<Instruction> for Return {
@@ -20,9 +22,15 @@ impl From<Instruction> for Return {
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
         let operation = Operation::RETURN;
-        let b = r#return.should_return_value as u8;
-        let c = r#return.return_register;
+        let b_field = r#return.should_return_value as u16;
+        let c_field = r#return.return_register;
 
-        Instruction::new(operation, 0, b, c, false, false, false)
+        InstructionBuilder {
+            operation,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
     }
 }

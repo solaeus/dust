@@ -1,8 +1,12 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct Close {
-    pub from: u8,
-    pub to: u8,
+    pub from: u16,
+    pub to: u16,
 }
 
 impl From<Instruction> for Close {
@@ -17,8 +21,23 @@ impl From<Instruction> for Close {
 impl From<Close> for Instruction {
     fn from(close: Close) -> Self {
         let operation = Operation::CLOSE;
-        let (a, b, c) = (0, close.from, close.to);
+        let b_field = close.from;
+        let c_field = close.to;
 
-        Instruction::new(operation, a, b, c, false, false, false)
+        InstructionBuilder {
+            operation,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
+    }
+}
+
+impl Display for Close {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Close { from, to } = self;
+
+        write!(f, "{from}..={to}")
     }
 }

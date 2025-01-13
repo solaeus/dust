@@ -1,9 +1,11 @@
 use crate::{Instruction, NativeFunction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct CallNative {
-    pub destination: u8,
+    pub destination: u16,
     pub function: NativeFunction,
-    pub argument_count: u8,
+    pub argument_count: u16,
 }
 
 impl From<Instruction> for CallNative {
@@ -22,10 +24,17 @@ impl From<Instruction> for CallNative {
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
         let operation = Operation::CALL_NATIVE;
-        let a = call_native.destination;
-        let b = call_native.function as u8;
-        let c = call_native.argument_count;
+        let a_field = call_native.destination;
+        let b_field = call_native.function as u16;
+        let c_field = call_native.argument_count;
 
-        Instruction::new(operation, a, b, c, false, false, false)
+        InstructionBuilder {
+            operation,
+            a_field,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
     }
 }

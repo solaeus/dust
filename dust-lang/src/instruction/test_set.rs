@@ -1,8 +1,10 @@
-use crate::{Argument, Instruction, Operation};
+use crate::{Instruction, Operand, Operation};
+
+use super::InstructionBuilder;
 
 pub struct TestSet {
-    pub destination: u8,
-    pub argument: Argument,
+    pub destination: u16,
+    pub argument: Operand,
     pub test_value: bool,
 }
 
@@ -23,10 +25,18 @@ impl From<Instruction> for TestSet {
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
         let operation = Operation::TEST;
-        let a = test_set.destination;
-        let (b, b_is_constant) = test_set.argument.as_index_and_constant_flag();
-        let c = test_set.test_value as u8;
+        let a_field = test_set.destination;
+        let (b_field, b_is_constant) = test_set.argument.as_index_and_constant_flag();
+        let c_field = test_set.test_value as u16;
 
-        Instruction::new(operation, a, b, c, b_is_constant, false, false)
+        InstructionBuilder {
+            operation,
+            a_field,
+            b_field,
+            c_field,
+            b_is_constant,
+            ..Default::default()
+        }
+        .build()
     }
 }

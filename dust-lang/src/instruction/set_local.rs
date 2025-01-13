@@ -1,8 +1,12 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct SetLocal {
-    pub register_index: u8,
-    pub local_index: u8,
+    pub register_index: u16,
+    pub local_index: u16,
 }
 
 impl From<Instruction> for SetLocal {
@@ -20,9 +24,26 @@ impl From<Instruction> for SetLocal {
 impl From<SetLocal> for Instruction {
     fn from(set_local: SetLocal) -> Self {
         let operation = Operation::SET_LOCAL;
-        let b = set_local.register_index;
-        let c = set_local.local_index;
+        let b_field = set_local.register_index;
+        let c_field = set_local.local_index;
 
-        Instruction::new(operation, 0, b, c, false, false, false)
+        InstructionBuilder {
+            operation,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
+    }
+}
+
+impl Display for SetLocal {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let SetLocal {
+            register_index,
+            local_index,
+        } = self;
+
+        write!(f, "L{local_index} = R{register_index}")
     }
 }

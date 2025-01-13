@@ -16,7 +16,7 @@ fn subtract_assign() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 14)),
                 (
-                    Instruction::subtract(0, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::subtract(0, Operand::Register(0), Operand::Constant(2)),
                     Span(18, 20)
                 ),
                 (Instruction::get_local(1, 0), Span(24, 25)),

@@ -1,7 +1,9 @@
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct Test {
-    pub operand_register: u8,
+    pub operand_register: u16,
     pub test_value: bool,
 }
 
@@ -19,14 +21,15 @@ impl From<Instruction> for Test {
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        Instruction::new(
-            Operation::TEST,
-            0,
-            test.operand_register,
-            test.test_value as u8,
-            false,
-            false,
-            false,
-        )
+        let b_field = test.operand_register;
+        let c_field = test.test_value as u16;
+
+        InstructionBuilder {
+            operation: Operation::TEST,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
     }
 }

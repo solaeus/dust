@@ -5,7 +5,7 @@ use crate::{
     vm::{Register, ThreadData, get_next_action},
 };
 
-pub fn to_string(data: &mut ThreadData, destination: u8, argument_range: Range<u8>) -> bool {
+pub fn to_string(data: &mut ThreadData, destination: u16, argument_range: Range<u16>) -> bool {
     let argument_value = data.open_register_unchecked(argument_range.start);
     let argument_string = argument_value.display(data);
     let register = Register::Value(Value::Concrete(ConcreteValue::string(argument_string)));

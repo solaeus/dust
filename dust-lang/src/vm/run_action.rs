@@ -1,11 +1,10 @@
 use tracing::trace;
 
 use crate::{
-    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
+    AbstractList, ConcreteValue, Instruction, Operand, Type, Value,
     instruction::{
-        Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
-        LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
-        Return, SetLocal, Subtract, Test, TestSet,
+        Call, CallNative, Close, GetLocal, Jump, LoadBoolean, LoadConstant, LoadFunction, LoadList,
+        LoadSelf, Not, Point, Return, SetLocal, Test, TestSet,
     },
     vm::FunctionCall,
 };
@@ -145,6 +144,7 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
     let LoadList {
         destination,
         start_register,
+        jump_next,
     } = instruction.into();
     let mut item_pointers = Vec::with_capacity((destination - start_register) as usize);
     let mut item_type = Type::Any;
@@ -186,6 +186,7 @@ pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
     let LoadFunction {
         destination,
         prototype_index,
+        jump_next,
     } = instruction.into();
     let prototype_index = prototype_index as usize;
     let current_call = data.call_stack.last_mut_unchecked();
@@ -201,7 +202,10 @@ pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let LoadSelf { destination } = instruction.into();
+    let LoadSelf {
+        destination,
+        jump_next,
+    } = instruction.into();
     let current_call = data.call_stack.last_mut_unchecked();
     let prototype = &current_call.chunk;
     let function = prototype.as_function();
@@ -397,8 +401,8 @@ pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
     if boolean == test_value {
     } else {
         let pointer = match argument {
-            Argument::Constant(constant_index) => Pointer::Constant(constant_index),
-            Argument::Register(register_index) => Pointer::Register(register_index),
+            Operand::Constant(constant_index) => Pointer::Constant(constant_index),
+            Operand::Register(register_index) => Pointer::Register(register_index),
         };
         let register = Register::Pointer(pointer);
 

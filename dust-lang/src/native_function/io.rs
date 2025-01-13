@@ -6,7 +6,7 @@ use crate::{
     vm::{Register, ThreadData, get_next_action},
 };
 
-pub fn read_line(data: &mut ThreadData, destination: u8, _argument_range: Range<u8>) -> bool {
+pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range<u16>) -> bool {
     let mut buffer = String::new();
 
     if stdin().read_line(&mut buffer).is_ok() {
@@ -24,7 +24,7 @@ pub fn read_line(data: &mut ThreadData, destination: u8, _argument_range: Range<
     false
 }
 
-pub fn write(data: &mut ThreadData, _: u8, argument_range: Range<u8>) -> bool {
+pub fn write(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
     let mut stdout = stdout();
 
     for register_index in argument_range {
@@ -40,7 +40,7 @@ pub fn write(data: &mut ThreadData, _: u8, argument_range: Range<u8>) -> bool {
     false
 }
 
-pub fn write_line(data: &mut ThreadData, _: u8, argument_range: Range<u8>) -> bool {
+pub fn write_line(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {

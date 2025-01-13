@@ -10,7 +10,7 @@ use crate::{
     vm::{Thread, ThreadData, get_next_action},
 };
 
-fn start_thread(data: &mut ThreadData, argument_range: Range<u8>) -> JoinHandle<()> {
+fn start_thread(data: &mut ThreadData, argument_range: Range<u16>) -> JoinHandle<()> {
     let mut argument_range_iter = argument_range.into_iter();
     let function_argument = {
         loop {
@@ -56,7 +56,7 @@ fn start_thread(data: &mut ThreadData, argument_range: Range<u8>) -> JoinHandle<
         .expect("Critical VM Error: Failed to spawn thread")
 }
 
-pub fn spawn(data: &mut ThreadData, _: u8, argument_range: Range<u8>) -> bool {
+pub fn spawn(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
     let _ = start_thread(data, argument_range);
     data.next_action = get_next_action(data);
 

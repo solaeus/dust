@@ -33,9 +33,10 @@ use std::{mem::replace, sync::Arc};
 use optimize::control_flow_register_consolidation;
 
 use crate::{
-    Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
-    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
+    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
+    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type, Value,
+    chunk::ConstantTable,
+    instruction::{GetLocal, Jump, LoadList},
 };
 
 /// Compiles the input and returns a chunk.
@@ -88,7 +89,7 @@ pub struct Compiler<'src> {
 
     /// Constants that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    constants: Vec<Value>,
+    constants: ConstantTable,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -104,7 +105,7 @@ pub struct Compiler<'src> {
 
     /// The first register index that the compiler should use. This is used to avoid reusing the
     /// registers that are used for the function's arguments.
-    minimum_register: u8,
+    minimum_register: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -115,7 +116,7 @@ pub struct Compiler<'src> {
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
-    prototype_index: u8,
+    prototype_index: u16,
 
     /// Whether the chunk is the program's main chunk. This is used to prevent recursive calls to
     /// the main chunk.
@@ -144,7 +145,7 @@ impl<'src> Compiler<'src> {
                 return_type: Type::None,
             },
             instructions: Vec::new(),
-            constants: Vec::new(),
+            constants: ConstantTable::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
             stack_size: 0,
@@ -215,7 +216,7 @@ impl<'src> Compiler<'src> {
             r#type: self.r#type,
             instructions,
             positions,
-            constants: self.constants.to_vec(),
+            constants: self.constants,
             locals,
             prototypes: self.prototypes,
             register_count: self.stack_size,
@@ -227,7 +228,7 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register(&self) -> u8 {
+    fn next_register(&self) -> u16 {
         self.instructions
             .iter()
             .rev()
@@ -260,7 +261,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn get_local(&self, index: u8) -> Result<&(Local, Type), CompileError> {
+    fn get_local(&self, index: u16) -> Result<&(Local, Type), CompileError> {
         self.locals
             .get(index as usize)
             .ok_or(CompileError::UndeclaredVariable {
@@ -269,22 +270,19 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn get_local_index(&self, identifier_text: &str) -> Result<u8, CompileError> {
+    fn get_local_index(&self, identifier_text: &str) -> Result<u16, CompileError> {
         self.locals
             .iter()
             .enumerate()
             .rev()
             .find_map(|(index, (local, _))| {
-                let constant = self.constants.get(local.identifier_index as usize)?;
-                let identifier =
-                    if let Value::Concrete(ConcreteValue::String(identifier)) = constant {
-                        identifier
-                    } else {
-                        return None;
-                    };
+                let identifier = self
+                    .constants
+                    .strings
+                    .get(local.identifier_index as usize)?;
 
                 if identifier == identifier_text {
-                    Some(index as u8)
+                    Some(index as u16)
                 } else {
                     None
                 }
@@ -298,16 +296,16 @@ impl<'src> Compiler<'src> {
     fn declare_local(
         &mut self,
         identifier: &str,
-        register_index: u8,
+        register_index: u16,
         r#type: Type,
         is_mutable: bool,
         scope: Scope,
-    ) -> (u8, u8) {
+    ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
-        let identifier = Value::Concrete(ConcreteValue::string(identifier));
-        let identifier_index = self.push_or_get_constant(identifier);
-        let local_index = self.locals.len() as u8;
+        let identifier = DustString::from(identifier);
+        let identifier_index = self.push_or_get_constant_string(identifier);
+        let local_index = self.locals.len() as u16;
 
         self.locals.push((
             Local::new(identifier_index, register_index, is_mutable, scope),
@@ -317,29 +315,107 @@ impl<'src> Compiler<'src> {
         (local_index, identifier_index)
     }
 
-    fn get_identifier(&self, local_index: u8) -> Option<String> {
+    fn get_identifier(&self, local_index: u16) -> Option<String> {
         self.locals
             .get(local_index as usize)
             .and_then(|(local, _)| {
                 self.constants
+                    .strings
                     .get(local.identifier_index as usize)
                     .map(|value| value.to_string())
             })
     }
 
-    fn push_or_get_constant(&mut self, value: Value) -> u8 {
+    fn push_or_get_constant_bool(&mut self, boolean: bool) -> u16 {
+        if boolean {
+            if self.constants.r#true {
+                0
+            } else {
+                self.constants.r#true = true;
+
+                0
+            }
+        } else if self.constants.r#false {
+            1
+        } else {
+            self.constants.r#false = true;
+
+            1
+        }
+    }
+
+    fn push_or_get_constant_byte(&mut self, new_byte: u8) -> u16 {
         if let Some(index) = self
             .constants
+            .bytes
             .iter()
-            .position(|constant| constant == &value)
+            .position(|&byte| byte == new_byte)
         {
-            index as u8
+            index as u16
         } else {
-            let index = self.constants.len() as u8;
+            self.constants.bytes.push(new_byte);
 
-            self.constants.push(value);
+            (self.constants.bytes.len() - 1) as u16
+        }
+    }
 
-            index
+    fn push_or_get_constant_character(&mut self, new_character: char) -> u16 {
+        if let Some(index) = self
+            .constants
+            .characters
+            .iter()
+            .position(|&character| character == new_character)
+        {
+            index as u16
+        } else {
+            self.constants.characters.push(new_character);
+
+            (self.constants.characters.len() - 1) as u16
+        }
+    }
+
+    fn push_or_get_constant_float(&mut self, new_float: f64) -> u16 {
+        if let Some(index) = self
+            .constants
+            .floats
+            .iter()
+            .position(|&float| float == new_float)
+        {
+            index as u16
+        } else {
+            self.constants.floats.push(new_float);
+
+            (self.constants.floats.len() - 1) as u16
+        }
+    }
+
+    fn push_or_get_constant_integer(&mut self, new_integer: i64) -> u16 {
+        if let Some(index) = self
+            .constants
+            .integers
+            .iter()
+            .position(|&integer| integer == new_integer)
+        {
+            index as u16
+        } else {
+            self.constants.integers.push(new_integer);
+
+            (self.constants.integers.len() - 1) as u16
+        }
+    }
+
+    fn push_or_get_constant_string(&mut self, new_string: DustString) -> u16 {
+        if let Some(index) = self
+            .constants
+            .strings
+            .iter()
+            .position(|string| *string == new_string)
+        {
+            index as u16
+        } else {
+            self.constants.strings.push(new_string);
+
+            (self.constants.strings.len() - 1) as u16
         }
     }
 
@@ -393,7 +469,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(Type::None)
     }
 
-    fn get_register_type(&self, register_index: u8) -> Result<Type, CompileError> {
+    fn get_register_type(&self, register_index: u16) -> Result<Type, CompileError> {
         if let Some((_, r#type)) = self
             .locals
             .iter()
@@ -479,6 +555,14 @@ impl<'src> Compiler<'src> {
         self.emit_instruction(load_constant, r#type, position);
 
         Ok(())
+    }
+
+    fn emit_boolean_constant(&mut self, boolean: bool, position: Span) {
+        let constant_index = self.push_or_get_constant_bool(boolean);
+        let destination = self.next_register();
+        let load_boolean = Instruction::load_constant(destination, constant_index, jump_next);
+
+        self.emit_instruction(load_boolean, Type::Boolean, position);
     }
 
     fn parse_boolean(&mut self) -> Result<(), CompileError> {
@@ -651,15 +735,10 @@ impl<'src> Compiler<'src> {
         }
 
         let destination = self.next_register();
-        let instruction = match operator.kind() {
-            TokenKind::Bang => Instruction::from(Not {
-                destination,
-                argument,
-            }),
-            TokenKind::Minus => Instruction::from(Negate {
-                destination,
-                argument,
-            }),
+        let instruction = match (operator, &previous_type) {
+            (Token::Bang, Type::Boolean) => Instruction::not(destination, argument),
+            (Token::Minus, Type::Float) => Instruction::negate_float(destination, argument),
+            (Token::Minus, Type::Integer) => Instruction::negate_int(destination, argument),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[TokenKind::Bang, TokenKind::Minus],
@@ -677,34 +756,62 @@ impl<'src> Compiler<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
-    ) -> Result<(Argument, bool), CompileError> {
+    ) -> Result<(Operand, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
-            Operation::LOAD_CONSTANT => (Argument::Constant(instruction.b_field()), false),
+            Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
             Operation::GET_LOCAL => {
                 let local_index = instruction.b_field();
                 let (local, _) = self.get_local(local_index)?;
 
-                (Argument::Register(local.register_index), false)
+                (Operand::Register(local.register_index), false)
             }
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
-            | Operation::ADD
-            | Operation::SUBTRACT
-            | Operation::MULTIPLY
-            | Operation::DIVIDE
-            | Operation::MODULO
-            | Operation::EQUAL
-            | Operation::LESS
-            | Operation::LESS_EQUAL
-            | Operation::NEGATE
+            | Operation::ADD_BYTE
+            | Operation::ADD_CHAR
+            | Operation::ADD_CHAR_STR
+            | Operation::ADD_FLOAT
+            | Operation::ADD_INT
+            | Operation::ADD_STR
+            | Operation::ADD_STR_CHAR
+            | Operation::SUBTRACT_BYTE
+            | Operation::SUBTRACT_FLOAT
+            | Operation::SUBTRACT_INT
+            | Operation::MULTIPLY_BYTE
+            | Operation::MULTIPLY_FLOAT
+            | Operation::MULTIPLY_INT
+            | Operation::DIVIDE_BYTE
+            | Operation::DIVIDE_FLOAT
+            | Operation::DIVIDE_INT
+            | Operation::MODULO_BYTE
+            | Operation::MODULO_INT
+            | Operation::MODULO_FLOAT
+            | Operation::EQUAL_INT
+            | Operation::EQUAL_FLOAT
+            | Operation::EQUAL_CHAR
+            | Operation::EQUAL_STR
+            | Operation::EQUAL_BOOL
+            | Operation::EQUAL_BYTE
+            | Operation::LESS_INT
+            | Operation::LESS_FLOAT
+            | Operation::LESS_CHAR
+            | Operation::LESS_STR
+            | Operation::LESS_BYTE
+            | Operation::LESS_EQUAL_INT
+            | Operation::LESS_EQUAL_FLOAT
+            | Operation::LESS_EQUAL_CHAR
+            | Operation::LESS_EQUAL_STR
+            | Operation::LESS_EQUAL_BYTE
+            | Operation::NEGATE_INT
+            | Operation::NEGATE_FLOAT
             | Operation::NOT
-            | Operation::CALL => (Argument::Register(instruction.a_field()), true),
+            | Operation::CALL => (Operand::Register(instruction.a_field()), true),
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(instruction.b_field());
 
                 if function.returns_value() {
-                    (Argument::Register(instruction.a_field()), true)
+                    (Operand::Register(instruction.a_field()), true)
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
@@ -786,7 +893,7 @@ impl<'src> Compiler<'src> {
 
         if push_back_right {
             self.instructions
-                .push((right_instruction, right_type, right_position));
+                .push((right_instruction, right_type.clone(), right_position));
         }
 
         let r#type = if is_assignment {
@@ -798,18 +905,70 @@ impl<'src> Compiler<'src> {
         };
         let destination = if is_assignment {
             match left {
-                Argument::Register(register) => register,
-                Argument::Constant(_) => self.next_register(),
+                Operand::Register(register) => register,
+                Operand::Constant(_) => self.next_register(),
             }
         } else {
             self.next_register()
         };
-        let instruction = match operator {
-            Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
-            Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
-            Token::Star | Token::StarEqual => Instruction::multiply(destination, left, right),
-            Token::Slash | Token::SlashEqual => Instruction::divide(destination, left, right),
-            Token::Percent | Token::PercentEqual => Instruction::modulo(destination, left, right),
+        let instruction = match (operator, left_type, right_type) {
+            (Token::Plus, Type::Byte, Type::Byte) => {
+                Instruction::add_byte(destination, left, right)
+            }
+            (Token::Plus, Type::Character, Type::Character) => {
+                Instruction::add_char(destination, left, right)
+            }
+            (Token::Plus, Type::Character, Type::String) => {
+                Instruction::add_char_str(destination, left, right)
+            }
+            (Token::Plus, Type::Float, Type::Float) => {
+                Instruction::add_float(destination, left, right)
+            }
+            (Token::Plus, Type::Integer, Type::Integer) => {
+                Instruction::add_int(destination, left, right)
+            }
+            (Token::Plus, Type::String, Type::Character) => {
+                Instruction::add_str_char(destination, left, right)
+            }
+            (Token::Plus, Type::String, Type::String) => {
+                Instruction::add_str(destination, left, right)
+            }
+            (Token::Minus, Type::Byte, Type::Byte) => {
+                Instruction::subtract_byte(destination, left, right)
+            }
+            (Token::Minus, Type::Float, Type::Float) => {
+                Instruction::subtract_float(destination, left, right)
+            }
+            (Token::Minus, Type::Integer, Type::Integer) => {
+                Instruction::subtract_int(destination, left, right)
+            }
+            (Token::Star, Type::Byte, Type::Byte) => {
+                Instruction::multiply_byte(destination, left, right)
+            }
+            (Token::Star, Type::Float, Type::Float) => {
+                Instruction::multiply_float(destination, left, right)
+            }
+            (Token::Star, Type::Integer, Type::Integer) => {
+                Instruction::multiply_int(destination, left, right)
+            }
+            (Token::Slash, Type::Byte, Type::Byte) => {
+                Instruction::divide_byte(destination, left, right)
+            }
+            (Token::Slash, Type::Float, Type::Float) => {
+                Instruction::divide_float(destination, left, right)
+            }
+            (Token::Slash, Type::Integer, Type::Integer) => {
+                Instruction::divide_int(destination, left, right)
+            }
+            (Token::Percent, Type::Byte, Type::Byte) => {
+                Instruction::modulo_byte(destination, left, right)
+            }
+            (Token::Percent, Type::Integer, Type::Integer) => {
+                Instruction::modulo_int(destination, left, right)
+            }
+            (Token::Percent, Type::Float, Type::Float) => {
+                Instruction::modulo_float(destination, left, right)
+            }
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -836,13 +995,9 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some(
-            [
-                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
-                _,
-                _,
-            ],
-        ) = self.get_last_operations()
+        if self
+            .get_last_operation()
+            .is_some_and(|operation| operation.is_comparison())
         {
             return Err(CompileError::ComparisonChain {
                 position: self.current_position,
@@ -863,7 +1018,7 @@ impl<'src> Compiler<'src> {
 
         if push_back_left {
             self.instructions
-                .push((left_instruction, left_type, left_position));
+                .push((left_instruction, left_type.clone(), left_position));
         }
 
         self.advance()?;
@@ -880,17 +1035,111 @@ impl<'src> Compiler<'src> {
 
         if push_back_right {
             self.instructions
-                .push((right_instruction, right_type, right_position));
+                .push((right_instruction, right_type.clone(), right_position));
         }
 
         let destination = self.next_register();
-        let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left, right),
-            Token::BangEqual => Instruction::equal(false, left, right),
-            Token::Less => Instruction::less(true, left, right),
-            Token::LessEqual => Instruction::less_equal(true, left, right),
-            Token::Greater => Instruction::less_equal(false, left, right),
-            Token::GreaterEqual => Instruction::less(false, left, right),
+        let comparison = match (operator, left_type, right_type) {
+            (Token::DoubleEqual, Type::Boolean, Type::Boolean) => {
+                Instruction::equal_bool(true, left, right)
+            }
+            (Token::DoubleEqual, Type::Byte, Type::Byte) => {
+                Instruction::equal_byte(true, left, right)
+            }
+            (Token::DoubleEqual, Type::Character, Type::Character) => {
+                Instruction::equal_char(true, left, right)
+            }
+            (Token::DoubleEqual, Type::Character, Type::String) => {
+                Instruction::equal_char_str(true, left, right)
+            }
+            (Token::DoubleEqual, Type::Float, Type::Float) => {
+                Instruction::equal_float(true, left, right)
+            }
+            (Token::DoubleEqual, Type::Integer, Type::Integer) => {
+                Instruction::equal_int(true, left, right)
+            }
+            (Token::DoubleEqual, Type::String, Type::String) => {
+                Instruction::equal_str(true, left, right)
+            }
+            (Token::DoubleEqual, Type::String, Type::Character) => {
+                Instruction::equal_str_char(true, left, right)
+            }
+            (Token::BangEqual, Type::Boolean, Type::Boolean) => {
+                Instruction::equal_bool(false, left, right)
+            }
+            (Token::BangEqual, Type::Byte, Type::Byte) => {
+                Instruction::equal_byte(false, left, right)
+            }
+            (Token::BangEqual, Type::Character, Type::Character) => {
+                Instruction::equal_char(false, left, right)
+            }
+            (Token::BangEqual, Type::Character, Type::String) => {
+                Instruction::equal_char_str(false, left, right)
+            }
+            (Token::BangEqual, Type::Float, Type::Float) => {
+                Instruction::equal_float(false, left, right)
+            }
+            (Token::BangEqual, Type::Integer, Type::Integer) => {
+                Instruction::equal_int(false, left, right)
+            }
+            (Token::BangEqual, Type::String, Type::String) => {
+                Instruction::equal_str(false, left, right)
+            }
+            (Token::BangEqual, Type::String, Type::Character) => {
+                Instruction::equal_str_char(false, left, right)
+            }
+            (Token::Less, Type::Byte, Type::Byte) => Instruction::less_byte(true, left, right),
+            (Token::Less, Type::Character, Type::Character) => {
+                Instruction::less_char(true, left, right)
+            }
+            (Token::Less, Type::Float, Type::Float) => Instruction::less_float(true, left, right),
+            (Token::Less, Type::Integer, Type::Integer) => Instruction::less_int(true, left, right),
+            (Token::Less, Type::String, Type::String) => Instruction::less_str(true, left, right),
+            (Token::GreaterEqual, Type::Byte, Type::Byte) => {
+                Instruction::less_byte(false, left, right)
+            }
+            (Token::GreaterEqual, Type::Character, Type::Character) => {
+                Instruction::less_char(false, left, right)
+            }
+            (Token::GreaterEqual, Type::Float, Type::Float) => {
+                Instruction::less_float(false, left, right)
+            }
+            (Token::GreaterEqual, Type::Integer, Type::Integer) => {
+                Instruction::less_int(false, left, right)
+            }
+            (Token::GreaterEqual, Type::String, Type::String) => {
+                Instruction::less_str(false, left, right)
+            }
+            (Token::LessEqual, Type::Byte, Type::Byte) => {
+                Instruction::less_equal_byte(true, left, right)
+            }
+            (Token::LessEqual, Type::Character, Type::Character) => {
+                Instruction::less_equal_char(true, left, right)
+            }
+            (Token::LessEqual, Type::Float, Type::Float) => {
+                Instruction::less_equal_float(true, left, right)
+            }
+            (Token::LessEqual, Type::Integer, Type::Integer) => {
+                Instruction::less_equal_int(true, left, right)
+            }
+            (Token::LessEqual, Type::String, Type::String) => {
+                Instruction::less_equal_str(true, left, right)
+            }
+            (Token::Greater, Type::Byte, Type::Byte) => {
+                Instruction::less_equal_byte(false, left, right)
+            }
+            (Token::Greater, Type::Character, Type::Character) => {
+                Instruction::less_equal_char(false, left, right)
+            }
+            (Token::Greater, Type::Float, Type::Float) => {
+                Instruction::less_equal_float(false, left, right)
+            }
+            (Token::Greater, Type::Integer, Type::Integer) => {
+                Instruction::less_equal_int(false, left, right)
+            }
+            (Token::Greater, Type::String, Type::String) => {
+                Instruction::less_equal_str(false, left, right)
+            }
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -974,7 +1223,23 @@ impl<'src> Compiler<'src> {
 
             if !matches!(
                 instructions[0].0.operation(),
-                Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
+                Operation::TEST
+                    | Operation::EQUAL_INT
+                    | Operation::EQUAL_STR
+                    | Operation::EQUAL_BOOL
+                    | Operation::EQUAL_BYTE
+                    | Operation::EQUAL_CHAR
+                    | Operation::EQUAL_FLOAT
+                    | Operation::LESS_INT
+                    | Operation::LESS_STR
+                    | Operation::LESS_BYTE
+                    | Operation::LESS_CHAR
+                    | Operation::LESS_FLOAT
+                    | Operation::LESS_EQUAL_INT
+                    | Operation::LESS_EQUAL_STR
+                    | Operation::LESS_EQUAL_BYTE
+                    | Operation::LESS_EQUAL_CHAR
+                    | Operation::LESS_EQUAL_FLOAT
             ) || !matches!(instructions[1].0.operation(), Operation::JUMP)
             {
                 continue;
@@ -982,7 +1247,7 @@ impl<'src> Compiler<'src> {
 
             let old_jump = &mut instructions[1].0;
             let jump_index = instructions_length - group_index * 3 - 1;
-            let short_circuit_distance = (instructions_length - jump_index) as u8;
+            let short_circuit_distance = (instructions_length - jump_index) as u16;
 
             *old_jump = Instruction::jump(short_circuit_distance, true);
         }
@@ -1009,7 +1274,7 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
             let destination = self.next_register();
-            let load_self = Instruction::load_self(destination);
+            let load_self = Instruction::load_self(destination, false);
 
             self.emit_instruction(load_self, Type::SelfFunction, start_position);
 
@@ -1056,10 +1321,7 @@ impl<'src> Compiler<'src> {
                 math_instruction.set_a_field(local_register_index);
             } else {
                 let register = self.next_register() - 1;
-                let set_local = Instruction::from(SetLocal {
-                    register_index: register,
-                    local_index,
-                });
+                let set_local = Instruction::set_local(register, local_index);
 
                 self.emit_instruction(set_local, Type::None, start_position);
             }
@@ -1134,10 +1396,7 @@ impl<'src> Compiler<'src> {
             }
 
             if expected_register < actual_register {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
+                let close = Instruction::close(expected_register, actual_register);
 
                 self.emit_instruction(close, Type::None, self.current_position);
             }
@@ -1147,10 +1406,7 @@ impl<'src> Compiler<'src> {
 
         let destination = self.next_register();
         let end = self.previous_position.1;
-        let load_list = Instruction::from(LoadList {
-            destination,
-            start_register,
-        });
+        let load_list = Instruction::load_list(destination, start_register, false);
 
         self.emit_instruction(load_list, Type::List(Box::new(item_type)), Span(start, end));
 
@@ -1164,7 +1420,22 @@ impl<'src> Compiler<'src> {
         if matches!(
             self.get_last_operations(),
             Some([
-                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::EQUAL_INT
+                    | Operation::EQUAL_STR
+                    | Operation::EQUAL_BOOL
+                    | Operation::EQUAL_BYTE
+                    | Operation::EQUAL_CHAR
+                    | Operation::EQUAL_FLOAT
+                    | Operation::LESS_INT
+                    | Operation::LESS_STR
+                    | Operation::LESS_BYTE
+                    | Operation::LESS_CHAR
+                    | Operation::LESS_FLOAT
+                    | Operation::LESS_EQUAL_INT
+                    | Operation::LESS_EQUAL_STR
+                    | Operation::LESS_EQUAL_BYTE
+                    | Operation::LESS_EQUAL_CHAR
+                    | Operation::LESS_EQUAL_FLOAT,
                 Operation::JUMP,
                 Operation::LOAD_BOOLEAN,
                 Operation::LOAD_BOOLEAN
@@ -1194,7 +1465,7 @@ impl<'src> Compiler<'src> {
         }
 
         let if_block_end = self.instructions.len();
-        let mut if_block_distance = (if_block_end - if_block_start) as u8;
+        let mut if_block_distance = (if_block_end - if_block_start) as u16;
         let if_block_type = self.get_last_instruction_type();
 
         if let Token::Else = self.current_token {
@@ -1216,7 +1487,7 @@ impl<'src> Compiler<'src> {
         }
 
         let else_block_end = self.instructions.len();
-        let else_block_distance = (else_block_end - if_block_end) as u8;
+        let else_block_distance = (else_block_end - if_block_end) as u16;
         let else_block_type = self.get_last_instruction_type();
 
         if let Err(conflict) = if_block_type.check(&else_block_type) {
@@ -1234,13 +1505,10 @@ impl<'src> Compiler<'src> {
                 {
                     let (loader, _, _) = self.instructions.last_mut().unwrap();
 
-                    loader.set_c_field(true as u8);
+                    loader.set_c_field(true as u16);
                 } else {
                     if_block_distance += 1;
-                    let jump = Instruction::from(Jump {
-                        offset: else_block_distance,
-                        is_positive: true,
-                    });
+                    let jump = Instruction::jump(else_block_distance, true);
 
                     self.instructions
                         .insert(if_block_end, (jump, Type::None, self.current_position));
@@ -1248,10 +1516,7 @@ impl<'src> Compiler<'src> {
             }
             2.. => {
                 if_block_distance += 1;
-                let jump = Instruction::from(Jump {
-                    offset: else_block_distance,
-                    is_positive: true,
-                });
+                let jump = Instruction::jump(else_block_distance, true);
 
                 self.instructions
                     .insert(if_block_end, (jump, Type::None, self.current_position));
@@ -1270,14 +1535,29 @@ impl<'src> Compiler<'src> {
     fn parse_while(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let expression_start = self.instructions.len() as u8;
+        let expression_start = self.instructions.len() as u16;
 
         self.parse_expression()?;
 
         if matches!(
             self.get_last_operations(),
             Some([
-                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::EQUAL_INT
+                    | Operation::EQUAL_STR
+                    | Operation::EQUAL_BOOL
+                    | Operation::EQUAL_BYTE
+                    | Operation::EQUAL_CHAR
+                    | Operation::EQUAL_FLOAT
+                    | Operation::LESS_INT
+                    | Operation::LESS_STR
+                    | Operation::LESS_BYTE
+                    | Operation::LESS_CHAR
+                    | Operation::LESS_FLOAT
+                    | Operation::LESS_EQUAL_INT
+                    | Operation::LESS_EQUAL_STR
+                    | Operation::LESS_EQUAL_BYTE
+                    | Operation::LESS_EQUAL_CHAR
+                    | Operation::LESS_EQUAL_FLOAT,
                 Operation::JUMP,
                 Operation::LOAD_BOOLEAN,
                 Operation::LOAD_BOOLEAN
@@ -1297,21 +1577,15 @@ impl<'src> Compiler<'src> {
 
         self.parse_block()?;
 
-        let block_end = self.instructions.len() as u8;
-        let jump_distance = block_end - block_start as u8 + 1;
-        let jump = Instruction::from(Jump {
-            offset: jump_distance,
-            is_positive: true,
-        });
+        let block_end = self.instructions.len() as u16;
+        let jump_distance = block_end - block_start as u16 + 1;
+        let jump = Instruction::jump(jump_distance, true);
 
         self.instructions
             .insert(block_start, (jump, Type::None, self.current_position));
 
         let jump_back_distance = block_end - expression_start + 1;
-        let jump_back = Instruction::from(Jump {
-            offset: jump_back_distance,
-            is_positive: false,
-        });
+        let jump_back = Instruction::jump(jump_back_distance, false);
 
         self.emit_instruction(jump_back, Type::None, self.current_position);
 
@@ -1330,13 +1604,9 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
 
             let actual_register = self.next_register() - 1;
-            let registers_to_close = actual_register - expected_register;
 
-            if registers_to_close > 0 {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
+            if expected_register < actual_register {
+                let close = Instruction::close(expected_register, actual_register);
 
                 self.emit_instruction(close, Type::None, self.current_position);
             }
@@ -1348,11 +1618,7 @@ impl<'src> Compiler<'src> {
         let destination = self.next_register();
         let argument_count = destination - start_register;
         let return_type = function.r#type().return_type;
-        let call_native = Instruction::from(CallNative {
-            destination,
-            function,
-            argument_count,
-        });
+        let call_native = Instruction::call_native(destination, function, argument_count);
 
         self.emit_instruction(call_native, return_type, Span(start, end));
 
@@ -1415,10 +1681,7 @@ impl<'src> Compiler<'src> {
             };
         let end = self.current_position.1;
         let return_register = self.next_register() - 1;
-        let r#return = Instruction::from(Return {
-            should_return_value,
-            return_register,
-        });
+        let r#return = Instruction::r#return(should_return_value, return_register);
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
 
@@ -1433,7 +1696,7 @@ impl<'src> Compiler<'src> {
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                    *instruction = Instruction::jump((offset + 1) as u16, true);
                 }
             }
         }
@@ -1487,7 +1750,7 @@ impl<'src> Compiler<'src> {
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                    *instruction = Instruction::jump((offset + 1) as u16, true);
                 }
             }
         }
@@ -1567,9 +1830,9 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        function_compiler.prototype_index = self.prototypes.len() as u8;
+        function_compiler.prototype_index = self.prototypes.len() as u16;
 
-        let mut value_parameters: Vec<(u8, Type)> = Vec::with_capacity(3);
+        let mut value_parameters: Vec<(u16, Type)> = Vec::with_capacity(3);
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1657,7 +1920,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        let load_function = Instruction::load_function(destination, prototype_index);
+        let load_function = Instruction::load_function(destination, prototype_index, false);
 
         self.emit_instruction(
             load_function,
@@ -1717,15 +1980,12 @@ impl<'src> Compiler<'src> {
             let registers_to_close = (actual_register - expected_register).saturating_sub(1);
 
             if registers_to_close > 0 {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
+                let close = Instruction::close(expected_register, actual_register);
 
                 self.emit_instruction(close, Type::None, self.current_position);
-            }
 
-            argument_count += registers_to_close + 1;
+                argument_count += registers_to_close + 1;
+            }
 
             self.allow(Token::Comma)?;
         }

@@ -80,15 +80,15 @@ fn list_with_complex_expression() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
+                    Instruction::add(1, Operand::Constant(1), Operand::Constant(2)),
                     Span(6, 7)
                 ),
                 (
-                    Instruction::multiply(2, Argument::Constant(3), Argument::Constant(4)),
+                    Instruction::multiply(2, Operand::Constant(3), Operand::Constant(4)),
                     Span(14, 15)
                 ),
                 (
-                    Instruction::subtract(3, Argument::Register(1), Argument::Register(2)),
+                    Instruction::subtract(3, Operand::Register(1), Operand::Register(2)),
                     Span(10, 11)
                 ),
                 (Instruction::close(1, 3), Span(17, 18)),
@@ -131,7 +131,7 @@ fn list_with_simple_expression() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(1, 2)),
                 (
-                    Instruction::add(1, Argument::Constant(1), Argument::Constant(2)),
+                    Instruction::add(1, Operand::Constant(1), Operand::Constant(2)),
                     Span(6, 7)
                 ),
                 (Instruction::load_constant(2, 3, false), Span(11, 12)),

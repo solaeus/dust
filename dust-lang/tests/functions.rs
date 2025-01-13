@@ -20,7 +20,7 @@ fn function() {
             },
             vec![
                 (
-                    Instruction::add(2, Argument::Register(0), Argument::Register(1)),
+                    Instruction::add(2, Operand::Register(0), Operand::Register(1)),
                     Span(30, 31)
                 ),
                 (Instruction::r#return(true), Span(34, 35)),
@@ -51,7 +51,7 @@ fn function_call() {
                 (Instruction::load_constant(0, 0, false), Span(0, 35)),
                 (Instruction::load_constant(1, 1, false), Span(36, 37)),
                 (Instruction::load_constant(2, 2, false), Span(39, 40)),
-                (Instruction::call(3, Argument::Constant(0), 2), Span(35, 41)),
+                (Instruction::call(3, Operand::Constant(0), 2), Span(35, 41)),
                 (Instruction::r#return(true), Span(41, 41)),
             ],
             vec![
@@ -64,7 +64,7 @@ fn function_call() {
                     },
                     vec![
                         (
-                            Instruction::add(2, Argument::Register(0), Argument::Register(1)),
+                            Instruction::add(2, Operand::Register(0), Operand::Register(1)),
                             Span(30, 31)
                         ),
                         (Instruction::r#return(true), Span(34, 35)),
@@ -112,7 +112,7 @@ fn function_declaration() {
                     },
                     vec![
                         (
-                            Instruction::add(2, Argument::Register(0), Argument::Register(1)),
+                            Instruction::add(2, Operand::Register(0), Operand::Register(1)),
                             Span(35, 36)
                         ),
                         (Instruction::r#return(true), Span(39, 40)),

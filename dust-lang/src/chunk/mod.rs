@@ -13,10 +13,12 @@
 //! [`Chunk::with_data`] can be used to create a chunk for comparison to the compiler output. Do not
 //! try to run these chunks in a virtual machine. Due to their missing stack size and record index,
 //! they will cause a panic or undefined behavior.
+mod constant_table;
 mod disassembler;
 mod local;
 mod scope;
 
+pub use constant_table::ConstantTable;
 pub use disassembler::Disassembler;
 pub use local::Local;
 pub use scope::Scope;
@@ -27,7 +29,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
+use crate::{DustString, Function, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
@@ -39,12 +41,12 @@ pub struct Chunk {
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) positions: Vec<Span>,
-    pub(crate) constants: Vec<Value>,
+    pub(crate) constants: ConstantTable,
     pub(crate) locals: Vec<Local>,
     pub(crate) prototypes: Vec<Arc<Chunk>>,
 
     pub(crate) register_count: usize,
-    pub(crate) prototype_index: u8,
+    pub(crate) prototype_index: u16,
 }
 
 impl Chunk {
@@ -54,7 +56,7 @@ impl Chunk {
         r#type: FunctionType,
         instructions: impl Into<Vec<Instruction>>,
         positions: impl Into<Vec<Span>>,
-        constants: impl Into<Vec<Value>>,
+        constants: ConstantTable,
         locals: impl Into<Vec<Local>>,
         prototypes: impl IntoIterator<Item = Chunk>,
     ) -> Self {
@@ -63,7 +65,7 @@ impl Chunk {
             r#type,
             instructions: instructions.into(),
             positions: positions.into(),
-            constants: constants.into(),
+            constants,
             locals: locals.into(),
             prototypes: prototypes.into_iter().map(Arc::new).collect(),
             register_count: 0,

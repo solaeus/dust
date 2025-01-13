@@ -15,7 +15,7 @@ fn subtract_floats() {
             },
             vec![
                 (
-                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::subtract(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9)),
@@ -43,7 +43,7 @@ fn subtract_floats_saturate() {
             },
             vec![
                 (
-                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::subtract(0, Operand::Constant(0), Operand::Constant(1)),
                     Span(25, 26)
                 ),
                 (Instruction::r#return(true), Span(36, 36)),
@@ -74,7 +74,7 @@ fn subtract_integers() {
             },
             vec![
                 (
-                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::subtract(0, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -102,7 +102,7 @@ fn subtract_integers_saturate() {
             },
             vec![
                 (
-                    Instruction::subtract(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::subtract(0, Operand::Constant(0), Operand::Constant(1)),
                     Span(21, 22)
                 ),
                 (Instruction::r#return(true), Span(24, 24)),

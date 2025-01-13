@@ -8,7 +8,7 @@ use super::DustString;
 pub struct Function {
     pub name: Option<DustString>,
     pub r#type: FunctionType,
-    pub prototype_index: u8,
+    pub prototype_index: u16,
 }
 
 impl Display for Function {

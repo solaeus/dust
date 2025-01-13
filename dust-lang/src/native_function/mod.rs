@@ -35,8 +35,8 @@ macro_rules! define_native_function {
             pub fn call(
                 &self,
                 data: &mut ThreadData,
-                destination: u8,
-                argument_range: Range<u8>,
+                destination: u16,
+                argument_range: Range<u16>,
             ) -> bool {
                 match self {
                     $(
@@ -80,8 +80,8 @@ macro_rules! define_native_function {
             }
         }
 
-        impl From<u8> for NativeFunction {
-            fn from(bytes: u8) -> Self {
+        impl From<u16> for NativeFunction {
+            fn from(bytes: u16) -> Self {
                 match bytes {
                     $(
                         $bytes => NativeFunction::$name,

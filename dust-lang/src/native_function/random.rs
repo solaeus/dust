@@ -7,7 +7,7 @@ use crate::{
     vm::{Register, ThreadData, get_next_action},
 };
 
-pub fn random_int(data: &mut ThreadData, destination: u8, argument_range: Range<u8>) -> bool {
+pub fn random_int(data: &mut ThreadData, destination: u16, argument_range: Range<u16>) -> bool {
     let mut argument_range_iter = argument_range.into_iter();
     let (min, max) = {
         let mut min = None;

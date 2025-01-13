@@ -11,12 +11,12 @@ use super::Register;
 pub struct FunctionCall {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
-    pub return_register: u8,
+    pub return_register: u16,
     pub registers: Vec<Register>,
 }
 
 impl FunctionCall {
-    pub fn new(chunk: Arc<Chunk>, return_register: u8) -> Self {
+    pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
         let register_count = chunk.register_count;
 
         Self {

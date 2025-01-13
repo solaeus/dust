@@ -2,7 +2,7 @@ use std::{mem::replace, sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{Argument, Chunk, DustString, Span, Value, vm::FunctionCall};
+use crate::{Chunk, DustString, Operand, Span, Value, vm::FunctionCall};
 
 use super::{Pointer, Register, RunAction, Stack};
 
@@ -72,7 +72,7 @@ impl Thread {
 pub struct ThreadData {
     pub call_stack: Stack<FunctionCall>,
     pub next_action: RunAction,
-    pub return_value_index: Option<u8>,
+    pub return_value_index: Option<u16>,
     pub spawned_threads: Vec<JoinHandle<()>>,
 }
 
@@ -105,7 +105,7 @@ impl ThreadData {
         }
     }
 
-    pub fn get_register_unchecked(&self, register_index: u8) -> &Register {
+    pub fn get_register_unchecked(&self, register_index: u16) -> &Register {
         trace!("Get R{register_index}");
 
         let register_index = register_index as usize;
@@ -122,13 +122,13 @@ impl ThreadData {
         }
     }
 
-    pub fn set_register(&mut self, to_register: u8, register: Register) {
+    pub fn set_register(&mut self, to_register: u16, register: Register) {
         let to_register = to_register as usize;
 
         self.call_stack.last_mut_unchecked().registers[to_register] = register;
     }
 
-    pub fn open_register_unchecked(&self, register_index: u8) -> &Value {
+    pub fn open_register_unchecked(&self, register_index: u16) -> &Value {
         let register_index = register_index as usize;
 
         let register = if cfg!(debug_assertions) {
@@ -151,7 +151,7 @@ impl ThreadData {
         }
     }
 
-    pub fn open_register_allow_empty_unchecked(&self, register_index: u8) -> Option<&Value> {
+    pub fn open_register_allow_empty_unchecked(&self, register_index: u16) -> Option<&Value> {
         trace!("Open R{register_index}");
 
         let register = self.get_register_unchecked(register_index);
@@ -165,7 +165,7 @@ impl ThreadData {
         }
     }
 
-    pub fn empty_register_or_clone_constant_unchecked(&mut self, register_index: u8) -> Value {
+    pub fn empty_register_or_clone_constant_unchecked(&mut self, register_index: u16) -> Value {
         let register_index = register_index as usize;
         let old_register = replace(
             &mut self.call_stack.last_mut_unchecked().registers[register_index],
@@ -202,7 +202,7 @@ impl ThreadData {
         }
     }
 
-    pub fn clone_register_value_or_constant_unchecked(&self, register_index: u8) -> Value {
+    pub fn clone_register_value_or_constant_unchecked(&self, register_index: u16) -> Value {
         let register = self.get_register_unchecked(register_index);
 
         match register {
@@ -232,14 +232,14 @@ impl ThreadData {
     }
 
     /// DRY helper to get a value from an Argument
-    pub fn get_argument_unchecked(&self, argument: Argument) -> &Value {
+    pub fn get_argument_unchecked(&self, argument: Operand) -> &Value {
         match argument {
-            Argument::Constant(constant_index) => self.get_constant_unchecked(constant_index),
-            Argument::Register(register_index) => self.open_register_unchecked(register_index),
+            Operand::Constant(constant_index) => self.get_constant_unchecked(constant_index),
+            Operand::Register(register_index) => self.open_register_unchecked(register_index),
         }
     }
 
-    pub fn get_constant_unchecked(&self, constant_index: u8) -> &Value {
+    pub fn get_constant_unchecked(&self, constant_index: u16) -> &Value {
         let constant_index = constant_index as usize;
 
         if cfg!(debug_assertions) {
@@ -255,7 +255,7 @@ impl ThreadData {
         }
     }
 
-    pub fn get_local_register(&self, local_index: u8) -> u8 {
+    pub fn get_local_register(&self, local_index: u16) -> u16 {
         let local_index = local_index as usize;
         let chunk = &self.call_stack.last_unchecked().chunk;
 

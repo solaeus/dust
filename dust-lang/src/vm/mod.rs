@@ -53,7 +53,7 @@ impl Vm {
             let _ = tx.send(value_option);
         });
 
-        rx.recv().unwrap()
+        rx.recv().unwrap_or(None)
     }
 }
 
@@ -76,9 +76,9 @@ impl Display for Register {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Pointer {
-    Register(u8),
-    Constant(u8),
-    Stack(usize, u8),
+    Register(u16),
+    Constant(u16),
+    Stack(usize, u16),
 }
 
 impl Display for Pointer {
