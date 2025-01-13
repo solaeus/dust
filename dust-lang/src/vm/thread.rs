@@ -25,7 +25,8 @@ impl Thread {
         );
 
         let mut call_stack = Stack::with_capacity(self.chunk.prototypes.len() + 1);
-        let main_call = FunctionCall::new(self.chunk.clone(), 0);
+        let mut main_call = FunctionCall::new(self.chunk.clone(), 0);
+        main_call.ip = 1; // The first action is already known
 
         call_stack.push(main_call);
 

@@ -48,10 +48,16 @@ impl Vm {
             .unwrap_or_else(|| "anonymous".to_string());
         let mut main_thread = Thread::new(Arc::new(self.main_chunk));
         let (tx, rx) = bounded(1);
-        let _ = Builder::new().name(thread_name).spawn(move || {
-            let value_option = main_thread.run();
-            let _ = tx.send(value_option);
-        });
+
+        Builder::new()
+            .name(thread_name)
+            .spawn(move || {
+                let value_option = main_thread.run();
+                let _ = tx.send(value_option);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
 
         rx.recv().unwrap_or(None)
     }

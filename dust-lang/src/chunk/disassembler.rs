@@ -46,11 +46,11 @@ use colored::{ColoredString, Colorize};
 use crate::{Chunk, Local};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
-    [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 36)];
+    [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
-    "╭─────┬────────────┬─────────────────┬────────────────────────────────────╮",
-    "├─────┼────────────┼─────────────────┼────────────────────────────────────┤",
-    "╰─────┴────────────┴─────────────────┴────────────────────────────────────╯",
+    "╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮",
+    "├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤",
+    "╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯",
 ];
 
 const LOCAL_COLUMNS: [(&str, usize); 5] = [
@@ -286,7 +286,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 .unwrap_or("stripped".to_string());
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
-            let row = format!("│{index:^5}│{position:^12}│{operation:^17}│{info:^36}│");
+            let row = format!("│{index:^5}│{position:^12}│{operation:^17}│{info:^41}│");
 
             self.write_center_border(&row)?;
         }

@@ -26,31 +26,31 @@ impl Operation {
 
     // Arithmetic
     pub const ADD: Operation = Operation(9);
-    pub const SUBTRACT: Operation = Operation(16);
-    pub const MULTIPLY: Operation = Operation(19);
-    pub const DIVIDE: Operation = Operation(22);
-    pub const MODULO: Operation = Operation(25);
+    pub const SUBTRACT: Operation = Operation(10);
+    pub const MULTIPLY: Operation = Operation(11);
+    pub const DIVIDE: Operation = Operation(12);
+    pub const MODULO: Operation = Operation(13);
 
     // Comparison
-    pub const EQUAL: Operation = Operation(28);
-    pub const LESS: Operation = Operation(36);
-    pub const LESS_EQUAL: Operation = Operation(41);
+    pub const EQUAL: Operation = Operation(14);
+    pub const LESS: Operation = Operation(15);
+    pub const LESS_EQUAL: Operation = Operation(16);
 
     // Unary operations
-    pub const NEGATE: Operation = Operation(46);
-    pub const NOT: Operation = Operation(48);
+    pub const NEGATE: Operation = Operation(17);
+    pub const NOT: Operation = Operation(18);
 
     // Logical operations
-    pub const TEST: Operation = Operation(49);
-    pub const TEST_SET: Operation = Operation(50);
+    pub const TEST: Operation = Operation(19);
+    pub const TEST_SET: Operation = Operation(20);
 
     // Function calls
-    pub const CALL: Operation = Operation(51);
-    pub const CALL_NATIVE: Operation = Operation(52);
+    pub const CALL: Operation = Operation(21);
+    pub const CALL_NATIVE: Operation = Operation(22);
 
     // Control flow
-    pub const JUMP: Operation = Operation(53);
-    pub const RETURN: Operation = Operation(54);
+    pub const JUMP: Operation = Operation(23);
+    pub const RETURN: Operation = Operation(24);
 }
 
 impl Operation {

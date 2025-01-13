@@ -44,13 +44,13 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     multiply,
     divide,
     modulo,
-    test,
-    test_set,
     equal,
     less,
     less_equal,
     negate,
     not,
+    test,
+    test_set,
     call,
     call_native,
     jump,
@@ -535,9 +535,65 @@ pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
         right,
         right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_equal = left.equals(right);
+    let is_equal = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_boolean()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_boolean()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        (TypeCode::STRING, TypeCode::STRING) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_string()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_string()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
 
     if is_equal == comparator {
         let current_call = data.call_stack.last_mut_unchecked();
@@ -558,9 +614,37 @@ pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
         right,
         right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_less = left < right;
+    let is_less = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            left < right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left < right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
 
     if is_less == comparator {
         let current_call = data.call_stack.last_mut_unchecked();
@@ -581,9 +665,37 @@ pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> bool {
         right,
         right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_less_or_equal = left <= right;
+    let is_less_or_equal = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            left <= right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left <= right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
 
     if is_less_or_equal == comparator {
         let current_call = data.call_stack.last_mut_unchecked();

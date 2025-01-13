@@ -220,7 +220,7 @@ impl Instruction {
     }
 
     pub fn d_field(&self) -> bool {
-        (self.0 >> 54) & 1 == 0
+        (self.0 >> 54) & 1 != 0
     }
 
     pub fn b_type(&self) -> TypeCode {
