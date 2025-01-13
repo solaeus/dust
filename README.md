@@ -115,7 +115,7 @@ The performance comparison between the two types of VMs is worth reading for any
 choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks
 used in this project to compare Dust to other languages and inform design decisions.
 
-*Writing a Compiler in Go*[^6] by Thorsten Ball is a lot like [Crafting Interpreters][], they are the
+*Writing a Compiler in Go*[^6] by Thorsten Ball is a lot like *Crafting Interpreters*, they are the
 where I look for a generalized approach to solving a problem. Filled with code examples, this book
 helps the reader make the turn from evaluating a syntax tree to thinking about how problems are
 solved on physical hardware and how that informs the design of a virtual machine.
