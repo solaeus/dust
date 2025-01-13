@@ -15,7 +15,7 @@ fn equal() {
             },
             vec![
                 (
-                    Instruction::equal(0, true, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::equal(0, true, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -43,7 +43,7 @@ fn greater() {
             },
             vec![
                 (
-                    Instruction::less_equal(0, false, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::less_equal(0, false, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -71,7 +71,7 @@ fn greater_than_or_equal() {
             },
             vec![
                 (
-                    Instruction::less(0, false, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::less(0, false, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -99,7 +99,7 @@ fn less_than() {
             },
             vec![
                 (
-                    Instruction::less(0, true, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::less(0, true, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),
@@ -127,7 +127,7 @@ fn less_than_or_equal() {
             },
             vec![
                 (
-                    Instruction::less_equal(0, true, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::less_equal(0, true, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),
@@ -155,7 +155,7 @@ fn not_equal() {
             },
             vec![
                 (
-                    Instruction::equal(0, false, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::equal(0, false, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 4)
                 ),
                 (Instruction::r#return(true), Span(6, 6)),

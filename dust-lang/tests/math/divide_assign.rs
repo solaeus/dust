@@ -16,7 +16,7 @@ fn divide_assign() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (
-                    Instruction::divide(0, Argument::Register(0), Argument::Constant(0)),
+                    Instruction::divide(0, Operand::Register(0), Operand::Constant(0)),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(23, 24)),

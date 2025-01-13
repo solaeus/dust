@@ -1,16 +1,20 @@
-//! Instructions for the Dust virtual machine.
+//! The Dust instruction set.
 //!
-//! Each instruction is 32 bits and uses up to seven distinct fields:
+//! Each instruction is 64 bits and uses up to seven distinct fields.
 //!
-//! Bit   | Description
+//! # Layout
+//!
+//! Bits  | Description
 //! ----- | -----------
-//! 0-4   | Operation code
-//! 5     | Flag indicating if the B field is a constant
-//! 6     | Flag indicating if the C field is a constant
-//! 7     | D field (boolean)
-//! 8-15  | A field (unsigned 8-bit integer)
-//! 16-23 | B field (unsigned 8-bit integer)
-//! 24-31 | C field (unsigned 8-bit integer)
+//! 0-6   | Operation
+//! 7     | Flag indicating if the B field is a constant
+//! 8     | Flag indicating if the C field is a constant
+//! 9     | D field (boolean)
+//! 10-12 | B field type
+//! 13-15 | C field type
+//! 16-31 | A field (unsigned 16-bit integer)
+//! 32-47 | B field (unsigned 16-bit integer)
+//! 48-63 | C field (unsigned 16-bit integer)
 //!
 //! **Be careful when working with instructions directly**. When modifying an instruction's fields,
 //! you may also need to modify its flags. It is usually best to remove instructions and insert new
@@ -60,7 +64,7 @@
 //! To read an instruction, check its operation with [`Instruction::operation`], then convert the
 //! instruction to the struct that corresponds to that operation. Like the example above, this
 //! removes the burden of dealing with the options directly and automatically casts the A, B, C and
-//! D fields as `u8`, `bool` or `Argument` values.
+//! D fields as `u16`, `bool` or `Argument` values.
 //!
 //! ```
 //! # use dust_lang::instruction::{Instruction, Add, Argument, Operation};
@@ -71,9 +75,9 @@
 //! # );
 //! // Let's read an instruction and see if it performs addition-assignment,
 //! // like in one of the following examples:
-//! //  - `a += 2`
-//! //  - `a = a + 2`
-//! //  - `a = 2 + a`
+//! //   - `a += 2`
+//! //   - `a = a + 2`
+//! //   - `a = 2 + a`
 //!
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = match operation {
@@ -115,6 +119,7 @@ mod set_local;
 mod subtract;
 mod test;
 mod test_set;
+mod type_code;
 
 pub use add::Add;
 pub use call::Call;
@@ -145,101 +150,124 @@ pub use test_set::TestSet;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
+pub use type_code::TypeCode;
 
 use crate::NativeFunction;
 
-/// An operation and its arguments for the Dust virtual machine.
-///
-/// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Instruction(u32);
+pub struct InstructionBuilder {
+    pub operation: Operation,
+    pub a_field: u16,
+    pub b_field: u16,
+    pub c_field: u16,
+    pub d_field: bool,
+    pub b_is_constant: bool,
+    pub c_is_constant: bool,
+    pub b_type: TypeCode,
+    pub c_type: TypeCode,
+}
 
-impl Instruction {
-    pub fn new(
-        operation: Operation,
-        a: u8,
-        b: u8,
-        c: u8,
-        b_is_constant: bool,
-        c_is_constant: bool,
-        d: bool,
-    ) -> Instruction {
-        let bits = operation.0 as u32
-            | ((b_is_constant as u32) << 5)
-            | ((c_is_constant as u32) << 6)
-            | ((d as u32) << 7)
-            | ((a as u32) << 8)
-            | ((b as u32) << 16)
-            | ((c as u32) << 24);
+impl InstructionBuilder {
+    pub fn build(self) -> Instruction {
+        let bits = ((self.operation.0 as u64) << 57)
+            | ((self.b_is_constant as u64) << 56)
+            | ((self.c_is_constant as u64) << 55)
+            | ((self.d_field as u64) << 54)
+            | ((self.b_type.0 as u64) << 51)
+            | ((self.c_type.0 as u64) << 48)
+            | ((self.a_field as u64) << 32)
+            | ((self.b_field as u64) << 16)
+            | (self.c_field as u64);
 
         Instruction(bits)
     }
+}
 
+impl Default for InstructionBuilder {
+    fn default() -> Self {
+        InstructionBuilder {
+            operation: Operation::POINT,
+            a_field: 0,
+            b_field: 0,
+            c_field: 0,
+            d_field: false,
+            b_is_constant: false,
+            c_is_constant: false,
+            b_type: TypeCode::BOOLEAN,
+            c_type: TypeCode::BOOLEAN,
+        }
+    }
+}
+
+/// An instruction for the Dust virtual machine.
+///
+/// See the [module-level documentation](index.html) for more information.
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Instruction(u64);
+
+impl Instruction {
     pub fn operation(&self) -> Operation {
-        let operation_bits = self.0 & 0b0001_1111;
+        let first_7_bits = (self.0 >> 57) as u8;
 
-        Operation(operation_bits as u8)
+        Operation(first_7_bits)
     }
 
     pub fn b_is_constant(&self) -> bool {
-        (self.0 >> 5) & 1 == 1
+        (self.0 >> 56) & 1 != 0
     }
 
     pub fn c_is_constant(&self) -> bool {
-        (self.0 >> 6) & 1 == 1
+        (self.0 >> 55) & 1 != 0
     }
 
     pub fn d_field(&self) -> bool {
-        (self.0 >> 7) & 1 == 1
+        (self.0 >> 54) & 1 != 0
     }
 
-    pub fn a_field(&self) -> u8 {
-        (self.0 >> 8) as u8
+    pub fn b_type(&self) -> TypeCode {
+        let byte = ((self.0 >> 51) & 0b111) as u8;
+
+        TypeCode(byte)
     }
 
-    pub fn b_field(&self) -> u8 {
-        (self.0 >> 16) as u8
+    pub fn c_type(&self) -> TypeCode {
+        let byte = ((self.0 >> 48) & 0b111) as u8;
+
+        TypeCode(byte)
     }
 
-    pub fn c_field(&self) -> u8 {
-        (self.0 >> 24) as u8
+    pub fn a_field(&self) -> u16 {
+        ((self.0 >> 32) & 0xFFFF) as u16
     }
 
-    pub fn set_a_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 8);
+    pub fn b_field(&self) -> u16 {
+        ((self.0 >> 16) & 0xFFFF) as u16
     }
 
-    pub fn set_b_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFFFF00FF) | ((bits as u32) << 16);
+    pub fn c_field(&self) -> u16 {
+        (self.0 & 0xFFFF) as u16
     }
 
-    pub fn set_c_field(&mut self, bits: u8) {
-        self.0 = (self.0 & 0xFF00FFFF) | ((bits as u32) << 24);
+    pub fn set_a_field(&mut self, bits: u16) {
+        self.0 = (bits as u64) << 31;
     }
 
-    pub fn decode(self) -> (Operation, InstructionData) {
-        (
-            self.operation(),
-            InstructionData {
-                a_field: self.a_field(),
-                b_field: self.b_field(),
-                c_field: self.c_field(),
-                b_is_constant: self.b_is_constant(),
-                c_is_constant: self.c_is_constant(),
-                d_field: self.d_field(),
-            },
-        )
+    pub fn set_b_field(&mut self, bits: u16) {
+        self.0 = (bits as u64) << 47;
     }
 
-    pub fn point(from: u8, to: u8) -> Instruction {
+    pub fn set_c_field(&mut self, bits: u16) {
+        self.0 = (bits as u64) << 63;
+    }
+
+    pub fn point(from: u16, to: u16) -> Instruction {
         Instruction::from(Point { from, to })
     }
 
-    pub fn close(from: u8, to: u8) -> Instruction {
+    pub fn close(from: u16, to: u16) -> Instruction {
         Instruction::from(Close { from, to })
     }
 
-    pub fn load_boolean(destination: u8, value: bool, jump_next: bool) -> Instruction {
+    pub fn load_boolean(destination: u16, value: bool, jump_next: bool) -> Instruction {
         Instruction::from(LoadBoolean {
             destination,
             value,
@@ -247,7 +275,7 @@ impl Instruction {
         })
     }
 
-    pub fn load_constant(destination: u8, constant_index: u8, jump_next: bool) -> Instruction {
+    pub fn load_constant(destination: u16, constant_index: u16, jump_next: bool) -> Instruction {
         Instruction::from(LoadConstant {
             destination,
             constant_index,
@@ -255,86 +283,194 @@ impl Instruction {
         })
     }
 
-    pub fn load_function(destination: u8, prototype_index: u8) -> Instruction {
+    pub fn load_function(destination: u16, prototype_index: u16, jump_next: bool) -> Instruction {
         Instruction::from(LoadFunction {
             destination,
             prototype_index,
+            jump_next,
         })
     }
 
-    pub fn load_list(destination: u8, start_register: u8) -> Instruction {
+    pub fn load_list(destination: u16, start_register: u16, jump_next: bool) -> Instruction {
         Instruction::from(LoadList {
             destination,
             start_register,
+            jump_next,
         })
     }
 
-    pub fn load_self(destination: u8) -> Instruction {
-        Instruction::from(LoadSelf { destination })
+    pub fn load_self(destination: u16, jump_next: bool) -> Instruction {
+        Instruction::from(LoadSelf {
+            destination,
+            jump_next,
+        })
     }
 
-    pub fn get_local(destination: u8, local_index: u8) -> Instruction {
+    pub fn get_local(destination: u16, local_index: u16) -> Instruction {
         Instruction::from(GetLocal {
             destination,
             local_index,
         })
     }
 
-    pub fn set_local(register: u8, local_index: u8) -> Instruction {
+    pub fn set_local(register: u16, local_index: u16) -> Instruction {
         Instruction::from(SetLocal {
             local_index,
             register_index: register,
         })
     }
 
-    pub fn add(destination: u8, left: Argument, right: Argument) -> Instruction {
+    pub fn add(
+        destination: u16,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
+            left_type,
             right,
+            right_type,
         })
     }
 
-    pub fn subtract(destination: u8, left: Argument, right: Argument) -> Instruction {
+    pub fn subtract(
+        destination: u16,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
+            left_type,
             right,
+            right_type,
         })
     }
 
-    pub fn multiply(destination: u8, left: Argument, right: Argument) -> Instruction {
+    pub fn multiply(
+        destination: u16,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
+            left_type,
             right,
+            right_type,
         })
     }
 
-    pub fn divide(destination: u8, left: Argument, right: Argument) -> Instruction {
+    pub fn divide(
+        destination: u16,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
+            left_type,
             right,
+            right_type,
         })
     }
 
-    pub fn modulo(destination: u8, left: Argument, right: Argument) -> Instruction {
+    pub fn modulo(
+        destination: u16,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
+            left_type,
             right,
+            right_type,
         })
     }
 
-    pub fn test(operand_register: u8, value: bool) -> Instruction {
+    pub fn equal(
+        comparator: bool,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
+        Instruction::from(Equal {
+            comparator,
+            left,
+            left_type,
+            right,
+            right_type,
+        })
+    }
+
+    pub fn less(
+        comparator: bool,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
+        Instruction::from(Less {
+            comparator,
+            left,
+            left_type,
+            right,
+            right_type,
+        })
+    }
+
+    pub fn less_equal(
+        comparator: bool,
+        left: Operand,
+        left_type: TypeCode,
+        right: Operand,
+        right_type: TypeCode,
+    ) -> Instruction {
+        Instruction::from(LessEqual {
+            comparator,
+            left,
+            left_type,
+            right,
+            right_type,
+        })
+    }
+
+    pub fn negate(destination: u16, argument: Operand, argument_type: TypeCode) -> Instruction {
+        Instruction::from(Negate {
+            destination,
+            argument,
+            argument_type,
+        })
+    }
+
+    pub fn not(destination: u16, argument: Operand) -> Instruction {
+        Instruction::from(Not {
+            destination,
+            argument,
+        })
+    }
+
+    pub fn test(operand_register: u16, value: bool) -> Instruction {
         Instruction::from(Test {
             operand_register,
             test_value: value,
         })
     }
 
-    pub fn test_set(destination: u8, argument: Argument, value: bool) -> Instruction {
+    pub fn test_set(destination: u16, argument: Operand, value: bool) -> Instruction {
         Instruction::from(TestSet {
             destination,
             argument,
@@ -342,33 +478,7 @@ impl Instruction {
         })
     }
 
-    pub fn equal(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Equal { value, left, right })
-    }
-
-    pub fn less(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(Less { value, left, right })
-    }
-
-    pub fn less_equal(value: bool, left: Argument, right: Argument) -> Instruction {
-        Instruction::from(LessEqual { value, left, right })
-    }
-
-    pub fn negate(destination: u8, argument: Argument) -> Instruction {
-        Instruction::from(Negate {
-            destination,
-            argument,
-        })
-    }
-
-    pub fn not(destination: u8, argument: Argument) -> Instruction {
-        Instruction::from(Not {
-            destination,
-            argument,
-        })
-    }
-
-    pub fn jump(offset: u8, is_positive: bool) -> Instruction {
+    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
@@ -376,9 +486,9 @@ impl Instruction {
     }
 
     pub fn call(
-        destination: u8,
-        function_register: u8,
-        argument_count: u8,
+        destination: u16,
+        function_register: u16,
+        argument_count: u16,
         is_recursive: bool,
     ) -> Instruction {
         Instruction::from(Call {
@@ -390,9 +500,9 @@ impl Instruction {
     }
 
     pub fn call_native(
-        destination: u8,
+        destination: u16,
         function: NativeFunction,
-        argument_count: u8,
+        argument_count: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
@@ -401,7 +511,7 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_register: u8) -> Instruction {
+    pub fn r#return(should_return_value: bool, return_register: u16) -> Instruction {
         Instruction::from(Return {
             should_return_value,
             return_register,
@@ -409,26 +519,16 @@ impl Instruction {
     }
 
     pub fn is_math(&self) -> bool {
-        matches!(
-            self.operation(),
-            Operation::ADD
-                | Operation::SUBTRACT
-                | Operation::MULTIPLY
-                | Operation::DIVIDE
-                | Operation::MODULO
-        )
+        self.operation().is_math()
     }
 
     pub fn is_comparison(&self) -> bool {
-        matches!(
-            self.operation(),
-            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
-        )
+        self.operation().is_comparison()
     }
 
-    pub fn as_argument(&self) -> Option<Argument> {
+    pub fn as_argument(&self) -> Option<Operand> {
         match self.operation() {
-            Operation::LOAD_CONSTANT => Some(Argument::Constant(self.b_field())),
+            Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
@@ -443,12 +543,12 @@ impl Instruction {
             | Operation::LESS_EQUAL
             | Operation::NEGATE
             | Operation::NOT
-            | Operation::CALL => Some(Argument::Register(self.a_field())),
+            | Operation::CALL => Some(Operand::Register(self.a_field())),
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
 
                 if function.returns_value() {
-                    Some(Argument::Register(self.a_field()))
+                    Some(Operand::Register(self.a_field()))
                 } else {
                     None
                 }
@@ -457,24 +557,24 @@ impl Instruction {
         }
     }
 
-    pub fn b_as_argument(&self) -> Argument {
+    pub fn b_as_argument(&self) -> Operand {
         if self.b_is_constant() {
-            Argument::Constant(self.b_field())
+            Operand::Constant(self.b_field())
         } else {
-            Argument::Register(self.b_field())
+            Operand::Register(self.b_field())
         }
     }
 
-    pub fn b_and_c_as_arguments(&self) -> (Argument, Argument) {
+    pub fn b_and_c_as_operands(&self) -> (Operand, Operand) {
         let left = if self.b_is_constant() {
-            Argument::Constant(self.b_field())
+            Operand::Constant(self.b_field())
         } else {
-            Argument::Register(self.b_field())
+            Operand::Register(self.b_field())
         };
         let right = if self.c_is_constant() {
-            Argument::Constant(self.c_field())
+            Operand::Constant(self.c_field())
         } else {
-            Argument::Register(self.c_field())
+            Operand::Register(self.c_field())
         };
 
         (left, right)
@@ -511,7 +611,7 @@ impl Instruction {
             | Operation::TEST_SET
             | Operation::JUMP
             | Operation::RETURN => false,
-            _ => Operation::panic_from_unknown_code(self.operation().0),
+            _ => self.operation().panic_from_unknown_code(),
         }
     }
 
@@ -520,242 +620,32 @@ impl Instruction {
 
         match operation {
             Operation::POINT => Point::from(*self).to_string(),
-            Operation::CLOSE => {
-                let Close { from, to } = Close::from(*self);
-
-                format!("R{from}..R{to}")
-            }
-            Operation::LOAD_BOOLEAN => {
-                let LoadBoolean {
-                    destination,
-                    value,
-                    jump_next,
-                } = LoadBoolean::from(*self);
-
-                if jump_next {
-                    format!("R{destination} = {value} && JUMP +1")
-                } else {
-                    format!("R{destination} = {value}")
-                }
-            }
-            Operation::LOAD_CONSTANT => {
-                let LoadConstant {
-                    destination,
-                    constant_index,
-                    jump_next,
-                } = LoadConstant::from(*self);
-
-                if jump_next {
-                    format!("R{destination} = C{constant_index} JUMP +1")
-                } else {
-                    format!("R{destination} = C{constant_index}")
-                }
-            }
+            Operation::CLOSE => Close::from(*self).to_string(),
+            Operation::LOAD_BOOLEAN => LoadBoolean::from(*self).to_string(),
+            Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
-            Operation::LOAD_LIST => {
-                let LoadList {
-                    destination,
-                    start_register,
-                } = LoadList::from(*self);
-                let end_register = destination.saturating_sub(1);
+            Operation::LOAD_LIST => LoadList::from(*self).to_string(),
+            Operation::LOAD_SELF => LoadSelf::from(*self).to_string(),
+            Operation::GET_LOCAL => GetLocal::from(*self).to_string(),
+            Operation::SET_LOCAL => SetLocal::from(*self).to_string(),
+            Operation::ADD => Add::from(*self).to_string(),
+            Operation::SUBTRACT => Subtract::from(*self).to_string(),
+            Operation::MULTIPLY => Multiply::from(*self).to_string(),
+            Operation::DIVIDE => Divide::from(*self).to_string(),
+            Operation::MODULO => Modulo::from(*self).to_string(),
+            Operation::NEGATE => Negate::from(*self).to_string(),
+            Operation::NOT => Not::from(*self).to_string(),
+            Operation::EQUAL => Equal::from(*self).to_string(),
+            Operation::LESS => Less::from(*self).to_string(),
+            Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
+            Operation::TEST => Test::from(*self).to_string(),
+            Operation::TEST_SET => TestSet::from(*self).to_string(),
+            Operation::CALL => Call::from(*self).to_string(),
+            Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
+            Operation::JUMP => Jump::from(*self).to_string(),
+            Operation::RETURN => Return::from(*self).to_string(),
 
-                format!("R{destination} = [R{start_register}..=R{end_register}]",)
-            }
-            Operation::LOAD_SELF => {
-                let LoadSelf { destination } = LoadSelf::from(*self);
-
-                format!("R{destination} = self")
-            }
-            Operation::GET_LOCAL => {
-                let GetLocal {
-                    destination,
-                    local_index,
-                } = GetLocal::from(*self);
-
-                format!("R{destination} = L{local_index}")
-            }
-            Operation::SET_LOCAL => {
-                let SetLocal {
-                    register_index,
-                    local_index,
-                } = SetLocal::from(*self);
-
-                format!("L{local_index} = R{register_index}")
-            }
-            Operation::ADD => {
-                let Add {
-                    destination,
-                    left,
-                    right,
-                } = Add::from(*self);
-
-                format!("R{destination} = {left} + {right}")
-            }
-            Operation::SUBTRACT => {
-                let Subtract {
-                    destination,
-                    left,
-                    right,
-                } = Subtract::from(*self);
-
-                format!("R{destination} = {left} - {right}")
-            }
-            Operation::MULTIPLY => {
-                let Multiply {
-                    destination,
-                    left,
-                    right,
-                } = Multiply::from(*self);
-
-                format!("R{destination} = {left} * {right}")
-            }
-            Operation::DIVIDE => {
-                let Divide {
-                    destination,
-                    left,
-                    right,
-                } = Divide::from(*self);
-
-                format!("R{destination} = {left} / {right}")
-            }
-            Operation::MODULO => {
-                let Modulo {
-                    destination,
-                    left,
-                    right,
-                } = Modulo::from(*self);
-
-                format!("R{destination} = {left} % {right}")
-            }
-            Operation::TEST => {
-                let Test {
-                    operand_register,
-                    test_value,
-                } = Test::from(*self);
-                let bang = if test_value { "" } else { "!" };
-
-                format!("if {bang}R{operand_register} {{ JUMP +1 }}",)
-            }
-            Operation::TEST_SET => {
-                let TestSet {
-                    destination,
-                    argument,
-                    test_value,
-                } = TestSet::from(*self);
-                let bang = if test_value { "" } else { "!" };
-
-                format!("if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}")
-            }
-            Operation::EQUAL => {
-                let Equal { value, left, right } = Equal::from(*self);
-                let comparison_symbol = if value { "==" } else { "!=" };
-
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
-            }
-            Operation::LESS => {
-                let Less { value, left, right } = Less::from(*self);
-                let comparison_symbol = if value { "<" } else { ">=" };
-
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
-            }
-            Operation::LESS_EQUAL => {
-                let LessEqual { value, left, right } = LessEqual::from(*self);
-                let comparison_symbol = if value { "<=" } else { ">" };
-
-                format!("if {left} {comparison_symbol} {right} {{ JUMP +1 }}")
-            }
-            Operation::NEGATE => {
-                let Negate {
-                    destination,
-                    argument,
-                } = Negate::from(*self);
-
-                format!("R{destination} = -{argument}")
-            }
-            Operation::NOT => {
-                let Not {
-                    destination,
-                    argument,
-                } = Not::from(*self);
-
-                format!("R{destination} = !{argument}")
-            }
-            Operation::JUMP => {
-                let Jump {
-                    offset,
-                    is_positive,
-                } = Jump::from(*self);
-
-                if is_positive {
-                    format!("JUMP +{offset}")
-                } else {
-                    format!("JUMP -{offset}")
-                }
-            }
-            Operation::CALL => {
-                let Call {
-                    destination,
-                    function_register,
-                    argument_count,
-                    ..
-                } = Call::from(*self);
-                let arguments_start = destination.saturating_sub(argument_count);
-
-                match argument_count {
-                    0 => format!("R{destination} = R{function_register}()"),
-                    1 => format!("R{destination} = R{function_register}(R{arguments_start})"),
-                    _ => {
-                        format!(
-                            "R{destination} = R{function_register}(R{arguments_start}..R{destination})"
-                        )
-                    }
-                }
-            }
-            Operation::CALL_NATIVE => {
-                let CallNative {
-                    destination,
-                    function,
-                    argument_count,
-                } = CallNative::from(*self);
-                let arguments_start = destination.saturating_sub(argument_count);
-                let arguments_end = arguments_start + argument_count;
-                let mut info_string = if function.returns_value() {
-                    format!("R{destination} = ")
-                } else {
-                    String::new()
-                };
-
-                match argument_count {
-                    0 => {
-                        info_string.push_str(function.as_str());
-                        info_string.push_str("()");
-                    }
-                    1 => info_string.push_str(&format!("{function}(R{arguments_start})")),
-                    _ => info_string
-                        .push_str(&format!("{function}(R{arguments_start}..R{arguments_end})")),
-                }
-
-                info_string
-            }
-            Operation::RETURN => {
-                let Return {
-                    should_return_value,
-                    return_register,
-                } = Return::from(*self);
-
-                if should_return_value {
-                    format!("RETURN R{return_register}")
-                } else {
-                    String::new()
-                }
-            }
-            _ => {
-                if cfg!(debug_assertions) {
-                    panic!("Unknown operation {}", self.operation());
-                } else {
-                    "RETURN".to_string()
-                }
-            }
+            _ => operation.panic_from_unknown_code(),
         }
     }
 }
@@ -772,57 +662,163 @@ impl Display for Instruction {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct InstructionData {
-    pub a_field: u8,
-    pub b_field: u8,
-    pub c_field: u8,
-    pub d_field: bool,
-    pub b_is_constant: bool,
-    pub c_is_constant: bool,
-}
-
-impl Display for InstructionData {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Argument {
-    Constant(u8),
-    Register(u8),
+pub enum Operand {
+    Constant(u16),
+    Register(u16),
 }
 
-impl Argument {
-    pub fn index(&self) -> u8 {
+impl Operand {
+    pub fn index(&self) -> u16 {
         match self {
-            Argument::Constant(index) => *index,
-            Argument::Register(index) => *index,
+            Operand::Constant(index) => *index,
+            Operand::Register(index) => *index,
         }
     }
 
     pub fn is_constant(&self) -> bool {
-        matches!(self, Argument::Constant(_))
+        matches!(self, Operand::Constant(_))
     }
 
     pub fn is_register(&self) -> bool {
-        matches!(self, Argument::Register(_))
+        matches!(self, Operand::Register(_))
     }
 
-    pub fn as_index_and_constant_flag(&self) -> (u8, bool) {
+    pub fn as_index_and_constant_flag(&self) -> (u16, bool) {
         match self {
-            Argument::Constant(index) => (*index, true),
-            Argument::Register(index) => (*index, false),
+            Operand::Constant(index) => (*index, true),
+            Operand::Register(index) => (*index, false),
         }
     }
 }
 
-impl Display for Argument {
+impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Argument::Constant(index) => write!(f, "C{index}"),
-            Argument::Register(index) => write!(f, "R{index}"),
+            Operand::Constant(index) => write!(f, "C{index}"),
+            Operand::Register(index) => write!(f, "R{index}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_operation() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(instruction.operation(), Operation::ADD);
+    }
+
+    #[test]
+    fn decode_a_field() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(42, instruction.a_field());
+    }
+
+    #[test]
+    fn decode_b_field() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(4, instruction.b_field());
+    }
+
+    #[test]
+    fn decode_c_field() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(2, instruction.c_field());
+    }
+
+    #[test]
+    fn decode_d_field() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert!(instruction.d_field());
+    }
+
+    #[test]
+    fn decode_b_is_constant() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert!(instruction.b_is_constant());
+    }
+
+    #[test]
+    fn decode_c_is_constant() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Register(2),
+            TypeCode::STRING,
+            Operand::Constant(4),
+            TypeCode::CHARACTER,
+        );
+
+        assert!(instruction.c_is_constant());
+    }
+
+    #[test]
+    fn decode_b_type() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(TypeCode::STRING, instruction.b_type());
+    }
+
+    #[test]
+    fn decode_c_type() {
+        let instruction = Instruction::add(
+            42,
+            Operand::Constant(4),
+            TypeCode::STRING,
+            Operand::Register(2),
+            TypeCode::CHARACTER,
+        );
+
+        assert_eq!(TypeCode::CHARACTER, instruction.c_type());
     }
 }

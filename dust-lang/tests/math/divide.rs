@@ -15,7 +15,7 @@ fn divide_bytes() {
             },
             vec![
                 (
-                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::divide(0, Operand::Constant(0), Operand::Constant(1)),
                     Span(5, 6)
                 ),
                 (Instruction::r#return(true), Span(11, 11))
@@ -43,7 +43,7 @@ fn divide_floats() {
             },
             vec![
                 (
-                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::divide(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -71,7 +71,7 @@ fn divide_integers() {
             },
             vec![
                 (
-                    Instruction::divide(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::divide(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))

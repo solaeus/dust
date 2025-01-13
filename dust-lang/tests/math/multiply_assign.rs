@@ -16,7 +16,7 @@ fn multiply_assign() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (
-                    Instruction::multiply(0, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::multiply(0, Operand::Register(0), Operand::Constant(2)),
                     Span(17, 19)
                 ),
                 (Instruction::get_local(1, 0), Span(22, 23)),

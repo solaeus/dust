@@ -1,8 +1,12 @@
-use crate::{Argument, Instruction, Operation};
+use std::fmt::Display;
+
+use crate::{Instruction, Operand, Operation};
+
+use super::InstructionBuilder;
 
 pub struct Not {
-    pub destination: u8,
-    pub argument: Argument,
+    pub destination: u16,
+    pub argument: Operand,
 }
 
 impl From<Instruction> for Not {
@@ -20,9 +24,27 @@ impl From<Instruction> for Not {
 impl From<Not> for Instruction {
     fn from(not: Not) -> Self {
         let operation = Operation::NOT;
-        let a = not.destination;
-        let (b, b_is_constant) = not.argument.as_index_and_constant_flag();
+        let a_field = not.destination;
+        let (b_field, b_is_constant) = not.argument.as_index_and_constant_flag();
 
-        Instruction::new(operation, a, b, 0, b_is_constant, false, false)
+        InstructionBuilder {
+            operation,
+            a_field,
+            b_field,
+            b_is_constant,
+            ..Default::default()
+        }
+        .build()
+    }
+}
+
+impl Display for Not {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Not {
+            destination,
+            argument,
+        } = self;
+
+        write!(f, "R{destination} = !{argument}")
     }
 }

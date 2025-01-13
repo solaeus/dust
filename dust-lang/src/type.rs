@@ -273,13 +273,13 @@ impl Ord for Type {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Vec<u8>,
-    pub value_parameters: Vec<(u8, Type)>,
+    pub type_parameters: Vec<u16>,
+    pub value_parameters: Vec<(u16, Type)>,
     pub return_type: Type,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<Vec<u8>>, U: Into<Vec<(u8, Type)>>>(
+    pub fn new<T: Into<Vec<u16>>, U: Into<Vec<(u16, Type)>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,

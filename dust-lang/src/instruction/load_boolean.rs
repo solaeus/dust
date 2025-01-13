@@ -1,7 +1,11 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct LoadBoolean {
-    pub destination: u8,
+    pub destination: u16,
     pub value: bool,
     pub jump_next: bool,
 }
@@ -19,10 +23,35 @@ impl From<Instruction> for LoadBoolean {
 impl From<LoadBoolean> for Instruction {
     fn from(load_boolean: LoadBoolean) -> Self {
         let operation = Operation::LOAD_BOOLEAN;
-        let a = load_boolean.destination;
-        let b = load_boolean.value as u8;
-        let c = load_boolean.jump_next as u8;
+        let a_field = load_boolean.destination;
+        let b_field = load_boolean.value as u16;
+        let c_field = load_boolean.jump_next as u16;
 
-        Instruction::new(operation, a, b, c, false, false, false)
+        InstructionBuilder {
+            operation,
+            a_field,
+            b_field,
+            c_field,
+            ..Default::default()
+        }
+        .build()
+    }
+}
+
+impl Display for LoadBoolean {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let LoadBoolean {
+            destination,
+            value,
+            jump_next,
+        } = self;
+
+        write!(f, "R{destination} = {value}")?;
+
+        if *jump_next {
+            write!(f, " JUMP +1")?;
+        }
+
+        Ok(())
     }
 }

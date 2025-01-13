@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::AnnotatedError, CompileError, DustError, Span, Token};
+use crate::{CompileError, DustError, Span, Token, dust_error::AnnotatedError};
 
 /// Lexes the input and returns a vector of tokens and their positions.
 ///
@@ -83,7 +83,7 @@ impl<'src> Lexer<'src> {
         self.skip_whitespace();
 
         let (token, span) = if let Some(character) = self.peek_char() {
-            let lexer = LexRule::from(&character).lexer;
+            let lexer = LexRule::from(&character).lex_action;
 
             lexer(self)?
         } else {
@@ -613,92 +613,92 @@ impl<'src> Lexer<'src> {
     }
 }
 
-type LexerFn<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
+type LexAction<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
 
 pub struct LexRule<'src> {
-    lexer: LexerFn<'src>,
+    lex_action: LexAction<'src>,
 }
 
 impl From<&char> for LexRule<'_> {
     fn from(char: &char) -> Self {
         match char {
             '0'..='9' => LexRule {
-                lexer: Lexer::lex_numeric,
+                lex_action: Lexer::lex_numeric,
             },
             char if char.is_alphabetic() => LexRule {
-                lexer: Lexer::lex_keyword_or_identifier,
+                lex_action: Lexer::lex_keyword_or_identifier,
             },
             '"' => LexRule {
-                lexer: Lexer::lex_string,
+                lex_action: Lexer::lex_string,
             },
             '\'' => LexRule {
-                lexer: Lexer::lex_char,
+                lex_action: Lexer::lex_char,
             },
             '+' => LexRule {
-                lexer: Lexer::lex_plus,
+                lex_action: Lexer::lex_plus,
             },
             '-' => LexRule {
-                lexer: Lexer::lex_minus,
+                lex_action: Lexer::lex_minus,
             },
             '*' => LexRule {
-                lexer: Lexer::lex_star,
+                lex_action: Lexer::lex_star,
             },
             '/' => LexRule {
-                lexer: Lexer::lex_slash,
+                lex_action: Lexer::lex_slash,
             },
             '%' => LexRule {
-                lexer: Lexer::lex_percent,
+                lex_action: Lexer::lex_percent,
             },
             '!' => LexRule {
-                lexer: Lexer::lex_exclamation_mark,
+                lex_action: Lexer::lex_exclamation_mark,
             },
             '=' => LexRule {
-                lexer: Lexer::lex_equal,
+                lex_action: Lexer::lex_equal,
             },
             '<' => LexRule {
-                lexer: Lexer::lex_less_than,
+                lex_action: Lexer::lex_less_than,
             },
             '>' => LexRule {
-                lexer: Lexer::lex_greater_than,
+                lex_action: Lexer::lex_greater_than,
             },
             '&' => LexRule {
-                lexer: Lexer::lex_ampersand,
+                lex_action: Lexer::lex_ampersand,
             },
             '|' => LexRule {
-                lexer: Lexer::lex_pipe,
+                lex_action: Lexer::lex_pipe,
             },
             '(' => LexRule {
-                lexer: Lexer::lex_left_parenthesis,
+                lex_action: Lexer::lex_left_parenthesis,
             },
             ')' => LexRule {
-                lexer: Lexer::lex_right_parenthesis,
+                lex_action: Lexer::lex_right_parenthesis,
             },
             '[' => LexRule {
-                lexer: Lexer::lex_left_bracket,
+                lex_action: Lexer::lex_left_bracket,
             },
             ']' => LexRule {
-                lexer: Lexer::lex_right_bracket,
+                lex_action: Lexer::lex_right_bracket,
             },
             '{' => LexRule {
-                lexer: Lexer::lex_left_brace,
+                lex_action: Lexer::lex_left_brace,
             },
             '}' => LexRule {
-                lexer: Lexer::lex_right_brace,
+                lex_action: Lexer::lex_right_brace,
             },
             ';' => LexRule {
-                lexer: Lexer::lex_semicolon,
+                lex_action: Lexer::lex_semicolon,
             },
             ':' => LexRule {
-                lexer: Lexer::lex_colon,
+                lex_action: Lexer::lex_colon,
             },
             ',' => LexRule {
-                lexer: Lexer::lex_comma,
+                lex_action: Lexer::lex_comma,
             },
             '.' => LexRule {
-                lexer: Lexer::lex_dot,
+                lex_action: Lexer::lex_dot,
             },
             _ => LexRule {
-                lexer: Lexer::lex_unexpected,
+                lex_action: Lexer::lex_unexpected,
             },
         }
     }

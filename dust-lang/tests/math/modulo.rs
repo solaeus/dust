@@ -15,7 +15,7 @@ fn modulo_floats() {
             },
             vec![
                 (
-                    Instruction::modulo(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::modulo(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9))
@@ -43,7 +43,7 @@ fn modulo_integers() {
             },
             vec![
                 (
-                    Instruction::modulo(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::modulo(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5))

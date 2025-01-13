@@ -4,7 +4,9 @@
 //! itself or that are more efficient to implement in Rust.
 mod assert;
 mod io;
+mod random;
 mod string;
+mod thread;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -15,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{vm::ThreadData, AnnotatedError, FunctionType, Span, Type};
+use crate::{AnnotatedError, FunctionType, Span, Type, vm::ThreadData};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -33,8 +35,8 @@ macro_rules! define_native_function {
             pub fn call(
                 &self,
                 data: &mut ThreadData,
-                destination: Option<u8>,
-                argument_range: Range<u8>,
+                destination: u16,
+                argument_range: Range<u16>,
             ) -> bool {
                 match self {
                     $(
@@ -78,8 +80,8 @@ macro_rules! define_native_function {
             }
         }
 
-        impl From<u8> for NativeFunction {
-            fn from(bytes: u8) -> Self {
+        impl From<u16> for NativeFunction {
+            fn from(bytes: u16) -> Self {
                 match bytes {
                     $(
                         $bytes => NativeFunction::$name,
@@ -244,11 +246,42 @@ define_native_function! {
             return_type: Type::None
         },
         io::write_line
-    )
+    ),
 
     // // Random
-    // (Random, 58_u8, "random", true),
-    // (RandomInRange, 59_u8, "random_in_range", true)
+    (
+        RandomInteger,
+        58,
+        "random_int",
+        FunctionType {
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![(0, Type::Integer), (1, Type::Integer)],
+            return_type: Type::Integer
+        },
+        random::random_int
+    ),
+
+    // Thread
+    (
+        Spawn,
+        60,
+        "spawn",
+        FunctionType {
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: vec![
+                (
+                    0,
+                    Type::Function(Box::new(FunctionType {
+                        type_parameters: Vec::with_capacity(0),
+                        value_parameters: Vec::with_capacity(0),
+                        return_type: Type::Any
+                    }))
+                )
+            ],
+            return_type: Type::None
+        },
+        thread::spawn
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]

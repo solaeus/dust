@@ -124,7 +124,7 @@ impl<T: Debug> Debug for Stack<T> {
     }
 }
 
-impl Display for Stack<FunctionCall<'_>> {
+impl Display for Stack<FunctionCall> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         writeln!(f, "----- DUST CALL STACK -----")?;
 

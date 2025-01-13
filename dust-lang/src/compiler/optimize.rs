@@ -26,7 +26,7 @@ use crate::{Compiler, Instruction, Operation};
 /// a `POINT` instruction to prevent the VM from encountering an empty register.
 ///
 /// The instructions must be in the following order:
-///     - `EQUAL` | `LESS` | `LESS_EQUAL` | `TEST`
+///     - `TEST` or any of the `EQUAL`, `LESS` or `LESS_EQUAL` instructions
 ///     - `JUMP`
 ///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
 ///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
@@ -37,7 +37,7 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
     if !matches!(
         compiler.get_last_operations(),
         Some([
-            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL | Operation::TEST,
+            Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
             Operation::JUMP,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,

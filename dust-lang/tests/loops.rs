@@ -16,12 +16,12 @@ fn r#while() {
             vec![
                 (Instruction::load_constant(0, 0, false), Span(12, 13)),
                 (
-                    Instruction::less(0, true, Argument::Register(0), Argument::Constant(2)),
+                    Instruction::less(0, true, Operand::Register(0), Operand::Constant(2)),
                     Span(23, 24)
                 ),
                 (Instruction::jump(2, true), Span(41, 42)),
                 (
-                    Instruction::add(0, Argument::Register(0), Argument::Constant(3)),
+                    Instruction::add(0, Operand::Register(0), Operand::Constant(3)),
                     Span(35, 36)
                 ),
                 (Instruction::jump(3, false), Span(41, 42)),

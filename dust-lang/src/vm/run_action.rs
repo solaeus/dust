@@ -1,16 +1,16 @@
 use tracing::trace;
 
 use crate::{
+    AbstractList, ConcreteValue, Instruction, Operand, Type, Value,
     instruction::{
         Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
         LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
-        Return, SetLocal, Subtract, Test, TestSet,
+        Return, SetLocal, Subtract, Test, TestSet, TypeCode,
     },
     vm::FunctionCall,
-    AbstractList, Argument, ConcreteValue, Instruction, Type, Value,
 };
 
-use super::{thread::ThreadData, Pointer, Register};
+use super::{Pointer, Register, thread::ThreadData};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RunAction {
@@ -44,13 +44,13 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     multiply,
     divide,
     modulo,
-    test,
-    test_set,
     equal,
     less,
     less_equal,
     negate,
     not,
+    test,
+    test_set,
     call,
     call_native,
     jump,
@@ -145,6 +145,7 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
     let LoadList {
         destination,
         start_register,
+        jump_next,
     } = instruction.into();
     let mut item_pointers = Vec::with_capacity((destination - start_register) as usize);
     let mut item_type = Type::Any;
@@ -186,6 +187,7 @@ pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
     let LoadFunction {
         destination,
         prototype_index,
+        jump_next,
     } = instruction.into();
     let prototype_index = prototype_index as usize;
     let current_call = data.call_stack.last_mut_unchecked();
@@ -201,7 +203,10 @@ pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let LoadSelf { destination } = instruction.into();
+    let LoadSelf {
+        destination,
+        jump_next,
+    } = instruction.into();
     let current_call = data.call_stack.last_mut_unchecked();
     let prototype = &current_call.chunk;
     let function = prototype.as_function();
@@ -248,12 +253,42 @@ pub fn add(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Add {
         destination,
         left,
+        left_type,
         right,
+        right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let sum = left.add(right);
-    let register = Register::Value(sum);
+    let sum = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Integer(left + right)
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Float(left + right)
+        }
+        _ => panic!("VM Error: Cannot add values"),
+    };
+    let register = Register::Value(Value::Concrete(sum));
 
     data.set_register(destination, register);
 
@@ -266,12 +301,42 @@ pub fn subtract(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Subtract {
         destination,
         left,
+        left_type,
         right,
+        right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let difference = left.subtract(right);
-    let register = Register::Value(difference);
+    let difference = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Integer(left - right)
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Float(left - right)
+        }
+        _ => panic!("VM Error: Cannot subtract values"),
+    };
+    let register = Register::Value(Value::Concrete(difference));
 
     data.set_register(destination, register);
 
@@ -284,20 +349,42 @@ pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Multiply {
         destination,
         left,
+        left_type,
         right,
+        right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let product = match (left, right) {
-        (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                ConcreteValue::Integer(left * right).to_value()
-            }
-            _ => panic!("Value Error: Cannot multiply values"),
-        },
-        _ => panic!("Value Error: Cannot multiply values"),
+    let product = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Integer(left * right)
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Float(left * right)
+        }
+        _ => panic!("VM Error: Cannot multiply values"),
     };
-    let register = Register::Value(product);
+    let register = Register::Value(Value::Concrete(product));
 
     data.set_register(destination, register);
 
@@ -310,20 +397,42 @@ pub fn divide(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Divide {
         destination,
         left,
+        left_type,
         right,
+        right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let quotient = match (left, right) {
-        (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                ConcreteValue::Integer(left / right).to_value()
-            }
-            _ => panic!("Value Error: Cannot divide values"),
-        },
-        _ => panic!("Value Error: Cannot divide values"),
+    let quotient = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Integer(left / right)
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Float(left / right)
+        }
+        _ => panic!("VM Error: Cannot divide values"),
     };
-    let register = Register::Value(quotient);
+    let register = Register::Value(Value::Concrete(quotient));
 
     data.set_register(destination, register);
 
@@ -336,20 +445,28 @@ pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Modulo {
         destination,
         left,
+        left_type,
         right,
+        right_type,
     } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let remainder = match (left, right) {
-        (Value::Concrete(left), Value::Concrete(right)) => match (left, right) {
-            (ConcreteValue::Integer(left), ConcreteValue::Integer(right)) => {
-                ConcreteValue::Integer(left % right).to_value()
-            }
-            _ => panic!("Value Error: Cannot modulo values"),
-        },
-        _ => panic!("Value Error: Cannot modulo values"),
+    let remainder = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+
+            ConcreteValue::Integer(left % right)
+        }
+        _ => panic!("VM Error: Cannot modulo values"),
     };
-    let register = Register::Value(remainder);
+    let register = Register::Value(Value::Concrete(remainder));
 
     data.set_register(destination, register);
 
@@ -397,8 +514,8 @@ pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
     if boolean == test_value {
     } else {
         let pointer = match argument {
-            Argument::Constant(constant_index) => Pointer::Constant(constant_index),
-            Argument::Register(register_index) => Pointer::Register(register_index),
+            Operand::Constant(constant_index) => Pointer::Constant(constant_index),
+            Operand::Register(register_index) => Pointer::Register(register_index),
         };
         let register = Register::Pointer(pointer);
 
@@ -411,12 +528,74 @@ pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let Equal { value, left, right } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_equal = left.equals(right);
+    let Equal {
+        comparator,
+        left,
+        left_type,
+        right,
+        right_type,
+    } = instruction.into();
+    let is_equal = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
 
-    if is_equal == value {
+            left == right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_boolean()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_boolean()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        (TypeCode::STRING, TypeCode::STRING) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_string()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_string()
+                    .unwrap_unchecked()
+            };
+
+            left == right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
+
+    if is_equal == comparator {
         let current_call = data.call_stack.last_mut_unchecked();
 
         current_call.ip += 1;
@@ -428,12 +607,46 @@ pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let Less { value, left, right } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_less = left < right;
+    let Less {
+        comparator,
+        left,
+        left_type,
+        right,
+        right_type,
+    } = instruction.into();
+    let is_less = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
 
-    if is_less == value {
+            left < right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left < right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
+
+    if is_less == comparator {
         let current_call = data.call_stack.last_mut_unchecked();
 
         current_call.ip += 1;
@@ -445,12 +658,46 @@ pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let LessEqual { value, left, right } = instruction.into();
-    let left = data.get_argument_unchecked(left);
-    let right = data.get_argument_unchecked(right);
-    let is_less_or_equal = left <= right;
+    let LessEqual {
+        comparator,
+        left,
+        left_type,
+        right,
+        right_type,
+    } = instruction.into();
+    let is_less_or_equal = match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_integer()
+                    .unwrap_unchecked()
+            };
 
-    if is_less_or_equal == value {
+            left <= right
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left = unsafe {
+                data.get_argument_unchecked(left)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+            let right = unsafe {
+                data.get_argument_unchecked(right)
+                    .as_float()
+                    .unwrap_unchecked()
+            };
+
+            left <= right
+        }
+        _ => panic!("VM Error: Cannot compare values"),
+    };
+
+    if is_less_or_equal == comparator {
         let current_call = data.call_stack.last_mut_unchecked();
 
         current_call.ip += 1;
@@ -465,6 +712,7 @@ pub fn negate(instruction: Instruction, data: &mut ThreadData) -> bool {
     let Negate {
         destination,
         argument,
+        argument_type,
     } = instruction.into();
     let argument = data.get_argument_unchecked(argument);
     let negated = argument.negate();
@@ -525,14 +773,14 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
     let current_call = data.call_stack.last_unchecked();
     let first_argument_register = return_register - argument_count;
     let prototype = if is_recursive {
-        current_call.chunk
+        current_call.chunk.clone()
     } else {
         let function = data
             .open_register_unchecked(function_register)
             .as_function()
             .unwrap();
 
-        &current_call.chunk.prototypes[function.prototype_index as usize]
+        current_call.chunk.prototypes[function.prototype_index as usize].clone()
     };
     let mut next_call = FunctionCall::new(prototype, return_register);
     let mut argument_index = 0;
@@ -565,7 +813,7 @@ pub fn call_native(instruction: Instruction, data: &mut ThreadData) -> bool {
     let first_argument_index = destination - argument_count;
     let argument_range = first_argument_index..destination;
 
-    function.call(data, Some(destination), argument_range)
+    function.call(data, destination, argument_range)
 }
 
 pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> bool {

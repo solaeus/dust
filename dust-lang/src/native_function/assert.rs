@@ -2,7 +2,7 @@ use std::{ops::Range, panic};
 
 use crate::vm::ThreadData;
 
-pub fn panic(data: &mut ThreadData, _: Option<u8>, argument_range: Range<u8>) -> bool {
+pub fn panic(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
     let position = data.current_position();
     let mut message = format!("Dust panic at {position}!");
 

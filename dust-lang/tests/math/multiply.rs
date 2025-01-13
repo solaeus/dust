@@ -15,7 +15,7 @@ fn multiply_floats() {
             },
             vec![
                 (
-                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(0)),
+                    Instruction::multiply(0, Operand::Constant(0), Operand::Constant(0)),
                     Span(4, 5)
                 ),
                 (Instruction::r#return(true), Span(9, 9)),
@@ -43,7 +43,7 @@ fn multiply_integers() {
             },
             vec![
                 (
-                    Instruction::multiply(0, Argument::Constant(0), Argument::Constant(1)),
+                    Instruction::multiply(0, Operand::Constant(0), Operand::Constant(1)),
                     Span(2, 3)
                 ),
                 (Instruction::r#return(true), Span(5, 5)),

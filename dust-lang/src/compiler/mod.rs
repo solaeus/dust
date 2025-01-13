@@ -28,14 +28,14 @@ use parse_rule::{ParseRule, Precedence};
 use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
-use std::mem::replace;
+use std::{mem::replace, sync::Arc};
 
 use optimize::control_flow_register_consolidation;
 
 use crate::{
-    Argument, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type, Value,
-    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Negate, Not, Return, SetLocal},
+    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
+    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type, Value,
+    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Return, SetLocal, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -96,7 +96,7 @@ pub struct Compiler<'src> {
 
     /// Prototypes that have been compiled. These are assigned to the chunk when
     /// [`Compiler::finish`] is called.
-    prototypes: Vec<Chunk>,
+    prototypes: Vec<Arc<Chunk>>,
 
     /// Maximum stack size required by the chunk. This is assigned to the chunk when
     /// [`Compiler::finish`] is called.
@@ -104,7 +104,7 @@ pub struct Compiler<'src> {
 
     /// The first register index that the compiler should use. This is used to avoid reusing the
     /// registers that are used for the function's arguments.
-    minimum_register: u8,
+    minimum_register: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -115,7 +115,7 @@ pub struct Compiler<'src> {
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
-    prototype_index: u8,
+    prototype_index: u16,
 
     /// Whether the chunk is the program's main chunk. This is used to prevent recursive calls to
     /// the main chunk.
@@ -227,7 +227,7 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register(&self) -> u8 {
+    fn next_register(&self) -> u16 {
         self.instructions
             .iter()
             .rev()
@@ -260,7 +260,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn get_local(&self, index: u8) -> Result<&(Local, Type), CompileError> {
+    fn get_local(&self, index: u16) -> Result<&(Local, Type), CompileError> {
         self.locals
             .get(index as usize)
             .ok_or(CompileError::UndeclaredVariable {
@@ -269,7 +269,7 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn get_local_index(&self, identifier_text: &str) -> Result<u8, CompileError> {
+    fn get_local_index(&self, identifier_text: &str) -> Result<u16, CompileError> {
         self.locals
             .iter()
             .enumerate()
@@ -284,7 +284,7 @@ impl<'src> Compiler<'src> {
                     };
 
                 if identifier == identifier_text {
-                    Some(index as u8)
+                    Some(index as u16)
                 } else {
                     None
                 }
@@ -298,16 +298,16 @@ impl<'src> Compiler<'src> {
     fn declare_local(
         &mut self,
         identifier: &str,
-        register_index: u8,
+        register_index: u16,
         r#type: Type,
         is_mutable: bool,
         scope: Scope,
-    ) -> (u8, u8) {
+    ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
         let identifier = Value::Concrete(ConcreteValue::string(identifier));
         let identifier_index = self.push_or_get_constant(identifier);
-        let local_index = self.locals.len() as u8;
+        let local_index = self.locals.len() as u16;
 
         self.locals.push((
             Local::new(identifier_index, register_index, is_mutable, scope),
@@ -317,7 +317,7 @@ impl<'src> Compiler<'src> {
         (local_index, identifier_index)
     }
 
-    fn get_identifier(&self, local_index: u8) -> Option<String> {
+    fn get_identifier(&self, local_index: u16) -> Option<String> {
         self.locals
             .get(local_index as usize)
             .and_then(|(local, _)| {
@@ -327,15 +327,15 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn push_or_get_constant(&mut self, value: Value) -> u8 {
+    fn push_or_get_constant(&mut self, value: Value) -> u16 {
         if let Some(index) = self
             .constants
             .iter()
             .position(|constant| constant == &value)
         {
-            index as u8
+            index as u16
         } else {
-            let index = self.constants.len() as u8;
+            let index = self.constants.len() as u16;
 
             self.constants.push(value);
 
@@ -393,7 +393,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(Type::None)
     }
 
-    fn get_register_type(&self, register_index: u8) -> Result<Type, CompileError> {
+    fn get_register_type(&self, register_index: u16) -> Result<Type, CompileError> {
         if let Some((_, r#type)) = self
             .locals
             .iter()
@@ -651,22 +651,39 @@ impl<'src> Compiler<'src> {
         }
 
         let destination = self.next_register();
-        let instruction = match operator.kind() {
-            TokenKind::Bang => Instruction::from(Not {
-                destination,
-                argument,
-            }),
-            TokenKind::Minus => Instruction::from(Negate {
-                destination,
-                argument,
-            }),
-            _ => {
-                return Err(CompileError::ExpectedTokenMultiple {
-                    expected: &[TokenKind::Bang, TokenKind::Minus],
-                    found: operator.to_owned(),
-                    position: operator_position,
-                });
-            }
+        let type_code = match previous_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => match operator {
+                Token::Minus => {
+                    return Err(CompileError::CannotNegateType {
+                        argument_type: previous_type,
+                        position: previous_position,
+                    });
+                }
+                Token::Bang => {
+                    return Err(CompileError::CannotNotType {
+                        argument_type: previous_type,
+                        position: previous_position,
+                    });
+                }
+                _ => {
+                    return Err(CompileError::ExpectedTokenMultiple {
+                        expected: &[TokenKind::Bang, TokenKind::Minus],
+                        found: operator.to_owned(),
+                        position: operator_position,
+                    });
+                }
+            },
+        };
+        let instruction = match operator {
+            Token::Bang => Instruction::not(destination, argument),
+            Token::Minus => Instruction::negate(destination, argument, type_code),
+            _ => unreachable!(),
         };
 
         self.emit_instruction(instruction, previous_type, operator_position);
@@ -677,14 +694,14 @@ impl<'src> Compiler<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
-    ) -> Result<(Argument, bool), CompileError> {
+    ) -> Result<(Operand, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
-            Operation::LOAD_CONSTANT => (Argument::Constant(instruction.b_field()), false),
+            Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
             Operation::GET_LOCAL => {
                 let local_index = instruction.b_field();
                 let (local, _) = self.get_local(local_index)?;
 
-                (Argument::Register(local.register_index), false)
+                (Operand::Register(local.register_index), false)
             }
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
@@ -699,12 +716,12 @@ impl<'src> Compiler<'src> {
             | Operation::LESS_EQUAL
             | Operation::NEGATE
             | Operation::NOT
-            | Operation::CALL => (Argument::Register(instruction.a_field()), true),
+            | Operation::CALL => (Operand::Register(instruction.a_field()), true),
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(instruction.b_field());
 
                 if function.returns_value() {
-                    (Argument::Register(instruction.a_field()), true)
+                    (Operand::Register(instruction.a_field()), true)
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
@@ -762,6 +779,16 @@ impl<'src> Compiler<'src> {
 
         check_math_type(&left_type, operator, &left_position)?;
 
+        let left_type_code = match left_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
+
         if is_assignment && !left_is_mutable_local {
             return Err(CompileError::ExpectedMutableVariable {
                 found: self.previous_token.to_owned(),
@@ -784,6 +811,16 @@ impl<'src> Compiler<'src> {
             &right_position,
         )?;
 
+        let right_type_code = match right_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
+
         if push_back_right {
             self.instructions
                 .push((right_instruction, right_type, right_position));
@@ -798,18 +835,28 @@ impl<'src> Compiler<'src> {
         };
         let destination = if is_assignment {
             match left {
-                Argument::Register(register) => register,
-                Argument::Constant(_) => self.next_register(),
+                Operand::Register(register) => register,
+                Operand::Constant(_) => self.next_register(),
             }
         } else {
             self.next_register()
         };
         let instruction = match operator {
-            Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
-            Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
-            Token::Star | Token::StarEqual => Instruction::multiply(destination, left, right),
-            Token::Slash | Token::SlashEqual => Instruction::divide(destination, left, right),
-            Token::Percent | Token::PercentEqual => Instruction::modulo(destination, left, right),
+            Token::Plus | Token::PlusEqual => {
+                Instruction::add(destination, left, left_type_code, right, right_type_code)
+            }
+            Token::Minus | Token::MinusEqual => {
+                Instruction::subtract(destination, left, left_type_code, right, right_type_code)
+            }
+            Token::Star | Token::StarEqual => {
+                Instruction::multiply(destination, left, left_type_code, right, right_type_code)
+            }
+            Token::Slash | Token::SlashEqual => {
+                Instruction::divide(destination, left, left_type_code, right, right_type_code)
+            }
+            Token::Percent | Token::PercentEqual => {
+                Instruction::modulo(destination, left, left_type_code, right, right_type_code)
+            }
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -861,6 +908,18 @@ impl<'src> Compiler<'src> {
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
 
+        // TODO: Check if the left type is a valid type for comparison
+
+        let left_type_code = match left_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
+
         if push_back_left {
             self.instructions
                 .push((left_instruction, left_type, left_position));
@@ -878,6 +937,19 @@ impl<'src> Compiler<'src> {
                 })?;
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
 
+        // TODO: Check if the right type is a valid type for comparison
+        // TODO: Check if the left and right types are compatible
+
+        let right_type_code = match right_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
+
         if push_back_right {
             self.instructions
                 .push((right_instruction, right_type, right_position));
@@ -885,12 +957,22 @@ impl<'src> Compiler<'src> {
 
         let destination = self.next_register();
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left, right),
-            Token::BangEqual => Instruction::equal(false, left, right),
-            Token::Less => Instruction::less(true, left, right),
-            Token::LessEqual => Instruction::less_equal(true, left, right),
-            Token::Greater => Instruction::less_equal(false, left, right),
-            Token::GreaterEqual => Instruction::less(false, left, right),
+            Token::DoubleEqual => {
+                Instruction::equal(true, left, left_type_code, right, right_type_code)
+            }
+            Token::BangEqual => {
+                Instruction::equal(false, left, left_type_code, right, right_type_code)
+            }
+            Token::Less => Instruction::less(true, left, left_type_code, right, right_type_code),
+            Token::LessEqual => {
+                Instruction::less_equal(true, left, left_type_code, right, right_type_code)
+            }
+            Token::Greater => {
+                Instruction::less_equal(false, left, left_type_code, right, right_type_code)
+            }
+            Token::GreaterEqual => {
+                Instruction::less(false, left, left_type_code, right, right_type_code)
+            }
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -982,7 +1064,7 @@ impl<'src> Compiler<'src> {
 
             let old_jump = &mut instructions[1].0;
             let jump_index = instructions_length - group_index * 3 - 1;
-            let short_circuit_distance = (instructions_length - jump_index) as u8;
+            let short_circuit_distance = (instructions_length - jump_index) as u16;
 
             *old_jump = Instruction::jump(short_circuit_distance, true);
         }
@@ -1009,7 +1091,7 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
             let destination = self.next_register();
-            let load_self = Instruction::load_self(destination);
+            let load_self = Instruction::load_self(destination, false);
 
             self.emit_instruction(load_self, Type::SelfFunction, start_position);
 
@@ -1147,10 +1229,7 @@ impl<'src> Compiler<'src> {
 
         let destination = self.next_register();
         let end = self.previous_position.1;
-        let load_list = Instruction::from(LoadList {
-            destination,
-            start_register,
-        });
+        let load_list = Instruction::load_list(destination, start_register, false);
 
         self.emit_instruction(load_list, Type::List(Box::new(item_type)), Span(start, end));
 
@@ -1194,7 +1273,7 @@ impl<'src> Compiler<'src> {
         }
 
         let if_block_end = self.instructions.len();
-        let mut if_block_distance = (if_block_end - if_block_start) as u8;
+        let mut if_block_distance = (if_block_end - if_block_start) as u16;
         let if_block_type = self.get_last_instruction_type();
 
         if let Token::Else = self.current_token {
@@ -1216,7 +1295,7 @@ impl<'src> Compiler<'src> {
         }
 
         let else_block_end = self.instructions.len();
-        let else_block_distance = (else_block_end - if_block_end) as u8;
+        let else_block_distance = (else_block_end - if_block_end) as u16;
         let else_block_type = self.get_last_instruction_type();
 
         if let Err(conflict) = if_block_type.check(&else_block_type) {
@@ -1234,7 +1313,7 @@ impl<'src> Compiler<'src> {
                 {
                     let (loader, _, _) = self.instructions.last_mut().unwrap();
 
-                    loader.set_c_field(true as u8);
+                    loader.set_c_field(true as u16);
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
@@ -1270,7 +1349,7 @@ impl<'src> Compiler<'src> {
     fn parse_while(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let expression_start = self.instructions.len() as u8;
+        let expression_start = self.instructions.len();
 
         self.parse_expression()?;
 
@@ -1297,8 +1376,8 @@ impl<'src> Compiler<'src> {
 
         self.parse_block()?;
 
-        let block_end = self.instructions.len() as u8;
-        let jump_distance = block_end - block_start as u8 + 1;
+        let block_end = self.instructions.len();
+        let jump_distance = (block_end - block_start + 1) as u16;
         let jump = Instruction::from(Jump {
             offset: jump_distance,
             is_positive: true,
@@ -1307,7 +1386,7 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(block_start, (jump, Type::None, self.current_position));
 
-        let jump_back_distance = block_end - expression_start + 1;
+        let jump_back_distance = (block_end - expression_start + 1) as u16;
         let jump_back = Instruction::from(Jump {
             offset: jump_back_distance,
             is_positive: false,
@@ -1433,7 +1512,7 @@ impl<'src> Compiler<'src> {
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                    *instruction = Instruction::jump((offset + 1) as u16, true);
                 }
             }
         }
@@ -1487,7 +1566,7 @@ impl<'src> Compiler<'src> {
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump((offset + 1) as u8, true);
+                    *instruction = Instruction::jump((offset + 1) as u16, true);
                 }
             }
         }
@@ -1567,9 +1646,9 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        function_compiler.prototype_index = self.prototypes.len() as u8;
+        function_compiler.prototype_index = self.prototypes.len() as u16;
 
-        let mut value_parameters: Vec<(u8, Type)> = Vec::with_capacity(3);
+        let mut value_parameters: Vec<(u16, Type)> = Vec::with_capacity(3);
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1645,7 +1724,7 @@ impl<'src> Compiler<'src> {
         let chunk = function_compiler.finish();
         let destination = self.next_register();
 
-        self.prototypes.push(chunk);
+        self.prototypes.push(Arc::new(chunk));
 
         if let Some(identifier) = identifier {
             self.declare_local(
@@ -1657,7 +1736,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        let load_function = Instruction::load_function(destination, prototype_index);
+        let load_function = Instruction::load_function(destination, prototype_index, false);
 
         self.emit_instruction(
             load_function,

@@ -23,6 +23,7 @@ pub use scope::Scope;
 
 use std::fmt::{self, Debug, Display, Formatter, Write as FmtWrite};
 use std::io::Write;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -40,10 +41,10 @@ pub struct Chunk {
     pub(crate) positions: Vec<Span>,
     pub(crate) constants: Vec<Value>,
     pub(crate) locals: Vec<Local>,
-    pub(crate) prototypes: Vec<Chunk>,
+    pub(crate) prototypes: Vec<Arc<Chunk>>,
 
     pub(crate) register_count: usize,
-    pub(crate) prototype_index: u8,
+    pub(crate) prototype_index: u16,
 }
 
 impl Chunk {
@@ -55,7 +56,7 @@ impl Chunk {
         positions: impl Into<Vec<Span>>,
         constants: impl Into<Vec<Value>>,
         locals: impl Into<Vec<Local>>,
-        prototypes: Vec<Chunk>,
+        prototypes: impl IntoIterator<Item = Chunk>,
     ) -> Self {
         Self {
             name,
@@ -64,7 +65,7 @@ impl Chunk {
             positions: positions.into(),
             constants: constants.into(),
             locals: locals.into(),
-            prototypes,
+            prototypes: prototypes.into_iter().map(Arc::new).collect(),
             register_count: 0,
             prototype_index: 0,
         }

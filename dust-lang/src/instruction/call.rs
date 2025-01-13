@@ -1,9 +1,13 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
+use super::InstructionBuilder;
+
 pub struct Call {
-    pub destination: u8,
-    pub function_register: u8,
-    pub argument_count: u8,
+    pub destination: u16,
+    pub function_register: u16,
+    pub argument_count: u16,
     pub is_recursive: bool,
 }
 
@@ -25,11 +29,45 @@ impl From<Instruction> for Call {
 
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
-        let a = call.destination;
-        let b = call.function_register;
-        let c = call.argument_count;
-        let d = call.is_recursive;
+        let a_field = call.destination;
+        let b_field = call.function_register;
+        let c_field = call.argument_count;
+        let d_field = call.is_recursive;
 
-        Instruction::new(Operation::CALL, a, b, c, false, false, d)
+        InstructionBuilder {
+            operation: Operation::CALL,
+            a_field,
+            b_field,
+            c_field,
+            d_field,
+            ..Default::default()
+        }
+        .build()
+    }
+}
+
+impl Display for Call {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Call {
+            destination,
+            function_register,
+            argument_count,
+            ..
+        } = self;
+        let arguments_start = destination.saturating_sub(*argument_count);
+
+        match argument_count {
+            0 => write!(f, "R{destination} = R{function_register}()"),
+            1 => write!(
+                f,
+                "R{destination} = R{function_register}(R{arguments_start})"
+            ),
+            _ => {
+                write!(
+                    f,
+                    "R{destination} = R{function_register}(R{arguments_start}..R{destination})"
+                )
+            }
+        }
     }
 }
