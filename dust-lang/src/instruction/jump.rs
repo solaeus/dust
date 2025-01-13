@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
 use super::InstructionBuilder;
@@ -29,5 +31,17 @@ impl From<Jump> for Instruction {
             ..Default::default()
         }
         .build()
+    }
+}
+
+impl Display for Jump {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Jump {
+            offset,
+            is_positive,
+        } = self;
+        let sign = if *is_positive { "+" } else { "-" };
+
+        write!(f, "JUMP {sign}{offset}")
     }
 }

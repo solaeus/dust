@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
 use super::InstructionBuilder;
@@ -41,5 +43,31 @@ impl From<Call> for Instruction {
             ..Default::default()
         }
         .build()
+    }
+}
+
+impl Display for Call {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Call {
+            destination,
+            function_register,
+            argument_count,
+            ..
+        } = self;
+        let arguments_start = destination.saturating_sub(*argument_count);
+
+        match argument_count {
+            0 => write!(f, "R{destination} = R{function_register}()"),
+            1 => write!(
+                f,
+                "R{destination} = R{function_register}(R{arguments_start})"
+            ),
+            _ => {
+                write!(
+                    f,
+                    "R{destination} = R{function_register}(R{arguments_start}..R{destination})"
+                )
+            }
+        }
     }
 }

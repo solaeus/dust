@@ -37,23 +37,7 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
     if !matches!(
         compiler.get_last_operations(),
         Some([
-            Operation::TEST
-                | Operation::EQUAL_INT
-                | Operation::EQUAL_STR
-                | Operation::EQUAL_BOOL
-                | Operation::EQUAL_BYTE
-                | Operation::EQUAL_CHAR
-                | Operation::EQUAL_FLOAT
-                | Operation::LESS_INT
-                | Operation::LESS_STR
-                | Operation::LESS_BYTE
-                | Operation::LESS_CHAR
-                | Operation::LESS_FLOAT
-                | Operation::LESS_EQUAL_INT
-                | Operation::LESS_EQUAL_STR
-                | Operation::LESS_EQUAL_BYTE
-                | Operation::LESS_EQUAL_CHAR
-                | Operation::LESS_EQUAL_FLOAT,
+            Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
             Operation::JUMP,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
             Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,

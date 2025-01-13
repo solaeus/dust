@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
 use super::InstructionBuilder;
@@ -32,5 +34,20 @@ impl From<Return> for Instruction {
             ..Default::default()
         }
         .build()
+    }
+}
+
+impl Display for Return {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Return {
+            should_return_value,
+            return_register,
+        } = self;
+
+        if *should_return_value {
+            write!(f, "RETURN R{return_register}")
+        } else {
+            write!(f, "RETURN")
+        }
     }
 }

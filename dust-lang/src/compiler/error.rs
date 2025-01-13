@@ -104,6 +104,14 @@ pub enum CompileError {
         right_type: Type,
         position: Span,
     },
+    CannotNegateType {
+        argument_type: Type,
+        position: Span,
+    },
+    CannotNotType {
+        argument_type: Type,
+        position: Span,
+    },
     CannotSubtractType {
         argument_type: Type,
         position: Span,
@@ -182,6 +190,8 @@ impl AnnotatedError for CompileError {
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
             Self::CannotMultiplyArguments { .. } => "Cannot multiply these types",
             Self::CannotMultiplyType { .. } => "Cannot multiply this type",
+            Self::CannotNegateType { .. } => "Cannot negate this type",
+            Self::CannotNotType { .. } => "Cannot apply \"not\" operation to this type",
             Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
             Self::CannotResolveVariableType { .. } => "Cannot resolve type",
             Self::CannotSubtractType { .. } => "Cannot subtract from this type",
@@ -251,8 +261,10 @@ impl AnnotatedError for CompileError {
                 right_position,
             } => {
                 vec![(
-                    format!("Type \"{left_type}\" cannot be added to type \"{right_type}\". Try converting one of the values to the other type."),
-                    Span(left_position.0, right_position.1)
+                    format!(
+                        "Type \"{left_type}\" cannot be, added to type \"{right_type}\". Try converting one of the values to the other type."
+                    ),
+                    Span(left_position.0, right_position.1),
                 )]
             }
             _ => Vec::with_capacity(0),

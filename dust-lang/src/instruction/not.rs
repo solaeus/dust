@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{Instruction, Operand, Operation};
 
 use super::InstructionBuilder;
@@ -33,5 +35,16 @@ impl From<Not> for Instruction {
             ..Default::default()
         }
         .build()
+    }
+}
+
+impl Display for Not {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Not {
+            destination,
+            argument,
+        } = self;
+
+        write!(f, "R{destination} = !{argument}")
     }
 }

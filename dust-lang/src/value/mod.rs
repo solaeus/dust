@@ -58,6 +58,30 @@ impl Value {
         }
     }
 
+    pub fn as_byte(&self) -> Option<u8> {
+        if let Value::Concrete(ConcreteValue::Byte(byte)) = self {
+            Some(*byte)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_character(&self) -> Option<char> {
+        if let Value::Concrete(ConcreteValue::Character(character)) = self {
+            Some(*character)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        if let Value::Concrete(ConcreteValue::Float(float)) = self {
+            Some(*float)
+        } else {
+            None
+        }
+    }
+
     pub fn as_function(&self) -> Option<&Function> {
         if let Value::Function(function) = self {
             Some(function)

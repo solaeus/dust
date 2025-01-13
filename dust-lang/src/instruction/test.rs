@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{Instruction, Operation};
 
 use super::InstructionBuilder;
@@ -31,5 +33,17 @@ impl From<Test> for Instruction {
             ..Default::default()
         }
         .build()
+    }
+}
+
+impl Display for Test {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Test {
+            operand_register,
+            test_value,
+        } = self;
+        let bang = if *test_value { "" } else { "!" };
+
+        write!(f, "if {bang}R{operand_register} {{ JUMP +1 }}")
     }
 }
