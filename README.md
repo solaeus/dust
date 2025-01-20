@@ -1,4 +1,4 @@
-# ✭ Dust Programming Language
+# Dust
 
 **Fast**, **safe** and **easy-to-use** general-purpose programming language.
 
@@ -45,14 +45,14 @@ This project's goal is to deliver a language with features that stand out due to
 design choices and a high-quality implementation. As mentioned in the first sentence, Dust's general
 aspirations are to be **fast**, **safe** and **easy**.
 
-- **Fast**
+- **Fast** 🚀
   - **Fast Compilation** Despite its compile-time abstractions, Dust should compile and start
     executing quickly. The compilation time should feel negligible to the user.
   - **Fast Execution** Dust should be competitive with highly optimized, modern, register-based VM
     languages like Lua. Dust should be bench tested during development to inform decisions about
     performance.
   - **Low Resource Usage** Memory and CPU power should be used conservatively and predictably.
-- **Safe**
+- **Safe** 🛡️
   - **Static Types** Typing should prevent runtime errors and improve code quality, offering a
     superior development experience despite some additional constraints. Like any good statically
     typed language, users should feel confident in the type-consistency of their code and not want
@@ -63,7 +63,7 @@ aspirations are to be **fast**, **safe** and **easy**.
     but, to accommodate long-running programs, Dust still requires a memory management strategy.
     Dust's design is to use a separate thread for garbage collection, allowing other threads to
     continue executing instructions while the garbage collector looks for unused memory.
-- **Easy**
+- **Easy** 🎂
   - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
     should be familiar to users of other C-like languages to the point that even a new user can read
     Dust code and understand what it does. Rather than being held back by a lack of features, Dust
@@ -77,8 +77,8 @@ aspirations are to be **fast**, **safe** and **easy**.
 
 ### Author
 
-I'm Jeff 🦀 and I started this project as simple expession evaluator. Initially, the project used an
-external parser and a tree-walking interpreter. After several books, a few papers, countless
+I'm Jeff 🦀 and I started this project as a simple expession evaluator. Initially, the project used
+an external parser and a tree-walking interpreter. After several books, a few papers, countless
 articles and a lot of experimentation, Dust has evolved to an ambitious project that aims to
 implement lucrative features with a high-quality implementation that competes with established
 languages.
@@ -101,7 +101,7 @@ in scope.
 
 *The Implementation of Lua 5.0*[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
 Waldemar Celes was a great resource for understanding register-based virtual machines and their
-instructions. This paper was recommended by Bob Nystrom in [Crafting Interpreters].
+instructions. This paper was recommended by Bob Nystrom in *Crafting Interpreters*.
 
 *A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed
 information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
