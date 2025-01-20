@@ -1,12 +1,14 @@
 use std::io::{Write, stdin, stdout};
 use std::ops::Range;
 
+use crate::DustString;
 use crate::{
-    ConcreteValue, Value,
-    vm::{Register, ThreadData, get_next_action},
+    Value,
+    vm::{Register, ThreadData},
 };
 
 pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range<u16>) -> bool {
+    let current_frame = data.current_frame_mut();
     let mut buffer = String::new();
 
     if stdin().read_line(&mut buffer).is_ok() {
@@ -14,45 +16,18 @@ pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range
 
         buffer.truncate(length.saturating_sub(1));
 
-        let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
+        let register = current_frame.registers.get_string_mut(destination);
 
-        data.set_register(destination, register);
+        *register = Register::Value(DustString::from(buffer));
     }
-
-    data.next_action = get_next_action(data);
 
     false
 }
 
 pub fn write(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
-    let mut stdout = stdout();
-
-    for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-        }
-    }
-
-    let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
+    todo!()
 }
 
 pub fn write_line(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
-    let mut stdout = stdout().lock();
-
-    for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-            let _ = stdout.write(b"\n");
-        }
-    }
-
-    let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
+    todo!()
 }

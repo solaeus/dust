@@ -154,6 +154,7 @@ pub use type_code::TypeCode;
 
 use crate::NativeFunction;
 
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct InstructionBuilder {
     pub operation: Operation,
     pub a_field: u16,
@@ -195,6 +196,18 @@ impl Default for InstructionBuilder {
             b_type: TypeCode::BOOLEAN,
             c_type: TypeCode::BOOLEAN,
         }
+    }
+}
+
+impl Debug for InstructionBuilder {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl Display for InstructionBuilder {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.build())
     }
 }
 
@@ -275,9 +288,15 @@ impl Instruction {
         })
     }
 
-    pub fn load_constant(destination: u16, constant_index: u16, jump_next: bool) -> Instruction {
+    pub fn load_constant(
+        destination: u16,
+        type_code: TypeCode,
+        constant_index: u16,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadConstant {
             destination,
+            type_code,
             constant_index,
             jump_next,
         })
@@ -511,9 +530,14 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_register: u16) -> Instruction {
+    pub fn r#return(
+        should_return_value: bool,
+        return_type: TypeCode,
+        return_register: u16,
+    ) -> Instruction {
         Instruction::from(Return {
             should_return_value,
+            return_type,
             return_register,
         })
     }

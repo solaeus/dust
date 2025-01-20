@@ -1,0 +1,674 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dust_lang'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "dust_lang",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'assignment_errors'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=assignment_errors",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "assignment_errors",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'basic'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=basic",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "basic",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'comparison'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=comparison",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "comparison",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'functions'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=functions",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "functions",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'lists'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=lists",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "lists",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'logic_and'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=logic_and",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "logic_and",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'logic_and_and'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=logic_and_and",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "logic_and_and",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'logic_or'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=logic_or",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "logic_or",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'logic_variables'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=logic_variables",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "logic_variables",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'loops'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=loops",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "loops",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_add'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_add",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_add",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_add_assign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_add_assign",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_add_assign",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_add_errors'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_add_errors",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_add_errors",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_divide'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_divide",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_divide",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_divide_assign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_divide_assign",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_divide_assign",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_divide_erros'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_divide_erros",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_divide_erros",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_modulo'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_modulo",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_modulo",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_modulo_assign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_modulo_assign",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_modulo_assign",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_modulo_errors'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_modulo_errors",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_modulo_errors",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_multiply'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_multiply",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_multiply",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_multiply_assign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_multiply_assign",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_multiply_assign",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_multiply_errors'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_multiply_errors",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_multiply_errors",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_subtract'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_subtract",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_subtract",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_subtract_assign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_subtract_assign",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_subtract_assign",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'math_subtract_errors'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=math_subtract_errors",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "math_subtract_errors",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'native_functions'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=native_functions",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "native_functions",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'scopes'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=scopes",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "scopes",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'unary_operations'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=unary_operations",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "unary_operations",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'variables'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=variables",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "variables",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'addictive_addition'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=addictive_addition",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "addictive_addition",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'fibonacci'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=fibonacci",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "fibonacci",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'threads'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=threads",
+                    "--package=dust-lang"
+                ],
+                "filter": {
+                    "name": "threads",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dust'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dust",
+                    "--package=dust-cli"
+                ],
+                "filter": {
+                    "name": "dust",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "bench/addictive_addition/addictive_addition.ds"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dust",
+                    "--package=dust-cli"
+                ],
+                "filter": {
+                    "name": "dust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

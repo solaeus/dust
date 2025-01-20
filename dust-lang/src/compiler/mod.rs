@@ -33,8 +33,9 @@ use std::{mem::replace, sync::Arc};
 use optimize::control_flow_register_consolidation;
 
 use crate::{
-    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type, Value,
+    Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
+    Operation, Scope, Span, Token, TokenKind, Type,
+    chunk::ConstantTable,
     instruction::{CallNative, Close, GetLocal, Jump, LoadList, Return, SetLocal, TypeCode},
 };
 
@@ -88,7 +89,7 @@ pub struct Compiler<'src> {
 
     /// Constants that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    constants: Vec<Value>,
+    constants: ConstantTable,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -144,7 +145,7 @@ impl<'src> Compiler<'src> {
                 return_type: Type::None,
             },
             instructions: Vec::new(),
-            constants: Vec::new(),
+            constants: ConstantTable::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
             stack_size: 0,
@@ -215,7 +216,7 @@ impl<'src> Compiler<'src> {
             r#type: self.r#type,
             instructions,
             positions,
-            constants: self.constants.to_vec(),
+            constants: self.constants,
             locals,
             prototypes: self.prototypes,
             register_count: self.stack_size,
@@ -275,13 +276,10 @@ impl<'src> Compiler<'src> {
             .enumerate()
             .rev()
             .find_map(|(index, (local, _))| {
-                let constant = self.constants.get(local.identifier_index as usize)?;
-                let identifier =
-                    if let Value::Concrete(ConcreteValue::String(identifier)) = constant {
-                        identifier
-                    } else {
-                        return None;
-                    };
+                let identifier = self
+                    .constants
+                    .strings
+                    .get(local.identifier_index as usize)?;
 
                 if identifier == identifier_text {
                     Some(index as u16)
@@ -305,8 +303,8 @@ impl<'src> Compiler<'src> {
     ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
-        let identifier = Value::Concrete(ConcreteValue::string(identifier));
-        let identifier_index = self.push_or_get_constant(identifier);
+        let identifier = DustString::from(identifier);
+        let identifier_index = self.push_or_get_constant_string(identifier);
         let local_index = self.locals.len() as u16;
 
         self.locals.push((
@@ -322,22 +320,24 @@ impl<'src> Compiler<'src> {
             .get(local_index as usize)
             .and_then(|(local, _)| {
                 self.constants
+                    .strings
                     .get(local.identifier_index as usize)
                     .map(|value| value.to_string())
             })
     }
 
-    fn push_or_get_constant(&mut self, value: Value) -> u16 {
+    fn push_or_get_constant_string(&mut self, string: DustString) -> u16 {
         if let Some(index) = self
             .constants
+            .strings
             .iter()
-            .position(|constant| constant == &value)
+            .position(|constant| constant == &string)
         {
             index as u16
         } else {
             let index = self.constants.len() as u16;
 
-            self.constants.push(value);
+            self.constants.strings.push(string);
 
             index
         }
@@ -466,17 +466,65 @@ impl<'src> Compiler<'src> {
         self.instructions.push((instruction, r#type, position));
     }
 
-    fn emit_constant(
+    fn emit_byte_constant(&mut self, byte: u8, position: Span) -> Result<(), CompileError> {
+        let constant_index = self.constants.insert_byte(byte);
+        let destination = self.next_register();
+        let load_constant =
+            Instruction::load_constant(destination, TypeCode::BYTE, constant_index, false);
+
+        self.emit_instruction(load_constant, Type::Byte, position);
+
+        Ok(())
+    }
+
+    fn emit_character_constant(
         &mut self,
-        constant: ConcreteValue,
+        character: char,
         position: Span,
     ) -> Result<(), CompileError> {
-        let r#type = constant.r#type();
-        let constant_index = self.push_or_get_constant(Value::Concrete(constant));
+        let constant_index = self.constants.insert_character(character);
         let destination = self.next_register();
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
+        let load_constant =
+            Instruction::load_constant(destination, TypeCode::CHARACTER, constant_index, false);
 
-        self.emit_instruction(load_constant, r#type, position);
+        self.emit_instruction(load_constant, Type::Character, position);
+
+        Ok(())
+    }
+
+    fn emit_float_constant(&mut self, float: f64, position: Span) -> Result<(), CompileError> {
+        let constant_index = self.constants.insert_float(float);
+        let destination = self.next_register();
+        let load_constant =
+            Instruction::load_constant(destination, TypeCode::FLOAT, constant_index, false);
+
+        self.emit_instruction(load_constant, Type::Float, position);
+
+        Ok(())
+    }
+
+    fn emit_integer_constant(&mut self, integer: i64, position: Span) -> Result<(), CompileError> {
+        let constant_index = self.constants.insert_integer(integer);
+        let destination = self.next_register();
+        let load_constant =
+            Instruction::load_constant(destination, TypeCode::INTEGER, constant_index, false);
+
+        self.emit_instruction(load_constant, Type::Integer, position);
+
+        Ok(())
+    }
+
+    fn emit_string_constant(
+        &mut self,
+        string: DustString,
+        position: Span,
+    ) -> Result<(), CompileError> {
+        let constant_index = self.constants.insert_string(string);
+        let destination = self.next_register();
+        let load_constant =
+            Instruction::load_constant(destination, TypeCode::STRING, constant_index, false);
+
+        self.emit_instruction(load_constant, Type::String, position);
 
         Ok(())
     }
@@ -511,9 +559,8 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let value = ConcreteValue::Byte(byte);
 
-            self.emit_constant(value, position)?;
+            self.emit_byte_constant(byte, position)?;
 
             Ok(())
         } else {
@@ -530,10 +577,7 @@ impl<'src> Compiler<'src> {
 
         if let Token::Character(character) = self.current_token {
             self.advance()?;
-
-            let value = ConcreteValue::Character(character);
-
-            self.emit_constant(value, position)?;
+            self.emit_character_constant(character, position)?;
 
             Ok(())
         } else {
@@ -557,9 +601,8 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::Float(float);
 
-            self.emit_constant(value, position)?;
+            self.emit_float_constant(float, position)?;
 
             Ok(())
         } else {
@@ -589,9 +632,7 @@ impl<'src> Compiler<'src> {
                 integer_value = integer_value * 10 + digit;
             }
 
-            let value = ConcreteValue::Integer(integer_value);
-
-            self.emit_constant(value, position)?;
+            self.emit_integer_constant(integer_value, position)?;
 
             Ok(())
         } else {
@@ -609,9 +650,9 @@ impl<'src> Compiler<'src> {
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::string(text);
+            let string = DustString::from(text);
 
-            self.emit_constant(value, position)?;
+            self.emit_string_constant(string, position)?;
 
             Ok(())
         } else {
@@ -1478,24 +1519,34 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
-        let should_return_value =
+        let (should_return_value, return_type) =
             if matches!(self.current_token, Token::Semicolon | Token::RightBrace) {
                 self.update_return_type(Type::None)?;
 
-                false
+                (false, TypeCode(0))
             } else {
                 self.parse_expression()?;
 
                 let expression_type = self.get_last_instruction_type();
+                let type_code = match expression_type {
+                    Type::Boolean => TypeCode::BOOLEAN,
+                    Type::Byte => TypeCode::BYTE,
+                    Type::Character => TypeCode::CHARACTER,
+                    Type::Float => TypeCode::FLOAT,
+                    Type::Integer => TypeCode::INTEGER,
+                    Type::String => TypeCode::STRING,
+                    _ => TypeCode(0),
+                };
 
                 self.update_return_type(expression_type)?;
 
-                true
+                (true, type_code)
             };
         let end = self.current_position.1;
         let return_register = self.next_register() - 1;
         let r#return = Instruction::from(Return {
             should_return_value,
+            return_type,
             return_register,
         });
 
@@ -1529,7 +1580,7 @@ impl<'src> Compiler<'src> {
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, 0);
+            let r#return = Instruction::r#return(false, TypeCode(0), 0);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
@@ -1549,7 +1600,16 @@ impl<'src> Compiler<'src> {
                 })?;
 
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::r#return(should_return_value, previous_register);
+            let type_code = match previous_expression_type {
+                Type::Boolean => TypeCode::BOOLEAN,
+                Type::Byte => TypeCode::BYTE,
+                Type::Character => TypeCode::CHARACTER,
+                Type::Float => TypeCode::FLOAT,
+                Type::Integer => TypeCode::INTEGER,
+                Type::String => TypeCode::STRING,
+                _ => TypeCode(0),
+            };
+            let r#return = Instruction::r#return(should_return_value, type_code, previous_register);
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);

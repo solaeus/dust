@@ -1,57 +1,40 @@
 //! Runtime values used by the VM.
 mod abstract_list;
-mod concrete_value;
 mod function;
 mod range_value;
 
 pub use abstract_list::AbstractList;
-pub use concrete_value::{ConcreteValue, DustString};
 pub use function::Function;
 pub use range_value::RangeValue;
 use serde::{Deserialize, Serialize};
+use smartstring::{LazyCompact, SmartString};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::{Type, vm::ThreadData};
 
+pub type DustString = SmartString<LazyCompact>;
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
-    Concrete(ConcreteValue),
+    Boolean(bool),
+    Byte(u8),
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String(DustString),
+
+    List(Vec<Value>),
 
     #[serde(skip)]
     AbstractList(AbstractList),
-
     #[serde(skip)]
     Function(Function),
 }
 
 impl Value {
-    pub fn boolean(boolean: bool) -> Self {
-        Value::Concrete(ConcreteValue::Boolean(boolean))
-    }
-
-    pub fn byte(byte: u8) -> Self {
-        Value::Concrete(ConcreteValue::Byte(byte))
-    }
-
-    pub fn character(character: char) -> Self {
-        Value::Concrete(ConcreteValue::Character(character))
-    }
-
-    pub fn float(float: f64) -> Self {
-        Value::Concrete(ConcreteValue::Float(float))
-    }
-
-    pub fn integer(integer: i64) -> Self {
-        Value::Concrete(ConcreteValue::Integer(integer))
-    }
-
-    pub fn string(string: impl Into<DustString>) -> Self {
-        Value::Concrete(ConcreteValue::String(string.into()))
-    }
-
     pub fn as_boolean(&self) -> Option<bool> {
-        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = self {
+        if let Value::Boolean(boolean) = self {
             Some(*boolean)
         } else {
             None
@@ -59,7 +42,7 @@ impl Value {
     }
 
     pub fn as_byte(&self) -> Option<u8> {
-        if let Value::Concrete(ConcreteValue::Byte(byte)) = self {
+        if let Value::Byte(byte) = self {
             Some(*byte)
         } else {
             None
@@ -67,7 +50,7 @@ impl Value {
     }
 
     pub fn as_character(&self) -> Option<char> {
-        if let Value::Concrete(ConcreteValue::Character(character)) = self {
+        if let Value::Character(character) = self {
             Some(*character)
         } else {
             None
@@ -75,7 +58,7 @@ impl Value {
     }
 
     pub fn as_float(&self) -> Option<f64> {
-        if let Value::Concrete(ConcreteValue::Float(float)) = self {
+        if let Value::Float(float) = self {
             Some(*float)
         } else {
             None
@@ -91,7 +74,7 @@ impl Value {
     }
 
     pub fn as_integer(&self) -> Option<i64> {
-        if let Value::Concrete(ConcreteValue::Integer(integer)) = self {
+        if let Value::Integer(integer) = self {
             Some(*integer)
         } else {
             None
@@ -99,15 +82,15 @@ impl Value {
     }
 
     pub fn as_string(&self) -> Option<&DustString> {
-        if let Value::Concrete(ConcreteValue::String(value)) = self {
-            Some(value)
+        if let Value::String(string) = self {
+            Some(string)
         } else {
             None
         }
     }
 
     pub fn is_string(&self) -> bool {
-        matches!(self, Value::Concrete(ConcreteValue::String(_)))
+        matches!(self, Value::String(_))
     }
 
     pub fn is_function(&self) -> bool {
@@ -116,7 +99,13 @@ impl Value {
 
     pub fn r#type(&self) -> Type {
         match self {
-            Value::Concrete(concrete_value) => concrete_value.r#type(),
+            Value::Boolean(_) => Type::Boolean,
+            Value::Byte(_) => Type::Byte,
+            Value::Character(_) => Type::Character,
+            Value::Float(_) => Type::Float,
+            Value::Integer(_) => Type::Integer,
+            Value::String(_) => Type::String,
+            Value::List(_) => Type::List(Box::new(Type::Any)),
             Value::AbstractList(AbstractList { item_type, .. }) => {
                 Type::List(Box::new(item_type.clone()))
             }
@@ -124,105 +113,32 @@ impl Value {
         }
     }
 
-    pub fn add(&self, other: &Value) -> Value {
-        let sum = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => left.add(right),
-            _ => panic!("{}", ValueError::CannotAdd(self.clone(), other.clone())),
-        };
-
-        Value::Concrete(sum)
-    }
-
-    pub fn subtract(&self, other: &Value) -> Value {
-        let difference = match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => left.subtract(right),
-            _ => panic!(
-                "{}",
-                ValueError::CannotSubtract(self.clone(), other.clone())
-            ),
-        };
-
-        Value::Concrete(difference)
-    }
-
-    pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.multiply(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotMultiply(
-                self.to_owned(),
-                other.to_owned(),
-            )),
-        }
-    }
-
-    pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.divide(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotDivide(self.to_owned(), other.to_owned())),
-        }
-    }
-
-    pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.modulo(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotModulo(self.to_owned(), other.to_owned())),
-        }
-    }
-
-    pub fn negate(&self) -> Value {
-        let concrete = match self {
-            Value::Concrete(concrete_value) => concrete_value.negate(),
-            _ => panic!("{}", ValueError::CannotNegate(self.clone())),
-        };
-
-        Value::Concrete(concrete)
-    }
-
-    pub fn not(&self) -> Result<Value, ValueError> {
-        match self {
-            Value::Concrete(concrete_value) => concrete_value.not().map(Value::Concrete),
-            _ => Err(ValueError::CannotNot(self.to_owned())),
-        }
-    }
-
-    pub fn equals(&self, other: &Value) -> bool {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => left.equals(right),
-            _ => panic!(
-                "{}",
-                ValueError::CannotCompare(self.to_owned(), other.to_owned())
-            ),
-        }
-    }
-
-    pub fn less(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.less_than(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
-        }
-    }
-
-    pub fn less_than_or_equals(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Concrete(left), Value::Concrete(right)) => {
-                left.less_than_or_equals(right).map(Value::Concrete)
-            }
-            _ => Err(ValueError::CannotCompare(self.to_owned(), other.to_owned())),
-        }
-    }
-
     pub fn display(&self, data: &ThreadData) -> DustString {
         match self {
+            Value::Boolean(boolean) => DustString::from(boolean.to_string()),
+            Value::Byte(byte) => DustString::from(byte.to_string()),
+            Value::Character(character) => DustString::from(character.to_string()),
+            Value::Float(float) => DustString::from(float.to_string()),
+            Value::Integer(integer) => DustString::from(integer.to_string()),
+            Value::List(list) => {
+                let mut display = DustString::new();
+
+                display.push_str("[");
+
+                for (index, value) in list.iter().enumerate() {
+                    if index > 0 {
+                        display.push_str(", ");
+                    }
+
+                    display.push_str(&value.display(data));
+                }
+
+                display.push_str("]");
+
+                display
+            }
+            Value::String(string) => string.clone(),
             Value::AbstractList(list) => list.display(data),
-            Value::Concrete(concrete_value) => concrete_value.display(),
             Value::Function(function) => DustString::from(function.to_string()),
         }
     }
@@ -231,60 +147,27 @@ impl Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
+            Value::Boolean(boolean) => write!(f, "{boolean}"),
+            Value::Byte(byte) => write!(f, "{byte}"),
+            Value::Character(character) => write!(f, "{character}"),
+            Value::Float(float) => write!(f, "{float}"),
+            Value::Integer(integer) => write!(f, "{integer}"),
+            Value::String(string) => write!(f, "{string}"),
+            Value::List(list) => {
+                write!(f, "[")?;
+
+                for (index, value) in list.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}", value)?;
+                }
+
+                write!(f, "]")
+            }
             Value::AbstractList(list) => write!(f, "{list}"),
             Value::Function(function) => write!(f, "{function}"),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValueError {
-    CannotAdd(Value, Value),
-    CannotAnd(Value, Value),
-    CannotCompare(Value, Value),
-    CannotDivide(Value, Value),
-    CannotModulo(Value, Value),
-    CannotMultiply(Value, Value),
-    CannotNegate(Value),
-    CannotNot(Value),
-    CannotSubtract(Value, Value),
-    CannotOr(Value, Value),
-}
-
-impl Display for ValueError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ValueError::CannotAdd(left, right) => {
-                write!(f, "Cannot add {left} and {right}")
-            }
-            ValueError::CannotAnd(left, right) => {
-                write!(f, "Cannot use logical AND operation on {left} and {right}")
-            }
-            ValueError::CannotCompare(left, right) => {
-                write!(f, "Cannot compare {left} and {right}")
-            }
-            ValueError::CannotDivide(left, right) => {
-                write!(f, "Cannot divide {left} by {right}")
-            }
-            ValueError::CannotModulo(left, right) => {
-                write!(f, "Cannot use modulo operation on {left} and {right}")
-            }
-            ValueError::CannotMultiply(left, right) => {
-                write!(f, "Cannot multiply {left} by {right}")
-            }
-            ValueError::CannotNegate(value) => {
-                write!(f, "Cannot negate {value}")
-            }
-            ValueError::CannotNot(value) => {
-                write!(f, "Cannot use logical NOT operation on {value}")
-            }
-            ValueError::CannotSubtract(left, right) => {
-                write!(f, "Cannot subtract {right} from {left}")
-            }
-            ValueError::CannotOr(left, right) => {
-                write!(f, "Cannot use logical OR operation on {left} and {right}")
-            }
         }
     }
 }
