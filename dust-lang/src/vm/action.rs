@@ -1,4 +1,5 @@
 use std::{
+    arch::asm,
     fmt::{self, Debug, Display, Formatter},
     ptr,
 };
@@ -8,7 +9,7 @@ use tracing::trace;
 
 use crate::{
     Instruction, Operation, Type, Value,
-    instruction::{InstructionBuilder, TypeCode},
+    instruction::{InstructionBuilder, Jump, TypeCode},
 };
 
 use super::{Pointer, Register, thread::ThreadData};
@@ -19,15 +20,49 @@ pub struct ActionSequence {
 }
 
 impl ActionSequence {
-    pub fn new<T>(actions_iter: T) -> Self
-    where
-        T: Iterator<Item = Action> + ExactSizeIterator,
-    {
-        let (lower_bound, upper_bound) = actions_iter.size_hint();
-        let mut actions = SmallVec::with_capacity(upper_bound.unwrap_or(lower_bound));
+    pub fn new(instructions: &[Instruction]) -> Self {
+        let mut actions = SmallVec::with_capacity(instructions.len());
+        let mut loop_actions = None;
 
-        for action in actions_iter {
-            actions.push(action);
+        for instruction in instructions {
+            if instruction.operation() == Operation::LESS {
+                loop_actions
+                    .get_or_insert(Vec::new())
+                    .push(Action::from(instruction));
+
+                continue;
+            }
+
+            if instruction.operation() == Operation::JUMP {
+                let Jump { is_positive, .. } = Jump::from(*instruction);
+
+                loop_actions
+                    .get_or_insert(Vec::new())
+                    .push(Action::from(instruction));
+
+                if !is_positive {
+                    let action = Action {
+                        logic: loop_optimized,
+                        data: ActionData {
+                            name: "LOOP_OPTIMIZED",
+                            instruction: InstructionBuilder::from(instruction),
+                            pointers: [ptr::null_mut(); 3],
+                            runs: 0,
+                            condensed_actions: loop_actions.take().unwrap(),
+                        },
+                    };
+
+                    actions.push(action);
+                }
+
+                continue;
+            }
+
+            if let Some(loop_actions) = &mut loop_actions {
+                loop_actions.push(Action::from(instruction));
+            } else {
+                actions.push(Action::from(instruction));
+            }
         }
 
         Self { actions }
@@ -42,7 +77,7 @@ impl ActionSequence {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Action {
     pub logic: ActionLogic,
     pub data: ActionData,
@@ -53,7 +88,7 @@ impl From<&Instruction> for Action {
         let builder = InstructionBuilder::from(instruction);
         let operation = builder.operation;
         let logic = match operation {
-            Operation::MOVE => point,
+            Operation::MOVE => r#move,
             Operation::CLOSE => close,
             Operation::LOAD_INLINE => load_inline,
             Operation::LOAD_CONSTANT => load_constant,
@@ -76,7 +111,7 @@ impl From<&Instruction> for Action {
                 instruction: builder,
                 pointers: [ptr::null_mut(); 3],
                 runs: 0,
-                next_optimized: None,
+                condensed_actions: Vec::new(),
             },
         }
     }
@@ -94,21 +129,104 @@ impl Debug for Action {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ActionData {
     pub name: &'static str,
     pub instruction: InstructionBuilder,
 
     pub pointers: [*mut i64; 3],
     pub runs: usize,
-
-    pub next_optimized: Option<*mut Action>,
+    pub condensed_actions: Vec<Action>,
 }
 
 pub type ActionLogic = fn(&mut ThreadData, &mut ActionData);
 
-fn point(thread_data: &mut ThreadData, action_data: &mut ActionData) {
-    todo!()
+fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
+    let mut local_ip = 0;
+
+    loop {
+        if local_ip >= action_data.condensed_actions.len() {
+            break;
+        }
+
+        let action = &mut action_data.condensed_actions[local_ip];
+        local_ip += 1;
+
+        if action.data.runs == 0 {
+            trace!("Condensed action initial: {}", action.data.name);
+
+            (action.logic)(thread_data, &mut action.data);
+
+            continue;
+        }
+
+        trace!("Condensed action optimized: {}", action.data.name);
+
+        match action.data.name {
+            "LESS" => unsafe {
+                asm!(
+                    "cmp {0}, {1}",
+                    "jns 2f",
+                    "add {2}, 1",
+                    "2:",
+                    in(reg) *action.data.pointers[0],
+                    in(reg) *action.data.pointers[1],
+                    inout(reg) local_ip,
+                )
+            },
+            "ADD" => unsafe {
+                asm!(
+                    "add {0}, {1}",
+                    inout(reg) *action.data.pointers[1] => *action.data.pointers[0],
+                    in(reg) *action.data.pointers[2],
+                )
+            },
+            "MOVE" => unsafe {
+                asm!(
+                    "mov {0}, {1}",
+                    inout(reg) *action.data.pointers[1] => *action.data.pointers[0],
+                    in(reg) *action.data.pointers[2],
+                )
+            },
+            "JUMP" => {
+                let Jump {
+                    offset,
+                    is_positive,
+                } = Jump::from(action.data.instruction.build());
+
+                if is_positive {
+                    local_ip += offset as usize;
+                } else {
+                    local_ip -= (offset + 1) as usize;
+                }
+            }
+            _ => todo!(),
+        };
+    }
+}
+
+fn r#move(thread_data: &mut ThreadData, action_data: &mut ActionData) {
+    let ActionData { instruction, .. } = action_data;
+    let current_frame = thread_data.current_frame_mut();
+    let destination = instruction.a_field;
+    let source = instruction.b_field;
+    let r#type = instruction.b_type;
+
+    match r#type {
+        TypeCode::BOOLEAN => {
+            let new_register = Register::Pointer(Pointer::RegisterBoolean(source));
+            let old_register = current_frame.registers.get_boolean_mut(destination);
+
+            *old_register = new_register;
+        }
+        TypeCode::INTEGER => {
+            let new_register = Register::Pointer(Pointer::RegisterInteger(source));
+            let old_register = current_frame.registers.get_integer_mut(destination);
+
+            *old_register = new_register;
+        }
+        _ => todo!(),
+    }
 }
 
 #[allow(clippy::single_range_in_vec_init)]
@@ -428,6 +546,8 @@ fn jump(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     } else {
         current_frame.instruction_pointer -= offset + 1;
     }
+
+    action_data.runs += 1;
 }
 
 fn r#return(thread_data: &mut ThreadData, action_data: &mut ActionData) {

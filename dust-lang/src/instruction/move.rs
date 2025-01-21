@@ -13,8 +13,8 @@ pub struct Move {
 impl From<Instruction> for Move {
     fn from(instruction: Instruction) -> Self {
         Move {
-            from: instruction.b_field(),
-            to: instruction.c_field(),
+            from: instruction.a_field(),
+            to: instruction.b_field(),
             type_code: instruction.b_type(),
         }
     }
@@ -23,15 +23,15 @@ impl From<Instruction> for Move {
 impl From<Move> for Instruction {
     fn from(r#move: Move) -> Self {
         let operation = Operation::MOVE;
-        let b_field = r#move.from;
-        let c_field = r#move.to;
+        let a_field = r#move.from;
+        let b_field = r#move.to;
         let b_type = r#move.type_code;
 
         InstructionBuilder {
             operation,
+            a_field,
             b_field,
             b_type,
-            c_field,
             ..Default::default()
         }
         .build()

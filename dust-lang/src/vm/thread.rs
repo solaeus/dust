@@ -38,8 +38,7 @@ impl Thread {
             return_value: None,
             spawned_threads: Vec::with_capacity(0),
         };
-        let mut action_iter = self.chunk.instructions.iter().map(Action::from);
-        let mut action_sequence = ActionSequence::new(&mut action_iter);
+        let mut action_sequence = ActionSequence::new(&self.chunk.instructions);
 
         trace!("Run thread main with actions: {:?}", action_sequence);
 
