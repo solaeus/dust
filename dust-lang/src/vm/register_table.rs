@@ -1,3 +1,6 @@
+use core::slice::GetManyMutIndex;
+use std::slice::SliceIndex;
+
 use smallvec::{SmallVec, smallvec};
 use tracing::trace;
 
@@ -14,6 +17,14 @@ pub enum Register<T: Clone> {
 
 impl<T: Clone> Register<T> {
     pub fn expect_value(&self) -> &T {
+        if let Self::Value(value) = self {
+            value
+        } else {
+            panic!("Expected a value")
+        }
+    }
+
+    pub fn expect_value_mut(&mut self) -> &mut T {
         if let Self::Value(value) = self {
             value
         } else {
@@ -127,10 +138,19 @@ impl RegisterTable {
     pub fn get_integer(&self, index: u16) -> &Register<i64> {
         let index = index as usize;
 
-        if cfg!(debug_assertions) {
+        let register = if cfg!(debug_assertions) {
             self.integers.get(index).unwrap()
         } else {
             unsafe { self.integers.get(index).unwrap_unchecked() }
+        };
+
+        match register {
+            Register::Value(_) => register,
+            Register::Pointer(pointer) => match pointer {
+                Pointer::RegisterInteger(register_index) => self.get_integer(*register_index),
+                _ => todo!(),
+            },
+            Register::Empty => panic!("Expected a non-empty register"),
         }
     }
 
@@ -152,14 +172,17 @@ impl RegisterTable {
         self.integers[index] = Register::Value(value);
     }
 
-    pub fn get_many_integer_mut(&mut self, from: u16, to: u16) -> &mut [Register<i64>] {
-        let from = from as usize;
-        let to = to as usize;
-
+    pub fn get_many_integer_mut<I, const N: usize>(
+        &mut self,
+        indices: [I; N],
+    ) -> [&mut <I as std::slice::SliceIndex<[Register<i64>]>>::Output; N]
+    where
+        I: GetManyMutIndex + SliceIndex<[Register<i64>]>,
+    {
         if cfg!(debug_assertions) {
-            self.integers.get_many_mut([from..to]).unwrap()[0]
+            self.integers.get_many_mut(indices).unwrap()
         } else {
-            unsafe { self.integers.get_many_mut([from..to]).unwrap_unchecked()[0] }
+            unsafe { self.integers.get_many_mut(indices).unwrap_unchecked() }
         }
     }
 
@@ -181,5 +204,11 @@ impl RegisterTable {
         } else {
             unsafe { self.strings.get_mut(index).unwrap_unchecked() }
         }
+    }
+}
+
+impl Default for RegisterTable {
+    fn default() -> Self {
+        Self::new()
     }
 }

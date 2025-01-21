@@ -1,5 +1,4 @@
 use dust_lang::*;
-use smallvec::smallvec;
 
 #[test]
 fn true_and_true() {
@@ -7,34 +6,32 @@ fn true_and_true() {
 
     assert_eq!(
         compile(source),
-        Ok(Chunk::with_data(
-            None,
-            FunctionType {
-                type_parameters: None,
-                value_parameters: None,
+        Ok(Chunk {
+            name: None,
+            r#type: FunctionType {
                 return_type: Type::Boolean,
+                ..FunctionType::default()
             },
-            smallvec![
+            instructions: vec![
                 Instruction::load_boolean(0, true, false),
                 Instruction::test(0, true),
                 Instruction::jump(1, true),
                 Instruction::load_boolean(1, true, false),
-                Instruction::r#return(true),
+                Instruction::r#return(true, TypeCode::BOOLEAN, 1),
             ],
-            smallvec![
+            positions: vec![
                 Span(0, 4),
                 Span(5, 7),
                 Span(5, 7),
                 Span(8, 12),
                 Span(12, 12),
             ],
-            smallvec![],
-            smallvec![],
-            vec![]
-        ))
+            constants: ConstantTable::new(),
+            ..Chunk::default()
+        })
     );
 
-    assert_eq!(run(source), Ok(Some(Value::boolean(true))));
+    assert_eq!(run(source), Ok(Some(Value::Boolean(true))));
 }
 
 #[test]
@@ -43,34 +40,32 @@ fn false_and_false() {
 
     assert_eq!(
         compile(source),
-        Ok(Chunk::with_data(
-            None,
-            FunctionType {
-                type_parameters: None,
-                value_parameters: None,
+        Ok(Chunk {
+            name: None,
+            r#type: FunctionType {
                 return_type: Type::Boolean,
+                ..FunctionType::default()
             },
-            smallvec![
+            instructions: vec![
                 Instruction::load_boolean(0, false, false),
                 Instruction::test(0, true),
                 Instruction::jump(1, true),
                 Instruction::load_boolean(1, false, false),
-                Instruction::r#return(true),
+                Instruction::r#return(true, TypeCode::BOOLEAN, 1),
             ],
-            smallvec![
+            positions: vec![
                 Span(0, 5),
                 Span(6, 8),
                 Span(6, 8),
                 Span(9, 14),
                 Span(14, 14),
             ],
-            smallvec![],
-            smallvec![],
-            vec![]
-        ))
+            constants: ConstantTable::new(),
+            ..Chunk::default()
+        })
     );
 
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::Boolean(false))));
 }
 
 #[test]
@@ -79,34 +74,32 @@ fn false_and_true() {
 
     assert_eq!(
         compile(source),
-        Ok(Chunk::with_data(
-            None,
-            FunctionType {
-                type_parameters: None,
-                value_parameters: None,
+        Ok(Chunk {
+            name: None,
+            r#type: FunctionType {
                 return_type: Type::Boolean,
+                ..FunctionType::default()
             },
-            smallvec![
+            instructions: vec![
                 Instruction::load_boolean(0, false, false),
                 Instruction::test(0, true),
                 Instruction::jump(1, true),
                 Instruction::load_boolean(1, true, false),
-                Instruction::r#return(true),
+                Instruction::r#return(true, TypeCode::BOOLEAN, 1),
             ],
-            smallvec![
+            positions: vec![
                 Span(0, 5),
                 Span(6, 8),
                 Span(6, 8),
                 Span(9, 13),
-                Span(13, 13)
+                Span(13, 13),
             ],
-            smallvec![],
-            smallvec![],
-            vec![]
-        ))
+            constants: ConstantTable::new(),
+            ..Chunk::default()
+        })
     );
 
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::Boolean(false))));
 }
 
 #[test]
@@ -115,32 +108,30 @@ fn true_and_false() {
 
     assert_eq!(
         compile(source),
-        Ok(Chunk::with_data(
-            None,
-            FunctionType {
-                type_parameters: None,
-                value_parameters: None,
+        Ok(Chunk {
+            name: None,
+            r#type: FunctionType {
                 return_type: Type::Boolean,
+                ..FunctionType::default()
             },
-            smallvec![
+            instructions: vec![
                 Instruction::load_boolean(0, true, false),
                 Instruction::test(0, true),
                 Instruction::jump(1, true),
                 Instruction::load_boolean(1, false, false),
-                Instruction::r#return(true),
+                Instruction::r#return(true, TypeCode::BOOLEAN, 1),
             ],
-            smallvec![
+            positions: vec![
                 Span(0, 4),
-                Span(5, 7),
-                Span(5, 7),
-                Span(8, 13),
-                Span(13, 13)
+                Span(5, 8),
+                Span(5, 8),
+                Span(9, 14),
+                Span(14, 14),
             ],
-            smallvec![],
-            smallvec![],
-            vec![]
-        ))
+            constants: ConstantTable::new(),
+            ..Chunk::default()
+        })
     );
 
-    assert_eq!(run(source), Ok(Some(Value::boolean(false))));
+    assert_eq!(run(source), Ok(Some(Value::Boolean(false))));
 }

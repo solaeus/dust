@@ -14,6 +14,18 @@ impl TypeCode {
     pub fn panic_from_unknown_code(self) -> ! {
         panic!("Unknown type code: {}", self.0);
     }
+
+    pub fn register_name(self) -> &'static str {
+        match self {
+            TypeCode::BOOLEAN => "R_BOOL",
+            TypeCode::BYTE => "R_BYTE",
+            TypeCode::CHARACTER => "R_CHAR",
+            TypeCode::FLOAT => "R_FLOAT",
+            TypeCode::INTEGER => "R_INT",
+            TypeCode::STRING => "R_STR",
+            _ => self.panic_from_unknown_code(),
+        }
+    }
 }
 
 impl Display for TypeCode {

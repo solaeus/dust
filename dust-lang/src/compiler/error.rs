@@ -239,10 +239,35 @@ impl AnnotatedError for CompileError {
                     ),
                 ]
             }
+            Self::CannotAddType {
+                argument_type,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot add to a value of type \"{}\".", argument_type),
+                    *position,
+                )]
+            }
+            Self::ExpectedMutableVariable { found, position } => {
+                vec![(
+                    format!("Expected a mutable variable but found \"{}\".", found),
+                    *position,
+                )]
+            }
+            Self::ExpectedToken {
+                expected,
+                found,
+                position,
+            } => {
+                vec![(
+                    format!("Expected token \"{}\" but found \"{}\".", expected, found),
+                    *position,
+                )]
+            }
             Self::ReturnTypeConflict { conflict, position } => {
                 vec![(
                     format!(
-                        "Expected type {} but found type {}",
+                        "Expected type {} but found type {}.",
                         conflict.expected, conflict.actual
                     ),
                     *position,

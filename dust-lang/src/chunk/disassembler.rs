@@ -45,28 +45,52 @@ use colored::{ColoredString, Colorize};
 
 use crate::{Chunk, Local, Type};
 
-const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
-    [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
+use super::ConstantTable;
+
+const INSTRUCTION_INDEX_WIDTH: usize = 5;
+const INSTRUCTION_POSITION_WIDTH: usize = 12;
+const INSTRUCTION_OPERATION_WIDTH: usize = 17;
+const INSTRUCTION_INFO_WIDTH: usize = 41;
+const INSTRUCTION_COLUMNS: [(&str, usize); 4] = [
+    ("i", INSTRUCTION_INDEX_WIDTH),
+    ("POSITION", INSTRUCTION_POSITION_WIDTH),
+    ("OPERATION", INSTRUCTION_OPERATION_WIDTH),
+    ("INFO", INSTRUCTION_INFO_WIDTH),
+];
 const INSTRUCTION_BORDERS: [&str; 3] = [
     "╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮",
     "├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤",
     "╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯",
 ];
 
-const LOCAL_COLUMNS: [(&str, usize); 5] = [
-    ("i", 5),
-    ("IDENTIFIER", 16),
-    ("REGISTER", 10),
-    ("SCOPE", 7),
-    ("MUTABLE", 7),
+const LOCAL_INDEX_WIDTH: usize = 5;
+const LOCAL_IDENTIFIER_WIDTH: usize = 16;
+const LOCAL_TYPE_WIDTH: usize = 16;
+const LOCAL_REGISTER_WIDTH: usize = 10;
+const LOCAL_SCOPE_WIDTH: usize = 7;
+const LOCAL_MUTABLE_WIDTH: usize = 7;
+const LOCAL_COLUMNS: [(&str, usize); 6] = [
+    ("i", LOCAL_INDEX_WIDTH),
+    ("identifier", LOCAL_IDENTIFIER_WIDTH),
+    ("type", LOCAL_TYPE_WIDTH),
+    ("register", LOCAL_REGISTER_WIDTH),
+    ("scope", LOCAL_SCOPE_WIDTH),
+    ("mutable", LOCAL_MUTABLE_WIDTH),
 ];
 const LOCAL_BORDERS: [&str; 3] = [
-    "╭─────┬────────────────┬──────────┬───────┬───────╮",
-    "├─────┼────────────────┼──────────┼───────┼───────┤",
-    "╰─────┴────────────────┴──────────┴───────┴───────╯",
+    "╭─────┬────────────────┬────────────────┬──────────┬───────┬───────╮",
+    "├─────┼────────────────┼────────────────┼──────────┼───────┼───────┤",
+    "╰─────┴────────────────┴────────────────┴──────────┴───────┴───────╯",
 ];
 
-const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 8), ("TYPE", 26), ("VALUE", 26)];
+const CONSTANT_INDEX_WIDTH: usize = 8;
+const CONSTANT_TYPE_WIDTH: usize = 26;
+const CONSTANT_VALUE_WIDTH: usize = 26;
+const CONSTANT_COLUMNS: [(&str, usize); 3] = [
+    ("i", CONSTANT_INDEX_WIDTH),
+    ("TYPE", CONSTANT_TYPE_WIDTH),
+    ("VALUE", CONSTANT_VALUE_WIDTH),
+];
 const CONSTANT_BORDERS: [&str; 3] = [
     "╭────────┬──────────────────────────┬──────────────────────────╮",
     "├────────┼──────────────────────────┼──────────────────────────┤",
@@ -312,6 +336,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         for (
             index,
             Local {
+                r#type,
                 identifier_index,
                 register_index,
                 scope,
@@ -322,14 +347,21 @@ impl<'a, W: Write> Disassembler<'a, W> {
             let identifier_display = self
                 .chunk
                 .constants
-                .strings
-                .get(*identifier_index as usize)
+                .get_string(*identifier_index)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let register_display = format!("R{register_index}");
+            let type_display = r#type.to_string();
+            let register_display = match r#type {
+                Type::Integer => format!("R_INT_{}", register_index),
+                Type::Float => format!("R_FLOAT_{}", register_index),
+                Type::Character => format!("R_CHAR_{}", register_index),
+                Type::String => format!("R_STR_{}", register_index),
+                Type::Function(_) => format!("R_FN_{}", register_index),
+                _ => todo!(),
+            };
             let scope = scope.to_string();
             let row = format!(
-                "│{index:^5}│{identifier_display:^16}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
+                "│{index:^5}│{identifier_display:^16}│{type_display:^16}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
             );
 
             self.write_center_border(&row)?;
@@ -341,6 +373,13 @@ impl<'a, W: Write> Disassembler<'a, W> {
     }
 
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
+        let ConstantTable {
+            characters,
+            floats,
+            integers,
+            strings,
+        } = &self.chunk.constants;
+
         let mut column_name_line = String::new();
 
         for (column_name, width) in CONSTANT_COLUMNS {
@@ -353,23 +392,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.constants.bytes.iter().enumerate() {
-            let type_display = Type::Byte.to_string();
-            let value_display = {
-                let mut value_string = value.to_string();
-
-                if value_string.len() > 26 {
-                    value_string = format!("{value_string:.23}...");
-                }
-
-                value_string
-            };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
-
-            self.write_center_border(&constant_display)?;
-        }
-
-        for (index, value) in self.chunk.constants.floats.iter().enumerate() {
+        for (index, value) in floats.iter().enumerate() {
+            let index_display = format!("FLOAT_{index}");
             let type_display = Type::Float.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
@@ -380,12 +404,14 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let constant_display =
+                format!("│{index_display:^8}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
 
-        for (index, value) in self.chunk.constants.characters.iter().enumerate() {
+        for (index, value) in characters.iter().enumerate() {
+            let index_display = format!("CHAR_{index}");
             let type_display = Type::Character.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
@@ -396,12 +422,13 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let constant_display =
+                format!("│{index_display:^8}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
 
-        for (index, value) in self.chunk.constants.integers.iter().enumerate() {
+        for (index, value) in integers.iter().enumerate() {
             let index_display = format!("INT_{index}");
             let type_display = Type::Integer.to_string();
             let value_display = {
@@ -419,7 +446,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_center_border(&constant_display)?;
         }
 
-        for (index, value) in self.chunk.constants.strings.iter().enumerate() {
+        for (index, value) in strings.iter().enumerate() {
+            let index_display = format!("STR_{index}");
             let type_display = Type::String.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
@@ -430,7 +458,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let constant_display =
+                format!("│{index_display:^8}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }

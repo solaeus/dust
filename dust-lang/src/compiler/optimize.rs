@@ -39,8 +39,8 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
         Some([
             Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
             Operation::JUMP,
-            Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
-            Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT,
+            Operation::LOAD_INLINE | Operation::LOAD_CONSTANT,
+            Operation::LOAD_INLINE | Operation::LOAD_CONSTANT,
         ])
     ) {
         return;

@@ -7,6 +7,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::TypeCode;
+
 /// Description of a kind of value.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Type {
@@ -152,6 +154,18 @@ impl Type {
             expected: self.clone(),
         })
     }
+
+    pub fn encode(&self) -> Option<TypeCode> {
+        match self {
+            Type::Boolean => Some(TypeCode::BOOLEAN),
+            Type::Byte => Some(TypeCode::BYTE),
+            Type::Character => Some(TypeCode::CHARACTER),
+            Type::Float => Some(TypeCode::FLOAT),
+            Type::Integer => Some(TypeCode::INTEGER),
+            Type::String => Some(TypeCode::STRING),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Type {
@@ -288,6 +302,16 @@ impl FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
             return_type,
+        }
+    }
+}
+
+impl Default for FunctionType {
+    fn default() -> Self {
+        FunctionType {
+            type_parameters: Vec::with_capacity(0),
+            value_parameters: Vec::with_capacity(0),
+            return_type: Type::None,
         }
     }
 }

@@ -61,10 +61,36 @@ impl Display for Less {
             right_type,
         } = self;
         let operator = if *comparator { "<" } else { "≥" };
+        let left_name = match *left {
+            Operand::Register(_) => match *left_type {
+                TypeCode::INTEGER => "R_INT",
+                TypeCode::FLOAT => "R_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+            Operand::Constant(_) => match *left_type {
+                TypeCode::INTEGER => "C_INT",
+                TypeCode::FLOAT => "C_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+        };
+        let right_name = match *right {
+            Operand::Register(_) => match *right_type {
+                TypeCode::INTEGER => "R_INT",
+                TypeCode::FLOAT => "R_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+            Operand::Constant(_) => match *right_type {
+                TypeCode::INTEGER => "C_INT",
+                TypeCode::FLOAT => "C_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+        };
 
         write!(
             f,
-            "if {left_type}({left}) {operator} {right_type}({right}) {{ JUMP +1 }}"
+            "if {left_name}_{left_index} {operator} {right_name}_{right_index} {{ JUMP +1 }}",
+            left_index = left.index(),
+            right_index = right.index(),
         )
     }
 }

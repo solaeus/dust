@@ -52,9 +52,11 @@ impl Display for Return {
 
         if *should_return_value {
             match *return_type {
+                TypeCode::BOOLEAN => write!(f, "RETURN R_BOOL_{}", return_register),
+                TypeCode::BYTE => write!(f, "RETURN R_BYTE_{}", return_register),
+                TypeCode::CHARACTER => write!(f, "RETURN R_CHAR_{}", return_register),
                 TypeCode::INTEGER => write!(f, "RETURN R_INT_{}", return_register),
                 TypeCode::FLOAT => write!(f, "RETURN R_FLOAT_{}", return_register),
-                TypeCode::BOOLEAN => write!(f, "RETURN R_BOOL_{}", return_register),
                 TypeCode::STRING => write!(f, "RETURN R_STRING_{}", return_register),
                 unknown => unknown.panic_from_unknown_code(),
             }

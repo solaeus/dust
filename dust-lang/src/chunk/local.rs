@@ -2,11 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::Scope;
+use crate::{Scope, Type};
 
 /// Scoped variable.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
+    /// Value type.
+    pub r#type: Type,
+
     /// Index of the identifier in the constants list.
     pub identifier_index: u16,
 
@@ -22,8 +25,15 @@ pub struct Local {
 
 impl Local {
     /// Creates a new Local instance.
-    pub fn new(identifier_index: u16, register_index: u16, is_mutable: bool, scope: Scope) -> Self {
+    pub fn new(
+        r#type: Type,
+        identifier_index: u16,
+        register_index: u16,
+        is_mutable: bool,
+        scope: Scope,
+    ) -> Self {
         Self {
+            r#type,
             identifier_index,
             register_index,
             is_mutable,

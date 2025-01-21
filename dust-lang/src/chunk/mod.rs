@@ -36,17 +36,17 @@ use crate::{DustString, Function, FunctionType, Instruction, Span};
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    pub(crate) name: Option<DustString>,
-    pub(crate) r#type: FunctionType,
+    pub name: Option<DustString>,
+    pub r#type: FunctionType,
 
-    pub(crate) instructions: Vec<Instruction>,
-    pub(crate) positions: Vec<Span>,
-    pub(crate) constants: ConstantTable,
-    pub(crate) locals: Vec<Local>,
-    pub(crate) prototypes: Vec<Arc<Chunk>>,
+    pub instructions: Vec<Instruction>,
+    pub positions: Vec<Span>,
+    pub constants: ConstantTable,
+    pub locals: Vec<Local>,
+    pub prototypes: Vec<Arc<Chunk>>,
 
-    pub(crate) register_count: usize,
-    pub(crate) prototype_index: u16,
+    pub register_count: usize,
+    pub prototype_index: u16,
 }
 
 impl Chunk {
@@ -83,6 +83,22 @@ impl Chunk {
 
     pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, W> {
         Disassembler::new(self, writer)
+    }
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Self {
+            name: None,
+            r#type: FunctionType::default(),
+            instructions: Vec::new(),
+            positions: Vec::with_capacity(0),
+            constants: ConstantTable::new(),
+            locals: Vec::with_capacity(0),
+            prototypes: Vec::with_capacity(0),
+            register_count: 0,
+            prototype_index: 0,
+        }
     }
 }
 

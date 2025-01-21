@@ -60,10 +60,33 @@ impl Display for Add {
             right,
             right_type,
         } = self;
+        let register_name = match *left_type {
+            TypeCode::INTEGER => "R_INT",
+            TypeCode::FLOAT => "R_FLOAT",
+            unknown => unknown.panic_from_unknown_code(),
+        };
+        let left_name = match *left {
+            Operand::Register(_) => register_name,
+            Operand::Constant(_) => match *left_type {
+                TypeCode::INTEGER => "C_INT",
+                TypeCode::FLOAT => "C_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+        };
+        let right_name = match *right {
+            Operand::Register(_) => register_name,
+            Operand::Constant(_) => match *right_type {
+                TypeCode::INTEGER => "C_INT",
+                TypeCode::FLOAT => "C_FLOAT",
+                unknown => unknown.panic_from_unknown_code(),
+            },
+        };
 
         write!(
             f,
-            "R{destination} = {left}({left_type}) + {right}({right_type})",
+            "{register_name}_{destination} = {left_name}_{left_index} + {right_name}_{right_index}",
+            left_index = left.index(),
+            right_index = right.index(),
         )
     }
 }

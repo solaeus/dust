@@ -10,11 +10,11 @@ pub struct Operation(pub u8);
 
 impl Operation {
     // Stack manipulation
-    pub const POINT: Operation = Operation(0);
+    pub const MOVE: Operation = Operation(0);
     pub const CLOSE: Operation = Operation(1);
 
     // Loaders
-    pub const LOAD_BOOLEAN: Operation = Operation(2);
+    pub const LOAD_INLINE: Operation = Operation(2);
     pub const LOAD_CONSTANT: Operation = Operation(3);
     pub const LOAD_FUNCTION: Operation = Operation(4);
     pub const LOAD_LIST: Operation = Operation(5);
@@ -56,9 +56,9 @@ impl Operation {
 impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
-            Self::POINT => "POINT",
+            Self::MOVE => "MOVE",
             Self::CLOSE => "CLOSE",
-            Self::LOAD_BOOLEAN => "LOAD_BOOLEAN",
+            Self::LOAD_INLINE => "LOAD_INLINE",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",
             Self::LOAD_FUNCTION => "LOAD_FUNCTION",
             Self::LOAD_LIST => "LOAD_LIST",

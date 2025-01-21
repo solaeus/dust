@@ -103,17 +103,17 @@ mod get_local;
 mod jump;
 mod less;
 mod less_equal;
-mod load_boolean;
 mod load_constant;
 mod load_function;
+mod load_inline;
 mod load_list;
 mod load_self;
 mod modulo;
+mod r#move;
 mod multiply;
 mod negate;
 mod not;
 mod operation;
-mod point;
 mod r#return;
 mod set_local;
 mod subtract;
@@ -131,17 +131,17 @@ pub use get_local::GetLocal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use load_boolean::LoadBoolean;
 pub use load_constant::LoadConstant;
 pub use load_function::LoadFunction;
+pub use load_inline::LoadInline;
 pub use load_list::LoadList;
 pub use load_self::LoadSelf;
 pub use modulo::Modulo;
+pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
 pub use operation::Operation;
-pub use point::Point;
 pub use r#return::Return;
 pub use set_local::SetLocal;
 pub use subtract::Subtract;
@@ -167,6 +167,22 @@ pub struct InstructionBuilder {
     pub c_type: TypeCode,
 }
 
+impl From<&Instruction> for InstructionBuilder {
+    fn from(instruction: &Instruction) -> Self {
+        InstructionBuilder {
+            operation: instruction.operation(),
+            a_field: instruction.a_field(),
+            b_field: instruction.b_field(),
+            c_field: instruction.c_field(),
+            d_field: instruction.d_field(),
+            b_is_constant: instruction.b_is_constant(),
+            c_is_constant: instruction.c_is_constant(),
+            b_type: instruction.b_type(),
+            c_type: instruction.c_type(),
+        }
+    }
+}
+
 impl InstructionBuilder {
     pub fn build(self) -> Instruction {
         let bits = ((self.operation.0 as u64) << 57)
@@ -186,7 +202,7 @@ impl InstructionBuilder {
 impl Default for InstructionBuilder {
     fn default() -> Self {
         InstructionBuilder {
-            operation: Operation::POINT,
+            operation: Operation::MOVE,
             a_field: 0,
             b_field: 0,
             c_field: 0,
@@ -272,18 +288,34 @@ impl Instruction {
         self.0 = (bits as u64) << 63;
     }
 
-    pub fn point(from: u16, to: u16) -> Instruction {
-        Instruction::from(Point { from, to })
+    pub fn r#move(from: u16, to: u16, r#type: TypeCode) -> Instruction {
+        Instruction::from(Move {
+            from,
+            to,
+            type_code: r#type,
+        })
     }
 
     pub fn close(from: u16, to: u16) -> Instruction {
         Instruction::from(Close { from, to })
     }
 
-    pub fn load_boolean(destination: u16, value: bool, jump_next: bool) -> Instruction {
-        Instruction::from(LoadBoolean {
+    pub fn load_boolean(destination: u16, boolean: bool, jump_next: bool) -> Instruction {
+        Instruction::from(LoadInline {
             destination,
-            value,
+            r#type: TypeCode::BOOLEAN,
+            boolean,
+            byte: 0,
+            jump_next,
+        })
+    }
+
+    pub fn load_byte(destination: u16, byte: u8, jump_next: bool) -> Instruction {
+        Instruction::from(LoadInline {
+            destination,
+            r#type: TypeCode::BYTE,
+            boolean: false,
+            byte,
             jump_next,
         })
     }
@@ -325,10 +357,11 @@ impl Instruction {
         })
     }
 
-    pub fn get_local(destination: u16, local_index: u16) -> Instruction {
+    pub fn get_local(destination: u16, local_index: u16, r#type: TypeCode) -> Instruction {
         Instruction::from(GetLocal {
             destination,
             local_index,
+            r#type,
         })
     }
 
@@ -553,7 +586,7 @@ impl Instruction {
     pub fn as_argument(&self) -> Option<Operand> {
         match self.operation() {
             Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
-            Operation::LOAD_BOOLEAN
+            Operation::LOAD_INLINE
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::GET_LOCAL
@@ -606,8 +639,8 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::POINT
-            | Operation::LOAD_BOOLEAN
+            Operation::MOVE
+            | Operation::LOAD_INLINE
             | Operation::LOAD_CONSTANT
             | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
@@ -639,13 +672,94 @@ impl Instruction {
         }
     }
 
+    pub fn yields_boolean(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_INLINE | Operation::NOT => {
+                if self.b_type() == TypeCode::BOOLEAN {
+                    return true;
+                }
+            }
+            _ => (),
+        }
+
+        false
+    }
+
+    pub fn yields_byte(&self) -> bool {
+        if let Operation::LOAD_INLINE = self.operation() {
+            if self.b_type() == TypeCode::BYTE {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn yields_character(&self) -> bool {
+        if let Operation::LOAD_CONSTANT = self.operation() {
+            self.b_type() == TypeCode::CHARACTER
+        } else {
+            false
+        }
+    }
+
+    pub fn yields_float(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_CONSTANT
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::NEGATE => self.b_type() == TypeCode::FLOAT,
+            _ => false,
+        }
+    }
+
+    pub fn yields_integer(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_CONSTANT
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::NEGATE => self.b_type() == TypeCode::INTEGER,
+            _ => false,
+        }
+    }
+
+    pub fn yields_string(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_CONSTANT => self.b_type() == TypeCode::STRING,
+            Operation::ADD => {
+                self.b_type() == TypeCode::STRING || self.b_type() == TypeCode::CHARACTER
+            }
+            _ => false,
+        }
+    }
+
+    pub fn yields_list(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_LIST => true,
+            _ => false,
+        }
+    }
+
+    pub fn yields_function(&self) -> bool {
+        match self.operation() {
+            Operation::LOAD_FUNCTION | Operation::LOAD_SELF => true,
+            _ => false,
+        }
+    }
+
     pub fn disassembly_info(&self) -> String {
         let operation = self.operation();
 
         match operation {
-            Operation::POINT => Point::from(*self).to_string(),
+            Operation::MOVE => Move::from(*self).to_string(),
             Operation::CLOSE => Close::from(*self).to_string(),
-            Operation::LOAD_BOOLEAN => LoadBoolean::from(*self).to_string(),
+            Operation::LOAD_INLINE => LoadInline::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),

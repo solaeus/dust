@@ -27,7 +27,7 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(get_many_mut)]
+#![feature(get_many_mut, get_many_mut_helpers, ptr_as_ref_unchecked)]
 
 pub mod chunk;
 pub mod compiler;
@@ -40,10 +40,10 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
+pub use crate::chunk::{Chunk, ConstantTable, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Instruction, Operand, Operation};
+pub use crate::instruction::{Instruction, Operand, Operation, TypeCode};
 pub use crate::lexer::{LexError, Lexer, lex};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::token::{Token, TokenKind, TokenOwned};

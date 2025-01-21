@@ -72,8 +72,9 @@ aspirations are to be **fast**, **safe** and **easy**.
   - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
     source of the problem and suggest a solution. Errors should be a helpful learning resource for
     users rather than a source of frustration.
-  - **Relevant Documentation** Users should have the resources they need to learn Dust and write
-    code in it. They should know where to look for answers and how to reach out for help.
+  - **Practical Tooling** Shipped as a single binary, Dust should be easy to install and use. In
+    addition to compiling and running Dust code, the Dust binary provides tools for inspecting Dust
+    code, such as disassembling bytecode and tokenizing source code.
 
 ### Author
 
@@ -86,6 +87,83 @@ languages.
 ## Usage
 
 **Dust is under active development and is not yet ready for general use.**
+
+### CLI
+
+The Dust CLI has commands to run run, compile and disassemble or tokenize Dust code. It can also
+provide logging at different levels and measure the time taken for compilation and execution.
+
+```text
+Usage: dust [OPTIONS] [FILE]
+       dust {run|-r} [OPTIONS] [FILE]
+       dust {disassemble|-d} [OPTIONS] [FILE]
+       dust {tokenize|-t} [OPTIONS] [FILE]
+       dust help [COMMAND]...
+
+Modes:
+  run, -r          Compile and run the program (default)
+  disassemble, -d  Compile and print the bytecode disassembly
+  tokenize, -t     Lex the source code and print the tokens
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -l, --log-level <LOG_LEVEL>  Overrides the DUST_LOG environment variable
+      --time                   Print the time taken for compilation and execution
+      --no-output              Do not print the program's return value
+      --name <NAME>            Custom program name, overrides the file name
+  -c, --command <INPUT>        Source code to run instead of a file
+      --stdin                  Read source code from stdin
+  -h, --help                   Print help
+  -V, --version                Print version
+```
+
+#### Disassembly
+
+Dust's disassembly output is a detailed, human-readable representation of the internal
+representation of the Dust program. It shows every piece of information that the compiler sends to
+the virtual machine and explains what each instruction does and what data it uses.
+
+<details>
+    <summary>Show disassembly</summary>
+
+```text
+╭──────────────────────────────────────────────────────────────────────────────────╮
+│                                    example.ds                                    │
+│                                                                                  │
+│                     let mut i = 0; while i < 10 { i += 1 };                      │
+│                                                                                  │
+│               6 instructions, 4 constants, 1 locals, returns none                │
+│                                                                                  │
+│                                   Instructions                                   │
+│ ╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮ │
+│ │  i  │  POSITION  │    OPERATION    │                  INFO                   │ │
+│ ├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤ │
+│ │  0  │  (12, 13)  │  LOAD_CONSTANT  │            R_INT_0 = C_INT_0            │ │
+│ │  1  │  (23, 24)  │      LESS       │    if R_INT_0 < C_INT_1 { JUMP +1 }     │ │
+│ │  2  │  (38, 39)  │      JUMP       │                 JUMP +2                 │ │
+│ │  3  │  (32, 34)  │       ADD       │       R_INT_0 = R_INT_0 + C_INT_2       │ │
+│ │  4  │  (38, 39)  │      JUMP       │                 JUMP -3                 │ │
+│ │  5  │  (39, 39)  │     RETURN      │                 RETURN                  │ │
+│ ╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯ │
+│                                      Locals                                      │
+│       ╭─────┬────────────────┬────────────────┬──────────┬───────┬───────╮       │
+│       │  i  │   identifier   │      type      │ register │ scope │mutable│       │
+│       ├─────┼────────────────┼────────────────┼──────────┼───────┼───────┤       │
+│       │  0  │       i        │      int       │ R_INT_0  │  0.0  │ true  │       │
+│       ╰─────┴────────────────┴────────────────┴──────────┴───────┴───────╯       │
+│                                    Constants                                     │
+│         ╭────────┬──────────────────────────┬──────────────────────────╮         │
+│         │   i    │           TYPE           │          VALUE           │         │
+│         ├────────┼──────────────────────────┼──────────────────────────┤         │
+│         │ INT_0  │           int            │            0             │         │
+│         │ INT_1  │           int            │            10            │         │
+│         │ INT_2  │           int            │            1             │         │
+│         │ STR_0  │           str            │            i             │         │
+│         ╰────────┴──────────────────────────┴──────────────────────────╯         │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+```
+
+</details>
 
 ## Installation
 
