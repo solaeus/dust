@@ -46,7 +46,9 @@ impl ActionSequence {
                         data: ActionData {
                             name: "LOOP_OPTIMIZED",
                             instruction: InstructionBuilder::from(instruction),
-                            pointers: [ptr::null_mut(); 3],
+                            integer_pointers: [ptr::null_mut(); 3],
+                            boolean_register_pointers: [ptr::null_mut(); 2],
+                            integer_register_pointers: [ptr::null_mut(); 2],
                             runs: 0,
                             condensed_actions: loop_actions.take().unwrap(),
                         },
@@ -109,7 +111,9 @@ impl From<&Instruction> for Action {
             data: ActionData {
                 name: operation.name(),
                 instruction: builder,
-                pointers: [ptr::null_mut(); 3],
+                integer_pointers: [ptr::null_mut(); 3],
+                boolean_register_pointers: [ptr::null_mut(); 2],
+                integer_register_pointers: [ptr::null_mut(); 2],
                 runs: 0,
                 condensed_actions: Vec::new(),
             },
@@ -134,7 +138,9 @@ pub struct ActionData {
     pub name: &'static str,
     pub instruction: InstructionBuilder,
 
-    pub pointers: [*mut i64; 3],
+    pub boolean_register_pointers: [*mut Register<bool>; 2],
+    pub integer_register_pointers: [*mut Register<i64>; 2],
+    pub integer_pointers: [*mut i64; 3],
     pub runs: usize,
     pub condensed_actions: Vec<Action>,
 }
@@ -169,23 +175,23 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
                     "jns 2f",
                     "add {2}, 1",
                     "2:",
-                    in(reg) *action.data.pointers[0],
-                    in(reg) *action.data.pointers[1],
+                    in(reg) *action.data.integer_pointers[0],
+                    in(reg) *action.data.integer_pointers[1],
                     inout(reg) local_ip,
                 )
             },
             "ADD" => unsafe {
                 asm!(
                     "add {0}, {1}",
-                    inout(reg) *action.data.pointers[1] => *action.data.pointers[0],
-                    in(reg) *action.data.pointers[2],
+                    inout(reg) *action.data.integer_pointers[1] => *action.data.integer_pointers[0],
+                    in(reg) *action.data.integer_pointers[2],
                 )
             },
             "MOVE" => unsafe {
                 asm!(
                     "mov {0}, {1}",
-                    inout(reg) *action.data.pointers[1] => *action.data.pointers[0],
-                    in(reg) *action.data.pointers[2],
+                    out(reg) action.data.integer_register_pointers[0],
+                    in(reg) action.data.integer_register_pointers[1],
                 )
             },
             "JUMP" => {
@@ -214,19 +220,25 @@ fn r#move(thread_data: &mut ThreadData, action_data: &mut ActionData) {
 
     match r#type {
         TypeCode::BOOLEAN => {
-            let new_register = Register::Pointer(Pointer::RegisterBoolean(source));
-            let old_register = current_frame.registers.get_boolean_mut(destination);
+            let mut source = current_frame.registers.get_boolean_mut(source).clone();
+            let destination = current_frame.registers.get_boolean_mut(destination);
 
-            *old_register = new_register;
+            action_data.boolean_register_pointers[0] = destination;
+            action_data.boolean_register_pointers[1] = &mut source;
+            *destination = source;
         }
         TypeCode::INTEGER => {
-            let new_register = Register::Pointer(Pointer::RegisterInteger(source));
-            let old_register = current_frame.registers.get_integer_mut(destination);
+            let mut source = current_frame.registers.get_integer_mut(source).clone();
+            let destination = current_frame.registers.get_integer_mut(destination);
 
-            *old_register = new_register;
+            action_data.integer_register_pointers[0] = destination;
+            action_data.integer_register_pointers[1] = &mut source;
+            *destination = source;
         }
         _ => todo!(),
     }
+
+    action_data.runs += 1;
 }
 
 #[allow(clippy::single_range_in_vec_init)]
@@ -353,7 +365,7 @@ fn add(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let ActionData {
         instruction,
         runs,
-        pointers,
+        integer_pointers: pointers,
         ..
     } = action_data;
 
@@ -451,7 +463,7 @@ fn less(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let ActionData {
         instruction,
         runs,
-        pointers,
+        integer_pointers: pointers,
         ..
     } = action_data;
     let current_frame = thread_data.current_frame_mut();
