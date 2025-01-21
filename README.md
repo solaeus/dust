@@ -54,27 +54,26 @@ aspirations are to be **fast**, **safe** and **easy**.
   - **Low Resource Usage** Memory and CPU power should be used conservatively and predictably.
 - **Safe** 🛡️
   - **Static Types** Typing should prevent runtime errors and improve code quality, offering a
-    superior development experience despite some additional constraints. Like any good statically
-    typed language, users should feel confident in the type-consistency of their code and not want
-    to go back to a dynamically typed language.
+    superior development experience despite some additional constraints.
   - **Null-Free** Dust has no "null" or "undefined" values. All values are initialized and have a
     type. This eliminates a whole class of bugs that are common in other languages.
-  - **Memory Safety** Dust should be free of memory bugs. Being implemented in Rust makes this easy
-    but, to accommodate long-running programs, Dust still requires a memory management strategy.
-    Dust's design is to use a separate thread for garbage collection, allowing other threads to
-    continue executing instructions while the garbage collector looks for unused memory.
+  - **Memory Safety** Dust should be free of memory bugs, using both safe Rust and sound, correct
+    "unsafe" Rust to maximize performance. Dust should employ a concurrent mark-and-sweep garbage
+    collecter, allowing other threads to continue executing instructions while the garbage collector
+    looks for freeable memory.
 - **Easy** 🎂
   - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
     should be familiar to users of other C-like languages to the point that even a new user can read
     Dust code and understand what it does. Rather than being held back by a lack of features, Dust
     should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum
     of complexity.
+  - **Practical Tooling** Shipped as a single binary, Dust should provide logging and tools for
+    disassembly and tokenization that make the lexer, compiler and runtime as transparent as
+    possible. Dust should also include an official formatter through the same binary. Additional
+    tools such as a language server and linter should be adopted when possible.
   - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
     source of the problem and suggest a solution. Errors should be a helpful learning resource for
     users rather than a source of frustration.
-  - **Practical Tooling** Shipped as a single binary, Dust should be easy to install and use. In
-    addition to compiling and running Dust code, the Dust binary provides tools for inspecting Dust
-    code, such as disassembling bytecode and tokenizing source code.
 
 ### Author
 
@@ -90,8 +89,8 @@ languages.
 
 ### CLI
 
-The Dust CLI has commands to run run, compile and disassemble or tokenize Dust code. It can also
-provide logging at different levels and measure the time taken for compilation and execution.
+The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
+different levels and measure the time taken for compilation and execution.
 
 ```text
 Usage: dust [OPTIONS] [FILE]
@@ -117,11 +116,26 @@ Options:
   -V, --version                Print version
 ```
 
+#### Running a program
+
+If not specified, the CLI will use `run` mode. This mode compiles and executes the Dust program,
+printing the return value to the console. You can also run Dust code directly from the command line
+using the `--command` or `-c` flag.
+
+```sh
+dust foobar.ds
+dust -c 'let x = 42; x'
+```
+
 #### Disassembly
 
 Dust's disassembly output is a detailed, human-readable representation of the internal
 representation of the Dust program. It shows every piece of information that the compiler sends to
 the virtual machine and explains what each instruction does and what data it uses.
+
+```sh
+dust -d example.ds
+```
 
 <details>
     <summary>Show disassembly</summary>
@@ -164,6 +178,21 @@ the virtual machine and explains what each instruction does and what data it use
 ```
 
 </details>
+
+The instruction notation reflects the Dust VM's register-based architecture. Values are referred to
+by their address in the register or constant table. For example, `R_INT_42` refers to the
+forty-second integer register, and `C_INT_0` refers to the first integer constant.
+
+```text
+R_INT_0 = R_INT_0 + C_INT_2
+```
+
+The info section for the ADD instruction shows what the instruction does: it adds the value at
+`R_INT_0` to the value at `C_INT_2` and stores the result in `R_INT_0`. As the "Constants" section
+shows, `C_INT_2` is the integer constant `1`. This means that this add instruction increments the
+value in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the register used
+by the `i` variable.
+
 
 ## Installation
 
