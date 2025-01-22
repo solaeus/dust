@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, TypeCode};
+use super::{TwoOperandLayout, TypeCode};
 
 pub struct LoadConstant {
     pub destination: u16,
@@ -29,7 +29,7 @@ impl From<Instruction> for LoadConstant {
 
 impl From<LoadConstant> for Instruction {
     fn from(load_constant: LoadConstant) -> Self {
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: Operation::LOAD_CONSTANT,
             a_field: load_constant.destination,
             b_type: load_constant.type_code,

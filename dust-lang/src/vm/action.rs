@@ -9,7 +9,7 @@ use tracing::trace;
 
 use crate::{
     Instruction, Operation, Type, Value,
-    instruction::{InstructionBuilder, Jump, TypeCode},
+    instruction::{Jump, TwoOperandLayout, TypeCode},
 };
 
 use super::{Pointer, Register, thread::ThreadData};
@@ -43,14 +43,15 @@ impl ActionSequence {
                 if !is_positive {
                     let action = Action {
                         logic: loop_optimized,
+                        optimal_logic: None,
                         data: ActionData {
                             name: "LOOP_OPTIMIZED",
-                            instruction: InstructionBuilder::from(instruction),
+                            instruction: TwoOperandLayout::from(instruction),
                             integer_pointers: [ptr::null_mut(); 3],
                             boolean_register_pointers: [ptr::null_mut(); 2],
                             integer_register_pointers: [ptr::null_mut(); 2],
                             runs: 0,
-                            condensed_actions: loop_actions.take().unwrap(),
+                            loop_actions: loop_actions.take().unwrap(),
                         },
                     };
 
@@ -82,32 +83,34 @@ impl ActionSequence {
 #[derive(Clone)]
 pub struct Action {
     pub logic: ActionLogic,
+    pub optimal_logic: Option<fn(&mut ActionData, &mut usize)>,
     pub data: ActionData,
 }
 
 impl From<&Instruction> for Action {
     fn from(instruction: &Instruction) -> Self {
-        let builder = InstructionBuilder::from(instruction);
+        let builder = TwoOperandLayout::from(instruction);
         let operation = builder.operation;
-        let logic = match operation {
-            Operation::MOVE => r#move,
-            Operation::CLOSE => close,
-            Operation::LOAD_INLINE => load_inline,
-            Operation::LOAD_CONSTANT => load_constant,
-            Operation::LOAD_LIST => load_list,
-            Operation::LOAD_FUNCTION => load_function,
-            Operation::LOAD_SELF => load_self,
-            Operation::GET_LOCAL => get_local,
-            Operation::SET_LOCAL => set_local,
-            Operation::ADD => add,
-            Operation::LESS => less,
-            Operation::JUMP => jump,
-            Operation::RETURN => r#return,
-            unknown => unknown.panic_from_unknown_code(),
-        };
+        let (logic, optimal_logic): (ActionLogic, Option<fn(&mut ActionData, &mut usize)>) =
+            match operation {
+                Operation::MOVE => (r#move, Some(move_optimal)),
+                Operation::LOAD_INLINE => (load_inline, None),
+                Operation::LOAD_CONSTANT => (load_constant, None),
+                Operation::LOAD_LIST => (load_list, None),
+                Operation::LOAD_FUNCTION => (load_function, None),
+                Operation::LOAD_SELF => (load_self, None),
+                Operation::GET_LOCAL => (get_local, None),
+                Operation::SET_LOCAL => (set_local, None),
+                Operation::ADD => (add, Some(add_optimal)),
+                Operation::LESS => (less, Some(less_optimal)),
+                Operation::JUMP => (jump, Some(jump_optimal)),
+                Operation::RETURN => (r#return, None),
+                unknown => unknown.panic_from_unknown_code(),
+            };
 
         Action {
             logic,
+            optimal_logic,
             data: ActionData {
                 name: operation.name(),
                 instruction: builder,
@@ -115,7 +118,7 @@ impl From<&Instruction> for Action {
                 boolean_register_pointers: [ptr::null_mut(); 2],
                 integer_register_pointers: [ptr::null_mut(); 2],
                 runs: 0,
-                condensed_actions: Vec::new(),
+                loop_actions: Vec::new(),
             },
         }
     }
@@ -136,13 +139,13 @@ impl Debug for Action {
 #[derive(Debug, Clone)]
 pub struct ActionData {
     pub name: &'static str,
-    pub instruction: InstructionBuilder,
+    pub instruction: TwoOperandLayout,
 
     pub boolean_register_pointers: [*mut Register<bool>; 2],
     pub integer_register_pointers: [*mut Register<i64>; 2],
     pub integer_pointers: [*mut i64; 3],
     pub runs: usize,
-    pub condensed_actions: Vec<Action>,
+    pub loop_actions: Vec<Action>,
 }
 
 pub type ActionLogic = fn(&mut ThreadData, &mut ActionData);
@@ -151,25 +154,25 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let mut local_ip = 0;
 
     loop {
-        if local_ip >= action_data.condensed_actions.len() {
+        if local_ip >= action_data.loop_actions.len() {
             break;
         }
 
-        let action = &mut action_data.condensed_actions[local_ip];
+        let action = &mut action_data.loop_actions[local_ip];
         local_ip += 1;
 
         if action.data.runs == 0 {
-            trace!("Condensed action initial: {}", action.data.name);
+            trace!("Action: {} Optimizing", action.data.name);
 
             (action.logic)(thread_data, &mut action.data);
 
             continue;
         }
 
-        trace!("Condensed action optimized: {}", action.data.name);
+        trace!("Action: {} Optimized", action.data.name);
 
         match action.data.name {
-            "LESS" => unsafe {
+            "LESS_INT" => unsafe {
                 asm!(
                     "cmp {0}, {1}",
                     "jns 2f",
@@ -205,10 +208,92 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
                 } else {
                     local_ip -= (offset + 1) as usize;
                 }
+
+                // unsafe {
+                //     asm!(
+                //         "cmp {0}, 0",
+                //         "je 2f",
+                //         "add {1}, {2}",
+                //         "jmp 3f",
+                //         "2:",
+                //         "sub {1}, {3}",
+                //         "3:",
+                //         in(reg) is_positive as i64,
+                //         inout(reg) local_ip,
+                //         in(reg) offset as i64,
+                //         in(reg) (offset + 1) as i64,
+                //     )
+                // }
             }
             _ => todo!(),
         };
     }
+}
+
+const OPTIMAL_LOGIC: [fn(&mut ActionData, &mut usize); 3] =
+    [less_optimal, add_optimal, move_optimal];
+
+fn less_optimal(action_data: &mut ActionData, local_ip: &mut usize) {
+    unsafe {
+        asm!(
+            "cmp {0}, {1}",
+            "jns 2f",
+            "add {2}, 1",
+            "2:",
+            in(reg) *action_data.integer_pointers[0],
+            in(reg) *action_data.integer_pointers[1],
+            inout(reg) *local_ip,
+        )
+    }
+}
+
+fn add_optimal(action_data: &mut ActionData, _: &mut usize) {
+    unsafe {
+        asm!(
+            "add {0}, {1}",
+            inout(reg) *action_data.integer_pointers[1] => *action_data.integer_pointers[0],
+            in(reg) *action_data.integer_pointers[2],
+        )
+    }
+}
+
+fn move_optimal(action_data: &mut ActionData, _: &mut usize) {
+    unsafe {
+        asm!(
+            "mov {0}, {1}",
+            out(reg) action_data.integer_register_pointers[0],
+            in(reg) action_data.integer_register_pointers[1],
+        )
+    }
+}
+
+fn jump_optimal(action_data: &mut ActionData, local_ip: &mut usize) {
+    let Jump {
+        offset,
+        is_positive,
+    } = Jump::from(action_data.instruction.build());
+
+    if is_positive {
+        *local_ip += offset as usize;
+    } else {
+        *local_ip -= (offset + 1) as usize;
+    }
+
+    // unsafe {
+    //     asm!(
+    //         "cmp {0}, 0",
+    //         "je 2f",
+    //         "add {1}, {2}",
+    //         "jmp 3f",
+    //         "2:",
+    //         "sub {1}, {3}",
+    //         "3:",
+    //         in(reg) is_positive as i64,
+    //         inout(reg) *local_ip,
+    //         in(reg) offset as i64,
+    //         in(reg) (offset + 1) as i64,
+    //     )
+    // }
 }
 
 fn r#move(thread_data: &mut ThreadData, action_data: &mut ActionData) {
@@ -272,7 +357,7 @@ fn load_inline(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     *old_register = new_register;
 
     if instruction.c_field != 0 {
-        current_frame.instruction_pointer += 1;
+        current_frame.ip += 1;
     }
 }
 
@@ -299,7 +384,7 @@ fn load_constant(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     };
 
     if instruction.c_field != 0 {
-        current_frame.instruction_pointer += 1;
+        current_frame.ip += 1;
     }
 }
 
@@ -471,7 +556,7 @@ fn less(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     if *runs > 0 {
         unsafe {
             if *pointers[0] < *pointers[1] {
-                current_frame.instruction_pointer += 1;
+                current_frame.ip += 1;
             }
         }
     } else {
@@ -538,7 +623,7 @@ fn less(thread_data: &mut ThreadData, action_data: &mut ActionData) {
             };
 
         if is_less {
-            current_frame.instruction_pointer += 1;
+            current_frame.ip += 1;
         }
 
         pointers[0] = left_pointer;
@@ -554,9 +639,9 @@ fn jump(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let is_positive = instruction.c_field != 0;
 
     if is_positive {
-        current_frame.instruction_pointer += offset;
+        current_frame.ip += offset;
     } else {
-        current_frame.instruction_pointer -= offset + 1;
+        current_frame.ip -= offset + 1;
     }
 
     action_data.runs += 1;

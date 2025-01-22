@@ -9,9 +9,7 @@ const SOURCE: &str = r#"
     while i < 1_000 {
         i += 1
 
-        spawn(
-            fn () { random_int(0, 10); }
-        )
+        spawn(fn () { random_int(0, 10); })
     }
 "#;
 

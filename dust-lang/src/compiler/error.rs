@@ -67,6 +67,10 @@ pub enum CompileError {
     },
 
     // Type errors
+    ArgumentTypeConflict {
+        conflict: TypeConflict,
+        position: Span,
+    },
     CannotAddType {
         argument_type: Type,
         position: Span,
@@ -180,6 +184,7 @@ impl AnnotatedError for CompileError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::ArgumentTypeConflict { .. } => "Argument type conflict",
             Self::CannotAddArguments { .. } => "Cannot add these types",
             Self::CannotAddType { .. } => "Cannot add to this type",
             Self::ComparisonChain { .. } => "Cannot chain comparison operations",

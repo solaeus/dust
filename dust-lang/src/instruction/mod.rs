@@ -1,8 +1,17 @@
 //! The Dust instruction set.
 //!
-//! Each instruction is 64 bits and uses up to seven distinct fields.
+//! Each instruction is 64 bits and uses a layout that divides the bits into fields.
 //!
-//! # Layout
+//! # Layouts
+//!
+//! ## Seven-Field Layout
+//!
+//! Used for most instructions, this layout has A, B and C fields for a destination and two
+//! operands, including basic type codes and constant flags for the operands and an additional
+//! boolean in the D field.
+//!
+//! Only shorter type codes (up to 3 bits) can fit in this layout. These type codes are relegated to
+//! Dust's basic types: `bool`, `byte`, `char`, `float`, `int` and `str`.
 //!
 //! Bits  | Description
 //! ----- | -----------
@@ -10,15 +19,50 @@
 //! 7     | Flag indicating if the B field is a constant
 //! 8     | Flag indicating if the C field is a constant
 //! 9     | D field (boolean)
-//! 10-12 | B field type
-//! 13-15 | C field type
+//! 10-12 | B field type (basic type)
+//! 13-15 | C field type (basic type)
 //! 16-31 | A field (unsigned 16-bit integer)
 //! 32-47 | B field (unsigned 16-bit integer)
 //! 48-63 | C field (unsigned 16-bit integer)
 //!
-//! **Be careful when working with instructions directly**. When modifying an instruction's fields,
-//! you may also need to modify its flags. It is usually best to remove instructions and insert new
-//! ones in their place instead of mutating them.
+//! ## Six-Field Layout
+//!
+//! Instructions that have only one operand and/or need to support all of Dust's types use this
+//! layout.
+//!
+//! Bits  | Description
+//! ----- | -----------
+//! 0-6   | Operation
+//! 7     | Flag indicating if the B field is a constant
+//! 8     | Flag indicating if the C field is a constant
+//! 9     | D field (boolean)
+//! 10-15 | B field type (any type)
+//! 16-31 | A field (unsigned 16-bit integer)
+//! 32-47 | B field (unsigned 16-bit integer)
+//! 48-63 | C field (unsigned 16-bit integer)
+//!
+//! ## Five-Field Layout
+//!
+//! If the instruction's types can be inferred from the operation, the type codes can be omitted and
+//! an extra byte can be used for the E field.
+//!
+//! Bits  | Description
+//! ----- | -----------
+//! 0-6   | Operation
+//! 7-14  | E field (unsigned 8-bit integer)
+//! 15    | Unused
+//! 16-31 | A field (unsigned 16-bit integer)
+//! 32-47 | B field (unsigned 16-bit integer)
+//! 48-63 | C field (unsigned 16-bit integer)
+//!
+//! **Be careful when working with instructions.**
+//!
+//! Do not read instruction fields by calling methods on the instruction directly, except for the
+//! `operation` method. These methods read bits directly from the underlying `u64`, ignoring the
+//! layout. Instead, to avoid mistakes and persist future changes, call `operation`, then convert
+//! the instruction to a struct for that specific operation. In performance-critical code, convert
+//! the instruction to a layout struct and cache it, being careful to interpret the fields
+//! correctly.
 //!
 //! # Examples
 //!
@@ -155,7 +199,38 @@ pub use type_code::TypeCode;
 use crate::NativeFunction;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
-pub struct InstructionBuilder {
+pub struct ZeroOperandLayout {
+    pub operation: Operation,
+    pub a_field: u16,
+    pub b_field: u16,
+    pub c_field: u16,
+    pub e_field: u8,
+}
+
+impl ZeroOperandLayout {
+    pub fn build(self) -> Instruction {
+        let bits = ((self.operation.0 as u64) << 57)
+            | ((self.e_field as u64) << 47)
+            | ((self.a_field as u64) << 32)
+            | ((self.b_field as u64) << 16)
+            | (self.c_field as u64);
+
+        Instruction(bits)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub struct OneOperandLayout {
+    pub operation: Operation,
+    pub a_field: u16,
+    pub b_field: u16,
+    pub c_field: u16,
+    pub d_field: bool,
+    pub r#type: TypeCode,
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub struct TwoOperandLayout {
     pub operation: Operation,
     pub a_field: u16,
     pub b_field: u16,
@@ -167,9 +242,9 @@ pub struct InstructionBuilder {
     pub c_type: TypeCode,
 }
 
-impl From<&Instruction> for InstructionBuilder {
+impl From<&Instruction> for TwoOperandLayout {
     fn from(instruction: &Instruction) -> Self {
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: instruction.operation(),
             a_field: instruction.a_field(),
             b_field: instruction.b_field(),
@@ -183,7 +258,7 @@ impl From<&Instruction> for InstructionBuilder {
     }
 }
 
-impl InstructionBuilder {
+impl TwoOperandLayout {
     pub fn build(self) -> Instruction {
         let bits = ((self.operation.0 as u64) << 57)
             | ((self.b_is_constant as u64) << 56)
@@ -199,9 +274,9 @@ impl InstructionBuilder {
     }
 }
 
-impl Default for InstructionBuilder {
+impl Default for TwoOperandLayout {
     fn default() -> Self {
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: Operation::MOVE,
             a_field: 0,
             b_field: 0,
@@ -215,13 +290,13 @@ impl Default for InstructionBuilder {
     }
 }
 
-impl Debug for InstructionBuilder {
+impl Debug for TwoOperandLayout {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl Display for InstructionBuilder {
+impl Display for TwoOperandLayout {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.build())
     }
@@ -262,6 +337,10 @@ impl Instruction {
         let byte = ((self.0 >> 48) & 0b111) as u8;
 
         TypeCode(byte)
+    }
+
+    pub fn e_field(&self) -> u8 {
+        (self.0 >> 47) as u8
     }
 
     pub fn a_field(&self) -> u16 {
@@ -554,11 +633,13 @@ impl Instruction {
     pub fn call_native(
         destination: u16,
         function: NativeFunction,
-        argument_count: u16,
+        first_argument: u16,
+        argument_count: u8,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
+            first_argument,
             argument_count,
         })
     }
@@ -778,8 +859,8 @@ impl Instruction {
             Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
             Operation::TEST => Test::from(*self).to_string(),
             Operation::TEST_SET => TestSet::from(*self).to_string(),
-            Operation::CALL => Call::from(*self).to_string(),
-            Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
+            Operation::CALL => Call::from(self).to_string(),
+            Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(*self).to_string(),
             Operation::RETURN => Return::from(*self).to_string(),
 
@@ -958,5 +1039,12 @@ mod tests {
         );
 
         assert_eq!(TypeCode::CHARACTER, instruction.c_type());
+    }
+
+    #[test]
+    fn decond_e_field() {
+        let instruction = Instruction::call_native(42, NativeFunction::ReadLine, 4, 255);
+
+        assert_eq!(255, instruction.e_field());
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::TwoOperandLayout;
 
 pub struct SetLocal {
     pub register_index: u16,
@@ -27,7 +27,7 @@ impl From<SetLocal> for Instruction {
         let b_field = set_local.register_index;
         let c_field = set_local.local_index;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             b_field,
             c_field,

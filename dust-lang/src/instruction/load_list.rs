@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::TwoOperandLayout;
 
 pub struct LoadList {
     pub destination: u16,
@@ -26,7 +26,7 @@ impl From<Instruction> for LoadList {
 
 impl From<LoadList> for Instruction {
     fn from(load_list: LoadList) -> Self {
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: Operation::LOAD_LIST,
             a_field: load_list.destination,
             b_field: load_list.start_register,

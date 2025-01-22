@@ -36,7 +36,9 @@ use crate::{
     Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
     Operation, Scope, Span, Token, TokenKind, Type,
     chunk::ConstantTable,
-    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Move, Return, SetLocal, TypeCode},
+    instruction::{
+        Call, CallNative, Close, GetLocal, Jump, LoadList, Move, Return, SetLocal, TypeCode,
+    },
 };
 
 /// Compiles the input and returns a chunk.
@@ -336,6 +338,30 @@ impl<'src> Compiler<'src> {
                 } else {
                     None
                 }
+            })
+            .unwrap_or(self.minimum_register)
+    }
+
+    fn next_pointer_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, _, _)| match instruction.operation() {
+                Operation::CALL => {
+                    let Call { destination, .. } = Call::from(instruction);
+
+                    Some(destination + 1)
+                }
+                Operation::CALL_NATIVE => {
+                    let CallNative {
+                        first_argument,
+                        argument_count,
+                        ..
+                    } = CallNative::from(instruction);
+
+                    Some(first_argument + argument_count as u16)
+                }
+                _ => None,
             })
             .unwrap_or(self.minimum_register)
     }
@@ -1567,46 +1593,65 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_call_native(&mut self, function: NativeFunction) -> Result<(), CompileError> {
-        todo!();
+        let start = self.current_position.0;
+        let function_type = function.r#type();
+        let mut first_argument = None;
+        let mut argument_count = 0;
 
-        // let start = self.previous_position.0;
-        // let start_register = self.next_register();
+        self.expect(Token::LeftParenthesis)?;
 
-        // self.expect(Token::LeftParenthesis)?;
+        while !self.allow(Token::RightParenthesis)? {
+            self.parse_expression()?;
 
-        // while !self.allow(Token::RightParenthesis)? {
-        //     let expected_register = self.next_register();
+            let expected_argument_type = function_type
+                .value_parameters
+                .get(argument_count as usize)
+                .map(|(_, r#type)| r#type)
+                .unwrap_or(&Type::None);
+            let (_, actual_argument_type, position) = self.instructions.last().unwrap().clone();
 
-        //     self.parse_expression()?;
+            expected_argument_type
+                .check(&actual_argument_type)
+                .map_err(|conflict| CompileError::ArgumentTypeConflict { conflict, position })?;
 
-        //     let actual_register = self.next_register() - 1;
-        //     let registers_to_close = actual_register - expected_register;
+            if argument_count == 0 {
+                let argument = self
+                    .instructions
+                    .last()
+                    .map(|(instruction, _, _)| instruction)
+                    .unwrap()
+                    .a_field();
 
-        //     if registers_to_close > 0 {
-        //         let close = Instruction::from(Close {
-        //             from: expected_register,
-        //             to: actual_register,
-        //         });
+                first_argument = Some(argument);
+            }
 
-        //         self.emit_instruction(close, Type::None, self.current_position);
-        //     }
+            argument_count += 1;
 
-        //     self.allow(Token::Comma)?;
-        // }
+            self.allow(Token::Comma)?;
+        }
 
-        // let end = self.previous_position.1;
-        // let destination = self.next_register();
-        // let argument_count = destination - start_register;
-        // let return_type = function.r#type().return_type;
-        // let call_native = Instruction::from(CallNative {
-        //     destination,
-        //     function,
-        //     argument_count,
-        // });
+        let end = self.previous_position.1;
+        let destination = match function.r#type().return_type {
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            Type::None => 0,
+            _ => todo!(),
+        };
+        let return_type = function.r#type().return_type;
+        let call_native = Instruction::from(CallNative {
+            destination,
+            function,
+            first_argument: first_argument.unwrap_or(0),
+            argument_count,
+        });
 
-        // self.emit_instruction(call_native, return_type, Span(start, end));
+        self.emit_instruction(call_native, return_type, Span(start, end));
 
-        // Ok(())
+        Ok(())
     }
 
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {

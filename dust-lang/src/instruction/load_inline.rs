@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, TypeCode};
+use super::{TwoOperandLayout, TypeCode};
 
 pub struct LoadInline {
     pub destination: u16,
@@ -33,7 +33,7 @@ impl From<LoadInline> for Instruction {
         let c_field = load_boolean.boolean as u16;
         let d_field = load_boolean.jump_next;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             a_field,
             b_field,

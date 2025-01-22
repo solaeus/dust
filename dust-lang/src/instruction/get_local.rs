@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, TypeCode};
+use super::{TwoOperandLayout, TypeCode};
 
 pub struct GetLocal {
     pub destination: u16,
@@ -31,7 +31,7 @@ impl From<GetLocal> for Instruction {
         let b_field = get_local.local_index;
         let b_type = get_local.r#type;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             a_field,
             b_field,

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, TypeCode};
+use super::{TwoOperandLayout, TypeCode};
 
 pub struct Move {
     pub from: u16,
@@ -27,7 +27,7 @@ impl From<Move> for Instruction {
         let b_field = r#move.to;
         let b_type = r#move.type_code;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             a_field,
             b_field,

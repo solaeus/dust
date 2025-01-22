@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, Operand, Operation, TwoOperandLayout, TypeCode};
 
 pub struct Negate {
     pub destination: u16,
@@ -29,7 +29,7 @@ impl From<Negate> for Instruction {
         let (b_field, b_is_constant) = negate.argument.as_index_and_constant_flag();
         let b_type = negate.argument_type;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             a_field,
             b_field,

@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operation};
+use super::{Instruction, TwoOperandLayout, Operation};
 
 pub struct LoadFunction {
     pub destination: u16,
@@ -24,7 +24,7 @@ impl From<Instruction> for LoadFunction {
 
 impl From<LoadFunction> for Instruction {
     fn from(load_function: LoadFunction) -> Self {
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: Operation::LOAD_FUNCTION,
             a_field: load_function.destination,
             b_field: load_function.prototype_index,

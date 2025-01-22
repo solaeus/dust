@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::TwoOperandLayout;
 
 pub struct Call {
     pub destination: u16,
@@ -11,8 +11,8 @@ pub struct Call {
     pub is_recursive: bool,
 }
 
-impl From<Instruction> for Call {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Call {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let function_register = instruction.b_field();
         let argument_count = instruction.c_field();
@@ -34,7 +34,7 @@ impl From<Call> for Instruction {
         let c_field = call.argument_count;
         let d_field = call.is_recursive;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation: Operation::CALL,
             a_field,
             b_field,

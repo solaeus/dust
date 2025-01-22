@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, Operand, Operation, TwoOperandLayout, TypeCode};
 
 pub struct Add {
     pub destination: u16,
@@ -36,7 +36,7 @@ impl From<Add> for Instruction {
         let b_type = add.left_type;
         let c_type = add.right_type;
 
-        InstructionBuilder {
+        TwoOperandLayout {
             operation,
             a_field,
             b_field,
