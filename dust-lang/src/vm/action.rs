@@ -34,7 +34,7 @@ impl ActionSequence {
             }
 
             if instruction.operation() == Operation::JUMP {
-                let Jump { is_positive, .. } = Jump::from(*instruction);
+                let Jump { is_positive, .. } = Jump::from(instruction);
 
                 loop_actions
                     .get_or_insert(Vec::new())
@@ -99,7 +99,6 @@ impl From<&Instruction> for Action {
                 Operation::LOAD_LIST => (load_list, None),
                 Operation::LOAD_FUNCTION => (load_function, None),
                 Operation::LOAD_SELF => (load_self, None),
-                Operation::GET_LOCAL => (get_local, None),
                 Operation::SET_LOCAL => (set_local, None),
                 Operation::ADD => (add, Some(add_optimal)),
                 Operation::LESS => (less, Some(less_optimal)),
@@ -172,7 +171,7 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
         trace!("Action: {} Optimized", action.data.name);
 
         match action.data.name {
-            "LESS_INT" => unsafe {
+            "LESS" => unsafe {
                 asm!(
                     "cmp {0}, {1}",
                     "jns 2f",
@@ -201,7 +200,7 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(action.data.instruction.build());
+                } = Jump::from(&action.data.instruction.build());
 
                 if is_positive {
                     local_ip += offset as usize;
@@ -271,7 +270,7 @@ fn jump_optimal(action_data: &mut ActionData, local_ip: &mut usize) {
     let Jump {
         offset,
         is_positive,
-    } = Jump::from(action_data.instruction.build());
+    } = Jump::from(&action_data.instruction.build());
 
     if is_positive {
         *local_ip += offset as usize;
@@ -400,44 +399,24 @@ fn load_self(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     todo!()
 }
 
-fn get_local(thread_data: &mut ThreadData, action_data: &mut ActionData) {
-    let ActionData { instruction, .. } = action_data;
-    let current_frame = thread_data.current_frame_mut();
-    let destination = instruction.a_field;
-    let local_index = instruction.b_field;
-    let local = current_frame
-        .prototype
-        .locals
-        .get(local_index as usize)
-        .unwrap();
-
-    match &local.r#type {
-        Type::Boolean => {
-            let new_register = Register::Pointer(Pointer::RegisterBoolean(local.register_index));
-            let old_register = current_frame.registers.get_boolean_mut(destination);
-
-            *old_register = new_register;
-        }
-        Type::Integer => {
-            let new_register = Register::Pointer(Pointer::RegisterInteger(local.register_index));
-            let old_register = current_frame.registers.get_integer_mut(destination);
-
-            *old_register = new_register;
-        }
-        unknown => todo!(),
-    }
-}
-
 fn set_local(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let ActionData { instruction, .. } = action_data;
     let current_frame = thread_data.current_frame_mut();
     let register_index = instruction.b_field;
     let local_index = instruction.c_field;
     let r#type = instruction.b_type;
+    let local = current_frame
+        .prototype
+        .locals
+        .get(local_index as usize)
+        .unwrap();
 
     match r#type {
         TypeCode::INTEGER => {
-            let new_register = Register::Pointer::<i64>(Pointer::ConstantInteger(local_index));
+            let local_register = current_frame
+                .registers
+                .get_integer_mut(local.register_index);
+            let new_register = Register::Pointer::<i64>(local_register);
             let old_register = current_frame.registers.get_integer_mut(register_index);
 
             *old_register = new_register;
@@ -660,6 +639,12 @@ fn r#return(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let r#type = instruction.b_type;
     let return_register = instruction.c_field;
     let current_frame = stack.pop().unwrap();
+
+    if !should_return_value {
+        thread_data.return_value = Some(None);
+
+        return;
+    }
 
     match r#type {
         TypeCode::BOOLEAN => {

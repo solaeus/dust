@@ -12,7 +12,7 @@ use super::Pointer;
 pub enum Register<T: Clone> {
     Empty,
     Value(T),
-    Pointer(Pointer),
+    Pointer(*mut Register<T>),
 }
 
 impl<T: Clone> Register<T> {
@@ -40,7 +40,6 @@ const FLOAT_REGISTER_COUNT: usize = 64;
 const INTEGER_REGISTER_COUNT: usize = 64;
 const STRING_REGISTER_COUNT: usize = 64;
 const LIST_REGISTER_COUNT: usize = 16;
-const POINTER_REGISTER_COUNT: usize = 256;
 
 #[derive(Debug)]
 pub struct RegisterTable {
@@ -51,7 +50,6 @@ pub struct RegisterTable {
     integers: SmallVec<[Register<i64>; INTEGER_REGISTER_COUNT]>,
     strings: SmallVec<[Register<DustString>; STRING_REGISTER_COUNT]>,
     lists: SmallVec<[Register<AbstractList>; LIST_REGISTER_COUNT]>,
-    pointers: SmallVec<[Register<Pointer>; POINTER_REGISTER_COUNT]>,
 }
 
 impl RegisterTable {
@@ -64,7 +62,6 @@ impl RegisterTable {
             integers: smallvec![Register::Empty; INTEGER_REGISTER_COUNT],
             strings: smallvec![Register::Empty; STRING_REGISTER_COUNT],
             lists: smallvec![Register::Empty; LIST_REGISTER_COUNT],
-            pointers: smallvec![Register::Empty; POINTER_REGISTER_COUNT],
         }
     }
 
@@ -199,10 +196,7 @@ impl RegisterTable {
 
         match register {
             Register::Value(_) => register,
-            Register::Pointer(pointer) => match pointer {
-                Pointer::RegisterInteger(register_index) => self.get_integer(*register_index),
-                _ => todo!(),
-            },
+            Register::Pointer(pointer) => unsafe { &**pointer },
             Register::Empty => panic!("Expected a non-empty register"),
         }
     }

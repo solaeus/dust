@@ -1742,7 +1742,7 @@ impl<'src> Compiler<'src> {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(*instruction);
+                } = Jump::from(&*instruction);
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
@@ -1805,7 +1805,7 @@ impl<'src> Compiler<'src> {
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(*instruction);
+                } = Jump::from(&*instruction);
                 let offset = offset as usize;
 
                 if is_positive && offset + index == instruction_length - 1 {
