@@ -142,11 +142,11 @@ dust -d example.ds
 
 ```text
 ╭──────────────────────────────────────────────────────────────────────────────────╮
-│                                    example.ds                                    │
+│                                    example.ds               <---- file name      │
 │                                                                                  │
-│                     let mut i = 0; while i < 10 { i += 1 };                      │
+│                     let mut i = 0; while i < 10 { i += 1 };    <---- source code │
 │                                                                                  │
-│               6 instructions, 4 constants, 1 locals, returns none                │
+│               6 instructions, 4 constants, 1 locals, returns none  <---- summary │
 │                                                                                  │
 │                                   Instructions                                   │
 │ ╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮ │
