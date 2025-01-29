@@ -1,7 +1,6 @@
 //! Virtual machine and errors
 mod action;
 mod call_frame;
-mod pointer;
 mod register_table;
 mod thread;
 
@@ -9,7 +8,6 @@ use std::{sync::Arc, thread::Builder};
 
 pub use action::Action;
 pub use call_frame::CallFrame;
-pub use pointer::Pointer;
 pub use register_table::{Register, RegisterTable};
 pub use thread::{Thread, ThreadData};
 

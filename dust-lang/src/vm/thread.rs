@@ -1,18 +1,11 @@
-use std::{arch::asm, iter::repeat, ptr, sync::Arc, thread::JoinHandle};
+use std::{sync::Arc, thread::JoinHandle};
 
 use smallvec::SmallVec;
 use tracing::{info, span, trace};
 
-use crate::{
-    Chunk, DustString, Operation, TypeCode, Value,
-    instruction::Jump,
-    vm::{
-        Register,
-        action::{ActionData, ActionSequence},
-    },
-};
+use crate::{Chunk, DustString, Value, vm::action::ActionSequence};
 
-use super::{Action, CallFrame};
+use super::CallFrame;
 
 pub struct Thread {
     chunk: Arc<Chunk>,
@@ -61,21 +54,6 @@ impl Thread {
             trace!("Action: {}", current_action);
 
             (current_action.logic)(&mut thread_data, &mut current_action.data);
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Cache {
-    pub runs: usize,
-    pub integers: [*mut i64; 3],
-}
-
-impl Cache {
-    pub fn new() -> Self {
-        Self {
-            runs: 0,
-            integers: [ptr::null_mut(); 3],
         }
     }
 }

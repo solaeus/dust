@@ -6,8 +6,6 @@ use tracing::trace;
 
 use crate::{AbstractList, DustString};
 
-use super::Pointer;
-
 #[derive(Debug, Clone)]
 pub enum Register<T: Clone> {
     Empty,

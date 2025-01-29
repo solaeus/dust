@@ -8,11 +8,11 @@ use smallvec::SmallVec;
 use tracing::trace;
 
 use crate::{
-    Instruction, Operation, Type, Value,
+    Instruction, Operation, Value,
     instruction::{Jump, TwoOperandLayout, TypeCode},
 };
 
-use super::{Pointer, Register, thread::ThreadData};
+use super::{Register, thread::ThreadData};
 
 #[derive(Debug)]
 pub struct ActionSequence {
@@ -91,21 +91,20 @@ impl From<&Instruction> for Action {
     fn from(instruction: &Instruction) -> Self {
         let builder = TwoOperandLayout::from(instruction);
         let operation = builder.operation;
-        let (logic, optimal_logic): (ActionLogic, Option<fn(&mut ActionData, &mut usize)>) =
-            match operation {
-                Operation::MOVE => (r#move, Some(move_optimal)),
-                Operation::LOAD_INLINE => (load_inline, None),
-                Operation::LOAD_CONSTANT => (load_constant, None),
-                Operation::LOAD_LIST => (load_list, None),
-                Operation::LOAD_FUNCTION => (load_function, None),
-                Operation::LOAD_SELF => (load_self, None),
-                Operation::SET_LOCAL => (set_local, None),
-                Operation::ADD => (add, Some(add_optimal)),
-                Operation::LESS => (less, Some(less_optimal)),
-                Operation::JUMP => (jump, Some(jump_optimal)),
-                Operation::RETURN => (r#return, None),
-                unknown => unknown.panic_from_unknown_code(),
-            };
+        let (logic, optimal_logic): (ActionLogic, Option<OptimalActionLogic>) = match operation {
+            Operation::MOVE => (r#move, Some(move_optimal)),
+            Operation::LOAD_INLINE => (load_inline, None),
+            Operation::LOAD_CONSTANT => (load_constant, None),
+            Operation::LOAD_LIST => (load_list, None),
+            Operation::LOAD_FUNCTION => (load_function, None),
+            Operation::LOAD_SELF => (load_self, None),
+            Operation::SET_LOCAL => (set_local, None),
+            Operation::ADD => (add, Some(add_optimal)),
+            Operation::LESS => (less, Some(less_optimal)),
+            Operation::JUMP => (jump, Some(jump_optimal)),
+            Operation::RETURN => (r#return, None),
+            unknown => unknown.panic_from_unknown_code(),
+        };
 
         Action {
             logic,
@@ -148,6 +147,7 @@ pub struct ActionData {
 }
 
 pub type ActionLogic = fn(&mut ThreadData, &mut ActionData);
+pub type OptimalActionLogic = fn(&mut ActionData, &mut usize);
 
 fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let mut local_ip = 0;
@@ -228,9 +228,6 @@ fn loop_optimized(thread_data: &mut ThreadData, action_data: &mut ActionData) {
         };
     }
 }
-
-const OPTIMAL_LOGIC: [fn(&mut ActionData, &mut usize); 3] =
-    [less_optimal, add_optimal, move_optimal];
 
 fn less_optimal(action_data: &mut ActionData, local_ip: &mut usize) {
     unsafe {
@@ -633,7 +630,7 @@ fn r#return(thread_data: &mut ThreadData, action_data: &mut ActionData) {
     let ThreadData {
         stack,
         return_value,
-        spawned_threads,
+        ..
     } = thread_data;
     let should_return_value = instruction.b_field != 0;
     let r#type = instruction.b_type;

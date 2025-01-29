@@ -50,7 +50,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    #[cfg(any(test, debug_assertions))]
+    #[cfg(debug_assertions)]
     pub fn with_data(
         name: Option<DustString>,
         r#type: FunctionType,

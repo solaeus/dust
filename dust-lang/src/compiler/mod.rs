@@ -342,30 +342,6 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_register)
     }
 
-    fn next_pointer_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, _, _)| match instruction.operation() {
-                Operation::CALL => {
-                    let Call { destination, .. } = Call::from(instruction);
-
-                    Some(destination + 1)
-                }
-                Operation::CALL_NATIVE => {
-                    let CallNative {
-                        first_argument,
-                        argument_count,
-                        ..
-                    } = CallNative::from(instruction);
-
-                    Some(first_argument + argument_count as u16)
-                }
-                _ => None,
-            })
-            .unwrap_or(self.minimum_register)
-    }
-
     fn advance(&mut self) -> Result<(), CompileError> {
         if self.is_eof() {
             return Ok(());
