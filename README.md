@@ -1,4 +1,4 @@
-# ✭ Dust Programming Language
+# Dust
 
 **Fast**, **safe** and **easy-to-use** general-purpose programming language.
 
@@ -45,40 +45,40 @@ This project's goal is to deliver a language with features that stand out due to
 design choices and a high-quality implementation. As mentioned in the first sentence, Dust's general
 aspirations are to be **fast**, **safe** and **easy**.
 
-- **Fast**
+- **Fast** 🚀
   - **Fast Compilation** Despite its compile-time abstractions, Dust should compile and start
     executing quickly. The compilation time should feel negligible to the user.
   - **Fast Execution** Dust should be competitive with highly optimized, modern, register-based VM
     languages like Lua. Dust should be bench tested during development to inform decisions about
     performance.
   - **Low Resource Usage** Memory and CPU power should be used conservatively and predictably.
-- **Safe**
+- **Safe** 🛡️
   - **Static Types** Typing should prevent runtime errors and improve code quality, offering a
-    superior development experience despite some additional constraints. Like any good statically
-    typed language, users should feel confident in the type-consistency of their code and not want
-    to go back to a dynamically typed language.
+    superior development experience despite some additional constraints.
   - **Null-Free** Dust has no "null" or "undefined" values. All values are initialized and have a
     type. This eliminates a whole class of bugs that are common in other languages.
-  - **Memory Safety** Dust should be free of memory bugs. Being implemented in Rust makes this easy
-    but, to accommodate long-running programs, Dust still requires a memory management strategy.
-    Dust's design is to use a separate thread for garbage collection, allowing other threads to
-    continue executing instructions while the garbage collector looks for unused memory.
-- **Easy**
+  - **Memory Safety** Dust should be free of memory bugs, using both safe Rust and sound, correct
+    "unsafe" Rust to maximize performance. Dust should employ a concurrent mark-and-sweep garbage
+    collecter, allowing other threads to continue executing instructions while the garbage collector
+    looks for freeable memory.
+- **Easy** 🎂
   - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax
     should be familiar to users of other C-like languages to the point that even a new user can read
     Dust code and understand what it does. Rather than being held back by a lack of features, Dust
     should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum
     of complexity.
+  - **Practical Tooling** Shipped as a single binary, Dust should provide logging and tools for
+    disassembly and tokenization that make the lexer, compiler and runtime as transparent as
+    possible. Dust should also include an official formatter through the same binary. Additional
+    tools such as a language server and linter should be adopted when possible.
   - **Excellent Errors** Dust should provide helpful error messages that guide the user to the
     source of the problem and suggest a solution. Errors should be a helpful learning resource for
     users rather than a source of frustration.
-  - **Relevant Documentation** Users should have the resources they need to learn Dust and write
-    code in it. They should know where to look for answers and how to reach out for help.
 
 ### Author
 
-I'm Jeff 🦀 and I started this project as simple expession evaluator. Initially, the project used an
-external parser and a tree-walking interpreter. After several books, a few papers, countless
+I'm Jeff 🦀 and I started this project as a simple expession evaluator. Initially, the project used
+an external parser and a tree-walking interpreter. After several books, a few papers, countless
 articles and a lot of experimentation, Dust has evolved to an ambitious project that aims to
 implement lucrative features with a high-quality implementation that competes with established
 languages.
@@ -86,6 +86,113 @@ languages.
 ## Usage
 
 **Dust is under active development and is not yet ready for general use.**
+
+### CLI
+
+The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
+different levels and measure the time taken for compilation and execution.
+
+```text
+Usage: dust [OPTIONS] [FILE]
+       dust {run|-r} [OPTIONS] [FILE]
+       dust {disassemble|-d} [OPTIONS] [FILE]
+       dust {tokenize|-t} [OPTIONS] [FILE]
+       dust help [COMMAND]...
+
+Modes:
+  run, -r          Compile and run the program (default)
+  disassemble, -d  Compile and print the bytecode disassembly
+  tokenize, -t     Lex the source code and print the tokens
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -l, --log-level <LOG_LEVEL>  Overrides the DUST_LOG environment variable
+      --time                   Print the time taken for compilation and execution
+      --no-output              Do not print the program's return value
+      --name <NAME>            Custom program name, overrides the file name
+  -c, --command <INPUT>        Source code to run instead of a file
+      --stdin                  Read source code from stdin
+  -h, --help                   Print help
+  -V, --version                Print version
+```
+
+#### Running a program
+
+If not specified, the CLI will use `run` mode. This mode compiles and executes the Dust program,
+printing the return value to the console. You can also run Dust code directly from the command line
+using the `--command` or `-c` flag.
+
+```sh
+dust foobar.ds
+dust -c 'let x = 42; x'
+```
+
+#### Disassembly
+
+Dust's disassembly output is a detailed, human-readable representation of the internal
+representation of the Dust program. It shows every piece of information that the compiler sends to
+the virtual machine and explains what each instruction does and what data it uses.
+
+```sh
+dust -d example.ds
+```
+
+<details>
+    <summary>Show disassembly</summary>
+
+```text
+╭──────────────────────────────────────────────────────────────────────────────────╮
+│                                    example.ds               <---- file name      │
+│                                                                                  │
+│                     let mut i = 0; while i < 10 { i += 1 };    <---- source code │
+│                                                                                  │
+│               6 instructions, 4 constants, 1 locals, returns none  <---- summary │
+│                                                                                  │
+│                                   Instructions                                   │
+│ ╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮ │
+│ │  i  │  POSITION  │    OPERATION    │                  INFO                   │ │
+│ ├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤ │
+│ │  0  │  (12, 13)  │  LOAD_CONSTANT  │            R_INT_0 = C_INT_0            │ │
+│ │  1  │  (23, 24)  │      LESS       │    if R_INT_0 < C_INT_1 { JUMP +1 }     │ │
+│ │  2  │  (38, 39)  │      JUMP       │                 JUMP +2                 │ │
+│ │  3  │  (32, 34)  │       ADD       │       R_INT_0 = R_INT_0 + C_INT_2       │ │
+│ │  4  │  (38, 39)  │      JUMP       │                 JUMP -3                 │ │
+│ │  5  │  (39, 39)  │     RETURN      │                 RETURN                  │ │
+│ ╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯ │
+│                                      Locals                                      │
+│       ╭─────┬────────────────┬────────────────┬──────────┬───────┬───────╮       │
+│       │  i  │   identifier   │      type      │ register │ scope │mutable│       │
+│       ├─────┼────────────────┼────────────────┼──────────┼───────┼───────┤       │
+│       │  0  │       i        │      int       │ R_INT_0  │  0.0  │ true  │       │
+│       ╰─────┴────────────────┴────────────────┴──────────┴───────┴───────╯       │
+│                                    Constants                                     │
+│         ╭────────┬──────────────────────────┬──────────────────────────╮         │
+│         │   i    │           TYPE           │          VALUE           │         │
+│         ├────────┼──────────────────────────┼──────────────────────────┤         │
+│         │ INT_0  │           int            │            0             │         │
+│         │ INT_1  │           int            │            10            │         │
+│         │ INT_2  │           int            │            1             │         │
+│         │ STR_0  │           str            │            i             │         │
+│         ╰────────┴──────────────────────────┴──────────────────────────╯         │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+```
+
+</details>
+
+The instruction notation reflects the Dust VM's register-based architecture. Values are referred to
+by their address in the register or constant table. For example, `R_INT_42` refers to the
+forty-second integer register, and `C_INT_0` refers to the first integer constant.
+
+```text
+R_INT_0 = R_INT_0 + C_INT_2
+```
+
+The info section for the ADD instruction shows what the instruction does: it adds the value at
+`R_INT_0` to the value at `C_INT_2` and stores the result in `R_INT_0`. As the "Constants" section
+shows, `C_INT_2` is the integer constant `1`. This means that this add instruction increments the
+value in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the register used
+by the `i` variable.
+
 
 ## Installation
 
@@ -101,7 +208,7 @@ in scope.
 
 *The Implementation of Lua 5.0*[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
 Waldemar Celes was a great resource for understanding register-based virtual machines and their
-instructions. This paper was recommended by Bob Nystrom in [Crafting Interpreters].
+instructions. This paper was recommended by Bob Nystrom in *Crafting Interpreters*.
 
 *A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed
 information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
