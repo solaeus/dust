@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
+use crate::{DustString, Function, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
@@ -39,8 +39,14 @@ pub struct Chunk {
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) positions: Vec<Span>,
-    pub(crate) constants: Vec<Value>,
+
+    pub(crate) constant_characters: Vec<char>,
+    pub(crate) constant_floats: Vec<f64>,
+    pub(crate) constant_integers: Vec<i64>,
+    pub(crate) constant_strings: Vec<DustString>,
+
     pub(crate) locals: Vec<Local>,
+
     pub(crate) prototypes: Vec<Arc<Chunk>>,
 
     pub(crate) register_count: usize,
@@ -48,29 +54,6 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    #[cfg(any(test, debug_assertions))]
-    pub fn with_data(
-        name: Option<DustString>,
-        r#type: FunctionType,
-        instructions: impl Into<Vec<Instruction>>,
-        positions: impl Into<Vec<Span>>,
-        constants: impl Into<Vec<Value>>,
-        locals: impl Into<Vec<Local>>,
-        prototypes: impl IntoIterator<Item = Chunk>,
-    ) -> Self {
-        Self {
-            name,
-            r#type,
-            instructions: instructions.into(),
-            positions: positions.into(),
-            constants: constants.into(),
-            locals: locals.into(),
-            prototypes: prototypes.into_iter().map(Arc::new).collect(),
-            register_count: 0,
-            prototype_index: 0,
-        }
-    }
-
     pub fn as_function(&self) -> Function {
         Function {
             name: self.name.clone(),
@@ -125,7 +108,11 @@ impl PartialEq for Chunk {
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions
-            && self.constants == other.constants
+            && self.positions == other.positions
+            && self.constant_characters == other.constant_characters
+            && self.constant_floats == other.constant_floats
+            && self.constant_integers == other.constant_integers
+            && self.constant_strings == other.constant_strings
             && self.locals == other.locals
             && self.prototypes == other.prototypes
     }

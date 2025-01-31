@@ -1,18 +1,36 @@
-use std::{mem::replace, sync::Arc, thread::JoinHandle};
+use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{Chunk, DustString, Operand, Span, Value, vm::FunctionCall};
+use crate::{Chunk, DustString, Span, Value, vm::CallFrame};
 
-use super::{Pointer, Register, RunAction, Stack};
+use super::{Action, Register};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
+    call_stack: Vec<CallFrame>,
+    next_action: Action,
+    return_value: Option<Value>,
+    spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl Thread {
     pub fn new(chunk: Arc<Chunk>) -> Self {
-        Thread { chunk }
+        let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
+        let mut main_call = CallFrame::new(chunk.clone(), 0);
+        main_call.ip = 1; // The first action is already known
+
+        call_stack.push(main_call);
+
+        let first_action = Action::from(*chunk.instructions.first().unwrap());
+
+        Thread {
+            chunk,
+            call_stack,
+            next_action: first_action,
+            return_value: None,
+            spawned_threads: Vec::new(),
+        }
     }
 
     pub fn run(&mut self) -> Option<Value> {
@@ -24,247 +42,287 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
-        let mut call_stack = Stack::with_capacity(self.chunk.prototypes.len() + 1);
-        let mut main_call = FunctionCall::new(self.chunk.clone(), 0);
-        main_call.ip = 1; // The first action is already known
-
-        call_stack.push(main_call);
-
-        let first_action = RunAction::from(*self.chunk.instructions.first().unwrap());
-        let mut thread_data = ThreadData {
-            call_stack,
-            next_action: first_action,
-            return_value_index: None,
-            spawned_threads: Vec::new(),
-        };
-
         loop {
-            trace!("Instruction: {}", thread_data.next_action.instruction);
+            trace!("Instruction: {}", self.next_action.instruction);
 
-            let should_end = (thread_data.next_action.logic)(
-                thread_data.next_action.instruction,
-                &mut thread_data,
-            );
+            let should_end = (self.next_action.logic)(self.next_action.instruction, self);
 
             if should_end {
-                let value_option = if let Some(register_index) = thread_data.return_value_index {
-                    let value =
-                        thread_data.empty_register_or_clone_constant_unchecked(register_index);
+                self.spawned_threads.into_iter().for_each(|join_handle| {
+                    let _ = join_handle.join();
+                });
 
-                    Some(value)
-                } else {
-                    None
-                };
-
-                thread_data
-                    .spawned_threads
-                    .into_iter()
-                    .for_each(|join_handle| {
-                        let _ = join_handle.join();
-                    });
-
-                return value_option;
+                return self.return_value.take();
             }
         }
     }
-}
 
-#[derive(Debug)]
-pub struct ThreadData {
-    pub call_stack: Stack<FunctionCall>,
-    pub next_action: RunAction,
-    pub return_value_index: Option<u16>,
-    pub spawned_threads: Vec<JoinHandle<()>>,
-}
-
-impl ThreadData {
     pub fn current_position(&self) -> Span {
-        let current_call = self.call_stack.last_unchecked();
+        let current_frame = self.current_frame();
 
-        current_call.chunk.positions[current_call.ip]
+        current_frame.chunk.positions[current_frame.ip]
     }
 
-    pub(crate) fn follow_pointer_unchecked(&self, pointer: Pointer) -> &Value {
-        trace!("Follow {pointer}");
-
-        match pointer {
-            Pointer::Register(register_index) => self.open_register_unchecked(register_index),
-            Pointer::Constant(constant_index) => self.get_constant_unchecked(constant_index),
-            Pointer::Stack(stack_index, register_index) => unsafe {
-                let register = self
-                    .call_stack
-                    .get_unchecked(stack_index)
-                    .registers
-                    .get_unchecked(register_index as usize);
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.follow_pointer_unchecked(*pointer),
-                    Register::Empty => panic!("VM Error: Register {register_index} is empty"),
-                }
-            },
-        }
-    }
-
-    pub fn get_register_unchecked(&self, register_index: u16) -> &Register {
-        trace!("Get R{register_index}");
-
-        let register_index = register_index as usize;
-
+    pub fn current_frame(&self) -> &CallFrame {
         if cfg!(debug_assertions) {
-            &self.call_stack.last_unchecked().registers[register_index]
+            self.call_stack.last().unwrap()
         } else {
-            unsafe {
-                self.call_stack
-                    .last_unchecked()
-                    .registers
-                    .get_unchecked(register_index)
-            }
+            unsafe { self.call_stack.last().unwrap_unchecked() }
         }
     }
 
-    pub fn set_register(&mut self, to_register: u16, register: Register) {
-        let to_register = to_register as usize;
-
-        self.call_stack.last_mut_unchecked().registers[to_register] = register;
+    pub fn current_frame_mut(&mut self) -> &mut CallFrame {
+        if cfg!(debug_assertions) {
+            self.call_stack.last_mut().unwrap()
+        } else {
+            unsafe { self.call_stack.last_mut().unwrap_unchecked() }
+        }
     }
 
-    pub fn open_register_unchecked(&self, register_index: u16) -> &Value {
-        let register_index = register_index as usize;
+    pub fn get_frame(&self, index: usize) -> &CallFrame {
+        if cfg!(debug_assertions) {
+            self.call_stack.get(index).unwrap()
+        } else {
+            unsafe { self.call_stack.get_unchecked(index) }
+        }
+    }
 
+    pub fn get_boolean_register(&self, index: usize) -> bool {
         let register = if cfg!(debug_assertions) {
-            &self.call_stack.last_unchecked().registers[register_index]
+            self.current_frame()
+                .registers
+                .booleans
+                .get(index as usize)
+                .unwrap()
         } else {
             unsafe {
-                self.call_stack
-                    .last_unchecked()
+                self.current_frame()
                     .registers
-                    .get_unchecked(register_index)
+                    .booleans
+                    .get_unchecked(index as usize)
             }
         };
 
-        trace!("Open R{register_index} to {register}");
-
         match register {
-            Register::Value(value) => value,
-            Register::Pointer(pointer) => self.follow_pointer_unchecked(*pointer),
-            Register::Empty => panic!("VM Error: Register {register_index} is empty"),
+            Register::Value(boolean) => *boolean,
+            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Empty => panic!("Attempted to get a boolean from an empty register"),
         }
     }
 
-    pub fn open_register_allow_empty_unchecked(&self, register_index: u16) -> Option<&Value> {
-        trace!("Open R{register_index}");
-
-        let register = self.get_register_unchecked(register_index);
-
-        trace!("Open R{register_index} to {register}");
-
-        match register {
-            Register::Value(value) => Some(value),
-            Register::Pointer(pointer) => Some(self.follow_pointer_unchecked(*pointer)),
-            Register::Empty => None,
-        }
-    }
-
-    pub fn empty_register_or_clone_constant_unchecked(&mut self, register_index: u16) -> Value {
-        let register_index = register_index as usize;
-        let old_register = replace(
-            &mut self.call_stack.last_mut_unchecked().registers[register_index],
-            Register::Empty,
-        );
-
-        match old_register {
-            Register::Value(value) => value,
-            Register::Pointer(pointer) => match pointer {
-                Pointer::Register(register_index) => {
-                    self.empty_register_or_clone_constant_unchecked(register_index)
-                }
-                Pointer::Constant(constant_index) => {
-                    self.get_constant_unchecked(constant_index).clone()
-                }
-                Pointer::Stack(stack_index, register_index) => {
-                    let call = self.call_stack.get_unchecked_mut(stack_index);
-
-                    let old_register = replace(
-                        &mut call.registers[register_index as usize],
-                        Register::Empty,
-                    );
-
-                    match old_register {
-                        Register::Value(value) => value,
-                        Register::Pointer(pointer) => {
-                            self.follow_pointer_unchecked(pointer).clone()
-                        }
-                        Register::Empty => panic!("VM Error: Register {register_index} is empty"),
-                    }
-                }
-            },
-            Register::Empty => panic!("VM Error: Register {register_index} is empty"),
-        }
-    }
-
-    pub fn clone_register_value_or_constant_unchecked(&self, register_index: u16) -> Value {
-        let register = self.get_register_unchecked(register_index);
-
-        match register {
-            Register::Value(value) => value.clone(),
-            Register::Pointer(pointer) => match pointer {
-                Pointer::Register(register_index) => {
-                    self.open_register_unchecked(*register_index).clone()
-                }
-                Pointer::Constant(constant_index) => {
-                    self.get_constant_unchecked(*constant_index).clone()
-                }
-                Pointer::Stack(stack_index, register_index) => {
-                    let call = self.call_stack.get_unchecked(*stack_index);
-                    let register = &call.registers[*register_index as usize];
-
-                    match register {
-                        Register::Value(value) => value.clone(),
-                        Register::Pointer(pointer) => {
-                            self.follow_pointer_unchecked(*pointer).clone()
-                        }
-                        Register::Empty => panic!("VM Error: Register {register_index} is empty"),
-                    }
-                }
-            },
-            Register::Empty => panic!("VM Error: Register {register_index} is empty"),
-        }
-    }
-
-    /// DRY helper to get a value from an Argument
-    pub fn get_argument_unchecked(&self, argument: Operand) -> &Value {
-        match argument {
-            Operand::Constant(constant_index) => self.get_constant_unchecked(constant_index),
-            Operand::Register(register_index) => self.open_register_unchecked(register_index),
-        }
-    }
-
-    pub fn get_constant_unchecked(&self, constant_index: u16) -> &Value {
-        let constant_index = constant_index as usize;
-
-        if cfg!(debug_assertions) {
-            &self.call_stack.last().unwrap().chunk.constants[constant_index]
+    pub fn set_boolean_register(&mut self, index: usize, new_register: Register<bool>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .booleans
+                .get_mut(index as usize)
+                .unwrap()
         } else {
             unsafe {
-                self.call_stack
-                    .last_unchecked()
-                    .chunk
-                    .constants
-                    .get_unchecked(constant_index)
+                self.current_frame_mut()
+                    .registers
+                    .booleans
+                    .get_unchecked_mut(index as usize)
             }
+        };
+
+        *old_register = new_register;
+    }
+
+    pub fn get_byte_register(&self, index: usize) -> u8 {
+        let register = if cfg!(debug_assertions) {
+            self.current_frame()
+                .registers
+                .bytes
+                .get(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame()
+                    .registers
+                    .bytes
+                    .get_unchecked(index as usize)
+            }
+        };
+
+        match register {
+            Register::Value(byte) => *byte,
+            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Empty => panic!("Attempted to get a byte from an empty register"),
         }
     }
 
-    pub fn get_local_register(&self, local_index: u16) -> u16 {
-        let local_index = local_index as usize;
-        let chunk = &self.call_stack.last_unchecked().chunk;
+    pub fn set_byte_register(&mut self, index: usize, new_register: Register<u8>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .bytes
+                .get_mut(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame_mut()
+                    .registers
+                    .bytes
+                    .get_unchecked_mut(index as usize)
+            }
+        };
 
-        assert!(
-            local_index < chunk.locals.len(),
-            "VM Error: Local index out of bounds"
-        );
+        *old_register = new_register;
+    }
 
-        chunk.locals[local_index].register_index
+    pub fn get_character_register(&self, index: usize) -> char {
+        let register = if cfg!(debug_assertions) {
+            self.current_frame()
+                .registers
+                .characters
+                .get(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame()
+                    .registers
+                    .characters
+                    .get_unchecked(index as usize)
+            }
+        };
+
+        match register {
+            Register::Value(character) => *character,
+            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Empty => panic!("Attempted to get a character from an empty register"),
+        }
+    }
+
+    pub fn set_character_register(&mut self, index: usize, new_register: Register<char>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .characters
+                .get_mut(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame_mut()
+                    .registers
+                    .characters
+                    .get_unchecked_mut(index as usize)
+            }
+        };
+
+        *old_register = new_register;
+    }
+
+    pub fn get_float_register(&self, index: usize) -> f64 {
+        let register = if cfg!(debug_assertions) {
+            self.current_frame()
+                .registers
+                .floats
+                .get(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame()
+                    .registers
+                    .floats
+                    .get_unchecked(index as usize)
+            }
+        };
+
+        match register {
+            Register::Value(float) => *float,
+            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Empty => panic!("Attempted to get a float from an empty register"),
+        }
+    }
+
+    pub fn get_integer_register(&self, index: usize) -> i64 {
+        let register = if cfg!(debug_assertions) {
+            self.current_frame()
+                .registers
+                .integers
+                .get(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame()
+                    .registers
+                    .integers
+                    .get_unchecked(index as usize)
+            }
+        };
+
+        match register {
+            Register::Value(integer) => *integer,
+            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Empty => panic!("Attempted to get an integer from an empty register"),
+        }
+    }
+
+    pub fn set_integer_register(&mut self, index: usize, new_register: Register<i64>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .integers
+                .get_mut(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame_mut()
+                    .registers
+                    .integers
+                    .get_unchecked_mut(index as usize)
+            }
+        };
+
+        *old_register = new_register;
+    }
+
+    pub fn get_string_register(&self, index: usize) -> &DustString {
+        let register = if cfg!(debug_assertions) {
+            self.current_frame()
+                .registers
+                .strings
+                .get(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame()
+                    .registers
+                    .strings
+                    .get_unchecked(index as usize)
+            }
+        };
+
+        match register {
+            Register::Value(string) => string,
+            Register::Pointer(pointer) => {
+                if cfg!(debug_assertions) {
+                    unsafe { pointer.as_ref().unwrap() }
+                } else {
+                    unsafe { pointer.as_ref().unwrap_unchecked() }
+                }
+            }
+            Register::Empty => panic!("Attempted to get a string from an empty register"),
+        }
+    }
+
+    pub fn set_string_register(&mut self, index: usize, new_register: Register<DustString>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .strings
+                .get_mut(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame_mut()
+                    .registers
+                    .strings
+                    .get_unchecked_mut(index as usize)
+            }
+        };
+
+        *old_register = new_register;
     }
 }

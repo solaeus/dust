@@ -7,27 +7,27 @@ use crate::{
         LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
         Return, SetLocal, Subtract, Test, TestSet, TypeCode,
     },
-    vm::FunctionCall,
+    vm::CallFrame,
 };
 
 use super::{Pointer, Register, thread::ThreadData};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RunAction {
+pub struct Action {
     pub logic: RunnerLogic,
     pub instruction: Instruction,
 }
 
-impl From<Instruction> for RunAction {
+impl From<Instruction> for Action {
     fn from(instruction: Instruction) -> Self {
         let operation = instruction.operation();
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
 
-        RunAction { logic, instruction }
+        Action { logic, instruction }
     }
 }
 
-pub type RunnerLogic = fn(Instruction, &mut ThreadData) -> bool;
+pub type RunnerLogic = fn(Instruction, &mut Thread) -> bool;
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     point,
@@ -57,7 +57,7 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     r#return,
 ];
 
-pub(crate) fn get_next_action(data: &mut ThreadData) -> RunAction {
+pub(crate) fn get_next_action(data: &mut ThreadData) -> Action {
     let current_call = data.call_stack.last_mut_unchecked();
     let instruction = current_call.chunk.instructions[current_call.ip];
     let operation = instruction.operation();
@@ -65,7 +65,7 @@ pub(crate) fn get_next_action(data: &mut ThreadData) -> RunAction {
 
     current_call.ip += 1;
 
-    RunAction { logic, instruction }
+    Action { logic, instruction }
 }
 
 pub fn point(instruction: Instruction, data: &mut ThreadData) -> bool {
@@ -782,7 +782,7 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
 
         current_call.chunk.prototypes[function.prototype_index as usize].clone()
     };
-    let mut next_call = FunctionCall::new(prototype, return_register);
+    let mut next_call = CallFrame::new(prototype, return_register);
     let mut argument_index = 0;
 
     for register_index in first_argument_register..return_register {
