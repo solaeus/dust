@@ -1,16 +1,18 @@
 use std::{sync::Arc, thread::JoinHandle};
 
-use tracing::{info, trace};
+use tracing::{info, span};
 
-use crate::{Chunk, DustString, Span, Value, vm::CallFrame};
+use crate::{
+    Chunk, DustString, Span, Value,
+    vm::{CallFrame, action::ActionSequence},
+};
 
-use super::{Action, Register};
+use super::{Register, call_frame::Pointer};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
-    next_action: Action,
-    return_value: Option<Value>,
+    return_value: Option<Option<Value>>,
     spawned_threads: Vec<JoinHandle<()>>,
 }
 
@@ -22,18 +24,18 @@ impl Thread {
 
         call_stack.push(main_call);
 
-        let first_action = Action::from(*chunk.instructions.first().unwrap());
-
         Thread {
             chunk,
             call_stack,
-            next_action: first_action,
             return_value: None,
             spawned_threads: Vec::new(),
         }
     }
 
-    pub fn run(&mut self) -> Option<Value> {
+    pub fn run(mut self) -> Option<Value> {
+        let span = span!(tracing::Level::INFO, "Thread");
+        let _ = span.enter();
+
         info!(
             "Starting thread with {}",
             self.chunk
@@ -42,17 +44,20 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
+        let actions = ActionSequence::new(&self.chunk.instructions);
+
         loop {
-            trace!("Instruction: {}", self.next_action.instruction);
+            let ip = self.current_frame().ip;
+            let next_action = if cfg!(debug_assertions) {
+                actions.actions.get(ip).unwrap()
+            } else {
+                unsafe { actions.actions.get_unchecked(ip) }
+            };
 
-            let should_end = (self.next_action.logic)(self.next_action.instruction, self);
+            (next_action.logic)(next_action.instruction, &mut self);
 
-            if should_end {
-                self.spawned_threads.into_iter().for_each(|join_handle| {
-                    let _ = join_handle.join();
-                });
-
-                return self.return_value.take();
+            if let Some(return_value) = self.return_value {
+                return return_value;
             }
         }
     }
@@ -105,7 +110,7 @@ impl Thread {
 
         match register {
             Register::Value(boolean) => *boolean,
-            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Pointer(pointer) => self.follow_pointer_to_boolean(*pointer),
             Register::Empty => panic!("Attempted to get a boolean from an empty register"),
         }
     }
@@ -147,7 +152,7 @@ impl Thread {
 
         match register {
             Register::Value(byte) => *byte,
-            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Pointer(pointer) => self.follow_pointer_to_byte(*pointer),
             Register::Empty => panic!("Attempted to get a byte from an empty register"),
         }
     }
@@ -189,7 +194,7 @@ impl Thread {
 
         match register {
             Register::Value(character) => *character,
-            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Pointer(pointer) => self.follow_pointer_to_character(*pointer),
             Register::Empty => panic!("Attempted to get a character from an empty register"),
         }
     }
@@ -231,9 +236,28 @@ impl Thread {
 
         match register {
             Register::Value(float) => *float,
-            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Pointer(pointer) => self.follow_pointer_to_float(*pointer),
             Register::Empty => panic!("Attempted to get a float from an empty register"),
         }
+    }
+
+    pub fn set_float_register(&mut self, index: usize, new_register: Register<f64>) {
+        let old_register = if cfg!(debug_assertions) {
+            self.current_frame_mut()
+                .registers
+                .floats
+                .get_mut(index as usize)
+                .unwrap()
+        } else {
+            unsafe {
+                self.current_frame_mut()
+                    .registers
+                    .floats
+                    .get_unchecked_mut(index as usize)
+            }
+        };
+
+        *old_register = new_register;
     }
 
     pub fn get_integer_register(&self, index: usize) -> i64 {
@@ -254,7 +278,7 @@ impl Thread {
 
         match register {
             Register::Value(integer) => *integer,
-            Register::Pointer(pointer) => unsafe { **pointer },
+            Register::Pointer(pointer) => self.follow_pointer_to_integer(*pointer),
             Register::Empty => panic!("Attempted to get an integer from an empty register"),
         }
     }
@@ -296,13 +320,7 @@ impl Thread {
 
         match register {
             Register::Value(string) => string,
-            Register::Pointer(pointer) => {
-                if cfg!(debug_assertions) {
-                    unsafe { pointer.as_ref().unwrap() }
-                } else {
-                    unsafe { pointer.as_ref().unwrap_unchecked() }
-                }
-            }
+            Register::Pointer(pointer) => self.follow_pointer_to_string(*pointer),
             Register::Empty => panic!("Attempted to get a string from an empty register"),
         }
     }
@@ -324,5 +342,109 @@ impl Thread {
         };
 
         *old_register = new_register;
+    }
+
+    pub fn follow_pointer_to_boolean(&self, pointer: Pointer) -> bool {
+        match pointer {
+            Pointer::Register(register_index) => self.get_boolean_register(register_index),
+            Pointer::Constant(_) => {
+                panic!("Attempted to access boolean from a constant pointer")
+            }
+        }
+    }
+
+    pub fn follow_pointer_to_byte(&self, pointer: Pointer) -> u8 {
+        match pointer {
+            Pointer::Register(register_index) => self.get_byte_register(register_index),
+            Pointer::Constant(_) => {
+                panic!("Attempted to access byte from a constant pointer")
+            }
+        }
+    }
+
+    pub fn follow_pointer_to_character(&self, pointer: Pointer) -> char {
+        match pointer {
+            Pointer::Register(register_index) => self.get_character_register(register_index),
+            Pointer::Constant(constant_index) => {
+                if cfg!(debug_assertions) {
+                    *self
+                        .chunk
+                        .constant_characters
+                        .get(constant_index as usize)
+                        .unwrap()
+                } else {
+                    unsafe {
+                        *self
+                            .chunk
+                            .constant_characters
+                            .get_unchecked(constant_index as usize)
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn follow_pointer_to_float(&self, pointer: Pointer) -> f64 {
+        match pointer {
+            Pointer::Register(register_index) => self.get_float_register(register_index),
+            Pointer::Constant(constant_index) => {
+                if cfg!(debug_assertions) {
+                    *self
+                        .chunk
+                        .constant_floats
+                        .get(constant_index as usize)
+                        .unwrap()
+                } else {
+                    unsafe {
+                        *self
+                            .chunk
+                            .constant_floats
+                            .get_unchecked(constant_index as usize)
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn follow_pointer_to_integer(&self, pointer: Pointer) -> i64 {
+        match pointer {
+            Pointer::Register(register_index) => self.get_integer_register(register_index),
+            Pointer::Constant(constant_index) => {
+                if cfg!(debug_assertions) {
+                    *self
+                        .chunk
+                        .constant_integers
+                        .get(constant_index as usize)
+                        .unwrap()
+                } else {
+                    unsafe {
+                        *self
+                            .chunk
+                            .constant_integers
+                            .get_unchecked(constant_index as usize)
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn follow_pointer_to_string(&self, pointer: Pointer) -> &DustString {
+        match pointer {
+            Pointer::Register(register_index) => self.get_string_register(register_index),
+            Pointer::Constant(constant_index) => {
+                if cfg!(debug_assertions) {
+                    self.chunk
+                        .constant_strings
+                        .get(constant_index as usize)
+                        .unwrap()
+                } else {
+                    unsafe {
+                        self.chunk
+                            .constant_strings
+                            .get_unchecked(constant_index as usize)
+                    }
+                }
+            }
+        }
     }
 }

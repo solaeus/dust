@@ -2,57 +2,13 @@ use std::io::{Write, stdin, stdout};
 use std::ops::Range;
 
 use crate::{
-    ConcreteValue, Value,
-    vm::{Register, ThreadData, get_next_action},
+    Value,
+    instruction::InstructionBuilder,
+    vm::{Register, Thread},
 };
 
-pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range<u16>) -> bool {
-    let mut buffer = String::new();
+pub fn read_line(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-    if stdin().read_line(&mut buffer).is_ok() {
-        let length = buffer.len();
+pub fn write(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-        buffer.truncate(length.saturating_sub(1));
-
-        let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
-
-        data.set_register(destination, register);
-    }
-
-    data.next_action = get_next_action(data);
-
-    false
-}
-
-pub fn write(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
-    let mut stdout = stdout();
-
-    for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-        }
-    }
-
-    let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
-}
-
-pub fn write_line(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
-    let mut stdout = stdout().lock();
-
-    for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-            let _ = stdout.write(b"\n");
-        }
-    }
-
-    let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
-}
+pub fn write_line(instruction: InstructionBuilder, thread: &mut Thread) {}

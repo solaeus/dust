@@ -4,12 +4,13 @@ use std::fmt::Display;
 pub struct TypeCode(pub u8);
 
 impl TypeCode {
-    pub const BOOLEAN: TypeCode = TypeCode(0);
-    pub const BYTE: TypeCode = TypeCode(1);
-    pub const CHARACTER: TypeCode = TypeCode(2);
-    pub const FLOAT: TypeCode = TypeCode(3);
-    pub const INTEGER: TypeCode = TypeCode(4);
-    pub const STRING: TypeCode = TypeCode(5);
+    pub const NONE: TypeCode = TypeCode(0);
+    pub const BOOLEAN: TypeCode = TypeCode(1);
+    pub const BYTE: TypeCode = TypeCode(2);
+    pub const CHARACTER: TypeCode = TypeCode(3);
+    pub const FLOAT: TypeCode = TypeCode(4);
+    pub const INTEGER: TypeCode = TypeCode(5);
+    pub const STRING: TypeCode = TypeCode(6);
 
     pub fn panic_from_unknown_code(self) -> ! {
         panic!("Unknown type code: {}", self.0);

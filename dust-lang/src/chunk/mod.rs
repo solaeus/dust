@@ -49,6 +49,8 @@ pub struct Chunk {
 
     pub(crate) prototypes: Vec<Arc<Chunk>>,
 
+    pub(crate) argument_lists: Vec<Vec<u16>>,
+
     pub(crate) register_count: usize,
     pub(crate) prototype_index: u16,
 }

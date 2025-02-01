@@ -28,8 +28,8 @@ use crate::{Compiler, Instruction, Operation};
 /// The instructions must be in the following order:
 ///     - `TEST` or any of the `EQUAL`, `LESS` or `LESS_EQUAL` instructions
 ///     - `JUMP`
-///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
-///     - `LOAD_BOOLEAN` or `LOAD_CONSTANT`
+///     - `LOAD_ENCODED`
+///     - `LOAD_ENCODED`
 ///
 /// This optimization was taken from `A No-Frills Introduction to Lua 5.1 VM Instructions` by
 /// Kein-Hong Man.
@@ -39,8 +39,8 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
         Some([
             Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
             Operation::JUMP,
-            Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
-            Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
+            Operation::LOAD_ENCODED,
+            Operation::LOAD_ENCODED,
         ])
     ) {
         return;
@@ -51,14 +51,19 @@ pub fn control_flow_register_consolidation(compiler: &mut Compiler) {
     let first_loader_index = compiler.instructions.len() - 2;
     let (first_loader, _, _) = &mut compiler.instructions.get_mut(first_loader_index).unwrap();
     let first_loader_destination = first_loader.a_field();
-    *first_loader =
-        Instruction::load_boolean(first_loader.a_field(), first_loader.b_field() != 0, true);
+    *first_loader = Instruction::load_encoded(
+        first_loader.a_field(),
+        first_loader.b_field(),
+        first_loader.b_type(),
+        true,
+    );
 
     let second_loader_index = compiler.instructions.len() - 1;
     let (second_loader, _, _) = &mut compiler.instructions.get_mut(second_loader_index).unwrap();
-    *second_loader = Instruction::load_boolean(
+    *second_loader = Instruction::load_encoded(
         first_loader_destination,
-        second_loader.b_field() != 0,
+        second_loader.b_field(),
+        second_loader.b_type(),
         false,
     );
 }

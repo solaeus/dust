@@ -10,7 +10,6 @@ use std::{
 };
 
 pub use action::Action;
-pub(crate) use action::get_next_action;
 pub use call_frame::{CallFrame, Register, RegisterTable};
 pub use thread::Thread;
 
@@ -50,7 +49,7 @@ impl Vm {
         Builder::new()
             .name(thread_name)
             .spawn(move || {
-                let mut main_thread = Thread::new(main_chunk);
+                let main_thread = Thread::new(main_chunk);
                 let value_option = main_thread.run();
                 let _ = tx.send(value_option);
             })

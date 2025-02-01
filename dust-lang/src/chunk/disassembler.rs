@@ -43,7 +43,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Chunk, Local};
+use crate::{Chunk, Local, Type};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
@@ -66,11 +66,11 @@ const LOCAL_BORDERS: [&str; 3] = [
     "╰─────┴────────────────┴──────────┴───────┴───────╯",
 ];
 
-const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
+const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 11), ("TYPE", 26), ("VALUE", 26)];
 const CONSTANT_BORDERS: [&str; 3] = [
-    "╭─────┬──────────────────────────┬──────────────────────────╮",
-    "├─────┼──────────────────────────┼──────────────────────────┤",
-    "╰─────┴──────────────────────────┴──────────────────────────╯",
+    "╭───────────┬──────────────────────────┬──────────────────────────╮",
+    "├───────────┼──────────────────────────┼──────────────────────────┤",
+    "╰───────────┴──────────────────────────┴──────────────────────────╯",
 ];
 
 const INDENTATION: &str = "│  ";
@@ -314,6 +314,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             Local {
                 identifier_index,
                 register_index,
+                r#type,
                 scope,
                 is_mutable,
             },
@@ -321,7 +322,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         {
             let identifier_display = self
                 .chunk
-                .constants
+                .constant_strings
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
@@ -352,8 +353,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.constants.iter().enumerate() {
-            let type_display = value.r#type().to_string();
+        for (index, value) in self.chunk.constant_characters.iter().enumerate() {
+            let index_display = format!("C_CHAR_{index}");
+            let type_display = Type::Character.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
 
@@ -363,7 +365,46 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let constant_display =
+                format!("│{index_display:^11}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constant_floats.iter().enumerate() {
+            let index_display = format!("C_FLOAT_{index}");
+            let type_display = Type::Float.to_string();
+            let value_display = value.to_string();
+            let constant_display =
+                format!("│{index_display:^11}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constant_integers.iter().enumerate() {
+            let index_display = format!("C_INT_{index}");
+            let type_display = Type::Integer.to_string();
+            let value_display = value.to_string();
+            let constant_display =
+                format!("│{index_display:^11}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
+        for (index, value) in self.chunk.constant_strings.iter().enumerate() {
+            let index_display = format!("C_STR_{index}");
+            let type_display = Type::String.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let constant_display =
+                format!("│{index_display:^11}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
@@ -415,7 +456,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let info_line = format!(
             "{} instructions, {} constants, {} locals, returns {}",
             self.chunk.instructions.len(),
-            self.chunk.constants.len(),
+            self.chunk.constant_characters.len()
+                + self.chunk.constant_floats.len()
+                + self.chunk.constant_integers.len()
+                + self.chunk.constant_strings.len(),
             self.chunk.locals.len(),
             self.chunk.r#type.return_type
         );
@@ -431,7 +475,11 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_local_section()?;
         }
 
-        if !self.chunk.constants.is_empty() {
+        if !(self.chunk.constant_characters.is_empty()
+            && self.chunk.constant_floats.is_empty()
+            && self.chunk.constant_integers.is_empty()
+            && self.chunk.constant_strings.is_empty())
+        {
             self.write_constant_section()?;
         }
 

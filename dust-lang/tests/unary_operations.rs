@@ -39,7 +39,7 @@ fn not() {
                 return_type: Type::Boolean,
             },
             vec![
-                (Instruction::load_boolean(0, true, false), Span(1, 5)),
+                (Instruction::load_encoded(0, true, false), Span(1, 5)),
                 (Instruction::not(1, Operand::Register(0)), Span(0, 1)),
                 (Instruction::r#return(true), Span(5, 5)),
             ],

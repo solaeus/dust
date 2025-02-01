@@ -5,7 +5,7 @@ use std::{
 
 use smallvec::{SmallVec, smallvec};
 
-use crate::{Chunk, DustString};
+use crate::{Chunk, DustString, instruction::TypeCode};
 
 #[derive(Debug)]
 pub struct CallFrame {
@@ -69,5 +69,11 @@ impl RegisterTable {
 pub enum Register<T> {
     Empty,
     Value(T),
-    Pointer(*const T),
+    Pointer(Pointer),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Pointer {
+    Register(usize),
+    Constant(usize),
 }
