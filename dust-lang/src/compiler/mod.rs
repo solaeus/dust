@@ -703,7 +703,7 @@ impl<'src> Compiler<'src> {
 
                 (Operand::Register(local.register_index), false)
             }
-            Operation::LOAD_BOOLEAN
+            Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::ADD
@@ -1245,8 +1245,8 @@ impl<'src> Compiler<'src> {
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN
+                Operation::LOAD_ENCODED,
+                Operation::LOAD_ENCODED
             ]),
         ) {
             self.instructions.pop();
@@ -1308,7 +1308,7 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some(Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT) =
+                if let Some(Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT) =
                     self.get_last_operation()
                 {
                     let (loader, _, _) = self.instructions.last_mut().unwrap();
@@ -1358,8 +1358,8 @@ impl<'src> Compiler<'src> {
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN
+                Operation::LOAD_ENCODED,
+                Operation::LOAD_ENCODED
             ]),
         ) {
             self.instructions.pop();

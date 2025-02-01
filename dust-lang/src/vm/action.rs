@@ -3,8 +3,8 @@ use tracing::trace;
 use crate::{
     AbstractList, ConcreteValue, Instruction, Operand, Type, Value,
     instruction::{
-        Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
-        LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
+        Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadConstant,
+        LoadEncoded, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
         Return, SetLocal, Subtract, Test, TestSet, TypeCode,
     },
     vm::CallFrame,
@@ -97,7 +97,7 @@ pub fn close(instruction: Instruction, data: &mut ThreadData) -> bool {
 }
 
 pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> bool {
-    let LoadBoolean {
+    let LoadEncoded {
         destination,
         value,
         jump_next,
@@ -855,7 +855,7 @@ mod tests {
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 24] = [
         (Operation::POINT, point),
         (Operation::CLOSE, close),
-        (Operation::LOAD_BOOLEAN, load_boolean),
+        (Operation::LOAD_ENCODED, load_boolean),
         (Operation::LOAD_CONSTANT, load_constant),
         (Operation::LOAD_LIST, load_list),
         (Operation::LOAD_SELF, load_self),

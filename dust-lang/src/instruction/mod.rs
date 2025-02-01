@@ -103,8 +103,8 @@ mod get_local;
 mod jump;
 mod less;
 mod less_equal;
-mod load_boolean;
 mod load_constant;
+mod load_encoded;
 mod load_function;
 mod load_list;
 mod load_self;
@@ -131,8 +131,8 @@ pub use get_local::GetLocal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use load_boolean::LoadBoolean;
 pub use load_constant::LoadConstant;
+pub use load_encoded::LoadEncoded;
 pub use load_function::LoadFunction;
 pub use load_list::LoadList;
 pub use load_self::LoadSelf;
@@ -529,7 +529,7 @@ impl Instruction {
     pub fn as_argument(&self) -> Option<Operand> {
         match self.operation() {
             Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
-            Operation::LOAD_BOOLEAN
+            Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::GET_LOCAL
@@ -583,7 +583,7 @@ impl Instruction {
     pub fn yields_value(&self) -> bool {
         match self.operation() {
             Operation::POINT
-            | Operation::LOAD_BOOLEAN
+            | Operation::LOAD_ENCODED
             | Operation::LOAD_CONSTANT
             | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
@@ -621,7 +621,7 @@ impl Instruction {
         match operation {
             Operation::POINT => Point::from(*self).to_string(),
             Operation::CLOSE => Close::from(*self).to_string(),
-            Operation::LOAD_BOOLEAN => LoadBoolean::from(*self).to_string(),
+            Operation::LOAD_ENCODED => LoadBoolean::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),

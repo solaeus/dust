@@ -14,7 +14,7 @@ impl Operation {
     pub const CLOSE: Operation = Operation(1);
 
     // Loaders
-    pub const LOAD_BOOLEAN: Operation = Operation(2);
+    pub const LOAD_ENCODED: Operation = Operation(2);
     pub const LOAD_CONSTANT: Operation = Operation(3);
     pub const LOAD_FUNCTION: Operation = Operation(4);
     pub const LOAD_LIST: Operation = Operation(5);
@@ -58,7 +58,7 @@ impl Operation {
         match *self {
             Self::POINT => "POINT",
             Self::CLOSE => "CLOSE",
-            Self::LOAD_BOOLEAN => "LOAD_BOOLEAN",
+            Self::LOAD_ENCODED => "LOAD_ENCODED",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",
             Self::LOAD_FUNCTION => "LOAD_FUNCTION",
             Self::LOAD_LIST => "LOAD_LIST",
