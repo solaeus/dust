@@ -148,7 +148,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 pub use type_code::TypeCode;
 
-use crate::NativeFunction;
+use crate::{NativeFunction, Type};
 
 #[derive(Clone, Copy, Debug)]
 pub struct InstructionBuilder {
@@ -261,15 +261,21 @@ impl Instruction {
     }
 
     pub fn set_a_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 31;
+        let mut builder = InstructionBuilder::from(&*self);
+        builder.a_field = bits;
+        *self = builder.build();
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 47;
+        let mut builder = InstructionBuilder::from(&*self);
+        builder.b_field = bits;
+        *self = builder.build();
     }
 
     pub fn set_c_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 63;
+        let mut builder = InstructionBuilder::from(&*self);
+        builder.c_field = bits;
+        *self = builder.build();
     }
 
     pub fn point(destination: u16, to: u16, r#type: TypeCode) -> Instruction {
@@ -498,12 +504,14 @@ impl Instruction {
         destination: u16,
         function_register: u16,
         argument_count: u16,
+        return_type: TypeCode,
         is_recursive: bool,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function_register,
             argument_count,
+            return_type,
             is_recursive,
         })
     }
@@ -520,9 +528,14 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_register: u16) -> Instruction {
+    pub fn r#return(
+        should_return_value: bool,
+        return_type: TypeCode,
+        return_register: u16,
+    ) -> Instruction {
         Instruction::from(Return {
             should_return_value,
+            return_type,
             return_register,
         })
     }
@@ -537,7 +550,13 @@ impl Instruction {
 
     pub fn as_argument(&self) -> Option<Operand> {
         match self.operation() {
-            Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
+            Operation::LOAD_CONSTANT => match self.b_type() {
+                TypeCode::CHARACTER => Some(Operand::ConstantCharacter(self.b_field())),
+                TypeCode::FLOAT => Some(Operand::ConstantFloat(self.b_field())),
+                TypeCode::INTEGER => Some(Operand::ConstantInteger(self.b_field())),
+                TypeCode::STRING => Some(Operand::ConstantString(self.b_field())),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            },
             Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
@@ -551,12 +570,28 @@ impl Instruction {
             | Operation::LESS_EQUAL
             | Operation::NEGATE
             | Operation::NOT
-            | Operation::CALL => Some(Operand::Register(self.a_field())),
+            | Operation::CALL => match self.b_type() {
+                TypeCode::BOOLEAN => Some(Operand::RegisterBoolean(self.b_field())),
+                TypeCode::BYTE => Some(Operand::RegisterByte(self.b_field())),
+                TypeCode::CHARACTER => Some(Operand::RegisterCharacter(self.b_field())),
+                TypeCode::FLOAT => Some(Operand::RegisterFloat(self.b_field())),
+                TypeCode::INTEGER => Some(Operand::RegisterInteger(self.b_field())),
+                TypeCode::STRING => Some(Operand::RegisterString(self.b_field())),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            },
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
 
                 if function.returns_value() {
-                    Some(Operand::Register(self.a_field()))
+                    match function.r#type().return_type {
+                        Type::Boolean => Some(Operand::RegisterBoolean(self.b_field())),
+                        Type::Byte => Some(Operand::RegisterByte(self.b_field())),
+                        Type::Character => Some(Operand::RegisterCharacter(self.b_field())),
+                        Type::Float => Some(Operand::RegisterFloat(self.b_field())),
+                        Type::Integer => Some(Operand::RegisterInteger(self.b_field())),
+                        Type::String => Some(Operand::RegisterString(self.b_field())),
+                        unsupported => panic!("{unsupported} type is not supported here"),
+                    }
                 } else {
                     None
                 }
@@ -567,22 +602,46 @@ impl Instruction {
 
     pub fn b_as_argument(&self) -> Operand {
         if self.b_is_constant() {
-            Operand::Constant(self.b_field())
+            match self.b_type() {
+                TypeCode::CHARACTER => Operand::ConstantCharacter(self.b_field()),
+                TypeCode::FLOAT => Operand::ConstantFloat(self.b_field()),
+                TypeCode::INTEGER => Operand::ConstantInteger(self.b_field()),
+                TypeCode::STRING => Operand::ConstantString(self.b_field()),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            }
         } else {
-            Operand::Register(self.b_field())
+            match self.b_type() {
+                TypeCode::BOOLEAN => Operand::RegisterBoolean(self.b_field()),
+                TypeCode::BYTE => Operand::RegisterByte(self.b_field()),
+                TypeCode::CHARACTER => Operand::RegisterCharacter(self.b_field()),
+                TypeCode::FLOAT => Operand::RegisterFloat(self.b_field()),
+                TypeCode::INTEGER => Operand::RegisterInteger(self.b_field()),
+                TypeCode::STRING => Operand::RegisterString(self.b_field()),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            }
         }
     }
 
     pub fn b_and_c_as_operands(&self) -> (Operand, Operand) {
-        let left = if self.b_is_constant() {
-            Operand::Constant(self.b_field())
-        } else {
-            Operand::Register(self.b_field())
-        };
+        let left = self.b_as_argument();
         let right = if self.c_is_constant() {
-            Operand::Constant(self.c_field())
+            match self.c_type() {
+                TypeCode::CHARACTER => Operand::ConstantCharacter(self.c_field()),
+                TypeCode::FLOAT => Operand::ConstantFloat(self.c_field()),
+                TypeCode::INTEGER => Operand::ConstantInteger(self.c_field()),
+                TypeCode::STRING => Operand::ConstantString(self.c_field()),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            }
         } else {
-            Operand::Register(self.c_field())
+            match self.c_type() {
+                TypeCode::BOOLEAN => Operand::RegisterBoolean(self.c_field()),
+                TypeCode::BYTE => Operand::RegisterByte(self.c_field()),
+                TypeCode::CHARACTER => Operand::RegisterCharacter(self.c_field()),
+                TypeCode::FLOAT => Operand::RegisterFloat(self.c_field()),
+                TypeCode::INTEGER => Operand::RegisterInteger(self.c_field()),
+                TypeCode::STRING => Operand::RegisterString(self.c_field()),
+                unsupported => panic!("Unsupported type code: {}", unsupported.0),
+            }
         };
 
         (left, right)
@@ -668,30 +727,68 @@ impl Display for Instruction {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Operand {
-    Constant(u16),
-    Register(u16),
+    ConstantCharacter(u16),
+    ConstantFloat(u16),
+    ConstantInteger(u16),
+    ConstantString(u16),
+    RegisterBoolean(u16),
+    RegisterByte(u16),
+    RegisterCharacter(u16),
+    RegisterFloat(u16),
+    RegisterInteger(u16),
+    RegisterString(u16),
 }
 
 impl Operand {
     pub fn index(&self) -> u16 {
         match self {
-            Operand::Constant(index) => *index,
-            Operand::Register(index) => *index,
+            Operand::ConstantCharacter(index) => *index,
+            Operand::ConstantFloat(index) => *index,
+            Operand::ConstantInteger(index) => *index,
+            Operand::ConstantString(index) => *index,
+            Operand::RegisterBoolean(index) => *index,
+            Operand::RegisterByte(index) => *index,
+            Operand::RegisterCharacter(index) => *index,
+            Operand::RegisterFloat(index) => *index,
+            Operand::RegisterInteger(index) => *index,
+            Operand::RegisterString(index) => *index,
         }
     }
 
     pub fn is_constant(&self) -> bool {
-        matches!(self, Operand::Constant(_))
+        matches!(
+            self,
+            Operand::ConstantCharacter(_)
+                | Operand::ConstantFloat(_)
+                | Operand::ConstantInteger(_)
+                | Operand::ConstantString(_)
+        )
     }
 
     pub fn is_register(&self) -> bool {
-        matches!(self, Operand::Register(_))
+        matches!(
+            self,
+            Operand::RegisterBoolean(_)
+                | Operand::RegisterByte(_)
+                | Operand::RegisterCharacter(_)
+                | Operand::RegisterFloat(_)
+                | Operand::RegisterInteger(_)
+                | Operand::RegisterString(_)
+        )
     }
 
     pub fn as_index_and_constant_flag(&self) -> (u16, bool) {
         match self {
-            Operand::Constant(index) => (*index, true),
-            Operand::Register(index) => (*index, false),
+            Operand::ConstantCharacter(index) => (*index, true),
+            Operand::ConstantFloat(index) => (*index, true),
+            Operand::ConstantInteger(index) => (*index, true),
+            Operand::ConstantString(index) => (*index, true),
+            Operand::RegisterBoolean(index) => (*index, false),
+            Operand::RegisterByte(index) => (*index, false),
+            Operand::RegisterCharacter(index) => (*index, false),
+            Operand::RegisterFloat(index) => (*index, false),
+            Operand::RegisterInteger(index) => (*index, false),
+            Operand::RegisterString(index) => (*index, false),
         }
     }
 }
@@ -699,8 +796,16 @@ impl Operand {
 impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Operand::Constant(index) => write!(f, "C{index}"),
-            Operand::Register(index) => write!(f, "R{index}"),
+            Operand::ConstantCharacter(index) => write!(f, "C_CHAR_{index}"),
+            Operand::ConstantFloat(index) => write!(f, "C_FLOAT_{index}"),
+            Operand::ConstantInteger(index) => write!(f, "C_INT_{index}"),
+            Operand::ConstantString(index) => write!(f, "C_STR_{index}"),
+            Operand::RegisterBoolean(index) => write!(f, "R_BOOL_{index}"),
+            Operand::RegisterByte(index) => write!(f, "R_BYTE_{index}"),
+            Operand::RegisterCharacter(index) => write!(f, "R_CHAR_{index}"),
+            Operand::RegisterFloat(index) => write!(f, "R_FLOAT_{index}"),
+            Operand::RegisterInteger(index) => write!(f, "R_INT_{index}"),
+            Operand::RegisterString(index) => write!(f, "R_STR_{index}"),
         }
     }
 }
@@ -713,9 +818,9 @@ mod tests {
     fn decode_operation() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(40),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -726,9 +831,9 @@ mod tests {
     fn decode_a_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -739,9 +844,9 @@ mod tests {
     fn decode_b_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -752,9 +857,9 @@ mod tests {
     fn decode_c_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -765,22 +870,22 @@ mod tests {
     fn decode_d_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
-        assert!(instruction.d_field());
+        assert!(!instruction.d_field());
     }
 
     #[test]
     fn decode_b_is_constant() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -791,9 +896,9 @@ mod tests {
     fn decode_c_is_constant() {
         let instruction = Instruction::add(
             42,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::STRING,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::CHARACTER,
         );
 
@@ -804,9 +909,9 @@ mod tests {
     fn decode_b_type() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 
@@ -817,9 +922,9 @@ mod tests {
     fn decode_c_type() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
+            Operand::ConstantInteger(4),
             TypeCode::STRING,
-            Operand::Register(2),
+            Operand::RegisterInteger(2),
             TypeCode::CHARACTER,
         );
 

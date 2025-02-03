@@ -52,9 +52,9 @@ impl Display for LoadEncoded {
         } = self;
 
         match *r#type {
-            TypeCode::BOOLEAN => write!(f, "R{destination} = {}", *value != 0)?,
-            TypeCode::BYTE => write!(f, "R{destination} = {value}")?,
-            unsupported => unsupported.panic_from_unsupported_code(),
+            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination} = {}", *value != 0)?,
+            TypeCode::BYTE => write!(f, "R_BYTE_{destination} = {value}")?,
+            unsupported => panic!("Unsupported type code: {}", unsupported.0),
         };
 
         if *jump_next {

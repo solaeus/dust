@@ -44,6 +44,6 @@ impl Display for Test {
         } = self;
         let bang = if *test_value { "" } else { "!" };
 
-        write!(f, "if {bang}R{operand_register} {{ JUMP +1 }}")
+        write!(f, "if {bang}R_BOOL_{operand_register} {{ JUMP +1 }}")
     }
 }

@@ -53,7 +53,7 @@ impl Display for Point {
             TypeCode::FLOAT => write!(f, "R_FLOAT_{destination} = R_FLOAT_{to}"),
             TypeCode::INTEGER => write!(f, "R_INT_{destination} = R_INT_{to}"),
             TypeCode::STRING => write!(f, "R_STR_{destination} = R_STR_{to}"),
-            unsupported => unsupported.panic_from_unsupported_code(),
+            unsupported => panic!("Unsupported type code: {}", unsupported.0),
         }
     }
 }

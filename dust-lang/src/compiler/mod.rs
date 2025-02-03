@@ -118,10 +118,6 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     stack_size: usize,
 
-    /// Register usage tracker. This is used to determine the next available register of each
-    /// type.
-    register_usage: RegisterUsage,
-
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
     block_index: u8,
@@ -169,7 +165,6 @@ impl<'src> Compiler<'src> {
             argument_lists: Vec::new(),
             stack_size: 0,
             lexer,
-            register_usage: RegisterUsage::default(),
             block_index: 0,
             current_scope: Scope::default(),
             prototype_index: 0,
@@ -321,7 +316,7 @@ impl<'src> Compiler<'src> {
         if let Some(index) = self
             .constant_strings
             .iter()
-            .position(|constant| constant == &string)
+            .position(|constant| constant == string)
         {
             index as u16
         } else {
@@ -418,64 +413,116 @@ impl<'src> Compiler<'src> {
         self.instructions.push((instruction, r#type, position));
     }
 
-    fn emit_constant_character(
-        &mut self,
-        character: char,
-        position: Span,
-    ) -> Result<(), CompileError> {
-        let constant_index = self.constant_characters.len() as u16;
-
-        self.constant_characters.push(character);
-
-        let destination = self.register_usage.next_character_register();
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
-
-        self.emit_instruction(load_constant, Type::Character, position);
-
-        Ok(())
+    fn next_boolean_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Boolean {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
     }
 
-    fn emit_constant_float(&mut self, float: f64, position: Span) -> Result<(), CompileError> {
-        let constant_index = self.constant_floats.len() as u16;
-
-        self.constant_floats.push(float);
-
-        let destination = self.register_usage.next_float_register();
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
-
-        self.emit_instruction(load_constant, Type::Float, position);
-
-        Ok(())
+    fn next_byte_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Byte {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
     }
 
-    fn emit_constant_integer(&mut self, integer: i64, position: Span) -> Result<(), CompileError> {
-        let constant_index = self.constant_integers.len() as u16;
-
-        self.constant_integers.push(integer);
-
-        let destination = self.register_usage.next_integer_register();
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
-
-        self.emit_instruction(load_constant, Type::Integer, position);
-
-        Ok(())
+    fn next_character_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Character {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
     }
 
-    fn emit_constant_string(
-        &mut self,
-        string: DustString,
-        position: Span,
-    ) -> Result<(), CompileError> {
-        let constant_index = self.constant_strings.len() as u16;
+    fn next_float_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Float {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
+    }
 
-        self.constant_strings.push(string);
+    fn next_integer_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Integer {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
+    }
 
-        let destination = self.register_usage.next_string_register();
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
+    fn next_string_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if r#type == &Type::String {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
+    }
 
-        self.emit_instruction(load_constant, Type::String, position);
+    fn next_list_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if matches!(r#type, Type::List(_)) {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
+    }
 
-        Ok(())
+    fn next_function_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter_map(|(instruction, r#type, _)| {
+                if matches!(r#type, Type::Function(_)) {
+                    Some(instruction.a_field())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .map_or(0, |register| register + 1)
     }
 
     fn parse_boolean(&mut self) -> Result<(), CompileError> {
@@ -486,7 +533,7 @@ impl<'src> Compiler<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
             let boolean_encoded = boolean as u16;
-            let destination = self.register_usage.next_boolean_register();
+            let destination = self.next_boolean_register();
             let load_encoded =
                 Instruction::load_encoded(destination, boolean_encoded, TypeCode::BOOLEAN, false);
 
@@ -510,7 +557,7 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let destination = self.register_usage.next_byte_register();
+            let destination = self.next_byte_register();
             let load_encoded =
                 Instruction::load_encoded(destination, byte as u16, TypeCode::BYTE, true);
 
@@ -536,7 +583,7 @@ impl<'src> Compiler<'src> {
 
             self.constant_characters.push(character);
 
-            let destination = self.register_usage.next_character_register();
+            let destination = self.next_character_register();
             let load_constant = Instruction::load_constant(destination, constant_index, false);
 
             self.emit_instruction(load_constant, Type::Character, position);
@@ -567,7 +614,7 @@ impl<'src> Compiler<'src> {
 
             self.constant_floats.push(float);
 
-            let destination = self.register_usage.next_float_register();
+            let destination = self.next_float_register();
             let load_constant = Instruction::load_constant(destination, constant_index, false);
 
             self.emit_instruction(load_constant, Type::Float, position);
@@ -604,7 +651,7 @@ impl<'src> Compiler<'src> {
 
             self.constant_integers.push(integer);
 
-            let destination = self.register_usage.next_integer_register();
+            let destination = self.next_integer_register();
             let load_constant = Instruction::load_constant(destination, constant_index, false);
 
             self.emit_instruction(load_constant, Type::Integer, position);
@@ -629,7 +676,7 @@ impl<'src> Compiler<'src> {
 
             self.constant_strings.push(DustString::from(text));
 
-            let destination = self.register_usage.next_string_register();
+            let destination = self.next_string_register();
             let load_constant = Instruction::load_constant(destination, constant_index, false);
 
             self.emit_instruction(load_constant, Type::String, position);
@@ -661,7 +708,8 @@ impl<'src> Compiler<'src> {
 
         let (previous_instruction, previous_type, previous_position) =
             self.instructions.pop().unwrap();
-        let (argument, push_back) = self.handle_binary_argument(&previous_instruction)?;
+        let (argument, push_back) =
+            self.handle_binary_argument(&previous_instruction, &previous_type)?;
 
         if push_back {
             self.instructions.push((
@@ -672,21 +720,12 @@ impl<'src> Compiler<'src> {
         }
 
         let (destination, type_code) = match previous_type {
-            Type::Boolean => (
-                self.register_usage.next_boolean_register(),
-                TypeCode::BOOLEAN,
-            ),
-            Type::Byte => (self.register_usage.next_byte_register(), TypeCode::BYTE),
-            Type::Character => (
-                self.register_usage.next_character_register(),
-                TypeCode::CHARACTER,
-            ),
-            Type::Float => (self.register_usage.next_float_register(), TypeCode::FLOAT),
-            Type::Integer => (
-                self.register_usage.next_integer_register(),
-                TypeCode::INTEGER,
-            ),
-            Type::String => (self.register_usage.next_string_register(), TypeCode::STRING),
+            Type::Boolean => (self.next_boolean_register(), TypeCode::BOOLEAN),
+            Type::Byte => (self.next_byte_register(), TypeCode::BYTE),
+            Type::Character => (self.next_character_register(), TypeCode::CHARACTER),
+            Type::Float => (self.next_float_register(), TypeCode::FLOAT),
+            Type::Integer => (self.next_integer_register(), TypeCode::INTEGER),
+            Type::String => (self.next_string_register(), TypeCode::STRING),
             _ => match operator {
                 Token::Minus => {
                     return Err(CompileError::CannotNegateType {
@@ -723,29 +762,54 @@ impl<'src> Compiler<'src> {
     fn handle_binary_argument(
         &mut self,
         instruction: &Instruction,
+        instruction_type: &Type,
     ) -> Result<(Operand, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
-            Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
+            Operation::LOAD_CONSTANT => match instruction_type {
+                Type::Character => (Operand::ConstantCharacter(instruction.b_field()), false),
+                Type::Float => (Operand::ConstantFloat(instruction.b_field()), false),
+                Type::Integer => (Operand::ConstantInteger(instruction.b_field()), false),
+                Type::String => (Operand::ConstantString(instruction.b_field()), false),
+                unsupported => panic!("Unsupported type: {unsupported}"),
+            },
             Operation::POINT
             | Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
-            | Operation::LOAD_SELF
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
             | Operation::DIVIDE
             | Operation::MODULO
+            | Operation::LOAD_SELF
             | Operation::EQUAL
             | Operation::LESS
             | Operation::LESS_EQUAL
             | Operation::NEGATE
             | Operation::NOT
-            | Operation::CALL => (Operand::Register(instruction.a_field()), true),
+            | Operation::CALL => match instruction_type {
+                Type::Boolean => (Operand::RegisterBoolean(instruction.a_field()), true),
+                Type::Byte => (Operand::RegisterByte(instruction.a_field()), true),
+                Type::Character => (Operand::RegisterCharacter(instruction.a_field()), true),
+                Type::Float => (Operand::RegisterFloat(instruction.a_field()), true),
+                Type::Integer => (Operand::RegisterInteger(instruction.a_field()), true),
+                Type::String => (Operand::RegisterString(instruction.a_field()), true),
+                unsupported => panic!("{unsupported} type is not supported here"),
+            },
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(instruction.b_field());
 
                 if function.returns_value() {
-                    (Operand::Register(instruction.a_field()), true)
+                    match instruction_type {
+                        Type::Boolean => (Operand::RegisterBoolean(instruction.a_field()), true),
+                        Type::Byte => (Operand::RegisterByte(instruction.a_field()), true),
+                        Type::Character => {
+                            (Operand::RegisterCharacter(instruction.a_field()), true)
+                        }
+                        Type::Float => (Operand::RegisterFloat(instruction.a_field()), true),
+                        Type::Integer => (Operand::RegisterInteger(instruction.a_field()), true),
+                        Type::String => (Operand::RegisterString(instruction.a_field()), true),
+                        unsupported => panic!("{unsupported} type is not supported here"),
+                    }
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
@@ -772,11 +836,17 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction, &left_type)?;
         let left_is_mutable_local = self.locals.iter().any(|local| {
             matches!(
                 left,
-                Operand::Register(register) if register == local.register_index
+                Operand::RegisterBoolean(register)
+                | Operand::RegisterByte(register)
+                | Operand::RegisterCharacter(register)
+                | Operand::RegisterFloat(register)
+                | Operand::RegisterInteger(register)
+                | Operand::RegisterString(register)
+                if register == local.register_index
             ) && local.is_mutable
         });
 
@@ -820,7 +890,8 @@ impl<'src> Compiler<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+        let (right, push_back_right) =
+            self.handle_binary_argument(&right_instruction, &right_type)?;
 
         check_math_type(&right_type, operator, &right_position)?;
         check_math_types(
@@ -855,25 +926,33 @@ impl<'src> Compiler<'src> {
         };
         let destination = if is_assignment {
             match left {
-                Operand::Register(register) => register,
-                Operand::Constant(_) => match left_type {
-                    Type::Boolean => self.register_usage.next_boolean_register(),
-                    Type::Byte => self.register_usage.next_byte_register(),
-                    Type::Character => self.register_usage.next_character_register(),
-                    Type::Float => self.register_usage.next_float_register(),
-                    Type::Integer => self.register_usage.next_integer_register(),
-                    Type::String => self.register_usage.next_string_register(),
+                Operand::RegisterBoolean(register)
+                | Operand::RegisterByte(register)
+                | Operand::RegisterCharacter(register)
+                | Operand::RegisterFloat(register)
+                | Operand::RegisterInteger(register)
+                | Operand::RegisterString(register) => register,
+                Operand::ConstantCharacter(_)
+                | Operand::ConstantFloat(_)
+                | Operand::ConstantInteger(_)
+                | Operand::ConstantString(_) => match left_type {
+                    Type::Boolean => self.next_boolean_register(),
+                    Type::Byte => self.next_byte_register(),
+                    Type::Character => self.next_character_register(),
+                    Type::Float => self.next_float_register(),
+                    Type::Integer => self.next_integer_register(),
+                    Type::String => self.next_string_register(),
                     _ => unreachable!(),
                 },
             }
         } else {
             match left_type {
-                Type::Boolean => self.register_usage.next_boolean_register(),
-                Type::Byte => self.register_usage.next_byte_register(),
-                Type::Character => self.register_usage.next_character_register(),
-                Type::Float => self.register_usage.next_float_register(),
-                Type::Integer => self.register_usage.next_integer_register(),
-                Type::String => self.register_usage.next_string_register(),
+                Type::Boolean => self.next_boolean_register(),
+                Type::Byte => self.next_byte_register(),
+                Type::Character => self.next_character_register(),
+                Type::Float => self.next_float_register(),
+                Type::Integer => self.next_integer_register(),
+                Type::String => self.next_string_register(),
                 _ => unreachable!(),
             }
         };
@@ -939,7 +1018,7 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction, &left_type)?;
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
@@ -971,7 +1050,8 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+        let (right, push_back_right) =
+            self.handle_binary_argument(&right_instruction, &right_type)?;
 
         // TODO: Check if the right type is a valid type for comparison
         // TODO: Check if the left and right types are compatible
@@ -991,7 +1071,7 @@ impl<'src> Compiler<'src> {
                 .push((right_instruction, right_type, right_position));
         }
 
-        let destination = self.register_usage.next_boolean_register();
+        let destination = self.next_boolean_register();
         let comparison = match operator {
             Token::DoubleEqual => {
                 Instruction::equal(true, left, left_type_code, right, right_type_code)
@@ -1039,18 +1119,18 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
-        let (last_instruction, last_type, last_position) =
+        let (left_instruction, left_type, left_position) =
             self.instructions
                 .pop()
                 .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let operand_register = if last_instruction.yields_value() {
-            let register = last_instruction.a_field();
+        let operand_register = if left_instruction.yields_value() {
+            let register = left_instruction.a_field();
 
             self.instructions
-                .push((last_instruction, last_type, last_position));
+                .push((left_instruction, left_type, left_position));
 
             register
         } else {
@@ -1080,6 +1160,21 @@ impl<'src> Compiler<'src> {
         self.emit_instruction(jump, Type::None, operator_position);
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
+
+        let (mut right_instruction, right_type, right_position) = self
+            .instructions
+            .pop()
+            .ok_or_else(|| CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            })?;
+
+        // TODO: Check if the right type is a boolean
+
+        right_instruction.set_a_field(left_instruction.a_field());
+
+        self.instructions
+            .push((right_instruction, right_type, right_position));
 
         let instructions_length = self.instructions.len();
 
@@ -1124,7 +1219,7 @@ impl<'src> Compiler<'src> {
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
-            let destination = self.register_usage.next_function_register();
+            let destination = self.next_function_register();
             let load_self = Instruction::load_self(destination, false);
 
             self.emit_instruction(load_self, Type::SelfFunction, start_position);
@@ -1176,12 +1271,12 @@ impl<'src> Compiler<'src> {
                 math_instruction.set_a_field(local.register_index);
             } else {
                 let (register, r#type) = match local.r#type {
-                    Type::Boolean => (self.register_usage.boolean, TypeCode::BOOLEAN),
-                    Type::Byte => (self.register_usage.byte, TypeCode::BYTE),
-                    Type::Character => (self.register_usage.character, TypeCode::CHARACTER),
-                    Type::Float => (self.register_usage.float, TypeCode::FLOAT),
-                    Type::Integer => (self.register_usage.integer, TypeCode::INTEGER),
-                    Type::String => (self.register_usage.string, TypeCode::STRING),
+                    Type::Boolean => (self.next_boolean_register() - 1, TypeCode::BOOLEAN),
+                    Type::Byte => (self.next_byte_register() - 1, TypeCode::BYTE),
+                    Type::Character => (self.next_character_register() - 1, TypeCode::CHARACTER),
+                    Type::Float => (self.next_float_register() - 1, TypeCode::FLOAT),
+                    Type::Integer => (self.next_integer_register() - 1, TypeCode::INTEGER),
+                    Type::String => (self.next_string_register() - 1, TypeCode::STRING),
                     _ => unreachable!(),
                 };
                 let point = Instruction::point(local.register_index, register, r#type);
@@ -1193,21 +1288,12 @@ impl<'src> Compiler<'src> {
         }
 
         let (destination, r#type) = match local.r#type {
-            Type::Boolean => (
-                self.register_usage.next_boolean_register(),
-                TypeCode::BOOLEAN,
-            ),
-            Type::Byte => (self.register_usage.next_byte_register(), TypeCode::BYTE),
-            Type::Character => (
-                self.register_usage.next_character_register(),
-                TypeCode::CHARACTER,
-            ),
-            Type::Float => (self.register_usage.next_float_register(), TypeCode::FLOAT),
-            Type::Integer => (
-                self.register_usage.next_integer_register(),
-                TypeCode::INTEGER,
-            ),
-            Type::String => (self.register_usage.next_string_register(), TypeCode::STRING),
+            Type::Boolean => (self.next_boolean_register(), TypeCode::BOOLEAN),
+            Type::Byte => (self.next_byte_register(), TypeCode::BYTE),
+            Type::Character => (self.next_character_register(), TypeCode::CHARACTER),
+            Type::Float => (self.next_float_register(), TypeCode::FLOAT),
+            Type::Integer => (self.next_integer_register(), TypeCode::INTEGER),
+            Type::String => (self.next_string_register(), TypeCode::STRING),
             _ => unreachable!(),
         };
         let point = Instruction::point(destination, local.register_index, r#type);
@@ -1277,12 +1363,12 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
         } else {
             let operand_register = match r#type {
-                Type::Boolean => self.register_usage.next_boolean_register() - 1,
-                Type::Byte => self.register_usage.next_byte_register() - 1,
-                Type::Character => self.register_usage.next_character_register() - 1,
-                Type::Float => self.register_usage.next_float_register() - 1,
-                Type::Integer => self.register_usage.next_integer_register() - 1,
-                Type::String => self.register_usage.next_string_register() - 1,
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
                 _ => unreachable!(),
             };
             let test = Instruction::test(operand_register, true);
@@ -1400,12 +1486,12 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
         } else {
             let operand_register = match r#type {
-                Type::Boolean => self.register_usage.next_boolean_register() - 1,
-                Type::Byte => self.register_usage.next_byte_register() - 1,
-                Type::Character => self.register_usage.next_character_register() - 1,
-                Type::Float => self.register_usage.next_float_register() - 1,
-                Type::Integer => self.register_usage.next_integer_register() - 1,
-                Type::String => self.register_usage.next_string_register() - 1,
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
                 _ => unreachable!(),
             };
             let test = Instruction::test(operand_register, true);
@@ -1460,12 +1546,12 @@ impl<'src> Compiler<'src> {
             // TODO: Check if the argument type matches the expected type
 
             let argument_register = match argument_type {
-                Type::Boolean => self.register_usage.boolean,
-                Type::Byte => self.register_usage.byte,
-                Type::Character => self.register_usage.character,
-                Type::Float => self.register_usage.float,
-                Type::Integer => self.register_usage.integer,
-                Type::String => self.register_usage.string,
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
                 _ => unreachable!(),
             };
 
@@ -1479,12 +1565,12 @@ impl<'src> Compiler<'src> {
         let end = self.previous_position.1;
         let return_type = function.r#type().return_type;
         let destination = match return_type {
-            Type::Boolean => self.register_usage.next_boolean_register(),
-            Type::Byte => self.register_usage.next_byte_register(),
-            Type::Character => self.register_usage.next_character_register(),
-            Type::Float => self.register_usage.next_float_register(),
-            Type::Integer => self.register_usage.next_integer_register(),
-            Type::String => self.register_usage.next_string_register(),
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
             _ => unreachable!(),
         };
         let argument_list_index = self.argument_lists.len() as u16;
@@ -1558,18 +1644,25 @@ impl<'src> Compiler<'src> {
             };
         let end = self.current_position.1;
         let return_register = match self.r#type.return_type {
-            Type::Boolean => self.register_usage.boolean,
-            Type::Byte => self.register_usage.byte,
-            Type::Character => self.register_usage.character,
-            Type::Float => self.register_usage.float,
-            Type::Integer => self.register_usage.integer,
-            Type::String => self.register_usage.string,
+            Type::Boolean => self.next_boolean_register() - 1,
+            Type::Byte => self.next_byte_register() - 1,
+            Type::Character => self.next_character_register() - 1,
+            Type::Float => self.next_float_register() - 1,
+            Type::Integer => self.next_integer_register() - 1,
+            Type::String => self.next_string_register() - 1,
             _ => unreachable!(),
         };
-        let r#return = Instruction::from(Return {
-            should_return_value,
-            return_register,
-        });
+        let return_type_code = match self.r#type.return_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
+        let r#return =
+            Instruction::r#return(should_return_value, return_type_code, return_register);
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
 
@@ -1601,7 +1694,7 @@ impl<'src> Compiler<'src> {
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, 0);
+            let r#return = Instruction::r#return(false, TypeCode::NONE, 0);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
@@ -1621,7 +1714,18 @@ impl<'src> Compiler<'src> {
                 })?;
 
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::r#return(should_return_value, previous_register);
+            let return_type_code = match previous_expression_type {
+                Type::Boolean => TypeCode::BOOLEAN,
+                Type::Byte => TypeCode::BYTE,
+                Type::Character => TypeCode::CHARACTER,
+                Type::Float => TypeCode::FLOAT,
+                Type::Integer => TypeCode::INTEGER,
+                Type::String => TypeCode::STRING,
+                Type::None => TypeCode::NONE,
+                _ => unreachable!(),
+            };
+            let r#return =
+                Instruction::r#return(should_return_value, return_type_code, previous_register);
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -1680,12 +1784,12 @@ impl<'src> Compiler<'src> {
         // TODO: Check if the actual type matches the explicit type
 
         let register_index = match actual_type {
-            Type::Boolean => self.register_usage.boolean,
-            Type::Byte => self.register_usage.byte,
-            Type::Character => self.register_usage.character,
-            Type::Float => self.register_usage.float,
-            Type::Integer => self.register_usage.integer,
-            Type::String => self.register_usage.string,
+            Type::Boolean => self.next_boolean_register() - 1,
+            Type::Byte => self.next_byte_register() - 1,
+            Type::Character => self.next_character_register() - 1,
+            Type::Float => self.next_float_register() - 1,
+            Type::Integer => self.next_integer_register() - 1,
+            Type::String => self.next_string_register() - 1,
             _ => unreachable!(),
         };
 
@@ -1753,12 +1857,12 @@ impl<'src> Compiler<'src> {
             function_compiler.advance()?;
 
             let local_register_index = match r#type {
-                Type::Boolean => function_compiler.register_usage.next_boolean_register(),
-                Type::Byte => function_compiler.register_usage.next_byte_register(),
-                Type::Character => function_compiler.register_usage.next_character_register(),
-                Type::Float => function_compiler.register_usage.next_float_register(),
-                Type::Integer => function_compiler.register_usage.next_integer_register(),
-                Type::String => function_compiler.register_usage.next_string_register(),
+                Type::Boolean => function_compiler.next_boolean_register(),
+                Type::Byte => function_compiler.next_byte_register(),
+                Type::Character => function_compiler.next_character_register(),
+                Type::Float => function_compiler.next_float_register(),
+                Type::Integer => function_compiler.next_integer_register(),
+                Type::String => function_compiler.next_string_register(),
                 _ => unreachable!(),
             };
             let (_, identifier_index) = function_compiler.declare_local(
@@ -1807,7 +1911,7 @@ impl<'src> Compiler<'src> {
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
-        let destination = self.register_usage.next_function_register();
+        let destination = self.next_function_register();
 
         self.prototypes.push(Arc::new(chunk));
 
@@ -1868,6 +1972,15 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
+        let return_type_code = match function_return_type {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::String => TypeCode::STRING,
+            _ => unreachable!(),
+        };
         let is_recursive = last_instruction_type == &Type::SelfFunction;
 
         let mut argument_list = Vec::new();
@@ -1878,12 +1991,12 @@ impl<'src> Compiler<'src> {
 
             let argument_type = self.get_last_instruction_type();
             let argument_register = match argument_type {
-                Type::Boolean => self.register_usage.next_boolean_register(),
-                Type::Byte => self.register_usage.next_byte_register(),
-                Type::Character => self.register_usage.next_character_register(),
-                Type::Float => self.register_usage.next_float_register(),
-                Type::Integer => self.register_usage.next_integer_register(),
-                Type::String => self.register_usage.next_string_register(),
+                Type::Boolean => self.next_boolean_register(),
+                Type::Byte => self.next_byte_register(),
+                Type::Character => self.next_character_register(),
+                Type::Float => self.next_float_register(),
+                Type::Integer => self.next_integer_register(),
+                Type::String => self.next_string_register(),
                 _ => unreachable!(),
             };
 
@@ -1897,8 +2010,14 @@ impl<'src> Compiler<'src> {
         self.argument_lists.push(argument_list);
 
         let end = self.current_position.1;
-        let destination = self.register_usage.next_function_register();
-        let call = Instruction::call(destination, function_register, argument_count, is_recursive);
+        let destination = self.next_function_register();
+        let call = Instruction::call(
+            destination,
+            function_register,
+            argument_count,
+            return_type_code,
+            is_recursive,
+        );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
 
@@ -1947,92 +2066,5 @@ impl<'src> Compiler<'src> {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Default)]
-struct RegisterUsage {
-    boolean: u16,
-    byte: u16,
-    character: u16,
-    float: u16,
-    integer: u16,
-    string: u16,
-    list: u16,
-    function: u16,
-    argument: u16,
-}
-
-impl RegisterUsage {
-    fn next_boolean_register(&mut self) -> u16 {
-        let register = self.boolean;
-
-        self.boolean += 1;
-
-        register
-    }
-
-    fn next_byte_register(&mut self) -> u16 {
-        let register = self.byte;
-
-        self.byte += 1;
-
-        register
-    }
-
-    fn next_character_register(&mut self) -> u16 {
-        let register = self.character;
-
-        self.character += 1;
-
-        register
-    }
-
-    fn next_float_register(&mut self) -> u16 {
-        let register = self.float;
-
-        self.float += 1;
-
-        register
-    }
-
-    fn next_integer_register(&mut self) -> u16 {
-        let register = self.integer;
-
-        self.integer += 1;
-
-        register
-    }
-
-    fn next_string_register(&mut self) -> u16 {
-        let register = self.string;
-
-        self.string += 1;
-
-        register
-    }
-
-    fn next_list_register(&mut self) -> u16 {
-        let register = self.list;
-
-        self.list += 1;
-
-        register
-    }
-
-    fn next_function_register(&mut self) -> u16 {
-        let register = self.function;
-
-        self.function += 1;
-
-        register
-    }
-
-    fn next_argument_register(&mut self) -> u16 {
-        let register = self.argument;
-
-        self.argument += 1;
-
-        register
     }
 }

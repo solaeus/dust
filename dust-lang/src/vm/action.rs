@@ -91,7 +91,7 @@ pub fn point(instruction: InstructionBuilder, thread: &mut Thread) {
         TypeCode::STRING => {
             thread.set_string_register(destination, Register::Pointer(Pointer::Register(to)));
         }
-        unsupported => unsupported.panic_from_unsupported_code(),
+        unsupported => panic!("Unsupported type code: {}", unsupported.0),
     }
 }
 

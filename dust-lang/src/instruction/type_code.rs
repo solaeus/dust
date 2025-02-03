@@ -15,10 +15,6 @@ impl TypeCode {
     pub fn panic_from_unknown_code(self) -> ! {
         panic!("Unknown type code: {}", self.0);
     }
-
-    pub fn panic_from_unsupported_code(self) -> ! {
-        panic!("Type code {} is not supported in the context", self.0,);
-    }
 }
 
 impl Display for TypeCode {

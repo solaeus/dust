@@ -58,12 +58,17 @@ impl Display for Add {
             left,
             left_type,
             right,
-            right_type,
+            right_type: _,
         } = self;
 
-        write!(
-            f,
-            "R{destination} = {left}({left_type}) + {right}({right_type})",
-        )
+        match *left_type {
+            TypeCode::CHARACTER => write!(f, "R_STR_{destination}")?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination}")?,
+            TypeCode::INTEGER => write!(f, "R_INT_{destination}")?,
+            TypeCode::STRING => write!(f, "R_STR_{destination}")?,
+            unsupported => panic!("Unsupported type code: {}", unsupported.0),
+        }
+
+        write!(f, " = {left} + {right}",)
     }
 }
