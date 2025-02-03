@@ -2,20 +2,36 @@ use std::{mem::replace, sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{Chunk, DustString, Operand, Span, Value, vm::FunctionCall};
+use crate::{
+    Chunk, DustString, Operand, Span, Value,
+    vm::{CallFrame, action::ActionSequence},
+};
 
-use super::{Pointer, Register, RunAction, Stack};
+use super::{Pointer, Register};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
+    call_stack: Vec<CallFrame>,
+    return_value_index: Option<Option<usize>>,
+    spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl Thread {
     pub fn new(chunk: Arc<Chunk>) -> Self {
-        Thread { chunk }
+        let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
+        let main_call = CallFrame::new(Arc::clone(&chunk), 0);
+
+        call_stack.push(main_call);
+
+        Thread {
+            chunk,
+            call_stack,
+            return_value_index: None,
+            spawned_threads: Vec::new(),
+        }
     }
 
-    pub fn run(&mut self) -> Option<Value> {
+    pub fn run(mut self) -> Option<Value> {
         info!(
             "Starting thread with {}",
             self.chunk
@@ -24,64 +40,59 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
-        let mut call_stack = Stack::with_capacity(self.chunk.prototypes.len() + 1);
-        let mut main_call = FunctionCall::new(self.chunk.clone(), 0);
-        main_call.ip = 1; // The first action is already known
-
-        call_stack.push(main_call);
-
-        let first_action = RunAction::from(*self.chunk.instructions.first().unwrap());
-        let mut thread_data = ThreadData {
-            call_stack,
-            next_action: first_action,
-            return_value_index: None,
-            spawned_threads: Vec::new(),
-        };
+        let main_call = self.current_frame();
+        let action_sequence = ActionSequence::new(&main_call.chunk.instructions);
 
         loop {
-            trace!("Instruction: {}", thread_data.next_action.instruction);
+            let current_frame = self.current_frame_mut();
+            let ip = {
+                let ip = current_frame.ip;
+                current_frame.ip += 1;
 
-            let should_end = (thread_data.next_action.logic)(
-                thread_data.next_action.instruction,
-                &mut thread_data,
-            );
+                ip
+            };
+            let current_action = if cfg!(debug_assertions) {
+                action_sequence.actions.get(ip).unwrap()
+            } else {
+                unsafe { action_sequence.actions.get_unchecked(ip) }
+            };
 
-            if should_end {
-                let value_option = if let Some(register_index) = thread_data.return_value_index {
-                    let value =
-                        thread_data.empty_register_or_clone_constant_unchecked(register_index);
+            trace!("Operation: {}", current_action.instruction.operation);
 
-                    Some(value)
+            (current_action.logic)(current_action.instruction, &mut self);
+
+            if let Some(return_index_option) = self.return_value_index {
+                if let Some(return_index) = return_index_option {
+                    let return_value = self.open_register_unchecked(return_index as u16).clone();
+
+                    return Some(return_value);
                 } else {
-                    None
-                };
-
-                thread_data
-                    .spawned_threads
-                    .into_iter()
-                    .for_each(|join_handle| {
-                        let _ = join_handle.join();
-                    });
-
-                return value_option;
+                    return None;
+                }
             }
         }
     }
-}
 
-#[derive(Debug)]
-pub struct ThreadData {
-    pub call_stack: Stack<FunctionCall>,
-    pub next_action: RunAction,
-    pub return_value_index: Option<u16>,
-    pub spawned_threads: Vec<JoinHandle<()>>,
-}
-
-impl ThreadData {
     pub fn current_position(&self) -> Span {
-        let current_call = self.call_stack.last_unchecked();
+        let current_frame = self.current_frame();
 
-        current_call.chunk.positions[current_call.ip]
+        current_frame.chunk.positions[current_frame.ip]
+    }
+
+    pub fn current_frame(&self) -> &CallFrame {
+        if cfg!(debug_assertions) {
+            self.call_stack.last().unwrap()
+        } else {
+            unsafe { self.call_stack.last().unwrap_unchecked() }
+        }
+    }
+
+    pub fn current_frame_mut(&mut self) -> &mut CallFrame {
+        if cfg!(debug_assertions) {
+            self.call_stack.last_mut().unwrap()
+        } else {
+            unsafe { self.call_stack.last_mut().unwrap_unchecked() }
+        }
     }
 
     pub(crate) fn follow_pointer_unchecked(&self, pointer: Pointer) -> &Value {

@@ -56,15 +56,12 @@ impl Display for Less {
         let Less {
             comparator,
             left,
-            left_type,
+            left_type: _,
             right,
-            right_type,
+            right_type: _,
         } = self;
         let operator = if *comparator { "<" } else { "≥" };
 
-        write!(
-            f,
-            "if {left_type}({left}) {operator} {right_type}({right}) {{ JUMP +1 }}"
-        )
+        write!(f, "if {left} {operator} {right} {{ JUMP +1 }}")
     }
 }

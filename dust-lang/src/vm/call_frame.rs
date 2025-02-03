@@ -8,14 +8,14 @@ use crate::{Chunk, DustString};
 use super::Register;
 
 #[derive(Debug)]
-pub struct FunctionCall {
+pub struct CallFrame {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub return_register: u16,
     pub registers: Vec<Register>,
 }
 
-impl FunctionCall {
+impl CallFrame {
     pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
         let register_count = chunk.register_count;
 
@@ -28,7 +28,7 @@ impl FunctionCall {
     }
 }
 
-impl Display for FunctionCall {
+impl Display for CallFrame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,

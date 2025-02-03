@@ -56,14 +56,11 @@ impl Display for Add {
         let Add {
             destination,
             left,
-            left_type,
+            left_type: _,
             right,
-            right_type,
+            right_type: _,
         } = self;
 
-        write!(
-            f,
-            "R{destination} = {left}({left_type}) + {right}({right_type})",
-        )
+        write!(f, "R{destination} = {left} + {right}",)
     }
 }

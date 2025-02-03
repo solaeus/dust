@@ -3,31 +3,50 @@ use tracing::trace;
 use crate::{
     AbstractList, ConcreteValue, Instruction, Operand, Type, Value,
     instruction::{
-        Add, Call, CallNative, Close, Divide, Equal, GetLocal, Jump, Less, LessEqual, LoadBoolean,
-        LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not, Point,
-        Return, SetLocal, Subtract, Test, TestSet, TypeCode,
+        Add, Call, CallNative, Close, Divide, Equal, GetLocal, InstructionBuilder, Jump, Less,
+        LessEqual, LoadBoolean, LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply,
+        Negate, Not, Point, Return, SetLocal, Subtract, Test, TestSet, TypeCode,
     },
-    vm::FunctionCall,
+    vm::CallFrame,
 };
 
-use super::{Pointer, Register, thread::ThreadData};
+use super::{Pointer, Register, thread::Thread};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RunAction {
-    pub logic: RunnerLogic,
-    pub instruction: Instruction,
+pub struct ActionSequence {
+    pub actions: Vec<Action>,
 }
 
-impl From<Instruction> for RunAction {
-    fn from(instruction: Instruction) -> Self {
-        let operation = instruction.operation();
-        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
+impl ActionSequence {
+    pub fn new(instructions: &[Instruction]) -> Self {
+        let mut actions = Vec::with_capacity(instructions.len());
 
-        RunAction { logic, instruction }
+        for instruction in instructions {
+            let action = Action::from(*instruction);
+
+            actions.push(action);
+        }
+
+        ActionSequence { actions }
     }
 }
 
-pub type RunnerLogic = fn(Instruction, &mut ThreadData) -> bool;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Action {
+    pub logic: RunnerLogic,
+    pub instruction: InstructionBuilder,
+}
+
+impl From<&Instruction> for Action {
+    fn from(instruction: &Instruction) -> Self {
+        let operation = instruction.operation();
+        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
+        let instruction = InstructionBuilder::from(instruction);
+
+        Action { logic, instruction }
+    }
+}
+
+pub type RunnerLogic = fn(InstructionBuilder, &mut Thread) -> bool;
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     point,
@@ -57,18 +76,7 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 25] = [
     r#return,
 ];
 
-pub(crate) fn get_next_action(data: &mut ThreadData) -> RunAction {
-    let current_call = data.call_stack.last_mut_unchecked();
-    let instruction = current_call.chunk.instructions[current_call.ip];
-    let operation = instruction.operation();
-    let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
-
-    current_call.ip += 1;
-
-    RunAction { logic, instruction }
-}
-
-pub fn point(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn point(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Point { from, to } = instruction.into();
     let from_register = data.get_register_unchecked(from);
     let from_register_is_empty = matches!(from_register, Register::Empty);
@@ -84,7 +92,7 @@ pub fn point(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn close(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn close(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Close { from, to } = instruction.into();
 
     for register_index in from..to {
@@ -96,7 +104,7 @@ pub fn close(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn load_boolean(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LoadBoolean {
         destination,
         value,
@@ -118,7 +126,7 @@ pub fn load_boolean(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn load_constant(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn load_constant(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LoadConstant {
         destination,
         constant_index,
@@ -141,7 +149,7 @@ pub fn load_constant(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn load_list(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LoadList {
         destination,
         start_register,
@@ -183,7 +191,7 @@ pub fn load_list(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn load_function(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LoadFunction {
         destination,
         prototype_index,
@@ -202,7 +210,7 @@ pub fn load_function(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn load_self(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LoadSelf {
         destination,
         jump_next,
@@ -219,7 +227,7 @@ pub fn load_self(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn get_local(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn get_local(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let GetLocal {
         destination,
         local_index,
@@ -234,7 +242,7 @@ pub fn get_local(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn set_local(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn set_local(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let SetLocal {
         register_index,
         local_index,
@@ -249,7 +257,7 @@ pub fn set_local(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn add(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn add(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Add {
         destination,
         left,
@@ -297,7 +305,7 @@ pub fn add(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn subtract(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn subtract(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Subtract {
         destination,
         left,
@@ -345,7 +353,7 @@ pub fn subtract(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn multiply(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Multiply {
         destination,
         left,
@@ -393,7 +401,7 @@ pub fn multiply(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn divide(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn divide(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Divide {
         destination,
         left,
@@ -441,7 +449,7 @@ pub fn divide(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn modulo(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Modulo {
         destination,
         left,
@@ -475,7 +483,7 @@ pub fn modulo(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn test(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn test(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Test {
         operand_register,
         test_value,
@@ -498,7 +506,7 @@ pub fn test(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn test_set(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let TestSet {
         destination,
         argument,
@@ -527,7 +535,7 @@ pub fn test_set(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn equal(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Equal {
         comparator,
         left,
@@ -606,7 +614,7 @@ pub fn equal(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn less(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Less {
         comparator,
         left,
@@ -657,7 +665,7 @@ pub fn less(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn less_equal(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let LessEqual {
         comparator,
         left,
@@ -708,7 +716,7 @@ pub fn less_equal(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn negate(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn negate(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Negate {
         destination,
         argument,
@@ -725,7 +733,7 @@ pub fn negate(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn not(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn not(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Not {
         destination,
         argument,
@@ -744,7 +752,7 @@ pub fn not(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn jump(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn jump(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Jump {
         offset,
         is_positive,
@@ -763,7 +771,7 @@ pub fn jump(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn call(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let Call {
         destination: return_register,
         function_register,
@@ -782,7 +790,7 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
 
         current_call.chunk.prototypes[function.prototype_index as usize].clone()
     };
-    let mut next_call = FunctionCall::new(prototype, return_register);
+    let mut next_call = CallFrame::new(prototype, return_register);
     let mut argument_index = 0;
 
     for register_index in first_argument_register..return_register {
@@ -804,7 +812,7 @@ pub fn call(instruction: Instruction, data: &mut ThreadData) -> bool {
     false
 }
 
-pub fn call_native(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn call_native(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     let CallNative {
         destination,
         function,
@@ -816,7 +824,7 @@ pub fn call_native(instruction: Instruction, data: &mut ThreadData) -> bool {
     function.call(data, destination, argument_range)
 }
 
-pub fn r#return(instruction: Instruction, data: &mut ThreadData) -> bool {
+pub fn r#return(instruction: InstructionBuilder, data: &mut Thread) -> bool {
     trace!("Returning with call stack:\n{}", data.call_stack);
 
     let Return {

@@ -154,6 +154,7 @@ pub use type_code::TypeCode;
 
 use crate::NativeFunction;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InstructionBuilder {
     pub operation: Operation,
     pub a_field: u16,
@@ -179,6 +180,22 @@ impl InstructionBuilder {
             | (self.c_field as u64);
 
         Instruction(bits)
+    }
+}
+
+impl From<&Instruction> for InstructionBuilder {
+    fn from(instruction: &Instruction) -> Self {
+        InstructionBuilder {
+            operation: instruction.operation(),
+            a_field: instruction.a_field(),
+            b_field: instruction.b_field(),
+            c_field: instruction.c_field(),
+            d_field: instruction.d_field(),
+            b_is_constant: instruction.b_is_constant(),
+            c_is_constant: instruction.c_is_constant(),
+            b_type: instruction.b_type(),
+            c_type: instruction.c_type(),
+        }
     }
 }
 
