@@ -697,7 +697,7 @@ impl<'src> Compiler<'src> {
     ) -> Result<(Operand, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
             Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
-            Operation::POINT => (Operand::Register(instruction.a_field()), false),
+            Operation::POINT => (instruction.b_as_operand(), false),
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF

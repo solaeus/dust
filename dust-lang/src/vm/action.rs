@@ -99,10 +99,6 @@ pub fn load_function(instruction: InstructionBuilder, thread: &mut Thread) {}
 
 pub fn load_self(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-pub fn get_local(instruction: InstructionBuilder, thread: &mut Thread) {}
-
-pub fn set_local(instruction: InstructionBuilder, thread: &mut Thread) {}
-
 pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {}
 
 pub fn subtract(instruction: InstructionBuilder, thread: &mut Thread) {}
