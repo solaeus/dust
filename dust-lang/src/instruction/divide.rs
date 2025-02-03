@@ -56,14 +56,11 @@ impl Display for Divide {
         let Divide {
             destination,
             left,
-            left_type,
+            left_type: _,
             right,
-            right_type,
+            right_type: _,
         } = self;
 
-        write!(
-            f,
-            "R{destination} = {left_type}({left}) ÷ {right_type}({right})",
-        )
+        write!(f, "R{destination} = {left} ÷ {right}",)
     }
 }

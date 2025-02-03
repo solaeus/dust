@@ -46,9 +46,9 @@ impl Display for Negate {
         let Negate {
             destination,
             argument,
-            argument_type,
+            ..
         } = self;
 
-        write!(f, "R{destination} = -{argument_type}({argument})")
+        write!(f, "R{destination} = -{argument}")
     }
 }

@@ -56,15 +56,12 @@ impl Display for Equal {
         let Equal {
             comparator,
             left,
-            left_type,
+            left_type: _,
             right,
-            right_type,
+            right_type: _,
         } = self;
         let operator = if *comparator { "==" } else { "≠" };
 
-        write!(
-            f,
-            "if {left}({left_type}) {operator} {right}({right_type}) {{ JUMP +1 }}"
-        )
+        write!(f, "if {left} {operator} {right} {{ JUMP +1 }}")
     }
 }
