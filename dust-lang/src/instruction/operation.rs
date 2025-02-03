@@ -20,51 +20,44 @@ impl Operation {
     pub const LOAD_LIST: Operation = Operation(5);
     pub const LOAD_SELF: Operation = Operation(6);
 
-    // Locals
-    pub const GET_LOCAL: Operation = Operation(7);
-    pub const SET_LOCAL: Operation = Operation(8);
-
     // Arithmetic
-    pub const ADD: Operation = Operation(9);
-    pub const SUBTRACT: Operation = Operation(10);
-    pub const MULTIPLY: Operation = Operation(11);
-    pub const DIVIDE: Operation = Operation(12);
-    pub const MODULO: Operation = Operation(13);
+    pub const ADD: Operation = Operation(7);
+    pub const SUBTRACT: Operation = Operation(8);
+    pub const MULTIPLY: Operation = Operation(9);
+    pub const DIVIDE: Operation = Operation(10);
+    pub const MODULO: Operation = Operation(11);
 
     // Comparison
-    pub const EQUAL: Operation = Operation(14);
-    pub const LESS: Operation = Operation(15);
-    pub const LESS_EQUAL: Operation = Operation(16);
+    pub const EQUAL: Operation = Operation(12);
+    pub const LESS: Operation = Operation(13);
+    pub const LESS_EQUAL: Operation = Operation(14);
 
     // Unary operations
-    pub const NEGATE: Operation = Operation(17);
-    pub const NOT: Operation = Operation(18);
+    pub const NEGATE: Operation = Operation(15);
+    pub const NOT: Operation = Operation(16);
 
     // Logical operations
-    pub const TEST: Operation = Operation(19);
-    pub const TEST_SET: Operation = Operation(20);
+    pub const TEST: Operation = Operation(17);
+    pub const TEST_SET: Operation = Operation(18);
 
     // Function calls
-    pub const CALL: Operation = Operation(21);
-    pub const CALL_NATIVE: Operation = Operation(22);
+    pub const CALL: Operation = Operation(19);
+    pub const CALL_NATIVE: Operation = Operation(20);
 
     // Control flow
-    pub const JUMP: Operation = Operation(23);
-    pub const RETURN: Operation = Operation(24);
+    pub const JUMP: Operation = Operation(21);
+    pub const RETURN: Operation = Operation(22);
 }
 
 impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
             Self::POINT => "POINT",
-            Self::CLOSE => "CLOSE",
             Self::LOAD_BOOLEAN => "LOAD_BOOLEAN",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",
             Self::LOAD_FUNCTION => "LOAD_FUNCTION",
             Self::LOAD_LIST => "LOAD_LIST",
             Self::LOAD_SELF => "LOAD_SELF",
-            Self::GET_LOCAL => "GET_LOCAL",
-            Self::SET_LOCAL => "SET_LOCAL",
             Self::ADD => "ADD",
             Self::SUBTRACT => "SUBTRACT",
             Self::MULTIPLY => "MULTIPLY",

@@ -3,27 +3,32 @@ use std::{
     sync::Arc,
 };
 
+use smallvec::{SmallVec, smallvec};
+
 use crate::{Chunk, DustString};
 
-use super::Register;
+use super::{Register, action::ActionSequence};
 
 #[derive(Debug)]
 pub struct CallFrame {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
     pub return_register: u16,
-    pub registers: Vec<Register>,
+    pub registers: SmallVec<[Register; 64]>,
+    pub action_sequence: ActionSequence,
 }
 
 impl CallFrame {
     pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
-        let register_count = chunk.register_count;
+        let registers = smallvec![Register::Empty; chunk.register_count];
+        let action_sequence = ActionSequence::new(&chunk.instructions);
 
         Self {
             chunk,
             ip: 0,
             return_register,
-            registers: vec![Register::Empty; register_count],
+            registers,
+            action_sequence,
         }
     }
 }

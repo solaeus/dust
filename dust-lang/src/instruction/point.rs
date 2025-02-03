@@ -2,18 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::{InstructionBuilder, Operand};
 
 pub struct Point {
-    pub from: u16,
-    pub to: u16,
+    pub destination: u16,
+    pub to: Operand,
 }
 
 impl From<Instruction> for Point {
     fn from(instruction: Instruction) -> Self {
         Point {
-            from: instruction.b_field(),
-            to: instruction.c_field(),
+            destination: instruction.a_field(),
+            to: instruction.b_as_operand(),
         }
     }
 }
@@ -21,13 +21,14 @@ impl From<Instruction> for Point {
 impl From<Point> for Instruction {
     fn from(r#move: Point) -> Self {
         let operation = Operation::POINT;
-        let b_field = r#move.from;
-        let c_field = r#move.to;
+        let a_field = r#move.destination;
+        let (b_field, b_is_constant) = r#move.to.as_index_and_constant_flag();
 
         InstructionBuilder {
             operation,
+            a_field,
             b_field,
-            c_field,
+            b_is_constant,
             ..Default::default()
         }
         .build()
@@ -36,8 +37,8 @@ impl From<Point> for Instruction {
 
 impl Display for Point {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Point { from, to } = self;
+        let Point { destination, to } = self;
 
-        write!(f, "{from} -> {to}")
+        write!(f, "R{destination} -> {to}")
     }
 }

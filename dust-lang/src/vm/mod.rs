@@ -10,7 +10,6 @@ use std::{
 };
 
 pub use action::Action;
-pub(crate) use action::get_next_action;
 pub use call_frame::CallFrame;
 pub use thread::Thread;
 
@@ -73,17 +72,17 @@ impl Display for Register {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Empty => write!(f, "empty"),
-            Self::Value(value) => write!(f, "{}", value),
-            Self::Pointer(pointer) => write!(f, "{}", pointer),
+            Self::Value(value) => write!(f, "{value}"),
+            Self::Pointer(pointer) => write!(f, "{pointer}"),
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Pointer {
-    Register(u16),
-    Constant(u16),
-    Stack(usize, u16),
+    Register(usize),
+    Constant(usize),
+    Stack(usize, usize),
 }
 
 impl Display for Pointer {

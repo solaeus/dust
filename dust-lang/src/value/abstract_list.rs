@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{vm::ThreadData, Pointer, Type};
+use crate::{Pointer, Type, vm::Thread};
 
 use super::DustString;
 
@@ -11,17 +11,17 @@ pub struct AbstractList {
 }
 
 impl AbstractList {
-    pub fn display(&self, data: &ThreadData) -> DustString {
+    pub fn display(&self, thread: &Thread) -> DustString {
         let mut display = DustString::new();
 
         display.push('[');
 
-        for (i, item) in self.item_pointers.iter().enumerate() {
+        for (i, pointer) in self.item_pointers.iter().enumerate() {
             if i > 0 {
                 display.push_str(", ");
             }
 
-            let item_display = data.follow_pointer_unchecked(*item).display(data);
+            let item_display = thread.get_pointer_value(pointer).to_string();
 
             display.push_str(&item_display);
         }

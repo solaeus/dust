@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Type, vm::ThreadData};
+use crate::{Type, vm::Thread};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
@@ -219,7 +219,7 @@ impl Value {
         }
     }
 
-    pub fn display(&self, data: &ThreadData) -> DustString {
+    pub fn display(&self, data: &Thread) -> DustString {
         match self {
             Value::AbstractList(list) => list.display(data),
             Value::Concrete(concrete_value) => concrete_value.display(),

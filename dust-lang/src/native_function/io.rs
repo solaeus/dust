@@ -3,10 +3,10 @@ use std::ops::Range;
 
 use crate::{
     ConcreteValue, Value,
-    vm::{Register, ThreadData, get_next_action},
+    vm::{Register, Thread},
 };
 
-pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range<u16>) -> bool {
+pub fn read_line(data: &mut Thread, destination: usize, _argument_range: Range<usize>) {
     let mut buffer = String::new();
 
     if stdin().read_line(&mut buffer).is_ok() {
@@ -14,45 +14,32 @@ pub fn read_line(data: &mut ThreadData, destination: u16, _argument_range: Range
 
         buffer.truncate(length.saturating_sub(1));
 
-        let register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
+        let new_register = Register::Value(Value::Concrete(ConcreteValue::string(buffer)));
+        let old_register = data.get_register_mut(destination);
 
-        data.set_register(destination, register);
+        *old_register = new_register;
     }
-
-    data.next_action = get_next_action(data);
-
-    false
 }
 
-pub fn write(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
+pub fn write(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let mut stdout = stdout();
 
     for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-        }
+        let value = data.get_register(register_index);
+        let _ = stdout.write(value.to_string().as_bytes());
     }
 
     let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
 }
 
-pub fn write_line(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
+pub fn write_line(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
-        if let Some(value) = data.open_register_allow_empty_unchecked(register_index) {
-            let string = value.display(data);
-            let _ = stdout.write(string.as_bytes());
-            let _ = stdout.write(b"\n");
-        }
+        let value = data.get_register(register_index);
+        let _ = stdout.write(value.to_string().as_bytes());
     }
 
+    let _ = stdout.write(b"\n");
     let _ = stdout.flush();
-    data.next_action = get_next_action(data);
-
-    false
 }

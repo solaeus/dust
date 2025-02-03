@@ -1,17 +1,13 @@
 use std::{ops::Range, panic};
 
-use crate::vm::ThreadData;
+use crate::vm::Thread;
 
-pub fn panic(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
+pub fn panic(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let position = data.current_position();
     let mut message = format!("Dust panic at {position}!");
 
     for register_index in argument_range {
-        let value_option = data.open_register_allow_empty_unchecked(register_index);
-        let value = match value_option {
-            Some(value) => value,
-            None => continue,
-        };
+        let value = data.get_register(register_index);
         let string = value.display(data);
 
         message.push_str(&string);

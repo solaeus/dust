@@ -35,7 +35,7 @@ use optimize::control_flow_register_consolidation;
 use crate::{
     Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type, Value,
-    instruction::{CallNative, Close, GetLocal, Jump, LoadList, Return, SetLocal, TypeCode},
+    instruction::{CallNative, Close, Jump, LoadList, Point, Return, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -697,12 +697,7 @@ impl<'src> Compiler<'src> {
     ) -> Result<(Operand, bool), CompileError> {
         let (argument, push_back) = match instruction.operation() {
             Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
-            Operation::GET_LOCAL => {
-                let local_index = instruction.b_field();
-                let (local, _) = self.get_local(local_index)?;
-
-                (Operand::Register(local.register_index), false)
-            }
+            Operation::POINT => (Operand::Register(instruction.a_field()), false),
             Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
@@ -749,11 +744,11 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
-        let left_is_mutable_local = if let Operation::GET_LOCAL = left_instruction.operation() {
-            let GetLocal { local_index, .. } = GetLocal::from(left_instruction);
+        let left_is_mutable_local = if left_instruction.operation() == Operation::POINT {
+            let Point { to, .. } = Point::from(left_instruction);
 
             self.locals
-                .get(local_index as usize)
+                .get(to.index() as usize)
                 .map(|(local, _)| local.is_mutable)
                 .unwrap_or(false)
         } else {
@@ -1008,8 +1003,9 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let operand_register = if last_instruction.operation() == Operation::GET_LOCAL {
-            let (local, _) = self.get_local(last_instruction.b_field())?;
+        let operand_register = if last_instruction.operation() == Operation::POINT {
+            let Point { to, .. } = Point::from(last_instruction);
+            let (local, _) = self.get_local(to.index())?;
 
             local.register_index
         } else if last_instruction.yields_value() {
@@ -1138,24 +1134,18 @@ impl<'src> Compiler<'src> {
                 math_instruction.set_a_field(local_register_index);
             } else {
                 let register = self.next_register() - 1;
-                let set_local = Instruction::from(SetLocal {
-                    register_index: register,
-                    local_index,
-                });
+                let point = Instruction::point(local_register_index, Operand::Register(register));
 
-                self.emit_instruction(set_local, Type::None, start_position);
+                self.emit_instruction(point, r#type, start_position);
             }
 
             return Ok(());
         }
 
         let destination = self.next_register();
-        let get_local = Instruction::from(GetLocal {
-            destination,
-            local_index,
-        });
+        let point = Instruction::point(destination, Operand::Register(local_register_index));
 
-        self.emit_instruction(get_local, r#type, self.previous_position);
+        self.emit_instruction(point, r#type, self.previous_position);
 
         Ok(())
     }

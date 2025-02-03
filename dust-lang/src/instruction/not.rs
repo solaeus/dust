@@ -12,7 +12,7 @@ pub struct Not {
 impl From<Instruction> for Not {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.a_field();
-        let argument = instruction.b_as_argument();
+        let argument = instruction.b_as_operand();
 
         Not {
             destination,

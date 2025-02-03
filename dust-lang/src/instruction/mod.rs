@@ -99,7 +99,6 @@ mod call_native;
 mod close;
 mod divide;
 mod equal;
-mod get_local;
 mod jump;
 mod less;
 mod less_equal;
@@ -115,7 +114,6 @@ mod not;
 mod operation;
 mod point;
 mod r#return;
-mod set_local;
 mod subtract;
 mod test;
 mod test_set;
@@ -127,7 +125,6 @@ pub use call_native::CallNative;
 pub use close::Close;
 pub use divide::Divide;
 pub use equal::Equal;
-pub use get_local::GetLocal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
@@ -143,7 +140,6 @@ pub use not::Not;
 pub use operation::Operation;
 pub use point::Point;
 pub use r#return::Return;
-pub use set_local::SetLocal;
 pub use subtract::Subtract;
 pub use test::Test;
 pub use test_set::TestSet;
@@ -276,8 +272,8 @@ impl Instruction {
         self.0 = (bits as u64) << 63;
     }
 
-    pub fn point(from: u16, to: u16) -> Instruction {
-        Instruction::from(Point { from, to })
+    pub fn point(destination: u16, to: Operand) -> Instruction {
+        Instruction::from(Point { destination, to })
     }
 
     pub fn close(from: u16, to: u16) -> Instruction {
@@ -320,20 +316,6 @@ impl Instruction {
         Instruction::from(LoadSelf {
             destination,
             jump_next,
-        })
-    }
-
-    pub fn get_local(destination: u16, local_index: u16) -> Instruction {
-        Instruction::from(GetLocal {
-            destination,
-            local_index,
-        })
-    }
-
-    pub fn set_local(register: u16, local_index: u16) -> Instruction {
-        Instruction::from(SetLocal {
-            local_index,
-            register_index: register,
         })
     }
 
@@ -546,10 +528,10 @@ impl Instruction {
     pub fn as_argument(&self) -> Option<Operand> {
         match self.operation() {
             Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
-            Operation::LOAD_BOOLEAN
+            Operation::POINT
+            | Operation::LOAD_BOOLEAN
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
-            | Operation::GET_LOCAL
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -574,7 +556,7 @@ impl Instruction {
         }
     }
 
-    pub fn b_as_argument(&self) -> Operand {
+    pub fn b_as_operand(&self) -> Operand {
         if self.b_is_constant() {
             Operand::Constant(self.b_field())
         } else {
@@ -605,7 +587,6 @@ impl Instruction {
             | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
-            | Operation::GET_LOCAL
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -619,9 +600,7 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::CLOSE
-            | Operation::SET_LOCAL
-            | Operation::EQUAL
+            Operation::EQUAL
             | Operation::LESS
             | Operation::LESS_EQUAL
             | Operation::TEST
@@ -637,14 +616,11 @@ impl Instruction {
 
         match operation {
             Operation::POINT => Point::from(*self).to_string(),
-            Operation::CLOSE => Close::from(*self).to_string(),
             Operation::LOAD_BOOLEAN => LoadBoolean::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),
             Operation::LOAD_SELF => LoadSelf::from(*self).to_string(),
-            Operation::GET_LOCAL => GetLocal::from(*self).to_string(),
-            Operation::SET_LOCAL => SetLocal::from(*self).to_string(),
             Operation::ADD => Add::from(*self).to_string(),
             Operation::SUBTRACT => Subtract::from(*self).to_string(),
             Operation::MULTIPLY => Multiply::from(*self).to_string(),

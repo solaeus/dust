@@ -5,60 +5,12 @@ use std::{
 
 use tracing::{Level, info, span};
 
-use crate::{
-    DustString,
-    vm::{Thread, ThreadData, get_next_action},
-};
+use crate::{DustString, vm::Thread};
 
-fn start_thread(data: &mut ThreadData, argument_range: Range<u16>) -> JoinHandle<()> {
-    let mut argument_range_iter = argument_range.into_iter();
-    let function_argument = {
-        loop {
-            let register_index = argument_range_iter
-                .next()
-                .unwrap_or_else(|| panic!("No argument was passed to \"spawn\""));
-            let value_option = data.open_register_allow_empty_unchecked(register_index);
-
-            if let Some(argument) = value_option {
-                break argument;
-            }
-        }
-    };
-    let function = function_argument.as_function().unwrap();
-    let prototype_index = function.prototype_index as usize;
-    let current_call = data.call_stack.last_unchecked();
-    let prototype = current_call.chunk.prototypes[prototype_index].clone();
-
-    info!(
-        "Spawning thread for \"{}\"",
-        function
-            .name
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| DustString::from("anonymous"))
-    );
-
-    let thread_name = prototype
-        .name
-        .as_ref()
-        .map(|name| name.to_string())
-        .unwrap_or_else(|| "anonymous".to_string());
-    let mut thread = Thread::new(prototype);
-
-    Builder::new()
-        .name(thread_name)
-        .spawn(move || {
-            let span = span!(Level::INFO, "Spawned thread");
-            let _enter = span.enter();
-
-            thread.run();
-        })
-        .expect("Critical VM Error: Failed to spawn thread")
+fn start_thread(thread: &mut Thread, argument_range: Range<usize>) -> JoinHandle<()> {
+    todo!();
 }
 
-pub fn spawn(data: &mut ThreadData, _: u16, argument_range: Range<u16>) -> bool {
+pub fn spawn(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let _ = start_thread(data, argument_range);
-    data.next_action = get_next_action(data);
-
-    false
 }
