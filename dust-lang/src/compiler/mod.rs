@@ -1608,6 +1608,9 @@ impl<'src> Compiler<'src> {
             self.current_scope,
         );
 
+        // The last instruction is now an assignment, so it should not yield a value
+        self.instructions.last_mut().unwrap().1 = Type::None;
+
         Ok(())
     }
 
