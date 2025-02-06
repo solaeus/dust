@@ -787,7 +787,7 @@ mod tests {
             TypeCode::CHARACTER,
         );
 
-        assert!(instruction.d_field());
+        assert!(!instruction.d_field());
     }
 
     #[test]
