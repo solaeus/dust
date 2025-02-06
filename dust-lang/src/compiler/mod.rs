@@ -629,11 +629,12 @@ impl<'src> Compiler<'src> {
         if let Token::Boolean(text) = self.current_token {
             self.advance()?;
 
-            let boolean = text.parse::<bool>().unwrap();
+            let boolean = text.parse::<bool>().unwrap() as u16;
             let destination = self.next_boolean_register();
-            let load_boolean = Instruction::load_boolean(destination, boolean, false);
+            let load_encoded =
+                Instruction::load_encoded(destination, boolean, TypeCode::BOOLEAN, false);
 
-            self.emit_instruction(load_boolean, Type::Boolean, position);
+            self.emit_instruction(load_encoded, Type::Boolean, position);
 
             Ok(())
         } else {
@@ -652,10 +653,12 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let byte = u8::from_str_radix(&text[2..], 16)
-                .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let value = ConcreteValue::Byte(byte);
+                .map_err(|error| CompileError::ParseIntError { error, position })?
+                as u16;
+            let destination = self.next_byte_register();
+            let load_encoded = Instruction::load_encoded(destination, byte, TypeCode::BYTE, false);
 
-            self.emit_constant(value, position)?;
+            self.emit_instruction(load_encoded, Type::Byte, position);
 
             Ok(())
         } else {
@@ -836,7 +839,7 @@ impl<'src> Compiler<'src> {
         let (argument, push_back) = match instruction.operation() {
             Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
             Operation::POINT => (instruction.b_as_operand(), false),
-            Operation::LOAD_BOOLEAN
+            Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::ADD
@@ -1114,8 +1117,10 @@ impl<'src> Compiler<'src> {
             }
         };
         let jump = Instruction::jump(1, true);
-        let load_true = Instruction::load_boolean(destination, true, true);
-        let load_false = Instruction::load_boolean(destination, false, false);
+        let load_true =
+            Instruction::load_encoded(destination, true as u16, TypeCode::BOOLEAN, true);
+        let load_false =
+            Instruction::load_encoded(destination, false as u16, TypeCode::BOOLEAN, false);
 
         self.emit_instruction(comparison, Type::Boolean, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
@@ -1385,8 +1390,8 @@ impl<'src> Compiler<'src> {
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN
+                Operation::LOAD_ENCODED,
+                Operation::LOAD_ENCODED
             ]),
         ) {
             self.instructions.pop();
@@ -1456,7 +1461,7 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some([Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT, _]) =
+                if let Some([Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT, _]) =
                     self.get_last_operations()
                 {
                     let loader_index = self.instructions.len() - 2;
@@ -1491,7 +1496,7 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
 
-        let if_block_last_instruction_index = self.instructions.len() - else_block_distance - 1;
+        let if_block_last_instruction_index = self.instructions.len() - else_block_distance;
         let else_block_last_instruction_index = self.instructions.len() - 1;
 
         let if_block_last_instruction = self.instructions[if_block_last_instruction_index].0;
@@ -1499,8 +1504,6 @@ impl<'src> Compiler<'src> {
             &mut self.instructions[else_block_last_instruction_index].0;
 
         else_block_last_instruction.set_a_field(if_block_last_instruction.a_field());
-
-        println!("{if_block_last_instruction_index} {else_block_last_instruction_index}");
 
         Ok(())
     }
@@ -1517,8 +1520,8 @@ impl<'src> Compiler<'src> {
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_BOOLEAN,
-                Operation::LOAD_BOOLEAN
+                Operation::LOAD_ENCODED,
+                Operation::LOAD_ENCODED
             ]),
         ) {
             self.instructions.pop();

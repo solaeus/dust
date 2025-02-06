@@ -15,10 +15,10 @@ fn true_or_false() {
                 return_type: Type::Boolean,
             },
             smallvec![
-                Instruction::load_boolean(0, true, false),
+                Instruction::load_encoded(0, true, false),
                 Instruction::test(0, false),
                 Instruction::jump(1, true),
-                Instruction::load_boolean(1, false, false),
+                Instruction::load_encoded(1, false, false),
                 Instruction::r#return(true),
             ],
             smallvec![

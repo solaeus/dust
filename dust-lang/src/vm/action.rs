@@ -276,7 +276,7 @@ mod tests {
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 23] = [
         (Operation::POINT, point),
         (Operation::CLOSE, close),
-        (Operation::LOAD_BOOLEAN, load_boolean),
+        (Operation::LOAD_ENCODED, load_boolean),
         (Operation::LOAD_CONSTANT, load_constant),
         (Operation::LOAD_FUNCTION, load_function),
         (Operation::LOAD_LIST, load_list),

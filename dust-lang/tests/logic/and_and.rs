@@ -15,13 +15,13 @@ fn true_and_true_and_true() {
                 return_type: Type::Boolean,
             },
             smallvec![
-                Instruction::load_boolean(0, true, false),
+                Instruction::load_encoded(0, true, false),
                 Instruction::test(0, true),
                 Instruction::jump(1, true),
-                Instruction::load_boolean(1, true, false),
+                Instruction::load_encoded(1, true, false),
                 Instruction::test(1, true),
                 Instruction::jump(1, true),
-                Instruction::load_boolean(2, true, false),
+                Instruction::load_encoded(2, true, false),
                 Instruction::r#return(true),
             ],
             smallvec![
