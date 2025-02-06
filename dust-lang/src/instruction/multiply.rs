@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Multiply {
     pub destination: u16,
@@ -36,7 +36,7 @@ impl From<Multiply> for Instruction {
         let b_type = multiply.left_type;
         let c_type = multiply.right_type;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

@@ -151,7 +151,7 @@ pub use type_code::TypeCode;
 use crate::NativeFunction;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InstructionBuilder {
+pub struct InstructionFields {
     pub operation: Operation,
     pub a_field: u16,
     pub b_field: u16,
@@ -163,7 +163,7 @@ pub struct InstructionBuilder {
     pub c_type: TypeCode,
 }
 
-impl InstructionBuilder {
+impl InstructionFields {
     pub fn build(self) -> Instruction {
         let bits = ((self.operation.0 as u64) << 57)
             | ((self.b_is_constant as u64) << 56)
@@ -179,9 +179,9 @@ impl InstructionBuilder {
     }
 }
 
-impl From<&Instruction> for InstructionBuilder {
+impl From<&Instruction> for InstructionFields {
     fn from(instruction: &Instruction) -> Self {
-        InstructionBuilder {
+        InstructionFields {
             operation: instruction.operation(),
             a_field: instruction.a_field(),
             b_field: instruction.b_field(),
@@ -195,9 +195,9 @@ impl From<&Instruction> for InstructionBuilder {
     }
 }
 
-impl Default for InstructionBuilder {
+impl Default for InstructionFields {
     fn default() -> Self {
-        InstructionBuilder {
+        InstructionFields {
             operation: Operation::POINT,
             a_field: 0,
             b_field: 0,
@@ -261,15 +261,21 @@ impl Instruction {
     }
 
     pub fn set_a_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 31;
+        let mut fields = InstructionFields::from(&*self);
+        fields.a_field = bits;
+        *self = fields.build();
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 47;
+        let mut fields = InstructionFields::from(&*self);
+        fields.b_field = bits;
+        *self = fields.build();
     }
 
     pub fn set_c_field(&mut self, bits: u16) {
-        self.0 = (bits as u64) << 63;
+        let mut fields = InstructionFields::from(&*self);
+        fields.c_field = bits;
+        *self = fields.build();
     }
 
     pub fn point(destination: u16, to: Operand) -> Instruction {
@@ -288,10 +294,16 @@ impl Instruction {
         })
     }
 
-    pub fn load_constant(destination: u16, constant_index: u16, jump_next: bool) -> Instruction {
+    pub fn load_constant(
+        destination: u16,
+        constant_index: u16,
+        constant_type: TypeCode,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadConstant {
             destination,
             constant_index,
+            constant_type,
             jump_next,
         })
     }

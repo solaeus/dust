@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Less {
     pub comparator: bool,
@@ -36,7 +36,7 @@ impl From<Less> for Instruction {
         let b_type = less.left_type;
         let c_type = less.right_type;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             b_field,
             c_field,

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct Jump {
     pub offset: u16,
@@ -24,7 +24,7 @@ impl From<Jump> for Instruction {
         let b_field = jump.offset;
         let c_field = jump.is_positive as u16;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             b_field,
             c_field,

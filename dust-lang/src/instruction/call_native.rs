@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{Instruction, NativeFunction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct CallNative {
     pub destination: u16,
@@ -30,7 +30,7 @@ impl From<CallNative> for Instruction {
         let b_field = call_native.function as u16;
         let c_field = call_native.argument_count;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

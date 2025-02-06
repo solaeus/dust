@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct Test {
     pub operand_register: u16,
@@ -26,7 +26,7 @@ impl From<Test> for Instruction {
         let b_field = test.operand_register;
         let c_field = test.test_value as u16;
 
-        InstructionBuilder {
+        InstructionFields {
             operation: Operation::TEST,
             b_field,
             c_field,

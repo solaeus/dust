@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Function, FunctionType, Instruction, Span, Value};
+use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span, Value};
 
 /// Representation of a Dust program or function.
 ///
@@ -39,38 +39,22 @@ pub struct Chunk {
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) positions: Vec<Span>,
-    pub(crate) constants: Vec<Value>,
+    pub(crate) constants: Vec<ConcreteValue>,
     pub(crate) locals: Vec<Local>,
     pub(crate) prototypes: Vec<Arc<Chunk>>,
 
-    pub(crate) register_count: usize,
+    pub(crate) boolean_register_count: usize,
+    pub(crate) byte_register_count: usize,
+    pub(crate) character_register_count: usize,
+    pub(crate) float_register_count: usize,
+    pub(crate) integer_register_count: usize,
+    pub(crate) string_register_count: usize,
+    pub(crate) list_register_count: usize,
+    pub(crate) function_register_count: usize,
     pub(crate) prototype_index: u16,
 }
 
 impl Chunk {
-    #[cfg(any(test, debug_assertions))]
-    pub fn with_data(
-        name: Option<DustString>,
-        r#type: FunctionType,
-        instructions: impl Into<Vec<Instruction>>,
-        positions: impl Into<Vec<Span>>,
-        constants: impl Into<Vec<Value>>,
-        locals: impl Into<Vec<Local>>,
-        prototypes: impl IntoIterator<Item = Chunk>,
-    ) -> Self {
-        Self {
-            name,
-            r#type,
-            instructions: instructions.into(),
-            positions: positions.into(),
-            constants: constants.into(),
-            locals: locals.into(),
-            prototypes: prototypes.into_iter().map(Arc::new).collect(),
-            register_count: 0,
-            prototype_index: 0,
-        }
-    }
-
     pub fn as_function(&self) -> Function {
         Function {
             name: self.name.clone(),

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct Close {
     pub from: u16,
@@ -24,7 +24,7 @@ impl From<Close> for Instruction {
         let b_field = close.from;
         let c_field = close.to;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             b_field,
             c_field,

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct LoadBoolean {
     pub destination: u16,
@@ -27,7 +27,7 @@ impl From<LoadBoolean> for Instruction {
         let b_field = load_boolean.value as u16;
         let c_field = load_boolean.jump_next as u16;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

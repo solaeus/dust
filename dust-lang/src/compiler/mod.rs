@@ -19,7 +19,6 @@
 //! pass that chunk to the VM. Otherwise, if the compiler gives no errors and the VM encounters a
 //! runtime error, it is the compiler's fault and the error should be fixed here.
 mod error;
-mod optimize;
 mod parse_rule;
 mod type_checks;
 
@@ -30,12 +29,10 @@ use type_checks::{check_math_type, check_math_types};
 
 use std::{mem::replace, sync::Arc};
 
-use optimize::control_flow_register_consolidation;
-
 use crate::{
     Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type, Value,
-    instruction::{CallNative, Close, Jump, LoadList, Point, Return, TypeCode},
+    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
+    instruction::{CallNative, Jump, LoadList, Point, Return, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -88,7 +85,7 @@ pub struct Compiler<'src> {
 
     /// Constants that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    constants: Vec<Value>,
+    constants: Vec<ConcreteValue>,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -97,10 +94,6 @@ pub struct Compiler<'src> {
     /// Prototypes that have been compiled. These are assigned to the chunk when
     /// [`Compiler::finish`] is called.
     prototypes: Vec<Arc<Chunk>>,
-
-    /// Maximum stack size required by the chunk. This is assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    stack_size: usize,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -175,7 +168,6 @@ impl<'src> Compiler<'src> {
             constants: Vec::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
-            stack_size: 0,
             lexer,
             minimum_byte_register: 0,
             minimum_boolean_register: 0,
@@ -234,6 +226,14 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(self) -> Chunk {
+        let boolean_register_count = self.next_boolean_register() as usize;
+        let byte_register_count = self.next_byte_register() as usize;
+        let character_register_count = self.next_character_register() as usize;
+        let float_register_count = self.next_float_register() as usize;
+        let integer_register_count = self.next_integer_register() as usize;
+        let string_register_count = self.next_string_register() as usize;
+        let list_register_count = self.next_list_register() as usize;
+        let function_register_count = self.next_function_register() as usize;
         let (instructions, positions): (Vec<Instruction>, Vec<Span>) = self
             .instructions
             .into_iter()
@@ -253,7 +253,14 @@ impl<'src> Compiler<'src> {
             constants: self.constants,
             locals,
             prototypes: self.prototypes,
-            register_count: self.stack_size,
+            boolean_register_count,
+            byte_register_count,
+            character_register_count,
+            float_register_count,
+            integer_register_count,
+            string_register_count,
+            list_register_count,
+            function_register_count,
             prototype_index: self.prototype_index,
         }
     }
@@ -411,12 +418,11 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(index, (local, _))| {
                 let constant = self.constants.get(local.identifier_index as usize)?;
-                let identifier =
-                    if let Value::Concrete(ConcreteValue::String(identifier)) = constant {
-                        identifier
-                    } else {
-                        return None;
-                    };
+                let identifier = if let ConcreteValue::String(identifier) = constant {
+                    identifier
+                } else {
+                    return None;
+                };
 
                 if identifier == identifier_text {
                     Some(index as u16)
@@ -440,7 +446,7 @@ impl<'src> Compiler<'src> {
     ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
-        let identifier = Value::Concrete(ConcreteValue::string(identifier));
+        let identifier = ConcreteValue::string(identifier);
         let identifier_index = self.push_or_get_constant(identifier);
         let local_index = self.locals.len() as u16;
 
@@ -462,7 +468,7 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    fn push_or_get_constant(&mut self, value: Value) -> u16 {
+    fn push_or_get_constant(&mut self, value: ConcreteValue) -> u16 {
         if let Some(index) = self
             .constants
             .iter()
@@ -592,12 +598,6 @@ impl<'src> Compiler<'src> {
             position.to_string()
         );
 
-        if instruction.yields_value() {
-            let destination = instruction.a_field() as usize;
-
-            self.stack_size = (destination + 1).max(self.stack_size);
-        }
-
         self.instructions.push((instruction, r#type, position));
     }
 
@@ -607,7 +607,7 @@ impl<'src> Compiler<'src> {
         position: Span,
     ) -> Result<(), CompileError> {
         let r#type = constant.r#type();
-        let constant_index = self.push_or_get_constant(Value::Concrete(constant));
+        let constant_index = self.push_or_get_constant(constant);
         let destination = match r#type {
             Type::Character => self.next_character_register(),
             Type::Float => self.next_float_register(),
@@ -615,7 +615,8 @@ impl<'src> Compiler<'src> {
             Type::String => self.next_string_register(),
             _ => todo!(),
         };
-        let load_constant = Instruction::load_constant(destination, constant_index, false);
+        let load_constant =
+            Instruction::load_constant(destination, constant_index, r#type.type_code(), false);
 
         self.emit_instruction(load_constant, r#type, position);
 
@@ -1420,7 +1421,7 @@ impl<'src> Compiler<'src> {
         }
 
         let if_block_end = self.instructions.len();
-        let mut if_block_distance = (if_block_end - if_block_start) as u16;
+        let mut if_block_distance = if_block_end - if_block_start;
         let if_block_type = self.get_last_instruction_type();
 
         if let Token::Else = self.current_token {
@@ -1442,7 +1443,7 @@ impl<'src> Compiler<'src> {
         }
 
         let else_block_end = self.instructions.len();
-        let else_block_distance = (else_block_end - if_block_end) as u16;
+        let else_block_distance = else_block_end - if_block_end;
         let else_block_type = self.get_last_instruction_type();
 
         if let Err(conflict) = if_block_type.check(&else_block_type) {
@@ -1455,16 +1456,17 @@ impl<'src> Compiler<'src> {
         match else_block_distance {
             0 => {}
             1 => {
-                if let Some(Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT) =
-                    self.get_last_operation()
+                if let Some([Operation::LOAD_BOOLEAN | Operation::LOAD_CONSTANT, _]) =
+                    self.get_last_operations()
                 {
-                    let (loader, _, _) = self.instructions.last_mut().unwrap();
+                    let loader_index = self.instructions.len() - 2;
+                    let (loader, _, _) = self.instructions.get_mut(loader_index).unwrap();
 
                     loader.set_c_field(true as u16);
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
-                        offset: else_block_distance,
+                        offset: else_block_distance as u16,
                         is_positive: true,
                     });
 
@@ -1475,7 +1477,7 @@ impl<'src> Compiler<'src> {
             2.. => {
                 if_block_distance += 1;
                 let jump = Instruction::from(Jump {
-                    offset: else_block_distance,
+                    offset: else_block_distance as u16,
                     is_positive: true,
                 });
 
@@ -1484,11 +1486,21 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let jump = Instruction::jump(if_block_distance, true);
+        let jump = Instruction::jump(if_block_distance as u16, true);
 
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
-        control_flow_register_consolidation(self);
+
+        let if_block_last_instruction_index = self.instructions.len() - else_block_distance - 1;
+        let else_block_last_instruction_index = self.instructions.len() - 1;
+
+        let if_block_last_instruction = self.instructions[if_block_last_instruction_index].0;
+        let else_block_last_instruction =
+            &mut self.instructions[else_block_last_instruction_index].0;
+
+        else_block_last_instruction.set_a_field(if_block_last_instruction.a_field());
+
+        println!("{if_block_last_instruction_index} {else_block_last_instruction_index}");
 
         Ok(())
     }

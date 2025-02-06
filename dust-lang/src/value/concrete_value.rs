@@ -35,9 +35,65 @@ impl ConcreteValue {
         ConcreteValue::String(to_string.into())
     }
 
+    pub fn as_boolean(&self) -> Option<bool> {
+        if let ConcreteValue::Boolean(boolean) = self {
+            Some(*boolean)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_byte(&self) -> Option<u8> {
+        if let ConcreteValue::Byte(byte) = self {
+            Some(*byte)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_character(&self) -> Option<char> {
+        if let ConcreteValue::Character(character) = self {
+            Some(*character)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        if let ConcreteValue::Float(float) = self {
+            Some(*float)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_integer(&self) -> Option<i64> {
+        if let ConcreteValue::Integer(integer) = self {
+            Some(*integer)
+        } else {
+            None
+        }
+    }
+
     pub fn as_string(&self) -> Option<&DustString> {
         if let ConcreteValue::String(string) = self {
             Some(string)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_list(&self) -> Option<&Vec<ConcreteValue>> {
+        if let ConcreteValue::List(list) = self {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_range(&self) -> Option<&RangeValue> {
+        if let ConcreteValue::Range(range) = self {
+            Some(range)
         } else {
             None
         }
@@ -147,7 +203,7 @@ impl ConcreteValue {
                 return Err(ValueError::CannotMultiply(
                     self.clone().to_value(),
                     other.clone().to_value(),
-                ))
+                ));
             }
         };
 
@@ -165,7 +221,7 @@ impl ConcreteValue {
                 return Err(ValueError::CannotMultiply(
                     self.clone().to_value(),
                     other.clone().to_value(),
-                ))
+                ));
             }
         };
 
@@ -185,7 +241,7 @@ impl ConcreteValue {
                 return Err(ValueError::CannotMultiply(
                     self.clone().to_value(),
                     other.clone().to_value(),
-                ))
+                ));
             }
         };
 
@@ -255,7 +311,7 @@ impl ConcreteValue {
                 return Err(ValueError::CannotCompare(
                     self.clone().to_value(),
                     other.clone().to_value(),
-                ))
+                ));
             }
         };
 
@@ -278,7 +334,7 @@ impl ConcreteValue {
                 return Err(ValueError::CannotCompare(
                     self.clone().to_value(),
                     other.clone().to_value(),
-                ))
+                ));
             }
         };
 

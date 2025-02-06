@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct LoadSelf {
     pub destination: u16,
@@ -23,7 +23,7 @@ impl From<Instruction> for LoadSelf {
 
 impl From<LoadSelf> for Instruction {
     fn from(load_self: LoadSelf) -> Self {
-        InstructionBuilder {
+        InstructionFields {
             operation: Operation::LOAD_SELF,
             a_field: load_self.destination,
             c_field: load_self.jump_next as u16,

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, TypeCode};
+use super::{InstructionFields, TypeCode};
 
 pub struct Return {
     pub should_return_value: bool,
@@ -31,7 +31,7 @@ impl From<Return> for Instruction {
         let b_type = r#return.r#type;
         let c_field = r#return.return_register;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             b_field,
             b_type,

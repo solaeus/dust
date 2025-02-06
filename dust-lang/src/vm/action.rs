@@ -1,16 +1,9 @@
-use tracing::trace;
-
 use crate::{
-    AbstractList, ConcreteValue, Instruction, Operand, Type, Value,
-    instruction::{
-        Add, Call, CallNative, Divide, Equal, InstructionBuilder, Jump, Less, LessEqual,
-        LoadBoolean, LoadConstant, LoadFunction, LoadList, LoadSelf, Modulo, Multiply, Negate, Not,
-        Return, Subtract, Test, TestSet, TypeCode,
-    },
-    vm::CallFrame,
+    Instruction, Value,
+    instruction::{InstructionFields, TypeCode},
 };
 
-use super::{Pointer, Register, thread::Thread};
+use super::thread::Thread;
 
 #[derive(Debug)]
 pub struct ActionSequence {
@@ -34,20 +27,20 @@ impl ActionSequence {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Action {
     pub logic: RunnerLogic,
-    pub instruction: InstructionBuilder,
+    pub instruction: InstructionFields,
 }
 
 impl From<&Instruction> for Action {
     fn from(instruction: &Instruction) -> Self {
         let operation = instruction.operation();
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
-        let instruction = InstructionBuilder::from(instruction);
+        let instruction = InstructionFields::from(instruction);
 
         Action { logic, instruction }
     }
 }
 
-pub type RunnerLogic = fn(InstructionBuilder, &mut Thread);
+pub type RunnerLogic = fn(InstructionFields, &mut Thread);
 
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     point,
@@ -75,21 +68,21 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     r#return,
 ];
 
-pub fn point(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn point(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn close(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn close(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_boolean(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn load_boolean(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_constant(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_list(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_function(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn load_function(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_self(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn load_self(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {
+pub fn add(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_is_constant = instruction.b_is_constant;
@@ -161,35 +154,81 @@ pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {
     }
 }
 
-pub fn subtract(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn subtract(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn multiply(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn divide(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn divide(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn modulo(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn modulo(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn test(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn test(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn test_set(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn test_set(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn equal(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn equal(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn less(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn less(instruction: InstructionFields, thread: &mut Thread) {
+    let comparator = instruction.d_field;
+    let left = instruction.b_field as usize;
+    let left_type = instruction.b_type;
+    let left_is_constant = instruction.b_is_constant;
+    let right = instruction.c_field as usize;
+    let right_type = instruction.c_type;
+    let right_is_constant = instruction.c_is_constant;
 
-pub fn less_equal(instruction: InstructionBuilder, thread: &mut Thread) {}
+    match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(right)
+            };
+            let result = left_value < right_value;
 
-pub fn negate(instruction: InstructionBuilder, thread: &mut Thread) {}
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        _ => unimplemented!(),
+    }
+}
 
-pub fn not(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn jump(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn negate(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn call(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn not(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn call_native(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn jump(instruction: InstructionFields, thread: &mut Thread) {
+    let offset = instruction.b_field as usize;
+    let is_positive = instruction.c_field != 0;
 
-pub fn r#return(instruction: InstructionBuilder, thread: &mut Thread) {
+    if is_positive {
+        thread.current_frame_mut().ip += offset;
+    } else {
+        thread.current_frame_mut().ip -= offset;
+    }
+}
+
+pub fn call(instruction: InstructionFields, thread: &mut Thread) {}
+
+pub fn call_native(instruction: InstructionFields, thread: &mut Thread) {}
+
+pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
     let should_return_value = instruction.b_field != 0;
     let return_register = instruction.c_field as usize;
     let return_type = instruction.b_type;

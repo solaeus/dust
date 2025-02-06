@@ -2,7 +2,7 @@ use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{Chunk, DustString, Span, Value, vm::CallFrame};
+use crate::{Chunk, ConcreteValue, DustString, Span, Value, vm::CallFrame};
 
 use super::call_frame::{Pointer, Register};
 
@@ -557,7 +557,7 @@ impl Thread {
         *register = Register::Value(value);
     }
 
-    pub fn get_constant(&self, constant_index: usize) -> &Value {
+    pub fn get_constant(&self, constant_index: usize) -> &ConcreteValue {
         if cfg!(debug_assertions) {
             self.chunk.constants.get(constant_index).unwrap()
         } else {

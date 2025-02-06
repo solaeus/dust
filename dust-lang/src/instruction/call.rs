@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct Call {
     pub destination: u16,
@@ -34,7 +34,7 @@ impl From<Call> for Instruction {
         let c_field = call.argument_count;
         let d_field = call.is_recursive;
 
-        InstructionBuilder {
+        InstructionFields {
             operation: Operation::CALL,
             a_field,
             b_field,

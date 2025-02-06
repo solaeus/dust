@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Subtract {
     pub destination: u16,
@@ -36,7 +36,7 @@ impl From<Subtract> for Instruction {
         let b_type = subtract.left_type;
         let c_type = subtract.right_type;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

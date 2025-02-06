@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{Instruction, Operand, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct Not {
     pub destination: u16,
@@ -27,7 +27,7 @@ impl From<Not> for Instruction {
         let a_field = not.destination;
         let (b_field, b_is_constant) = not.argument.as_index_and_constant_flag();
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

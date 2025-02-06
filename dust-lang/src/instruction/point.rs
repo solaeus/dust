@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionBuilder, Operand};
+use super::{InstructionFields, Operand};
 
 pub struct Point {
     pub destination: u16,
@@ -24,7 +24,7 @@ impl From<Point> for Instruction {
         let a_field = r#move.destination;
         let (b_field, b_is_constant) = r#move.to.as_index_and_constant_flag();
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,

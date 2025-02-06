@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operand, Operation, TypeCode};
+use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct LessEqual {
     pub comparator: bool,
@@ -36,7 +36,7 @@ impl From<LessEqual> for Instruction {
         let b_type = less_equal_byte.left_type;
         let c_type = less_equal_byte.right_type;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             b_field,
             c_field,

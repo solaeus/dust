@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operand, Operation};
 
-use super::InstructionBuilder;
+use super::InstructionFields;
 
 pub struct TestSet {
     pub destination: u16,
@@ -31,7 +31,7 @@ impl From<TestSet> for Instruction {
         let (b_field, b_is_constant) = test_set.argument.as_index_and_constant_flag();
         let c_field = test_set.test_value as u16;
 
-        InstructionBuilder {
+        InstructionFields {
             operation,
             a_field,
             b_field,
