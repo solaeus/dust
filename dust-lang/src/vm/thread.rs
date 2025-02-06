@@ -10,7 +10,7 @@ pub struct Thread {
     chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
     pub return_value: Option<Option<Value>>,
-    spawned_threads: Vec<JoinHandle<()>>,
+    _spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl Thread {
@@ -24,7 +24,7 @@ impl Thread {
             chunk,
             call_stack,
             return_value: None,
-            spawned_threads: Vec::new(),
+            _spawned_threads: Vec::new(),
         }
     }
 

@@ -9,7 +9,7 @@ pub fn panic(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     for register_index in argument_range {
         let string = data.get_string_register(register_index);
 
-        message.push_str(&string);
+        message.push_str(string);
         message.push('\n');
     }
 

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use rand::Rng;
 
-use crate::{Value, vm::Thread};
+use crate::vm::Thread;
 
 pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<usize>) {
     let mut argument_range_iter = argument_range.into_iter();

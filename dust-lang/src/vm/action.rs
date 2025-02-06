@@ -120,10 +120,42 @@ pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {
             };
             let result = left_value + right_value;
 
-            println!("{left} + {right} = {destination}");
-            println!("{left_value} + {right_value} = {result}");
-
             thread.set_integer_register(destination, result);
+        }
+        (TypeCode::STRING, TypeCode::STRING) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(left)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(left).clone()
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(right)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(right).clone()
+            };
+            let result = left_value + &right_value;
+
+            thread.set_string_register(destination, result);
         }
         _ => unimplemented!(),
     }
