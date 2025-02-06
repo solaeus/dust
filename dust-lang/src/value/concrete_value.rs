@@ -35,41 +35,41 @@ impl ConcreteValue {
         ConcreteValue::String(to_string.into())
     }
 
-    pub fn as_boolean(&self) -> Option<bool> {
+    pub fn as_boolean(&self) -> Option<&bool> {
         if let ConcreteValue::Boolean(boolean) = self {
-            Some(*boolean)
+            Some(boolean)
         } else {
             None
         }
     }
 
-    pub fn as_byte(&self) -> Option<u8> {
+    pub fn as_byte(&self) -> Option<&u8> {
         if let ConcreteValue::Byte(byte) = self {
-            Some(*byte)
+            Some(byte)
         } else {
             None
         }
     }
 
-    pub fn as_character(&self) -> Option<char> {
+    pub fn as_character(&self) -> Option<&char> {
         if let ConcreteValue::Character(character) = self {
-            Some(*character)
+            Some(character)
         } else {
             None
         }
     }
 
-    pub fn as_float(&self) -> Option<f64> {
+    pub fn as_float(&self) -> Option<&f64> {
         if let ConcreteValue::Float(float) = self {
-            Some(*float)
+            Some(float)
         } else {
             None
         }
     }
 
-    pub fn as_integer(&self) -> Option<i64> {
+    pub fn as_integer(&self) -> Option<&i64> {
         if let ConcreteValue::Integer(integer) = self {
-            Some(*integer)
+            Some(integer)
         } else {
             None
         }

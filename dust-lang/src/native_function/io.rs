@@ -2,7 +2,7 @@ use std::io::{Write, stdin, stdout};
 use std::ops::Range;
 
 use crate::DustString;
-use crate::vm::Thread;
+use crate::vm::{Register, Thread};
 
 pub fn read_line(data: &mut Thread, destination: usize, _argument_range: Range<usize>) {
     let mut buffer = String::new();
@@ -13,8 +13,9 @@ pub fn read_line(data: &mut Thread, destination: usize, _argument_range: Range<u
         buffer.truncate(length.saturating_sub(1));
 
         let string = DustString::from(buffer);
+        let register = Register::Value(string);
 
-        data.set_string_register(destination, string);
+        data.set_string_register(destination, register);
     }
 }
 

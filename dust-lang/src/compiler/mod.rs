@@ -1287,7 +1287,11 @@ impl<'src> Compiler<'src> {
                     Type::String => self.next_string_register(),
                     _ => todo!(),
                 };
-                let point = Instruction::point(local_register_index, Operand::Register(register));
+                let point = Instruction::point(
+                    local_register_index,
+                    Operand::Register(register),
+                    r#type.type_code(),
+                );
 
                 self.emit_instruction(point, r#type, start_position);
             }
@@ -1304,7 +1308,11 @@ impl<'src> Compiler<'src> {
             Type::String => self.next_string_register(),
             _ => todo!(),
         };
-        let point = Instruction::point(destination, Operand::Register(local_register_index));
+        let point = Instruction::point(
+            destination,
+            Operand::Register(local_register_index),
+            r#type.type_code(),
+        );
 
         self.emit_instruction(point, r#type, self.previous_position);
 
@@ -1695,7 +1703,18 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if matches!(self.get_last_operation(), Some(Operation::RETURN))
+        if matches!(self.get_last_operation(), Some(Operation::POINT)) {
+            let Point {
+                destination,
+                r#type: type_code,
+                ..
+            } = Point::from(self.instructions.last().unwrap().0);
+
+            let (_, r#type, _) = self.instructions.pop().unwrap();
+            let r#return = Instruction::r#return(true, destination, type_code);
+
+            self.emit_instruction(r#return, r#type, self.current_position);
+        } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
             || matches!(
                 self.get_last_operations(),
                 Some([Operation::RETURN, Operation::JUMP])

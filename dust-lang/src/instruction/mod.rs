@@ -278,8 +278,12 @@ impl Instruction {
         *self = fields.build();
     }
 
-    pub fn point(destination: u16, to: Operand) -> Instruction {
-        Instruction::from(Point { destination, to })
+    pub fn point(destination: u16, to: Operand, r#type: TypeCode) -> Instruction {
+        Instruction::from(Point {
+            destination,
+            to,
+            r#type,
+        })
     }
 
     pub fn close(from: u16, to: u16) -> Instruction {
@@ -711,8 +715,8 @@ impl Operand {
 impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Operand::Constant(index) => write!(f, "C{index}"),
-            Operand::Register(index) => write!(f, "R{index}"),
+            Operand::Constant(index) => write!(f, "{index}"),
+            Operand::Register(index) => write!(f, "{index}"),
         }
     }
 }

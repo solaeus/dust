@@ -3,7 +3,7 @@ use crate::{
     instruction::{InstructionFields, TypeCode},
 };
 
-use super::thread::Thread;
+use super::{Pointer, Register, thread::Thread};
 
 #[derive(Debug)]
 pub struct ActionSequence {
@@ -74,7 +74,39 @@ pub fn close(instruction: InstructionFields, thread: &mut Thread) {}
 
 pub fn load_boolean(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
+    let destination = instruction.a_field as usize;
+    let constant_index = instruction.b_field as usize;
+    let constant_type = instruction.b_type;
+    let jump_next = instruction.c_field != 0;
+
+    match constant_type {
+        TypeCode::CHARACTER => {
+            let constant = *thread.get_constant(constant_index).as_character().unwrap();
+            let register = Register::Value(constant);
+
+            thread.set_character_register(destination, register);
+        }
+        TypeCode::FLOAT => {
+            let constant = *thread.get_constant(constant_index).as_float().unwrap();
+            let register = Register::Value(constant);
+
+            thread.set_float_register(destination, register);
+        }
+        TypeCode::INTEGER => {
+            let constant = *thread.get_constant(constant_index).as_integer().unwrap();
+            let register = Register::Value(constant);
+
+            thread.set_integer_register(destination as usize, register);
+        }
+        TypeCode::STRING => {
+            let register = Register::Pointer(Pointer::Constant(constant_index));
+
+            thread.set_string_register(destination as usize, register);
+        }
+        _ => unimplemented!(),
+    }
+}
 
 pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {}
 
@@ -111,9 +143,10 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
             } else {
                 thread.get_integer_register(right)
             };
-            let result = left_value + right_value;
+            let sum = left_value + right_value;
+            let register = Register::Value(sum);
 
-            thread.set_integer_register(destination, result);
+            thread.set_integer_register(destination, register);
         }
         (TypeCode::STRING, TypeCode::STRING) => {
             let left_value = if left_is_constant {
@@ -146,9 +179,10 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
             } else {
                 thread.get_string_register(right).clone()
             };
-            let result = left_value + &right_value;
+            let concatenated = left_value + &right_value;
+            let register = Register::Value(concatenated);
 
-            thread.set_string_register(destination, result);
+            thread.set_string_register(destination, register);
         }
         _ => unimplemented!(),
     }
@@ -220,7 +254,7 @@ pub fn jump(instruction: InstructionFields, thread: &mut Thread) {
     if is_positive {
         thread.current_frame_mut().ip += offset;
     } else {
-        thread.current_frame_mut().ip -= offset;
+        thread.current_frame_mut().ip -= offset + 1;
     }
 }
 
@@ -236,23 +270,23 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
     if should_return_value {
         match return_type {
             TypeCode::BOOLEAN => {
-                let return_value = thread.get_boolean_register(return_register);
+                let return_value = *thread.get_boolean_register(return_register);
                 thread.return_value = Some(Some(Value::boolean(return_value)));
             }
             TypeCode::BYTE => {
-                let return_value = thread.get_byte_register(return_register);
+                let return_value = *thread.get_byte_register(return_register);
                 thread.return_value = Some(Some(Value::byte(return_value)));
             }
             TypeCode::CHARACTER => {
-                let return_value = thread.get_character_register(return_register);
+                let return_value = *thread.get_character_register(return_register);
                 thread.return_value = Some(Some(Value::character(return_value)));
             }
             TypeCode::FLOAT => {
-                let return_value = thread.get_float_register(return_register);
+                let return_value = *thread.get_float_register(return_register);
                 thread.return_value = Some(Some(Value::float(return_value)));
             }
             TypeCode::INTEGER => {
-                let return_value = thread.get_integer_register(return_register);
+                let return_value = *thread.get_integer_register(return_register);
                 thread.return_value = Some(Some(Value::integer(return_value)));
             }
             TypeCode::STRING => {
