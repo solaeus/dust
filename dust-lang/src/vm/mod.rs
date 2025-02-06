@@ -3,14 +3,10 @@ mod action;
 mod call_frame;
 mod thread;
 
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    sync::Arc,
-    thread::Builder,
-};
+use std::{sync::Arc, thread::Builder};
 
 pub use action::Action;
-pub use call_frame::CallFrame;
+pub use call_frame::{CallFrame, Pointer, Register, RegisterTable};
 pub use thread::Thread;
 
 use crossbeam_channel::bounded;
@@ -58,41 +54,5 @@ impl Vm {
             .unwrap();
 
         rx.recv().unwrap_or(None)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Register {
-    Empty,
-    Value(Value),
-    Pointer(Pointer),
-}
-
-impl Display for Register {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Empty => write!(f, "empty"),
-            Self::Value(value) => write!(f, "{value}"),
-            Self::Pointer(pointer) => write!(f, "{pointer}"),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Pointer {
-    Register(usize),
-    Constant(usize),
-    Stack(usize, usize),
-}
-
-impl Display for Pointer {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Register(index) => write!(f, "PR{}", index),
-            Self::Constant(index) => write!(f, "PC{}", index),
-            Self::Stack(call_index, register_index) => {
-                write!(f, "PS{}R{}", call_index, register_index)
-            }
-        }
     }
 }

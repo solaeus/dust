@@ -510,10 +510,15 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_register: u16) -> Instruction {
+    pub fn r#return(
+        should_return_value: bool,
+        return_register: u16,
+        r#type: TypeCode,
+    ) -> Instruction {
         Instruction::from(Return {
             should_return_value,
             return_register,
+            r#type,
         })
     }
 

@@ -1,6 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Pointer, Type, vm::Thread};
+use crate::{
+    Type,
+    vm::{Pointer, Thread},
+};
 
 use super::DustString;
 
@@ -21,7 +24,15 @@ impl AbstractList {
                 display.push_str(", ");
             }
 
-            let item_display = thread.get_pointer_value(pointer).to_string();
+            let item_display = match self.item_type {
+                Type::Boolean => thread.get_pointer_to_boolean(pointer).to_string(),
+                Type::Byte => thread.get_pointer_to_byte(pointer).to_string(),
+                Type::Character => thread.get_pointer_to_character(pointer).to_string(),
+                Type::Float => thread.get_pointer_to_float(pointer).to_string(),
+                Type::Integer => thread.get_pointer_to_integer(pointer).to_string(),
+                Type::String => thread.get_pointer_to_string(pointer).to_string(),
+                _ => todo!(),
+            };
 
             display.push_str(&item_display);
         }

@@ -42,7 +42,7 @@ pub mod vm;
 pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Operand, Instruction, Operation};
+pub use crate::instruction::{Instruction, Operand, Operation};
 pub use crate::lexer::{LexError, Lexer, lex};
 pub use crate::native_function::{NativeFunction, NativeFunctionError};
 pub use crate::token::{Token, TokenKind, TokenOwned};
@@ -50,7 +50,7 @@ pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
 pub use crate::value::{
     AbstractList, ConcreteValue, DustString, Function, RangeValue, Value, ValueError,
 };
-pub use crate::vm::{Pointer, Vm, run};
+pub use crate::vm::{Vm, run};
 
 use std::fmt::Display;
 

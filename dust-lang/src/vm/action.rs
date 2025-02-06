@@ -49,8 +49,9 @@ impl From<&Instruction> for Action {
 
 pub type RunnerLogic = fn(InstructionBuilder, &mut Thread);
 
-pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 22] = [
+pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     point,
+    close,
     load_boolean,
     load_constant,
     load_function,
@@ -74,20 +75,9 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 22] = [
     r#return,
 ];
 
-pub fn point(instruction: InstructionBuilder, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let to = instruction.b_field as usize;
-    let to_is_constant = instruction.b_is_constant;
-    let pointer = if to_is_constant {
-        Pointer::Constant(to)
-    } else {
-        Pointer::Register(to)
-    };
-    let new_register = Register::Pointer(pointer);
-    let old_register = thread.get_register_mut(destination);
+pub fn point(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-    *old_register = new_register;
-}
+pub fn close(instruction: InstructionBuilder, thread: &mut Thread) {}
 
 pub fn load_boolean(instruction: InstructionBuilder, thread: &mut Thread) {}
 
@@ -99,7 +89,45 @@ pub fn load_function(instruction: InstructionBuilder, thread: &mut Thread) {}
 
 pub fn load_self(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn add(instruction: InstructionBuilder, thread: &mut Thread) {
+    let destination = instruction.a_field as usize;
+    let left = instruction.b_field as usize;
+    let left_is_constant = instruction.b_is_constant;
+    let left_type = instruction.b_type;
+    let right = instruction.c_field as usize;
+    let right_is_constant = instruction.c_is_constant;
+    let right_type = instruction.c_type;
+
+    match (left_type, right_type) {
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(right)
+            };
+            let result = left_value + right_value;
+
+            println!("{left} + {right} = {destination}");
+            println!("{left_value} + {right_value} = {result}");
+
+            thread.set_integer_register(destination, result);
+        }
+        _ => unimplemented!(),
+    }
+}
 
 pub fn subtract(instruction: InstructionBuilder, thread: &mut Thread) {}
 
@@ -129,7 +157,43 @@ pub fn call(instruction: InstructionBuilder, thread: &mut Thread) {}
 
 pub fn call_native(instruction: InstructionBuilder, thread: &mut Thread) {}
 
-pub fn r#return(instruction: InstructionBuilder, thread: &mut Thread) {}
+pub fn r#return(instruction: InstructionBuilder, thread: &mut Thread) {
+    let should_return_value = instruction.b_field != 0;
+    let return_register = instruction.c_field as usize;
+    let return_type = instruction.b_type;
+
+    if should_return_value {
+        match return_type {
+            TypeCode::BOOLEAN => {
+                let return_value = thread.get_boolean_register(return_register);
+                thread.return_value = Some(Some(Value::boolean(return_value)));
+            }
+            TypeCode::BYTE => {
+                let return_value = thread.get_byte_register(return_register);
+                thread.return_value = Some(Some(Value::byte(return_value)));
+            }
+            TypeCode::CHARACTER => {
+                let return_value = thread.get_character_register(return_register);
+                thread.return_value = Some(Some(Value::character(return_value)));
+            }
+            TypeCode::FLOAT => {
+                let return_value = thread.get_float_register(return_register);
+                thread.return_value = Some(Some(Value::float(return_value)));
+            }
+            TypeCode::INTEGER => {
+                let return_value = thread.get_integer_register(return_register);
+                thread.return_value = Some(Some(Value::integer(return_value)));
+            }
+            TypeCode::STRING => {
+                let return_value = thread.get_string_register(return_register).clone();
+                thread.return_value = Some(Some(Value::string(return_value)));
+            }
+            _ => unimplemented!(),
+        }
+    } else {
+        thread.return_value = Some(None);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -138,10 +202,12 @@ mod tests {
 
     use super::*;
 
-    const ALL_OPERATIONS: [(Operation, RunnerLogic); 21] = [
+    const ALL_OPERATIONS: [(Operation, RunnerLogic); 23] = [
         (Operation::POINT, point),
+        (Operation::CLOSE, close),
         (Operation::LOAD_BOOLEAN, load_boolean),
         (Operation::LOAD_CONSTANT, load_constant),
+        (Operation::LOAD_FUNCTION, load_function),
         (Operation::LOAD_LIST, load_list),
         (Operation::LOAD_SELF, load_self),
         (Operation::ADD, add),

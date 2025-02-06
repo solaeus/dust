@@ -7,8 +7,7 @@ pub fn panic(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let mut message = format!("Dust panic at {position}!");
 
     for register_index in argument_range {
-        let value = data.get_register(register_index);
-        let string = value.display(data);
+        let string = data.get_string_register(register_index);
 
         message.push_str(&string);
         message.push('\n');

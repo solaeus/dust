@@ -56,11 +56,21 @@ impl Display for Add {
         let Add {
             destination,
             left,
-            left_type: _,
+            left_type,
             right,
             right_type: _,
         } = self;
 
-        write!(f, "R{destination} = {left} + {right}",)
+        match *left_type {
+            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
+            TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
+            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination}")?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination}")?,
+            TypeCode::INTEGER => write!(f, "R_INT_{destination}")?,
+            TypeCode::STRING => write!(f, "R_STR_{destination}")?,
+            _ => todo!(),
+        }
+
+        write!(f, " = {left} + {right}",)
     }
 }

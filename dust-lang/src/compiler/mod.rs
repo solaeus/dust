@@ -102,9 +102,37 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     stack_size: usize,
 
-    /// The first register index that the compiler should use. This is used to avoid reusing the
-    /// registers that are used for the function's arguments.
-    minimum_register: u16,
+    /// The first boolean register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_boolean_register: u16,
+
+    /// The first byte register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_byte_register: u16,
+
+    /// The first character register index that the compiler should use. This is used to avoid
+    /// reusing the registers that are used for the function's arguments.
+    minimum_character_register: u16,
+
+    /// The first float register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_float_register: u16,
+
+    /// The first integer register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_integer_register: u16,
+
+    /// The first string register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_string_register: u16,
+
+    /// The first list register index that the compiler should use. This is used to avoid reusing
+    /// the registers that are used for the function's arguments.
+    minimum_list_register: u16,
+
+    /// The first function register index that the compiler should use. This is used to avoid
+    /// reusing the registers that are used for the function's arguments.
+    minimum_function_register: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -149,7 +177,14 @@ impl<'src> Compiler<'src> {
             prototypes: Vec::new(),
             stack_size: 0,
             lexer,
-            minimum_register: 0,
+            minimum_byte_register: 0,
+            minimum_boolean_register: 0,
+            minimum_character_register: 0,
+            minimum_float_register: 0,
+            minimum_integer_register: 0,
+            minimum_string_register: 0,
+            minimum_list_register: 0,
+            minimum_function_register: 0,
             block_index: 0,
             current_scope: Scope::default(),
             prototype_index: 0,
@@ -215,7 +250,7 @@ impl<'src> Compiler<'src> {
             r#type: self.r#type,
             instructions,
             positions,
-            constants: self.constants.to_vec(),
+            constants: self.constants,
             locals,
             prototypes: self.prototypes,
             register_count: self.stack_size,
@@ -227,18 +262,118 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register(&self) -> u16 {
+    fn next_boolean_register(&self) -> u16 {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, _, _)| {
-                if instruction.yields_value() {
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Boolean && instruction.yields_value() {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
                 }
             })
-            .unwrap_or(self.minimum_register)
+            .unwrap_or(self.minimum_boolean_register)
+    }
+
+    fn next_byte_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Byte && instruction.yields_value() {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_byte_register)
+    }
+
+    fn next_character_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Character && instruction.yields_value() {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_character_register)
+    }
+
+    fn next_float_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Float && instruction.yields_value() {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_float_register)
+    }
+
+    fn next_integer_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::Integer && instruction.yields_value() {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_integer_register)
+    }
+
+    fn next_string_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if r#type == &Type::String && instruction.yields_value() {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_string_register)
+    }
+
+    fn next_list_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if let Type::List(_) = r#type {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_list_register)
+    }
+
+    fn next_function_register(&self) -> u16 {
+        self.instructions
+            .iter()
+            .rev()
+            .find_map(|(instruction, r#type, _)| {
+                if matches!(r#type, Type::Function(_) | Type::SelfFunction)
+                    && instruction.yields_value()
+                {
+                    Some(instruction.a_field() + 1)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.minimum_function_register)
     }
 
     fn advance(&mut self) -> Result<(), CompileError> {
@@ -473,7 +608,13 @@ impl<'src> Compiler<'src> {
     ) -> Result<(), CompileError> {
         let r#type = constant.r#type();
         let constant_index = self.push_or_get_constant(Value::Concrete(constant));
-        let destination = self.next_register();
+        let destination = match r#type {
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            _ => todo!(),
+        };
         let load_constant = Instruction::load_constant(destination, constant_index, false);
 
         self.emit_instruction(load_constant, r#type, position);
@@ -488,7 +629,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let boolean = text.parse::<bool>().unwrap();
-            let destination = self.next_register();
+            let destination = self.next_boolean_register();
             let load_boolean = Instruction::load_boolean(destination, boolean, false);
 
             self.emit_instruction(load_boolean, Type::Boolean, position);
@@ -650,14 +791,10 @@ impl<'src> Compiler<'src> {
             ))
         }
 
-        let destination = self.next_register();
-        let type_code = match previous_type {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::String => TypeCode::STRING,
+        let (type_code, destination) = match previous_type {
+            Type::Boolean => (TypeCode::BOOLEAN, self.next_boolean_register()),
+            Type::Float => (TypeCode::FLOAT, self.next_float_register()),
+            Type::Integer => (TypeCode::INTEGER, self.next_integer_register()),
             _ => match operator {
                 Token::Minus => {
                     return Err(CompileError::CannotNegateType {
@@ -774,13 +911,13 @@ impl<'src> Compiler<'src> {
 
         check_math_type(&left_type, operator, &left_position)?;
 
-        let left_type_code = match left_type {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::String => TypeCode::STRING,
+        let (left_type_code, destination) = match left_type {
+            Type::Boolean => (TypeCode::BOOLEAN, self.next_boolean_register()),
+            Type::Byte => (TypeCode::BYTE, self.next_byte_register()),
+            Type::Character => (TypeCode::CHARACTER, self.next_character_register()),
+            Type::Float => (TypeCode::FLOAT, self.next_float_register()),
+            Type::Integer => (TypeCode::INTEGER, self.next_integer_register()),
+            Type::String => (TypeCode::STRING, self.next_string_register()),
             _ => unreachable!(),
         };
 
@@ -827,14 +964,6 @@ impl<'src> Compiler<'src> {
             Type::String
         } else {
             left_type.clone()
-        };
-        let destination = if is_assignment {
-            match left {
-                Operand::Register(register) => register,
-                Operand::Constant(_) => self.next_register(),
-            }
-        } else {
-            self.next_register()
         };
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => {
@@ -950,7 +1079,7 @@ impl<'src> Compiler<'src> {
                 .push((right_instruction, right_type, right_position));
         }
 
-        let destination = self.next_register();
+        let destination = self.next_boolean_register();
         let comparison = match operator {
             Token::DoubleEqual => {
                 Instruction::equal(true, left, left_type_code, right, right_type_code)
@@ -1016,10 +1145,20 @@ impl<'src> Compiler<'src> {
 
             register
         } else {
+            let register = match last_type {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
+
             self.instructions
                 .push((last_instruction, last_type, last_position));
 
-            self.next_register().saturating_sub(1)
+            register
         };
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -1086,7 +1225,7 @@ impl<'src> Compiler<'src> {
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_call_native(native_function);
         } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
-            let destination = self.next_register();
+            let destination = self.next_function_register();
             let load_self = Instruction::load_self(destination, false);
 
             self.emit_instruction(load_self, Type::SelfFunction, start_position);
@@ -1133,7 +1272,15 @@ impl<'src> Compiler<'src> {
 
                 math_instruction.set_a_field(local_register_index);
             } else {
-                let register = self.next_register() - 1;
+                let register = match r#type {
+                    Type::Boolean => self.next_boolean_register(),
+                    Type::Byte => self.next_byte_register(),
+                    Type::Character => self.next_character_register(),
+                    Type::Float => self.next_float_register(),
+                    Type::Integer => self.next_integer_register(),
+                    Type::String => self.next_string_register(),
+                    _ => todo!(),
+                };
                 let point = Instruction::point(local_register_index, Operand::Register(register));
 
                 self.emit_instruction(point, r#type, start_position);
@@ -1142,7 +1289,15 @@ impl<'src> Compiler<'src> {
             return Ok(());
         }
 
-        let destination = self.next_register();
+        let destination = match r#type {
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            _ => todo!(),
+        };
         let point = Instruction::point(destination, Operand::Register(local_register_index));
 
         self.emit_instruction(point, r#type, self.previous_position);
@@ -1191,33 +1346,27 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
-        let start_register = self.next_register();
-        let mut item_type = Type::Any;
+        let mut item_type = Type::None;
+        let mut start_register = 0;
 
         while !self.allow(Token::RightBracket)? && !self.is_eof() {
-            let expected_register = self.next_register();
-
             self.parse_expression()?;
 
-            let actual_register = self.next_register() - 1;
-
-            if item_type == Type::Any {
-                item_type = self.get_last_instruction_type();
-            }
-
-            if expected_register < actual_register {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
-
-                self.emit_instruction(close, Type::None, self.current_position);
-            }
+            item_type = self.get_last_instruction_type();
+            start_register = match item_type {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
 
             self.allow(Token::Comma)?;
         }
 
-        let destination = self.next_register();
+        let destination = self.next_list_register();
         let end = self.previous_position.1;
         let load_list = Instruction::load_list(destination, start_register, false);
 
@@ -1243,7 +1392,15 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let operand_register = self.next_register() - 1;
+            let operand_register = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
             let test = Instruction::test(operand_register, true);
 
             self.emit_instruction(test, Type::None, self.current_position);
@@ -1356,7 +1513,15 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let operand_register = self.next_register() - 1;
+            let operand_register = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
             let test = Instruction::test(operand_register, true);
 
             self.emit_instruction(test, Type::None, self.current_position);
@@ -1389,33 +1554,27 @@ impl<'src> Compiler<'src> {
 
     fn parse_call_native(&mut self, function: NativeFunction) -> Result<(), CompileError> {
         let start = self.previous_position.0;
-        let start_register = self.next_register();
+        let mut argument_count = 0;
 
         self.expect(Token::LeftParenthesis)?;
 
         while !self.allow(Token::RightParenthesis)? {
-            let expected_register = self.next_register();
-
             self.parse_expression()?;
-
-            let actual_register = self.next_register() - 1;
-            let registers_to_close = actual_register - expected_register;
-
-            if registers_to_close > 0 {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
-
-                self.emit_instruction(close, Type::None, self.current_position);
-            }
-
             self.allow(Token::Comma)?;
+
+            argument_count += 1;
         }
 
         let end = self.previous_position.1;
-        let destination = self.next_register();
-        let argument_count = destination - start_register;
+        let destination = match function.r#type().return_type {
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            _ => todo!(),
+        };
         let return_type = function.r#type().return_type;
         let call_native = Instruction::from(CallNative {
             destination,
@@ -1468,25 +1627,35 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
-        let should_return_value =
+        let (should_return_value, type_code, return_register) =
             if matches!(self.current_token, Token::Semicolon | Token::RightBrace) {
                 self.update_return_type(Type::None)?;
 
-                false
+                (false, TypeCode::NONE, 0)
             } else {
                 self.parse_expression()?;
 
                 let expression_type = self.get_last_instruction_type();
+                let type_code = expression_type.type_code();
+                let return_register = match expression_type {
+                    Type::Boolean => self.next_boolean_register() - 1,
+                    Type::Byte => self.next_byte_register() - 1,
+                    Type::Character => self.next_character_register() - 1,
+                    Type::Float => self.next_float_register() - 1,
+                    Type::Integer => self.next_integer_register() - 1,
+                    Type::String => self.next_string_register() - 1,
+                    _ => todo!(),
+                };
 
                 self.update_return_type(expression_type)?;
 
-                true
+                (true, type_code, return_register)
             };
         let end = self.current_position.1;
-        let return_register = self.next_register() - 1;
         let r#return = Instruction::from(Return {
             should_return_value,
             return_register,
+            r#type: type_code,
         });
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
@@ -1519,7 +1688,7 @@ impl<'src> Compiler<'src> {
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, 0);
+            let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else {
@@ -1539,7 +1708,11 @@ impl<'src> Compiler<'src> {
                 })?;
 
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::r#return(should_return_value, previous_register);
+            let r#return = Instruction::r#return(
+                should_return_value,
+                previous_register,
+                previous_expression_type.type_code(),
+            );
 
             self.update_return_type(previous_expression_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -1593,7 +1766,15 @@ impl<'src> Compiler<'src> {
         self.expect(Token::Equal)?;
         self.parse_expression()?;
 
-        let register_index = self.next_register() - 1;
+        let register_index = match self.get_last_instruction_type() {
+            Type::Boolean => self.next_boolean_register() - 1,
+            Type::Byte => self.next_byte_register() - 1,
+            Type::Character => self.next_character_register() - 1,
+            Type::Float => self.next_float_register() - 1,
+            Type::Integer => self.next_integer_register() - 1,
+            Type::String => self.next_string_register() - 1,
+            _ => todo!(),
+        };
         let r#type = if let Some(r#type) = explicit_type {
             r#type
         } else {
@@ -1666,7 +1847,15 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            let local_register_index = function_compiler.next_register();
+            let local_register_index = match r#type {
+                Type::Boolean => function_compiler.next_boolean_register(),
+                Type::Byte => function_compiler.next_byte_register(),
+                Type::Character => function_compiler.next_character_register(),
+                Type::Float => function_compiler.next_float_register(),
+                Type::Integer => function_compiler.next_integer_register(),
+                Type::String => function_compiler.next_string_register(),
+                _ => todo!(),
+            };
             let (_, identifier_index) = function_compiler.declare_local(
                 parameter,
                 local_register_index,
@@ -1675,10 +1864,18 @@ impl<'src> Compiler<'src> {
                 function_compiler.current_scope,
             );
 
+            match r#type {
+                Type::Boolean => function_compiler.minimum_boolean_register += 1,
+                Type::Byte => function_compiler.minimum_byte_register += 1,
+                Type::Character => function_compiler.minimum_character_register += 1,
+                Type::Float => function_compiler.minimum_float_register += 1,
+                Type::Integer => function_compiler.minimum_integer_register += 1,
+                Type::String => function_compiler.minimum_string_register += 1,
+                _ => {}
+            }
+
             value_parameters.push((identifier_index, r#type));
             function_compiler.allow(Token::Comma)?;
-
-            function_compiler.minimum_register += 1;
         }
 
         let return_type = if function_compiler.allow(Token::ArrowThin)? {
@@ -1715,7 +1912,7 @@ impl<'src> Compiler<'src> {
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
-        let destination = self.next_register();
+        let destination = self.next_function_register();
 
         self.prototypes.push(Arc::new(chunk));
 
@@ -1781,29 +1978,22 @@ impl<'src> Compiler<'src> {
         let mut argument_count = 0;
 
         while !self.allow(Token::RightParenthesis)? {
-            let expected_register = self.next_register();
-
             self.parse_expression()?;
-
-            let actual_register = self.next_register() - 1;
-            let registers_to_close = (actual_register - expected_register).saturating_sub(1);
-
-            if registers_to_close > 0 {
-                let close = Instruction::from(Close {
-                    from: expected_register,
-                    to: actual_register,
-                });
-
-                self.emit_instruction(close, Type::None, self.current_position);
-            }
-
-            argument_count += registers_to_close + 1;
-
             self.allow(Token::Comma)?;
+
+            argument_count += 1;
         }
 
         let end = self.current_position.1;
-        let destination = self.next_register();
+        let destination = match function_return_type {
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            _ => todo!(),
+        };
         let call = Instruction::call(destination, function_register, argument_count, is_recursive);
 
         self.emit_instruction(call, function_return_type, Span(start, end));

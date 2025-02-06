@@ -7,6 +7,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::instruction::TypeCode;
+
 /// Description of a kind of value.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Type {
@@ -45,6 +47,19 @@ impl Type {
 
     pub fn list(element_type: Type) -> Self {
         Type::List(Box::new(element_type))
+    }
+
+    pub fn type_code(&self) -> TypeCode {
+        match self {
+            Type::Boolean => TypeCode::BOOLEAN,
+            Type::Byte => TypeCode::BYTE,
+            Type::Character => TypeCode::CHARACTER,
+            Type::Float => TypeCode::FLOAT,
+            Type::Integer => TypeCode::INTEGER,
+            Type::None => TypeCode::NONE,
+            Type::String => TypeCode::STRING,
+            _ => todo!(),
+        }
     }
 
     /// Returns a concrete type, either the type itself or the concrete type of a generic type.
