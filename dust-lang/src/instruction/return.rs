@@ -57,7 +57,7 @@ impl Display for Return {
                 TypeCode::CHARACTER => write!(f, "RETURN R_CHAR_{return_register}"),
                 TypeCode::FLOAT => write!(f, "RETURN R_FLOAT_{return_register}"),
                 TypeCode::INTEGER => write!(f, "RETURN R_INT_{return_register}"),
-                TypeCode::STRING => write!(f, "RETURN R_STRING_{return_register}"),
+                TypeCode::STRING => write!(f, "RETURN R_STR_{return_register}"),
                 unsupported => unreachable!("Unsupported return type: {:?}", unsupported),
             }
         } else {
