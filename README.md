@@ -26,9 +26,8 @@ write_line(fib(25))
 ## Highlights
 
 - Easy to read and write
-- Single-pass, self-optimizing compiler
 - Static typing with extensive type inference
-- Multi-threaded register-based virtual machine with concurrent garbage collection
+- Multi-threaded register-based virtual machine
 - Beautiful, helpful error messages from the compiler
 - Safe execution, runtime errors are treated as bugs
 
