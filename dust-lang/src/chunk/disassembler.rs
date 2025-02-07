@@ -57,14 +57,14 @@ const LOCAL_COLUMNS: [(&str, usize); 6] = [
     ("i", 5),
     ("IDENTIFIER", 16),
     ("TYPE", 26),
-    ("REGISTER", 10),
+    ("REGISTER", 12),
     ("SCOPE", 7),
     ("MUTABLE", 7),
 ];
 const LOCAL_BORDERS: [&str; 3] = [
-    "╭─────┬────────────────┬──────────────────────────┬──────────┬───────┬───────╮",
-    "├─────┼────────────────┼──────────────────────────┼──────────┼───────┼───────┤",
-    "╰─────┴────────────────┴──────────────────────────┴──────────┴───────┴───────╯",
+    "╭─────┬────────────────┬──────────────────────────┬────────────┬───────┬───────╮",
+    "├─────┼────────────────┼──────────────────────────┼────────────┼───────┼───────┤",
+    "╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯",
 ];
 
 const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
@@ -332,7 +332,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             let register_display = format!("R_{type_caps}_{register_index}");
             let scope = scope.to_string();
             let row = format!(
-                "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
+                "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{register_display:^12}│{scope:^7}│{is_mutable:^7}│"
             );
 
             self.write_center_border(&row)?;
