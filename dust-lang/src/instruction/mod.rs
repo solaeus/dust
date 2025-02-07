@@ -326,8 +326,8 @@ impl Instruction {
         Instruction::from(Point { destination, to })
     }
 
-    pub fn close(from: u16, to: u16) -> Instruction {
-        Instruction::from(Close { from, to })
+    pub fn close(from: u16, to: u16, r#type: TypeCode) -> Instruction {
+        Instruction::from(Close { from, to, r#type })
     }
 
     pub fn load_encoded(
@@ -370,14 +370,14 @@ impl Instruction {
         destination: u16,
         item_type: TypeCode,
         start_register: u16,
-        length: u16,
+        end_register: u16,
         jump_next: bool,
     ) -> Instruction {
         Instruction::from(LoadList {
             destination,
             item_type,
             start_register,
-            length,
+            end_register,
             jump_next,
         })
     }
@@ -583,7 +583,7 @@ impl Instruction {
             | Operation::TEST_SET
             | Operation::JUMP
             | Operation::RETURN => false,
-            _ => self.operation().panic_from_unknown_code(),
+            unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
 
@@ -592,6 +592,7 @@ impl Instruction {
 
         match operation {
             Operation::POINT => Point::from(*self).to_string(),
+            Operation::CLOSE => Close::from(*self).to_string(),
             Operation::LOAD_ENCODED => LoadEncoded::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
@@ -613,8 +614,7 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
             Operation::JUMP => Jump::from(*self).to_string(),
             Operation::RETURN => Return::from(*self).to_string(),
-
-            _ => operation.panic_from_unknown_code(),
+            unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
 }

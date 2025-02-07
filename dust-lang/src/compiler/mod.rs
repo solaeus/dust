@@ -225,7 +225,7 @@ impl<'src> Compiler<'src> {
     /// Note for maintainers: Do not give a name when compiling functions, only the main chunk. This
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
-    pub fn finish(self) -> Chunk {
+    pub fn finish(mut self) -> Chunk {
         let boolean_register_count = self.next_boolean_register() as usize;
         let byte_register_count = self.next_byte_register() as usize;
         let character_register_count = self.next_character_register() as usize;
@@ -352,7 +352,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_string_register)
     }
 
-    fn next_list_register(&self) -> u16 {
+    fn next_list_register(&mut self) -> u16 {
         self.instructions
             .iter()
             .rev()
@@ -1242,10 +1242,18 @@ impl<'src> Compiler<'src> {
 
         let mut item_type = Type::None;
         let mut start_register = None;
-        let mut length = 0;
 
-        while !self.allow(Token::RightBracket)? && !self.is_eof() {
+        while !self.allow(Token::RightBracket)? {
+            let next_boolean_register = self.next_boolean_register();
+            let next_byte_register = self.next_byte_register();
+            let next_character_register = self.next_character_register();
+            let next_float_register = self.next_float_register();
+            let next_integer_register = self.next_integer_register();
+            let next_string_register = self.next_string_register();
+            let next_list_register = self.next_list_register();
+
             self.parse_expression()?;
+            self.allow(Token::Comma)?;
 
             if item_type == Type::None {
                 item_type = self.get_last_instruction_type();
@@ -1272,18 +1280,123 @@ impl<'src> Compiler<'src> {
                 start_register = Some(first_index);
             }
 
-            length += 1;
+            match self.get_last_instruction_type() {
+                Type::Boolean => {
+                    let used_boolean_registers =
+                        self.next_boolean_register() - next_boolean_register;
 
-            self.allow(Token::Comma)?;
+                    if used_boolean_registers > 1 {
+                        let close = Instruction::close(
+                            next_boolean_register,
+                            next_boolean_register + used_boolean_registers,
+                            TypeCode::BOOLEAN,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::Byte => {
+                    let used_byte_registers = self.next_byte_register() - 1 - next_byte_register;
+
+                    if used_byte_registers > 1 {
+                        let close = Instruction::close(
+                            next_byte_register,
+                            next_byte_register + used_byte_registers,
+                            TypeCode::BYTE,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::Character => {
+                    let used_character_registers =
+                        self.next_character_register() - 1 - next_character_register;
+
+                    if used_character_registers > 1 {
+                        let close = Instruction::close(
+                            next_character_register,
+                            next_character_register + used_character_registers,
+                            TypeCode::CHARACTER,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::Float => {
+                    let used_float_registers = self.next_float_register() - 1 - next_float_register;
+
+                    if used_float_registers > 1 {
+                        let close = Instruction::close(
+                            next_float_register,
+                            next_float_register + used_float_registers,
+                            TypeCode::FLOAT,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::Integer => {
+                    let used_integer_registers =
+                        self.next_integer_register() - 1 - next_integer_register;
+
+                    if used_integer_registers > 1 {
+                        let close = Instruction::close(
+                            next_integer_register,
+                            next_integer_register + used_integer_registers,
+                            TypeCode::INTEGER,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::String => {
+                    let used_string_registers =
+                        self.next_string_register() - 1 - next_string_register;
+
+                    if used_string_registers > 1 {
+                        let close = Instruction::close(
+                            next_string_register,
+                            next_string_register + used_string_registers,
+                            TypeCode::STRING,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                Type::List(_) => {
+                    let used_list_registers = self.next_list_register() - next_list_register - 1;
+
+                    if used_list_registers > 1 {
+                        let close = Instruction::close(
+                            next_list_register,
+                            next_list_register + used_list_registers - 1,
+                            TypeCode::LIST,
+                        );
+
+                        self.emit_instruction(close, Type::None, self.current_position);
+                    }
+                }
+                _ => unimplemented!(),
+            }
         }
 
-        let destination = self.next_list_register();
         let end = self.previous_position.1;
+        let end_register = match item_type {
+            Type::Boolean => self.next_boolean_register() - 1,
+            Type::Byte => self.next_byte_register() - 1,
+            Type::Character => self.next_character_register() - 1,
+            Type::Float => self.next_float_register() - 1,
+            Type::Integer => self.next_integer_register() - 1,
+            Type::String => self.next_string_register() - 1,
+            Type::List(_) => self.next_list_register() - 1,
+            _ => todo!(),
+        };
+        let destination = self.next_list_register();
         let load_list = Instruction::load_list(
             destination,
             item_type.type_code(),
             start_register.unwrap_or(0),
-            length,
+            end_register,
             false,
         );
 

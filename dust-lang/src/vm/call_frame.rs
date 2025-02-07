@@ -80,18 +80,28 @@ impl Default for RegisterTable {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Register<T> {
     Empty,
     Value(T),
+    Closed(T),
     Pointer(Pointer),
+}
+
+impl<T> Register<T> {
+    pub fn close(mut self) {
+        if let Self::Value(value) = self {
+            self = Self::Closed(value);
+        }
+    }
 }
 
 impl<T: Display> Display for Register<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Empty => write!(f, "empty"),
-            Self::Value(value) => write!(f, "{value}"),
+            Self::Closed(value) => write!(f, "Closed({value})"),
+            Self::Value(value) => write!(f, "Value({value})"),
             Self::Pointer(pointer) => write!(f, "Pointer({pointer:?})"),
         }
     }

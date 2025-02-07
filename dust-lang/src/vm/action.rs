@@ -70,7 +70,50 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
 
 pub fn point(_: InstructionFields, thread: &mut Thread) {}
 
-pub fn close(_: InstructionFields, thread: &mut Thread) {}
+pub fn close(instruction: InstructionFields, thread: &mut Thread) {
+    let from = instruction.b_field as usize;
+    let to = instruction.c_field as usize;
+    let r#type = instruction.b_type;
+
+    match r#type {
+        TypeCode::BOOLEAN => {
+            for register_index in from..=to {
+                thread.close_boolean_register(register_index);
+            }
+        }
+        TypeCode::BYTE => {
+            for register_index in from..=to {
+                thread.close_byte_register(register_index);
+            }
+        }
+        TypeCode::CHARACTER => {
+            for register_index in from..=to {
+                thread.close_character_register(register_index);
+            }
+        }
+        TypeCode::FLOAT => {
+            for register_index in from..=to {
+                thread.close_float_register(register_index);
+            }
+        }
+        TypeCode::INTEGER => {
+            for register_index in from..=to {
+                thread.close_integer_register(register_index);
+            }
+        }
+        TypeCode::STRING => {
+            for register_index in from..=to {
+                thread.close_string_register(register_index);
+            }
+        }
+        TypeCode::LIST => {
+            for register_index in from..=to {
+                thread.close_list_register(register_index);
+            }
+        }
+        _ => unimplemented!(),
+    }
+}
 
 pub fn load_encoded(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field;
@@ -139,20 +182,79 @@ pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field;
     let start_register = instruction.b_field;
     let item_type = instruction.b_type;
-    let length = instruction.c_field;
+    let end_register = instruction.c_field;
     let jump_next = instruction.d_field;
 
-    let mut item_pointers = Vec::with_capacity(length as usize);
+    let length = (end_register - start_register + 1) as usize;
+    let mut item_pointers = Vec::with_capacity(length);
 
-    for register_index in start_register..start_register + length {
+    for register_index in start_register..=end_register {
+        let register_index = register_index as usize;
+
         let pointer = match item_type {
-            TypeCode::BOOLEAN => Pointer::RegisterBoolean(register_index as usize),
-            TypeCode::BYTE => Pointer::RegisterByte(register_index as usize),
-            TypeCode::CHARACTER => Pointer::RegisterCharacter(register_index as usize),
-            TypeCode::FLOAT => Pointer::RegisterFloat(register_index as usize),
-            TypeCode::INTEGER => Pointer::RegisterInteger(register_index as usize),
-            TypeCode::STRING => Pointer::RegisterString(register_index as usize),
-            TypeCode::LIST => Pointer::RegisterList(register_index as usize),
+            TypeCode::BOOLEAN => {
+                let is_closed = thread.is_boolean_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterBoolean(register_index)
+            }
+            TypeCode::BYTE => {
+                let is_closed = thread.is_byte_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterByte(register_index)
+            }
+            TypeCode::CHARACTER => {
+                let is_closed = thread.is_character_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterCharacter(register_index)
+            }
+            TypeCode::FLOAT => {
+                let is_closed = thread.is_float_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterFloat(register_index)
+            }
+            TypeCode::INTEGER => {
+                let is_closed = thread.is_integer_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterInteger(register_index)
+            }
+            TypeCode::STRING => {
+                let is_closed = thread.is_string_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterString(register_index)
+            }
+            TypeCode::LIST => {
+                let is_closed = thread.is_list_register_closed(register_index);
+
+                if is_closed {
+                    continue;
+                }
+
+                Pointer::RegisterList(register_index)
+            }
             _ => unimplemented!(),
         };
 

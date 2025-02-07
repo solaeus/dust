@@ -2,10 +2,7 @@ use std::{collections::HashMap, sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{
-    AbstractList, Chunk, ConcreteValue, DustString, Span, Value, instruction::TypeCode,
-    vm::CallFrame,
-};
+use crate::{AbstractList, Chunk, ConcreteValue, DustString, Span, Value, vm::CallFrame};
 
 use super::call_frame::{Pointer, Register};
 
@@ -180,6 +177,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_boolean(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -215,6 +213,38 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_boolean_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .booleans
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .booleans
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_boolean_register(&mut self, register_index: usize) {
+        self.current_frame_mut()
+            .registers
+            .booleans
+            .get_mut(register_index)
+            .unwrap()
+            .close();
+    }
+
     pub fn get_byte_register(&self, register_index: usize) -> &u8 {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -237,6 +267,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_byte(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -272,6 +303,38 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_byte_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .bytes
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .bytes
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_byte_register(&mut self, register_index: usize) {
+        self.current_frame_mut()
+            .registers
+            .bytes
+            .get_mut(register_index)
+            .unwrap()
+            .close();
+    }
+
     pub fn get_character_register(&self, register_index: usize) -> &char {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -294,6 +357,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_character(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -334,6 +398,38 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_character_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .characters
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .characters
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_character_register(&mut self, register_index: usize) {
+        self.current_frame_mut()
+            .registers
+            .characters
+            .get_mut(register_index)
+            .unwrap()
+            .close();
+    }
+
     pub fn get_float_register(&self, register_index: usize) -> &f64 {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -356,6 +452,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_float(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -394,6 +491,38 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_float_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .floats
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .floats
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_float_register(&mut self, register_index: usize) {
+        self.current_frame_mut()
+            .registers
+            .floats
+            .get_mut(register_index)
+            .unwrap()
+            .close();
+    }
+
     pub fn get_integer_register(&self, register_index: usize) -> &i64 {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -416,6 +545,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_integer(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -454,6 +584,38 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_integer_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .integers
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .integers
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_integer_register(&mut self, register_index: usize) {
+        self.current_frame_mut()
+            .registers
+            .integers
+            .get_mut(register_index)
+            .unwrap()
+            .close();
+    }
+
     pub fn get_string_register(&self, register_index: usize) -> &DustString {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -476,6 +638,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_string(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -518,6 +681,48 @@ impl Thread {
         *old_register = new_register;
     }
 
+    pub fn is_string_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .strings
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .strings
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_string_register(&mut self, register_index: usize) {
+        let current_frame = self.current_frame_mut();
+
+        current_frame.registers.strings.push(Register::Empty);
+
+        let old_register = current_frame.registers.strings.swap_remove(register_index);
+
+        if let Register::Value(value) = old_register {
+            current_frame
+                .registers
+                .strings
+                .push(Register::Closed(value));
+
+            let _ = current_frame.registers.strings.swap_remove(register_index);
+        } else {
+            panic!("Attempted to close non-value register");
+        }
+    }
+
     pub fn get_list_register(&self, register_index: usize) -> &AbstractList {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -540,6 +745,7 @@ impl Thread {
 
         match register {
             Register::Value(value) => value,
+            Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_list(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
         }
@@ -577,6 +783,45 @@ impl Thread {
         };
 
         *old_register = new_register;
+    }
+
+    pub fn is_list_register_closed(&self, register_index: usize) -> bool {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .lists
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .lists
+                    .get_unchecked(register_index)
+            }
+        };
+
+        matches!(register, Register::Closed(_))
+    }
+
+    pub fn close_list_register(&mut self, register_index: usize) {
+        let current_frame = self.current_frame_mut();
+
+        current_frame.registers.lists.push(Register::Empty);
+
+        let old_register = current_frame.registers.lists.swap_remove(register_index);
+
+        if let Register::Value(value) = old_register {
+            current_frame.registers.lists.push(Register::Closed(value));
+
+            let _ = current_frame.registers.lists.swap_remove(register_index);
+        } else {
+            panic!("Attempted to close non-value register");
+        }
     }
 
     pub fn get_constant(&self, constant_index: usize) -> &ConcreteValue {

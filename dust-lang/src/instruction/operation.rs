@@ -53,6 +53,7 @@ impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
             Self::POINT => "POINT",
+            Self::CLOSE => "CLOSE",
             Self::LOAD_ENCODED => "LOAD_ENCODED",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",
             Self::LOAD_FUNCTION => "LOAD_FUNCTION",
@@ -74,7 +75,7 @@ impl Operation {
             Self::CALL_NATIVE => "CALL_NATIVE",
             Self::JUMP => "JUMP",
             Self::RETURN => "RETURN",
-            _ => self.panic_from_unknown_code(),
+            unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
 
@@ -94,10 +95,6 @@ impl Operation {
             self,
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
         )
-    }
-
-    pub fn panic_from_unknown_code(self) -> ! {
-        panic!("Unknown operation code: {}", self.0);
     }
 }
 
