@@ -53,10 +53,7 @@ impl Thread {
                 unsafe { current_frame.action_sequence.actions.get_unchecked_mut(ip) }
             };
 
-            trace!(
-                "Instruction operation: {}",
-                current_action.instruction.operation
-            );
+            trace!("Instruction: {}", current_action.instruction.operation);
 
             (current_action.logic)(current_action.instruction, &mut self);
 

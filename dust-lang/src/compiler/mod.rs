@@ -282,9 +282,13 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Byte && instruction.yields_value() {
-                    Some(instruction.a_field() + 1)
+            .find_map(|(instruction, _, _)| {
+                if instruction.operation() == Operation::LOAD_ENCODED {
+                    if instruction.b_type() == TypeCode::BYTE {
+                        Some(instruction.a_field() + 1)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -528,46 +532,6 @@ impl<'src> Compiler<'src> {
             .last()
             .map(|(_, r#type, _)| r#type.clone())
             .unwrap_or(Type::None)
-    }
-
-    fn get_register_type(&self, register_index: u16) -> Result<Type, CompileError> {
-        if let Some(r#type) = self.locals.iter().find_map(|local| {
-            if local.register_index == register_index {
-                Some(local.r#type.clone())
-            } else {
-                None
-            }
-        }) {
-            return Ok(r#type);
-        }
-
-        for (instruction, r#type, _) in &self.instructions {
-            if !instruction.yields_value() {
-                continue;
-            }
-
-            let operation = instruction.operation();
-
-            if let Operation::LOAD_LIST = operation {
-                let LoadList { start_register, .. } = LoadList::from(*instruction);
-                let item_type = self.get_register_type(start_register)?;
-
-                return Ok(Type::List(Box::new(item_type)));
-            }
-
-            if let Operation::LOAD_SELF = operation {
-                return Ok(Type::SelfFunction);
-            }
-
-            if instruction.yields_value() {
-                return Ok(r#type.clone());
-            }
-        }
-
-        Err(CompileError::CannotResolveRegisterType {
-            register_index: register_index as usize,
-            position: self.current_position,
-        })
     }
 
     /// Updates [`Self::type`] with the given [Type] as `return_type`.
@@ -831,9 +795,13 @@ impl<'src> Compiler<'src> {
     }
 
     fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Operand, bool) {
-        let (argument, push_back) = (instruction.as_operand(), !instruction.yields_value());
+        let operand = instruction.as_operand();
+        let push_back = match instruction.operation() {
+            Operation::LOAD_ENCODED | Operation::LOAD_SELF => true,
+            _ => !instruction.yields_value(),
+        };
 
-        (argument, push_back)
+        (operand, push_back)
     }
 
     fn parse_math_binary(&mut self) -> Result<(), CompileError> {
@@ -875,14 +843,18 @@ impl<'src> Compiler<'src> {
 
         check_math_type(&left_type, operator, &left_position)?;
 
-        let destination = match left_type {
-            Type::Boolean => self.next_boolean_register(),
-            Type::Byte => self.next_byte_register(),
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
-            _ => unreachable!(),
+        let destination = if is_assignment {
+            left.index()
+        } else {
+            match left_type {
+                Type::Boolean => self.next_boolean_register(),
+                Type::Byte => self.next_byte_register(),
+                Type::Character => self.next_character_register(),
+                Type::Float => self.next_float_register(),
+                Type::Integer => self.next_integer_register(),
+                Type::String => self.next_string_register(),
+                _ => unreachable!(),
+            }
         };
 
         if is_assignment && !left_is_mutable_local {
@@ -964,27 +936,14 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        let (left_instruction, left_type, left_position) =
-            self.instructions
-                .pop()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
 
-        // TODO: Check if the left type is a valid type for comparison
-
-        if push_back_left {
-            self.instructions
-                .push((left_instruction, left_type, left_position));
-        }
-
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
+
+        println!("{:?}", self.instructions);
 
         let (right_instruction, right_type, right_position) =
             self.instructions
@@ -993,17 +952,32 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
+        let (left_instruction, left_type, left_position) =
+            self.instructions
+                .pop()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
+        println!("{left_instruction} {right_instruction}");
+
+        // TODO: Check if the left type is a valid type for comparison
         // TODO: Check if the right type is a valid type for comparison
         // TODO: Check if the left and right types are compatible
+
+        if push_back_left {
+            self.instructions
+                .push((left_instruction, left_type, left_position));
+        }
 
         if push_back_right {
             self.instructions
                 .push((right_instruction, right_type, right_position));
         }
 
-        let destination = self.next_boolean_register();
         let comparison = match operator {
             Token::DoubleEqual => Instruction::equal(true, left, right),
             Token::BangEqual => Instruction::equal(false, left, right),
@@ -1027,6 +1001,7 @@ impl<'src> Compiler<'src> {
             }
         };
         let jump = Instruction::jump(1, true);
+        let destination = self.next_boolean_register();
         let load_true =
             Instruction::load_encoded(destination, true as u16, TypeCode::BOOLEAN, true);
         let load_false =
@@ -1471,7 +1446,7 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(block_start, (jump, Type::None, self.current_position));
 
-        let jump_back_distance = (block_end - expression_start + 1) as u16;
+        let jump_back_distance = (block_end - expression_start) as u16;
         let jump_back = Instruction::from(Jump {
             offset: jump_back_distance,
             is_positive: false,
@@ -1611,10 +1586,10 @@ impl<'src> Compiler<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if matches!(self.get_last_operation(), Some(Operation::POINT)) {
-            let Point { destination, to } = Point::from(self.instructions.last().unwrap().0);
+            let Point { to, .. } = Point::from(self.instructions.last().unwrap().0);
 
             let (_, r#type, _) = self.instructions.pop().unwrap();
-            let r#return = Instruction::r#return(true, destination, to.as_type());
+            let r#return = Instruction::r#return(true, to.index(), to.as_type());
 
             self.emit_instruction(r#return, r#type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
@@ -1715,7 +1690,7 @@ impl<'src> Compiler<'src> {
         let r#type = if let Some(r#type) = explicit_type {
             r#type
         } else {
-            self.get_register_type(register_index)?
+            self.get_last_instruction_type()
         };
 
         self.declare_local(

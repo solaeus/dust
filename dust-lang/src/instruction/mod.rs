@@ -281,9 +281,9 @@ impl Instruction {
     pub fn as_operand(&self) -> Operand {
         match self.operation() {
             Operation::POINT => {
-                let Point { destination, to } = Point::from(*self);
+                let Point { to, .. } = Point::from(*self);
 
-                Operand::Register(destination, to.as_type())
+                Operand::Register(to.index(), to.as_type())
             }
             Operation::LOAD_ENCODED => {
                 let LoadEncoded {
@@ -664,24 +664,24 @@ impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Operand::Constant(index, r#type) => match *r#type {
-                TypeCode::BOOLEAN => write!(f, "C_{}", index),
                 TypeCode::CHARACTER => write!(f, "C_{}", index),
                 TypeCode::INTEGER => write!(f, "C_{}", index),
                 TypeCode::FLOAT => write!(f, "C_{}", index),
                 TypeCode::STRING => write!(f, "C_{}", index),
                 TypeCode::LIST => write!(f, "C_{}", index),
                 TypeCode::FUNCTION => write!(f, "C_{}", index),
-                _ => panic!("Unknown type code: {}", r#type.0),
+                _ => unreachable!(),
             },
             Operand::Register(index, r#type) => match *r#type {
                 TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", index),
+                TypeCode::BYTE => write!(f, "R_BYTE_{}", index),
                 TypeCode::CHARACTER => write!(f, "R_CHAR_{}", index),
                 TypeCode::INTEGER => write!(f, "R_INT_{}", index),
                 TypeCode::FLOAT => write!(f, "R_FLOAT_{}", index),
                 TypeCode::STRING => write!(f, "R_STR_{}", index),
                 TypeCode::LIST => write!(f, "R_LIST_{}", index),
                 TypeCode::FUNCTION => write!(f, "R_FN_{}", index),
-                _ => panic!("Unknown type code: {}", r#type.0),
+                _ => unreachable!(),
             },
         }
     }

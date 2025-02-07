@@ -45,7 +45,7 @@ pub type RunnerLogic = fn(InstructionFields, &mut Thread);
 pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     point,
     close,
-    load_boolean,
+    load_encoded,
     load_constant,
     load_function,
     load_list,
@@ -72,7 +72,30 @@ pub fn point(_: InstructionFields, thread: &mut Thread) {}
 
 pub fn close(_: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_boolean(_: InstructionFields, _: &mut Thread) {}
+pub fn load_encoded(instruction: InstructionFields, thread: &mut Thread) {
+    let destination = instruction.a_field;
+    let value = instruction.b_field;
+    let value_type = instruction.b_type;
+    let jump_next = instruction.c_field != 0;
+
+    match value_type {
+        TypeCode::BOOLEAN => {
+            let register = Register::Value(value != 0);
+
+            thread.set_boolean_register(destination as usize, register);
+        }
+        TypeCode::BYTE => {
+            let register = Register::Value(value as u8);
+
+            thread.set_byte_register(destination as usize, register);
+        }
+        _ => unreachable!(),
+    }
+
+    if jump_next {
+        thread.current_frame_mut().ip += 1;
+    }
+}
 
 pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
@@ -151,6 +174,30 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
             let register = Register::Value(sum);
 
             thread.set_integer_register(destination, register);
+        }
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let sum = left_value + right_value;
+            let register = Register::Value(sum);
+
+            thread.set_byte_register(destination, register);
         }
         (TypeCode::STRING, TypeCode::STRING) => {
             let left_value = if left_is_constant {
@@ -241,6 +288,31 @@ pub fn less(instruction: InstructionFields, thread: &mut Thread) {
                 thread.current_frame_mut().ip += 1;
             }
         }
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let result = left_value < right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
         _ => unimplemented!(),
     }
 }
@@ -314,7 +386,7 @@ mod tests {
     const ALL_OPERATIONS: [(Operation, RunnerLogic); 23] = [
         (Operation::POINT, point),
         (Operation::CLOSE, close),
-        (Operation::LOAD_ENCODED, load_boolean),
+        (Operation::LOAD_ENCODED, load_encoded),
         (Operation::LOAD_CONSTANT, load_constant),
         (Operation::LOAD_FUNCTION, load_function),
         (Operation::LOAD_LIST, load_list),
