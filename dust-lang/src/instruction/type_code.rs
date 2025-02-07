@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeCode(pub u8);
 
 impl TypeCode {
@@ -11,6 +11,8 @@ impl TypeCode {
     pub const FLOAT: TypeCode = TypeCode(4);
     pub const INTEGER: TypeCode = TypeCode(5);
     pub const STRING: TypeCode = TypeCode(6);
+    pub const LIST: TypeCode = TypeCode(7);
+    pub const FUNCTION: TypeCode = TypeCode(8);
 
     pub fn panic_from_unknown_code(self) -> ! {
         panic!("Unknown type code: {}", self.0);

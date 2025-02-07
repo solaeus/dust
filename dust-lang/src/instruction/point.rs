@@ -7,7 +7,6 @@ use super::{InstructionFields, Operand, TypeCode};
 pub struct Point {
     pub destination: u16,
     pub to: Operand,
-    pub r#type: TypeCode,
 }
 
 impl From<Instruction> for Point {
@@ -15,7 +14,6 @@ impl From<Instruction> for Point {
         Point {
             destination: instruction.a_field(),
             to: instruction.b_as_operand(),
-            r#type: instruction.b_type(),
         }
     }
 }
@@ -25,7 +23,7 @@ impl From<Point> for Instruction {
         let operation = Operation::POINT;
         let a_field = r#move.destination;
         let (b_field, b_is_constant) = r#move.to.as_index_and_constant_flag();
-        let b_type = r#move.r#type;
+        let b_type = r#move.to.as_type();
 
         InstructionFields {
             operation,
@@ -41,13 +39,9 @@ impl From<Point> for Instruction {
 
 impl Display for Point {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Point {
-            destination,
-            to,
-            r#type,
-        } = self;
+        let Point { destination, to } = self;
 
-        match *r#type {
+        match to.as_type() {
             TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination} -> R_BOOL_{to}"),
             TypeCode::BYTE => write!(f, "R_BYTE_{destination} -> R_BYTE_{to}"),
             TypeCode::CHARACTER => write!(f, "R_CHAR_{destination} -> R_CHAR_{to}"),

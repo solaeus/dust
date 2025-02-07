@@ -785,7 +785,7 @@ impl<'src> Compiler<'src> {
 
         let (previous_instruction, previous_type, previous_position) =
             self.instructions.pop().unwrap();
-        let (argument, push_back) = self.handle_binary_argument(&previous_instruction)?;
+        let (argument, push_back) = self.handle_binary_argument(&previous_instruction);
 
         if push_back {
             self.instructions.push((
@@ -832,48 +832,10 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn handle_binary_argument(
-        &mut self,
-        instruction: &Instruction,
-    ) -> Result<(Operand, bool), CompileError> {
-        let (argument, push_back) = match instruction.operation() {
-            Operation::LOAD_CONSTANT => (Operand::Constant(instruction.b_field()), false),
-            Operation::POINT => (instruction.b_as_operand(), false),
-            Operation::LOAD_ENCODED
-            | Operation::LOAD_LIST
-            | Operation::LOAD_SELF
-            | Operation::ADD
-            | Operation::SUBTRACT
-            | Operation::MULTIPLY
-            | Operation::DIVIDE
-            | Operation::MODULO
-            | Operation::EQUAL
-            | Operation::LESS
-            | Operation::LESS_EQUAL
-            | Operation::NEGATE
-            | Operation::NOT
-            | Operation::CALL => (Operand::Register(instruction.a_field()), true),
-            Operation::CALL_NATIVE => {
-                let function = NativeFunction::from(instruction.b_field());
+    fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Operand, bool) {
+        let (argument, push_back) = (instruction.as_operand(), !instruction.yields_value());
 
-                if function.returns_value() {
-                    (Operand::Register(instruction.a_field()), true)
-                } else {
-                    return Err(CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    });
-                }
-            }
-            _ => {
-                return Err(CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                });
-            }
-        };
-
-        Ok((argument, push_back))
+        (argument, push_back)
     }
 
     fn parse_math_binary(&mut self) -> Result<(), CompileError> {
@@ -884,7 +846,7 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let left_is_mutable_local = if left_instruction.operation() == Operation::POINT {
             let Point { to, .. } = Point::from(left_instruction);
 
@@ -915,13 +877,13 @@ impl<'src> Compiler<'src> {
 
         check_math_type(&left_type, operator, &left_position)?;
 
-        let (left_type_code, destination) = match left_type {
-            Type::Boolean => (TypeCode::BOOLEAN, self.next_boolean_register()),
-            Type::Byte => (TypeCode::BYTE, self.next_byte_register()),
-            Type::Character => (TypeCode::CHARACTER, self.next_character_register()),
-            Type::Float => (TypeCode::FLOAT, self.next_float_register()),
-            Type::Integer => (TypeCode::INTEGER, self.next_integer_register()),
-            Type::String => (TypeCode::STRING, self.next_string_register()),
+        let destination = match left_type {
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
             _ => unreachable!(),
         };
 
@@ -936,7 +898,7 @@ impl<'src> Compiler<'src> {
         self.parse_sub_expression(&rule.precedence)?;
 
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
         check_math_type(&right_type, operator, &right_position)?;
         check_math_types(
@@ -946,16 +908,6 @@ impl<'src> Compiler<'src> {
             &right_type,
             &right_position,
         )?;
-
-        let right_type_code = match right_type {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::String => TypeCode::STRING,
-            _ => unreachable!(),
-        };
 
         if push_back_right {
             self.instructions
@@ -970,21 +922,11 @@ impl<'src> Compiler<'src> {
             left_type.clone()
         };
         let instruction = match operator {
-            Token::Plus | Token::PlusEqual => {
-                Instruction::add(destination, left, left_type_code, right, right_type_code)
-            }
-            Token::Minus | Token::MinusEqual => {
-                Instruction::subtract(destination, left, left_type_code, right, right_type_code)
-            }
-            Token::Star | Token::StarEqual => {
-                Instruction::multiply(destination, left, left_type_code, right, right_type_code)
-            }
-            Token::Slash | Token::SlashEqual => {
-                Instruction::divide(destination, left, left_type_code, right, right_type_code)
-            }
-            Token::Percent | Token::PercentEqual => {
-                Instruction::modulo(destination, left, left_type_code, right, right_type_code)
-            }
+            Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
+            Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
+            Token::Star | Token::StarEqual => Instruction::multiply(destination, left, right),
+            Token::Slash | Token::SlashEqual => Instruction::divide(destination, left, right),
+            Token::Percent | Token::PercentEqual => Instruction::modulo(destination, left, right),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1031,22 +973,12 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction)?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::from(&operator);
 
         // TODO: Check if the left type is a valid type for comparison
-
-        let left_type_code = match left_type {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::String => TypeCode::STRING,
-            _ => unreachable!(),
-        };
 
         if push_back_left {
             self.instructions
@@ -1063,20 +995,10 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction)?;
+        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
         // TODO: Check if the right type is a valid type for comparison
         // TODO: Check if the left and right types are compatible
-
-        let right_type_code = match right_type {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::String => TypeCode::STRING,
-            _ => unreachable!(),
-        };
 
         if push_back_right {
             self.instructions
@@ -1085,22 +1007,12 @@ impl<'src> Compiler<'src> {
 
         let destination = self.next_boolean_register();
         let comparison = match operator {
-            Token::DoubleEqual => {
-                Instruction::equal(true, left, left_type_code, right, right_type_code)
-            }
-            Token::BangEqual => {
-                Instruction::equal(false, left, left_type_code, right, right_type_code)
-            }
-            Token::Less => Instruction::less(true, left, left_type_code, right, right_type_code),
-            Token::LessEqual => {
-                Instruction::less_equal(true, left, left_type_code, right, right_type_code)
-            }
-            Token::Greater => {
-                Instruction::less_equal(false, left, left_type_code, right, right_type_code)
-            }
-            Token::GreaterEqual => {
-                Instruction::less(false, left, left_type_code, right, right_type_code)
-            }
+            Token::DoubleEqual => Instruction::equal(true, left, right),
+            Token::BangEqual => Instruction::equal(false, left, right),
+            Token::Less => Instruction::less(true, left, right),
+            Token::LessEqual => Instruction::less_equal(true, left, right),
+            Token::Greater => Instruction::less_equal(false, left, right),
+            Token::GreaterEqual => Instruction::less(false, left, right),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1289,8 +1201,7 @@ impl<'src> Compiler<'src> {
                 };
                 let point = Instruction::point(
                     local_register_index,
-                    Operand::Register(register),
-                    r#type.type_code(),
+                    Operand::Register(register, r#type.type_code()),
                 );
 
                 self.emit_instruction(point, r#type, start_position);
@@ -1310,8 +1221,7 @@ impl<'src> Compiler<'src> {
         };
         let point = Instruction::point(
             destination,
-            Operand::Register(local_register_index),
-            r#type.type_code(),
+            Operand::Register(local_register_index, r#type.type_code()),
         );
 
         self.emit_instruction(point, r#type, self.previous_position);
@@ -1704,14 +1614,10 @@ impl<'src> Compiler<'src> {
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if matches!(self.get_last_operation(), Some(Operation::POINT)) {
-            let Point {
-                destination,
-                r#type: type_code,
-                ..
-            } = Point::from(self.instructions.last().unwrap().0);
+            let Point { destination, to } = Point::from(self.instructions.last().unwrap().0);
 
             let (_, r#type, _) = self.instructions.pop().unwrap();
-            let r#return = Instruction::r#return(true, destination, type_code);
+            let r#return = Instruction::r#return(true, destination, to.as_type());
 
             self.emit_instruction(r#return, r#type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))

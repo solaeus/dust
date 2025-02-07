@@ -278,12 +278,52 @@ impl Instruction {
         *self = fields.build();
     }
 
-    pub fn point(destination: u16, to: Operand, r#type: TypeCode) -> Instruction {
-        Instruction::from(Point {
-            destination,
-            to,
-            r#type,
-        })
+    pub fn as_operand(&self) -> Operand {
+        match self.operation() {
+            Operation::POINT => {
+                let Point { destination, to } = Point::from(*self);
+
+                Operand::Register(destination, to.as_type())
+            }
+            Operation::LOAD_ENCODED => {
+                let LoadEncoded {
+                    destination,
+                    value_type,
+                    ..
+                } = LoadEncoded::from(*self);
+
+                Operand::Register(destination, value_type)
+            }
+            Operation::LOAD_CONSTANT => {
+                let LoadConstant {
+                    constant_type,
+                    constant_index,
+                    ..
+                } = LoadConstant::from(*self);
+
+                Operand::Constant(constant_index, constant_type)
+            }
+            Operation::LOAD_LIST => {
+                let LoadList { destination, .. } = LoadList::from(*self);
+
+                Operand::Register(destination, TypeCode::LIST)
+            }
+            Operation::LOAD_FUNCTION => {
+                let LoadFunction { destination, .. } = LoadFunction::from(*self);
+
+                Operand::Register(destination, TypeCode::FUNCTION)
+            }
+            Operation::LOAD_SELF => {
+                let LoadSelf { destination, .. } = LoadSelf::from(*self);
+
+                Operand::Register(destination, TypeCode::FUNCTION)
+            }
+            _ => todo!(),
+        }
+    }
+
+    pub fn point(destination: u16, to: Operand) -> Instruction {
+        Instruction::from(Point { destination, to })
     }
 
     pub fn close(from: u16, to: u16) -> Instruction {
@@ -341,131 +381,67 @@ impl Instruction {
         })
     }
 
-    pub fn add(
-        destination: u16,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn add(destination: u16, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn subtract(
-        destination: u16,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn subtract(destination: u16, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn multiply(
-        destination: u16,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn multiply(destination: u16, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn divide(
-        destination: u16,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn divide(destination: u16, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn modulo(
-        destination: u16,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn modulo(destination: u16, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn equal(
-        comparator: bool,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn equal(comparator: bool, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Equal {
             comparator,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn less(
-        comparator: bool,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn less(comparator: bool, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Less {
             comparator,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
-    pub fn less_equal(
-        comparator: bool,
-        left: Operand,
-        left_type: TypeCode,
-        right: Operand,
-        right_type: TypeCode,
-    ) -> Instruction {
+    pub fn less_equal(comparator: bool, left: Operand, right: Operand) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
             left,
-            left_type,
             right,
-            right_type,
         })
     }
 
@@ -552,55 +528,20 @@ impl Instruction {
         self.operation().is_comparison()
     }
 
-    pub fn as_argument(&self) -> Option<Operand> {
-        match self.operation() {
-            Operation::LOAD_CONSTANT => Some(Operand::Constant(self.b_field())),
-            Operation::POINT
-            | Operation::LOAD_ENCODED
-            | Operation::LOAD_LIST
-            | Operation::LOAD_SELF
-            | Operation::ADD
-            | Operation::SUBTRACT
-            | Operation::MULTIPLY
-            | Operation::DIVIDE
-            | Operation::MODULO
-            | Operation::EQUAL
-            | Operation::LESS
-            | Operation::LESS_EQUAL
-            | Operation::NEGATE
-            | Operation::NOT
-            | Operation::CALL => Some(Operand::Register(self.a_field())),
-            Operation::CALL_NATIVE => {
-                let function = NativeFunction::from(self.b_field());
-
-                if function.returns_value() {
-                    Some(Operand::Register(self.a_field()))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
     pub fn b_as_operand(&self) -> Operand {
         if self.b_is_constant() {
-            Operand::Constant(self.b_field())
+            Operand::Constant(self.b_field(), self.b_type())
         } else {
-            Operand::Register(self.b_field())
+            Operand::Register(self.b_field(), self.b_type())
         }
     }
 
     pub fn b_and_c_as_operands(&self) -> (Operand, Operand) {
-        let left = if self.b_is_constant() {
-            Operand::Constant(self.b_field())
-        } else {
-            Operand::Register(self.b_field())
-        };
+        let left = self.b_as_operand();
         let right = if self.c_is_constant() {
-            Operand::Constant(self.c_field())
+            Operand::Constant(self.c_field(), self.c_type())
         } else {
-            Operand::Register(self.c_field())
+            Operand::Register(self.c_field(), self.c_type())
         };
 
         (left, right)
@@ -684,30 +625,37 @@ impl Display for Instruction {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Operand {
-    Constant(u16),
-    Register(u16),
+    Constant(u16, TypeCode),
+    Register(u16, TypeCode),
 }
 
 impl Operand {
     pub fn index(&self) -> u16 {
         match self {
-            Operand::Constant(index) => *index,
-            Operand::Register(index) => *index,
+            Operand::Constant(index, _) => *index,
+            Operand::Register(index, _) => *index,
         }
     }
 
     pub fn is_constant(&self) -> bool {
-        matches!(self, Operand::Constant(_))
+        matches!(self, Operand::Constant(_, _))
     }
 
     pub fn is_register(&self) -> bool {
-        matches!(self, Operand::Register(_))
+        matches!(self, Operand::Register(_, _))
     }
 
     pub fn as_index_and_constant_flag(&self) -> (u16, bool) {
         match self {
-            Operand::Constant(index) => (*index, true),
-            Operand::Register(index) => (*index, false),
+            Operand::Constant(index, _) => (*index, true),
+            Operand::Register(index, _) => (*index, false),
+        }
+    }
+
+    pub fn as_type(&self) -> TypeCode {
+        match self {
+            Operand::Constant(_, r#type) => *r#type,
+            Operand::Register(_, r#type) => *r#type,
         }
     }
 }
@@ -715,8 +663,26 @@ impl Operand {
 impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Operand::Constant(index) => write!(f, "{index}"),
-            Operand::Register(index) => write!(f, "{index}"),
+            Operand::Constant(index, r#type) => match *r#type {
+                TypeCode::BOOLEAN => write!(f, "C_{}", index),
+                TypeCode::CHARACTER => write!(f, "C_{}", index),
+                TypeCode::INTEGER => write!(f, "C_{}", index),
+                TypeCode::FLOAT => write!(f, "C_{}", index),
+                TypeCode::STRING => write!(f, "C_{}", index),
+                TypeCode::LIST => write!(f, "C_{}", index),
+                TypeCode::FUNCTION => write!(f, "C_{}", index),
+                _ => panic!("Unknown type code: {}", r#type.0),
+            },
+            Operand::Register(index, r#type) => match *r#type {
+                TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", index),
+                TypeCode::CHARACTER => write!(f, "R_CHAR_{}", index),
+                TypeCode::INTEGER => write!(f, "R_INT_{}", index),
+                TypeCode::FLOAT => write!(f, "R_FLOAT_{}", index),
+                TypeCode::STRING => write!(f, "R_STR_{}", index),
+                TypeCode::LIST => write!(f, "R_LIST_{}", index),
+                TypeCode::FUNCTION => write!(f, "R_FN_{}", index),
+                _ => panic!("Unknown type code: {}", r#type.0),
+            },
         }
     }
 }
@@ -729,10 +695,8 @@ mod tests {
     fn decode_operation() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(instruction.operation(), Operation::ADD);
@@ -742,10 +706,8 @@ mod tests {
     fn decode_a_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(42, instruction.a_field());
@@ -755,10 +717,8 @@ mod tests {
     fn decode_b_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(4, instruction.b_field());
@@ -768,10 +728,8 @@ mod tests {
     fn decode_c_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(2, instruction.c_field());
@@ -781,10 +739,8 @@ mod tests {
     fn decode_d_field() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert!(!instruction.d_field());
@@ -794,10 +750,8 @@ mod tests {
     fn decode_b_is_constant() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert!(instruction.b_is_constant());
@@ -807,10 +761,8 @@ mod tests {
     fn decode_c_is_constant() {
         let instruction = Instruction::add(
             42,
-            Operand::Register(2),
-            TypeCode::STRING,
-            Operand::Constant(4),
-            TypeCode::CHARACTER,
+            Operand::Register(2, TypeCode::STRING),
+            Operand::Constant(4, TypeCode::CHARACTER),
         );
 
         assert!(instruction.c_is_constant());
@@ -820,10 +772,8 @@ mod tests {
     fn decode_b_type() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(TypeCode::STRING, instruction.b_type());
@@ -833,10 +783,8 @@ mod tests {
     fn decode_c_type() {
         let instruction = Instruction::add(
             42,
-            Operand::Constant(4),
-            TypeCode::STRING,
-            Operand::Register(2),
-            TypeCode::CHARACTER,
+            Operand::Constant(4, TypeCode::STRING),
+            Operand::Register(2, TypeCode::CHARACTER),
         );
 
         assert_eq!(TypeCode::CHARACTER, instruction.c_type());
