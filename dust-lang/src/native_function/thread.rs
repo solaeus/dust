@@ -1,13 +1,8 @@
-use std::{
-    ops::Range,
-    thread::{Builder, JoinHandle},
-};
+use std::{ops::Range, thread::JoinHandle};
 
-use tracing::{Level, info, span};
+use crate::vm::Thread;
 
-use crate::{DustString, vm::Thread};
-
-fn start_thread(thread: &mut Thread, argument_range: Range<usize>) -> JoinHandle<()> {
+fn start_thread(_thread: &mut Thread, _argument_range: Range<usize>) -> JoinHandle<()> {
     todo!();
 }
 

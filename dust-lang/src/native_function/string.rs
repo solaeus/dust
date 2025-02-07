@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-use crate::{ConcreteValue, Value, vm::Thread};
+use crate::vm::Thread;
 
-pub fn to_string(thread: &mut Thread, destination: usize, argument_range: Range<usize>) {
+pub fn to_string(_thread: &mut Thread, _destination: usize, _argument_range: Range<usize>) {
     todo!()
 }

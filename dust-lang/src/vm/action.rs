@@ -68,11 +68,11 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     r#return,
 ];
 
-pub fn point(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn point(_: InstructionFields, thread: &mut Thread) {}
 
-pub fn close(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn close(_: InstructionFields, thread: &mut Thread) {}
 
-pub fn load_boolean(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn load_boolean(_: InstructionFields, _: &mut Thread) {}
 
 pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
@@ -97,14 +97,18 @@ pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
             let constant = *thread.get_constant(constant_index).as_integer().unwrap();
             let register = Register::Value(constant);
 
-            thread.set_integer_register(destination as usize, register);
+            thread.set_integer_register(destination, register);
         }
         TypeCode::STRING => {
             let register = Register::Pointer(Pointer::Constant(constant_index));
 
-            thread.set_string_register(destination as usize, register);
+            thread.set_string_register(destination, register);
         }
         _ => unimplemented!(),
+    }
+
+    if jump_next {
+        thread.current_frame_mut().ip += 1;
     }
 }
 

@@ -43,7 +43,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Chunk, Local, Type};
+use crate::{Chunk, Local};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];

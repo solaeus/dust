@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span, Value};
+use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
