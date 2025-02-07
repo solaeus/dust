@@ -2,6 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     Type,
+    instruction::TypeCode,
     vm::{Pointer, Thread},
 };
 
@@ -9,7 +10,7 @@ use super::DustString;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct AbstractList {
-    pub item_type: Type,
+    pub item_type: TypeCode,
     pub item_pointers: Vec<Pointer>,
 }
 
@@ -25,12 +26,12 @@ impl AbstractList {
             }
 
             let item_display = match self.item_type {
-                Type::Boolean => thread.get_pointer_to_boolean(pointer).to_string(),
-                Type::Byte => thread.get_pointer_to_byte(pointer).to_string(),
-                Type::Character => thread.get_pointer_to_character(pointer).to_string(),
-                Type::Float => thread.get_pointer_to_float(pointer).to_string(),
-                Type::Integer => thread.get_pointer_to_integer(pointer).to_string(),
-                Type::String => thread.get_pointer_to_string(pointer).to_string(),
+                TypeCode::BOOLEAN => thread.get_pointer_to_boolean(pointer).to_string(),
+                TypeCode::BYTE => thread.get_pointer_to_byte(pointer).to_string(),
+                TypeCode::CHARACTER => thread.get_pointer_to_character(pointer).to_string(),
+                TypeCode::FLOAT => thread.get_pointer_to_float(pointer).to_string(),
+                TypeCode::INTEGER => thread.get_pointer_to_integer(pointer).to_string(),
+                TypeCode::STRING => thread.get_pointer_to_string(pointer).to_string(),
                 _ => todo!(),
             };
 

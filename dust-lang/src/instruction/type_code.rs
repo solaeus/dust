@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeCode(pub u8);
 
 impl TypeCode {
@@ -28,6 +30,8 @@ impl Display for TypeCode {
             TypeCode::FLOAT => write!(f, "float"),
             TypeCode::INTEGER => write!(f, "int"),
             TypeCode::STRING => write!(f, "str"),
+            TypeCode::LIST => write!(f, "list"),
+            TypeCode::FUNCTION => write!(f, "fn"),
             _ => self.panic_from_unknown_code(),
         }
     }

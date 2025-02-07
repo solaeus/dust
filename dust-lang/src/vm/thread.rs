@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{Chunk, ConcreteValue, DustString, Span, Value, vm::CallFrame};
+use crate::{
+    AbstractList, Chunk, ConcreteValue, DustString, Span, Value, instruction::TypeCode,
+    vm::CallFrame,
+};
 
 use super::call_frame::{Pointer, Register};
 
@@ -85,6 +88,76 @@ impl Thread {
         }
     }
 
+    pub fn get_value_from_pointer(&self, pointer: &Pointer) -> ConcreteValue {
+        match pointer {
+            Pointer::RegisterBoolean(register_index) => {
+                let boolean = *self.get_boolean_register(*register_index);
+
+                ConcreteValue::Boolean(boolean)
+            }
+            Pointer::RegisterByte(register_index) => {
+                let byte = *self.get_byte_register(*register_index);
+
+                ConcreteValue::Byte(byte)
+            }
+            Pointer::RegisterCharacter(register_index) => {
+                let character = *self.get_character_register(*register_index);
+
+                ConcreteValue::Character(character)
+            }
+            Pointer::RegisterFloat(register_index) => {
+                let float = *self.get_float_register(*register_index);
+
+                ConcreteValue::Float(float)
+            }
+            Pointer::RegisterInteger(register_index) => {
+                let integer = *self.get_integer_register(*register_index);
+
+                ConcreteValue::Integer(integer)
+            }
+            Pointer::RegisterString(register_index) => {
+                let string = self.get_string_register(*register_index).clone();
+
+                ConcreteValue::String(string)
+            }
+            Pointer::RegisterList(register_index) => {
+                let abstract_list = self.get_list_register(*register_index).clone();
+                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+
+                for pointer in &abstract_list.item_pointers {
+                    concrete_list.push(self.get_value_from_pointer(pointer));
+                }
+
+                ConcreteValue::List(concrete_list)
+            }
+            Pointer::RegisterFunction(_) => unimplemented!(),
+            Pointer::ConstantCharacter(constant_index) => {
+                let character = *self.get_constant(*constant_index).as_character().unwrap();
+
+                ConcreteValue::Character(character)
+            }
+            Pointer::ConstantFloat(constant_index) => {
+                let float = *self.get_constant(*constant_index).as_float().unwrap();
+
+                ConcreteValue::Float(float)
+            }
+            Pointer::ConstantInteger(constant_index) => {
+                let integer = *self.get_constant(*constant_index).as_integer().unwrap();
+
+                ConcreteValue::Integer(integer)
+            }
+            Pointer::ConstantString(constant_index) => {
+                let string = self
+                    .get_constant(*constant_index)
+                    .as_string()
+                    .unwrap()
+                    .clone();
+
+                ConcreteValue::String(string)
+            }
+        }
+    }
+
     pub fn get_boolean_register(&self, register_index: usize) -> &bool {
         let register = if cfg!(debug_assertions) {
             self.call_stack
@@ -114,28 +187,8 @@ impl Thread {
 
     pub fn get_pointer_to_boolean(&self, pointer: &Pointer) -> &bool {
         match pointer {
-            Pointer::Register(register_index) => self.get_boolean_register(*register_index),
-            Pointer::Constant(constant_index) => {
-                self.get_constant(*constant_index).as_boolean().unwrap()
-            }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame.registers.booleans.get(*register_index).unwrap()
-                } else {
-                    unsafe { call_frame.registers.booleans.get_unchecked(*register_index) }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_boolean(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            Pointer::RegisterBoolean(register_index) => self.get_boolean_register(*register_index),
+            _ => panic!("Attempted to get boolean from non-boolean pointer"),
         }
     }
 
@@ -191,28 +244,8 @@ impl Thread {
 
     pub fn get_pointer_to_byte(&self, pointer: &Pointer) -> &u8 {
         match pointer {
-            Pointer::Register(register_index) => self.get_byte_register(*register_index),
-            Pointer::Constant(constant_index) => {
-                self.get_constant(*constant_index).as_byte().unwrap()
-            }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame.registers.bytes.get(*register_index).unwrap()
-                } else {
-                    unsafe { call_frame.registers.bytes.get_unchecked(*register_index) }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_byte(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            Pointer::RegisterByte(register_index) => self.get_byte_register(*register_index),
+            _ => panic!("Attempted to get byte from non-byte pointer"),
         }
     }
 
@@ -268,37 +301,13 @@ impl Thread {
 
     pub fn get_pointer_to_character(&self, pointer: &Pointer) -> &char {
         match pointer {
-            Pointer::Register(register_index) => self.get_character_register(*register_index),
-            Pointer::Constant(constant_index) => {
+            Pointer::RegisterCharacter(register_index) => {
+                self.get_character_register(*register_index)
+            }
+            Pointer::ConstantCharacter(constant_index) => {
                 self.get_constant(*constant_index).as_character().unwrap()
             }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame
-                        .registers
-                        .characters
-                        .get(*register_index)
-                        .unwrap()
-                } else {
-                    unsafe {
-                        call_frame
-                            .registers
-                            .characters
-                            .get_unchecked(*register_index)
-                    }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_character(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            _ => panic!("Attempted to get character from non-character pointer"),
         }
     }
 
@@ -354,28 +363,11 @@ impl Thread {
 
     pub fn get_pointer_to_float(&self, pointer: &Pointer) -> &f64 {
         match pointer {
-            Pointer::Register(register_index) => self.get_float_register(*register_index),
-            Pointer::Constant(constant_index) => {
+            Pointer::RegisterFloat(register_index) => self.get_float_register(*register_index),
+            Pointer::ConstantFloat(constant_index) => {
                 self.get_constant(*constant_index).as_float().unwrap()
             }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame.registers.floats.get(*register_index).unwrap()
-                } else {
-                    unsafe { call_frame.registers.floats.get_unchecked(*register_index) }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_float(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            _ => panic!("Attempted to get float from non-float pointer"),
         }
     }
 
@@ -431,28 +423,11 @@ impl Thread {
 
     pub fn get_pointer_to_integer(&self, pointer: &Pointer) -> &i64 {
         match pointer {
-            Pointer::Register(register_index) => self.get_integer_register(*register_index),
-            Pointer::Constant(constant_index) => {
+            Pointer::RegisterInteger(register_index) => self.get_integer_register(*register_index),
+            Pointer::ConstantInteger(constant_index) => {
                 self.get_constant(*constant_index).as_integer().unwrap()
             }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame.registers.integers.get(*register_index).unwrap()
-                } else {
-                    unsafe { call_frame.registers.integers.get_unchecked(*register_index) }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_integer(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            _ => panic!("Attempted to get integer from non-integer pointer"),
         }
     }
 
@@ -508,28 +483,11 @@ impl Thread {
 
     pub fn get_pointer_to_string(&self, pointer: &Pointer) -> &DustString {
         match pointer {
-            Pointer::Register(register_index) => self.get_string_register(*register_index),
-            Pointer::Constant(constant_index) => {
+            Pointer::RegisterString(register_index) => self.get_string_register(*register_index),
+            Pointer::ConstantString(constant_index) => {
                 self.get_constant(*constant_index).as_string().unwrap()
             }
-            Pointer::Stack(call_index, register_index) => {
-                let call_frame = if cfg!(debug_assertions) {
-                    self.call_stack.get(*call_index).unwrap()
-                } else {
-                    unsafe { self.call_stack.get_unchecked(*call_index) }
-                };
-                let register = if cfg!(debug_assertions) {
-                    call_frame.registers.strings.get(*register_index).unwrap()
-                } else {
-                    unsafe { call_frame.registers.strings.get_unchecked(*register_index) }
-                };
-
-                match register {
-                    Register::Value(value) => value,
-                    Register::Pointer(pointer) => self.get_pointer_to_string(pointer),
-                    Register::Empty => panic!("Attempted to get value from empty register"),
-                }
-            }
+            _ => panic!("Attempted to get string from non-string pointer"),
         }
     }
 
@@ -553,6 +511,67 @@ impl Thread {
                     .unwrap_unchecked()
                     .registers
                     .strings
+                    .get_unchecked_mut(register_index)
+            }
+        };
+
+        *old_register = new_register;
+    }
+
+    pub fn get_list_register(&self, register_index: usize) -> &AbstractList {
+        let register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last()
+                .unwrap()
+                .registers
+                .lists
+                .get(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last()
+                    .unwrap_unchecked()
+                    .registers
+                    .lists
+                    .get_unchecked(register_index)
+            }
+        };
+
+        match register {
+            Register::Value(value) => value,
+            Register::Pointer(pointer) => self.get_pointer_to_list(pointer),
+            Register::Empty => panic!("Attempted to get value from empty register"),
+        }
+    }
+
+    pub fn get_pointer_to_list(&self, pointer: &Pointer) -> &AbstractList {
+        match pointer {
+            Pointer::RegisterList(register_index) => self.get_list_register(*register_index),
+            _ => panic!("Attempted to get list from non-list pointer"),
+        }
+    }
+
+    pub fn set_list_register(
+        &mut self,
+        register_index: usize,
+        new_register: Register<AbstractList>,
+    ) {
+        let old_register = if cfg!(debug_assertions) {
+            self.call_stack
+                .last_mut()
+                .unwrap()
+                .registers
+                .lists
+                .get_mut(register_index)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last_mut()
+                    .unwrap_unchecked()
+                    .registers
+                    .lists
                     .get_unchecked_mut(register_index)
             }
         };

@@ -111,9 +111,12 @@ impl ConcreteValue {
             ConcreteValue::Float(_) => Type::Float,
             ConcreteValue::Integer(_) => Type::Integer,
             ConcreteValue::List(list) => {
-                let item_type = list.first().map_or(Type::Any, |item| item.r#type());
+                let item_type = list
+                    .first()
+                    .map_or(Type::Any, |item| item.r#type())
+                    .type_code();
 
-                Type::List(Box::new(item_type))
+                Type::List(item_type)
             }
             ConcreteValue::Range(range) => range.r#type(),
             ConcreteValue::String(_) => Type::String,

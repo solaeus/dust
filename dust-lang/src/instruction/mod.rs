@@ -332,7 +332,7 @@ impl Instruction {
 
     pub fn load_encoded(
         destination: u16,
-        value: u16,
+        value: u8,
         value_type: TypeCode,
         jump_next: bool,
     ) -> Instruction {
@@ -366,10 +366,18 @@ impl Instruction {
         })
     }
 
-    pub fn load_list(destination: u16, start_register: u16, jump_next: bool) -> Instruction {
+    pub fn load_list(
+        destination: u16,
+        item_type: TypeCode,
+        start_register: u16,
+        length: u16,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadList {
             destination,
+            item_type,
             start_register,
+            length,
             jump_next,
         })
     }

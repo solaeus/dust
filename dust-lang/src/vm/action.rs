@@ -1,5 +1,5 @@
 use crate::{
-    Instruction, Value,
+    AbstractList, ConcreteValue, Instruction, Value,
     instruction::{InstructionFields, TypeCode},
 };
 
@@ -123,7 +123,7 @@ pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
             thread.set_integer_register(destination, register);
         }
         TypeCode::STRING => {
-            let register = Register::Pointer(Pointer::Constant(constant_index));
+            let register = Register::Pointer(Pointer::ConstantString(constant_index));
 
             thread.set_string_register(destination, register);
         }
@@ -135,7 +135,42 @@ pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
+    let destination = instruction.a_field;
+    let start_register = instruction.b_field;
+    let item_type = instruction.b_type;
+    let length = instruction.c_field;
+    let jump_next = instruction.d_field;
+
+    let mut item_pointers = Vec::with_capacity(length as usize);
+
+    for register_index in start_register..start_register + length {
+        let pointer = match item_type {
+            TypeCode::BOOLEAN => Pointer::RegisterBoolean(register_index as usize),
+            TypeCode::BYTE => Pointer::RegisterByte(register_index as usize),
+            TypeCode::CHARACTER => Pointer::RegisterCharacter(register_index as usize),
+            TypeCode::FLOAT => Pointer::RegisterFloat(register_index as usize),
+            TypeCode::INTEGER => Pointer::RegisterInteger(register_index as usize),
+            TypeCode::STRING => Pointer::RegisterString(register_index as usize),
+            TypeCode::LIST => Pointer::RegisterList(register_index as usize),
+            _ => unimplemented!(),
+        };
+
+        item_pointers.push(pointer);
+    }
+
+    let abstract_list = AbstractList {
+        item_type,
+        item_pointers,
+    };
+    let register = Register::Value(abstract_list);
+
+    thread.set_list_register(destination as usize, register);
+
+    if jump_next {
+        thread.current_frame_mut().ip += 1;
+    }
+}
 
 pub fn load_function(instruction: InstructionFields, thread: &mut Thread) {}
 
@@ -368,6 +403,17 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
             TypeCode::STRING => {
                 let return_value = thread.get_string_register(return_register).clone();
                 thread.return_value = Some(Some(Value::string(return_value)));
+            }
+            TypeCode::LIST => {
+                let abstract_list = thread.get_list_register(return_register).clone();
+                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+
+                for pointer in &abstract_list.item_pointers {
+                    concrete_list.push(thread.get_value_from_pointer(pointer));
+                }
+
+                thread.return_value =
+                    Some(Some(Value::Concrete(ConcreteValue::List(concrete_list))));
             }
             _ => unimplemented!(),
         }

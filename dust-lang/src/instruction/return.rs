@@ -51,13 +51,17 @@ impl Display for Return {
         } = self;
 
         if *should_return_value {
+            write!(f, "RETURN ")?;
+
             match *r#type {
-                TypeCode::BOOLEAN => write!(f, "RETURN R_BOOL_{return_register}"),
-                TypeCode::BYTE => write!(f, "RETURN R_BYTE_{return_register}"),
-                TypeCode::CHARACTER => write!(f, "RETURN R_CHAR_{return_register}"),
-                TypeCode::FLOAT => write!(f, "RETURN R_FLOAT_{return_register}"),
-                TypeCode::INTEGER => write!(f, "RETURN R_INT_{return_register}"),
-                TypeCode::STRING => write!(f, "RETURN R_STR_{return_register}"),
+                TypeCode::BOOLEAN => write!(f, "R_BOOL_{return_register}"),
+                TypeCode::BYTE => write!(f, "R_BYTE_{return_register}"),
+                TypeCode::CHARACTER => write!(f, "R_CHAR_{return_register}"),
+                TypeCode::FLOAT => write!(f, "R_FLOAT_{return_register}"),
+                TypeCode::INTEGER => write!(f, "R_INT_{return_register}"),
+                TypeCode::STRING => write!(f, "R_STR_{return_register}"),
+                TypeCode::LIST => write!(f, "R_LIST_{return_register}"),
+                TypeCode::FUNCTION => write!(f, "R_FN_{return_register}"),
                 unsupported => unreachable!("Unsupported return type: {:?}", unsupported),
             }
         } else {

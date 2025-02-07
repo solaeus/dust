@@ -32,26 +32,26 @@ use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    pub(crate) name: Option<DustString>,
-    pub(crate) r#type: FunctionType,
+    pub name: Option<DustString>,
+    pub r#type: FunctionType,
 
-    pub(crate) instructions: Vec<Instruction>,
-    pub(crate) positions: Vec<Span>,
-    pub(crate) constants: Vec<ConcreteValue>,
-    pub(crate) locals: Vec<Local>,
-    pub(crate) prototypes: Vec<Arc<Chunk>>,
+    pub instructions: Vec<Instruction>,
+    pub positions: Vec<Span>,
+    pub constants: Vec<ConcreteValue>,
+    pub locals: Vec<Local>,
+    pub prototypes: Vec<Arc<Chunk>>,
 
-    pub(crate) boolean_register_count: usize,
-    pub(crate) byte_register_count: usize,
-    pub(crate) character_register_count: usize,
-    pub(crate) float_register_count: usize,
-    pub(crate) integer_register_count: usize,
-    pub(crate) string_register_count: usize,
-    pub(crate) list_register_count: usize,
-    pub(crate) function_register_count: usize,
-    pub(crate) prototype_index: u16,
+    pub boolean_register_count: usize,
+    pub byte_register_count: usize,
+    pub character_register_count: usize,
+    pub float_register_count: usize,
+    pub integer_register_count: usize,
+    pub string_register_count: usize,
+    pub list_register_count: usize,
+    pub function_register_count: usize,
+    pub prototype_index: u16,
 }
 
 impl Chunk {

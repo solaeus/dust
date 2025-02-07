@@ -117,9 +117,7 @@ impl Value {
     pub fn r#type(&self) -> Type {
         match self {
             Value::Concrete(concrete_value) => concrete_value.r#type(),
-            Value::AbstractList(AbstractList { item_type, .. }) => {
-                Type::List(Box::new(item_type.clone()))
-            }
+            Value::AbstractList(AbstractList { item_type, .. }) => Type::List(*item_type),
             Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
         }
     }

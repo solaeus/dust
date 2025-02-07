@@ -24,7 +24,7 @@ pub enum Type {
         concrete_type: Option<Box<Type>>,
     },
     Integer,
-    List(Box<Type>),
+    List(TypeCode),
     Map {
         pairs: Vec<(u8, Type)>,
     },
@@ -45,10 +45,6 @@ impl Type {
         Type::Function(Box::new(function_type))
     }
 
-    pub fn list(element_type: Type) -> Self {
-        Type::List(Box::new(element_type))
-    }
-
     pub fn type_code(&self) -> TypeCode {
         match self {
             Type::Boolean => TypeCode::BOOLEAN,
@@ -58,6 +54,8 @@ impl Type {
             Type::Integer => TypeCode::INTEGER,
             Type::None => TypeCode::NONE,
             Type::String => TypeCode::STRING,
+            Type::List(_) => TypeCode::LIST,
+            Type::Function(_) => TypeCode::FUNCTION,
             _ => todo!(),
         }
     }
@@ -121,7 +119,7 @@ impl Type {
                 }
             }
             (Type::List(left_type), Type::List(right_type)) => {
-                if left_type.check(right_type).is_err() {
+                if left_type != right_type {
                     return Err(TypeConflict {
                         actual: other.clone(),
                         expected: self.clone(),
@@ -303,6 +301,16 @@ impl FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
             return_type,
+        }
+    }
+}
+
+impl Default for FunctionType {
+    fn default() -> Self {
+        FunctionType {
+            type_parameters: Vec::new(),
+            value_parameters: Vec::new(),
+            return_type: Type::None,
         }
     }
 }

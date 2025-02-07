@@ -32,7 +32,7 @@ use std::{mem::replace, sync::Arc};
 use crate::{
     Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
-    instruction::{CallNative, Jump, LoadList, Point, Return, TypeCode},
+    instruction::{CallNative, Jump, Point, Return, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -591,7 +591,7 @@ impl<'src> Compiler<'src> {
         if let Token::Boolean(text) = self.current_token {
             self.advance()?;
 
-            let boolean = text.parse::<bool>().unwrap() as u16;
+            let boolean = text.parse::<bool>().unwrap() as u8;
             let destination = self.next_boolean_register();
             let load_encoded =
                 Instruction::load_encoded(destination, boolean, TypeCode::BOOLEAN, false);
@@ -615,8 +615,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let byte = u8::from_str_radix(&text[2..], 16)
-                .map_err(|error| CompileError::ParseIntError { error, position })?
-                as u16;
+                .map_err(|error| CompileError::ParseIntError { error, position })?;
             let destination = self.next_byte_register();
             let load_encoded = Instruction::load_encoded(destination, byte, TypeCode::BYTE, false);
 
@@ -1002,10 +1001,9 @@ impl<'src> Compiler<'src> {
         };
         let jump = Instruction::jump(1, true);
         let destination = self.next_boolean_register();
-        let load_true =
-            Instruction::load_encoded(destination, true as u16, TypeCode::BOOLEAN, true);
+        let load_true = Instruction::load_encoded(destination, true as u8, TypeCode::BOOLEAN, true);
         let load_false =
-            Instruction::load_encoded(destination, false as u16, TypeCode::BOOLEAN, false);
+            Instruction::load_encoded(destination, false as u8, TypeCode::BOOLEAN, false);
 
         self.emit_instruction(comparison, Type::Boolean, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
@@ -1243,30 +1241,57 @@ impl<'src> Compiler<'src> {
         self.advance()?;
 
         let mut item_type = Type::None;
-        let mut start_register = 0;
+        let mut start_register = None;
+        let mut length = 0;
 
         while !self.allow(Token::RightBracket)? && !self.is_eof() {
             self.parse_expression()?;
 
-            item_type = self.get_last_instruction_type();
-            start_register = match item_type {
-                Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
-                _ => todo!(),
-            };
+            if item_type == Type::None {
+                item_type = self.get_last_instruction_type();
+            }
+
+            if start_register.is_none() {
+                let first_index = match item_type {
+                    Type::Boolean => self.next_boolean_register() - 1,
+                    Type::Byte => self.next_byte_register() - 1,
+                    Type::Character => self.next_character_register() - 1,
+                    Type::Float => self.next_float_register() - 1,
+                    Type::Integer => self.next_integer_register() - 1,
+                    Type::String => self.next_string_register() - 1,
+                    Type::List(_) => self.next_list_register() - 1,
+                    Type::None => {
+                        return Err(CompileError::ExpectedExpression {
+                            found: self.previous_token.to_owned(),
+                            position: self.previous_position,
+                        });
+                    }
+                    _ => todo!(),
+                };
+
+                start_register = Some(first_index);
+            }
+
+            length += 1;
 
             self.allow(Token::Comma)?;
         }
 
         let destination = self.next_list_register();
         let end = self.previous_position.1;
-        let load_list = Instruction::load_list(destination, start_register, false);
+        let load_list = Instruction::load_list(
+            destination,
+            item_type.type_code(),
+            start_register.unwrap_or(0),
+            length,
+            false,
+        );
 
-        self.emit_instruction(load_list, Type::List(Box::new(item_type)), Span(start, end));
+        self.emit_instruction(
+            load_list,
+            Type::List(item_type.type_code()),
+            Span(start, end),
+        );
 
         Ok(())
     }
@@ -1478,6 +1503,7 @@ impl<'src> Compiler<'src> {
             Type::Float => self.next_float_register(),
             Type::Integer => self.next_integer_register(),
             Type::String => self.next_string_register(),
+            Type::None => 0,
             _ => todo!(),
         };
         let return_type = function.r#type().return_type;
