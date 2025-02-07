@@ -89,7 +89,7 @@ pub struct Compiler<'src> {
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
-    locals: Vec<(Local, Type)>,
+    locals: Vec<Local>,
 
     /// Prototypes that have been compiled. These are assigned to the chunk when
     /// [`Compiler::finish`] is called.
@@ -239,11 +239,6 @@ impl<'src> Compiler<'src> {
             .into_iter()
             .map(|(instruction, _, position)| (instruction, position))
             .unzip();
-        let locals = self
-            .locals
-            .into_iter()
-            .map(|(local, _)| local)
-            .collect::<Vec<Local>>();
 
         Chunk {
             name: self.function_name,
@@ -251,7 +246,7 @@ impl<'src> Compiler<'src> {
             instructions,
             positions,
             constants: self.constants,
-            locals,
+            locals: self.locals,
             prototypes: self.prototypes,
             boolean_register_count,
             byte_register_count,
@@ -402,7 +397,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn get_local(&self, index: u16) -> Result<&(Local, Type), CompileError> {
+    fn get_local(&self, index: u16) -> Result<&Local, CompileError> {
         self.locals
             .get(index as usize)
             .ok_or(CompileError::UndeclaredVariable {
@@ -416,7 +411,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .enumerate()
             .rev()
-            .find_map(|(index, (local, _))| {
+            .find_map(|(index, local)| {
                 let constant = self.constants.get(local.identifier_index as usize)?;
                 let identifier = if let ConcreteValue::String(identifier) = constant {
                     identifier
@@ -450,22 +445,23 @@ impl<'src> Compiler<'src> {
         let identifier_index = self.push_or_get_constant(identifier);
         let local_index = self.locals.len() as u16;
 
-        self.locals.push((
-            Local::new(identifier_index, register_index, is_mutable, scope),
+        self.locals.push(Local::new(
+            identifier_index,
+            register_index,
             r#type,
+            is_mutable,
+            scope,
         ));
 
         (local_index, identifier_index)
     }
 
     fn get_identifier(&self, local_index: u16) -> Option<String> {
-        self.locals
-            .get(local_index as usize)
-            .and_then(|(local, _)| {
-                self.constants
-                    .get(local.identifier_index as usize)
-                    .map(|value| value.to_string())
-            })
+        self.locals.get(local_index as usize).and_then(|local| {
+            self.constants
+                .get(local.identifier_index as usize)
+                .map(|value| value.to_string())
+        })
     }
 
     fn push_or_get_constant(&mut self, value: ConcreteValue) -> u16 {
@@ -535,12 +531,14 @@ impl<'src> Compiler<'src> {
     }
 
     fn get_register_type(&self, register_index: u16) -> Result<Type, CompileError> {
-        if let Some((_, r#type)) = self
-            .locals
-            .iter()
-            .find(|(local, _)| local.register_index == register_index)
-        {
-            return Ok(r#type.clone());
+        if let Some(r#type) = self.locals.iter().find_map(|local| {
+            if local.register_index == register_index {
+                Some(local.r#type.clone())
+            } else {
+                None
+            }
+        }) {
+            return Ok(r#type);
         }
 
         for (instruction, r#type, _) in &self.instructions {
@@ -852,7 +850,7 @@ impl<'src> Compiler<'src> {
 
             self.locals
                 .get(to.index() as usize)
-                .map(|(local, _)| local.is_mutable)
+                .map(|local| local.is_mutable)
                 .unwrap_or(false)
         } else {
             false
@@ -1052,7 +1050,7 @@ impl<'src> Compiler<'src> {
                 })?;
         let operand_register = if last_instruction.operation() == Operation::POINT {
             let Point { to, .. } = Point::from(last_instruction);
-            let (local, _) = self.get_local(to.index())?;
+            let local = self.get_local(to.index())?;
 
             local.register_index
         } else if last_instruction.yields_value() {
@@ -1156,9 +1154,8 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        let (local, r#type) = self
-            .get_local(local_index)
-            .map(|(local, r#type)| (local, r#type.clone()))?;
+        let local = self.get_local(local_index)?;
+        let local_type = local.r#type.clone();
         let is_mutable = local.is_mutable;
         let local_register_index = local.register_index;
 
@@ -1190,7 +1187,7 @@ impl<'src> Compiler<'src> {
 
                 math_instruction.set_a_field(local_register_index);
             } else {
-                let register = match r#type {
+                let register = match local_type {
                     Type::Boolean => self.next_boolean_register(),
                     Type::Byte => self.next_byte_register(),
                     Type::Character => self.next_character_register(),
@@ -1201,16 +1198,16 @@ impl<'src> Compiler<'src> {
                 };
                 let point = Instruction::point(
                     local_register_index,
-                    Operand::Register(register, r#type.type_code()),
+                    Operand::Register(register, local_type.type_code()),
                 );
 
-                self.emit_instruction(point, r#type, start_position);
+                self.emit_instruction(point, local_type, start_position);
             }
 
             return Ok(());
         }
 
-        let destination = match r#type {
+        let destination = match local_type {
             Type::Boolean => self.next_boolean_register(),
             Type::Byte => self.next_byte_register(),
             Type::Character => self.next_character_register(),
@@ -1221,10 +1218,10 @@ impl<'src> Compiler<'src> {
         };
         let point = Instruction::point(
             destination,
-            Operand::Register(local_register_index, r#type.type_code()),
+            Operand::Register(local_register_index, local_type.type_code()),
         );
 
-        self.emit_instruction(point, r#type, self.previous_position);
+        self.emit_instruction(point, local_type, self.previous_position);
 
         Ok(())
     }

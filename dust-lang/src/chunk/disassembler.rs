@@ -43,7 +43,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Chunk, Local};
+use crate::{Chunk, Local, Type};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
@@ -53,17 +53,18 @@ const INSTRUCTION_BORDERS: [&str; 3] = [
     "╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯",
 ];
 
-const LOCAL_COLUMNS: [(&str, usize); 5] = [
+const LOCAL_COLUMNS: [(&str, usize); 6] = [
     ("i", 5),
     ("IDENTIFIER", 16),
+    ("TYPE", 26),
     ("REGISTER", 10),
     ("SCOPE", 7),
     ("MUTABLE", 7),
 ];
 const LOCAL_BORDERS: [&str; 3] = [
-    "╭─────┬────────────────┬──────────┬───────┬───────╮",
-    "├─────┼────────────────┼──────────┼───────┼───────┤",
-    "╰─────┴────────────────┴──────────┴───────┴───────╯",
+    "╭─────┬────────────────┬──────────────────────────┬──────────┬───────┬───────╮",
+    "├─────┼────────────────┼──────────────────────────┼──────────┼───────┼───────┤",
+    "╰─────┴────────────────┴──────────────────────────┴──────────┴───────┴───────╯",
 ];
 
 const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
@@ -314,6 +315,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             Local {
                 identifier_index,
                 register_index,
+                r#type,
                 scope,
                 is_mutable,
             },
@@ -325,10 +327,12 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 .get(*identifier_index as usize)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let register_display = format!("R{register_index}");
+            let type_display = r#type.to_string();
+            let type_caps = type_display.to_uppercase();
+            let register_display = format!("R_{type_caps}_{register_index}");
             let scope = scope.to_string();
             let row = format!(
-                "│{index:^5}│{identifier_display:^16}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
+                "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{register_display:^10}│{scope:^7}│{is_mutable:^7}│"
             );
 
             self.write_center_border(&row)?;
