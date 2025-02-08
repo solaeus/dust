@@ -41,7 +41,7 @@ const USAGE: &str = cstr!(
 
 const SUBCOMMANDS: &str = cstr!(
     r#"
-<bright-magenta,bold>Modes:</>
+<bright-magenta,bold>Commands:</>
 {subcommands}
 "#
 );
@@ -56,7 +56,7 @@ const OPTIONS: &str = cstr!(
 const CREATE_MAIN_HELP_TEMPLATE: fn() -> String =
     || cformat!("{ABOUT}{USAGE}{SUBCOMMANDS}{OPTIONS}");
 
-const CREATE_MODE_HELP_TEMPLATE: fn(&str) -> String = |title| {
+const CREATE_COMMAND_HELP_TEMPLATE: fn(&str) -> String = |title| {
     cformat!(
         "\
         <bright-magenta,bold>{title}\n────────</>\
@@ -98,17 +98,17 @@ struct Cli {
     log_level: Option<Level>,
 
     #[command(subcommand)]
-    mode: Option<Mode>,
+    mode: Option<Command>,
 
     #[command(flatten)]
     run: Run,
 }
 
 #[derive(Args)]
-struct Input {
+struct Source {
     /// Source code to run instead of a file
-    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
-    command: Option<String>,
+    #[arg(short, long, value_hint = ValueHint::Other, value_name = "FORMAT")]
+    eval: Option<String>,
 
     /// Read source code from stdin
     #[arg(long)]
@@ -123,7 +123,7 @@ struct Input {
 #[derive(Args)]
 #[command(
     short_flag = 'r',
-    help_template = CREATE_MODE_HELP_TEMPLATE("Run Mode")
+    help_template = CREATE_COMMAND_HELP_TEMPLATE("Run Mode")
 )]
 struct Run {
     /// Print the time taken for compilation and execution
@@ -139,20 +139,24 @@ struct Run {
     name: Option<DustString>,
 
     #[command(flatten)]
-    input: Input,
+    source: Source,
+
+    /// Input format
+    #[arg(short, long, default_value = "dust")]
+    input: InputFormat,
 }
 
 #[derive(Subcommand)]
-#[clap(subcommand_value_name = "MODE", flatten_help = true)]
-enum Mode {
+#[clap(subcommand_value_name = "COMMAND", flatten_help = true)]
+enum Command {
     Run(Run),
 
-    /// Compile and print the bytecode disassembly
+    /// Compile and print the input
     #[command(
-        short_flag = 'd',
-        help_template = CREATE_MODE_HELP_TEMPLATE("Disassemble Mode")
+        short_flag = 'c',
+        help_template = CREATE_COMMAND_HELP_TEMPLATE("Compile Mode")
     )]
-    Disassemble {
+    Compile {
         /// Style disassembly output
         #[arg(short, long, default_value = "true")]
         style: bool,
@@ -162,16 +166,16 @@ enum Mode {
         name: Option<DustString>,
 
         #[command(flatten)]
-        input: Input,
+        source: Source,
 
-        #[arg(short, long, default_value = "cli")]
-        format: Format,
+        #[arg(short, long, default_value = "cli", value_name = "FORMAT")]
+        output: OutputFormat,
     },
 
     /// Lex the source code and print the tokens
     #[command(
         short_flag = 't',
-        help_template = CREATE_MODE_HELP_TEMPLATE("Tokenize Mode")
+        help_template = CREATE_COMMAND_HELP_TEMPLATE("Tokenize Mode")
     )]
     Tokenize {
         /// Style token output
@@ -179,19 +183,26 @@ enum Mode {
         style: bool,
 
         #[command(flatten)]
-        input: Input,
+        source: Source,
     },
 }
 
 #[derive(ValueEnum, Clone, Copy)]
-enum Format {
+enum OutputFormat {
     Cli,
     Json,
-    Toml,
+    Yaml,
 }
 
-fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
-    if let Some(path) = input.file {
+#[derive(ValueEnum, Clone, Copy)]
+enum InputFormat {
+    Dust,
+    Json,
+    Yaml,
+}
+
+fn get_source_and_file_name(source: Source) -> (String, Option<DustString>) {
+    if let Some(path) = source.file {
         let source = read_to_string(&path).expect("Failed to read source file");
         let file_name = path
             .file_name()
@@ -201,7 +212,7 @@ fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
         return (source, file_name);
     }
 
-    if input.stdin {
+    if source.stdin {
         let mut source = String::new();
         io::stdin()
             .read_to_string(&mut source)
@@ -210,7 +221,7 @@ fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
         return (source, None);
     }
 
-    let source = input.command.expect("No source code provided");
+    let source = source.eval.expect("No source code provided");
 
     (source, None)
 }
@@ -222,52 +233,64 @@ fn main() {
         mode,
         run,
     } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run(run));
+    let mode = mode.unwrap_or(Command::Run(run));
     let subscriber = FmtSubscriber::builder()
         .with_max_level(log_level)
         .with_thread_names(true)
         .with_file(false)
+        .without_time()
         .finish();
 
     set_global_default(subscriber).expect("Failed to set tracing subscriber");
 
-    if let Mode::Run(Run {
+    if let Command::Run(Run {
         time,
         no_output,
         name,
+        source,
         input,
     }) = mode
     {
-        let (source, file_name) = get_source_and_file_name(input);
+        let (source, file_name) = get_source_and_file_name(source);
         let lexer = Lexer::new(&source);
         let program_name = name.or(file_name);
-        let mut compiler = match Compiler::new(lexer, program_name, true) {
-            Ok(compiler) => compiler,
-            Err(error) => {
-                handle_compile_error(error, &source);
+        let chunk = match input {
+            InputFormat::Dust => {
+                let mut compiler = match Compiler::new(lexer, program_name, true) {
+                    Ok(compiler) => compiler,
+                    Err(error) => {
+                        handle_compile_error(error, &source);
 
-                return;
+                        return;
+                    }
+                };
+
+                match compiler.compile() {
+                    Ok(()) => {}
+                    Err(error) => {
+                        handle_compile_error(error, &source);
+
+                        return;
+                    }
+                }
+
+                compiler.finish()
+            }
+            InputFormat::Json => {
+                serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
+            }
+            InputFormat::Yaml => {
+                serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
             }
         };
-
-        match compiler.compile() {
-            Ok(()) => {}
-            Err(error) => {
-                handle_compile_error(error, &source);
-
-                return;
-            }
-        }
-
-        let chunk = compiler.finish();
         let compile_end = start_time.elapsed();
 
         let vm = Vm::new(chunk);
         let return_value = vm.run();
         let run_end = start_time.elapsed();
 
-        if let Some(value) = return_value {
-            if !no_output {
+        if !no_output {
+            if let Some(value) = return_value {
                 println!("{}", value)
             }
         }
@@ -284,14 +307,14 @@ fn main() {
         return;
     }
 
-    if let Mode::Disassemble {
+    if let Command::Compile {
         style,
         name,
-        input,
-        format,
+        source,
+        output,
     } = mode
     {
-        let (source, file_name) = get_source_and_file_name(input);
+        let (source, file_name) = get_source_and_file_name(source);
         let lexer = Lexer::new(&source);
         let program_name = name.or(file_name);
         let mut compiler = match Compiler::new(lexer, program_name, true) {
@@ -315,8 +338,8 @@ fn main() {
         let chunk = compiler.finish();
         let mut stdout = stdout().lock();
 
-        match format {
-            Format::Cli => {
+        match output {
+            OutputFormat::Cli => {
                 chunk
                     .disassembler(&mut stdout)
                     .width(65)
@@ -325,26 +348,25 @@ fn main() {
                     .disassemble()
                     .expect("Failed to write disassembly to stdout");
             }
-            Format::Json => {
+            OutputFormat::Json => {
                 let json = serde_json::to_string_pretty(&chunk)
                     .expect("Failed to serialize chunk to JSON");
 
                 println!("{json}");
             }
-            Format::Toml => {
-                let toml = basic_toml::to_string(&chunk)
-                    .inspect_err(|error| println!("{:?}", error.to_string()))
-                    .expect("Failed to serialize chunk to TOML");
+            OutputFormat::Yaml => {
+                let yaml =
+                    serde_yaml::to_string(&chunk).expect("Failed to serialize chunk to YAML");
 
-                println!("{toml}");
+                println!("{yaml}");
             }
         }
 
         return;
     }
 
-    if let Mode::Tokenize { input, .. } = mode {
-        let (source, _) = get_source_and_file_name(input);
+    if let Command::Tokenize { source, .. } = mode {
+        let (source, _) = get_source_and_file_name(source);
         let mut lexer = Lexer::new(&source);
         let mut next_token = || -> Option<(Token, Span, bool)> {
             match lexer.next_token() {
