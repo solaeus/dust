@@ -1512,15 +1512,6 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
 
-        let if_block_last_instruction_index = self.instructions.len() - else_block_distance;
-        let else_block_last_instruction_index = self.instructions.len() - 1;
-
-        let if_block_last_instruction = self.instructions[if_block_last_instruction_index].0;
-        let else_block_last_instruction =
-            &mut self.instructions[else_block_last_instruction_index].0;
-
-        else_block_last_instruction.set_a_field(if_block_last_instruction.a_field());
-
         Ok(())
     }
 
@@ -2062,7 +2053,7 @@ impl<'src> Compiler<'src> {
         if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
             debug!(
                 "{} is prefix with precedence {precedence}",
-                self.current_token.to_string(),
+                self.current_token,
             );
 
             prefix_parser(self)?;
@@ -2074,7 +2065,7 @@ impl<'src> Compiler<'src> {
             if let Some(infix_parser) = infix_rule.infix {
                 debug!(
                     "{} is infix with precedence {precedence}",
-                    self.current_token.to_string(),
+                    self.current_token,
                 );
 
                 if self.current_token == Token::Equal {

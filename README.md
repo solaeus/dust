@@ -117,13 +117,13 @@ Options:
 
 #### Running a program
 
-If not specified, the CLI will use `run` mode. This mode compiles and executes the Dust program,
+If not specified, the CLI will use `run` command. This mode compiles and executes the Dust program,
 printing the return value to the console. You can also run Dust code directly from the command line
-using the `--command` or `-c` flag.
+using the `--eval` or `-e` flag.
 
 ```sh
 dust foobar.ds
-dust -c 'let x = 42; x'
+dust -e 'let x = 42; x'
 ```
 
 #### Disassembly
@@ -133,7 +133,7 @@ representation of the Dust program. It shows every piece of information that the
 the virtual machine and explains what each instruction does and what data it uses.
 
 ```sh
-dust -d example.ds
+dust compile example.ds
 ```
 
 <details>
@@ -141,38 +141,38 @@ dust -d example.ds
 
 ```text
 ╭──────────────────────────────────────────────────────────────────────────────────╮
-│                                    example.ds               <---- file name      │
+│                                    example.ds                                    │
 │                                                                                  │
-│                     let mut i = 0; while i < 10 { i += 1 };    <---- source code │
+│                      let mut i = 0; while i < 10 { i += 1 }                      │
 │                                                                                  │
-│               6 instructions, 4 constants, 1 locals, returns none  <---- summary │
+│               6 instructions, 4 constants, 1 locals, returns none                │
 │                                                                                  │
 │                                   Instructions                                   │
 │ ╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮ │
 │ │  i  │  POSITION  │    OPERATION    │                  INFO                   │ │
 │ ├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤ │
-│ │  0  │  (12, 13)  │  LOAD_CONSTANT  │            R_INT_0 = C_INT_0            │ │
-│ │  1  │  (23, 24)  │      LESS       │    if R_INT_0 < C_INT_1 { JUMP +1 }     │ │
-│ │  2  │  (38, 39)  │      JUMP       │                 JUMP +2                 │ │
-│ │  3  │  (32, 34)  │       ADD       │       R_INT_0 = R_INT_0 + C_INT_2       │ │
-│ │  4  │  (38, 39)  │      JUMP       │                 JUMP -3                 │ │
-│ │  5  │  (39, 39)  │     RETURN      │                 RETURN                  │ │
+│ │  0  │  (12, 13)  │  LOAD_CONSTANT  │              R_INT_0 = C0               │ │
+│ │  1  │  (23, 24)  │      LESS       │      if R_INT_0 < C_2 { JUMP +1 }       │ │
+│ │  2  │  (38, 38)  │      JUMP       │                 JUMP +2                 │ │
+│ │  3  │  (30, 36)  │       ADD       │         R_INT_0 = R_INT_0 + C_3         │ │
+│ │  4  │  (38, 38)  │      JUMP       │                 JUMP -3                 │ │
+│ │  5  │  (38, 38)  │     RETURN      │                 RETURN                  │ │
 │ ╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯ │
 │                                      Locals                                      │
-│       ╭─────┬────────────────┬────────────────┬──────────┬───────┬───────╮       │
-│       │  i  │   identifier   │      type      │ register │ scope │mutable│       │
-│       ├─────┼────────────────┼────────────────┼──────────┼───────┼───────┤       │
-│       │  0  │       i        │      int       │ R_INT_0  │  0.0  │ true  │       │
-│       ╰─────┴────────────────┴────────────────┴──────────┴───────┴───────╯       │
+│ ╭─────┬────────────────┬──────────────────────────┬────────────┬───────┬───────╮ │
+│ │  i  │   IDENTIFIER   │           TYPE           │  REGISTER  │ SCOPE │MUTABLE│ │
+│ ├─────┼────────────────┼──────────────────────────┼────────────┼───────┼───────┤ │
+│ │  0  │       i        │           int            │  R_INT_0   │  0.0  │ true  │ │
+│ ╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯ │
 │                                    Constants                                     │
-│         ╭────────┬──────────────────────────┬──────────────────────────╮         │
-│         │   i    │           TYPE           │          VALUE           │         │
-│         ├────────┼──────────────────────────┼──────────────────────────┤         │
-│         │ INT_0  │           int            │            0             │         │
-│         │ INT_1  │           int            │            10            │         │
-│         │ INT_2  │           int            │            1             │         │
-│         │ STR_0  │           str            │            i             │         │
-│         ╰────────┴──────────────────────────┴──────────────────────────╯         │
+│          ╭─────┬──────────────────────────┬──────────────────────────╮           │
+│          │  i  │           TYPE           │          VALUE           │           │
+│          ├─────┼──────────────────────────┼──────────────────────────┤           │
+│          │  0  │           int            │            0             │           │
+│          │  1  │           str            │            i             │           │
+│          │  2  │           int            │            10            │           │
+│          │  3  │           int            │            1             │           │
+│          ╰─────┴──────────────────────────┴──────────────────────────╯           │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -180,18 +180,17 @@ dust -d example.ds
 
 The instruction notation reflects the Dust VM's register-based architecture. Values are referred to
 by their address in the register or constant table. For example, `R_INT_42` refers to the
-forty-second integer register, and `C_INT_0` refers to the first integer constant.
+forty-second integer register, and `C_0` refers to the first constant.
 
 ```text
-R_INT_0 = R_INT_0 + C_INT_2
+R_INT_0 = R_INT_0 + C_3
 ```
 
 The info section for the ADD instruction shows what the instruction does: it adds the value at
-`R_INT_0` to the value at `C_INT_2` and stores the result in `R_INT_0`. As the "Constants" section
-shows, `C_INT_2` is the integer constant `1`. This means that this add instruction increments the
-value in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the register used
-by the `i` variable.
-
+`R_INT_0` to the value at `C_2` and stores the result in `R_INT_0`. As the "Constants" section
+shows, `C_2` is the integer constant `1`. This means that this add instruction increments the value
+in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the register used by the
+`i` variable.
 
 ## Installation
 
