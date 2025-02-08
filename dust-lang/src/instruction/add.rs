@@ -8,8 +8,8 @@ pub struct Add {
     pub right: Operand,
 }
 
-impl From<Instruction> for Add {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Add {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let (left, right) = instruction.b_and_c_as_operands();
 

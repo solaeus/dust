@@ -44,7 +44,7 @@ use crate::{
 /// let source = "40 + 2 == 42";
 /// let chunk = compile(source).unwrap();
 ///
-/// assert_eq!(chunk.instructions().len(), 3);
+/// assert_eq!(chunk.instructions.len(), 6);
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
@@ -796,7 +796,13 @@ impl<'src> Compiler<'src> {
     fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Operand, bool) {
         let operand = instruction.as_operand();
         let push_back = match instruction.operation() {
-            Operation::LOAD_ENCODED | Operation::LOAD_SELF => true,
+            Operation::LOAD_ENCODED
+            | Operation::LOAD_SELF
+            | Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO => true,
             _ => !instruction.yields_value(),
         };
 

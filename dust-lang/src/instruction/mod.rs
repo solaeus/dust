@@ -20,40 +20,30 @@
 //! you may also need to modify its flags. It is usually best to remove instructions and insert new
 //! ones in their place instead of mutating them.
 //!
-//! # Examples
-//!
-//! ## Creating Instructions
+//! # Creating Instructions
 //!
 //! For each operation, there are two ways to create an instruction:
 //!
 //! - Use the associated function on `Instruction`
 //! - Use the corresponding struct and call `Instruction::from`
 //!
-//! Both produce the same result, but the first is more concise. The structs are more useful when
-//! reading instructions, as shown below.
-//!
-//! ```
-//! # use dust_lang::instruction::{Instruction, Move};
-//! let move_1 = Instruction::r#move(42, 4);
-//! let move_2 = Instruction::from(Move { from: 42, to: 4 });
-//!
-//! assert_eq!(move_1, move_2);
-//! ```
+//! Both produce the same result, but the first is usuall more concise. The structs are more useful
+//! when reading instructions, as shown below.
 //!
 //! Use the [`Operand`][] type when creating instructions. In addition to being easy to read and
 //! write, this ensures that the instruction has the correct flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Operand};
+//! # use dust_lang::instruction::{Instruction, Add, Operand, TypeCode};
 //! let add_1 = Instruction::add(
 //!     0,
-//!     Operand::Register(1),
-//!     Operand::Constant(2)
+//!     Operand::Register(1, TypeCode::INTEGER),
+//!     Operand::Constant(2, TypeCode::INTEGER)
 //! );
 //! let add_2 = Instruction::from(Add {
 //!     destination: 0,
-//!     left: Operand::Register(1),
-//!     right: Operand::Constant(2),
+//!     left: Operand::Register(1, TypeCode::INTEGER),
+//!     right: Operand::Constant(2, TypeCode::INTEGER),
 //! });
 //!
 //! assert_eq!(add_1, add_2);
@@ -67,24 +57,25 @@
 //! D fields as `u16`, `bool` or `Operand` values.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Operand, Operation};
+//! # use dust_lang::instruction::{Instruction, Add, Operand, Operation, TypeCode};
 //! # let mystery_instruction = Instruction::add(
 //! #     1,
-//! #     Operand::Register(1),
-//! #     Operand::Constant(2)
+//! #     Operand::Register(1, TypeCode::INTEGER),
+//! #     Operand::Constant(2, TypeCode::INTEGER)
 //! # );
 //! // Let's read an instruction and see if it performs addition-assignment,
 //! // like in one of the following examples:
 //! //   - `a += 2`
 //! //   - `a = a + 2`
+//! //   - `a = 2 + a`
 //!
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = match operation {
-//!     Operation::Add => {
+//!     Operation::ADD => {
 //!         let Add { destination, left, right } = Add::from(&mystery_instruction);
 //!
-//!         left == Operand::Register(destination)
-//!         || right == Operand::Register(destination)
+//!         left == Operand::Register(destination, TypeCode::INTEGER)
+//!         || right == Operand::Register(destination, TypeCode::INTEGER)
 //!
 //!     }
 //!     _ => false,
@@ -329,7 +320,26 @@ impl Instruction {
 
                 Operand::Register(destination, TypeCode::FUNCTION)
             }
-            _ => todo!(),
+            Operation::ADD => {
+                let Add {
+                    destination, left, ..
+                } = Add::from(self);
+
+                let register_type = match left.as_type() {
+                    TypeCode::BOOLEAN => TypeCode::BOOLEAN,
+                    TypeCode::BYTE => TypeCode::BYTE,
+                    TypeCode::CHARACTER => TypeCode::STRING,
+                    TypeCode::INTEGER => TypeCode::INTEGER,
+                    TypeCode::FLOAT => TypeCode::FLOAT,
+                    TypeCode::STRING => TypeCode::STRING,
+                    TypeCode::LIST => TypeCode::LIST,
+                    TypeCode::FUNCTION => TypeCode::FUNCTION,
+                    _ => unreachable!(),
+                };
+
+                Operand::Register(destination, register_type)
+            }
+            unsupported => todo!("Support {unsupported}"),
         }
     }
 
@@ -609,7 +619,7 @@ impl Instruction {
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),
             Operation::LOAD_SELF => LoadSelf::from(*self).to_string(),
-            Operation::ADD => Add::from(*self).to_string(),
+            Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(*self).to_string(),
             Operation::MULTIPLY => Multiply::from(*self).to_string(),
             Operation::DIVIDE => Divide::from(*self).to_string(),
