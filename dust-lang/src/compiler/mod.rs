@@ -325,10 +325,7 @@ impl<'src> Compiler<'src> {
     }
 
     fn next_integer_register(&self) -> u16 {
-        println!("{:?}", self.instructions);
-
-        let next = self
-            .instructions
+        self.instructions
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
@@ -338,11 +335,7 @@ impl<'src> Compiler<'src> {
                     None
                 }
             })
-            .unwrap_or(self.minimum_integer_register);
-
-        println!("{}", next);
-
-        next
+            .unwrap_or(self.minimum_integer_register)
     }
 
     fn next_string_register(&self) -> u16 {
@@ -350,9 +343,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::String
-                    || (instruction.b_type() == TypeCode::STRING && instruction.yields_value())
-                {
+                if r#type == &Type::String {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -367,11 +358,9 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(instruction, r#type, _)| {
                 if let Type::List { .. } = r#type {
-                    if instruction.yields_value() {
-                        Some(instruction.a_field() + 1)
-                    } else {
-                        None
-                    }
+                    Some(instruction.a_field() + 1)
+                } else if instruction.operation() == Operation::LOAD_LIST {
+                    Some(instruction.a_field() + 1)
                 } else {
                     None
                 }
@@ -962,8 +951,6 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        println!("{:?}", self.instructions);
-
         let (right_instruction, right_type, right_position) =
             self.instructions
                 .pop()
@@ -980,8 +967,6 @@ impl<'src> Compiler<'src> {
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
-
-        println!("{left_instruction} {right_instruction}");
 
         // TODO: Check if the left type is a valid type for comparison
         // TODO: Check if the right type is a valid type for comparison
