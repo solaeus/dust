@@ -1,17 +1,17 @@
 //! The Dust instruction set.
 //!
-//! Each instruction is 64 bits and uses up to seven distinct fields.
+//! Each instruction is 64 bits and uses up to nine distinct fields.
 //!
 //! # Layout
 //!
 //! Bits  | Description
 //! ----- | -----------
-//! 0-6   | Operation
-//! 7     | Flag indicating if the B field is a constant
-//! 8     | Flag indicating if the C field is a constant
-//! 9     | D field (boolean)
-//! 10-12 | B field type
-//! 13-15 | C field type
+//! 0-4   | Operation
+//! 5-8   | B field type
+//! 9     | Flag indicating if the B field is a constant
+//! 10-13 | C field type
+//! 14    | Flag indicating if the C field is a constant
+//! 15    | D field (boolean)
 //! 16-31 | A field (unsigned 16-bit integer)
 //! 32-47 | B field (unsigned 16-bit integer)
 //! 48-63 | C field (unsigned 16-bit integer)
@@ -40,20 +40,20 @@
 //! assert_eq!(move_1, move_2);
 //! ```
 //!
-//! Use the [`Argument`][] type when creating instructions. In addition to being easy to read and
-//! write, this ensures that the instruction has the correct flags to represent the arguments.
+//! Use the [`Operand`][] type when creating instructions. In addition to being easy to read and
+//! write, this ensures that the instruction has the correct flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Argument};
+//! # use dust_lang::instruction::{Instruction, Add, Operand};
 //! let add_1 = Instruction::add(
 //!     0,
-//!     Argument::Register(1),
-//!     Argument::Constant(2)
+//!     Operand::Register(1),
+//!     Operand::Constant(2)
 //! );
 //! let add_2 = Instruction::from(Add {
 //!     destination: 0,
-//!     left: Argument::Register(1),
-//!     right: Argument::Constant(2),
+//!     left: Operand::Register(1),
+//!     right: Operand::Constant(2),
 //! });
 //!
 //! assert_eq!(add_1, add_2);
@@ -64,28 +64,27 @@
 //! To read an instruction, check its operation with [`Instruction::operation`], then convert the
 //! instruction to the struct that corresponds to that operation. Like the example above, this
 //! removes the burden of dealing with the options directly and automatically casts the A, B, C and
-//! D fields as `u16`, `bool` or `Argument` values.
+//! D fields as `u16`, `bool` or `Operand` values.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Argument, Operation};
+//! # use dust_lang::instruction::{Instruction, Add, Operand, Operation};
 //! # let mystery_instruction = Instruction::add(
 //! #     1,
-//! #     Argument::Register(1),
-//! #     Argument::Constant(2)
+//! #     Operand::Register(1),
+//! #     Operand::Constant(2)
 //! # );
 //! // Let's read an instruction and see if it performs addition-assignment,
 //! // like in one of the following examples:
 //! //   - `a += 2`
 //! //   - `a = a + 2`
-//! //   - `a = 2 + a`
 //!
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = match operation {
 //!     Operation::Add => {
 //!         let Add { destination, left, right } = Add::from(&mystery_instruction);
 //!
-//!         left == Argument::Register(destination)
-//!         || right == Argument::Register(destination);
+//!         left == Operand::Register(destination)
+//!         || right == Operand::Register(destination)
 //!
 //!     }
 //!     _ => false,
@@ -165,12 +164,12 @@ pub struct InstructionFields {
 
 impl InstructionFields {
     pub fn build(self) -> Instruction {
-        let bits = ((self.operation.0 as u64) << 57)
-            | ((self.b_is_constant as u64) << 56)
-            | ((self.c_is_constant as u64) << 55)
-            | ((self.d_field as u64) << 54)
-            | ((self.b_type.0 as u64) << 51)
-            | ((self.c_type.0 as u64) << 48)
+        let bits = ((self.operation.0 as u64) << 59)
+            | ((self.b_type.0 as u64) << 54)
+            | ((self.b_is_constant as u64) << 53)
+            | ((self.c_type.0 as u64) << 49)
+            | ((self.c_is_constant as u64) << 48)
+            | ((self.d_field as u64) << 47)
             | ((self.a_field as u64) << 32)
             | ((self.b_field as u64) << 16)
             | (self.c_field as u64);
@@ -219,45 +218,57 @@ pub struct Instruction(u64);
 
 impl Instruction {
     pub fn operation(&self) -> Operation {
-        let first_7_bits = (self.0 >> 57) as u8;
+        let first_5_bits = (self.0 >> 59) as u8;
 
-        Operation(first_7_bits)
-    }
-
-    pub fn b_is_constant(&self) -> bool {
-        (self.0 >> 56) & 1 != 0
-    }
-
-    pub fn c_is_constant(&self) -> bool {
-        (self.0 >> 55) & 1 != 0
-    }
-
-    pub fn d_field(&self) -> bool {
-        (self.0 >> 54) & 1 != 0
+        Operation(first_5_bits)
     }
 
     pub fn b_type(&self) -> TypeCode {
-        let byte = ((self.0 >> 51) & 0b111) as u8;
+        let bits_5_to_8 = (self.0 >> 54) & 0b1111;
 
-        TypeCode(byte)
+        TypeCode(bits_5_to_8 as u8)
+    }
+
+    pub fn b_is_constant(&self) -> bool {
+        let bit_9 = (self.0 >> 53) & 1;
+
+        bit_9 != 0
     }
 
     pub fn c_type(&self) -> TypeCode {
-        let byte = ((self.0 >> 48) & 0b111) as u8;
+        let bits_10_to_13 = (self.0 >> 49) & 0b1111;
 
-        TypeCode(byte)
+        TypeCode(bits_10_to_13 as u8)
+    }
+
+    pub fn c_is_constant(&self) -> bool {
+        let bit_14 = (self.0 >> 48) & 1;
+
+        bit_14 != 0
+    }
+
+    pub fn d_field(&self) -> bool {
+        let bit_15 = (self.0 >> 47) & 1;
+
+        bit_15 != 0
     }
 
     pub fn a_field(&self) -> u16 {
-        ((self.0 >> 32) & 0xFFFF) as u16
+        let bits_16_to_31 = (self.0 >> 32) & 0xFFFF;
+
+        bits_16_to_31 as u16
     }
 
     pub fn b_field(&self) -> u16 {
-        ((self.0 >> 16) & 0xFFFF) as u16
+        let bits_32_to_47 = (self.0 >> 16) & 0xFFFF;
+
+        bits_32_to_47 as u16
     }
 
     pub fn c_field(&self) -> u16 {
-        (self.0 & 0xFFFF) as u16
+        let bits_48_to_63 = self.0 & 0xFFFF;
+
+        bits_48_to_63 as u16
     }
 
     pub fn set_a_field(&mut self, bits: u16) {
@@ -707,7 +718,7 @@ mod tests {
             Operand::Register(2, TypeCode::CHARACTER),
         );
 
-        assert_eq!(instruction.operation(), Operation::ADD);
+        assert_eq!(Operation::ADD, instruction.operation());
     }
 
     #[test]

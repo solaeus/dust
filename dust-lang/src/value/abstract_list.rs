@@ -1,7 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    Type,
     instruction::TypeCode,
     vm::{Pointer, Thread},
 };

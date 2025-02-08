@@ -89,6 +89,7 @@ pub enum Register<T> {
 }
 
 impl<T> Register<T> {
+    #[allow(unused_assignments)]
     pub fn close(mut self) {
         if let Self::Value(value) = self {
             self = Self::Closed(value);
