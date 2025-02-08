@@ -1020,44 +1020,52 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
-        let (last_instruction, last_type, last_position) =
+        let operator = self.current_token;
+        let operator_position = self.current_position;
+        let rule = ParseRule::from(&operator);
+        let (left_instruction, left_type, left_position) =
             self.instructions
                 .pop()
                 .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let operand_register = if last_instruction.operation() == Operation::POINT {
-            let Point { to, .. } = Point::from(last_instruction);
+        let operand_register = if left_instruction.operation() == Operation::POINT {
+            let Point { to, .. } = Point::from(left_instruction);
             let local = self.get_local(to.index())?;
 
             local.register_index
-        } else if last_instruction.yields_value() {
-            let register = last_instruction.a_field();
+        } else if left_instruction.yields_value() {
+            let register = left_instruction.a_field();
 
             self.instructions
-                .push((last_instruction, last_type, last_position));
+                .push((left_instruction, left_type, left_position));
 
             register
         } else {
-            let register = match last_type {
-                Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
-                _ => todo!(),
-            };
-
-            self.instructions
-                .push((last_instruction, last_type, last_position));
-
-            register
+            return Err(CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            });
         };
-        let operator = self.current_token;
-        let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+
+        // TODO: Check if the left type is boolean
+
+        self.advance()?;
+        self.parse_sub_expression(&rule.precedence)?;
+
+        let (mut right_instruction, right_type, right_position) = self
+            .instructions
+            .pop()
+            .ok_or_else(|| CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            })?;
+
+        // TODO: Check if the right type is boolean
+
+        right_instruction.set_a_field(operand_register);
+
         let test_boolean = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -1074,8 +1082,8 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(test, Type::None, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
-        self.advance()?;
-        self.parse_sub_expression(&rule.precedence)?;
+        self.instructions
+            .push((right_instruction, right_type, right_position));
 
         let instructions_length = self.instructions.len();
 
@@ -1571,7 +1579,7 @@ impl<'src> Compiler<'src> {
 
     fn parse_call_native(&mut self, function: NativeFunction) -> Result<(), CompileError> {
         let start = self.previous_position.0;
-        let mut argument_count = 0;
+        let mut first_argument_index = None;
 
         self.expect(Token::LeftParenthesis)?;
 
@@ -1579,7 +1587,9 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            argument_count += 1;
+            if first_argument_index.is_none() {
+                first_argument_index = Some(self.instructions.last().unwrap().0.a_field());
+            }
         }
 
         let end = self.previous_position.1;
@@ -1594,11 +1604,8 @@ impl<'src> Compiler<'src> {
             _ => todo!(),
         };
         let return_type = *function.r#type().return_type;
-        let call_native = Instruction::from(CallNative {
-            destination,
-            function,
-            argument_count,
-        });
+        let call_native =
+            Instruction::call_native(destination, function, first_argument_index.unwrap_or(0));
 
         self.emit_instruction(call_native, return_type, Span(start, end));
 

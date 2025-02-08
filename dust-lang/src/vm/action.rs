@@ -759,7 +759,7 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value.saturating_mul(*right_value);
             let register = Register::Value(result);
 
-            thread.set_integer_register(destination as usize, register);
+            thread.set_integer_register(destination, register);
         }
         _ => unimplemented!(),
     }
@@ -850,9 +850,18 @@ pub fn divide(instruction: InstructionFields, thread: &mut Thread) {
         _ => unreachable!(),
     }
 }
+
 pub fn modulo(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn test(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn test(instruction: InstructionFields, thread: &mut Thread) {
+    let operand_register = instruction.b_field as usize;
+    let test_value = instruction.c_field != 0;
+    let operand_boolean = thread.get_boolean_register(operand_register);
+
+    if *operand_boolean == test_value {
+        thread.current_frame_mut().ip += 1;
+    }
+}
 
 pub fn test_set(instruction: InstructionFields, thread: &mut Thread) {}
 
@@ -976,16 +985,18 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
             }
             TypeCode::LIST => {
                 let abstract_list = thread.get_list_register(return_register).clone();
-                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+                let mut items = Vec::with_capacity(abstract_list.item_pointers.len());
 
                 for pointer in &abstract_list.item_pointers {
                     let value = thread.get_value_from_pointer(pointer);
 
-                    concrete_list.push(value);
+                    items.push(value);
                 }
 
-                thread.return_value =
-                    Some(Some(Value::Concrete(ConcreteValue::List(concrete_list))));
+                thread.return_value = Some(Some(Value::Concrete(ConcreteValue::List {
+                    items,
+                    item_type: abstract_list.item_type,
+                })));
             }
             _ => unimplemented!(),
         }

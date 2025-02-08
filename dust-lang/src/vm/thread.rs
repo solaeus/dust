@@ -119,15 +119,18 @@ impl Thread {
             }
             Pointer::RegisterList(register_index) => {
                 let abstract_list = self.get_list_register(*register_index).clone();
-                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+                let mut items = Vec::with_capacity(abstract_list.item_pointers.len());
 
                 for pointer in &abstract_list.item_pointers {
                     let value = self.get_value_from_pointer(pointer);
 
-                    concrete_list.push(value);
+                    items.push(value);
                 }
 
-                ConcreteValue::List(concrete_list)
+                ConcreteValue::List {
+                    items,
+                    item_type: abstract_list.item_type,
+                }
             }
             Pointer::RegisterFunction(_) => unimplemented!(),
             Pointer::ConstantCharacter(constant_index) => {

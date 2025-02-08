@@ -143,13 +143,13 @@ define_native_function! {
     // (ToByte, 5_u8, "to_byte", true),
     // (ToFloat, 6_u8, "to_float", true),
     // (ToInteger, 7_u8, "to_integer", true),
-    (
-        ToString,
-        8,
-        "to_string",
-        FunctionType::new([], [Type::Any], Type::String),
-        string::to_string
-    ),
+    // (
+    //     ToString,
+    //     8,
+    //     "to_string",
+    //     FunctionType::new([], [Type::Any], Type::String),
+    //     string::to_string
+    // ),
 
     // // List and string
     // (All, 9_u8, "all", true),
@@ -216,7 +216,7 @@ define_native_function! {
         Write,
         55,
         "write",
-        FunctionType::new([], [Type::Any], Type::None),
+        FunctionType::new([], [Type::String], Type::None),
         io::write
     ),
     // (WriteFile, 56_u8, "write_file", false),
@@ -224,7 +224,7 @@ define_native_function! {
         WriteLine,
         57,
         "write_line",
-        FunctionType::new([], [Type::Any], Type::None),
+        FunctionType::new([], [Type::String], Type::None),
         io::write_line
     ),
 
@@ -242,7 +242,7 @@ define_native_function! {
         Spawn,
         60,
         "spawn",
-        FunctionType::new([], [ Type::function([], [], Type::Any)], Type::None),
+        FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
         thread::spawn
     )
 }
