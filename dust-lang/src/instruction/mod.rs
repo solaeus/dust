@@ -353,6 +353,20 @@ impl Instruction {
 
                 Operand::Register(destination, left.as_type())
             }
+            Operation::DIVIDE => {
+                let Divide {
+                    destination, left, ..
+                } = Divide::from(*self);
+
+                Operand::Register(destination, left.as_type())
+            }
+            Operation::MODULO => {
+                let Modulo {
+                    destination, left, ..
+                } = Modulo::from(*self);
+
+                Operand::Register(destination, left.as_type())
+            }
             unsupported => todo!("Support {unsupported}"),
         }
     }

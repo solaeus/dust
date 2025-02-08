@@ -765,8 +765,91 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn divide(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn divide(instruction: InstructionFields, thread: &mut Thread) {
+    let destination = instruction.a_field as usize;
+    let left = instruction.b_field as usize;
+    let left_type = instruction.b_type;
+    let left_is_constant = instruction.b_is_constant;
+    let right = instruction.c_field as usize;
+    let right_type = instruction.c_type;
+    let right_is_constant = instruction.c_is_constant;
 
+    match (left_type, right_type) {
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let result = left_value.saturating_div(*right_value);
+            let register = Register::Value(result);
+
+            thread.set_byte_register(destination, register);
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let result = left_value / right_value;
+            let register = Register::Value(result);
+
+            thread.set_float_register(destination, register);
+        }
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(right)
+            };
+            let result = left_value.saturating_div(*right_value);
+            let register = Register::Value(result);
+
+            thread.set_integer_register(destination, register);
+        }
+        _ => unreachable!(),
+    }
+}
 pub fn modulo(instruction: InstructionFields, thread: &mut Thread) {}
 
 pub fn test(instruction: InstructionFields, thread: &mut Thread) {}

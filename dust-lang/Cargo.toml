@@ -50,3 +50,7 @@ path = "tests/math/subtract.rs"
 [[test]]
 name = "multiply"
 path = "tests/math/multiply.rs"
+
+[[test]]
+name = "divide"
+path = "tests/math/divide.rs"
