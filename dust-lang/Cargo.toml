@@ -42,3 +42,7 @@ harness = false
 [[test]]
 name = "add"
 path = "tests/math/add.rs"
+
+[[test]]
+name = "subtract"
+path = "tests/math/subtract.rs"

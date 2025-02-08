@@ -924,8 +924,9 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
+        let position = Span(left_position.0, right_position.1);
 
-        self.emit_instruction(instruction, r#type, operator_position);
+        self.emit_instruction(instruction, r#type, position);
 
         Ok(())
     }

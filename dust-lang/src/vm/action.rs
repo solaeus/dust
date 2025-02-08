@@ -441,6 +441,30 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_byte_register(destination, register);
         }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let sum = left_value + right_value;
+            let register = Register::Value(sum);
+
+            thread.set_float_register(destination, register);
+        }
         (TypeCode::STRING, TypeCode::STRING) => {
             let left_value = if left_is_constant {
                 if cfg!(debug_assertions) {
@@ -505,29 +529,65 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_string_register(destination, register);
         }
-        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+        (TypeCode::STRING, TypeCode::CHARACTER) => {
             let left_value = if left_is_constant {
                 if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_float().unwrap()
+                    thread.get_constant(left).as_string().unwrap().clone()
                 } else {
-                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                    unsafe {
+                        thread
+                            .get_constant(left)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
                 }
             } else {
-                thread.get_float_register(left)
+                thread.get_string_register(left).clone()
             };
             let right_value = if right_is_constant {
                 if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_float().unwrap()
+                    thread.get_constant(right).as_character().unwrap()
                 } else {
-                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
                 }
             } else {
-                thread.get_float_register(right)
+                thread.get_character_register(right)
             };
-            let sum = left_value + right_value;
+            let mut sum = left_value.clone();
+
+            sum.push(*right_value);
+
             let register = Register::Value(sum);
 
-            thread.set_float_register(destination, register);
+            thread.set_string_register(destination, register);
+        }
+        (TypeCode::CHARACTER, TypeCode::STRING) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_string().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_string().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_string_register(right)
+            };
+            let mut sum = right_value.clone();
+
+            sum.insert(0, *left_value);
+
+            let register = Register::Value(sum);
+
+            thread.set_string_register(destination, register);
         }
         _ => unimplemented!(),
     }
