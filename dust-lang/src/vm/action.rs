@@ -1,5 +1,5 @@
 use crate::{
-    AbstractList, ConcreteValue, Instruction, Value,
+    AbstractList, ConcreteValue, DustString, Instruction, Value,
     instruction::{InstructionFields, TypeCode},
 };
 
@@ -371,6 +371,58 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
             let register = Register::Value(concatenated);
 
             thread.set_string_register(destination, register);
+        }
+        (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(right)
+            };
+            let mut sum = DustString::new();
+
+            sum.push(*left_value);
+            sum.push(*right_value);
+
+            let register = Register::Value(sum);
+
+            thread.set_string_register(destination, register);
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let sum = left_value + right_value;
+            let register = Register::Value(sum);
+
+            thread.set_float_register(destination, register);
         }
         _ => unimplemented!(),
     }

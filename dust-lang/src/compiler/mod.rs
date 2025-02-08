@@ -842,20 +842,6 @@ impl<'src> Compiler<'src> {
 
         check_math_type(&left_type, operator, &left_position)?;
 
-        let destination = if is_assignment {
-            left.index()
-        } else {
-            match left_type {
-                Type::Boolean => self.next_boolean_register(),
-                Type::Byte => self.next_byte_register(),
-                Type::Character => self.next_character_register(),
-                Type::Float => self.next_float_register(),
-                Type::Integer => self.next_integer_register(),
-                Type::String => self.next_string_register(),
-                _ => unreachable!(),
-            }
-        };
-
         if is_assignment && !left_is_mutable_local {
             return Err(CompileError::ExpectedMutableVariable {
                 found: self.previous_token.to_owned(),
@@ -889,6 +875,19 @@ impl<'src> Compiler<'src> {
             Type::String
         } else {
             left_type.clone()
+        };
+        let destination = if is_assignment {
+            left.index()
+        } else {
+            match left_type {
+                Type::Boolean => self.next_boolean_register(),
+                Type::Byte => self.next_byte_register(),
+                Type::Character => self.next_character_register(),
+                Type::Float => self.next_float_register(),
+                Type::Integer => self.next_integer_register(),
+                Type::String => self.next_string_register(),
+                _ => unreachable!(),
+            }
         };
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),

@@ -38,7 +38,3 @@ harness = false
 [[bench]]
 name = "threads"
 harness = false
-
-[[test]]
-name = "load_values"
-path = "tests/values/load_values.rs"
