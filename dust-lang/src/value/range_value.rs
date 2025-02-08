@@ -32,9 +32,7 @@ impl RangeValue {
             }
         };
 
-        Type::Range {
-            r#type: Box::new(inner_type),
-        }
+        Type::Range(Box::new(inner_type))
     }
 }
 

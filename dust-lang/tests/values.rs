@@ -7,10 +7,7 @@ use dust_lang::{
 fn load_boolean_true() {
     let source = "true";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Boolean,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::r#return(true, 0, TypeCode::BOOLEAN),
@@ -28,10 +25,7 @@ fn load_boolean_true() {
 fn load_boolean_false() {
     let source = "false";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Boolean,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::r#return(true, 0, TypeCode::BOOLEAN),
@@ -49,10 +43,7 @@ fn load_boolean_false() {
 fn load_byte() {
     let source = "0x2a";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Byte,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(0, 0x2a, TypeCode::BYTE, false),
             Instruction::r#return(true, 0, TypeCode::BYTE),
@@ -70,10 +61,7 @@ fn load_byte() {
 fn load_character() {
     let source = "'a'";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Character,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Character),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::CHARACTER, false),
             Instruction::r#return(true, 0, TypeCode::CHARACTER),
@@ -92,10 +80,7 @@ fn load_character() {
 fn load_float() {
     let source = "42.42";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Float,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::FLOAT, false),
             Instruction::r#return(true, 0, TypeCode::FLOAT),
@@ -114,10 +99,7 @@ fn load_float() {
 fn load_integer() {
     let source = "42";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Integer,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
             Instruction::r#return(true, 0, TypeCode::INTEGER),
@@ -136,10 +118,7 @@ fn load_integer() {
 fn load_string() {
     let source = "\"Hello, World!\"";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::String,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::STRING, false),
             Instruction::r#return(true, 0, TypeCode::STRING),
@@ -158,10 +137,7 @@ fn load_string() {
 fn load_boolean_list() {
     let source = "[true, false]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::BOOLEAN),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::BOOLEAN)),
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::load_encoded(1, false as u8, TypeCode::BOOLEAN, false),
@@ -184,10 +160,7 @@ fn load_boolean_list() {
 fn load_byte_list() {
     let source = "[0x2a, 0x42]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::BYTE),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::BYTE)),
         instructions: vec![
             Instruction::load_encoded(0, 0x2a, TypeCode::BYTE, false),
             Instruction::load_encoded(1, 0x42, TypeCode::BYTE, false),
@@ -210,10 +183,7 @@ fn load_byte_list() {
 fn load_character_list() {
     let source = "['a', 'b']";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::CHARACTER),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::CHARACTER)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::CHARACTER, false),
             Instruction::load_constant(1, 1, TypeCode::CHARACTER, false),
@@ -237,10 +207,7 @@ fn load_character_list() {
 fn load_float_list() {
     let source = "[42.42, 24.24]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::FLOAT),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::FLOAT)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::FLOAT, false),
             Instruction::load_constant(1, 1, TypeCode::FLOAT, false),
@@ -264,10 +231,7 @@ fn load_float_list() {
 fn load_integer_list() {
     let source = "[1, 2, 3]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::INTEGER),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::INTEGER)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
             Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
@@ -297,10 +261,7 @@ fn load_integer_list() {
 fn load_string_list() {
     let source = "[\"Hello\", \"World\"]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::STRING),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::STRING)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::STRING, false),
             Instruction::load_constant(1, 1, TypeCode::STRING, false),
@@ -327,10 +288,7 @@ fn load_string_list() {
 fn load_nested_list() {
     let source = "[[1, 2], [3, 4]]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::LIST),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
             Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
@@ -372,10 +330,7 @@ fn load_nested_list() {
 fn load_deeply_nested_list() {
     let source = "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::List(TypeCode::LIST),
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
         instructions: vec![
             Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
             Instruction::load_constant(1, 1, TypeCode::INTEGER, false),

@@ -74,7 +74,7 @@ macro_rules! define_native_function {
             pub fn returns_value(&self) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => $type.return_type != Type::None,
+                        NativeFunction::$name => $type.return_type.as_ref() != &Type::None,
                     )*
                 }
             }
@@ -134,11 +134,7 @@ define_native_function! {
         Panic,
         3,
         "panic",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: Vec::with_capacity(0),
-            return_type: Type::None
-        },
+        FunctionType::new([], [], Type::None),
         assert::panic
     ),
 
@@ -151,11 +147,7 @@ define_native_function! {
         ToString,
         8,
         "to_string",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: vec![(0, Type::Any)],
-            return_type: Type::String
-        },
+        FunctionType::new([], [Type::Any], Type::String),
         string::to_string
     ),
 
@@ -212,11 +204,7 @@ define_native_function! {
         ReadLine,
         50,
         "read_line",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: Vec::with_capacity(0),
-            return_type: Type::String
-        },
+        FunctionType::new([], [], Type::String),
         io::read_line
     ),
     // (ReadTo, 51_u8, "read_to", false),
@@ -228,11 +216,7 @@ define_native_function! {
         Write,
         55,
         "write",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: vec![(0, Type::String)],
-            return_type: Type::None
-        },
+        FunctionType::new([], [Type::Any], Type::None),
         io::write
     ),
     // (WriteFile, 56_u8, "write_file", false),
@@ -240,11 +224,7 @@ define_native_function! {
         WriteLine,
         57,
         "write_line",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: vec![(0, Type::String)],
-            return_type: Type::None
-        },
+        FunctionType::new([], [Type::Any], Type::None),
         io::write_line
     ),
 
@@ -253,11 +233,7 @@ define_native_function! {
         RandomInteger,
         58,
         "random_int",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: vec![(0, Type::Integer), (1, Type::Integer)],
-            return_type: Type::Integer
-        },
+        FunctionType::new([], [Type::Integer, Type::Integer], Type::Integer),
         random::random_int
     ),
 
@@ -266,20 +242,7 @@ define_native_function! {
         Spawn,
         60,
         "spawn",
-        FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters: vec![
-                (
-                    0,
-                    Type::Function(Box::new(FunctionType {
-                        type_parameters: Vec::with_capacity(0),
-                        value_parameters: Vec::with_capacity(0),
-                        return_type: Type::Any
-                    }))
-                )
-            ],
-            return_type: Type::None
-        },
+        FunctionType::new([], [ Type::function([], [], Type::Any)], Type::None),
         thread::spawn
     )
 }

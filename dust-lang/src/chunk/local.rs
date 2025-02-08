@@ -13,11 +13,11 @@ pub struct Local {
     /// Index of the register where the variable's value is stored.
     pub register_index: u16,
 
-    /// Type of the variable's value.
-    pub r#type: Type,
-
     /// Whether the local is mutable.
     pub is_mutable: bool,
+
+    /// Type of the variable's value.
+    pub r#type: Type,
 
     /// Scope where the variable was declared.
     pub scope: Scope,

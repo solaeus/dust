@@ -597,7 +597,8 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::EQUAL
+            Operation::CLOSE
+            | Operation::EQUAL
             | Operation::LESS
             | Operation::LESS_EQUAL
             | Operation::TEST

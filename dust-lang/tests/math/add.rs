@@ -7,10 +7,7 @@ use dust_lang::{
 fn add_bytes() {
     let source = "0x28 + 0x02";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Byte,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(0, 40, TypeCode::BYTE, false),
             Instruction::load_encoded(1, 2, TypeCode::BYTE, false),
@@ -34,10 +31,7 @@ fn add_bytes() {
 fn add_characters() {
     let source = "'a' + 'b'";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::String,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::add(
                 0,
@@ -60,10 +54,7 @@ fn add_characters() {
 fn add_floats() {
     let source = "2.40 + 40.02";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Float,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
             Instruction::add(
                 0,
@@ -86,10 +77,7 @@ fn add_floats() {
 fn add_integers() {
     let source = "40 + 2";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::Integer,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
             Instruction::add(
                 0,
@@ -112,10 +100,7 @@ fn add_integers() {
 fn add_strings() {
     let source = "\"Hello, \" + \"World!\"";
     let chunk = Chunk {
-        r#type: FunctionType {
-            return_type: Type::String,
-            ..FunctionType::default()
-        },
+        r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::add(
                 0,

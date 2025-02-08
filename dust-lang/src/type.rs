@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::instruction::TypeCode;
 
 /// Description of a kind of value.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "Type", content = "Value")]
 pub enum Type {
     Any,
     Boolean,
@@ -18,31 +19,31 @@ pub enum Type {
     Character,
     Enum(EnumType),
     Float,
-    Function(Box<FunctionType>),
-    Generic {
-        identifier_index: u8,
-        concrete_type: Option<Box<Type>>,
-    },
+    Function(FunctionType),
+    Generic(GenericType),
     Integer,
     List(TypeCode),
-    Map {
-        pairs: Vec<(u8, Type)>,
-    },
+    Map(Vec<Type>),
+    #[default]
     None,
-    Range {
-        r#type: Box<Type>,
-    },
+    Range(Box<Type>),
     SelfFunction,
     String,
     Struct(StructType),
-    Tuple {
-        fields: Vec<Type>,
-    },
+    Tuple(Vec<Type>),
 }
 
 impl Type {
-    pub fn function(function_type: FunctionType) -> Self {
-        Type::Function(Box::new(function_type))
+    pub fn function<T: Into<Vec<u16>>, U: Into<Vec<Type>>>(
+        type_parameters: T,
+        value_parameters: U,
+        return_type: Type,
+    ) -> Self {
+        Type::Function(FunctionType {
+            type_parameters: type_parameters.into(),
+            value_parameters: value_parameters.into(),
+            return_type: Box::new(return_type),
+        })
     }
 
     pub fn type_code(&self) -> TypeCode {
@@ -54,18 +55,18 @@ impl Type {
             Type::Integer => TypeCode::INTEGER,
             Type::None => TypeCode::NONE,
             Type::String => TypeCode::STRING,
-            Type::List(_) => TypeCode::LIST,
-            Type::Function(_) => TypeCode::FUNCTION,
+            Type::List { .. } => TypeCode::LIST,
+            Type::Function { .. } => TypeCode::FUNCTION,
             _ => todo!(),
         }
     }
 
     /// Returns a concrete type, either the type itself or the concrete type of a generic type.
     pub fn concrete_type(&self) -> &Type {
-        if let Type::Generic {
+        if let Type::Generic(GenericType {
             concrete_type: Some(concrete_type),
             ..
-        } = self
+        }) = self
         {
             concrete_type.concrete_type()
         } else {
@@ -86,14 +87,14 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::String { .. }, Type::String { .. }) => return Ok(()),
             (
-                Type::Generic {
+                Type::Generic(GenericType {
                     concrete_type: left,
                     ..
-                },
-                Type::Generic {
+                }),
+                Type::Generic(GenericType {
                     concrete_type: right,
                     ..
-                },
+                }),
             ) => match (left, right) {
                 (Some(left), Some(right)) => {
                     if left.check(right).is_ok() {
@@ -105,8 +106,8 @@ impl Type {
                 }
                 _ => {}
             },
-            (Type::Generic { concrete_type, .. }, other)
-            | (other, Type::Generic { concrete_type, .. }) => {
+            (Type::Generic(GenericType { concrete_type, .. }), other)
+            | (other, Type::Generic(GenericType { concrete_type, .. })) => {
                 if let Some(concrete_type) = concrete_type {
                     if other == concrete_type.as_ref() {
                         return Ok(());
@@ -133,12 +134,12 @@ impl Type {
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
-                } = left_function_type.as_ref();
+                } = left_function_type;
                 let FunctionType {
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
-                } = right_function_type.as_ref();
+                } = right_function_type;
 
                 if left_return != right_return
                     || left_type_parameters != right_type_parameters
@@ -152,7 +153,7 @@ impl Type {
 
                 return Ok(());
             }
-            (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
+            (Type::Range(left_type), Type::Range(right_type)) => {
                 if left_type == right_type {
                     return Ok(());
                 }
@@ -177,25 +178,24 @@ impl Display for Type {
             Type::Enum(EnumType { name, .. }) => write!(f, "{name}"),
             Type::Float => write!(f, "float"),
             Type::Function(function_type) => write!(f, "{function_type}"),
-            Type::Generic { concrete_type, .. } => {
+            Type::Generic(GenericType { concrete_type, .. }) => {
                 match concrete_type.clone().map(|r#box| *r#box) {
-                    Some(Type::Generic {
-                        identifier_index: identifier,
-                        ..
-                    }) => write!(f, "{identifier}"),
+                    Some(Type::Generic(GenericType {
+                        identifier_index, ..
+                    })) => write!(f, "C_{identifier_index}"),
                     Some(concrete_type) => write!(f, "implied to be {concrete_type}"),
                     None => write!(f, "unknown"),
                 }
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map { pairs } => {
+            Type::Map(pairs) => {
                 write!(f, "map ")?;
 
                 write!(f, "{{")?;
 
-                for (index, (key, value)) in pairs.iter().enumerate() {
-                    write!(f, "{key}: {value}")?;
+                for (index, r#type) in pairs.iter().enumerate() {
+                    write!(f, "???: {type}")?;
 
                     if index != pairs.len() - 1 {
                         write!(f, ", ")?;
@@ -205,11 +205,11 @@ impl Display for Type {
                 write!(f, "}}")
             }
             Type::None => write!(f, "none"),
-            Type::Range { r#type } => write!(f, "{type} range"),
+            Type::Range(r#type) => write!(f, "{type} range"),
             Type::SelfFunction => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
-            Type::Tuple { fields } => {
+            Type::Tuple(fields) => {
                 write!(f, "(")?;
 
                 for (index, r#type) in fields.iter().enumerate() {
@@ -244,13 +244,13 @@ impl Ord for Type {
             (Type::Character, Type::Character) => Ordering::Equal,
             (Type::Character, _) => Ordering::Greater,
             (Type::Enum(left_enum), Type::Enum(right_enum)) => left_enum.cmp(right_enum),
-            (Type::Enum(_), _) => Ordering::Greater,
+            (Type::Enum { .. }, _) => Ordering::Greater,
             (Type::Float, Type::Float) => Ordering::Equal,
             (Type::Float, _) => Ordering::Greater,
             (Type::Function(left_function), Type::Function(right_function)) => {
                 left_function.cmp(right_function)
             }
-            (Type::Function(_), _) => Ordering::Greater,
+            (Type::Function { .. }, _) => Ordering::Greater,
             (Type::Generic { .. }, Type::Generic { .. }) => Ordering::Equal,
             (Type::Generic { .. }, _) => Ordering::Greater,
             (Type::Integer, Type::Integer) => Ordering::Equal,
@@ -259,15 +259,13 @@ impl Ord for Type {
                 left_item_type.cmp(right_item_type)
             }
             (Type::List { .. }, _) => Ordering::Greater,
-            (Type::Map { pairs: left_pairs }, Type::Map { pairs: right_pairs }) => {
+            (Type::Map(left_pairs), Type::Map(right_pairs)) => {
                 left_pairs.iter().cmp(right_pairs.iter())
             }
             (Type::Map { .. }, _) => Ordering::Greater,
             (Type::None, Type::None) => Ordering::Equal,
             (Type::None, _) => Ordering::Greater,
-            (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
-                left_type.cmp(right_type)
-            }
+            (Type::Range(left_type), Type::Range(right_type)) => left_type.cmp(right_type),
             (Type::Range { .. }, _) => Ordering::Greater,
             (Type::SelfFunction, Type::SelfFunction) => Ordering::Equal,
             (Type::SelfFunction, _) => Ordering::Greater,
@@ -276,9 +274,9 @@ impl Ord for Type {
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
                 left_struct.cmp(right_struct)
             }
-            (Type::Struct(_), _) => Ordering::Greater,
+            (Type::Struct { .. }, _) => Ordering::Greater,
 
-            (Type::Tuple { fields: left }, Type::Tuple { fields: right }) => left.cmp(right),
+            (Type::Tuple(left), Type::Tuple(right)) => left.cmp(right),
             (Type::Tuple { .. }, _) => Ordering::Greater,
         }
     }
@@ -287,12 +285,12 @@ impl Ord for Type {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
     pub type_parameters: Vec<u16>,
-    pub value_parameters: Vec<(u16, Type)>,
-    pub return_type: Type,
+    pub value_parameters: Vec<Type>,
+    pub return_type: Box<Type>,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<Vec<u16>>, U: Into<Vec<(u16, Type)>>>(
+    pub fn new<T: Into<Vec<u16>>, U: Into<Vec<Type>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,
@@ -300,7 +298,7 @@ impl FunctionType {
         FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
-            return_type,
+            return_type: Box::new(return_type),
         }
     }
 }
@@ -310,7 +308,7 @@ impl Default for FunctionType {
         FunctionType {
             type_parameters: Vec::new(),
             value_parameters: Vec::new(),
-            return_type: Type::None,
+            return_type: Box::new(Type::None),
         }
     }
 }
@@ -336,7 +334,7 @@ impl Display for FunctionType {
         write!(f, "(")?;
 
         if !self.value_parameters.is_empty() {
-            for (index, (_, r#type)) in self.value_parameters.iter().enumerate() {
+            for (index, r#type) in self.value_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
@@ -347,7 +345,7 @@ impl Display for FunctionType {
 
         write!(f, ")")?;
 
-        if self.return_type != Type::None {
+        if self.return_type.as_ref() != &Type::None {
             write!(f, " -> {}", self.return_type)?;
         }
 
@@ -489,6 +487,12 @@ impl Display for EnumType {
 
         write!(f, " }}")
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct GenericType {
+    pub identifier_index: u8,
+    pub concrete_type: Option<Box<Type>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

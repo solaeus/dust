@@ -11,6 +11,7 @@ use super::RangeValue;
 pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
 pub enum ConcreteValue {
     Boolean(bool),
     Byte(u8),

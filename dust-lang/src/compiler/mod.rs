@@ -159,11 +159,7 @@ impl<'src> Compiler<'src> {
 
         Ok(Compiler {
             function_name,
-            r#type: FunctionType {
-                type_parameters: Vec::with_capacity(0),
-                value_parameters: Vec::with_capacity(0),
-                return_type: Type::None,
-            },
+            r#type: FunctionType::default(),
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: Vec::new(),
@@ -268,12 +264,14 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if instruction.b_type() == TypeCode::BOOLEAN && instruction.yields_value() {
-                    Some(instruction.a_field() + 1)
-                } else {
-                    None
+            .find_map(|(instruction, _, _)| {
+                if instruction.operation() == Operation::LOAD_ENCODED
+                    && instruction.b_type() == TypeCode::BOOLEAN
+                {
+                    return Some(instruction.a_field() + 1);
                 }
+
+                None
             })
             .unwrap_or(self.minimum_boolean_register)
     }
@@ -283,15 +281,13 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                if instruction.operation() == Operation::LOAD_ENCODED {
-                    if instruction.b_type() == TypeCode::BYTE {
-                        Some(instruction.a_field() + 1)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+                if instruction.operation() == Operation::LOAD_ENCODED
+                    && instruction.b_type() == TypeCode::BYTE
+                {
+                    return Some(instruction.a_field() + 1);
                 }
+
+                None
             })
             .unwrap_or(self.minimum_byte_register)
     }
@@ -332,7 +328,9 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Integer {
+                if r#type == &Type::Integer
+                    || (instruction.b_type() == TypeCode::INTEGER && instruction.yields_value())
+                {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -346,9 +344,8 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if instruction.b_type() == TypeCode::STRING
-                    && r#type == &Type::String
-                    && instruction.yields_value()
+                if r#type == &Type::String
+                    || (instruction.b_type() == TypeCode::STRING && instruction.yields_value())
                 {
                     Some(instruction.a_field() + 1)
                 } else {
@@ -363,7 +360,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if let Type::List(_) = r#type {
+                if let Type::List { .. } = r#type {
                     if instruction.yields_value() {
                         Some(instruction.a_field() + 1)
                     } else {
@@ -546,7 +543,7 @@ impl<'src> Compiler<'src> {
     ///
     /// If [`Self::type`] is already set, it will check if the given [Type] is compatible.
     fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
-        if self.r#type.return_type != Type::None {
+        if self.r#type.return_type.as_ref() != &Type::None {
             self.r#type
                 .return_type
                 .check(&new_return_type)
@@ -556,7 +553,7 @@ impl<'src> Compiler<'src> {
                 })?;
         }
 
-        self.r#type.return_type = new_return_type;
+        *self.r#type.return_type.as_mut() = new_return_type;
 
         Ok(())
     }
@@ -900,7 +897,7 @@ impl<'src> Compiler<'src> {
             match left_type {
                 Type::Boolean => self.next_boolean_register(),
                 Type::Byte => self.next_byte_register(),
-                Type::Character => self.next_character_register(),
+                Type::Character => self.next_string_register(),
                 Type::Float => self.next_float_register(),
                 Type::Integer => self.next_integer_register(),
                 Type::String => self.next_string_register(),
@@ -1274,7 +1271,7 @@ impl<'src> Compiler<'src> {
                     if used_boolean_registers > 1 {
                         let close = Instruction::close(
                             next_boolean_register,
-                            next_boolean_register + used_boolean_registers,
+                            self.next_boolean_register() - 2,
                             TypeCode::BOOLEAN,
                         );
 
@@ -1282,12 +1279,12 @@ impl<'src> Compiler<'src> {
                     }
                 }
                 Type::Byte => {
-                    let used_byte_registers = self.next_byte_register() - 1 - next_byte_register;
+                    let used_byte_registers = self.next_byte_register() - next_byte_register;
 
                     if used_byte_registers > 1 {
                         let close = Instruction::close(
                             next_byte_register,
-                            next_byte_register + used_byte_registers,
+                            self.next_byte_register() - 2,
                             TypeCode::BYTE,
                         );
 
@@ -1296,12 +1293,12 @@ impl<'src> Compiler<'src> {
                 }
                 Type::Character => {
                     let used_character_registers =
-                        self.next_character_register() - 1 - next_character_register;
+                        self.next_character_register() - next_character_register;
 
                     if used_character_registers > 1 {
                         let close = Instruction::close(
                             next_character_register,
-                            next_character_register + used_character_registers,
+                            self.next_character_register() - 2,
                             TypeCode::CHARACTER,
                         );
 
@@ -1309,12 +1306,12 @@ impl<'src> Compiler<'src> {
                     }
                 }
                 Type::Float => {
-                    let used_float_registers = self.next_float_register() - 1 - next_float_register;
+                    let used_float_registers = self.next_float_register() - next_float_register;
 
                     if used_float_registers > 1 {
                         let close = Instruction::close(
                             next_float_register,
-                            next_float_register + used_float_registers,
+                            self.next_float_register() - 2,
                             TypeCode::FLOAT,
                         );
 
@@ -1323,12 +1320,12 @@ impl<'src> Compiler<'src> {
                 }
                 Type::Integer => {
                     let used_integer_registers =
-                        self.next_integer_register() - 1 - next_integer_register;
+                        self.next_integer_register() - next_integer_register;
 
                     if used_integer_registers > 1 {
                         let close = Instruction::close(
                             next_integer_register,
-                            next_integer_register + used_integer_registers,
+                            self.next_integer_register() - 2,
                             TypeCode::INTEGER,
                         );
 
@@ -1336,20 +1333,19 @@ impl<'src> Compiler<'src> {
                     }
                 }
                 Type::String => {
-                    let used_string_registers =
-                        self.next_string_register() - 1 - next_string_register;
+                    let used_string_registers = self.next_string_register() - next_string_register;
 
                     if used_string_registers > 1 {
                         let close = Instruction::close(
                             next_string_register,
-                            next_string_register + used_string_registers,
+                            self.next_string_register() - 2,
                             TypeCode::STRING,
                         );
 
                         self.emit_instruction(close, Type::None, self.current_position);
                     }
                 }
-                Type::List(_) => {
+                Type::List { .. } => {
                     let used_list_registers = self.next_list_register() - next_list_register;
 
                     if used_list_registers > 1 {
@@ -1374,7 +1370,7 @@ impl<'src> Compiler<'src> {
             Type::Float => self.next_float_register().saturating_sub(1),
             Type::Integer => self.next_integer_register().saturating_sub(1),
             Type::String => self.next_string_register().saturating_sub(1),
-            Type::List(_) => self.next_list_register().saturating_sub(1),
+            Type::List { .. } => self.next_list_register().saturating_sub(1),
             _ => todo!(),
         };
         let destination = self.next_list_register();
@@ -1595,7 +1591,7 @@ impl<'src> Compiler<'src> {
         }
 
         let end = self.previous_position.1;
-        let destination = match function.r#type().return_type {
+        let destination = match function.r#type().return_type.as_ref() {
             Type::Boolean => self.next_boolean_register(),
             Type::Byte => self.next_byte_register(),
             Type::Character => self.next_character_register(),
@@ -1605,7 +1601,7 @@ impl<'src> Compiler<'src> {
             Type::None => 0,
             _ => todo!(),
         };
-        let return_type = function.r#type().return_type;
+        let return_type = *function.r#type().return_type;
         let call_native = Instruction::from(CallNative {
             destination,
             function,
@@ -1865,7 +1861,7 @@ impl<'src> Compiler<'src> {
 
         function_compiler.prototype_index = self.prototypes.len() as u16;
 
-        let mut value_parameters: Vec<(u16, Type)> = Vec::with_capacity(3);
+        let mut value_parameters = Vec::with_capacity(3);
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -1899,7 +1895,7 @@ impl<'src> Compiler<'src> {
                 Type::String => function_compiler.next_string_register(),
                 _ => todo!(),
             };
-            let (_, identifier_index) = function_compiler.declare_local(
+            function_compiler.declare_local(
                 parameter,
                 local_register_index,
                 r#type.clone(),
@@ -1917,7 +1913,7 @@ impl<'src> Compiler<'src> {
                 _ => {}
             }
 
-            value_parameters.push((identifier_index, r#type));
+            value_parameters.push(r#type);
             function_compiler.allow(Token::Comma)?;
         }
 
@@ -1933,11 +1929,7 @@ impl<'src> Compiler<'src> {
         } else {
             Type::None
         };
-        let function_type = FunctionType {
-            type_parameters: Vec::with_capacity(0),
-            value_parameters,
-            return_type,
-        };
+        let function_type = FunctionType::new([], value_parameters, return_type);
 
         function_compiler.r#type = function_type.clone();
 
@@ -1963,7 +1955,7 @@ impl<'src> Compiler<'src> {
             self.declare_local(
                 identifier,
                 destination,
-                Type::function(function_type.clone()),
+                Type::Function(function_type.clone()),
                 false,
                 self.current_scope,
             );
@@ -1973,7 +1965,7 @@ impl<'src> Compiler<'src> {
 
         self.emit_instruction(
             load_function,
-            Type::function(function_type),
+            Type::Function(function_type),
             Span(function_start, function_end),
         );
 
@@ -1995,7 +1987,7 @@ impl<'src> Compiler<'src> {
 
         if !matches!(
             last_instruction_type,
-            Type::Function(_) | Type::SelfFunction
+            Type::Function { .. } | Type::SelfFunction
         ) {
             return Err(CompileError::ExpectedFunction {
                 found: self.previous_token.to_owned(),
@@ -2006,8 +1998,8 @@ impl<'src> Compiler<'src> {
 
         let function_register = last_instruction.a_field();
         let function_return_type = match last_instruction_type {
-            Type::Function(function_type) => function_type.return_type.clone(),
-            Type::SelfFunction => self.r#type.return_type.clone(),
+            Type::Function(function_type) => *function_type.return_type.clone(),
+            Type::SelfFunction => *self.r#type.return_type.clone(),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),

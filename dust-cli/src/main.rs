@@ -1,19 +1,19 @@
 use std::{
     fs::read_to_string,
-    io::{self, stdout, Read},
+    io::{self, Read, stdout},
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use clap::{
-    builder::{styling::AnsiColor, Styles},
+    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
+    builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
-    Args, ColorChoice, Error, Parser, Subcommand, ValueHint,
 };
 use color_print::{cformat, cstr};
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
-use tracing::{subscriber::set_global_default, Level};
+use tracing::{Level, subscriber::set_global_default};
 use tracing_subscriber::FmtSubscriber;
 
 const ABOUT: &str = cstr!(
@@ -158,11 +158,14 @@ enum Mode {
         style: bool,
 
         /// Custom program name, overrides the file name
-        #[arg(long)]
+        #[arg(short, long)]
         name: Option<DustString>,
 
         #[command(flatten)]
         input: Input,
+
+        #[arg(short, long, default_value = "cli")]
+        format: Format,
     },
 
     /// Lex the source code and print the tokens
@@ -178,6 +181,13 @@ enum Mode {
         #[command(flatten)]
         input: Input,
     },
+}
+
+#[derive(ValueEnum, Clone, Copy)]
+enum Format {
+    Cli,
+    Json,
+    Toml,
 }
 
 fn get_source_and_file_name(input: Input) -> (String, Option<DustString>) {
@@ -220,88 +230,6 @@ fn main() {
         .finish();
 
     set_global_default(subscriber).expect("Failed to set tracing subscriber");
-
-    if let Mode::Disassemble { style, name, input } = mode {
-        let (source, file_name) = get_source_and_file_name(input);
-        let lexer = Lexer::new(&source);
-        let program_name = name.or(file_name);
-        let mut compiler = match Compiler::new(lexer, program_name, true) {
-            Ok(compiler) => compiler,
-            Err(error) => {
-                handle_compile_error(error, &source);
-
-                return;
-            }
-        };
-
-        match compiler.compile() {
-            Ok(()) => {}
-            Err(error) => {
-                handle_compile_error(error, &source);
-
-                return;
-            }
-        }
-
-        let chunk = compiler.finish();
-        let mut stdout = stdout().lock();
-
-        chunk
-            .disassembler(&mut stdout)
-            .width(65)
-            .style(style)
-            .source(&source)
-            .disassemble()
-            .expect("Failed to write disassembly to stdout");
-
-        return;
-    }
-
-    if let Mode::Tokenize { input, .. } = mode {
-        let (source, _) = get_source_and_file_name(input);
-        let mut lexer = Lexer::new(&source);
-        let mut next_token = || -> Option<(Token, Span, bool)> {
-            match lexer.next_token() {
-                Ok((token, position)) => Some((token, position, lexer.is_eof())),
-                Err(error) => {
-                    let report = DustError::compile(CompileError::Lex(error), &source).report();
-
-                    eprintln!("{report}");
-
-                    None
-                }
-            }
-        };
-
-        println!("{:^66}", "Tokens");
-
-        for _ in 0..66 {
-            print!("-");
-        }
-
-        println!();
-        println!("{:^21}|{:^22}|{:^22}", "Kind", "Value", "Position");
-
-        for _ in 0..66 {
-            print!("-");
-        }
-
-        println!();
-
-        while let Some((token, position, is_eof)) = next_token() {
-            if is_eof {
-                break;
-            }
-
-            let token_kind = token.kind().to_string();
-            let token = token.to_string();
-            let position = position.to_string();
-
-            println!("{token_kind:^21}|{token:^22}|{position:^22}");
-        }
-
-        return;
-    }
 
     if let Mode::Run(Run {
         time,
@@ -351,6 +279,111 @@ fn main() {
             print_time("Compile Time", compile_end);
             print_time("Run Time", run_time);
             print_time("Total Time", total_time);
+        }
+
+        return;
+    }
+
+    if let Mode::Disassemble {
+        style,
+        name,
+        input,
+        format,
+    } = mode
+    {
+        let (source, file_name) = get_source_and_file_name(input);
+        let lexer = Lexer::new(&source);
+        let program_name = name.or(file_name);
+        let mut compiler = match Compiler::new(lexer, program_name, true) {
+            Ok(compiler) => compiler,
+            Err(error) => {
+                handle_compile_error(error, &source);
+
+                return;
+            }
+        };
+
+        match compiler.compile() {
+            Ok(()) => {}
+            Err(error) => {
+                handle_compile_error(error, &source);
+
+                return;
+            }
+        }
+
+        let chunk = compiler.finish();
+        let mut stdout = stdout().lock();
+
+        match format {
+            Format::Cli => {
+                chunk
+                    .disassembler(&mut stdout)
+                    .width(65)
+                    .style(style)
+                    .source(&source)
+                    .disassemble()
+                    .expect("Failed to write disassembly to stdout");
+            }
+            Format::Json => {
+                let json = serde_json::to_string_pretty(&chunk)
+                    .expect("Failed to serialize chunk to JSON");
+
+                println!("{json}");
+            }
+            Format::Toml => {
+                let toml = basic_toml::to_string(&chunk)
+                    .inspect_err(|error| println!("{:?}", error.to_string()))
+                    .expect("Failed to serialize chunk to TOML");
+
+                println!("{toml}");
+            }
+        }
+
+        return;
+    }
+
+    if let Mode::Tokenize { input, .. } = mode {
+        let (source, _) = get_source_and_file_name(input);
+        let mut lexer = Lexer::new(&source);
+        let mut next_token = || -> Option<(Token, Span, bool)> {
+            match lexer.next_token() {
+                Ok((token, position)) => Some((token, position, lexer.is_eof())),
+                Err(error) => {
+                    let report = DustError::compile(CompileError::Lex(error), &source).report();
+
+                    eprintln!("{report}");
+
+                    None
+                }
+            }
+        };
+
+        println!("{:^66}", "Tokens");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+        println!("{:^21}|{:^22}|{:^22}", "Kind", "Value", "Position");
+
+        for _ in 0..66 {
+            print!("-");
+        }
+
+        println!();
+
+        while let Some((token, position, is_eof)) = next_token() {
+            if is_eof {
+                break;
+            }
+
+            let token_kind = token.kind().to_string();
+            let token = token.to_string();
+            let position = position.to_string();
+
+            println!("{token_kind:^21}|{token:^22}|{position:^22}");
         }
     }
 }
