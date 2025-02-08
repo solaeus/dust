@@ -191,6 +191,7 @@ enum Command {
 enum OutputFormat {
     Cli,
     Json,
+    Ron,
     Yaml,
 }
 
@@ -198,6 +199,7 @@ enum OutputFormat {
 enum InputFormat {
     Dust,
     Json,
+    Ron,
     Yaml,
 }
 
@@ -279,6 +281,9 @@ fn main() {
             InputFormat::Json => {
                 serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
             }
+            InputFormat::Ron => {
+                ron::de::from_str(&source).expect("Failed to deserialize RON into chunk")
+            }
             InputFormat::Yaml => {
                 serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
             }
@@ -353,6 +358,12 @@ fn main() {
                     .expect("Failed to serialize chunk to JSON");
 
                 println!("{json}");
+            }
+            OutputFormat::Ron => {
+                let ron = ron::ser::to_string_pretty(&chunk, Default::default())
+                    .expect("Failed to serialize chunk to RON");
+
+                println!("{ron}");
             }
             OutputFormat::Yaml => {
                 let yaml =
