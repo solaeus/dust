@@ -38,3 +38,7 @@ harness = false
 [[bench]]
 name = "threads"
 harness = false
+
+[[test]]
+name = "add"
+path = "tests/math/add.rs"

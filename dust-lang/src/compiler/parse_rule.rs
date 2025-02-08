@@ -237,7 +237,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Compiler::parse_semicolon),
+                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },

@@ -122,7 +122,9 @@ impl Thread {
                 let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
 
                 for pointer in &abstract_list.item_pointers {
-                    concrete_list.push(self.get_value_from_pointer(pointer));
+                    let value = self.get_value_from_pointer(pointer);
+
+                    concrete_list.push(value);
                 }
 
                 ConcreteValue::List(concrete_list)

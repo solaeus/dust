@@ -62,7 +62,7 @@ impl Display for Return {
                 TypeCode::STRING => write!(f, "R_STR_{return_register}"),
                 TypeCode::LIST => write!(f, "R_LIST_{return_register}"),
                 TypeCode::FUNCTION => write!(f, "R_FN_{return_register}"),
-                unsupported => unreachable!("Unsupported return type: {:?}", unsupported),
+                unsupported => unreachable!("Unsupported return type: {}", unsupported),
             }
         } else {
             write!(f, "RETURN")

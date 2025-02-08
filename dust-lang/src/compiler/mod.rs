@@ -269,7 +269,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Boolean && instruction.yields_value() {
+                if instruction.b_type() == TypeCode::BOOLEAN && instruction.yields_value() {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -301,7 +301,10 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Character && instruction.yields_value() {
+                if instruction.b_type() == TypeCode::CHARACTER
+                    && r#type == &Type::Character
+                    && instruction.yields_value()
+                {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -314,8 +317,8 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Float && instruction.yields_value() {
+            .find_map(|(instruction, _, _)| {
+                if instruction.b_type() == TypeCode::FLOAT && instruction.yields_value() {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -329,7 +332,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Integer && instruction.yields_value() {
+                if r#type == &Type::Integer {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -343,7 +346,10 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::String && instruction.yields_value() {
+                if instruction.b_type() == TypeCode::STRING
+                    && r#type == &Type::String
+                    && instruction.yields_value()
+                {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -358,7 +364,11 @@ impl<'src> Compiler<'src> {
             .rev()
             .find_map(|(instruction, r#type, _)| {
                 if let Type::List(_) = r#type {
-                    Some(instruction.a_field() + 1)
+                    if instruction.yields_value() {
+                        Some(instruction.a_field() + 1)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -370,10 +380,8 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if matches!(r#type, Type::Function(_) | Type::SelfFunction)
-                    && instruction.yields_value()
-                {
+            .find_map(|(instruction, _, _)| {
+                if instruction.b_type() == TypeCode::FUNCTION && instruction.yields_value() {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -858,6 +866,10 @@ impl<'src> Compiler<'src> {
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
+        if is_assignment {
+            self.allow(Token::Semicolon)?;
+        }
+
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
@@ -1164,25 +1176,7 @@ impl<'src> Compiler<'src> {
                 let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
 
                 math_instruction.set_a_field(local_register_index);
-            } else {
-                let register = match local_type {
-                    Type::Boolean => self.next_boolean_register(),
-                    Type::Byte => self.next_byte_register(),
-                    Type::Character => self.next_character_register(),
-                    Type::Float => self.next_float_register(),
-                    Type::Integer => self.next_integer_register(),
-                    Type::String => self.next_string_register(),
-                    _ => todo!(),
-                };
-                let point = Instruction::point(
-                    local_register_index,
-                    Operand::Register(register, local_type.type_code()),
-                );
-
-                self.emit_instruction(point, local_type, start_position);
             }
-
-            return Ok(());
         }
 
         let destination = match local_type {
@@ -1262,25 +1256,12 @@ impl<'src> Compiler<'src> {
 
             if item_type == Type::None {
                 item_type = self.get_last_instruction_type();
+            } else {
+                // TODO: Check if the item type the same as the previous item type
             }
 
             if start_register.is_none() {
-                let first_index = match item_type {
-                    Type::Boolean => self.next_boolean_register() - 1,
-                    Type::Byte => self.next_byte_register() - 1,
-                    Type::Character => self.next_character_register() - 1,
-                    Type::Float => self.next_float_register() - 1,
-                    Type::Integer => self.next_integer_register() - 1,
-                    Type::String => self.next_string_register() - 1,
-                    Type::List(_) => self.next_list_register() - 1,
-                    Type::None => {
-                        return Err(CompileError::ExpectedExpression {
-                            found: self.previous_token.to_owned(),
-                            position: self.previous_position,
-                        });
-                    }
-                    _ => todo!(),
-                };
+                let first_index = self.instructions.last().unwrap().0.a_field();
 
                 start_register = Some(first_index);
             }
@@ -1369,12 +1350,12 @@ impl<'src> Compiler<'src> {
                     }
                 }
                 Type::List(_) => {
-                    let used_list_registers = self.next_list_register() - next_list_register - 1;
+                    let used_list_registers = self.next_list_register() - next_list_register;
 
                     if used_list_registers > 1 {
                         let close = Instruction::close(
                             next_list_register,
-                            next_list_register + used_list_registers - 1,
+                            self.next_list_register() - 2,
                             TypeCode::LIST,
                         );
 
@@ -1387,13 +1368,13 @@ impl<'src> Compiler<'src> {
 
         let end = self.previous_position.1;
         let end_register = match item_type {
-            Type::Boolean => self.next_boolean_register() - 1,
-            Type::Byte => self.next_byte_register() - 1,
-            Type::Character => self.next_character_register() - 1,
-            Type::Float => self.next_float_register() - 1,
-            Type::Integer => self.next_integer_register() - 1,
-            Type::String => self.next_string_register() - 1,
-            Type::List(_) => self.next_list_register() - 1,
+            Type::Boolean => self.next_boolean_register().saturating_sub(1),
+            Type::Byte => self.next_byte_register().saturating_sub(1),
+            Type::Character => self.next_character_register().saturating_sub(1),
+            Type::Float => self.next_float_register().saturating_sub(1),
+            Type::Integer => self.next_integer_register().saturating_sub(1),
+            Type::String => self.next_string_register().saturating_sub(1),
+            Type::List(_) => self.next_list_register().saturating_sub(1),
             _ => todo!(),
         };
         let destination = self.next_list_register();
@@ -1636,11 +1617,6 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_semicolon(&mut self) -> Result<(), CompileError> {
-        self.advance()?;
-        self.parse(Precedence::None)
-    }
-
     fn parse_expression(&mut self) -> Result<(), CompileError> {
         self.parse(Precedence::None)?;
 
@@ -1732,8 +1708,18 @@ impl<'src> Compiler<'src> {
         if matches!(self.get_last_operation(), Some(Operation::POINT)) {
             let Point { to, .. } = Point::from(self.instructions.last().unwrap().0);
 
-            let (_, r#type, _) = self.instructions.pop().unwrap();
-            let r#return = Instruction::r#return(true, to.index(), to.as_type());
+            let (point, r#type, position) = self.instructions.pop().unwrap();
+            let (should_return, target_register) = if r#type == Type::None {
+                (false, 0)
+            } else {
+                (true, to.index())
+            };
+            let r#return =
+                Instruction::r#return(should_return, target_register, r#type.type_code());
+
+            if !should_return {
+                self.instructions.push((point, r#type.clone(), position));
+            }
 
             self.emit_instruction(r#return, r#type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
@@ -1821,6 +1807,7 @@ impl<'src> Compiler<'src> {
 
         self.expect(Token::Equal)?;
         self.parse_expression()?;
+        self.allow(Token::Semicolon)?;
 
         let register_index = match self.get_last_instruction_type() {
             Type::Boolean => self.next_boolean_register() - 1,

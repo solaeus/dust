@@ -68,7 +68,112 @@ pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
     r#return,
 ];
 
-pub fn point(_: InstructionFields, thread: &mut Thread) {}
+pub fn point(instruction: InstructionFields, thread: &mut Thread) {
+    let destination = instruction.a_field as usize;
+    let to = instruction.b_field as usize;
+    let to_is_constant = instruction.b_is_constant;
+    let r#type = instruction.b_type;
+
+    match r#type {
+        TypeCode::BOOLEAN => {
+            let boolean = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(to).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(to)
+            };
+            let register = Register::Value(*boolean);
+
+            thread.set_boolean_register(destination, register);
+        }
+        TypeCode::BYTE => {
+            let byte = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(to).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(to)
+            };
+            let register = Register::Value(*byte);
+
+            thread.set_byte_register(destination, register);
+        }
+        TypeCode::CHARACTER => {
+            let character = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(to).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(to)
+            };
+            let register = Register::Value(*character);
+
+            thread.set_character_register(destination, register);
+        }
+        TypeCode::FLOAT => {
+            let float = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(to).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(to)
+            };
+            let register = Register::Value(*float);
+
+            thread.set_float_register(destination, register);
+        }
+        TypeCode::INTEGER => {
+            let integer = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(to).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(to)
+            };
+            let register = Register::Value(*integer);
+
+            thread.set_integer_register(destination, register);
+        }
+        TypeCode::STRING => {
+            let string = if to_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(to).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(to)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(to).clone()
+            };
+            let register = Register::Value(string);
+
+            thread.set_string_register(destination, register);
+        }
+        TypeCode::LIST => {
+            let list = thread.get_list_register(to).clone();
+            let register = Register::Value(list);
+
+            thread.set_list_register(destination, register);
+        }
+        _ => unimplemented!(),
+    }
+}
 
 pub fn close(instruction: InstructionFields, thread: &mut Thread) {
     let from = instruction.b_field as usize;
@@ -599,7 +704,9 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
                 let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
 
                 for pointer in &abstract_list.item_pointers {
-                    concrete_list.push(thread.get_value_from_pointer(pointer));
+                    let value = thread.get_value_from_pointer(pointer);
+
+                    concrete_list.push(value);
                 }
 
                 thread.return_value =

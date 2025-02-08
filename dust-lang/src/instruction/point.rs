@@ -42,12 +42,12 @@ impl Display for Point {
         let Point { destination, to } = self;
 
         match to.as_type() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination} -> R_BOOL_{to}"),
-            TypeCode::BYTE => write!(f, "R_BYTE_{destination} -> R_BYTE_{to}"),
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination} -> R_CHAR_{to}"),
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination} -> R_FLOAT_{to}"),
-            TypeCode::INTEGER => write!(f, "R_INT_{destination} -> R_INT_{to}"),
-            TypeCode::STRING => write!(f, "R_STR_{destination} -> R_STR_{to}"),
+            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination} -> {to}"),
+            TypeCode::BYTE => write!(f, "R_BYTE_{destination} -> {to}"),
+            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination} -> {to}"),
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination} -> {to}"),
+            TypeCode::INTEGER => write!(f, "R_INT_{destination} -> {to}"),
+            TypeCode::STRING => write!(f, "R_STR_{destination} -> {to}"),
             unsupported => write!(
                 f,
                 "Unsupported type code: {unsupported} for Point instruction"
