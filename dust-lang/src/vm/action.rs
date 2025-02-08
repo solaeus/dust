@@ -675,7 +675,7 @@ pub fn subtract(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_float_register(destination, register);
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
@@ -689,6 +689,54 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
     let right_is_constant = instruction.c_is_constant;
 
     match (left_type, right_type) {
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let result = left_value.saturating_mul(*right_value);
+            let register = Register::Value(result);
+
+            thread.set_byte_register(destination, register);
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let result = left_value * right_value;
+            let register = Register::Value(result);
+
+            thread.set_float_register(destination, register);
+        }
         (TypeCode::INTEGER, TypeCode::INTEGER) => {
             let left_value = if left_is_constant {
                 if cfg!(debug_assertions) {
@@ -708,7 +756,7 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
             } else {
                 thread.get_integer_register(right)
             };
-            let result = left_value * right_value;
+            let result = left_value.saturating_mul(*right_value);
             let register = Register::Value(result);
 
             thread.set_integer_register(destination as usize, register);

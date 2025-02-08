@@ -346,6 +346,13 @@ impl Instruction {
 
                 Operand::Register(destination, left.as_type())
             }
+            Operation::MULTIPLY => {
+                let Multiply {
+                    destination, left, ..
+                } = Multiply::from(*self);
+
+                Operand::Register(destination, left.as_type())
+            }
             unsupported => todo!("Support {unsupported}"),
         }
     }
