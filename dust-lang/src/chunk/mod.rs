@@ -20,20 +20,19 @@ mod scope;
 pub use disassembler::Disassembler;
 pub use local::Local;
 pub use scope::Scope;
-use serde::ser::SerializeStruct;
 
 use std::fmt::{self, Debug, Display, Formatter, Write as FmtWrite};
 use std::io::Write;
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Default, PartialOrd, Deserialize)]
+#[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
     pub name: Option<DustString>,
     pub r#type: FunctionType,
@@ -44,14 +43,14 @@ pub struct Chunk {
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
 
-    pub boolean_register_count: usize,
-    pub byte_register_count: usize,
-    pub character_register_count: usize,
-    pub float_register_count: usize,
-    pub integer_register_count: usize,
-    pub string_register_count: usize,
-    pub list_register_count: usize,
-    pub function_register_count: usize,
+    pub boolean_register_count: u16,
+    pub byte_register_count: u16,
+    pub character_register_count: u16,
+    pub float_register_count: u16,
+    pub integer_register_count: u16,
+    pub string_register_count: u16,
+    pub list_register_count: u16,
+    pub function_register_count: u16,
     pub prototype_index: u16,
 }
 
@@ -114,30 +113,5 @@ impl PartialEq for Chunk {
             && self.constants == other.constants
             && self.locals == other.locals
             && self.prototypes == other.prototypes
-    }
-}
-
-impl Serialize for Chunk {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut state = serializer.serialize_struct("Chunk", 11)?;
-
-        state.serialize_field("name", &self.name)?;
-        state.serialize_field("boolean_register_count", &self.boolean_register_count)?;
-        state.serialize_field("byte_register_count", &self.byte_register_count)?;
-        state.serialize_field("character_register_count", &self.character_register_count)?;
-        state.serialize_field("float_register_count", &self.float_register_count)?;
-        state.serialize_field("integer_register_count", &self.integer_register_count)?;
-        state.serialize_field("string_register_count", &self.string_register_count)?;
-        state.serialize_field("list_register_count", &self.list_register_count)?;
-        state.serialize_field("function_register_count", &self.function_register_count)?;
-        state.serialize_field("prototype_index", &self.prototype_index)?;
-        state.serialize_field("instructions", &self.instructions)?;
-        state.serialize_field("positions", &self.positions)?;
-        state.serialize_field("prototypes", &self.prototypes)?;
-        state.serialize_field("locals", &self.locals)?;
-        state.serialize_field("constants", &self.constants)?;
-        state.serialize_field("type", &self.r#type)?;
-
-        state.end()
     }
 }

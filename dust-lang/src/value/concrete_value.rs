@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 use tracing::trace;
 
-use crate::{Type, Value, ValueError, instruction::TypeCode};
+use crate::{Type, Value, instruction::TypeCode};
 
 use super::RangeValue;
 

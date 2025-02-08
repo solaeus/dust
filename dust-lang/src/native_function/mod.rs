@@ -5,7 +5,6 @@
 mod assert;
 mod io;
 mod random;
-mod string;
 mod thread;
 
 use std::{

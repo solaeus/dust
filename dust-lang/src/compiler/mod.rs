@@ -32,7 +32,7 @@ use std::{mem::replace, sync::Arc};
 use crate::{
     Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
     NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
-    instruction::{CallNative, Jump, Point, Return, TypeCode},
+    instruction::{Jump, Point, Return, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -222,14 +222,14 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(mut self) -> Chunk {
-        let boolean_register_count = self.next_boolean_register() as usize;
-        let byte_register_count = self.next_byte_register() as usize;
-        let character_register_count = self.next_character_register() as usize;
-        let float_register_count = self.next_float_register() as usize;
-        let integer_register_count = self.next_integer_register() as usize;
-        let string_register_count = self.next_string_register() as usize;
-        let list_register_count = self.next_list_register() as usize;
-        let function_register_count = self.next_function_register() as usize;
+        let boolean_register_count = self.next_boolean_register();
+        let byte_register_count = self.next_byte_register();
+        let character_register_count = self.next_character_register();
+        let float_register_count = self.next_float_register();
+        let integer_register_count = self.next_integer_register();
+        let string_register_count = self.next_string_register();
+        let list_register_count = self.next_list_register();
+        let function_register_count = self.next_function_register();
         let (instructions, positions): (Vec<Instruction>, Vec<Span>) = self
             .instructions
             .into_iter()
