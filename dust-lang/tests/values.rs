@@ -48,7 +48,7 @@ fn load_byte() {
             Instruction::load_encoded(0, 0x2a, TypeCode::BYTE, false),
             Instruction::r#return(true, 0, TypeCode::BYTE),
         ],
-        positions: vec![Span(0, 6), Span(6, 6)],
+        positions: vec![Span(0, 4), Span(4, 4)],
         ..Chunk::default()
     };
     let return_value = Some(Value::byte(0x2a));
@@ -85,7 +85,7 @@ fn load_float() {
             Instruction::load_constant(0, 0, TypeCode::FLOAT, false),
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
-        positions: vec![Span(0, 4), Span(4, 4)],
+        positions: vec![Span(0, 5), Span(5, 5)],
         constants: vec![ConcreteValue::Float(42.42)],
         ..Chunk::default()
     };
@@ -144,7 +144,7 @@ fn load_boolean_list() {
             Instruction::load_list(0, TypeCode::BOOLEAN, 0, 1, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 13), Span(13, 13)],
+        positions: vec![Span(1, 5), Span(7, 12), Span(0, 13), Span(13, 13)],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
@@ -167,7 +167,7 @@ fn load_byte_list() {
             Instruction::load_list(0, TypeCode::BYTE, 0, 1, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 15), Span(15, 15)],
+        positions: vec![Span(1, 5), Span(7, 11), Span(0, 12), Span(12, 12)],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
@@ -190,7 +190,7 @@ fn load_character_list() {
             Instruction::load_list(0, TypeCode::CHARACTER, 0, 1, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 9), Span(9, 9)],
+        positions: vec![Span(1, 4), Span(6, 9), Span(0, 10), Span(10, 10)],
         constants: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
         ..Chunk::default()
     };
@@ -214,7 +214,7 @@ fn load_float_list() {
             Instruction::load_list(0, TypeCode::FLOAT, 0, 1, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 15), Span(15, 15)],
+        positions: vec![Span(1, 6), Span(8, 13), Span(0, 14), Span(14, 14)],
         constants: vec![ConcreteValue::Float(42.42), ConcreteValue::Float(24.24)],
         ..Chunk::default()
     };
@@ -239,7 +239,7 @@ fn load_integer_list() {
             Instruction::load_list(0, TypeCode::INTEGER, 0, 2, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 9), Span(9, 9)],
+        positions: vec![Span(1, 2), Span(4, 5), Span(7, 8), Span(0, 9), Span(9, 9)],
         constants: vec![
             ConcreteValue::Integer(1),
             ConcreteValue::Integer(2),
@@ -268,7 +268,7 @@ fn load_string_list() {
             Instruction::load_list(0, TypeCode::STRING, 0, 1, false),
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
-        positions: vec![Span(0, 19), Span(19, 19)],
+        positions: vec![Span(1, 8), Span(10, 17), Span(0, 18), Span(18, 18)],
         constants: vec![
             ConcreteValue::String(DustString::from("Hello")),
             ConcreteValue::String(DustString::from("World")),
@@ -359,7 +359,7 @@ fn load_deeply_nested_list() {
             Span(14, 15),
             Span(10, 16),
             Span(1, 17),
-            Span(17, 18),
+            Span(19, 20),
             Span(21, 22),
             Span(24, 25),
             Span(20, 26),

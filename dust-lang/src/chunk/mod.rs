@@ -110,6 +110,7 @@ impl PartialEq for Chunk {
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions
+            && self.positions == other.positions
             && self.constants == other.constants
             && self.locals == other.locals
             && self.prototypes == other.prototypes

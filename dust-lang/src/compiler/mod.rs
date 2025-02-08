@@ -280,9 +280,10 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, _, _)| {
-                if instruction.operation() == Operation::LOAD_ENCODED
-                    && instruction.b_type() == TypeCode::BYTE
+            .find_map(|(instruction, r#type, _)| {
+                if (r#type == &Type::Byte)
+                    || (instruction.operation() == Operation::LOAD_ENCODED
+                        && instruction.b_type() == TypeCode::BYTE)
                 {
                     return Some(instruction.a_field() + 1);
                 }
@@ -324,19 +325,24 @@ impl<'src> Compiler<'src> {
     }
 
     fn next_integer_register(&self) -> u16 {
-        self.instructions
+        println!("{:?}", self.instructions);
+
+        let next = self
+            .instructions
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Integer
-                    || (instruction.b_type() == TypeCode::INTEGER && instruction.yields_value())
-                {
+                if r#type == &Type::Integer {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
                 }
             })
-            .unwrap_or(self.minimum_integer_register)
+            .unwrap_or(self.minimum_integer_register);
+
+        println!("{}", next);
+
+        next
     }
 
     fn next_string_register(&self) -> u16 {
@@ -580,7 +586,7 @@ impl<'src> Compiler<'src> {
             Type::Float => self.next_float_register(),
             Type::Integer => self.next_integer_register(),
             Type::String => self.next_string_register(),
-            _ => todo!(),
+            _ => unreachable!(),
         };
         let load_constant =
             Instruction::load_constant(destination, constant_index, r#type.type_code(), false);
