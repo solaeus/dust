@@ -1557,7 +1557,7 @@ impl<'src> Compiler<'src> {
         self.instructions
             .insert(block_start, (jump, Type::None, self.current_position));
 
-        let jump_back_distance = (block_end - expression_start) as u16;
+        let jump_back_distance = (block_end - expression_start + 1) as u16;
         let jump_back = Instruction::from(Jump {
             offset: jump_back_distance,
             is_positive: false,
