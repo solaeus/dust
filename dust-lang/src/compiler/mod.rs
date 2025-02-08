@@ -1437,7 +1437,10 @@ impl<'src> Compiler<'src> {
 
         let if_block_end = self.instructions.len();
         let mut if_block_distance = if_block_end - if_block_start;
-        let if_block_type = self.get_last_instruction_type();
+
+        let (if_block_last_instruction, if_block_type, _) = self.instructions.last().unwrap();
+        let if_block_type = if_block_type.clone();
+        let if_block_last_instruction_destination = if_block_last_instruction.a_field();
 
         if let Token::Else = self.current_token {
             self.advance()?;
@@ -1459,9 +1462,12 @@ impl<'src> Compiler<'src> {
 
         let else_block_end = self.instructions.len();
         let else_block_distance = else_block_end - if_block_end;
-        let else_block_type = self.get_last_instruction_type();
+        let (else_block_last_instruction, else_block_type, _) =
+            self.instructions.last_mut().unwrap();
 
-        if let Err(conflict) = if_block_type.check(&else_block_type) {
+        else_block_last_instruction.set_a_field(if_block_last_instruction_destination);
+
+        if let Err(conflict) = if_block_type.check(else_block_type) {
             return Err(CompileError::IfElseBranchMismatch {
                 conflict,
                 position: Span(if_block_start_position.0, self.current_position.1),
@@ -2031,6 +2037,16 @@ impl<'src> Compiler<'src> {
         let call = Instruction::call(destination, function_register, argument_count, is_recursive);
 
         self.emit_instruction(call, function_return_type, Span(start, end));
+
+        Ok(())
+    }
+
+    fn parse_semicolon(&mut self) -> Result<(), CompileError> {
+        let (_, last_instruction_type, _) = self.instructions.last_mut().unwrap();
+
+        *last_instruction_type = Type::None;
+
+        self.advance()?;
 
         Ok(())
     }
