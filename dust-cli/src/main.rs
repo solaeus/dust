@@ -11,64 +11,16 @@ use clap::{
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
 };
-use color_print::{cformat, cstr};
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
 use tracing::{Level, subscriber::set_global_default};
 use tracing_subscriber::FmtSubscriber;
 
-const ABOUT: &str = cstr!(
-    r#"
-<bright-magenta,bold>Dust CLI
-────────</>
-{about}
-
-<bold>⚙️ Version:</> {version}
-<bold>🦀 Author:</> {author}
-<bold>⚖️ License:</> GPL-3.0
-<bold>🔬 Repository:</> https://git.jeffa.io/jeff/dust
-"#
-);
-
-const PLAIN_ABOUT: &str = r#"
-{about}
-"#;
-
-const USAGE: &str = cstr!(
-    r#"
-<bright-magenta,bold>Usage:</> {usage}
-"#
-);
-
-const SUBCOMMANDS: &str = cstr!(
-    r#"
-<bright-magenta,bold>Commands:</>
-{subcommands}
-"#
-);
-
-const OPTIONS: &str = cstr!(
-    r#"
-<bright-magenta,bold>Options:</>
-{options}
-"#
-);
-
-const CREATE_MAIN_HELP_TEMPLATE: fn() -> String =
-    || cformat!("{ABOUT}{USAGE}{SUBCOMMANDS}{OPTIONS}");
-
-const CREATE_COMMAND_HELP_TEMPLATE: fn(&str) -> String = |title| {
-    cformat!(
-        "\
-        <bright-magenta,bold>{title}\n────────</>\
-        {PLAIN_ABOUT}{USAGE}{OPTIONS}
-        "
-    )
-};
-
 const STYLES: Styles = Styles::styled()
-    .literal(AnsiColor::Cyan.on_default())
-    .placeholder(AnsiColor::Cyan.on_default())
-    .valid(AnsiColor::BrightCyan.on_default())
+    .header(AnsiColor::BrightMagenta.on_default().bold().underline())
+    .usage(AnsiColor::BrightMagenta.on_default().bold().underline())
+    .literal(AnsiColor::BrightCyan.on_default().bold())
+    .placeholder(AnsiColor::BrightCyan.on_default().bold())
+    .valid(AnsiColor::BrightGreen.on_default())
     .invalid(AnsiColor::BrightYellow.on_default())
     .error(AnsiColor::BrightRed.on_default());
 
@@ -78,7 +30,6 @@ const STYLES: Styles = Styles::styled()
     author = crate_authors!(),
     about = crate_description!(),
     color = ColorChoice::Auto,
-    help_template = CREATE_MAIN_HELP_TEMPLATE(),
     styles = STYLES,
 )]
 struct Cli {
@@ -107,7 +58,7 @@ struct Cli {
 #[derive(Args)]
 struct Source {
     /// Source code to run instead of a file
-    #[arg(short, long, value_hint = ValueHint::Other, value_name = "FORMAT")]
+    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
     eval: Option<String>,
 
     /// Read source code from stdin
@@ -121,10 +72,7 @@ struct Source {
 
 /// Compile and run the program (default)
 #[derive(Args)]
-#[command(
-    short_flag = 'r',
-    help_template = CREATE_COMMAND_HELP_TEMPLATE("Run Mode")
-)]
+#[command(short_flag = 'r')]
 struct Run {
     /// Print the time taken for compilation and execution
     #[arg(long)]
@@ -152,10 +100,7 @@ enum Command {
     Run(Run),
 
     /// Compile and print the input
-    #[command(
-        short_flag = 'c',
-        help_template = CREATE_COMMAND_HELP_TEMPLATE("Compile Mode")
-    )]
+    #[command(short_flag = 'c')]
     Compile {
         /// Style disassembly output
         #[arg(short, long, default_value = "true")]
@@ -173,10 +118,7 @@ enum Command {
     },
 
     /// Lex the source code and print the tokens
-    #[command(
-        short_flag = 't',
-        help_template = CREATE_COMMAND_HELP_TEMPLATE("Tokenize Mode")
-    )]
+    #[command(short_flag = 't')]
     Tokenize {
         /// Style token output
         #[arg(short, long, default_value = "true")]
