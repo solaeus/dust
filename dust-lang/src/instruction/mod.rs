@@ -328,7 +328,7 @@ impl Instruction {
                 let register_type = match left.as_type() {
                     TypeCode::BOOLEAN => TypeCode::BOOLEAN,
                     TypeCode::BYTE => TypeCode::BYTE,
-                    TypeCode::CHARACTER => TypeCode::STRING,
+                    TypeCode::CHARACTER => TypeCode::STRING, // Adding characters concatenates them
                     TypeCode::INTEGER => TypeCode::INTEGER,
                     TypeCode::FLOAT => TypeCode::FLOAT,
                     TypeCode::STRING => TypeCode::STRING,
@@ -338,6 +338,13 @@ impl Instruction {
                 };
 
                 Operand::Register(destination, register_type)
+            }
+            Operation::SUBTRACT => {
+                let Subtract {
+                    destination, left, ..
+                } = Subtract::from(*self);
+
+                Operand::Register(destination, left.as_type())
             }
             unsupported => todo!("Support {unsupported}"),
         }
