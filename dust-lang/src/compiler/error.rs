@@ -181,7 +181,7 @@ impl AnnotatedError for CompileError {
     fn description(&self) -> &'static str {
         match self {
             Self::CannotAddArguments { .. } => "Cannot add these types",
-            Self::CannotAddType { .. } => "Cannot add to this type",
+            Self::CannotAddType { .. } => "Cannot add this type",
             Self::ComparisonChain { .. } => "Cannot chain comparison operations",
             Self::CannotDivideArguments { .. } => "Cannot divide these types",
             Self::CannotDivideType { .. } => "Cannot divide this type",
@@ -222,6 +222,12 @@ impl AnnotatedError for CompileError {
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
+            Self::CannotAddType {
+                argument_type,
+                position,
+            } => {
+                vec![(format!("Cannot add type `{}`", argument_type), *position)]
+            }
             Self::CannotAddArguments {
                 left_type,
                 left_position,
@@ -229,12 +235,9 @@ impl AnnotatedError for CompileError {
                 right_position,
             } => {
                 vec![
+                    (format!("`{left_type}` value was used here"), *left_position),
                     (
-                        format!("A value of type \"{left_type}\" was used here."),
-                        *left_position,
-                    ),
-                    (
-                        format!("A value of type \"{right_type}\" was used here."),
+                        format!("`{right_type}` value was used here"),
                         *right_position,
                     ),
                 ]
@@ -242,7 +245,7 @@ impl AnnotatedError for CompileError {
             Self::ReturnTypeConflict { conflict, position } => {
                 vec![(
                     format!(
-                        "Expected type {} but found type {}",
+                        "Expected type `{}` but found type `{}`",
                         conflict.expected, conflict.actual
                     ),
                     *position,
@@ -262,7 +265,7 @@ impl AnnotatedError for CompileError {
             } => {
                 vec![(
                     format!(
-                        "Type \"{left_type}\" cannot be, added to type \"{right_type}\". Try converting one of the values to the other type."
+                        "Type `{left_type}` cannot be added to type `{right_type}`. Try converting one of the values to the other type."
                     ),
                     Span(left_position.0, right_position.1),
                 )]
