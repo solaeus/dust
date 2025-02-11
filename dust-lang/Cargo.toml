@@ -98,3 +98,11 @@ path = "tests/logic/and_and.rs"
 [[test]]
 name = "or_or"
 path = "tests/logic/or_or.rs"
+
+[[test]]
+name = "and_or"
+path = "tests/logic/and_or.rs"
+
+[[test]]
+name = "or_and"
+path = "tests/logic/or_and.rs"

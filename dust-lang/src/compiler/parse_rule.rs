@@ -72,7 +72,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
             Token::DoubleAmpersand => ParseRule {
                 prefix: None,
                 infix: Some(Compiler::parse_logical_binary),
-                precedence: Precedence::LogicalAnd,
+                precedence: Precedence::Logic,
             },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
@@ -82,7 +82,7 @@ impl From<&Token<'_>> for ParseRule<'_> {
             Token::DoublePipe => ParseRule {
                 prefix: None,
                 infix: Some(Compiler::parse_logical_binary),
-                precedence: Precedence::LogicalOr,
+                precedence: Precedence::Logic,
             },
             Token::DoubleDot => ParseRule {
                 prefix: Some(Compiler::expect_expression),
@@ -284,14 +284,13 @@ impl From<&Token<'_>> for ParseRule<'_> {
 /// Operator precedence levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
-    Primary = 9,
-    Call = 8,
-    Unary = 7,
-    Factor = 6,
-    Term = 5,
-    Comparison = 4,
-    LogicalAnd = 3,
-    LogicalOr = 2,
+    Primary = 8,
+    Call = 7,
+    Unary = 6,
+    Factor = 5,
+    Term = 4,
+    Comparison = 3,
+    Logic = 2,
     Assignment = 1,
     None = 0,
 }
@@ -300,9 +299,8 @@ impl Precedence {
     pub fn increment(&self) -> Self {
         match self {
             Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::LogicalOr,
-            Precedence::LogicalOr => Precedence::LogicalAnd,
-            Precedence::LogicalAnd => Precedence::Comparison,
+            Precedence::Assignment => Precedence::Logic,
+            Precedence::Logic => Precedence::Comparison,
             Precedence::Comparison => Precedence::Term,
             Precedence::Term => Precedence::Factor,
             Precedence::Factor => Precedence::Unary,
