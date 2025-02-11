@@ -197,31 +197,6 @@ in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the r
 Eventually, Dust should be available via package managers and as an embeddable library. For now,
 the only way to use Dust is to clone the repository and build it from source.
 
-## Benchmarks
-
-**Dust's runtime optimizations are still in development.**
-
-See the `bench` directory for the benchmark programs.
-
-### Addictive Addition
-
-This benchmark was taken from a paper[^3] that compares stack-based and register-based virtual
-machines. The benchmark is a simple program that increments a variable 5,000,000 times. Dust uses a
-novel technique to improve loop performance. This optimization works by caching raw pointers to the
-instruction's operand values so that they are only looked up during the first iteration of the loop
-and then reused for the remaining iterations.
-
-| Command                        | Mean [ms]    | Min [ms] | Max [ms] | Relative     |
-|:-------------------------------|-------------:|---------:|---------:|-------------:|
-| `bun addictive_addition.js`    | 10.7 ± 0.4   | 9.1      | 12.1     | 1.00         |
-| `dust addictive_addition.ds`   | 21.6 ± 0.5   | 20.5     | 22.8     | 2.02 ± 0.09  |
-| `lua addictive_addition.lua`   | 21.9 ± 0.2   | 21.8     | 23.3     | 2.05 ± 0.08  |
-| `deno addictive_addition.js`   | 24.4 ± 2.5   | 18.0     | 27.3     | 2.28 ± 0.24  |
-| `node addictive_addition.js`   | 44.7 ± 0.3   | 44.2     | 45.6     | 4.18 ± 0.15  |
-| `ruby addictive_addition.rb`   | 88.0 ± 23.6  | 75.8     | 219.7    | 8.23 ± 2.22  |
-| `java addictive_addition.java` | 199.8 ± 4.8  | 195.8    | 209.4    | 18.69 ± 0.81 |
-| `python addictive_addition.py` | 235.4 ± 27.1 | 216.9    | 322.9    | 22.02 ± 2.66 |
-
 ## Inspiration
 
 *Crafting Interpreters*[^0] by Bob Nystrom was a great resource for writing the compiler, especially
