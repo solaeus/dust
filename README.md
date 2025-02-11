@@ -203,7 +203,7 @@ the only way to use Dust is to clone the repository and build it from source.
 
 See the `bench` directory for the benchmark programs.
 
-### Additctive Addition
+### Addictive Addition
 
 This benchmark was taken from a paper[^3] that compares stack-based and register-based virtual
 machines. The benchmark is a simple program that increments a variable 5,000,000 times. Dust uses a

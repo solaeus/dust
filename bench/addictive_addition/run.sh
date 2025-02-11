@@ -3,7 +3,6 @@ hyperfine \
     --shell none \
     --prepare 'sync' \
     --warmup 5 \
-    --export-markdown results.md \
     '../../target/release/dust addictive_addition.ds' \
     'node addictive_addition.js' \
     'deno addictive_addition.js' \
