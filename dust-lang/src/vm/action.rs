@@ -1,13 +1,14 @@
-use std::fmt::{self, Display, Formatter};
-
-use tracing::{Level, span, trace};
+use std::{
+    arch::asm,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{
     AbstractList, ConcreteValue, DustString, Instruction, Operation, Value,
     instruction::{InstructionFields, Jump, TypeCode},
 };
 
-use super::{Pointer, Register, thread::Thread};
+use super::{Pointer, Register, call_frame::PointerCache, thread::Thread};
 
 #[derive(Debug)]
 pub struct ActionSequence {
@@ -28,15 +29,12 @@ impl ActionSequence {
                 } = Jump::from(instruction);
 
                 if !is_positive {
-                    let mut loop_instructions = Vec::new();
                     let mut previous = instruction;
 
-                    loop_instructions
-                        .push((InstructionFields::from(instruction), PointerCache::new()));
+                    actions.push(Action::optimized(instruction));
 
                     while let Some(instruction) = instructions.next() {
-                        loop_instructions
-                            .push((InstructionFields::from(instruction), PointerCache::new()));
+                        actions.push(Action::optimized(instruction));
 
                         if matches!(
                             instruction.operation(),
@@ -56,22 +54,11 @@ impl ActionSequence {
                         previous = instruction;
                     }
 
-                    loop_instructions.reverse();
-
-                    let loop_action = Action {
-                        logic: ACTION_LOGIC_TABLE[0],
-                        instruction: InstructionFields::default(),
-                        optimized_logic: Some(optimized_loop),
-                        loop_instructions: Some(loop_instructions),
-                    };
-
-                    actions.push(loop_action);
-
                     continue;
                 }
             }
 
-            let action = Action::from(instruction);
+            let action = Action::unoptimized(instruction);
 
             actions.push(action);
         }
@@ -91,7 +78,7 @@ impl Display for ActionSequence {
         write!(f, "[")?;
 
         for (index, action) in self.actions.iter().enumerate() {
-            write!(f, "{}", action)?;
+            write!(f, "{}", action.name)?;
 
             if index < self.actions.len() - 1 {
                 write!(f, ", ")?;
@@ -102,77 +89,71 @@ impl Display for ActionSequence {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Action {
+    pub name: &'static str,
     pub logic: ActionLogic,
     pub instruction: InstructionFields,
-    pub optimized_logic: Option<OptimizedActionLogic>,
-    pub loop_instructions: Option<Vec<(InstructionFields, PointerCache)>>,
 }
 
-impl From<&Instruction> for Action {
-    fn from(instruction: &Instruction) -> Self {
-        let operation = instruction.operation();
-        let logic = ACTION_LOGIC_TABLE[operation.0 as usize];
+impl Action {
+    fn optimized(instruction: &Instruction) -> Self {
         let instruction = InstructionFields::from(instruction);
+        let (name, logic): (&'static str, ActionLogic) = match (
+            instruction.operation,
+            instruction.b_type,
+            instruction.c_type,
+        ) {
+            (Operation::ADD, TypeCode::INTEGER, TypeCode::INTEGER) => {
+                ("ADD_INTEGERS", add_integers_optimized)
+            }
+            (Operation::LESS, TypeCode::INTEGER, TypeCode::INTEGER) => {
+                ("LESS_INTEGERS", less_integers_optimized)
+            }
+            (Operation::JUMP, _, _) => ("JUMP", jump),
+            _ => todo!(),
+        };
 
         Action {
+            name,
             logic,
             instruction,
-            optimized_logic: None,
-            loop_instructions: None,
         }
     }
-}
 
-impl Display for Action {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(loop_instructions) = &self.loop_instructions {
-            write!(f, "LOOP(")?;
+    fn unoptimized(instruction: &Instruction) -> Self {
+        let instruction = InstructionFields::from(instruction);
+        let logic = match instruction.operation {
+            Operation::POINT => point,
+            Operation::CLOSE => close,
+            Operation::LOAD_ENCODED => load_encoded,
+            Operation::LOAD_CONSTANT => load_constant,
+            Operation::LOAD_LIST => load_list,
+            Operation::LOAD_FUNCTION => load_function,
+            Operation::LOAD_SELF => load_self,
+            Operation::ADD => add,
+            Operation::SUBTRACT => subtract,
+            Operation::MULTIPLY => multiply,
+            Operation::DIVIDE => divide,
+            Operation::MODULO => modulo,
+            Operation::EQUAL => equal,
+            Operation::LESS => less,
+            Operation::LESS_EQUAL => less_equal,
+            Operation::TEST => test,
+            Operation::TEST_SET => test_set,
+            Operation::RETURN => r#return,
+            _ => todo!(),
+        };
 
-            for (index, (instruction, _)) in loop_instructions.iter().enumerate() {
-                write!(f, "{}", instruction.operation)?;
-
-                if index < loop_instructions.len() - 1 {
-                    write!(f, ", ")?;
-                }
-            }
-
-            write!(f, ")")
-        } else {
-            write!(f, "{}", self.instruction.operation)
+        Action {
+            name: instruction.operation.name(),
+            logic,
+            instruction,
         }
     }
 }
 
 pub type ActionLogic = fn(InstructionFields, &mut Thread);
-pub type OptimizedActionLogic = fn(Vec<(InstructionFields, PointerCache)>, &mut Thread);
-
-pub const ACTION_LOGIC_TABLE: [ActionLogic; 23] = [
-    point,
-    close,
-    load_encoded,
-    load_constant,
-    load_function,
-    load_list,
-    load_self,
-    add,
-    subtract,
-    multiply,
-    divide,
-    modulo,
-    equal,
-    less,
-    less_equal,
-    negate,
-    not,
-    test,
-    test_set,
-    call,
-    call_native,
-    jump,
-    r#return,
-];
 
 pub fn point(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
@@ -700,6 +681,60 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
             thread.set_string_register(destination, register);
         }
         _ => unreachable!(),
+    }
+}
+
+fn add_integers_optimized(instruction: InstructionFields, thread: &mut Thread) {
+    let current_frame = thread.current_frame_mut();
+    let pointer_cache = current_frame.pointer_caches[current_frame.ip];
+
+    if let PointerCache::Integers { left, right } = pointer_cache {
+        let destination = instruction.a_field as usize;
+        let destination_pointer = thread.get_integer_register_mut(destination) as *mut i64;
+
+        unsafe {
+            asm!(
+                "add {}, {}",
+                inout(reg) *left => *destination_pointer,
+                in(reg) *right,
+            )
+        }
+    } else if let PointerCache::Empty = pointer_cache {
+        let left = instruction.b_field as usize;
+        let right = instruction.c_field as usize;
+        let left_is_constant = instruction.b_is_constant;
+        let right_is_constant = instruction.c_is_constant;
+
+        let left_value = if left_is_constant {
+            if cfg!(debug_assertions) {
+                thread.get_constant(left).as_integer().unwrap()
+            } else {
+                unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+            }
+        } else {
+            thread.get_integer_register(left)
+        };
+        let right_value = if right_is_constant {
+            if cfg!(debug_assertions) {
+                thread.get_constant(right).as_integer().unwrap()
+            } else {
+                unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+            }
+        } else {
+            thread.get_integer_register(right)
+        };
+        let cache = PointerCache::Integers {
+            left: left_value,
+            right: right_value,
+        };
+        let destination = instruction.a_field as usize;
+        let sum = left_value.saturating_add(*right_value);
+        let register = Register::Value(sum);
+
+        thread.set_integer_register(destination, register);
+        thread.set_current_pointer_cache(cache);
+    } else {
+        unreachable!()
     }
 }
 
@@ -1413,6 +1448,57 @@ pub fn less(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
+fn less_integers_optimized(instruction: InstructionFields, thread: &mut Thread) {
+    let current_frame = thread.current_frame_mut();
+    let pointer_cache = current_frame.pointer_caches[current_frame.ip];
+
+    let is_less = if let PointerCache::Integers { left, right } = pointer_cache {
+        let left_value = unsafe { *left };
+        let right_value = unsafe { *right };
+
+        left_value < right_value
+    } else if let PointerCache::Empty = pointer_cache {
+        let left = instruction.b_field as usize;
+        let right = instruction.c_field as usize;
+        let left_is_constant = instruction.b_is_constant;
+        let right_is_constant = instruction.c_is_constant;
+
+        let left_value = if left_is_constant {
+            if cfg!(debug_assertions) {
+                thread.get_constant(left).as_integer().unwrap()
+            } else {
+                unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+            }
+        } else {
+            thread.get_integer_register(left)
+        };
+        let right_value = if right_is_constant {
+            if cfg!(debug_assertions) {
+                thread.get_constant(right).as_integer().unwrap()
+            } else {
+                unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+            }
+        } else {
+            thread.get_integer_register(right)
+        };
+        let cache = PointerCache::Integers {
+            left: left_value,
+            right: right_value,
+        };
+        let is_less = left_value < right_value;
+
+        thread.set_current_pointer_cache(cache);
+
+        is_less
+    } else {
+        unreachable!()
+    };
+
+    if is_less {
+        thread.current_frame_mut().ip += 1;
+    }
+}
+
 pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
     let comparator = instruction.d_field;
     let left = instruction.b_field as usize;
@@ -1666,226 +1752,5 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
         }
     } else {
         thread.return_value = Some(None);
-    }
-}
-
-fn optimized_loop(instructions: Vec<(InstructionFields, PointerCache)>, thread: &mut Thread) {
-    let span = span!(Level::TRACE, "Optimized Loop");
-    let _ = span.enter();
-
-    let mut loop_ip = 0;
-
-    while loop_ip < instructions.len() {
-        let (instruction, mut pointer_cache) = instructions[loop_ip];
-
-        loop_ip += 1;
-
-        match instruction.operation {
-            Operation::ADD => {
-                trace!("Running loop-optimized ADD instruction");
-
-                let destination = instruction.a_field as usize;
-                let sum = if pointer_cache.integers[0].is_null() {
-                    let left = instruction.b_field as usize;
-                    let left_is_constant = instruction.b_is_constant;
-                    let right = instruction.c_field as usize;
-                    let right_is_constant = instruction.c_is_constant;
-
-                    let left_value = if left_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(left).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(left)
-                    };
-                    let right_value = if right_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(right).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(right)
-                    };
-
-                    pointer_cache.integers[0] = left_value;
-                    pointer_cache.integers[1] = right_value;
-
-                    left_value.saturating_add(*right_value)
-                } else {
-                    let left_value = unsafe { *pointer_cache.integers[0] };
-                    let right_value = unsafe { *pointer_cache.integers[1] };
-
-                    left_value.saturating_add(right_value)
-                };
-
-                let register = Register::Value(sum);
-
-                thread.set_integer_register(destination, register);
-            }
-            Operation::LESS => {
-                trace!("Running loop-optimized LESS instruction");
-
-                let comparator = instruction.d_field;
-                let result = if pointer_cache.integers[0].is_null() {
-                    let left = instruction.b_field as usize;
-                    let left_is_constant = instruction.b_is_constant;
-                    let right = instruction.c_field as usize;
-                    let right_is_constant = instruction.c_is_constant;
-                    let left_value = if left_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(left).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(left)
-                    };
-                    let right_value = if right_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(right).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(right)
-                    };
-
-                    pointer_cache.integers[0] = left_value;
-                    pointer_cache.integers[1] = right_value;
-
-                    left_value < right_value
-                } else {
-                    let left_value = unsafe { *pointer_cache.integers[0] };
-                    let right_value = unsafe { *pointer_cache.integers[1] };
-
-                    left_value < right_value
-                };
-
-                if result == comparator {
-                    loop_ip += 1;
-                }
-            }
-            Operation::LESS_EQUAL => {
-                trace!("Running loop-optimized LESS_EQUAL instruction");
-
-                let comparator = instruction.d_field;
-                let result = if pointer_cache.integers[0].is_null() {
-                    let left = instruction.b_field as usize;
-                    let left_is_constant = instruction.b_is_constant;
-                    let right = instruction.c_field as usize;
-                    let right_is_constant = instruction.c_is_constant;
-                    let left_value = if left_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(left).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(left)
-                    };
-                    let right_value = if right_is_constant {
-                        if cfg!(debug_assertions) {
-                            thread.get_constant(right).as_integer().unwrap()
-                        } else {
-                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-                        }
-                    } else {
-                        thread.get_integer_register(right)
-                    };
-
-                    pointer_cache.integers[0] = left_value;
-                    pointer_cache.integers[1] = right_value;
-
-                    left_value <= right_value
-                } else {
-                    let left_value = unsafe { *pointer_cache.integers[0] };
-                    let right_value = unsafe { *pointer_cache.integers[1] };
-
-                    left_value <= right_value
-                };
-
-                if result == comparator {
-                    loop_ip += 1;
-                }
-            }
-            Operation::JUMP => {
-                trace!("Running loop-optimized JUMP instruction");
-
-                let offset = instruction.b_field as usize;
-                let is_positive = instruction.c_field != 0;
-
-                if is_positive {
-                    loop_ip += offset;
-                } else {
-                    loop_ip -= offset + 1;
-                }
-            }
-            _ => {
-                let runner = ACTION_LOGIC_TABLE[instruction.operation.0 as usize];
-                runner(instruction, thread);
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct PointerCache {
-    integers: [*const i64; 2],
-}
-
-impl PointerCache {
-    fn new() -> Self {
-        Self {
-            integers: [std::ptr::null(); 2],
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::Operation;
-
-    use super::*;
-
-    const ALL_OPERATIONS: [(Operation, ActionLogic); 23] = [
-        (Operation::POINT, point),
-        (Operation::CLOSE, close),
-        (Operation::LOAD_ENCODED, load_encoded),
-        (Operation::LOAD_CONSTANT, load_constant),
-        (Operation::LOAD_FUNCTION, load_function),
-        (Operation::LOAD_LIST, load_list),
-        (Operation::LOAD_SELF, load_self),
-        (Operation::ADD, add),
-        (Operation::SUBTRACT, subtract),
-        (Operation::MULTIPLY, multiply),
-        (Operation::DIVIDE, divide),
-        (Operation::MODULO, modulo),
-        (Operation::TEST, test),
-        (Operation::TEST_SET, test_set),
-        (Operation::EQUAL, equal),
-        (Operation::LESS, less),
-        (Operation::LESS_EQUAL, less_equal),
-        (Operation::NEGATE, negate),
-        (Operation::NOT, not),
-        (Operation::CALL, call),
-        (Operation::CALL_NATIVE, call_native),
-        (Operation::JUMP, jump),
-        (Operation::RETURN, r#return),
-    ];
-
-    #[test]
-    fn operations_map_to_the_correct_runner() {
-        for (operation, expected_runner) in ALL_OPERATIONS {
-            let actual_runner = ACTION_LOGIC_TABLE[operation.0 as usize];
-
-            assert_eq!(
-                expected_runner, actual_runner,
-                "{operation} runner is incorrect"
-            );
-        }
     }
 }

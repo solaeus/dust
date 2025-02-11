@@ -16,12 +16,14 @@ pub struct CallFrame {
     pub return_register: u16,
     pub registers: RegisterTable,
     pub action_sequence: ActionSequence,
+    pub pointer_caches: Vec<PointerCache>,
 }
 
 impl CallFrame {
     pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
         let registers = RegisterTable::new();
         let action_sequence = ActionSequence::new(&chunk.instructions);
+        let optimization_data = vec![PointerCache::default(); chunk.instructions.len()];
 
         Self {
             chunk,
@@ -29,6 +31,7 @@ impl CallFrame {
             return_register,
             registers,
             action_sequence,
+            pointer_caches: optimization_data,
         }
     }
 }
@@ -88,6 +91,16 @@ pub enum Register<T> {
     Pointer(Pointer),
 }
 
+impl<T> Register<T> {
+    pub fn contained_value_mut(&mut self) -> Option<&mut T> {
+        match self {
+            Self::Value(value) => Some(value),
+            Self::Closed(value) => Some(value),
+            _ => None,
+        }
+    }
+}
+
 impl<T: Display> Display for Register<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -132,4 +145,14 @@ impl Display for Pointer {
             Self::ConstantString(index) => write!(f, "P_C_STR_{index}"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum PointerCache {
+    #[default]
+    Empty,
+    Integers {
+        left: *const i64,
+        right: *const i64,
+    },
 }

@@ -1,16 +1,15 @@
-use std::{collections::HashMap, sync::Arc, thread::JoinHandle};
+use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
 use crate::{AbstractList, Chunk, ConcreteValue, DustString, Span, Value, vm::CallFrame};
 
-use super::call_frame::{Pointer, Register};
+use super::call_frame::{Pointer, PointerCache, Register};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
     pub return_value: Option<Option<Value>>,
-    pub integer_cache: HashMap<usize, *const i64>,
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
@@ -25,7 +24,6 @@ impl Thread {
             chunk,
             call_stack,
             return_value: None,
-            integer_cache: HashMap::new(),
             _spawned_threads: Vec::new(),
         }
     }
@@ -41,6 +39,10 @@ impl Thread {
         trace!("Thread actions: {}", self.current_frame().action_sequence);
 
         loop {
+            if let Some(return_value_option) = self.return_value {
+                return return_value_option;
+            }
+
             let current_frame = self.current_frame_mut();
             let ip = {
                 let ip = current_frame.ip;
@@ -54,22 +56,7 @@ impl Thread {
                 unsafe { current_frame.action_sequence.actions.get_unchecked_mut(ip) }
             };
 
-            if let (Some(optimized_logic), Some(loop_instructions)) = (
-                &current_action.optimized_logic,
-                &current_action.loop_instructions,
-            ) {
-                let loop_instructions = loop_instructions.clone();
-
-                (optimized_logic)(loop_instructions, &mut self);
-            } else {
-                trace!("Instruction: {}", current_action.instruction.operation);
-
-                (current_action.logic)(current_action.instruction, &mut self);
-            }
-
-            if let Some(return_value_option) = self.return_value {
-                return return_value_option;
-            }
+            (current_action.logic)(current_action.instruction, &mut self);
         }
     }
 
@@ -93,6 +80,29 @@ impl Thread {
         } else {
             unsafe { self.call_stack.last_mut().unwrap_unchecked() }
         }
+    }
+
+    pub fn set_current_pointer_cache(&mut self, new_cache: PointerCache) {
+        let ip = self.current_frame().ip;
+
+        let old_cache = if cfg!(debug_assertions) {
+            self.call_stack
+                .last_mut()
+                .unwrap()
+                .pointer_caches
+                .get_mut(ip - 1)
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last_mut()
+                    .unwrap_unchecked()
+                    .pointer_caches
+                    .get_unchecked_mut(ip - 1)
+            }
+        };
+
+        *old_cache = new_cache;
     }
 
     pub fn get_value_from_pointer(&self, pointer: &Pointer) -> ConcreteValue {
@@ -583,6 +593,31 @@ impl Thread {
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_integer(pointer),
             Register::Empty => panic!("Attempted to get value from empty register"),
+        }
+    }
+
+    pub fn get_integer_register_mut(&mut self, register_index: usize) -> &mut i64 {
+        if cfg!(debug_assertions) {
+            self.call_stack
+                .last_mut()
+                .unwrap()
+                .registers
+                .integers
+                .get_mut(register_index)
+                .unwrap()
+                .contained_value_mut()
+                .unwrap()
+        } else {
+            unsafe {
+                self.call_stack
+                    .last_mut()
+                    .unwrap_unchecked()
+                    .registers
+                    .integers
+                    .get_unchecked_mut(register_index)
+                    .contained_value_mut()
+                    .unwrap_unchecked()
+            }
         }
     }
 
