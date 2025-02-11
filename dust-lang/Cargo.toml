@@ -106,3 +106,7 @@ path = "tests/logic/and_or.rs"
 [[test]]
 name = "or_and"
 path = "tests/logic/or_and.rs"
+
+[[test]]
+name = "assignment_errors"
+path = "tests/compiler_errors/assignment_errors.rs"
