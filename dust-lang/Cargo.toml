@@ -82,3 +82,11 @@ path = "tests/comparison/not_equal.rs"
 [[test]]
 name = "greater_equal"
 path = "tests/comparison/greater_equal.rs"
+
+[[test]]
+name = "and"
+path = "tests/logic/and.rs"
+
+[[test]]
+name = "or"
+path = "tests/logic/or.rs"
