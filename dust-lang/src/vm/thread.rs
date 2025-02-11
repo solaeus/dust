@@ -32,12 +32,13 @@ impl Thread {
 
     pub fn run(mut self) -> Option<Value> {
         info!(
-            "Starting thread with {}",
+            "Starting thread {}",
             self.chunk
                 .name
                 .clone()
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
+        trace!("Thread actions: {}", self.current_frame().action_sequence);
 
         loop {
             let current_frame = self.current_frame_mut();
@@ -55,7 +56,16 @@ impl Thread {
 
             trace!("Instruction: {}", current_action.instruction.operation);
 
-            (current_action.logic)(current_action.instruction, &mut self);
+            if let (Some(optimized_logic), Some(loop_instructions)) = (
+                &current_action.optimized_logic,
+                &current_action.loop_instructions,
+            ) {
+                let loop_instructions = loop_instructions.clone();
+
+                (optimized_logic)(loop_instructions, &mut self);
+            } else {
+                (current_action.logic)(current_action.instruction, &mut self);
+            }
 
             if let Some(return_value_option) = self.return_value {
                 return return_value_option;

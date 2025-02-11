@@ -1,6 +1,13 @@
+use std::{
+    fmt::{self, Display, Formatter},
+    ptr,
+};
+
+use tracing::{Level, span, trace};
+
 use crate::{
-    AbstractList, ConcreteValue, DustString, Instruction, Value,
-    instruction::{InstructionFields, TypeCode},
+    AbstractList, ConcreteValue, DustString, Instruction, Operation, Value,
+    instruction::{InstructionFields, Jump, TypeCode},
 };
 
 use super::{Pointer, Register, thread::Thread};
@@ -11,23 +18,91 @@ pub struct ActionSequence {
 }
 
 impl ActionSequence {
+    #[allow(clippy::while_let_on_iterator)]
     pub fn new(instructions: &[Instruction]) -> Self {
+        let mut instructions = instructions.iter().rev();
         let mut actions = Vec::with_capacity(instructions.len());
 
-        for instruction in instructions {
+        while let Some(instruction) = instructions.next() {
+            if instruction.operation() == Operation::JUMP {
+                let Jump {
+                    offset: backward_offset,
+                    is_positive,
+                } = Jump::from(instruction);
+
+                if !is_positive {
+                    let mut loop_instructions = Vec::new();
+                    let mut previous = instruction;
+
+                    loop_instructions.push(InstructionFields::from(instruction));
+
+                    while let Some(instruction) = instructions.next() {
+                        loop_instructions.push(InstructionFields::from(instruction));
+
+                        if instruction.operation() == Operation::LESS
+                            && previous.operation() == Operation::JUMP
+                        {
+                            let Jump {
+                                offset: forward_offset,
+                                is_positive,
+                            } = Jump::from(previous);
+
+                            if is_positive && forward_offset == backward_offset - 1 {
+                                break;
+                            }
+                        }
+
+                        previous = instruction;
+                    }
+
+                    loop_instructions.reverse();
+
+                    let loop_action = Action {
+                        logic: RUNNER_LOGIC_TABLE[0],
+                        instruction: InstructionFields::default(),
+                        optimized_logic: Some(optimized_loop),
+                        loop_instructions: Some(loop_instructions),
+                    };
+
+                    actions.push(loop_action);
+
+                    continue;
+                }
+            }
+
             let action = Action::from(instruction);
 
             actions.push(action);
         }
 
+        actions.reverse();
+
         ActionSequence { actions }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+impl Display for ActionSequence {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[")?;
+
+        for (index, action) in self.actions.iter().enumerate() {
+            write!(f, "{}", action)?;
+
+            if index < self.actions.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, "]")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Action {
     pub logic: RunnerLogic,
     pub instruction: InstructionFields,
+    pub optimized_logic: Option<fn(Vec<InstructionFields>, &mut Thread)>,
+    pub loop_instructions: Option<Vec<InstructionFields>>,
 }
 
 impl From<&Instruction> for Action {
@@ -36,7 +111,32 @@ impl From<&Instruction> for Action {
         let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
         let instruction = InstructionFields::from(instruction);
 
-        Action { logic, instruction }
+        Action {
+            logic,
+            instruction,
+            optimized_logic: None,
+            loop_instructions: None,
+        }
+    }
+}
+
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(loop_instructions) = &self.loop_instructions {
+            write!(f, "LOOP(")?;
+
+            for (index, instruction) in loop_instructions.iter().enumerate() {
+                write!(f, "{}", instruction.operation)?;
+
+                if index < loop_instructions.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+
+            write!(f, ")")
+        } else {
+            write!(f, "{}", self.instruction.operation)
+        }
     }
 }
 
@@ -1560,6 +1660,128 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
         }
     } else {
         thread.return_value = Some(None);
+    }
+}
+
+fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
+    let span = span!(Level::TRACE, "Optimized Loop");
+    let _ = span.enter();
+
+    let mut loop_ip = 0;
+    let mut add_integer_pointers: [*const i64; 2] = [ptr::null(); 2];
+    let mut less_integer_pointers: [*const i64; 2] = [ptr::null(); 2];
+
+    while loop_ip < instructions.len() {
+        let instruction = instructions[loop_ip];
+
+        loop_ip += 1;
+
+        match instruction.operation {
+            Operation::ADD => {
+                trace!("Running loop-optimized ADD instruction");
+
+                let destination = instruction.a_field as usize;
+                let sum = if add_integer_pointers[0].is_null() {
+                    let left = instruction.b_field as usize;
+                    let left_is_constant = instruction.b_is_constant;
+                    let right = instruction.c_field as usize;
+                    let right_is_constant = instruction.c_is_constant;
+
+                    let left_value = if left_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(left).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(left)
+                    };
+                    let right_value = if right_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(right).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(right)
+                    };
+
+                    add_integer_pointers[0] = left_value;
+                    add_integer_pointers[1] = right_value;
+
+                    left_value.saturating_add(*right_value)
+                } else {
+                    let left_value = unsafe { *add_integer_pointers[0] };
+                    let right_value = unsafe { *add_integer_pointers[1] };
+
+                    left_value.saturating_add(right_value)
+                };
+
+                let register = Register::Value(sum);
+
+                thread.set_integer_register(destination, register);
+            }
+            Operation::LESS => {
+                trace!("Running loop-optimized LESS instruction");
+
+                let comparator = instruction.d_field;
+
+                let result = if less_integer_pointers[0].is_null() {
+                    let left = instruction.b_field as usize;
+                    let left_is_constant = instruction.b_is_constant;
+                    let right = instruction.c_field as usize;
+                    let right_is_constant = instruction.c_is_constant;
+                    let left_value = if left_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(left).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(left)
+                    };
+                    let right_value = if right_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(right).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(right)
+                    };
+
+                    less_integer_pointers[0] = left_value;
+                    less_integer_pointers[1] = right_value;
+
+                    left_value < right_value
+                } else {
+                    let left_value = unsafe { *less_integer_pointers[0] };
+                    let right_value = unsafe { *less_integer_pointers[1] };
+
+                    left_value < right_value
+                };
+
+                if result == comparator {
+                    loop_ip += 1;
+                }
+            }
+            Operation::JUMP => {
+                trace!("Running JUMP instruction");
+
+                let offset = instruction.b_field as usize;
+                let is_positive = instruction.c_field != 0;
+
+                if is_positive {
+                    loop_ip += offset;
+                } else {
+                    loop_ip -= offset + 1;
+                }
+            }
+            _ => {
+                let runner = RUNNER_LOGIC_TABLE[instruction.operation.0 as usize];
+                runner(instruction, thread);
+            }
+        }
     }
 }
 

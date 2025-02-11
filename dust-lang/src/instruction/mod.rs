@@ -657,7 +657,7 @@ impl Instruction {
             Operation::TEST_SET => TestSet::from(*self).to_string(),
             Operation::CALL => Call::from(*self).to_string(),
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
-            Operation::JUMP => Jump::from(*self).to_string(),
+            Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(*self).to_string(),
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
