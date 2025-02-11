@@ -379,9 +379,13 @@ pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn load_function(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn load_function(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
-pub fn load_self(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn load_self(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
 pub fn add(instruction: InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
@@ -947,7 +951,9 @@ pub fn test(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn test_set(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn test_set(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
 pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
     let comparator = instruction.d_field;
@@ -1477,9 +1483,13 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn negate(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn negate(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
-pub fn not(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn not(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
 pub fn jump(instruction: InstructionFields, thread: &mut Thread) {
     let offset = instruction.b_field as usize;
@@ -1492,9 +1502,13 @@ pub fn jump(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn call(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn call(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
-pub fn call_native(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn call_native(_: InstructionFields, _: &mut Thread) {
+    todo!()
+}
 
 pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
     let should_return_value = instruction.b_field != 0;
