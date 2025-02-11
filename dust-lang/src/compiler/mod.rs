@@ -1010,11 +1010,12 @@ impl<'src> Compiler<'src> {
         let load_true = Instruction::load_encoded(destination, true as u8, TypeCode::BOOLEAN, true);
         let load_false =
             Instruction::load_encoded(destination, false as u8, TypeCode::BOOLEAN, false);
+        let comparison_position = Span(left_position.0, right_position.1);
 
-        self.emit_instruction(comparison, Type::Boolean, operator_position);
-        self.emit_instruction(jump, Type::None, operator_position);
-        self.emit_instruction(load_true, Type::Boolean, operator_position);
-        self.emit_instruction(load_false, Type::Boolean, operator_position);
+        self.emit_instruction(comparison, Type::Boolean, comparison_position);
+        self.emit_instruction(jump, Type::None, comparison_position);
+        self.emit_instruction(load_true, Type::Boolean, comparison_position);
+        self.emit_instruction(load_false, Type::Boolean, comparison_position);
 
         Ok(())
     }

@@ -722,6 +722,8 @@ impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Operand::Constant(index, r#type) => match *r#type {
+                TypeCode::BOOLEAN => write!(f, "C_{}", index),
+                TypeCode::BYTE => write!(f, "C_{}", index),
                 TypeCode::CHARACTER => write!(f, "C_{}", index),
                 TypeCode::INTEGER => write!(f, "C_{}", index),
                 TypeCode::FLOAT => write!(f, "C_{}", index),

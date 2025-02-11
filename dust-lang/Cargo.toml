@@ -58,3 +58,7 @@ path = "tests/math/divide.rs"
 [[test]]
 name = "modulo"
 path = "tests/math/modulo.rs"
+
+[[test]]
+name = "less"
+path = "tests/comparison/less.rs"
