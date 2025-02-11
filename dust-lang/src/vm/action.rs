@@ -171,7 +171,7 @@ pub fn point(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_list_register(destination, register);
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
@@ -216,7 +216,7 @@ pub fn close(instruction: InstructionFields, thread: &mut Thread) {
                 thread.close_list_register(register_index);
             }
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
@@ -275,7 +275,7 @@ pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_string_register(destination, register);
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 
     if jump_next {
@@ -360,7 +360,7 @@ pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
 
                 Pointer::RegisterList(register_index)
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         };
 
         item_pointers.push(pointer);
@@ -589,7 +589,7 @@ pub fn add(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_string_register(destination, register);
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
@@ -761,7 +761,7 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
 
             thread.set_integer_register(destination, register);
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
@@ -949,7 +949,181 @@ pub fn test(instruction: InstructionFields, thread: &mut Thread) {
 
 pub fn test_set(instruction: InstructionFields, thread: &mut Thread) {}
 
-pub fn equal(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
+    let comparator = instruction.d_field;
+    let left = instruction.b_field as usize;
+    let left_type = instruction.b_type;
+    let left_is_constant = instruction.b_is_constant;
+    let right = instruction.c_field as usize;
+    let right_type = instruction.c_type;
+    let right_is_constant = instruction.c_is_constant;
+
+    match (left_type, right_type) {
+        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(right)
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(right)
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(right)
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::STRING, TypeCode::STRING) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(left)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(left).clone()
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(right)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(right).clone()
+            };
+            let result = left_value == right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        _ => unreachable!(),
+    }
+}
 
 pub fn less(instruction: InstructionFields, thread: &mut Thread) {
     let comparator = instruction.d_field;
@@ -961,6 +1135,31 @@ pub fn less(instruction: InstructionFields, thread: &mut Thread) {
     let right_is_constant = instruction.c_is_constant;
 
     match (left_type, right_type) {
+        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(right)
+            };
+            let result = left_value < right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
         (TypeCode::BYTE, TypeCode::BYTE) => {
             let left_value = if left_is_constant {
                 if cfg!(debug_assertions) {
@@ -1098,11 +1297,185 @@ pub fn less(instruction: InstructionFields, thread: &mut Thread) {
                 thread.current_frame_mut().ip += 1;
             }
         }
-        _ => unimplemented!(),
+        _ => unreachable!(),
     }
 }
 
-pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {}
+pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
+    let comparator = instruction.d_field;
+    let left = instruction.b_field as usize;
+    let left_type = instruction.b_type;
+    let left_is_constant = instruction.b_is_constant;
+    let right = instruction.c_field as usize;
+    let right_type = instruction.c_type;
+    let right_is_constant = instruction.c_is_constant;
+
+    match (left_type, right_type) {
+        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_boolean().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_boolean().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_boolean_register(right)
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::BYTE, TypeCode::BYTE) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_byte().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_byte_register(right)
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_character().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_character_register(right)
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::FLOAT, TypeCode::FLOAT) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_float().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_float_register(right)
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::INTEGER, TypeCode::INTEGER) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(left)
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_integer().unwrap()
+                } else {
+                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                }
+            } else {
+                thread.get_integer_register(right)
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        (TypeCode::STRING, TypeCode::STRING) => {
+            let left_value = if left_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(left).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(left)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(left).clone()
+            };
+            let right_value = if right_is_constant {
+                if cfg!(debug_assertions) {
+                    thread.get_constant(right).as_string().unwrap().clone()
+                } else {
+                    unsafe {
+                        thread
+                            .get_constant(right)
+                            .as_string()
+                            .unwrap_unchecked()
+                            .clone()
+                    }
+                }
+            } else {
+                thread.get_string_register(right).clone()
+            };
+            let result = left_value <= right_value;
+
+            if result == comparator {
+                thread.current_frame_mut().ip += 1;
+            }
+        }
+        _ => unreachable!(),
+    }
+}
 
 pub fn negate(instruction: InstructionFields, thread: &mut Thread) {}
 
@@ -1169,7 +1542,7 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
                     item_type: abstract_list.item_type,
                 })));
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     } else {
         thread.return_value = Some(None);

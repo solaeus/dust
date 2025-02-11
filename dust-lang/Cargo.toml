@@ -62,3 +62,23 @@ path = "tests/math/modulo.rs"
 [[test]]
 name = "less"
 path = "tests/comparison/less.rs"
+
+[[test]]
+name = "equal"
+path = "tests/comparison/equal.rs"
+
+[[test]]
+name = "less_equal"
+path = "tests/comparison/less_equal.rs"
+
+[[test]]
+name = "greater"
+path = "tests/comparison/greater.rs"
+
+[[test]]
+name = "not_equal"
+path = "tests/comparison/not_equal.rs"
+
+[[test]]
+name = "greater_equal"
+path = "tests/comparison/greater_equal.rs"

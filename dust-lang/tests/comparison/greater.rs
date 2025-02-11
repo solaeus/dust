@@ -4,50 +4,15 @@ use dust_lang::{
 };
 
 #[test]
-fn less_booleans() {
-    let source = "true < false";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
-            Instruction::load_encoded(1, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::less(
-                true,
-                Operand::Register(0, TypeCode::BOOLEAN),
-                Operand::Register(1, TypeCode::BOOLEAN),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(2, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(2, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 2, TypeCode::BOOLEAN),
-        ],
-        positions: vec![
-            Span(0, 4),
-            Span(7, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(12, 12),
-        ],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
-
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
-}
-
-#[test]
-fn less_bytes() {
-    let source = "0x0A < 0x03";
+fn greater_bytes() {
+    let source = "0x0A > 0x03";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, 0x0A, TypeCode::BYTE, false),
             Instruction::load_encoded(1, 0x03, TypeCode::BYTE, false),
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Operand::Register(0, TypeCode::BYTE),
                 Operand::Register(1, TypeCode::BYTE),
             ),
@@ -67,20 +32,20 @@ fn less_bytes() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_characters() {
-    let source = "'a' < 'b'";
+fn greater_characters() {
+    let source = "'a' > 'b'";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Operand::Constant(0, TypeCode::CHARACTER),
                 Operand::Constant(1, TypeCode::CHARACTER),
             ),
@@ -93,20 +58,20 @@ fn less_characters() {
         constants: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_floats() {
-    let source = "10.0 < 3.0";
+fn greater_floats() {
+    let source = "10.0 > 3.0";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Operand::Constant(0, TypeCode::FLOAT),
                 Operand::Constant(1, TypeCode::FLOAT),
             ),
@@ -125,20 +90,20 @@ fn less_floats() {
         constants: vec![ConcreteValue::Float(10.0), ConcreteValue::Float(3.0)],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_integers() {
-    let source = "10 < 3";
+fn greater_integers() {
+    let source = "10 > 3";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Operand::Constant(0, TypeCode::INTEGER),
                 Operand::Constant(1, TypeCode::INTEGER),
             ),
@@ -151,20 +116,20 @@ fn less_integers() {
         constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(3)],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_strings() {
-    let source = "\"abc\" < \"def\"";
+fn greater_strings() {
+    let source = "\"abc\" > \"def\"";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Operand::Constant(0, TypeCode::STRING),
                 Operand::Constant(1, TypeCode::STRING),
             ),
@@ -186,7 +151,7 @@ fn less_strings() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
