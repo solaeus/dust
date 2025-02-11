@@ -1239,6 +1239,7 @@ impl<'src> Compiler<'src> {
 
         let mut item_type = Type::None;
         let mut start_register = None;
+        let mut close_instructions = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
             let next_boolean_register = self.next_boolean_register();
@@ -1270,26 +1271,22 @@ impl<'src> Compiler<'src> {
                         self.next_boolean_register() - next_boolean_register;
 
                     if used_boolean_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_boolean_register,
                             self.next_boolean_register() - 2,
                             TypeCode::BOOLEAN,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::Byte => {
                     let used_byte_registers = self.next_byte_register() - next_byte_register;
 
                     if used_byte_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_byte_register,
                             self.next_byte_register() - 2,
                             TypeCode::BYTE,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::Character => {
@@ -1297,26 +1294,22 @@ impl<'src> Compiler<'src> {
                         self.next_character_register() - next_character_register;
 
                     if used_character_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_character_register,
-                            self.next_character_register() - 2,
+                            self.next_byte_register() - 2,
                             TypeCode::CHARACTER,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::Float => {
                     let used_float_registers = self.next_float_register() - next_float_register;
 
                     if used_float_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_float_register,
                             self.next_float_register() - 2,
                             TypeCode::FLOAT,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::Integer => {
@@ -1324,43 +1317,37 @@ impl<'src> Compiler<'src> {
                         self.next_integer_register() - next_integer_register;
 
                     if used_integer_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_integer_register,
                             self.next_integer_register() - 2,
                             TypeCode::INTEGER,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::String => {
                     let used_string_registers = self.next_string_register() - next_string_register;
 
                     if used_string_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_string_register,
                             self.next_string_register() - 2,
                             TypeCode::STRING,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 Type::List { .. } => {
                     let used_list_registers = self.next_list_register() - next_list_register;
 
                     if used_list_registers > 1 {
-                        let close = Instruction::close(
+                        close_instructions.push(Instruction::close(
                             next_list_register,
                             self.next_list_register() - 2,
                             TypeCode::LIST,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
+                        ));
                     }
                 }
                 _ => unimplemented!(),
-            }
+            };
         }
 
         let end = self.previous_position.1;
@@ -1382,6 +1369,13 @@ impl<'src> Compiler<'src> {
             end_register,
             false,
         );
+        let list_length = end_register - start_register.unwrap_or(0) + 1;
+
+        if list_length > 1 {
+            for close_instruction in close_instructions {
+                self.emit_instruction(close_instruction, item_type.clone(), Span(start, end));
+            }
+        }
 
         self.emit_instruction(
             load_list,
