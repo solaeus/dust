@@ -88,15 +88,6 @@ pub enum Register<T> {
     Pointer(Pointer),
 }
 
-impl<T> Register<T> {
-    #[allow(unused_assignments)]
-    pub fn close(mut self) {
-        if let Self::Value(value) = self {
-            self = Self::Closed(value);
-        }
-    }
-}
-
 impl<T: Display> Display for Register<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {

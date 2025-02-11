@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 /// The `block index` is a unique identifier for a block within a chunk. It is used to differentiate
 /// between blocks that are not nested together but have the same depth, i.e. sibling scopes. If the
 /// `block_index` is 0, then the scope is the root scope of the chunk. The `block_index` is always 0
-/// when the `depth` is 0. See [Chunk::begin_scope][] and [Chunk::end_scope][] to see how scopes are
-/// incremented and decremented.
+/// when the `depth` is 0.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Scope {
     /// Level of block nesting.

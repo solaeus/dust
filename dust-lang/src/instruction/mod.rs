@@ -16,10 +16,6 @@
 //! 32-47 | B field (unsigned 16-bit integer)
 //! 48-63 | C field (unsigned 16-bit integer)
 //!
-//! **Be careful when working with instructions directly**. When modifying an instruction's fields,
-//! you may also need to modify its flags. It is usually best to remove instructions and insert new
-//! ones in their place instead of mutating them.
-//!
 //! # Creating Instructions
 //!
 //! For each operation, there are two ways to create an instruction:
@@ -68,7 +64,6 @@
 //! //   - `a += 2`
 //! //   - `a = a + 2`
 //! //   - `a = 2 + a`
-//!
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = match operation {
 //!     Operation::ADD => {

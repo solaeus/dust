@@ -1,18 +1,15 @@
 //! Representation of a Dust program or function.
 //!
+//! **Except for testing purposes, a chunk should not be created directly. Instead, use the compiler
+//! to generate a chunk from Dust source code.**
+//!
 //! A chunk is output by the compiler to represent all the information needed to execute a Dust
 //! program. In addition to the program itself, each function in the source is compiled into its own
 //! chunk and stored in the `prototypes` field of its parent. Thus, a chunk can also represent a
 //! function prototype.
 //!
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
-//! parameters and the type of the return value are statically known. The [`Chunk::stack_size`]
-//! field can provide the necessary stack size that will be needed by the virtual machine. Chunks
-//! cannot be instantiated directly and must be created by the compiler. However, when the Rust
-//! compiler is in the "test" or "debug_assertions" configuration (used for all types of test),
-//! [`Chunk::with_data`] can be used to create a chunk for comparison to the compiler output. Do not
-//! try to run these chunks in a virtual machine. Due to their missing stack size and record index,
-//! they will cause a panic or undefined behavior.
+//! parameters and the type of the return value are statically known.
 mod disassembler;
 mod local;
 mod scope;

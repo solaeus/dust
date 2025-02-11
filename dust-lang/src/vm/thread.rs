@@ -242,12 +242,17 @@ impl Thread {
     }
 
     pub fn close_boolean_register(&mut self, register_index: usize) {
-        self.current_frame_mut()
+        let register = self
+            .current_frame_mut()
             .registers
             .booleans
             .get_mut(register_index)
-            .unwrap()
-            .close();
+            .unwrap();
+
+        *register = match register {
+            Register::Value(value) => Register::Closed(*value),
+            _ => panic!("Attempted to close non-value register"),
+        };
     }
 
     pub fn get_byte_register(&self, register_index: usize) -> &u8 {
@@ -332,12 +337,17 @@ impl Thread {
     }
 
     pub fn close_byte_register(&mut self, register_index: usize) {
-        self.current_frame_mut()
+        let register = self
+            .current_frame_mut()
             .registers
             .bytes
             .get_mut(register_index)
-            .unwrap()
-            .close();
+            .unwrap();
+
+        *register = match register {
+            Register::Value(value) => Register::Closed(*value),
+            _ => panic!("Attempted to close non-value register"),
+        };
     }
 
     pub fn get_character_register(&self, register_index: usize) -> &char {
@@ -427,12 +437,17 @@ impl Thread {
     }
 
     pub fn close_character_register(&mut self, register_index: usize) {
-        self.current_frame_mut()
+        let register = self
+            .current_frame_mut()
             .registers
             .characters
             .get_mut(register_index)
-            .unwrap()
-            .close();
+            .unwrap();
+
+        *register = match register {
+            Register::Value(value) => Register::Closed(*value),
+            _ => panic!("Attempted to close non-value register"),
+        };
     }
 
     pub fn get_float_register(&self, register_index: usize) -> &f64 {
@@ -520,12 +535,17 @@ impl Thread {
     }
 
     pub fn close_float_register(&mut self, register_index: usize) {
-        self.current_frame_mut()
+        let register = self
+            .current_frame_mut()
             .registers
             .floats
             .get_mut(register_index)
-            .unwrap()
-            .close();
+            .unwrap();
+
+        *register = match register {
+            Register::Value(value) => Register::Closed(*value),
+            _ => panic!("Attempted to close non-value register"),
+        };
     }
 
     pub fn get_integer_register(&self, register_index: usize) -> &i64 {
@@ -613,12 +633,17 @@ impl Thread {
     }
 
     pub fn close_integer_register(&mut self, register_index: usize) {
-        self.current_frame_mut()
+        let register = self
+            .current_frame_mut()
             .registers
             .integers
             .get_mut(register_index)
-            .unwrap()
-            .close();
+            .unwrap();
+
+        *register = match register {
+            Register::Value(value) => Register::Closed(*value),
+            _ => panic!("Attempted to close non-value register"),
+        };
     }
 
     pub fn get_string_register(&self, register_index: usize) -> &DustString {
