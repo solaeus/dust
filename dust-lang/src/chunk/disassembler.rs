@@ -376,7 +376,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
     }
 
     pub fn write_prototype_section(&mut self) -> Result<(), io::Error> {
-        self.write_center_border_bold("Functions")?;
+        self.write_center_border_bold("Prototypes")?;
 
         for chunk in &self.chunk.prototypes {
             chunk

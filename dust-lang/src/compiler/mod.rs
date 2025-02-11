@@ -2023,6 +2023,7 @@ impl<'src> Compiler<'src> {
 
         let end = self.current_position.1;
         let destination = match function_return_type {
+            Type::None => 0,
             Type::Boolean => self.next_boolean_register(),
             Type::Byte => self.next_byte_register(),
             Type::Character => self.next_character_register(),

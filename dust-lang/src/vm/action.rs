@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    ptr,
-};
+use std::fmt::{self, Display, Formatter};
 
 use tracing::{Level, span, trace};
 
@@ -34,13 +31,17 @@ impl ActionSequence {
                     let mut loop_instructions = Vec::new();
                     let mut previous = instruction;
 
-                    loop_instructions.push(InstructionFields::from(instruction));
+                    loop_instructions
+                        .push((InstructionFields::from(instruction), PointerCache::new()));
 
                     while let Some(instruction) = instructions.next() {
-                        loop_instructions.push(InstructionFields::from(instruction));
+                        loop_instructions
+                            .push((InstructionFields::from(instruction), PointerCache::new()));
 
-                        if instruction.operation() == Operation::LESS
-                            && previous.operation() == Operation::JUMP
+                        if matches!(
+                            instruction.operation(),
+                            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
+                        ) && previous.operation() == Operation::JUMP
                         {
                             let Jump {
                                 offset: forward_offset,
@@ -58,7 +59,7 @@ impl ActionSequence {
                     loop_instructions.reverse();
 
                     let loop_action = Action {
-                        logic: RUNNER_LOGIC_TABLE[0],
+                        logic: ACTION_LOGIC_TABLE[0],
                         instruction: InstructionFields::default(),
                         optimized_logic: Some(optimized_loop),
                         loop_instructions: Some(loop_instructions),
@@ -79,6 +80,10 @@ impl ActionSequence {
 
         ActionSequence { actions }
     }
+
+    pub fn len(&self) -> usize {
+        self.actions.len()
+    }
 }
 
 impl Display for ActionSequence {
@@ -97,18 +102,18 @@ impl Display for ActionSequence {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Action {
-    pub logic: RunnerLogic,
+    pub logic: ActionLogic,
     pub instruction: InstructionFields,
-    pub optimized_logic: Option<fn(Vec<InstructionFields>, &mut Thread)>,
-    pub loop_instructions: Option<Vec<InstructionFields>>,
+    pub optimized_logic: Option<OptimizedActionLogic>,
+    pub loop_instructions: Option<Vec<(InstructionFields, PointerCache)>>,
 }
 
 impl From<&Instruction> for Action {
     fn from(instruction: &Instruction) -> Self {
         let operation = instruction.operation();
-        let logic = RUNNER_LOGIC_TABLE[operation.0 as usize];
+        let logic = ACTION_LOGIC_TABLE[operation.0 as usize];
         let instruction = InstructionFields::from(instruction);
 
         Action {
@@ -125,7 +130,7 @@ impl Display for Action {
         if let Some(loop_instructions) = &self.loop_instructions {
             write!(f, "LOOP(")?;
 
-            for (index, instruction) in loop_instructions.iter().enumerate() {
+            for (index, (instruction, _)) in loop_instructions.iter().enumerate() {
                 write!(f, "{}", instruction.operation)?;
 
                 if index < loop_instructions.len() - 1 {
@@ -140,9 +145,10 @@ impl Display for Action {
     }
 }
 
-pub type RunnerLogic = fn(InstructionFields, &mut Thread);
+pub type ActionLogic = fn(InstructionFields, &mut Thread);
+pub type OptimizedActionLogic = fn(Vec<(InstructionFields, PointerCache)>, &mut Thread);
 
-pub const RUNNER_LOGIC_TABLE: [RunnerLogic; 23] = [
+pub const ACTION_LOGIC_TABLE: [ActionLogic; 23] = [
     point,
     close,
     load_encoded,
@@ -1663,16 +1669,14 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
+fn optimized_loop(instructions: Vec<(InstructionFields, PointerCache)>, thread: &mut Thread) {
     let span = span!(Level::TRACE, "Optimized Loop");
     let _ = span.enter();
 
     let mut loop_ip = 0;
-    let mut add_integer_pointers: [*const i64; 2] = [ptr::null(); 2];
-    let mut less_integer_pointers: [*const i64; 2] = [ptr::null(); 2];
 
     while loop_ip < instructions.len() {
-        let instruction = instructions[loop_ip];
+        let (instruction, mut pointer_cache) = instructions[loop_ip];
 
         loop_ip += 1;
 
@@ -1681,7 +1685,7 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                 trace!("Running loop-optimized ADD instruction");
 
                 let destination = instruction.a_field as usize;
-                let sum = if add_integer_pointers[0].is_null() {
+                let sum = if pointer_cache.integers[0].is_null() {
                     let left = instruction.b_field as usize;
                     let left_is_constant = instruction.b_is_constant;
                     let right = instruction.c_field as usize;
@@ -1706,13 +1710,13 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                         thread.get_integer_register(right)
                     };
 
-                    add_integer_pointers[0] = left_value;
-                    add_integer_pointers[1] = right_value;
+                    pointer_cache.integers[0] = left_value;
+                    pointer_cache.integers[1] = right_value;
 
                     left_value.saturating_add(*right_value)
                 } else {
-                    let left_value = unsafe { *add_integer_pointers[0] };
-                    let right_value = unsafe { *add_integer_pointers[1] };
+                    let left_value = unsafe { *pointer_cache.integers[0] };
+                    let right_value = unsafe { *pointer_cache.integers[1] };
 
                     left_value.saturating_add(right_value)
                 };
@@ -1725,8 +1729,7 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                 trace!("Running loop-optimized LESS instruction");
 
                 let comparator = instruction.d_field;
-
-                let result = if less_integer_pointers[0].is_null() {
+                let result = if pointer_cache.integers[0].is_null() {
                     let left = instruction.b_field as usize;
                     let left_is_constant = instruction.b_is_constant;
                     let right = instruction.c_field as usize;
@@ -1750,13 +1753,13 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                         thread.get_integer_register(right)
                     };
 
-                    less_integer_pointers[0] = left_value;
-                    less_integer_pointers[1] = right_value;
+                    pointer_cache.integers[0] = left_value;
+                    pointer_cache.integers[1] = right_value;
 
                     left_value < right_value
                 } else {
-                    let left_value = unsafe { *less_integer_pointers[0] };
-                    let right_value = unsafe { *less_integer_pointers[1] };
+                    let left_value = unsafe { *pointer_cache.integers[0] };
+                    let right_value = unsafe { *pointer_cache.integers[1] };
 
                     left_value < right_value
                 };
@@ -1765,8 +1768,51 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                     loop_ip += 1;
                 }
             }
+            Operation::LESS_EQUAL => {
+                trace!("Running loop-optimized LESS_EQUAL instruction");
+
+                let comparator = instruction.d_field;
+                let result = if pointer_cache.integers[0].is_null() {
+                    let left = instruction.b_field as usize;
+                    let left_is_constant = instruction.b_is_constant;
+                    let right = instruction.c_field as usize;
+                    let right_is_constant = instruction.c_is_constant;
+                    let left_value = if left_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(left).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(left)
+                    };
+                    let right_value = if right_is_constant {
+                        if cfg!(debug_assertions) {
+                            thread.get_constant(right).as_integer().unwrap()
+                        } else {
+                            unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
+                        }
+                    } else {
+                        thread.get_integer_register(right)
+                    };
+
+                    pointer_cache.integers[0] = left_value;
+                    pointer_cache.integers[1] = right_value;
+
+                    left_value <= right_value
+                } else {
+                    let left_value = unsafe { *pointer_cache.integers[0] };
+                    let right_value = unsafe { *pointer_cache.integers[1] };
+
+                    left_value <= right_value
+                };
+
+                if result == comparator {
+                    loop_ip += 1;
+                }
+            }
             Operation::JUMP => {
-                trace!("Running JUMP instruction");
+                trace!("Running loop-optimized JUMP instruction");
 
                 let offset = instruction.b_field as usize;
                 let is_positive = instruction.c_field != 0;
@@ -1778,9 +1824,22 @@ fn optimized_loop(instructions: Vec<InstructionFields>, thread: &mut Thread) {
                 }
             }
             _ => {
-                let runner = RUNNER_LOGIC_TABLE[instruction.operation.0 as usize];
+                let runner = ACTION_LOGIC_TABLE[instruction.operation.0 as usize];
                 runner(instruction, thread);
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PointerCache {
+    integers: [*const i64; 2],
+}
+
+impl PointerCache {
+    fn new() -> Self {
+        Self {
+            integers: [std::ptr::null(); 2],
         }
     }
 }
@@ -1792,7 +1851,7 @@ mod tests {
 
     use super::*;
 
-    const ALL_OPERATIONS: [(Operation, RunnerLogic); 23] = [
+    const ALL_OPERATIONS: [(Operation, ActionLogic); 23] = [
         (Operation::POINT, point),
         (Operation::CLOSE, close),
         (Operation::LOAD_ENCODED, load_encoded),
@@ -1821,7 +1880,7 @@ mod tests {
     #[test]
     fn operations_map_to_the_correct_runner() {
         for (operation, expected_runner) in ALL_OPERATIONS {
-            let actual_runner = RUNNER_LOGIC_TABLE[operation.0 as usize];
+            let actual_runner = ACTION_LOGIC_TABLE[operation.0 as usize];
 
             assert_eq!(
                 expected_runner, actual_runner,

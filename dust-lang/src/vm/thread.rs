@@ -54,8 +54,6 @@ impl Thread {
                 unsafe { current_frame.action_sequence.actions.get_unchecked_mut(ip) }
             };
 
-            trace!("Instruction: {}", current_action.instruction.operation);
-
             if let (Some(optimized_logic), Some(loop_instructions)) = (
                 &current_action.optimized_logic,
                 &current_action.loop_instructions,
@@ -64,6 +62,8 @@ impl Thread {
 
                 (optimized_logic)(loop_instructions, &mut self);
             } else {
+                trace!("Instruction: {}", current_action.instruction.operation);
+
                 (current_action.logic)(current_action.instruction, &mut self);
             }
 
