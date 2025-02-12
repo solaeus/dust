@@ -43,6 +43,15 @@ impl AbstractList {
     }
 }
 
+impl Default for AbstractList {
+    fn default() -> Self {
+        Self {
+            item_type: TypeCode::NONE,
+            item_pointers: Vec::new(),
+        }
+    }
+}
+
 impl Display for AbstractList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;

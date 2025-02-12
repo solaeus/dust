@@ -1,22 +1,26 @@
-use std::{sync::Arc, thread::JoinHandle};
+use std::{rc::Rc, thread::JoinHandle};
 
 use tracing::{info, trace};
 
-use crate::{AbstractList, Chunk, ConcreteValue, DustString, Span, Value, vm::CallFrame};
+use crate::{
+    AbstractList, Chunk, ConcreteValue, DustString, Span, Value,
+    instruction::InstructionFields,
+    vm::{CallFrame, action::ActionSequence},
+};
 
-use super::call_frame::{Pointer, PointerCache, Register};
+use super::call_frame::{Pointer, Register};
 
 pub struct Thread {
-    chunk: Arc<Chunk>,
+    chunk: Rc<Chunk>,
     call_stack: Vec<CallFrame>,
-    pub return_value: Option<Option<Value>>,
+    pub return_value: Option<Value>,
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl Thread {
-    pub fn new(chunk: Arc<Chunk>) -> Self {
+    pub fn new(chunk: Rc<Chunk>) -> Self {
         let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_call = CallFrame::new(Arc::clone(&chunk), 0);
+        let main_call = CallFrame::new(Rc::clone(&chunk), 0);
 
         call_stack.push(main_call);
 
@@ -36,28 +40,15 @@ impl Thread {
                 .clone()
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
-        trace!("Thread actions: {}", self.current_frame().action_sequence);
 
-        loop {
-            if let Some(return_value_option) = self.return_value {
-                return return_value_option;
-            }
+        let actions =
+            ActionSequence::new(self.chunk.instructions.iter().map(InstructionFields::from));
 
-            let current_frame = self.current_frame_mut();
-            let ip = {
-                let ip = current_frame.ip;
-                current_frame.ip += 1;
+        trace!("Thread actions: {}", actions);
 
-                ip
-            };
-            let current_action = if cfg!(debug_assertions) {
-                current_frame.action_sequence.actions.get_mut(ip).unwrap()
-            } else {
-                unsafe { current_frame.action_sequence.actions.get_unchecked_mut(ip) }
-            };
+        actions.run(&mut self);
 
-            (current_action.logic)(current_action.instruction, &mut self);
-        }
+        self.return_value
     }
 
     pub fn current_position(&self) -> Span {
@@ -80,29 +71,6 @@ impl Thread {
         } else {
             unsafe { self.call_stack.last_mut().unwrap_unchecked() }
         }
-    }
-
-    pub fn set_current_pointer_cache(&mut self, new_cache: PointerCache) {
-        let ip = self.current_frame().ip;
-
-        let old_cache = if cfg!(debug_assertions) {
-            self.call_stack
-                .last_mut()
-                .unwrap()
-                .pointer_caches
-                .get_mut(ip - 1)
-                .unwrap()
-        } else {
-            unsafe {
-                self.call_stack
-                    .last_mut()
-                    .unwrap_unchecked()
-                    .pointer_caches
-                    .get_unchecked_mut(ip - 1)
-            }
-        };
-
-        *old_cache = new_cache;
     }
 
     pub fn get_value_from_pointer(&self, pointer: &Pointer) -> ConcreteValue {
@@ -204,7 +172,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_boolean(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -299,7 +266,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_byte(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -394,7 +360,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_character(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -494,7 +459,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_float(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -592,11 +556,10 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_integer(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
-    pub fn get_integer_register_mut(&mut self, register_index: usize) -> &mut i64 {
+    pub fn get_integer_register_mut_allow_empty(&mut self, register_index: usize) -> &mut i64 {
         if cfg!(debug_assertions) {
             self.call_stack
                 .last_mut()
@@ -715,7 +678,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_string(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -782,7 +744,7 @@ impl Thread {
     pub fn close_string_register(&mut self, register_index: usize) {
         let current_frame = self.current_frame_mut();
 
-        current_frame.registers.strings.push(Register::Empty);
+        current_frame.registers.strings.push(Register::default());
 
         let old_register = current_frame.registers.strings.swap_remove(register_index);
 
@@ -822,7 +784,6 @@ impl Thread {
             Register::Value(value) => value,
             Register::Closed(value) => value,
             Register::Pointer(pointer) => self.get_pointer_to_list(pointer),
-            Register::Empty => panic!("Attempted to get value from empty register"),
         }
     }
 
@@ -886,7 +847,7 @@ impl Thread {
     pub fn close_list_register(&mut self, register_index: usize) {
         let current_frame = self.current_frame_mut();
 
-        current_frame.registers.lists.push(Register::Empty);
+        current_frame.registers.lists.push(Register::default());
 
         let old_register = current_frame.registers.lists.swap_remove(register_index);
 

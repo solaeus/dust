@@ -366,6 +366,10 @@ impl Instruction {
         }
     }
 
+    pub fn no_op() -> Instruction {
+        Instruction(Operation::NO_OP.0 as u64)
+    }
+
     pub fn point(destination: u16, to: Operand) -> Instruction {
         Instruction::from(Point { destination, to })
     }

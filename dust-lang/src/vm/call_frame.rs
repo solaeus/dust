@@ -1,37 +1,30 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    sync::Arc,
+    ptr,
+    rc::Rc,
 };
 
 use smallvec::{SmallVec, smallvec};
 
 use crate::{AbstractList, Chunk, DustString, Function};
 
-use super::action::ActionSequence;
-
 #[derive(Debug)]
 pub struct CallFrame {
-    pub chunk: Arc<Chunk>,
+    pub chunk: Rc<Chunk>,
     pub ip: usize,
     pub return_register: u16,
     pub registers: RegisterTable,
-    pub action_sequence: ActionSequence,
-    pub pointer_caches: Vec<PointerCache>,
 }
 
 impl CallFrame {
-    pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
+    pub fn new(chunk: Rc<Chunk>, return_register: u16) -> Self {
         let registers = RegisterTable::new();
-        let action_sequence = ActionSequence::new(&chunk.instructions);
-        let optimization_data = vec![PointerCache::default(); chunk.instructions.len()];
 
         Self {
             chunk,
             ip: 0,
             return_register,
             registers,
-            action_sequence,
-            pointer_caches: optimization_data,
         }
     }
 }
@@ -65,14 +58,14 @@ pub struct RegisterTable {
 impl RegisterTable {
     pub fn new() -> Self {
         Self {
-            booleans: smallvec![Register::Empty; 64],
-            bytes: smallvec![Register::Empty; 64],
-            characters: smallvec![Register::Empty; 64],
-            floats: smallvec![Register::Empty; 64],
-            integers: smallvec![Register::Empty; 64],
-            strings: smallvec![Register::Empty; 64],
-            lists: smallvec![Register::Empty; 64],
-            functions: smallvec![Register::Empty; 64],
+            booleans: smallvec![Register::default(); 64],
+            bytes: smallvec![Register::default(); 64],
+            characters: smallvec![Register::default(); 64],
+            floats: smallvec![Register::default(); 64],
+            integers: smallvec![Register::default(); 64],
+            strings: smallvec![Register::default(); 64],
+            lists: smallvec![Register::default(); 64],
+            functions: smallvec![Register::default(); 64],
         }
     }
 }
@@ -84,27 +77,31 @@ impl Default for RegisterTable {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Register<T> {
-    Empty,
+pub enum Register<T: Default> {
     Value(T),
     Closed(T),
     Pointer(Pointer),
 }
 
-impl<T> Register<T> {
+impl<T: Default> Register<T> {
     pub fn contained_value_mut(&mut self) -> Option<&mut T> {
         match self {
             Self::Value(value) => Some(value),
             Self::Closed(value) => Some(value),
-            _ => None,
+            Self::Pointer(_) => None,
         }
     }
 }
 
-impl<T: Display> Display for Register<T> {
+impl<T: Default> Default for Register<T> {
+    fn default() -> Self {
+        Self::Value(T::default())
+    }
+}
+
+impl<T: Default + Display> Display for Register<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Empty => write!(f, "empty"),
             Self::Closed(value) => write!(f, "Closed({value})"),
             Self::Value(value) => write!(f, "Value({value})"),
             Self::Pointer(pointer) => write!(f, "Pointer({pointer:?})"),
@@ -147,12 +144,25 @@ impl Display for Pointer {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub enum PointerCache {
-    #[default]
-    Empty,
-    Integers {
-        left: *const i64,
-        right: *const i64,
-    },
+#[derive(Debug, Clone, Copy)]
+pub struct PointerCache {
+    pub integer_mut: *mut i64,
+    pub integer_left: *const i64,
+    pub integer_right: *const i64,
+}
+
+impl PointerCache {
+    pub fn new() -> Self {
+        Self {
+            integer_mut: ptr::null_mut(),
+            integer_left: ptr::null(),
+            integer_right: ptr::null(),
+        }
+    }
+}
+
+impl Default for PointerCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }

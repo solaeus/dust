@@ -1,52 +1,63 @@
-use std::{
-    arch::asm,
-    fmt::{self, Display, Formatter},
-};
+mod add;
+mod jump;
+mod less;
+
+use add::{add, add_integer_pointers};
+use jump::jump;
+use less::{less, less_integer_pointers};
+
+use tracing::trace;
+
+use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    AbstractList, ConcreteValue, DustString, Instruction, Operation, Value,
-    instruction::{InstructionFields, Jump, TypeCode},
+    AbstractList, ConcreteValue, Operation, Value,
+    instruction::{InstructionFields, TypeCode},
+    vm::call_frame::PointerCache,
 };
 
-use super::{Pointer, Register, call_frame::PointerCache, thread::Thread};
+use super::{Pointer, Register, thread::Thread};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ActionSequence {
     pub actions: Vec<Action>,
 }
 
 impl ActionSequence {
     #[allow(clippy::while_let_on_iterator)]
-    pub fn new(instructions: &[Instruction]) -> Self {
-        let mut instructions = instructions.iter().rev();
+    pub fn new<T>(instructions: T) -> Self
+    where
+        T: ExactSizeIterator<Item = InstructionFields> + DoubleEndedIterator + Clone,
+    {
         let mut actions = Vec::with_capacity(instructions.len());
+        let mut instructions_reversed = instructions.rev();
+        let mut in_loop = false;
 
-        while let Some(instruction) = instructions.next() {
-            if instruction.operation() == Operation::JUMP {
-                let Jump {
-                    offset: backward_offset,
-                    is_positive,
-                } = Jump::from(instruction);
+        while let Some(instruction) = instructions_reversed.next() {
+            if instruction.operation == Operation::JUMP {
+                let backward_offset = instruction.b_field as usize;
+                let is_positive = instruction.c_field != 0;
 
                 if !is_positive {
+                    let mut loop_instructions = Vec::new();
                     let mut previous = instruction;
 
-                    actions.push(Action::optimized(instruction));
+                    in_loop = true;
 
-                    while let Some(instruction) = instructions.next() {
-                        actions.push(Action::optimized(instruction));
+                    loop_instructions.push(instruction);
 
-                        if matches!(
-                            instruction.operation(),
-                            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
-                        ) && previous.operation() == Operation::JUMP
+                    while let Some(instruction) = instructions_reversed.next() {
+                        loop_instructions.push(instruction);
+
+                        if instruction.operation == Operation::LESS
+                            && previous.operation == Operation::JUMP
                         {
-                            let Jump {
-                                offset: forward_offset,
-                                is_positive,
-                            } = Jump::from(previous);
+                            let forward_offset = previous.b_field as usize;
+                            let is_positive = previous.c_field != 0;
 
                             if is_positive && forward_offset == backward_offset - 1 {
+                                in_loop = false;
+
                                 break;
                             }
                         }
@@ -54,11 +65,21 @@ impl ActionSequence {
                         previous = instruction;
                     }
 
+                    loop_instructions.reverse();
+
+                    let loop_action = Action::optimized_loop(loop_instructions);
+
+                    actions.push(loop_action);
+
                     continue;
                 }
             }
 
-            let action = Action::unoptimized(instruction);
+            let action = if in_loop {
+                Action::optimized_inline(instruction)
+            } else {
+                Action::unoptimized(instruction)
+            };
 
             actions.push(action);
         }
@@ -71,6 +92,58 @@ impl ActionSequence {
     pub fn len(&self) -> usize {
         self.actions.len()
     }
+
+    pub fn run(&self, thread: &mut Thread) {
+        let mut pointer_caches = vec![PointerCache::new(); self.actions.len()];
+        let mut local_ip = 0;
+
+        while local_ip < self.actions.len() {
+            assert!(local_ip < self.actions.len());
+            assert!(local_ip < pointer_caches.len());
+
+            let action = &self.actions[local_ip];
+            let cache = &mut pointer_caches[local_ip];
+            local_ip += 1;
+
+            trace!("Run {action}");
+
+            if let Some(loop_actions) = &action.loop_actions {
+                loop_actions.run(thread);
+            } else if action.optimize_inline {
+                match action.instruction.operation {
+                    Operation::ADD => {
+                        if cache.integer_mut.is_null() {
+                            add(&mut local_ip, action.instruction, thread, cache);
+                        } else {
+                            add_integer_pointers(
+                                cache.integer_mut,
+                                cache.integer_left,
+                                cache.integer_right,
+                            );
+                        }
+                    }
+                    Operation::LESS => {
+                        if cache.integer_left.is_null() {
+                            less(&mut local_ip, action.instruction, thread, cache);
+                        } else {
+                            less_integer_pointers(
+                                &mut local_ip,
+                                cache.integer_left,
+                                cache.integer_right,
+                                action.instruction.d_field,
+                            );
+                        }
+                    }
+                    Operation::JUMP => jump(&mut local_ip, action.instruction, thread, cache),
+                    _ => {
+                        (action.logic)(&mut local_ip, action.instruction, thread, cache);
+                    }
+                }
+            } else {
+                (action.logic)(&mut local_ip, action.instruction, thread, cache);
+            }
+        }
+    }
 }
 
 impl Display for ActionSequence {
@@ -78,7 +151,7 @@ impl Display for ActionSequence {
         write!(f, "[")?;
 
         for (index, action) in self.actions.iter().enumerate() {
-            write!(f, "{}", action.name)?;
+            write!(f, "{action}")?;
 
             if index < self.actions.len() - 1 {
                 write!(f, ", ")?;
@@ -89,40 +162,44 @@ impl Display for ActionSequence {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Action {
-    pub name: &'static str,
     pub logic: ActionLogic,
     pub instruction: InstructionFields,
+    pub optimize_inline: bool,
+    pub loop_actions: Option<ActionSequence>,
 }
 
 impl Action {
-    fn optimized(instruction: &Instruction) -> Self {
-        let instruction = InstructionFields::from(instruction);
-        let (name, logic): (&'static str, ActionLogic) = match (
-            instruction.operation,
-            instruction.b_type,
-            instruction.c_type,
-        ) {
-            (Operation::ADD, TypeCode::INTEGER, TypeCode::INTEGER) => {
-                ("ADD_INTEGERS", add_integers_optimized)
-            }
-            (Operation::LESS, TypeCode::INTEGER, TypeCode::INTEGER) => {
-                ("LESS_INTEGERS", less_integers_optimized)
-            }
-            (Operation::JUMP, _, _) => ("JUMP", jump),
-            _ => todo!(),
-        };
+    fn optimized_loop(instructions: Vec<InstructionFields>) -> Self {
+        let mut loop_actions = Vec::with_capacity(instructions.len());
+
+        for instruction in instructions {
+            let action = Action::optimized_inline(instruction);
+
+            loop_actions.push(action);
+        }
 
         Action {
-            name,
-            logic,
-            instruction,
+            logic: no_op,
+            instruction: InstructionFields::default(),
+            optimize_inline: false,
+            loop_actions: Some(ActionSequence {
+                actions: loop_actions,
+            }),
         }
     }
 
-    fn unoptimized(instruction: &Instruction) -> Self {
-        let instruction = InstructionFields::from(instruction);
+    fn optimized_inline(instruction: InstructionFields) -> Self {
+        Action {
+            logic: no_op,
+            optimize_inline: true,
+            instruction,
+            loop_actions: None,
+        }
+    }
+
+    fn unoptimized(instruction: InstructionFields) -> Self {
         let logic = match instruction.operation {
             Operation::POINT => point,
             Operation::CLOSE => close,
@@ -141,21 +218,35 @@ impl Action {
             Operation::LESS_EQUAL => less_equal,
             Operation::TEST => test,
             Operation::TEST_SET => test_set,
+            Operation::JUMP => jump,
             Operation::RETURN => r#return,
             _ => todo!(),
         };
 
         Action {
-            name: instruction.operation.name(),
             logic,
             instruction,
+            optimize_inline: false,
+            loop_actions: None,
         }
     }
 }
 
-pub type ActionLogic = fn(InstructionFields, &mut Thread);
+impl Display for Action {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(action_sequence) = &self.loop_actions {
+            write!(f, "LOOP: {action_sequence}")
+        } else {
+            write!(f, "{}", self.instruction.operation)
+        }
+    }
+}
 
-pub fn point(instruction: InstructionFields, thread: &mut Thread) {
+pub type ActionLogic = fn(&mut usize, InstructionFields, &mut Thread, &mut PointerCache);
+
+fn no_op(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {}
+
+fn point(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
     let destination = instruction.a_field as usize;
     let to = instruction.b_field as usize;
     let to_is_constant = instruction.b_is_constant;
@@ -262,7 +353,7 @@ pub fn point(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn close(instruction: InstructionFields, thread: &mut Thread) {
+fn close(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
     let from = instruction.b_field as usize;
     let to = instruction.c_field as usize;
     let r#type = instruction.b_type;
@@ -307,7 +398,12 @@ pub fn close(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn load_encoded(instruction: InstructionFields, thread: &mut Thread) {
+fn load_encoded(
+    ip: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field;
     let value = instruction.b_field;
     let value_type = instruction.b_type;
@@ -328,11 +424,16 @@ pub fn load_encoded(instruction: InstructionFields, thread: &mut Thread) {
     }
 
     if jump_next {
-        thread.current_frame_mut().ip += 1;
+        *ip += 1;
     }
 }
 
-pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
+fn load_constant(
+    ip: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field as usize;
     let constant_index = instruction.b_field as usize;
     let constant_type = instruction.b_type;
@@ -366,11 +467,16 @@ pub fn load_constant(instruction: InstructionFields, thread: &mut Thread) {
     }
 
     if jump_next {
-        thread.current_frame_mut().ip += 1;
+        *ip += 1;
     }
 }
 
-pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
+fn load_list(
+    ip: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field;
     let start_register = instruction.b_field;
     let item_type = instruction.b_type;
@@ -462,283 +568,24 @@ pub fn load_list(instruction: InstructionFields, thread: &mut Thread) {
     thread.set_list_register(destination as usize, register);
 
     if jump_next {
-        thread.current_frame_mut().ip += 1;
+        *ip += 1;
     }
 }
 
-pub fn load_function(_: InstructionFields, _: &mut Thread) {
+fn load_function(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn load_self(_: InstructionFields, _: &mut Thread) {
+fn load_self(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn add(instruction: InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let left_type = instruction.b_type;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
-    let right_type = instruction.c_type;
-
-    match (left_type, right_type) {
-        (TypeCode::INTEGER, TypeCode::INTEGER) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_integer().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_integer_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_integer().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_integer_register(right)
-            };
-            let sum = left_value + right_value;
-            let register = Register::Value(sum);
-
-            thread.set_integer_register(destination, register);
-        }
-        (TypeCode::BYTE, TypeCode::BYTE) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_byte().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_byte_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_byte().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_byte_register(right)
-            };
-            let sum = left_value + right_value;
-            let register = Register::Value(sum);
-
-            thread.set_byte_register(destination, register);
-        }
-        (TypeCode::FLOAT, TypeCode::FLOAT) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_float().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_float_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_float().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_float_register(right)
-            };
-            let sum = left_value + right_value;
-            let register = Register::Value(sum);
-
-            thread.set_float_register(destination, register);
-        }
-        (TypeCode::STRING, TypeCode::STRING) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_string().unwrap().clone()
-                } else {
-                    unsafe {
-                        thread
-                            .get_constant(left)
-                            .as_string()
-                            .unwrap_unchecked()
-                            .clone()
-                    }
-                }
-            } else {
-                thread.get_string_register(left).clone()
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_string().unwrap().clone()
-                } else {
-                    unsafe {
-                        thread
-                            .get_constant(right)
-                            .as_string()
-                            .unwrap_unchecked()
-                            .clone()
-                    }
-                }
-            } else {
-                thread.get_string_register(right).clone()
-            };
-            let concatenated = left_value + &right_value;
-            let register = Register::Value(concatenated);
-
-            thread.set_string_register(destination, register);
-        }
-        (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(right)
-            };
-            let mut sum = DustString::new();
-
-            sum.push(*left_value);
-            sum.push(*right_value);
-
-            let register = Register::Value(sum);
-
-            thread.set_string_register(destination, register);
-        }
-        (TypeCode::STRING, TypeCode::CHARACTER) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_string().unwrap().clone()
-                } else {
-                    unsafe {
-                        thread
-                            .get_constant(left)
-                            .as_string()
-                            .unwrap_unchecked()
-                            .clone()
-                    }
-                }
-            } else {
-                thread.get_string_register(left).clone()
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(right)
-            };
-            let mut sum = left_value.clone();
-
-            sum.push(*right_value);
-
-            let register = Register::Value(sum);
-
-            thread.set_string_register(destination, register);
-        }
-        (TypeCode::CHARACTER, TypeCode::STRING) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_string().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_string().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_string_register(right)
-            };
-            let mut sum = right_value.clone();
-
-            sum.insert(0, *left_value);
-
-            let register = Register::Value(sum);
-
-            thread.set_string_register(destination, register);
-        }
-        _ => unreachable!(),
-    }
-}
-
-fn add_integers_optimized(instruction: InstructionFields, thread: &mut Thread) {
-    let current_frame = thread.current_frame_mut();
-    let pointer_cache = current_frame.pointer_caches[current_frame.ip];
-
-    if let PointerCache::Integers { left, right } = pointer_cache {
-        let destination = instruction.a_field as usize;
-        let destination_pointer = thread.get_integer_register_mut(destination) as *mut i64;
-
-        unsafe {
-            asm!(
-                "add {}, {}",
-                inout(reg) *left => *destination_pointer,
-                in(reg) *right,
-            )
-        }
-    } else if let PointerCache::Empty = pointer_cache {
-        let left = instruction.b_field as usize;
-        let right = instruction.c_field as usize;
-        let left_is_constant = instruction.b_is_constant;
-        let right_is_constant = instruction.c_is_constant;
-
-        let left_value = if left_is_constant {
-            if cfg!(debug_assertions) {
-                thread.get_constant(left).as_integer().unwrap()
-            } else {
-                unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-            }
-        } else {
-            thread.get_integer_register(left)
-        };
-        let right_value = if right_is_constant {
-            if cfg!(debug_assertions) {
-                thread.get_constant(right).as_integer().unwrap()
-            } else {
-                unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-            }
-        } else {
-            thread.get_integer_register(right)
-        };
-        let cache = PointerCache::Integers {
-            left: left_value,
-            right: right_value,
-        };
-        let destination = instruction.a_field as usize;
-        let sum = left_value.saturating_add(*right_value);
-        let register = Register::Value(sum);
-
-        thread.set_integer_register(destination, register);
-        thread.set_current_pointer_cache(cache);
-    } else {
-        unreachable!()
-    }
-}
-
-pub fn subtract(instruction: InstructionFields, thread: &mut Thread) {
+fn subtract(
+    _: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -824,7 +671,12 @@ pub fn subtract(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
+fn multiply(
+    _: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -910,7 +762,12 @@ pub fn multiply(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn divide(instruction: InstructionFields, thread: &mut Thread) {
+fn divide(
+    _: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -996,7 +853,12 @@ pub fn divide(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn modulo(instruction: InstructionFields, thread: &mut Thread) {
+fn modulo(
+    _: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -1082,21 +944,26 @@ pub fn modulo(instruction: InstructionFields, thread: &mut Thread) {
     }
 }
 
-pub fn test(instruction: InstructionFields, thread: &mut Thread) {
+fn test(ip: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
     let operand_register = instruction.b_field as usize;
     let test_value = instruction.c_field != 0;
     let operand_boolean = thread.get_boolean_register(operand_register);
 
     if *operand_boolean == test_value {
-        thread.current_frame_mut().ip += 1;
+        *ip += 1;
     }
 }
 
-pub fn test_set(_: InstructionFields, _: &mut Thread) {
+fn test_set(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
+fn equal(
+    ip: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let comparator = instruction.d_field;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -1128,7 +995,7 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::BYTE, TypeCode::BYTE) => {
@@ -1153,7 +1020,7 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
@@ -1178,7 +1045,7 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::FLOAT, TypeCode::FLOAT) => {
@@ -1203,7 +1070,7 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::INTEGER, TypeCode::INTEGER) => {
@@ -1228,7 +1095,7 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::STRING, TypeCode::STRING) => {
@@ -1265,241 +1132,19 @@ pub fn equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value == right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         _ => unreachable!(),
     }
 }
 
-pub fn less(instruction: InstructionFields, thread: &mut Thread) {
-    let comparator = instruction.d_field;
-    let left = instruction.b_field as usize;
-    let left_type = instruction.b_type;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_type = instruction.c_type;
-    let right_is_constant = instruction.c_is_constant;
-
-    match (left_type, right_type) {
-        (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_boolean().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_boolean().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_boolean_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_boolean().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_boolean().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_boolean_register(right)
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        (TypeCode::BYTE, TypeCode::BYTE) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_byte().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_byte().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_byte_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_byte().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_byte().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_byte_register(right)
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_character().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_character().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_character_register(right)
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        (TypeCode::FLOAT, TypeCode::FLOAT) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_float().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_float().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_float_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_float().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_float().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_float_register(right)
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        (TypeCode::INTEGER, TypeCode::INTEGER) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_integer().unwrap()
-                } else {
-                    unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_integer_register(left)
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_integer().unwrap()
-                } else {
-                    unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-                }
-            } else {
-                thread.get_integer_register(right)
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        (TypeCode::STRING, TypeCode::STRING) => {
-            let left_value = if left_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(left).as_string().unwrap().clone()
-                } else {
-                    unsafe {
-                        thread
-                            .get_constant(left)
-                            .as_string()
-                            .unwrap_unchecked()
-                            .clone()
-                    }
-                }
-            } else {
-                thread.get_string_register(left).clone()
-            };
-            let right_value = if right_is_constant {
-                if cfg!(debug_assertions) {
-                    thread.get_constant(right).as_string().unwrap().clone()
-                } else {
-                    unsafe {
-                        thread
-                            .get_constant(right)
-                            .as_string()
-                            .unwrap_unchecked()
-                            .clone()
-                    }
-                }
-            } else {
-                thread.get_string_register(right).clone()
-            };
-            let result = left_value < right_value;
-
-            if result == comparator {
-                thread.current_frame_mut().ip += 1;
-            }
-        }
-        _ => unreachable!(),
-    }
-}
-
-fn less_integers_optimized(instruction: InstructionFields, thread: &mut Thread) {
-    let current_frame = thread.current_frame_mut();
-    let pointer_cache = current_frame.pointer_caches[current_frame.ip];
-
-    let is_less = if let PointerCache::Integers { left, right } = pointer_cache {
-        let left_value = unsafe { *left };
-        let right_value = unsafe { *right };
-
-        left_value < right_value
-    } else if let PointerCache::Empty = pointer_cache {
-        let left = instruction.b_field as usize;
-        let right = instruction.c_field as usize;
-        let left_is_constant = instruction.b_is_constant;
-        let right_is_constant = instruction.c_is_constant;
-
-        let left_value = if left_is_constant {
-            if cfg!(debug_assertions) {
-                thread.get_constant(left).as_integer().unwrap()
-            } else {
-                unsafe { thread.get_constant(left).as_integer().unwrap_unchecked() }
-            }
-        } else {
-            thread.get_integer_register(left)
-        };
-        let right_value = if right_is_constant {
-            if cfg!(debug_assertions) {
-                thread.get_constant(right).as_integer().unwrap()
-            } else {
-                unsafe { thread.get_constant(right).as_integer().unwrap_unchecked() }
-            }
-        } else {
-            thread.get_integer_register(right)
-        };
-        let cache = PointerCache::Integers {
-            left: left_value,
-            right: right_value,
-        };
-        let is_less = left_value < right_value;
-
-        thread.set_current_pointer_cache(cache);
-
-        is_less
-    } else {
-        unreachable!()
-    };
-
-    if is_less {
-        thread.current_frame_mut().ip += 1;
-    }
-}
-
-pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
+fn less_equal(
+    ip: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let comparator = instruction.d_field;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -1531,7 +1176,7 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::BYTE, TypeCode::BYTE) => {
@@ -1556,7 +1201,7 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
@@ -1581,7 +1226,7 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::FLOAT, TypeCode::FLOAT) => {
@@ -1606,7 +1251,7 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::INTEGER, TypeCode::INTEGER) => {
@@ -1631,7 +1276,7 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         (TypeCode::STRING, TypeCode::STRING) => {
@@ -1668,41 +1313,35 @@ pub fn less_equal(instruction: InstructionFields, thread: &mut Thread) {
             let result = left_value <= right_value;
 
             if result == comparator {
-                thread.current_frame_mut().ip += 1;
+                *ip += 1;
             }
         }
         _ => unreachable!(),
     }
 }
 
-pub fn negate(_: InstructionFields, _: &mut Thread) {
+fn negate(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn not(_: InstructionFields, _: &mut Thread) {
+fn not(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn jump(instruction: InstructionFields, thread: &mut Thread) {
-    let offset = instruction.b_field as usize;
-    let is_positive = instruction.c_field != 0;
-
-    if is_positive {
-        thread.current_frame_mut().ip += offset;
-    } else {
-        thread.current_frame_mut().ip -= offset + 1;
-    }
-}
-
-pub fn call(_: InstructionFields, _: &mut Thread) {
+fn call(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn call_native(_: InstructionFields, _: &mut Thread) {
+fn call_native(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
+fn r#return(
+    _: &mut usize,
+    instruction: InstructionFields,
+    thread: &mut Thread,
+    _: &mut PointerCache,
+) {
     let should_return_value = instruction.b_field != 0;
     let return_register = instruction.c_field as usize;
     let return_type = instruction.b_type;
@@ -1711,27 +1350,27 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
         match return_type {
             TypeCode::BOOLEAN => {
                 let return_value = *thread.get_boolean_register(return_register);
-                thread.return_value = Some(Some(Value::boolean(return_value)));
+                thread.return_value = Some(Value::boolean(return_value));
             }
             TypeCode::BYTE => {
                 let return_value = *thread.get_byte_register(return_register);
-                thread.return_value = Some(Some(Value::byte(return_value)));
+                thread.return_value = Some(Value::byte(return_value));
             }
             TypeCode::CHARACTER => {
                 let return_value = *thread.get_character_register(return_register);
-                thread.return_value = Some(Some(Value::character(return_value)));
+                thread.return_value = Some(Value::character(return_value));
             }
             TypeCode::FLOAT => {
                 let return_value = *thread.get_float_register(return_register);
-                thread.return_value = Some(Some(Value::float(return_value)));
+                thread.return_value = Some(Value::float(return_value));
             }
             TypeCode::INTEGER => {
                 let return_value = *thread.get_integer_register(return_register);
-                thread.return_value = Some(Some(Value::integer(return_value)));
+                thread.return_value = Some(Value::integer(return_value));
             }
             TypeCode::STRING => {
                 let return_value = thread.get_string_register(return_register).clone();
-                thread.return_value = Some(Some(Value::string(return_value)));
+                thread.return_value = Some(Value::string(return_value));
             }
             TypeCode::LIST => {
                 let abstract_list = thread.get_list_register(return_register).clone();
@@ -1743,14 +1382,12 @@ pub fn r#return(instruction: InstructionFields, thread: &mut Thread) {
                     items.push(value);
                 }
 
-                thread.return_value = Some(Some(Value::Concrete(ConcreteValue::List {
+                thread.return_value = Some(Value::Concrete(ConcreteValue::List {
                     items,
                     item_type: abstract_list.item_type,
-                })));
+                }));
             }
             _ => unreachable!(),
         }
-    } else {
-        thread.return_value = Some(None);
     }
 }

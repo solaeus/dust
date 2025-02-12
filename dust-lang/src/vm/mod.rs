@@ -3,7 +3,7 @@ mod action;
 mod call_frame;
 mod thread;
 
-use std::{sync::Arc, thread::Builder};
+use std::{rc::Rc, thread::Builder};
 
 pub use action::Action;
 pub use call_frame::{CallFrame, Pointer, Register, RegisterTable};
@@ -40,14 +40,14 @@ impl Vm {
             .map(|name| name.to_string())
             .unwrap_or_else(|| "anonymous".to_string());
         let (tx, rx) = bounded(1);
-        let main_chunk = Arc::new(self.main_chunk);
 
         Builder::new()
             .name(thread_name)
             .spawn(move || {
+                let main_chunk = Rc::new(self.main_chunk);
                 let main_thread = Thread::new(main_chunk);
-                let value_option = main_thread.run();
-                let _ = tx.send(value_option);
+                let return_value = main_thread.run();
+                let _ = tx.send(return_value);
             })
             .unwrap()
             .join()

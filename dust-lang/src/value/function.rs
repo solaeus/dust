@@ -11,6 +11,16 @@ pub struct Function {
     pub prototype_index: u16,
 }
 
+impl Default for Function {
+    fn default() -> Self {
+        Self {
+            name: None,
+            r#type: FunctionType::default(),
+            prototype_index: 0,
+        }
+    }
+}
+
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut type_string = self.r#type.to_string();
