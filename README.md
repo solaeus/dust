@@ -1,4 +1,4 @@
-# Dust
+# Dust ![Tests](https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg)
 
 **Fast**, **safe** and **easy-to-use** general-purpose programming language.
 
@@ -22,6 +22,7 @@ fn fib (n: int) -> int {
 
 write_line(fib(25))
 ```
+
 
 ## Highlights
 
