@@ -213,11 +213,15 @@ impl Action {
             Operation::MULTIPLY => multiply,
             Operation::DIVIDE => divide,
             Operation::MODULO => modulo,
+            Operation::NEGATE => negate,
+            Operation::NOT => not,
             Operation::EQUAL => equal,
             Operation::LESS => less,
             Operation::LESS_EQUAL => less_equal,
             Operation::TEST => test,
             Operation::TEST_SET => test_set,
+            Operation::CALL => call,
+            Operation::CALL_NATIVE => call_native,
             Operation::JUMP => jump,
             Operation::RETURN => r#return,
             _ => todo!(),
@@ -1320,19 +1324,19 @@ fn less_equal(
     }
 }
 
-fn negate(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn negate(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-fn not(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn not(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-fn call(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn call(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
-fn call_native(_: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn call_native(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
     todo!()
 }
 
