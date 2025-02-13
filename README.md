@@ -1,4 +1,10 @@
-# Dust ![Tests](https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg)
+# Dust &emsp; [![test_shield]][actions] [![License: GPL v3][gpl3_shield]][gpl3] [![rust_shield]](#)
+
+[test_shield]: https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg
+[actions]: https://github.com/solaeus/dust/actions
+[gpl3_shield]: https://img.shields.io/badge/License-GPLv3-blue.svg
+[gpl3]: https://www.gnu.org/licenses/gpl-3.0
+[rust_shield]: https://img.shields.io/badge/Rust-%23000000.svg?e&logo=rust&logoColor=white
 
 **Fast**, **safe** and **easy-to-use** general-purpose programming language.
 
