@@ -2,15 +2,10 @@ use tracing::trace;
 
 use crate::{
     instruction::InstructionFields,
-    vm::{Thread, call_frame::PointerCache},
+    vm::{call_frame::PointerCache, Thread},
 };
 
-pub fn jump(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    _: &mut Thread,
-    _pointer_cache: &mut PointerCache,
-) {
+pub fn jump(ip: &mut usize, instruction: &InstructionFields, _: &mut Thread) {
     let offset = instruction.b_field as usize;
     let is_positive = instruction.c_field != 0;
 

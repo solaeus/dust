@@ -3,9 +3,9 @@ use std::{rc::Rc, thread::JoinHandle};
 use tracing::{info, trace};
 
 use crate::{
-    AbstractList, Chunk, ConcreteValue, DustString, Span, Value,
     instruction::InstructionFields,
-    vm::{CallFrame, action::ActionSequence},
+    vm::{action::ActionSequence, Action, CallFrame},
+    AbstractList, Chunk, ConcreteValue, DustString, Span, Value,
 };
 
 use super::call_frame::{Pointer, Register};
@@ -41,8 +41,13 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
-        let actions =
-            ActionSequence::new(self.chunk.instructions.iter().map(InstructionFields::from));
+        let mut actions = ActionSequence::new(
+            self.chunk
+                .instructions
+                .iter()
+                .map(InstructionFields::from)
+                .collect(),
+        );
 
         trace!("Thread actions: {}", actions);
 
@@ -530,6 +535,18 @@ impl Thread {
             Register::Value(value) => Register::Closed(*value),
             _ => panic!("Attempted to close non-value register"),
         };
+    }
+
+    pub fn get_integer(&self, index: usize, is_constant: bool) -> &i64 {
+        if is_constant {
+            if cfg!(debug_assertions) {
+                self.get_constant(index).as_integer().unwrap()
+            } else {
+                unsafe { self.get_constant(index).as_integer().unwrap_unchecked() }
+            }
+        } else {
+            self.get_integer_register(index)
+        }
     }
 
     pub fn get_integer_register(&self, register_index: usize) -> &i64 {

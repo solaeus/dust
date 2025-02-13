@@ -2,36 +2,35 @@ mod add;
 mod jump;
 mod less;
 
-use add::{add, add_integer_pointers};
+use add::add_integers;
 use jump::jump;
-use less::{less, less_integer_pointers};
+use less::less_integers;
 
 use tracing::trace;
 
-use std::fmt::{self, Display, Formatter};
-
-use crate::{
-    AbstractList, ConcreteValue, Operation, Value,
-    instruction::{InstructionFields, TypeCode},
-    vm::call_frame::PointerCache,
+use std::{
+    fmt::{self, Display, Formatter},
+    ptr,
 };
 
-use super::{Pointer, Register, thread::Thread};
+use crate::{
+    instruction::{InstructionFields, TypeCode},
+    vm::call_frame::PointerCache,
+    AbstractList, ConcreteValue, Operation, Value,
+};
+
+use super::{thread::Thread, Pointer, Register};
 
 #[derive(Clone, Debug)]
 pub struct ActionSequence {
-    pub actions: Vec<Action>,
+    pub actions: Vec<(Action, InstructionFields)>,
 }
 
 impl ActionSequence {
     #[allow(clippy::while_let_on_iterator)]
-    pub fn new<T>(instructions: T) -> Self
-    where
-        T: ExactSizeIterator<Item = InstructionFields> + DoubleEndedIterator + Clone,
-    {
+    pub fn new(instructions: Vec<InstructionFields>) -> Self {
         let mut actions = Vec::with_capacity(instructions.len());
-        let mut instructions_reversed = instructions.rev();
-        let mut in_loop = false;
+        let mut instructions_reversed = instructions.into_iter().rev();
 
         while let Some(instruction) = instructions_reversed.next() {
             if instruction.operation == Operation::JUMP {
@@ -39,49 +38,33 @@ impl ActionSequence {
                 let is_positive = instruction.c_field != 0;
 
                 if !is_positive {
-                    let mut loop_instructions = Vec::new();
-                    let mut previous = instruction;
+                    let mut loop_actions = Vec::with_capacity(backward_offset + 1);
+                    let jump_action = Action::optimized(&instruction);
 
-                    in_loop = true;
+                    loop_actions.push((jump_action, instruction));
 
-                    loop_instructions.push(instruction);
+                    for _ in 0..backward_offset {
+                        let instruction = instructions_reversed.next().unwrap();
+                        let action = Action::optimized(&instruction);
 
-                    while let Some(instruction) = instructions_reversed.next() {
-                        loop_instructions.push(instruction);
-
-                        if instruction.operation == Operation::LESS
-                            && previous.operation == Operation::JUMP
-                        {
-                            let forward_offset = previous.b_field as usize;
-                            let is_positive = previous.c_field != 0;
-
-                            if is_positive && forward_offset == backward_offset - 1 {
-                                in_loop = false;
-
-                                break;
-                            }
-                        }
-
-                        previous = instruction;
+                        loop_actions.push((action, instruction));
                     }
 
-                    loop_instructions.reverse();
+                    loop_actions.reverse();
 
-                    let loop_action = Action::optimized_loop(loop_instructions);
+                    let r#loop = Action::r#loop(ActionSequence {
+                        actions: loop_actions,
+                    });
 
-                    actions.push(loop_action);
+                    actions.push((r#loop, instruction));
 
                     continue;
                 }
             }
 
-            let action = if in_loop {
-                Action::optimized_inline(instruction)
-            } else {
-                Action::unoptimized(instruction)
-            };
+            let action = Action::unoptimized(instruction);
 
-            actions.push(action);
+            actions.push((action, instruction));
         }
 
         actions.reverse();
@@ -93,54 +76,101 @@ impl ActionSequence {
         self.actions.len()
     }
 
-    pub fn run(&self, thread: &mut Thread) {
-        let mut pointer_caches = vec![PointerCache::new(); self.actions.len()];
+    pub fn run(&mut self, thread: &mut Thread) {
         let mut local_ip = 0;
 
         while local_ip < self.actions.len() {
-            assert!(local_ip < self.actions.len());
-            assert!(local_ip < pointer_caches.len());
-
-            let action = &self.actions[local_ip];
-            let cache = &mut pointer_caches[local_ip];
+            let (action, instruction) = &mut self.actions[local_ip];
             local_ip += 1;
 
             trace!("Run {action}");
 
-            if let Some(loop_actions) = &action.loop_actions {
-                loop_actions.run(thread);
-            } else if action.optimize_inline {
-                match action.instruction.operation {
-                    Operation::ADD => {
-                        if cache.integer_mut.is_null() {
-                            add(&mut local_ip, action.instruction, thread, cache);
-                        } else {
-                            add_integer_pointers(
-                                cache.integer_mut,
-                                cache.integer_left,
-                                cache.integer_right,
-                            );
+            match action {
+                Action::Unoptimized { logic, instruction } => {
+                    logic(&mut local_ip, &*instruction, thread);
+                }
+                Action::Loop { actions } => {
+                    actions.run(thread);
+                }
+                Action::OptimizedAddIntegers {
+                    destination_pointer,
+                    left_pointer,
+                    right_pointer,
+                } => {
+                    let left = if left_pointer.is_null() || !left_pointer.is_aligned() {
+                        let left_index = instruction.b_field as usize;
+                        let left_is_constant = instruction.b_is_constant;
+                        let left_value = thread.get_integer(left_index, left_is_constant);
+
+                        *left_pointer = left_value;
+
+                        left_value
+                    } else {
+                        unsafe { &ptr::read(*left_pointer) }
+                    };
+                    let right = if right_pointer.is_null() || !right_pointer.is_aligned() {
+                        let right_index = instruction.c_field as usize;
+                        let right_is_constant = instruction.c_is_constant;
+                        let right_value = thread.get_integer(right_index, right_is_constant);
+
+                        *right_pointer = right_value;
+
+                        right_value
+                    } else {
+                        unsafe { &ptr::read(*right_pointer) }
+                    };
+                    let sum = left.saturating_add(*right);
+
+                    if destination_pointer.is_null() || !destination_pointer.is_aligned() {
+                        let destination = instruction.a_field as usize;
+                        let register = Register::Value(sum);
+
+                        thread.set_integer_register(destination, register);
+                    } else {
+                        unsafe {
+                            **destination_pointer = sum;
                         }
-                    }
-                    Operation::LESS => {
-                        if cache.integer_left.is_null() {
-                            less(&mut local_ip, action.instruction, thread, cache);
-                        } else {
-                            less_integer_pointers(
-                                &mut local_ip,
-                                cache.integer_left,
-                                cache.integer_right,
-                                action.instruction.d_field,
-                            );
-                        }
-                    }
-                    Operation::JUMP => jump(&mut local_ip, action.instruction, thread, cache),
-                    _ => {
-                        (action.logic)(&mut local_ip, action.instruction, thread, cache);
                     }
                 }
-            } else {
-                (action.logic)(&mut local_ip, action.instruction, thread, cache);
+                Action::OptimizedLessIntegers {
+                    left_pointer,
+                    right_pointer,
+                } => {
+                    let left = if left_pointer.is_null() || !left_pointer.is_aligned() {
+                        let left_index = instruction.b_field as usize;
+                        let left_is_constant = instruction.b_is_constant;
+                        let left_value = thread.get_integer(left_index, left_is_constant);
+
+                        *left_pointer = left_value;
+
+                        left_value
+                    } else {
+                        unsafe { &ptr::read(*left_pointer) }
+                    };
+                    let right = if right_pointer.is_null() || !right_pointer.is_aligned() {
+                        let right_index = instruction.c_field as usize;
+                        let right_is_constant = instruction.c_is_constant;
+                        let right_value = thread.get_integer(right_index, right_is_constant);
+
+                        *right_pointer = right_value;
+
+                        right_value
+                    } else {
+                        unsafe { &ptr::read(*right_pointer) }
+                    };
+                    let is_less_than = left < right;
+                    let comparator = instruction.d_field;
+
+                    if is_less_than == comparator {
+                        local_ip += 1;
+                    }
+                }
+                Action::OptimizedJumpForward { offset } => {
+                    local_ip += *offset;
+                }
+                Action::OptimizedJumpBackward { offset } => {
+                    local_ip -= *offset + 1;
+                }
             }
         }
     }
@@ -150,12 +180,12 @@ impl Display for ActionSequence {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 
-        for (index, action) in self.actions.iter().enumerate() {
-            write!(f, "{action}")?;
-
-            if index < self.actions.len() - 1 {
+        for (index, (action, _)) in self.actions.iter().enumerate() {
+            if index > 0 {
                 write!(f, ", ")?;
             }
+
+            write!(f, "{action}")?;
         }
 
         write!(f, "]")
@@ -163,43 +193,33 @@ impl Display for ActionSequence {
 }
 
 #[derive(Clone, Debug)]
-pub struct Action {
-    pub logic: ActionLogic,
-    pub instruction: InstructionFields,
-    pub optimize_inline: bool,
-    pub loop_actions: Option<ActionSequence>,
+pub enum Action {
+    Unoptimized {
+        logic: ActionLogic,
+        instruction: InstructionFields,
+    },
+    Loop {
+        actions: ActionSequence,
+    },
+    OptimizedAddIntegers {
+        destination_pointer: *mut i64,
+        left_pointer: *const i64,
+        right_pointer: *const i64,
+    },
+    OptimizedLessIntegers {
+        left_pointer: *const i64,
+        right_pointer: *const i64,
+    },
+    OptimizedJumpForward {
+        offset: usize,
+    },
+    OptimizedJumpBackward {
+        offset: usize,
+    },
 }
 
 impl Action {
-    fn optimized_loop(instructions: Vec<InstructionFields>) -> Self {
-        let mut loop_actions = Vec::with_capacity(instructions.len());
-
-        for instruction in instructions {
-            let action = Action::optimized_inline(instruction);
-
-            loop_actions.push(action);
-        }
-
-        Action {
-            logic: no_op,
-            instruction: InstructionFields::default(),
-            optimize_inline: false,
-            loop_actions: Some(ActionSequence {
-                actions: loop_actions,
-            }),
-        }
-    }
-
-    fn optimized_inline(instruction: InstructionFields) -> Self {
-        Action {
-            logic: no_op,
-            optimize_inline: true,
-            instruction,
-            loop_actions: None,
-        }
-    }
-
-    fn unoptimized(instruction: InstructionFields) -> Self {
+    pub fn unoptimized(instruction: InstructionFields) -> Self {
         let logic = match instruction.operation {
             Operation::POINT => point,
             Operation::CLOSE => close,
@@ -208,7 +228,10 @@ impl Action {
             Operation::LOAD_LIST => load_list,
             Operation::LOAD_FUNCTION => load_function,
             Operation::LOAD_SELF => load_self,
-            Operation::ADD => add,
+            Operation::ADD => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => add_integers,
+                _ => todo!(),
+            },
             Operation::SUBTRACT => subtract,
             Operation::MULTIPLY => multiply,
             Operation::DIVIDE => divide,
@@ -216,7 +239,10 @@ impl Action {
             Operation::NEGATE => negate,
             Operation::NOT => not,
             Operation::EQUAL => equal,
-            Operation::LESS => less,
+            Operation::LESS => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => less_integers,
+                _ => todo!(),
+            },
             Operation::LESS_EQUAL => less_equal,
             Operation::TEST => test,
             Operation::TEST_SET => test_set,
@@ -227,30 +253,75 @@ impl Action {
             _ => todo!(),
         };
 
-        Action {
-            logic,
-            instruction,
-            optimize_inline: false,
-            loop_actions: None,
+        Action::Unoptimized { logic, instruction }
+    }
+
+    pub fn optimized(instruction: &InstructionFields) -> Self {
+        match instruction.operation {
+            Operation::ADD => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedAddIntegers {
+                    destination_pointer: std::ptr::null_mut(),
+                    left_pointer: std::ptr::null(),
+                    right_pointer: std::ptr::null(),
+                },
+                _ => todo!(),
+            },
+            Operation::LESS => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedLessIntegers {
+                    left_pointer: std::ptr::null(),
+                    right_pointer: std::ptr::null(),
+                },
+                _ => todo!(),
+            },
+            Operation::JUMP => {
+                let offset = instruction.b_field as usize;
+                let is_positive = instruction.c_field != 0;
+
+                if is_positive {
+                    Action::OptimizedJumpForward { offset }
+                } else {
+                    Action::OptimizedJumpBackward { offset }
+                }
+            }
+            _ => todo!(),
         }
+    }
+
+    pub fn r#loop(actions: ActionSequence) -> Self {
+        Action::Loop { actions }
     }
 }
 
 impl Display for Action {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(action_sequence) = &self.loop_actions {
-            write!(f, "LOOP: {action_sequence}")
-        } else {
-            write!(f, "{}", self.instruction.operation)
+        match self {
+            Action::Unoptimized { instruction, .. } => {
+                write!(f, "{}", instruction.operation)
+            }
+            Action::Loop { actions } => {
+                write!(f, "LOOP: {actions}")
+            }
+            Action::OptimizedAddIntegers { .. } => {
+                write!(f, "ADD integers optimized")
+            }
+            Action::OptimizedLessIntegers { .. } => {
+                write!(f, "LESS integers optimized")
+            }
+            Action::OptimizedJumpForward { offset } => {
+                write!(f, "JUMP +{offset}")
+            }
+            Action::OptimizedJumpBackward { offset } => {
+                write!(f, "JUMP -{offset}")
+            }
         }
     }
 }
 
-pub type ActionLogic = fn(&mut usize, InstructionFields, &mut Thread, &mut PointerCache);
+pub type ActionLogic = fn(&mut usize, &InstructionFields, &mut Thread);
 
-fn no_op(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {}
+fn no_op(_: &mut usize, _: &InstructionFields, _: &mut Thread) {}
 
-fn point(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
+fn point(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let to = instruction.b_field as usize;
     let to_is_constant = instruction.b_is_constant;
@@ -357,7 +428,7 @@ fn point(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: 
     }
 }
 
-fn close(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
+fn close(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let from = instruction.b_field as usize;
     let to = instruction.c_field as usize;
     let r#type = instruction.b_type;
@@ -402,12 +473,7 @@ fn close(_: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: 
     }
 }
 
-fn load_encoded(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn load_encoded(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field;
     let value = instruction.b_field;
     let value_type = instruction.b_type;
@@ -432,12 +498,7 @@ fn load_encoded(
     }
 }
 
-fn load_constant(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn load_constant(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let constant_index = instruction.b_field as usize;
     let constant_type = instruction.b_type;
@@ -475,12 +536,7 @@ fn load_constant(
     }
 }
 
-fn load_list(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn load_list(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field;
     let start_register = instruction.b_field;
     let item_type = instruction.b_type;
@@ -576,20 +632,15 @@ fn load_list(
     }
 }
 
-fn load_function(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn load_function(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn load_self(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn load_self(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn subtract(
-    _: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn subtract(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -675,12 +726,7 @@ fn subtract(
     }
 }
 
-fn multiply(
-    _: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn multiply(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -766,12 +812,7 @@ fn multiply(
     }
 }
 
-fn divide(
-    _: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn divide(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -857,12 +898,7 @@ fn divide(
     }
 }
 
-fn modulo(
-    _: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn modulo(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -948,7 +984,7 @@ fn modulo(
     }
 }
 
-fn test(ip: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: &mut PointerCache) {
+fn test(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let operand_register = instruction.b_field as usize;
     let test_value = instruction.c_field != 0;
     let operand_boolean = thread.get_boolean_register(operand_register);
@@ -958,16 +994,11 @@ fn test(ip: &mut usize, instruction: InstructionFields, thread: &mut Thread, _: 
     }
 }
 
-fn test_set(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn test_set(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn equal(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn equal(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let comparator = instruction.d_field;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -1143,12 +1174,7 @@ fn equal(
     }
 }
 
-fn less_equal(
-    ip: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn less_equal(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let comparator = instruction.d_field;
     let left = instruction.b_field as usize;
     let left_type = instruction.b_type;
@@ -1324,28 +1350,23 @@ fn less_equal(
     }
 }
 
-fn negate(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn negate(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn not(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn not(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn call(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn call(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn call_native(_: &mut usize, _: InstructionFields, _: &mut Thread, _: &mut PointerCache) {
+fn call_native(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
     todo!()
 }
 
-fn r#return(
-    _: &mut usize,
-    instruction: InstructionFields,
-    thread: &mut Thread,
-    _: &mut PointerCache,
-) {
+fn r#return(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let should_return_value = instruction.b_field != 0;
     let return_register = instruction.c_field as usize;
     let return_type = instruction.b_type;
