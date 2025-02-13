@@ -194,8 +194,8 @@ R_INT_0 = R_INT_0 + C_3
 ```
 
 The info section for the ADD instruction shows what the instruction does: it adds the value at
-`R_INT_0` to the value at `C_2` and stores the result in `R_INT_0`. As the "Constants" section
-shows, `C_2` is the integer constant `1`. This means that this add instruction increments the value
+`R_INT_0` to the value at `C_3` and stores the result in `R_INT_0`. As the "Constants" section
+shows, `C_3` is the integer constant `1`. This means that this add instruction increments the value
 in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the register used by the
 `i` variable.
 
