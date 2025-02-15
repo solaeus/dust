@@ -2,9 +2,12 @@ mod add;
 mod jump;
 mod less;
 
-use add::add_integers;
+use add::{
+    add_bytes, add_character_string, add_characters, add_floats, add_integers,
+    add_string_character, add_strings,
+};
 use jump::jump;
-use less::less_integers;
+use less::{less_booleans, less_bytes, less_characters, less_floats, less_integers, less_strings};
 
 use tracing::trace;
 
@@ -229,7 +232,13 @@ impl Action {
             Operation::LOAD_SELF => load_self,
             Operation::ADD => match (instruction.b_type, instruction.c_type) {
                 (TypeCode::INTEGER, TypeCode::INTEGER) => add_integers,
-                _ => todo!(),
+                (TypeCode::FLOAT, TypeCode::FLOAT) => add_floats,
+                (TypeCode::BYTE, TypeCode::BYTE) => add_bytes,
+                (TypeCode::STRING, TypeCode::STRING) => add_strings,
+                (TypeCode::CHARACTER, TypeCode::CHARACTER) => add_characters,
+                (TypeCode::STRING, TypeCode::CHARACTER) => add_string_character,
+                (TypeCode::CHARACTER, TypeCode::STRING) => add_character_string,
+                _ => unreachable!(),
             },
             Operation::SUBTRACT => subtract,
             Operation::MULTIPLY => multiply,
@@ -239,7 +248,12 @@ impl Action {
             Operation::NOT => not,
             Operation::EQUAL => equal,
             Operation::LESS => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => less_booleans,
+                (TypeCode::BYTE, TypeCode::BYTE) => less_bytes,
+                (TypeCode::CHARACTER, TypeCode::CHARACTER) => less_characters,
+                (TypeCode::FLOAT, TypeCode::FLOAT) => less_floats,
                 (TypeCode::INTEGER, TypeCode::INTEGER) => less_integers,
+                (TypeCode::STRING, TypeCode::STRING) => less_strings,
                 _ => todo!(),
             },
             Operation::LESS_EQUAL => less_equal,
