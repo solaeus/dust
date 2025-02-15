@@ -1,10 +1,9 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    ptr,
     rc::Rc,
 };
 
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
 use crate::{AbstractList, Chunk, DustString, Function};
 
@@ -141,28 +140,5 @@ impl Display for Pointer {
             Self::ConstantInteger(index) => write!(f, "P_C_INT_{index}"),
             Self::ConstantString(index) => write!(f, "P_C_STR_{index}"),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct PointerCache {
-    pub integer_mut: *mut i64,
-    pub integer_left: *const i64,
-    pub integer_right: *const i64,
-}
-
-impl PointerCache {
-    pub fn new() -> Self {
-        Self {
-            integer_mut: ptr::null_mut(),
-            integer_left: ptr::null(),
-            integer_right: ptr::null(),
-        }
-    }
-}
-
-impl Default for PointerCache {
-    fn default() -> Self {
-        Self::new()
     }
 }

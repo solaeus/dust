@@ -82,7 +82,7 @@ impl Type {
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::None, Type::None)
-            | (Type::String { .. }, Type::String { .. }) => return Ok(()),
+            | (Type::String, Type::String) => return Ok(()),
             (
                 Type::Generic(GenericType {
                     concrete_type: left,
@@ -264,7 +264,7 @@ impl Ord for Type {
             (Type::SelfFunction, Type::SelfFunction) => Ordering::Equal,
             (Type::SelfFunction, _) => Ordering::Greater,
             (Type::String, Type::String) => Ordering::Equal,
-            (Type::String { .. }, _) => Ordering::Greater,
+            (Type::String, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
                 left_struct.cmp(right_struct)
             }

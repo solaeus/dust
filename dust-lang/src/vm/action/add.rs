@@ -1,12 +1,11 @@
 use tracing::trace;
 
 use crate::{
-    instruction::{InstructionFields, TypeCode},
-    vm::{call_frame::PointerCache, Register, Thread},
-    DustString,
+    instruction::InstructionFields,
+    vm::{Register, Thread},
 };
 
-pub fn add_integers(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
+pub fn add_integers(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     trace!("ADD: Run and cache pointers");
 
     let destination = instruction.a_field as usize;

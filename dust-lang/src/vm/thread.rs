@@ -4,7 +4,7 @@ use tracing::{info, trace};
 
 use crate::{
     instruction::InstructionFields,
-    vm::{action::ActionSequence, Action, CallFrame},
+    vm::{action::ActionSequence, CallFrame},
     AbstractList, Chunk, ConcreteValue, DustString, Span, Value,
 };
 

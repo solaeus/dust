@@ -1,9 +1,6 @@
 use tracing::trace;
 
-use crate::{
-    instruction::InstructionFields,
-    vm::{call_frame::PointerCache, Thread},
-};
+use crate::{instruction::InstructionFields, vm::Thread};
 
 pub fn jump(ip: &mut usize, instruction: &InstructionFields, _: &mut Thread) {
     let offset = instruction.b_field as usize;

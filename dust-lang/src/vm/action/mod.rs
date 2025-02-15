@@ -15,7 +15,6 @@ use std::{
 
 use crate::{
     instruction::{InstructionFields, TypeCode},
-    vm::call_frame::PointerCache,
     AbstractList, ConcreteValue, Operation, Value,
 };
 
@@ -318,8 +317,6 @@ impl Display for Action {
 }
 
 pub type ActionLogic = fn(&mut usize, &InstructionFields, &mut Thread);
-
-fn no_op(_: &mut usize, _: &InstructionFields, _: &mut Thread) {}
 
 fn point(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     let destination = instruction.a_field as usize;

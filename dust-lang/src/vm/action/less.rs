@@ -1,9 +1,6 @@
 use tracing::trace;
 
-use crate::{
-    instruction::{InstructionFields, TypeCode},
-    vm::{call_frame::PointerCache, Thread},
-};
+use crate::{instruction::InstructionFields, vm::Thread};
 
 pub fn less_integers(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     trace!("LESS unoptimized");
