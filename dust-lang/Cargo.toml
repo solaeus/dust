@@ -32,6 +32,18 @@ name = "addictive_addition"
 harness = false
 
 [[bench]]
+name = "addictive_subtraction"
+harness = false
+
+[[bench]]
+name = "addictive_multiplication"
+harness = false
+
+[[bench]]
+name = "addictive_division"
+harness = false
+
+[[bench]]
 name = "fibonacci"
 harness = false
 

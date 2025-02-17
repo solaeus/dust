@@ -11,7 +11,7 @@ pub struct Operation(pub u8);
 impl Operation {
     pub const NO_OP: Operation = Operation(0);
 
-    // Stack manipulation
+    // Register manipulation
     pub const MOVE: Operation = Operation(1);
     pub const CLOSE: Operation = Operation(2);
 

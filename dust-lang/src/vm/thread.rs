@@ -51,7 +51,7 @@ impl Thread {
 
             let instruction = &instructions[ip];
 
-            info!("Run instruction {}", instruction.operation());
+            info!("IP = {ip} Run {}", instruction.operation());
 
             match instruction.operation() {
                 Operation::MOVE => {
@@ -1334,7 +1334,19 @@ impl Thread {
                     }
                     _ => unreachable!("Invalid LESS_EQUAL instruction"),
                 },
+                Operation::TEST => {
+                    let operand_register_index = instruction.b_field() as usize;
+                    let test_value = instruction.c_field() != 0;
+                    let operand_boolean = current_frame
+                        .registers
+                        .booleans
+                        .get(operand_register_index)
+                        .copy_value();
 
+                    if operand_boolean == test_value {
+                        current_frame.ip += 1;
+                    }
+                }
                 Operation::JUMP => {
                     let offset = instruction.b_field() as usize;
                     let is_positive = instruction.c_field() != 0;

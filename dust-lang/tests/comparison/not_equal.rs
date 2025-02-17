@@ -194,3 +194,51 @@ fn not_equal_strings() {
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
+
+#[test]
+fn not_equal_lists() {
+    let source = "[1, 2, 3] != [4, 5, 6]";
+    let chunk = Chunk {
+        r#type: FunctionType::new([], [], Type::Boolean),
+        instructions: vec![
+            Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+            Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
+            Instruction::load_constant(2, 2, TypeCode::INTEGER, false),
+            Instruction::load_list(0, TypeCode::INTEGER, 0, 2, false),
+            Instruction::load_constant(3, 3, TypeCode::INTEGER, false),
+            Instruction::load_constant(4, 4, TypeCode::INTEGER, false),
+            Instruction::load_constant(5, 5, TypeCode::INTEGER, false),
+            Instruction::load_list(1, TypeCode::INTEGER, 3, 5, false),
+            Instruction::equal(
+                false,
+                Operand::Register(0, TypeCode::LIST),
+                Operand::Register(1, TypeCode::LIST),
+            ),
+            Instruction::jump(1, true),
+            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
+            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
+            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+        ],
+        positions: vec![
+            Span(1, 2),
+            Span(4, 5),
+            Span(7, 8),
+            Span(0, 9),
+            Span(14, 15),
+            Span(17, 18),
+            Span(20, 21),
+            Span(13, 22),
+            Span(0, 22),
+            Span(0, 22),
+            Span(0, 22),
+            Span(0, 22),
+            Span(22, 22),
+        ],
+        integer_constants: vec![1, 2, 3, 4, 5, 6],
+        ..Chunk::default()
+    };
+    let return_value = Some(Value::boolean(true));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}

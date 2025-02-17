@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dust_lang::run;
 
 const SOURCE: &str = r#"
@@ -9,9 +9,13 @@ const SOURCE: &str = r#"
     while i < 1_000 {
         i += 1
 
-        spawn(
-            fn () { random_int(0, 10); }
-        )
+        spawn(fn () {
+            let mut j = 0
+
+            while j < 5_000_000 {
+                j += 1
+            }
+        })
     }
 "#;
 

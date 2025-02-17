@@ -660,7 +660,7 @@ impl Instruction {
             Operation::EQUAL => Equal::from(*self).to_string(),
             Operation::LESS => Less::from(*self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
-            Operation::TEST => Test::from(*self).to_string(),
+            Operation::TEST => Test::from(self).to_string(),
             Operation::TEST_SET => TestSet::from(*self).to_string(),
             Operation::CALL => Call::from(*self).to_string(),
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),

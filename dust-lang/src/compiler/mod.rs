@@ -855,6 +855,7 @@ impl<'src> Compiler<'src> {
         let operand = instruction.as_operand();
         let push_back = match instruction.operation() {
             Operation::LOAD_ENCODED
+            | Operation::LOAD_LIST
             | Operation::LOAD_SELF
             | Operation::ADD
             | Operation::SUBTRACT
@@ -997,6 +998,22 @@ impl<'src> Compiler<'src> {
                 position: self.current_position,
             });
         }
+        let (left_instruction, left_type, left_position) =
+            self.instructions
+                .pop()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+
+        // TODO: Check if the left type is a valid type for comparison
+
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
+
+        if push_back_left {
+            self.instructions
+                .push((left_instruction, left_type, left_position));
+        }
 
         let operator = self.current_token;
         let operator_position = self.current_position;
@@ -1012,29 +1029,17 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left_instruction, left_type, left_position) =
-            self.instructions
-                .pop()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
-        // TODO: Check if the left type is a valid type for comparison
         // TODO: Check if the right type is a valid type for comparison
-        // TODO: Check if the left and right types are compatible
 
-        if push_back_left {
-            self.instructions
-                .push((left_instruction, left_type, left_position));
-        }
+        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
 
         if push_back_right {
             self.instructions
                 .push((right_instruction, right_type, right_position));
         }
+
+        // TODO: Check if the left and right types are compatible
 
         let comparison = match operator {
             Token::DoubleEqual => Instruction::equal(true, left, right),
@@ -1074,9 +1079,6 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
-        let operator = self.current_token;
-        let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
         let (left_instruction, left_type, left_position) =
             self.instructions
                 .pop()
@@ -1084,42 +1086,19 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let operand_register = if left_instruction.operation() == Operation::MOVE {
-            let Move { operand: to, .. } = Move::from(&left_instruction);
-            let local = self.get_local(to.index())?;
-
-            local.register_index
-        } else if left_instruction.yields_value() {
-            let register = left_instruction.a_field();
-
-            self.instructions
-                .push((left_instruction, left_type, left_position));
-
-            register
-        } else {
-            return Err(CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            });
-        };
 
         // TODO: Check if the left type is boolean
 
-        self.advance()?;
-        self.parse_sub_expression(&rule.precedence)?;
+        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
 
-        let (mut right_instruction, right_type, right_position) = self
-            .instructions
-            .pop()
-            .ok_or_else(|| CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })?;
+        if push_back_left {
+            self.instructions
+                .push((left_instruction, left_type.clone(), left_position));
+        }
 
-        // TODO: Check if the right type is boolean
-
-        right_instruction.set_a_field(operand_register);
-
+        let operator = self.current_token;
+        let operator_position = self.current_position;
+        let rule = ParseRule::from(&operator);
         let test_boolean = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -1131,13 +1110,35 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let test = Instruction::test(operand_register, test_boolean);
+        let test = Instruction::test(left.index(), test_boolean);
         let jump = Instruction::jump(1, true);
 
         self.emit_instruction(test, Type::None, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
-        self.instructions
-            .push((right_instruction, right_type, right_position));
+
+        self.advance()?;
+        self.parse_sub_expression(&rule.precedence)?;
+
+        // TODO: Check if the right type is boolean
+
+        if matches!(
+            self.get_last_operations(),
+            Some([
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                Operation::JUMP,
+                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
+                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
+            ])
+        ) {
+            let instruction_count = self.instructions.len();
+            let loaders = self
+                .instructions
+                .get_many_mut([instruction_count - 1, instruction_count - 2])
+                .unwrap(); // Safe because the indices in bounds and do not overlap
+
+            loaders[0].0.set_a_field(left.index());
+            loaders[1].0.set_a_field(left.index());
+        }
 
         let instructions_length = self.instructions.len();
 

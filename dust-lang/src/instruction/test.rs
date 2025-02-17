@@ -9,8 +9,8 @@ pub struct Test {
     pub test_value: bool,
 }
 
-impl From<Instruction> for Test {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Test {
+    fn from(instruction: &Instruction) -> Self {
         let operand_register = instruction.b_field();
         let test_value = instruction.c_field() != 0;
 

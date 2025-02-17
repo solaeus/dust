@@ -29,6 +29,10 @@ fn fib (n: int) -> int {
 write_line(fib(25))
 ```
 
+> [!IMPORTANT]
+> Dust is still experimental. Currently, development is more focused on exploring ideas for
+> optimization and performance than on stability or feature completeness. This will change as the
+> project matures.
 
 ## Highlights
 
