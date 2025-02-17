@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, DustString, FunctionType, Instruction, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, ConcreteValue, DustString, FunctionType,
+    Instruction, Span, Type, Value,
 };
 
 #[test]
@@ -67,7 +67,7 @@ fn load_character() {
             Instruction::r#return(true, 0, TypeCode::CHARACTER),
         ],
         positions: vec![Span(0, 3), Span(3, 3)],
-        constants: vec![ConcreteValue::Character('a')],
+        character_constants: vec!['a'],
         ..Chunk::default()
     };
     let return_value = Some(Value::character('a'));
@@ -86,7 +86,7 @@ fn load_float() {
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 5), Span(5, 5)],
-        constants: vec![ConcreteValue::Float(42.42)],
+        float_constants: vec![42.42],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(42.42));
@@ -105,7 +105,7 @@ fn load_integer() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 2), Span(2, 2)],
-        constants: vec![ConcreteValue::Integer(42)],
+        integer_constants: vec![42],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(42));
@@ -124,7 +124,7 @@ fn load_string() {
             Instruction::r#return(true, 0, TypeCode::STRING),
         ],
         positions: vec![Span(0, 15), Span(15, 15)],
-        constants: vec![ConcreteValue::String(DustString::from("Hello, World!"))],
+        string_constants: vec![DustString::from("Hello, World!")],
         ..Chunk::default()
     };
     let return_value = Some(Value::string("Hello, World!"));
@@ -191,7 +191,7 @@ fn load_character_list() {
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
         positions: vec![Span(1, 4), Span(6, 9), Span(0, 10), Span(10, 10)],
-        constants: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
+        character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {
@@ -215,7 +215,7 @@ fn load_float_list() {
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
         positions: vec![Span(1, 6), Span(8, 13), Span(0, 14), Span(14, 14)],
-        constants: vec![ConcreteValue::Float(42.42), ConcreteValue::Float(24.24)],
+        float_constants: vec![42.42, 24.24],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {
@@ -240,11 +240,7 @@ fn load_integer_list() {
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
         positions: vec![Span(1, 2), Span(4, 5), Span(7, 8), Span(0, 9), Span(9, 9)],
-        constants: vec![
-            ConcreteValue::Integer(1),
-            ConcreteValue::Integer(2),
-            ConcreteValue::Integer(3),
-        ],
+        integer_constants: vec![1, 2, 3],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {
@@ -272,10 +268,7 @@ fn load_string_list() {
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
         positions: vec![Span(1, 8), Span(10, 17), Span(0, 18), Span(18, 18)],
-        constants: vec![
-            ConcreteValue::String(DustString::from("Hello")),
-            ConcreteValue::String(DustString::from("World")),
-        ],
+        string_constants: vec![DustString::from("Hello"), DustString::from("World")],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {
@@ -315,12 +308,7 @@ fn load_nested_list() {
             Span(0, 16),
             Span(16, 16),
         ],
-        constants: vec![
-            ConcreteValue::Integer(1),
-            ConcreteValue::Integer(2),
-            ConcreteValue::Integer(3),
-            ConcreteValue::Integer(4),
-        ],
+        integer_constants: vec![1, 2, 3, 4],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {
@@ -386,16 +374,7 @@ fn load_deeply_nested_list() {
             Span(0, 36),
             Span(36, 36),
         ],
-        constants: vec![
-            ConcreteValue::Integer(1),
-            ConcreteValue::Integer(2),
-            ConcreteValue::Integer(3),
-            ConcreteValue::Integer(4),
-            ConcreteValue::Integer(5),
-            ConcreteValue::Integer(6),
-            ConcreteValue::Integer(7),
-            ConcreteValue::Integer(8),
-        ],
+        integer_constants: vec![1, 2, 3, 4, 5, 6, 7, 8],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List {

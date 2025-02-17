@@ -299,7 +299,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if (r#type == &Type::Byte)
+                if *r#type == Type::Byte
                     || (instruction.operation() == Operation::LOAD_ENCODED
                         && instruction.b_type() == TypeCode::BYTE)
                 {
@@ -332,8 +332,11 @@ impl<'src> Compiler<'src> {
         self.instructions
             .iter()
             .rev()
-            .find_map(|(instruction, _, _)| {
-                if instruction.b_type() == TypeCode::FLOAT && instruction.yields_value() {
+            .find_map(|(instruction, r#type, _)| {
+                if *r#type == Type::Float
+                    || (instruction.operation() == Operation::LOAD_CONSTANT
+                        && instruction.b_type() == TypeCode::FLOAT)
+                {
                     Some(instruction.a_field() + 1)
                 } else {
                     None

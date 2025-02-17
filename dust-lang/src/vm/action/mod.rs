@@ -25,14 +25,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     instruction::{InstructionFields, TypeCode},
-    Operation, Value,
+    AbstractList, ConcreteValue, Operation, Value,
 };
 
-use super::{call_frame::RuntimeValue, thread::Thread};
+use super::{call_frame::RuntimeValue, thread::Thread, Pointer};
+
+pub type ActionLogic = fn(&mut usize, &InstructionFields, &mut Thread);
+pub type OptimizedActionLogicIntegers =
+    fn(&mut usize, &InstructionFields, &mut Thread, &mut Option<[RuntimeValue<i64>; 3]>);
 
 #[derive(Debug)]
 pub struct ActionSequence {
-    actions: Vec<(Action, InstructionFields)>,
+    actions: Vec<Action>,
 }
 
 impl ActionSequence {
@@ -49,13 +53,13 @@ impl ActionSequence {
                     let mut loop_actions = Vec::with_capacity(backward_offset + 1);
                     let jump_action = Action::optimized(&instruction);
 
-                    loop_actions.push((jump_action, instruction));
+                    loop_actions.push(jump_action);
 
                     for _ in 0..backward_offset {
                         let instruction = instructions_reversed.next().unwrap();
                         let action = Action::optimized(&instruction);
 
-                        loop_actions.push((action, instruction));
+                        loop_actions.push(action);
                     }
 
                     loop_actions.reverse();
@@ -64,7 +68,7 @@ impl ActionSequence {
                         actions: loop_actions,
                     });
 
-                    actions.push((r#loop, instruction));
+                    actions.push(r#loop);
 
                     continue;
                 }
@@ -72,7 +76,7 @@ impl ActionSequence {
 
             let action = Action::unoptimized(instruction);
 
-            actions.push((action, instruction));
+            actions.push(action);
         }
 
         actions.reverse();
@@ -84,7 +88,11 @@ impl ActionSequence {
         let mut local_ip = 0;
 
         while local_ip < self.actions.len() {
-            let (action, instruction) = &mut self.actions[local_ip];
+            let action = if cfg!(debug_assertions) {
+                self.actions.get_mut(local_ip).unwrap()
+            } else {
+                unsafe { self.actions.get_unchecked_mut(local_ip) }
+            };
             local_ip += 1;
 
             info!("Run {action}");
@@ -96,17 +104,12 @@ impl ActionSequence {
                 Action::Loop { actions } => {
                     actions.run(thread);
                 }
-                Action::OptimizedAddIntegers(cache) => {
-                    optimized_add_integer(instruction, thread, cache);
-                }
-                Action::OptimizedEqualIntegers(cache) => {
-                    optimized_equal_integers(&mut local_ip, instruction, thread, cache);
-                }
-                Action::OptimizedLessIntegers(cache) => {
-                    optimized_less_integers(&mut local_ip, instruction, thread, cache);
-                }
-                Action::OptimizedLessEqualIntegers(cache) => {
-                    optimized_less_equal_integers(&mut local_ip, instruction, thread, cache);
+                Action::OptimizedIntegers {
+                    logic,
+                    instruction,
+                    cache,
+                } => {
+                    logic(&mut local_ip, &*instruction, thread, cache);
                 }
                 Action::OptimizedJumpForward { offset } => {
                     local_ip += *offset;
@@ -123,7 +126,7 @@ impl Display for ActionSequence {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 
-        for (index, (action, _)) in self.actions.iter().enumerate() {
+        for (index, action) in self.actions.iter().enumerate() {
             if index > 0 {
                 write!(f, ", ")?;
             }
@@ -144,10 +147,11 @@ enum Action {
     Loop {
         actions: ActionSequence,
     },
-    OptimizedAddIntegers(Option<[RuntimeValue<i64>; 3]>),
-    OptimizedEqualIntegers(Option<[RuntimeValue<i64>; 2]>),
-    OptimizedLessIntegers(Option<[RuntimeValue<i64>; 2]>),
-    OptimizedLessEqualIntegers(Option<[RuntimeValue<i64>; 2]>),
+    OptimizedIntegers {
+        logic: OptimizedActionLogicIntegers,
+        instruction: InstructionFields,
+        cache: Option<[RuntimeValue<i64>; 3]>,
+    },
     OptimizedJumpForward {
         offset: usize,
     },
@@ -224,19 +228,35 @@ impl Action {
     pub fn optimized(instruction: &InstructionFields) -> Self {
         match instruction.operation {
             Operation::ADD => match (instruction.b_type, instruction.c_type) {
-                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedAddIntegers(None),
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedIntegers {
+                    logic: optimized_add_integer,
+                    instruction: *instruction,
+                    cache: None,
+                },
                 _ => todo!(),
             },
             Operation::EQUAL => match (instruction.b_type, instruction.c_type) {
-                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedEqualIntegers(None),
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedIntegers {
+                    logic: optimized_equal_integers,
+                    instruction: *instruction,
+                    cache: None,
+                },
                 _ => todo!(),
             },
             Operation::LESS => match (instruction.b_type, instruction.c_type) {
-                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedLessIntegers(None),
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedIntegers {
+                    logic: optimized_less_integers,
+                    instruction: *instruction,
+                    cache: None,
+                },
                 _ => todo!(),
             },
             Operation::LESS_EQUAL => match (instruction.b_type, instruction.c_type) {
-                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedLessEqualIntegers(None),
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedIntegers {
+                    logic: optimized_less_equal_integers,
+                    instruction: *instruction,
+                    cache: None,
+                },
                 _ => todo!(),
             },
             Operation::JUMP => {
@@ -267,17 +287,8 @@ impl Display for Action {
             Action::Loop { actions } => {
                 write!(f, "LOOP: {actions}")
             }
-            Action::OptimizedAddIntegers { .. } => {
-                write!(f, "ADD_INTEGERS_OPTIMIZED")
-            }
-            Action::OptimizedEqualIntegers { .. } => {
-                write!(f, "EQUAL_INTEGERS_OPTIMIZED")
-            }
-            Action::OptimizedLessIntegers { .. } => {
-                write!(f, "LESS_INTEGERS_OPTIMIZED")
-            }
-            Action::OptimizedLessEqualIntegers { .. } => {
-                write!(f, "LESS_EQUAL_INTEGERS_OPTIMIZED")
+            Action::OptimizedIntegers { instruction, .. } => {
+                write!(f, "OPTIMIZED_{}", instruction.operation)
             }
             Action::OptimizedJumpForward { offset } => {
                 write!(f, "JUMP +{offset}")
@@ -288,8 +299,6 @@ impl Display for Action {
         }
     }
 }
-
-pub type ActionLogic = fn(&mut usize, &InstructionFields, &mut Thread);
 
 fn point(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     todo!()
@@ -388,7 +397,96 @@ fn load_constant(ip: &mut usize, instruction: &InstructionFields, thread: &mut T
 }
 
 fn load_list(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    todo!()
+    let destination = instruction.a_field as usize;
+    let start_register = instruction.b_field as usize;
+    let item_type = instruction.b_type;
+    let end_register = instruction.c_field as usize;
+    let jump_next = instruction.d_field;
+    let current_frame = thread.current_frame_mut();
+
+    let mut item_pointers = Vec::with_capacity(end_register - start_register + 1);
+
+    match item_type {
+        TypeCode::BOOLEAN => {
+            for register_index in start_register..=end_register {
+                let register_is_closed = current_frame.registers.booleans.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        TypeCode::BYTE => {
+            for register_index in start_register..=end_register {
+                let register_is_closed = current_frame.registers.bytes.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        TypeCode::CHARACTER => {
+            for register_index in start_register..=end_register {
+                let register_is_closed =
+                    current_frame.registers.characters.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        TypeCode::FLOAT => {
+            for register_index in start_register..=end_register {
+                let register_is_closed = current_frame.registers.floats.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        TypeCode::INTEGER => {
+            for register_index in start_register..=end_register {
+                let register_is_closed = current_frame.registers.integers.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        TypeCode::STRING => {
+            for register_index in start_register..=end_register {
+                let register_is_closed = current_frame.registers.strings.is_closed(register_index);
+
+                if register_is_closed {
+                    continue;
+                }
+
+                item_pointers.push(Pointer::Register(register_index));
+            }
+        }
+        _ => unreachable!(),
+    }
+
+    let list = RuntimeValue::Raw(AbstractList {
+        item_type,
+        item_pointers,
+    });
+
+    current_frame.registers.lists.get_mut(destination).set(list);
+
+    if jump_next {
+        *ip += 1;
+    }
 }
 
 fn load_function(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
@@ -420,10 +518,6 @@ fn test(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
 }
 
 fn test_set(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
-    todo!()
-}
-
-fn less_equal(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     todo!()
 }
 
@@ -488,7 +582,76 @@ fn r#return(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread)
                 thread.return_value = Some(Value::string(return_value));
             }
             TypeCode::LIST => {
-                todo!()
+                let abstract_list = current_frame
+                    .get_list_from_register(return_register)
+                    .clone_inner();
+                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+
+                match abstract_list.item_type {
+                    TypeCode::BOOLEAN => {
+                        for pointer in abstract_list.item_pointers {
+                            let boolean = current_frame
+                                .get_boolean_from_pointer(&pointer)
+                                .clone_inner();
+                            let value = ConcreteValue::Boolean(boolean);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    TypeCode::BYTE => {
+                        for pointer in abstract_list.item_pointers {
+                            let byte = current_frame.get_byte_from_pointer(&pointer).clone_inner();
+                            let value = ConcreteValue::Byte(byte);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    TypeCode::CHARACTER => {
+                        for pointer in abstract_list.item_pointers {
+                            let character = current_frame
+                                .get_character_from_pointer(&pointer)
+                                .clone_inner();
+                            let value = ConcreteValue::Character(character);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    TypeCode::FLOAT => {
+                        for pointer in abstract_list.item_pointers {
+                            let float =
+                                current_frame.get_float_from_pointer(&pointer).clone_inner();
+                            let value = ConcreteValue::Float(float);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    TypeCode::INTEGER => {
+                        for pointer in abstract_list.item_pointers {
+                            let integer = current_frame
+                                .get_integer_from_pointer(&pointer)
+                                .clone_inner();
+                            let value = ConcreteValue::Integer(integer);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    TypeCode::STRING => {
+                        for pointer in abstract_list.item_pointers {
+                            let string = current_frame
+                                .get_string_from_pointer(&pointer)
+                                .clone_inner();
+                            let value = ConcreteValue::String(string);
+
+                            concrete_list.push(value);
+                        }
+                    }
+                    _ => todo!(),
+                }
+
+                thread.return_value = Some(Value::Concrete(ConcreteValue::list(
+                    concrete_list,
+                    abstract_list.item_type,
+                )));
             }
             _ => unreachable!(),
         }

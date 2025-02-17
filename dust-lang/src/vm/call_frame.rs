@@ -231,6 +231,62 @@ impl CallFrame {
             unsafe { self.constants.strings.get_unchecked_mut(constant_index) }
         }
     }
+
+    pub fn get_list_from_register(&self, register_index: usize) -> &RuntimeValue<AbstractList> {
+        let register = self.registers.lists.get(register_index);
+
+        match register {
+            Register::Value { value, .. } => value,
+            Register::Pointer { pointer, .. } => self.get_list_from_pointer(pointer),
+        }
+    }
+
+    pub fn get_list_from_register_mut(
+        &mut self,
+        register_index: usize,
+    ) -> &mut RuntimeValue<AbstractList> {
+        let register = self.registers.lists.get_mut(register_index);
+
+        match register {
+            Register::Value { value, .. } => value,
+            Register::Pointer { .. } => panic!("Attempted to get mutable list from pointer"),
+        }
+    }
+
+    pub fn get_list_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<AbstractList> {
+        match pointer {
+            Pointer::Register(register_index) => self.get_list_from_register(*register_index),
+            Pointer::Constant(_) => panic!("Attempted to get list from constant pointer"),
+        }
+    }
+
+    pub fn get_function_from_register(&self, register_index: usize) -> &RuntimeValue<Function> {
+        let register = self.registers.functions.get(register_index);
+
+        match register {
+            Register::Value { value, .. } => value,
+            Register::Pointer { pointer, .. } => self.get_function_from_pointer(pointer),
+        }
+    }
+
+    pub fn get_function_from_register_mut(
+        &mut self,
+        register_index: usize,
+    ) -> &mut RuntimeValue<Function> {
+        let register = self.registers.functions.get_mut(register_index);
+
+        match register {
+            Register::Value { value, .. } => value,
+            Register::Pointer { .. } => panic!("Attempted to get mutable function from pointer"),
+        }
+    }
+
+    pub fn get_function_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<Function> {
+        match pointer {
+            Pointer::Register(register_index) => self.get_function_from_register(*register_index),
+            Pointer::Constant(_) => panic!("Attempted to get function from constant pointer"),
+        }
+    }
 }
 
 impl Display for CallFrame {
@@ -460,42 +516,66 @@ impl<T: Clone> RuntimeValue<T> {
     }
 }
 
-impl<T: Add<Output = T> + Copy> Add for &RuntimeValue<T> {
-    type Output = T;
+const BYTE_ADD: fn(u8, u8) -> u8 = u8::saturating_add;
+
+impl Add for &RuntimeValue<u8> {
+    type Output = u8;
 
     fn add(self, other: Self) -> Self::Output {
-        match (self, other) {
-            (RuntimeValue::Raw(left), RuntimeValue::Raw(right)) => *left + *right,
-            (RuntimeValue::Raw(left), RuntimeValue::Rc(right)) => *left + **right,
-            (RuntimeValue::Raw(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
+        let left = match self {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
+        let right = match other {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
 
-                *left + *right
-            }
-            (RuntimeValue::Rc(left), RuntimeValue::Raw(right)) => **left + *right,
-            (RuntimeValue::Rc(left), RuntimeValue::Rc(right)) => **left + **right,
-            (RuntimeValue::Rc(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
+        BYTE_ADD(left, right)
+    }
+}
 
-                **left + *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::RefCell(right)) => {
-                let left = left.borrow();
-                let right = right.borrow();
+const FLOAT_ADD: fn(f64, f64) -> f64 = f64::add;
 
-                *left + *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Raw(right)) => {
-                let left = left.borrow();
+impl Add for &RuntimeValue<f64> {
+    type Output = f64;
 
-                *left + *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Rc(right)) => {
-                let left = left.borrow();
+    fn add(self, other: Self) -> Self::Output {
+        let left = match self {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
+        let right = match other {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
 
-                *left + **right
-            }
-        }
+        FLOAT_ADD(left, right)
+    }
+}
+
+const INTEGER_ADD: fn(i64, i64) -> i64 = i64::saturating_add;
+
+impl Add for &RuntimeValue<i64> {
+    type Output = i64;
+
+    fn add(self, other: Self) -> Self::Output {
+        let left = match self {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
+        let right = match other {
+            RuntimeValue::Raw(value) => *value,
+            RuntimeValue::Rc(value) => **value,
+            RuntimeValue::RefCell(value) => *value.borrow(),
+        };
+
+        INTEGER_ADD(left, right)
     }
 }
 

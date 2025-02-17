@@ -14,9 +14,9 @@ pub fn add_bytes(_: &mut usize, instruction: &InstructionFields, thread: &mut Th
     let right_index = instruction.c_field as usize;
 
     let current_frame = thread.current_frame_mut();
-    let left_value = current_frame.get_byte_from_register(left_index);
-    let right_value = current_frame.get_byte_from_register(right_index);
-    let sum = left_value.add(right_value);
+    let left_value = current_frame.get_byte_from_register(left_index).clone();
+    let right_value = current_frame.get_byte_from_register(right_index).clone();
+    let sum = left_value.add(&right_value);
 
     current_frame
         .registers
@@ -72,13 +72,15 @@ pub fn add_floats(_: &mut usize, instruction: &InstructionFields, thread: &mut T
         current_frame.get_float_constant(left)
     } else {
         current_frame.get_float_from_register(left)
-    };
+    }
+    .clone();
     let right_value = if right_is_constant {
         current_frame.get_float_constant(right)
     } else {
         current_frame.get_float_from_register(right)
-    };
-    let sum = left_value.add(right_value);
+    }
+    .clone();
+    let sum = left_value.add(&right_value);
 
     current_frame
         .registers
@@ -100,13 +102,15 @@ pub fn add_integers(_: &mut usize, instruction: &InstructionFields, thread: &mut
         current_frame.get_integer_constant(left)
     } else {
         current_frame.get_integer_from_register(left)
-    };
+    }
+    .clone();
     let right_value = if right_is_constant {
         current_frame.get_integer_constant(right)
     } else {
         current_frame.get_integer_from_register(right)
-    };
-    let sum = left_value.add(right_value);
+    }
+    .clone();
+    let sum = left_value.add(&right_value);
 
     current_frame
         .registers
@@ -201,12 +205,13 @@ pub fn add_string_character(_: &mut usize, instruction: &InstructionFields, thre
 }
 
 pub fn optimized_add_integer(
+    _: &mut usize,
     instruction: &InstructionFields,
     thread: &mut Thread,
     cache: &mut Option<[RuntimeValue<i64>; 3]>,
 ) {
     if let Some([destination, left, right]) = cache {
-        trace!("ADD_INTEGERS_OPTIMIZED using cache");
+        trace!("OPTIMIZED_ADD using integer cache");
 
         let sum = left.add(right);
 

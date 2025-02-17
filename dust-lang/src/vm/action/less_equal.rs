@@ -139,9 +139,9 @@ pub fn optimized_less_equal_integers(
     ip: &mut usize,
     instruction: &InstructionFields,
     thread: &mut Thread,
-    cache: &mut Option<[RuntimeValue<i64>; 2]>,
+    cache: &mut Option<[RuntimeValue<i64>; 3]>,
 ) {
-    if let Some([left, right]) = cache {
+    if let Some([_, left, right]) = cache {
         trace!("LESS_INTEGERS_OPTIMIZED using cache");
 
         let is_less_than_or_equal = left <= right;
@@ -193,6 +193,6 @@ pub fn optimized_less_equal_integers(
             *ip += 1;
         }
 
-        *cache = Some([left_value, right_value]);
+        *cache = Some([RuntimeValue::Raw(0), left_value, right_value]);
     }
 }
