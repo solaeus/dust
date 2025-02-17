@@ -147,10 +147,10 @@ fn load_boolean_list() {
         positions: vec![Span(1, 5), Span(7, 12), Span(0, 13), Span(13, 13)],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![ConcreteValue::Boolean(true), ConcreteValue::Boolean(false)],
-        item_type: TypeCode::BOOLEAN,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::Boolean(true),
+        ConcreteValue::Boolean(false),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -170,10 +170,10 @@ fn load_byte_list() {
         positions: vec![Span(1, 5), Span(7, 11), Span(0, 12), Span(12, 12)],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![ConcreteValue::Byte(0x2a), ConcreteValue::Byte(0x42)],
-        item_type: TypeCode::BYTE,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::Byte(0x2a),
+        ConcreteValue::Byte(0x42),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -194,10 +194,10 @@ fn load_character_list() {
         character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
-        item_type: TypeCode::CHARACTER,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::Character('a'),
+        ConcreteValue::Character('b'),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -218,10 +218,10 @@ fn load_float_list() {
         float_constants: vec![42.42, 24.24],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![ConcreteValue::Float(42.42), ConcreteValue::Float(24.24)],
-        item_type: TypeCode::FLOAT,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::Float(42.42),
+        ConcreteValue::Float(24.24),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -243,14 +243,11 @@ fn load_integer_list() {
         integer_constants: vec![1, 2, 3],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![
-            ConcreteValue::Integer(1),
-            ConcreteValue::Integer(2),
-            ConcreteValue::Integer(3),
-        ],
-        item_type: TypeCode::INTEGER,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::Integer(1),
+        ConcreteValue::Integer(2),
+        ConcreteValue::Integer(3),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -271,13 +268,10 @@ fn load_string_list() {
         string_constants: vec![DustString::from("Hello"), DustString::from("World")],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![
-            ConcreteValue::String(DustString::from("Hello")),
-            ConcreteValue::String(DustString::from("World")),
-        ],
-        item_type: TypeCode::STRING,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::String(DustString::from("Hello")),
+        ConcreteValue::String(DustString::from("World")),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -311,19 +305,10 @@ fn load_nested_list() {
         integer_constants: vec![1, 2, 3, 4],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![
-            ConcreteValue::List {
-                items: vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
-                item_type: TypeCode::INTEGER,
-            },
-            ConcreteValue::List {
-                items: vec![ConcreteValue::Integer(3), ConcreteValue::Integer(4)],
-                item_type: TypeCode::INTEGER,
-            },
-        ],
-        item_type: TypeCode::LIST,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::List(vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)]),
+        ConcreteValue::List(vec![ConcreteValue::Integer(3), ConcreteValue::Integer(4)]),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -377,37 +362,16 @@ fn load_deeply_nested_list() {
         integer_constants: vec![1, 2, 3, 4, 5, 6, 7, 8],
         ..Chunk::default()
     };
-    let return_value = Some(Value::Concrete(ConcreteValue::List {
-        items: vec![
-            ConcreteValue::List {
-                items: vec![
-                    ConcreteValue::List {
-                        items: vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)],
-                        item_type: TypeCode::INTEGER,
-                    },
-                    ConcreteValue::List {
-                        items: vec![ConcreteValue::Integer(3), ConcreteValue::Integer(4)],
-                        item_type: TypeCode::INTEGER,
-                    },
-                ],
-                item_type: TypeCode::LIST,
-            },
-            ConcreteValue::List {
-                items: vec![
-                    ConcreteValue::List {
-                        items: vec![ConcreteValue::Integer(5), ConcreteValue::Integer(6)],
-                        item_type: TypeCode::INTEGER,
-                    },
-                    ConcreteValue::List {
-                        items: vec![ConcreteValue::Integer(7), ConcreteValue::Integer(8)],
-                        item_type: TypeCode::INTEGER,
-                    },
-                ],
-                item_type: TypeCode::LIST,
-            },
-        ],
-        item_type: TypeCode::LIST,
-    }));
+    let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
+        ConcreteValue::List(vec![
+            ConcreteValue::List(vec![ConcreteValue::Integer(1), ConcreteValue::Integer(2)]),
+            ConcreteValue::List(vec![ConcreteValue::Integer(3), ConcreteValue::Integer(4)]),
+        ]),
+        ConcreteValue::List(vec![
+            ConcreteValue::List(vec![ConcreteValue::Integer(5), ConcreteValue::Integer(6)]),
+            ConcreteValue::List(vec![ConcreteValue::Integer(7), ConcreteValue::Integer(8)]),
+        ]),
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

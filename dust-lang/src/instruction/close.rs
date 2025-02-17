@@ -10,8 +10,8 @@ pub struct Close {
     pub r#type: TypeCode,
 }
 
-impl From<Instruction> for Close {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Close {
+    fn from(instruction: &Instruction) -> Self {
         Close {
             from: instruction.b_field(),
             to: instruction.c_field(),

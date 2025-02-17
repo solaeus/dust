@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, FunctionType, Instruction, Operand, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
+    Value,
 };
 
 #[test]
@@ -78,7 +78,7 @@ fn divide_floats() {
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 10), Span(10, 10)],
-        constants: vec![ConcreteValue::Float(1.0), ConcreteValue::Float(0.25)],
+        float_constants: vec![1.0, 0.25],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(4.0));
@@ -106,11 +106,7 @@ fn divide_many_floats() {
             Instruction::r#return(true, 1, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 10), Span(0, 16), Span(16, 16)],
-        constants: vec![
-            ConcreteValue::Float(1.0),
-            ConcreteValue::Float(0.25),
-            ConcreteValue::Float(0.5),
-        ],
+        float_constants: vec![1.0, 0.25, 0.5],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(8.0));
@@ -133,7 +129,7 @@ fn divide_integers() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(2)],
+        integer_constants: vec![10, 2],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(5));
@@ -161,7 +157,7 @@ fn divide_many_integers() {
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(0, 10), Span(10, 10)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(2)],
+        integer_constants: vec![10, 2],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(2));

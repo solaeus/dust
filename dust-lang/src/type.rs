@@ -13,6 +13,7 @@ use crate::instruction::TypeCode;
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "Type", content = "Value")]
 pub enum Type {
+    Any,
     Boolean,
     Byte,
     Character,
@@ -168,6 +169,7 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Byte => write!(f, "byte"),
             Type::Character => write!(f, "char"),
@@ -231,6 +233,8 @@ impl PartialOrd for Type {
 impl Ord for Type {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
+            (Type::Any, Type::Any) => Ordering::Equal,
+            (Type::Any, _) => Ordering::Greater,
             (Type::Boolean, Type::Boolean) => Ordering::Equal,
             (Type::Boolean, _) => Ordering::Greater,
             (Type::Byte, Type::Byte) => Ordering::Equal,

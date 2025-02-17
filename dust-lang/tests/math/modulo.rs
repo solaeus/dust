@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, FunctionType, Instruction, Operand, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
+    Value,
 };
 
 #[test]
@@ -78,7 +78,7 @@ fn modulo_integers() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(3)],
+        integer_constants: vec![10, 3],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(1));
@@ -106,11 +106,7 @@ fn modulo_many_integers() {
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(0, 10), Span(10, 10)],
-        constants: vec![
-            ConcreteValue::Integer(10),
-            ConcreteValue::Integer(5),
-            ConcreteValue::Integer(3),
-        ],
+        integer_constants: vec![10, 5, 3],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(0));

@@ -3,7 +3,7 @@
 mod call_frame;
 mod thread;
 
-use std::{rc::Rc, thread::Builder};
+use std::{sync::Arc, thread::Builder};
 
 pub use call_frame::{CallFrame, Pointer, Register, RegisterTable};
 pub use thread::Thread;
@@ -32,6 +32,7 @@ impl Vm {
     pub fn run(self) -> Option<Value> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
+
         let thread_name = self
             .main_chunk
             .name
@@ -43,7 +44,7 @@ impl Vm {
         Builder::new()
             .name(thread_name)
             .spawn(move || {
-                let main_chunk = Rc::new(self.main_chunk);
+                let main_chunk = Arc::new(self.main_chunk);
                 let main_thread = Thread::new(main_chunk);
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);

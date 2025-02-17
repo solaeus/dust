@@ -12,7 +12,7 @@ impl Operation {
     pub const NO_OP: Operation = Operation(0);
 
     // Stack manipulation
-    pub const POINT: Operation = Operation(1);
+    pub const MOVE: Operation = Operation(1);
     pub const CLOSE: Operation = Operation(2);
 
     // Loaders
@@ -55,7 +55,7 @@ impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
             Self::NO_OP => "NO_OP",
-            Self::POINT => "POINT",
+            Self::MOVE => "MOVE",
             Self::CLOSE => "CLOSE",
             Self::LOAD_ENCODED => "LOAD_ENCODED",
             Self::LOAD_CONSTANT => "LOAD_CONSTANT",

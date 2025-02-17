@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, FunctionType, Instruction, Operand, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
+    Value,
 };
 
 #[test]
@@ -78,7 +78,7 @@ fn add_floats() {
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 10), Span(10, 10)],
-        constants: vec![ConcreteValue::Float(0.5), ConcreteValue::Float(0.25)],
+        float_constants: vec![0.5, 0.25],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(0.25));
@@ -106,7 +106,7 @@ fn add_many_floats() {
             Instruction::r#return(true, 1, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 10), Span(0, 17), Span(17, 17)],
-        constants: vec![ConcreteValue::Float(0.5), ConcreteValue::Float(0.25)],
+        float_constants: vec![0.5, 0.25],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(0.0));
@@ -129,7 +129,7 @@ fn subtract_integers() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(5)],
+        integer_constants: vec![10, 5],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(5));
@@ -157,7 +157,7 @@ fn subtract_many_integers() {
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(0, 10), Span(10, 10)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(5)],
+        integer_constants: vec![10, 5],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(0));

@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, FunctionType, Instruction, Operand, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
+    Value,
 };
 
 #[test]
@@ -78,7 +78,7 @@ fn multiply_floats() {
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 9), Span(9, 9)],
-        constants: vec![ConcreteValue::Float(0.5), ConcreteValue::Float(2.0)],
+        float_constants: vec![0.5, 2.0],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(1.0));
@@ -106,7 +106,7 @@ fn multiply_many_floats() {
             Instruction::r#return(true, 1, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 9), Span(0, 15), Span(15, 15)],
-        constants: vec![ConcreteValue::Float(0.5), ConcreteValue::Float(2.0)],
+        float_constants: vec![0.5, 2.0],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(0.5));
@@ -129,7 +129,7 @@ fn multiply_integers() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(5)],
+        integer_constants: vec![10, 5],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(50));
@@ -157,11 +157,7 @@ fn multiply_many_integers() {
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(0, 10), Span(10, 10)],
-        constants: vec![
-            ConcreteValue::Integer(10),
-            ConcreteValue::Integer(5),
-            ConcreteValue::Integer(2),
-        ],
+        integer_constants: vec![10, 5, 2],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(100));

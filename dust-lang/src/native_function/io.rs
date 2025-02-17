@@ -27,7 +27,11 @@ pub fn write(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let mut stdout = stdout();
 
     for register_index in argument_range {
-        let string = current_frame.get_string_from_register(register_index);
+        let string = current_frame
+            .registers
+            .strings
+            .get(register_index)
+            .as_value();
         let _ = stdout.write(string.as_bytes());
     }
 
@@ -39,7 +43,11 @@ pub fn write_line(data: &mut Thread, _: usize, argument_range: Range<usize>) {
     let mut stdout = stdout().lock();
 
     for register_index in argument_range {
-        let string = current_frame.get_string_from_register(register_index);
+        let string = current_frame
+            .registers
+            .strings
+            .get(register_index)
+            .as_value();
         let _ = stdout.write(string.as_bytes());
     }
 

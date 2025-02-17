@@ -14,17 +14,21 @@ pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<u
             let register_index = argument_range_iter
                 .next()
                 .unwrap_or_else(|| panic!("No argument was passed to \"random_int\""));
-            let integer = current_frame.get_integer_from_register(register_index);
+            let integer = current_frame
+                .registers
+                .integers
+                .get(register_index)
+                .copy_value();
 
-            if min.is_none() {
-                min = Some(integer);
-            } else {
+            if let Some(min) = min {
                 break (min, integer);
+            } else {
+                min = Some(integer);
             }
         }
     };
 
-    let random_integer = rand::thread_rng().gen_range(min.unwrap()..max);
+    let random_integer = rand::thread_rng().gen_range(min..max);
 
     current_frame
         .registers

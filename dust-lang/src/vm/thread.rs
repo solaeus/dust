@@ -1,21 +1,23 @@
-use std::{rc::Rc, thread::JoinHandle};
+use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::info;
 
 use crate::{
-    instruction::TypeCode, vm::CallFrame, Chunk, ConcreteValue, DustString, Operation, Span, Value,
+    instruction::TypeCode,
+    vm::{CallFrame, Pointer},
+    AbstractList, Chunk, DustString, Operation, Span, Value,
 };
 
 pub struct Thread {
-    chunk: Rc<Chunk>,
+    chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl Thread {
-    pub fn new(chunk: Rc<Chunk>) -> Self {
+    pub fn new(chunk: Arc<Chunk>) -> Self {
         let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_call = CallFrame::new(Rc::clone(&chunk), 0);
+        let main_call = CallFrame::new(Arc::clone(&chunk), 0);
 
         call_stack.push(main_call);
 
@@ -52,6 +54,168 @@ impl Thread {
             info!("Run instruction {}", instruction.operation());
 
             match instruction.operation() {
+                Operation::MOVE => {
+                    let source = instruction.b_field() as usize;
+                    let destination = instruction.a_field() as usize;
+                    let source_type = instruction.b_type();
+
+                    match source_type {
+                        TypeCode::BOOLEAN => {
+                            let value = current_frame.registers.booleans.get(source).copy_value();
+
+                            current_frame
+                                .registers
+                                .booleans
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::BYTE => {
+                            let value = current_frame.registers.bytes.get(source).copy_value();
+
+                            current_frame
+                                .registers
+                                .bytes
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::CHARACTER => {
+                            let value = current_frame.registers.characters.get(source).copy_value();
+
+                            current_frame
+                                .registers
+                                .characters
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::FLOAT => {
+                            let value = current_frame.registers.floats.get(source).copy_value();
+
+                            current_frame
+                                .registers
+                                .floats
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::INTEGER => {
+                            let value = current_frame.registers.integers.get(source).copy_value();
+
+                            current_frame
+                                .registers
+                                .integers
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::STRING => {
+                            let value = current_frame.registers.strings.get(source).clone_value();
+
+                            current_frame
+                                .registers
+                                .strings
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        TypeCode::LIST => {
+                            let value = current_frame.registers.lists.get(source).clone_value();
+
+                            current_frame
+                                .registers
+                                .lists
+                                .get_mut(destination)
+                                .set(value);
+                        }
+                        _ => todo!(),
+                    }
+                }
+                Operation::CLOSE => {
+                    let from = instruction.b_field() as usize;
+                    let to = instruction.c_field() as usize;
+                    let r#type = instruction.b_type();
+
+                    match r#type {
+                        TypeCode::BOOLEAN => {
+                            let registers =
+                                current_frame.registers.booleans.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::BYTE => {
+                            let registers = current_frame.registers.bytes.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::CHARACTER => {
+                            let registers =
+                                current_frame.registers.characters.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::FLOAT => {
+                            let registers = current_frame.registers.floats.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::INTEGER => {
+                            let registers =
+                                current_frame.registers.integers.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::STRING => {
+                            let registers = current_frame.registers.strings.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        TypeCode::LIST => {
+                            let registers = current_frame.registers.lists.get_many_mut(from..=to);
+
+                            for register in registers {
+                                register.close();
+                            }
+                        }
+                        _ => unreachable!("Invalid CLOSE operation"),
+                    }
+                }
+                Operation::LOAD_ENCODED => {
+                    let destination = instruction.a_field() as usize;
+                    let value_type = instruction.b_type();
+                    let jump_next = instruction.c_field() != 0;
+
+                    match value_type {
+                        TypeCode::BOOLEAN => {
+                            let boolean = instruction.b_field() != 0;
+
+                            current_frame
+                                .registers
+                                .booleans
+                                .set_to_new_register(destination, boolean);
+                        }
+                        TypeCode::BYTE => {
+                            let byte = instruction.b_field() as u8;
+
+                            current_frame
+                                .registers
+                                .bytes
+                                .set_to_new_register(destination, byte);
+                        }
+                        _ => unreachable!(),
+                    }
+
+                    if jump_next {
+                        current_frame.ip += 1;
+                    }
+                }
                 Operation::LOAD_CONSTANT => {
                     let destination = instruction.a_field() as usize;
                     let constant_index = instruction.b_field() as usize;
@@ -102,6 +266,139 @@ impl Thread {
                         current_frame.ip += 1;
                     }
                 }
+                Operation::LOAD_LIST => {
+                    let destination = instruction.a_field() as usize;
+                    let start_register = instruction.b_field() as usize;
+                    let item_type = instruction.b_type();
+                    let end_register = instruction.c_field() as usize;
+                    let jump_next = instruction.d_field();
+
+                    let mut item_pointers = Vec::with_capacity(end_register - start_register + 1);
+
+                    match item_type {
+                        TypeCode::BOOLEAN => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.booleans.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::BYTE => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.bytes.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::CHARACTER => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.characters.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::FLOAT => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.floats.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::INTEGER => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.integers.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::STRING => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.strings.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        TypeCode::LIST => {
+                            for register_index in start_register..=end_register {
+                                let register_is_closed =
+                                    current_frame.registers.lists.is_closed(register_index);
+
+                                if register_is_closed {
+                                    continue;
+                                }
+
+                                item_pointers.push(Pointer::Register(register_index));
+                            }
+                        }
+                        _ => unreachable!("Invalid LOAD_LIST operation"),
+                    }
+
+                    let list = AbstractList {
+                        item_type,
+                        item_pointers,
+                    };
+
+                    current_frame.registers.lists.get_mut(destination).set(list);
+
+                    if jump_next {
+                        current_frame.ip += 1;
+                    }
+                }
+                Operation::LOAD_FUNCTION => {
+                    let destination = instruction.a_field() as usize;
+                    let prototype_index = instruction.b_field() as usize;
+                    let jump_next = instruction.c_field() != 0;
+                    let prototype = if cfg!(debug_assertions) {
+                        current_frame.chunk.prototypes.get(prototype_index).unwrap()
+                    } else {
+                        unsafe {
+                            current_frame
+                                .chunk
+                                .prototypes
+                                .get_unchecked(prototype_index)
+                        }
+                    };
+                    let function = prototype.as_function();
+
+                    current_frame
+                        .registers
+                        .functions
+                        .set_to_new_register(destination, function);
+
+                    if jump_next {
+                        current_frame.ip += 1;
+                    }
+                }
                 Operation::LESS => match (instruction.b_type(), instruction.c_type()) {
                     (TypeCode::INTEGER, TypeCode::INTEGER) => {
                         let left = instruction.b_field() as usize;
@@ -113,12 +410,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            current_frame.get_integer_from_register(left)
+                            current_frame.registers.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            current_frame.get_integer_from_register(right)
+                            current_frame.registers.integers.get(right).copy_value()
                         };
                         let is_less_than = left_value < right_value;
 
@@ -134,8 +431,9 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = current_frame.get_byte_from_register(left_index);
-                        let right_value = current_frame.get_byte_from_register(right_index);
+                        let left_value = current_frame.registers.bytes.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.bytes.get(right_index).copy_value();
                         let sum = left_value + right_value;
 
                         current_frame
@@ -153,12 +451,20 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left_index)
                         } else {
-                            current_frame.get_character_from_register(left_index)
+                            current_frame
+                                .registers
+                                .characters
+                                .get(left_index)
+                                .copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right_index)
                         } else {
-                            current_frame.get_character_from_register(right_index)
+                            current_frame
+                                .registers
+                                .characters
+                                .get(right_index)
+                                .copy_value()
                         };
                         let concatenated = {
                             let mut concatenated = DustString::from(String::with_capacity(2));
@@ -184,12 +490,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left_index)
                         } else {
-                            current_frame.get_character_from_register(left_index)
+                            current_frame
+                                .registers
+                                .characters
+                                .get(left_index)
+                                .copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right_index)
                         } else {
-                            current_frame.get_string_from_register(right_index)
+                            current_frame.registers.strings.get(right_index).as_value()
                         };
                         let concatenated = DustString::from(format!("{left_value}{right_value}"));
 
@@ -203,8 +513,10 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = current_frame.get_float_from_register(left_index);
-                        let right_value = current_frame.get_float_from_register(right_index);
+                        let left_value =
+                            current_frame.registers.floats.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.floats.get(right_index).copy_value();
                         let sum = left_value + right_value;
 
                         current_frame
@@ -222,12 +534,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            current_frame.get_integer_from_register(left)
+                            current_frame.registers.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            current_frame.get_integer_from_register(right)
+                            current_frame.registers.integers.get(right).copy_value()
                         };
                         let sum = left_value + right_value;
 
@@ -246,12 +558,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left)
                         } else {
-                            current_frame.get_string_from_register(left)
+                            current_frame.registers.strings.get(left).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right)
                         } else {
-                            current_frame.get_string_from_register(right)
+                            current_frame.registers.strings.get(right).as_value()
                         };
                         let concatenated = DustString::from(format!("{left_value}{right_value}"));
 
@@ -260,7 +572,7 @@ impl Thread {
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
-                    _ => todo!(),
+                    _ => unreachable!("Invalid ADD operation"),
                 },
                 Operation::JUMP => {
                     let offset = instruction.b_field() as usize;
@@ -280,112 +592,69 @@ impl Thread {
                     if should_return_value {
                         match return_type {
                             TypeCode::BOOLEAN => {
-                                let return_value =
-                                    current_frame.get_boolean_from_register(return_register);
+                                let return_value = current_frame
+                                    .registers
+                                    .booleans
+                                    .get(return_register)
+                                    .copy_value();
 
                                 return Some(Value::boolean(return_value));
                             }
                             TypeCode::BYTE => {
-                                let return_value =
-                                    current_frame.get_byte_from_register(return_register);
+                                let return_value = current_frame
+                                    .registers
+                                    .bytes
+                                    .get(return_register)
+                                    .copy_value();
 
                                 return Some(Value::byte(return_value));
                             }
                             TypeCode::CHARACTER => {
-                                let return_value =
-                                    current_frame.get_character_from_register(return_register);
+                                let return_value = current_frame
+                                    .registers
+                                    .characters
+                                    .get(return_register)
+                                    .copy_value();
 
                                 return Some(Value::character(return_value));
                             }
                             TypeCode::FLOAT => {
-                                let return_value =
-                                    current_frame.get_float_from_register(return_register);
+                                let return_value = current_frame
+                                    .registers
+                                    .floats
+                                    .get(return_register)
+                                    .copy_value();
 
                                 return Some(Value::float(return_value));
                             }
                             TypeCode::INTEGER => {
-                                let return_value =
-                                    current_frame.get_integer_from_register(return_register);
+                                let return_value = current_frame
+                                    .registers
+                                    .integers
+                                    .get(return_register)
+                                    .copy_value();
 
                                 return Some(Value::integer(return_value));
                             }
                             TypeCode::STRING => {
                                 let return_value = current_frame
-                                    .get_string_from_register(return_register)
-                                    .clone();
+                                    .registers
+                                    .strings
+                                    .get(return_register)
+                                    .clone_value();
 
                                 return Some(Value::string(return_value));
                             }
                             TypeCode::LIST => {
-                                let abstract_list =
-                                    current_frame.get_list_from_register(return_register);
+                                let concrete_list = current_frame
+                                    .registers
+                                    .lists
+                                    .get(return_register)
+                                    .as_value()
+                                    .clone()
+                                    .to_concrete(&self);
 
-                                let mut concrete_list =
-                                    Vec::with_capacity(abstract_list.item_pointers.len());
-
-                                match abstract_list.item_type {
-                                    TypeCode::BOOLEAN => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let boolean =
-                                                current_frame.get_boolean_from_pointer(&pointer);
-                                            let value = ConcreteValue::Boolean(boolean);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    TypeCode::BYTE => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let byte =
-                                                current_frame.get_byte_from_pointer(&pointer);
-                                            let value = ConcreteValue::Byte(byte);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    TypeCode::CHARACTER => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let character =
-                                                current_frame.get_character_from_pointer(&pointer);
-                                            let value = ConcreteValue::Character(character);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    TypeCode::FLOAT => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let float =
-                                                current_frame.get_float_from_pointer(&pointer);
-                                            let value = ConcreteValue::Float(float);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    TypeCode::INTEGER => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let integer =
-                                                current_frame.get_integer_from_pointer(&pointer);
-                                            let value = ConcreteValue::Integer(integer);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    TypeCode::STRING => {
-                                        for pointer in &abstract_list.item_pointers {
-                                            let string = current_frame
-                                                .get_string_from_pointer(pointer)
-                                                .clone();
-                                            let value = ConcreteValue::String(string);
-
-                                            concrete_list.push(value);
-                                        }
-                                    }
-                                    _ => todo!(),
-                                }
-
-                                return Some(Value::Concrete(ConcreteValue::list(
-                                    concrete_list,
-                                    abstract_list.item_type,
-                                )));
+                                return Some(Value::Concrete(concrete_list));
                             }
                             _ => unreachable!(),
                         }

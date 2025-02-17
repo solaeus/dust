@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 use tracing::trace;
 
-use crate::{Type, Value, instruction::TypeCode};
+use crate::{Type, Value};
 
 use super::RangeValue;
 
@@ -18,10 +18,7 @@ pub enum ConcreteValue {
     Character(char),
     Float(f64),
     Integer(i64),
-    List {
-        items: Vec<ConcreteValue>,
-        item_type: TypeCode,
-    },
+    List(Vec<ConcreteValue>),
     Range(RangeValue),
     String(DustString),
 }
@@ -31,11 +28,8 @@ impl ConcreteValue {
         Value::Concrete(self)
     }
 
-    pub fn list<T: Into<Vec<ConcreteValue>>>(into_items: T, type_code: TypeCode) -> Self {
-        ConcreteValue::List {
-            items: into_items.into(),
-            item_type: type_code,
-        }
+    pub fn list<T: Into<Vec<ConcreteValue>>>(into_items: T) -> Self {
+        ConcreteValue::List(into_items.into())
     }
 
     pub fn string<T: Into<SmartString<LazyCompact>>>(to_string: T) -> Self {
@@ -91,8 +85,8 @@ impl ConcreteValue {
     }
 
     pub fn as_list(&self) -> Option<&Vec<ConcreteValue>> {
-        if let ConcreteValue::List { items, .. } = self {
-            Some(items)
+        if let ConcreteValue::List(list) = self {
+            Some(list)
         } else {
             None
         }
@@ -117,7 +111,7 @@ impl ConcreteValue {
             ConcreteValue::Character(_) => Type::Character,
             ConcreteValue::Float(_) => Type::Float,
             ConcreteValue::Integer(_) => Type::Integer,
-            ConcreteValue::List { item_type, .. } => Type::List(*item_type),
+            ConcreteValue::List(items) => items.first().map_or(Type::Any, |item| item.r#type()),
             ConcreteValue::Range(range) => range.r#type(),
             ConcreteValue::String(_) => Type::String,
         }
@@ -134,10 +128,7 @@ impl Clone for ConcreteValue {
             ConcreteValue::Character(character) => ConcreteValue::Character(*character),
             ConcreteValue::Float(float) => ConcreteValue::Float(*float),
             ConcreteValue::Integer(integer) => ConcreteValue::Integer(*integer),
-            ConcreteValue::List { items, item_type } => ConcreteValue::List {
-                items: items.clone(),
-                item_type: *item_type,
-            },
+            ConcreteValue::List(items) => ConcreteValue::List(items.clone()),
             ConcreteValue::Range(range) => ConcreteValue::Range(*range),
             ConcreteValue::String(string) => ConcreteValue::String(string.clone()),
         }
@@ -160,7 +151,7 @@ impl Display for ConcreteValue {
                 Ok(())
             }
             ConcreteValue::Integer(integer) => write!(f, "{integer}"),
-            ConcreteValue::List { items, .. } => {
+            ConcreteValue::List(items) => {
                 write!(f, "[")?;
 
                 for (index, item) in items.iter().enumerate() {

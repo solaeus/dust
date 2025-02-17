@@ -4,26 +4,26 @@ use crate::{Instruction, Operation};
 
 use super::{InstructionFields, Operand, TypeCode};
 
-pub struct Point {
+pub struct Move {
     pub destination: u16,
-    pub to: Operand,
+    pub operand: Operand,
 }
 
-impl From<Instruction> for Point {
-    fn from(instruction: Instruction) -> Self {
-        Point {
+impl From<&Instruction> for Move {
+    fn from(instruction: &Instruction) -> Self {
+        Move {
             destination: instruction.a_field(),
-            to: instruction.b_as_operand(),
+            operand: instruction.b_as_operand(),
         }
     }
 }
 
-impl From<Point> for Instruction {
-    fn from(r#move: Point) -> Self {
-        let operation = Operation::POINT;
+impl From<Move> for Instruction {
+    fn from(r#move: Move) -> Self {
+        let operation = Operation::MOVE;
         let a_field = r#move.destination;
-        let (b_field, b_is_constant) = r#move.to.as_index_and_constant_flag();
-        let b_type = r#move.to.as_type();
+        let (b_field, b_is_constant) = r#move.operand.as_index_and_constant_flag();
+        let b_type = r#move.operand.as_type();
 
         InstructionFields {
             operation,
@@ -37,9 +37,12 @@ impl From<Point> for Instruction {
     }
 }
 
-impl Display for Point {
+impl Display for Move {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Point { destination, to } = self;
+        let Move {
+            destination,
+            operand: to,
+        } = self;
 
         match to.as_type() {
             TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination} -> {to}"),
@@ -50,7 +53,7 @@ impl Display for Point {
             TypeCode::STRING => write!(f, "R_STR_{destination} -> {to}"),
             unsupported => write!(
                 f,
-                "Unsupported type code: {unsupported} for Point instruction"
+                "Unsupported type code: {unsupported} for MOVE instruction"
             ),
         }
     }

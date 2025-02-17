@@ -30,7 +30,7 @@ use type_checks::{check_math_type, check_math_types};
 use std::{mem::replace, sync::Arc};
 
 use crate::{
-    instruction::{Jump, Point, Return, TypeCode},
+    instruction::{Jump, Move, Return, TypeCode},
     Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
     Operation, Scope, Span, Token, TokenKind, Type,
 };
@@ -876,8 +876,8 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
-        let left_is_mutable_local = if left_instruction.operation() == Operation::POINT {
-            let Point { to, .. } = Point::from(left_instruction);
+        let left_is_mutable_local = if left_instruction.operation() == Operation::MOVE {
+            let Move { operand: to, .. } = Move::from(&left_instruction);
 
             self.locals
                 .get(to.index() as usize)
@@ -1084,8 +1084,8 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let operand_register = if left_instruction.operation() == Operation::POINT {
-            let Point { to, .. } = Point::from(left_instruction);
+        let operand_register = if left_instruction.operation() == Operation::MOVE {
+            let Move { operand: to, .. } = Move::from(&left_instruction);
             let local = self.get_local(to.index())?;
 
             local.register_index
@@ -1239,7 +1239,7 @@ impl<'src> Compiler<'src> {
             Type::String => self.next_string_register(),
             _ => todo!(),
         };
-        let point = Instruction::point(
+        let point = Instruction::r#move(
             destination,
             Operand::Register(local_register_index, local_type.type_code()),
         );
@@ -1756,20 +1756,21 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if matches!(self.get_last_operation(), Some(Operation::POINT)) {
-            let Point { to, .. } = Point::from(self.instructions.last().unwrap().0);
+        if matches!(self.get_last_operation(), Some(Operation::MOVE)) {
+            let last_instruction = self.instructions.last().unwrap().0;
+            let Move { operand, .. } = Move::from(&last_instruction);
 
-            let (point, r#type, position) = self.instructions.pop().unwrap();
+            let (r#move, r#type, position) = self.instructions.pop().unwrap();
             let (should_return, target_register) = if r#type == Type::None {
                 (false, 0)
             } else {
-                (true, to.index())
+                (true, operand.index())
             };
             let r#return =
                 Instruction::r#return(should_return, target_register, r#type.type_code());
 
             if !should_return {
-                self.instructions.push((point, r#type.clone(), position));
+                self.instructions.push((r#move, r#type.clone(), position));
             }
 
             self.emit_instruction(r#return, r#type, self.current_position);

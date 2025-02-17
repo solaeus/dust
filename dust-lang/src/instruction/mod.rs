@@ -93,11 +93,11 @@ mod load_function;
 mod load_list;
 mod load_self;
 mod modulo;
+mod r#move;
 mod multiply;
 mod negate;
 mod not;
 mod operation;
-mod point;
 mod r#return;
 mod subtract;
 mod test;
@@ -123,7 +123,7 @@ pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
 pub use operation::Operation;
-pub use point::Point;
+pub use r#move::Move;
 pub use r#return::Return;
 pub use subtract::Subtract;
 pub use test::Test;
@@ -183,7 +183,7 @@ impl From<&Instruction> for InstructionFields {
 impl Default for InstructionFields {
     fn default() -> Self {
         InstructionFields {
-            operation: Operation::POINT,
+            operation: Operation::MOVE,
             a_field: 0,
             b_field: 0,
             c_field: 0,
@@ -277,8 +277,8 @@ impl Instruction {
 
     pub fn as_operand(&self) -> Operand {
         match self.operation() {
-            Operation::POINT => {
-                let Point { to, .. } = Point::from(*self);
+            Operation::MOVE => {
+                let Move { operand: to, .. } = Move::from(self);
 
                 Operand::Register(to.index(), to.as_type())
             }
@@ -370,8 +370,11 @@ impl Instruction {
         Instruction(Operation::NO_OP.0 as u64)
     }
 
-    pub fn point(destination: u16, to: Operand) -> Instruction {
-        Instruction::from(Point { destination, to })
+    pub fn r#move(destination: u16, to: Operand) -> Instruction {
+        Instruction::from(Move {
+            destination,
+            operand: to,
+        })
     }
 
     pub fn close(from: u16, to: u16, r#type: TypeCode) -> Instruction {
@@ -605,7 +608,7 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::POINT
+            Operation::MOVE
             | Operation::LOAD_ENCODED
             | Operation::LOAD_CONSTANT
             | Operation::LOAD_FUNCTION
@@ -640,8 +643,8 @@ impl Instruction {
         let operation = self.operation();
 
         match operation {
-            Operation::POINT => Point::from(*self).to_string(),
-            Operation::CLOSE => Close::from(*self).to_string(),
+            Operation::MOVE => Move::from(self).to_string(),
+            Operation::CLOSE => Close::from(self).to_string(),
             Operation::LOAD_ENCODED => LoadEncoded::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
