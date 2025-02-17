@@ -1,14 +1,18 @@
 use tracing::trace;
 
-use crate::{
-    instruction::InstructionFields,
-    vm::{RuntimeValue, Thread},
-};
+use crate::{vm::Thread, Instruction};
 
-pub fn less_booleans(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left_index = instruction.b_field as usize;
-    let right_index = instruction.c_field as usize;
-    let comparator = instruction.d_field;
+use super::Cache;
+
+pub fn less_booleans(
+    ip: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let left_index = instruction.b_field() as usize;
+    let right_index = instruction.c_field() as usize;
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = current_frame.get_boolean_from_register(left_index);
@@ -20,10 +24,10 @@ pub fn less_booleans(ip: &mut usize, instruction: &InstructionFields, thread: &m
     }
 }
 
-pub fn less_bytes(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left = instruction.b_field as usize;
-    let right = instruction.c_field as usize;
-    let comparator = instruction.d_field;
+pub fn less_bytes(ip: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let left = instruction.b_field() as usize;
+    let right = instruction.c_field() as usize;
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = current_frame.get_byte_from_register(left);
@@ -35,12 +39,17 @@ pub fn less_bytes(ip: &mut usize, instruction: &InstructionFields, thread: &mut 
     }
 }
 
-pub fn less_characters(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left_index = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right_index = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
-    let comparator = instruction.d_field;
+pub fn less_characters(
+    ip: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let left_index = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right_index = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -60,12 +69,12 @@ pub fn less_characters(ip: &mut usize, instruction: &InstructionFields, thread: 
     }
 }
 
-pub fn less_floats(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
-    let comparator = instruction.d_field;
+pub fn less_floats(ip: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -85,12 +94,17 @@ pub fn less_floats(ip: &mut usize, instruction: &InstructionFields, thread: &mut
     }
 }
 
-pub fn less_integers(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
-    let comparator = instruction.d_field;
+pub fn less_integers(
+    ip: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -110,12 +124,12 @@ pub fn less_integers(ip: &mut usize, instruction: &InstructionFields, thread: &m
     }
 }
 
-pub fn less_strings(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
-    let comparator = instruction.d_field;
+pub fn less_strings(ip: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
+    let comparator = instruction.d_field();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -137,11 +151,11 @@ pub fn less_strings(ip: &mut usize, instruction: &InstructionFields, thread: &mu
 
 pub fn optimized_less_integers(
     ip: &mut usize,
-    instruction: &InstructionFields,
+    instruction: &Instruction,
     thread: &mut Thread,
-    cache: &mut Option<[RuntimeValue<i64>; 3]>,
+    cache: &mut Cache,
 ) {
-    if let Some([_, left, right]) = cache {
+    if let Cache::IntegerComparison([left, right]) = cache {
         trace!("OPTIMIZED_LESS using integer cache");
 
         let is_less_than = left < right;
@@ -150,11 +164,11 @@ pub fn optimized_less_integers(
             *ip += 1;
         }
     } else {
-        let left_index = instruction.b_field as usize;
-        let left_is_constant = instruction.b_is_constant;
-        let right_index = instruction.c_field as usize;
-        let right_is_constant = instruction.c_is_constant;
-        let comparator = instruction.d_field;
+        let left_index = instruction.b_field() as usize;
+        let left_is_constant = instruction.b_is_constant();
+        let right_index = instruction.c_field() as usize;
+        let right_is_constant = instruction.c_is_constant();
+        let comparator = instruction.d_field();
 
         let current_frame = thread.current_frame_mut();
         let left_value = if left_is_constant {
@@ -193,6 +207,6 @@ pub fn optimized_less_integers(
             *ip += 1;
         }
 
-        *cache = Some([RuntimeValue::Raw(0), left_value, right_value]);
+        *cache = Cache::IntegerComparison([left_value, right_value]);
     }
 }

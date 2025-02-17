@@ -3,15 +3,16 @@ use std::ops::Add;
 use tracing::trace;
 
 use crate::{
-    instruction::InstructionFields,
     vm::{call_frame::RuntimeValue, Thread},
-    DustString,
+    DustString, Instruction,
 };
 
-pub fn add_bytes(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination_index = instruction.a_field as usize;
-    let left_index = instruction.b_field as usize;
-    let right_index = instruction.c_field as usize;
+use super::Cache;
+
+pub fn add_bytes(_: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let destination_index = instruction.a_field() as usize;
+    let left_index = instruction.b_field() as usize;
+    let right_index = instruction.c_field() as usize;
 
     let current_frame = thread.current_frame_mut();
     let left_value = current_frame.get_byte_from_register(left_index).clone();
@@ -26,12 +27,17 @@ pub fn add_bytes(_: &mut usize, instruction: &InstructionFields, thread: &mut Th
         .set_inner(sum);
 }
 
-pub fn add_characters(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination_index = instruction.a_field as usize;
-    let left_index = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_characters(
+    _: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let destination_index = instruction.a_field() as usize;
+    let left_index = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -60,12 +66,12 @@ pub fn add_characters(_: &mut usize, instruction: &InstructionFields, thread: &m
         .set(concatenated);
 }
 
-pub fn add_floats(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_floats(_: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let destination = instruction.a_field() as usize;
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -90,12 +96,12 @@ pub fn add_floats(_: &mut usize, instruction: &InstructionFields, thread: &mut T
         .set_inner(sum);
 }
 
-pub fn add_integers(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_integers(_: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let destination = instruction.a_field() as usize;
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -120,12 +126,12 @@ pub fn add_integers(_: &mut usize, instruction: &InstructionFields, thread: &mut
         .set_inner(sum);
 }
 
-pub fn add_strings(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_strings(_: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &mut Cache) {
+    let destination = instruction.a_field() as usize;
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -148,12 +154,17 @@ pub fn add_strings(_: &mut usize, instruction: &InstructionFields, thread: &mut 
         .set_inner(concatenated);
 }
 
-pub fn add_character_string(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_character_string(
+    _: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let destination = instruction.a_field() as usize;
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -176,12 +187,17 @@ pub fn add_character_string(_: &mut usize, instruction: &InstructionFields, thre
         .set_inner(concatenated);
 }
 
-pub fn add_string_character(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    let destination = instruction.a_field as usize;
-    let left = instruction.b_field as usize;
-    let left_is_constant = instruction.b_is_constant;
-    let right = instruction.c_field as usize;
-    let right_is_constant = instruction.c_is_constant;
+pub fn add_string_character(
+    _: &mut usize,
+    instruction: &Instruction,
+    thread: &mut Thread,
+    _: &mut Cache,
+) {
+    let destination = instruction.a_field() as usize;
+    let left = instruction.b_field() as usize;
+    let left_is_constant = instruction.b_is_constant();
+    let right = instruction.c_field() as usize;
+    let right_is_constant = instruction.c_is_constant();
 
     let current_frame = thread.current_frame_mut();
     let left_value = if left_is_constant {
@@ -206,22 +222,22 @@ pub fn add_string_character(_: &mut usize, instruction: &InstructionFields, thre
 
 pub fn optimized_add_integer(
     _: &mut usize,
-    instruction: &InstructionFields,
+    instruction: &Instruction,
     thread: &mut Thread,
-    cache: &mut Option<[RuntimeValue<i64>; 3]>,
+    cache: &mut Cache,
 ) {
-    if let Some([destination, left, right]) = cache {
+    if let Cache::IntegerMath([destination, left, right]) = cache {
         trace!("OPTIMIZED_ADD using integer cache");
 
         let sum = left.add(right);
 
         *destination.borrow_mut() = sum;
     } else {
-        let destination_index = instruction.a_field as usize;
-        let left_index = instruction.b_field as usize;
-        let left_is_constant = instruction.b_is_constant;
-        let right_index = instruction.c_field as usize;
-        let right_is_constant = instruction.c_is_constant;
+        let destination_index = instruction.a_field() as usize;
+        let left_index = instruction.b_field() as usize;
+        let left_is_constant = instruction.b_is_constant();
+        let right_index = instruction.c_field() as usize;
+        let right_is_constant = instruction.c_is_constant();
         let current_frame = thread.current_frame_mut();
         let left_value = if left_is_constant {
             let value = current_frame.get_integer_constant_mut(left_index).to_rc();
@@ -266,6 +282,6 @@ pub fn optimized_add_integer(
             value
         };
 
-        *cache = Some([destination, left_value, right_value]);
+        *cache = Cache::IntegerMath([destination, left_value, right_value]);
     }
 }

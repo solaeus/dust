@@ -3,7 +3,6 @@ use std::{rc::Rc, thread::JoinHandle};
 use tracing::{info, trace};
 
 use crate::{
-    instruction::InstructionFields,
     vm::{action::ActionSequence, CallFrame},
     Chunk, DustString, Span, Value,
 };
@@ -39,13 +38,7 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
-        let mut actions = ActionSequence::new(
-            self.chunk
-                .instructions
-                .iter()
-                .map(InstructionFields::from)
-                .collect(),
-        );
+        let mut actions = ActionSequence::new(self.chunk.instructions.iter().copied());
 
         trace!("Thread actions: {}", actions);
 
