@@ -1116,12 +1116,20 @@ impl<'src> Compiler<'src> {
         self.emit_instruction(test, Type::None, operator_position);
         self.emit_instruction(jump, Type::None, operator_position);
 
+        let instruction_count_before_right = self.instructions.len();
+
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
         // TODO: Check if the right type is boolean
 
-        if matches!(
+        if self.instructions.len() == instruction_count_before_right + 1 {
+            self.instructions
+                .last_mut()
+                .unwrap()
+                .0
+                .set_a_field(left.index());
+        } else if matches!(
             self.get_last_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
