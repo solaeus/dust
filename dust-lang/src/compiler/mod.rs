@@ -1123,7 +1123,9 @@ impl<'src> Compiler<'src> {
 
         // TODO: Check if the right type is boolean
 
-        if self.instructions.len() == instruction_count_before_right + 1 {
+        let instruction_count = self.instructions.len();
+
+        if instruction_count == instruction_count_before_right + 1 {
             self.instructions
                 .last_mut()
                 .unwrap()
@@ -1138,11 +1140,16 @@ impl<'src> Compiler<'src> {
                 Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
             ])
         ) {
-            let instruction_count = self.instructions.len();
-            let loaders = self
-                .instructions
-                .get_many_mut([instruction_count - 1, instruction_count - 2])
-                .unwrap(); // Safe because the indices in bounds and do not overlap
+            let loaders = if cfg!(debug_assertions) {
+                self.instructions
+                    .get_disjoint_mut([instruction_count - 1, instruction_count - 2])
+                    .unwrap() // Safe because the indices in bounds and do not overlap
+            } else {
+                unsafe {
+                    self.instructions
+                        .get_disjoint_unchecked_mut([instruction_count - 1, instruction_count - 2])
+                }
+            };
 
             loaders[0].0.set_a_field(left.index());
             loaders[1].0.set_a_field(left.index());

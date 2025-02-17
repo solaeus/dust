@@ -197,9 +197,9 @@ where
 
     pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [Register<T>] {
         let registers = if cfg!(debug_assertions) {
-            self.registers.get_many_mut([indices]).unwrap()
+            self.registers.get_disjoint_mut([indices]).unwrap()
         } else {
-            unsafe { self.registers.get_many_unchecked_mut([indices]) }
+            unsafe { self.registers.get_disjoint_unchecked_mut([indices]) }
         };
 
         registers[0]
@@ -228,18 +228,6 @@ where
             self.registers.get_mut(index).unwrap().close()
         } else {
             unsafe { self.registers.get_unchecked_mut(index).close() }
-        }
-    }
-
-    pub fn close_many(&mut self, indices: RangeInclusive<usize>) {
-        let registers = if cfg!(debug_assertions) {
-            &mut self.registers.get_many_mut([indices]).unwrap()[0]
-        } else {
-            unsafe { &mut self.registers.get_many_unchecked_mut([indices])[0] }
-        };
-
-        for register in registers.iter_mut() {
-            register.close();
         }
     }
 

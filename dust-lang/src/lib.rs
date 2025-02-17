@@ -27,7 +27,6 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(get_many_mut)]
 
 pub mod chunk;
 pub mod compiler;
