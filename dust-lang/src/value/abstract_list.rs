@@ -15,6 +15,7 @@ pub struct AbstractList {
 
 impl AbstractList {
     pub fn display(&self, thread: &Thread) -> DustString {
+        let current_frame = thread.current_frame();
         let mut display = DustString::new();
 
         display.push('[');
@@ -25,12 +26,14 @@ impl AbstractList {
             }
 
             let item_display = match self.item_type {
-                TypeCode::BOOLEAN => thread.get_pointer_to_boolean(pointer).to_string(),
-                TypeCode::BYTE => thread.get_pointer_to_byte(pointer).to_string(),
-                TypeCode::CHARACTER => thread.get_pointer_to_character(pointer).to_string(),
-                TypeCode::FLOAT => thread.get_pointer_to_float(pointer).to_string(),
-                TypeCode::INTEGER => thread.get_pointer_to_integer(pointer).to_string(),
-                TypeCode::STRING => thread.get_pointer_to_string(pointer).to_string(),
+                TypeCode::BOOLEAN => current_frame.get_boolean_from_pointer(pointer).to_string(),
+                TypeCode::BYTE => current_frame.get_byte_from_pointer(pointer).to_string(),
+                TypeCode::CHARACTER => current_frame
+                    .get_character_from_pointer(pointer)
+                    .to_string(),
+                TypeCode::FLOAT => current_frame.get_float_from_pointer(pointer).to_string(),
+                TypeCode::INTEGER => current_frame.get_integer_from_pointer(pointer).to_string(),
+                TypeCode::STRING => current_frame.get_string_from_pointer(pointer).to_string(),
                 _ => todo!(),
             };
 
@@ -57,7 +60,7 @@ impl Display for AbstractList {
         write!(f, "[")?;
 
         for pointer in &self.item_pointers {
-            write!(f, "{}", pointer)?;
+            write!(f, "{:?}", pointer)?;
         }
 
         write!(f, "]")

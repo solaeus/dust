@@ -1,19 +1,19 @@
 use std::{
     fs::read_to_string,
-    io::{self, Read, stdout},
+    io::{self, stdout, Read},
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use clap::{
-    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
-    builder::{Styles, styling::AnsiColor},
+    builder::{styling::AnsiColor, Styles},
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
+    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
 };
 use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
-use tracing::{Level, subscriber::set_global_default};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{subscriber::set_global_default, Level};
+use tracing_subscriber::{fmt::time::Uptime, FmtSubscriber};
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold().underline())
@@ -180,9 +180,11 @@ fn main() {
     let mode = mode.unwrap_or(Command::Run(run));
     let subscriber = FmtSubscriber::builder()
         .with_max_level(log_level)
-        .with_thread_names(true)
+        .with_ansi(true)
         .with_file(false)
-        .without_time()
+        .with_line_number(false)
+        .with_thread_names(true)
+        .with_timer(Uptime::from(start_time))
         .finish();
 
     set_global_default(subscriber).expect("Failed to set tracing subscriber");

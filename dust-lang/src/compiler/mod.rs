@@ -24,15 +24,15 @@ mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
-use tracing::{Level, debug, info, span};
+use tracing::{debug, info, span, Level};
 use type_checks::{check_math_type, check_math_types};
 
 use std::{mem::replace, sync::Arc};
 
 use crate::{
-    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
     instruction::{Jump, Point, Return, TypeCode},
+    Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
+    Operation, Scope, Span, Token, TokenKind, Type,
 };
 
 /// Compiles the input and returns a chunk.
@@ -83,9 +83,21 @@ pub struct Compiler<'src> {
     /// The types are discarded after compilation.
     instructions: Vec<(Instruction, Type, Span)>,
 
-    /// Constants that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
-    /// is called.
-    constants: Vec<ConcreteValue>,
+    /// Character constants that have been compiled. These are assigned to the chunk when
+    /// [`Compiler::finish`] is called.
+    character_constants: Vec<char>,
+
+    /// Float constants that have been compiled. These are assigned to the chunk when
+    /// [`Compiler::finish`] is called.
+    float_constants: Vec<f64>,
+
+    /// Integer constants that have been compiled. These are assigned to the chunk when
+    /// [`Compiler::finish`] is called.
+    integer_constants: Vec<i64>,
+
+    /// String constants that have been compiled. These are assigned to the chunk when
+    /// [`Compiler::finish`] is called.
+    string_constants: Vec<DustString>,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -161,7 +173,10 @@ impl<'src> Compiler<'src> {
             function_name,
             r#type: FunctionType::default(),
             instructions: Vec::new(),
-            constants: Vec::new(),
+            character_constants: Vec::new(),
+            float_constants: Vec::new(),
+            integer_constants: Vec::new(),
+            string_constants: Vec::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
             lexer,
@@ -241,7 +256,10 @@ impl<'src> Compiler<'src> {
             r#type: self.r#type,
             instructions,
             positions,
-            constants: self.constants,
+            character_constants: self.character_constants,
+            float_constants: self.float_constants,
+            integer_constants: self.integer_constants,
+            string_constants: self.string_constants,
             locals: self.locals,
             prototypes: self.prototypes,
             boolean_register_count,
@@ -329,7 +347,10 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::Integer {
+                if (instruction.operation() == Operation::LOAD_CONSTANT
+                    && instruction.b_type() == TypeCode::INTEGER)
+                    || r#type == &Type::Integer
+                {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -416,12 +437,7 @@ impl<'src> Compiler<'src> {
             .enumerate()
             .rev()
             .find_map(|(index, local)| {
-                let constant = self.constants.get(local.identifier_index as usize)?;
-                let identifier = if let ConcreteValue::String(identifier) = constant {
-                    identifier
-                } else {
-                    return None;
-                };
+                let identifier = self.string_constants.get(local.identifier_index as usize)?;
 
                 if identifier == identifier_text {
                     Some(index as u16)
@@ -445,8 +461,8 @@ impl<'src> Compiler<'src> {
     ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
-        let identifier = ConcreteValue::string(identifier);
-        let identifier_index = self.push_or_get_constant(identifier);
+        let identifier = DustString::from(identifier);
+        let identifier_index = self.push_or_get_constant_string(identifier);
         let local_index = self.locals.len() as u16;
 
         self.locals.push(Local::new(
@@ -462,23 +478,23 @@ impl<'src> Compiler<'src> {
 
     fn get_identifier(&self, local_index: u16) -> Option<String> {
         self.locals.get(local_index as usize).and_then(|local| {
-            self.constants
+            self.string_constants
                 .get(local.identifier_index as usize)
                 .map(|value| value.to_string())
         })
     }
 
-    fn push_or_get_constant(&mut self, value: ConcreteValue) -> u16 {
+    fn push_or_get_constant_string(&mut self, string: DustString) -> u16 {
         if let Some(index) = self
-            .constants
+            .string_constants
             .iter()
-            .position(|constant| constant == &value)
+            .position(|constant| constant == &string)
         {
             index as u16
         } else {
-            let index = self.constants.len() as u16;
+            let index = self.string_constants.len() as u16;
 
-            self.constants.push(value);
+            self.string_constants.push(string);
 
             index
         }
@@ -563,28 +579,6 @@ impl<'src> Compiler<'src> {
         self.instructions.push((instruction, r#type, position));
     }
 
-    fn emit_constant(
-        &mut self,
-        constant: ConcreteValue,
-        position: Span,
-    ) -> Result<(), CompileError> {
-        let r#type = constant.r#type();
-        let constant_index = self.push_or_get_constant(constant);
-        let destination = match r#type {
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
-            _ => unreachable!(),
-        };
-        let load_constant =
-            Instruction::load_constant(destination, constant_index, r#type.type_code(), false);
-
-        self.emit_instruction(load_constant, r#type, position);
-
-        Ok(())
-    }
-
     fn parse_boolean(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
@@ -637,9 +631,13 @@ impl<'src> Compiler<'src> {
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::Character(character);
+            let destination = self.next_character_register();
+            let constant_index = self.character_constants.len() as u16;
+            let load_constant =
+                Instruction::load_constant(destination, constant_index, TypeCode::CHARACTER, false);
 
-            self.emit_constant(value, position)?;
+            self.character_constants.push(character);
+            self.emit_instruction(load_constant, Type::Character, position);
 
             Ok(())
         } else {
@@ -663,9 +661,13 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let value = ConcreteValue::Float(float);
+            let destination = self.next_float_register();
+            let constant_index = self.float_constants.len() as u16;
+            let load_constant =
+                Instruction::load_constant(destination, constant_index, TypeCode::FLOAT, false);
 
-            self.emit_constant(value, position)?;
+            self.float_constants.push(float);
+            self.emit_instruction(load_constant, Type::Float, position);
 
             Ok(())
         } else {
@@ -683,7 +685,7 @@ impl<'src> Compiler<'src> {
         if let Token::Integer(text) = self.current_token {
             self.advance()?;
 
-            let mut integer_value = 0_i64;
+            let mut integer = 0_i64;
 
             for digit in text.chars() {
                 let digit = if let Some(digit) = digit.to_digit(10) {
@@ -692,12 +694,16 @@ impl<'src> Compiler<'src> {
                     continue;
                 };
 
-                integer_value = integer_value * 10 + digit;
+                integer = integer * 10 + digit;
             }
 
-            let value = ConcreteValue::Integer(integer_value);
+            let constant_index = self.integer_constants.len() as u16;
+            let destination = self.next_integer_register();
+            let load_constant =
+                Instruction::load_constant(destination, constant_index, TypeCode::INTEGER, false);
 
-            self.emit_constant(value, position)?;
+            self.integer_constants.push(integer);
+            self.emit_instruction(load_constant, Type::Integer, position);
 
             Ok(())
         } else {
@@ -715,9 +721,13 @@ impl<'src> Compiler<'src> {
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let value = ConcreteValue::string(text);
+            let string = DustString::from(text);
+            let constant_index = self.push_or_get_constant_string(string);
+            let destination = self.next_string_register();
+            let load_constant =
+                Instruction::load_constant(destination, constant_index, TypeCode::STRING, false);
 
-            self.emit_constant(value, position)?;
+            self.emit_instruction(load_constant, Type::String, position);
 
             Ok(())
         } else {
@@ -932,13 +942,8 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some(
-            [
-                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
-                _,
-                _,
-            ],
-        ) = self.get_last_operations()
+        if let Some([Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL, _, _]) =
+            self.get_last_operations()
         {
             return Err(CompileError::ComparisonChain {
                 position: self.current_position,

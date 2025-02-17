@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ConcreteValue, DustString, Function, FunctionType, Instruction, Span};
+use crate::{DustString, Function, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
@@ -36,7 +36,10 @@ pub struct Chunk {
 
     pub instructions: Vec<Instruction>,
     pub positions: Vec<Span>,
-    pub constants: Vec<ConcreteValue>,
+    pub character_constants: Vec<char>,
+    pub float_constants: Vec<f64>,
+    pub integer_constants: Vec<i64>,
+    pub string_constants: Vec<DustString>,
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
 
@@ -107,7 +110,10 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.constants == other.constants
+            && self.character_constants == other.character_constants
+            && self.float_constants == other.float_constants
+            && self.integer_constants == other.integer_constants
+            && self.string_constants == other.string_constants
             && self.locals == other.locals
             && self.prototypes == other.prototypes
     }

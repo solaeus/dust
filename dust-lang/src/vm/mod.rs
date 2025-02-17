@@ -5,14 +5,13 @@ mod thread;
 
 use std::{rc::Rc, thread::Builder};
 
-pub use action::Action;
-pub use call_frame::{CallFrame, Pointer, Register, RegisterTable};
+pub use call_frame::{CallFrame, Pointer, Register, RegisterTable, RuntimeValue};
 pub use thread::Thread;
 
 use crossbeam_channel::bounded;
-use tracing::{Level, span};
+use tracing::{span, Level};
 
-use crate::{Chunk, DustError, Value, compile};
+use crate::{compile, Chunk, DustError, Value};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
