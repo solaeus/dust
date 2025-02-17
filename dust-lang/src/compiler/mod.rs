@@ -632,11 +632,22 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let destination = self.next_character_register();
-            let constant_index = self.character_constants.len() as u16;
+            let constant_index = if let Some(index) = self
+                .character_constants
+                .iter()
+                .position(|constant| constant == &character)
+            {
+                index as u16
+            } else {
+                let index = self.character_constants.len() as u16;
+
+                self.character_constants.push(character);
+
+                index
+            };
             let load_constant =
                 Instruction::load_constant(destination, constant_index, TypeCode::CHARACTER, false);
 
-            self.character_constants.push(character);
             self.emit_instruction(load_constant, Type::Character, position);
 
             Ok(())
@@ -662,11 +673,22 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
             let destination = self.next_float_register();
-            let constant_index = self.float_constants.len() as u16;
+            let constant_index = if let Some(index) = self
+                .float_constants
+                .iter()
+                .position(|constant| constant == &float)
+            {
+                index as u16
+            } else {
+                let index = self.float_constants.len() as u16;
+
+                self.float_constants.push(float);
+
+                index
+            };
             let load_constant =
                 Instruction::load_constant(destination, constant_index, TypeCode::FLOAT, false);
 
-            self.float_constants.push(float);
             self.emit_instruction(load_constant, Type::Float, position);
 
             Ok(())
@@ -697,12 +719,23 @@ impl<'src> Compiler<'src> {
                 integer = integer * 10 + digit;
             }
 
-            let constant_index = self.integer_constants.len() as u16;
+            let constant_index = if let Some(index) = self
+                .integer_constants
+                .iter()
+                .position(|constant| constant == &integer)
+            {
+                index as u16
+            } else {
+                let index = self.integer_constants.len() as u16;
+
+                self.integer_constants.push(integer);
+
+                index
+            };
             let destination = self.next_integer_register();
             let load_constant =
                 Instruction::load_constant(destination, constant_index, TypeCode::INTEGER, false);
 
-            self.integer_constants.push(integer);
             self.emit_instruction(load_constant, Type::Integer, position);
 
             Ok(())
@@ -722,7 +755,19 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             let string = DustString::from(text);
-            let constant_index = self.push_or_get_constant_string(string);
+            let constant_index = if let Some(index) = self
+                .string_constants
+                .iter()
+                .position(|constant| constant == &string)
+            {
+                index as u16
+            } else {
+                let index = self.string_constants.len() as u16;
+
+                self.string_constants.push(string);
+
+                index
+            };
             let destination = self.next_string_register();
             let load_constant =
                 Instruction::load_constant(destination, constant_index, TypeCode::STRING, false);

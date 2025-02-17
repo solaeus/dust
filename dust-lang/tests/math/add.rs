@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, DustString, FunctionType, Instruction, Operand, Span, Type, Value,
-    compile, instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, DustString, FunctionType, Instruction, Operand,
+    Span, Type, Value,
 };
 
 #[test]
@@ -86,7 +86,7 @@ fn add_characters() {
             Instruction::r#return(true, 0, TypeCode::STRING),
         ],
         positions: vec![Span(0, 9), Span(9, 9)],
-        constants: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
+        character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::string("ab"));
@@ -119,12 +119,7 @@ fn add_many_characters() {
             Instruction::r#return(true, 2, TypeCode::STRING),
         ],
         positions: vec![Span(0, 9), Span(0, 15), Span(0, 21), Span(21, 21)],
-        constants: vec![
-            ConcreteValue::Character('a'),
-            ConcreteValue::Character('b'),
-            ConcreteValue::Character('c'),
-            ConcreteValue::Character('d'),
-        ],
+        character_constants: vec!['a', 'b', 'c', 'd'],
         ..Chunk::default()
     };
     let return_value = Some(Value::string("abcd"));
@@ -147,7 +142,7 @@ fn add_floats() {
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 12), Span(12, 12)],
-        constants: vec![ConcreteValue::Float(2.40), ConcreteValue::Float(40.02)],
+        float_constants: vec![2.40, 40.02],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(42.42));
@@ -180,7 +175,7 @@ fn add_many_floats() {
             Instruction::r#return(true, 2, TypeCode::FLOAT),
         ],
         positions: vec![Span(0, 12), Span(0, 19), Span(0, 27), Span(27, 27)],
-        constants: vec![ConcreteValue::Float(2.40), ConcreteValue::Float(40.02)],
+        float_constants: vec![2.40, 40.02],
         ..Chunk::default()
     };
     let return_value = Some(Value::float(84.84));
@@ -203,7 +198,7 @@ fn add_integers() {
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(40), ConcreteValue::Integer(2)],
+        integer_constants: vec![40, 2],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(42));
@@ -236,7 +231,7 @@ fn add_many_integers() {
             Instruction::r#return(true, 2, TypeCode::INTEGER),
         ],
         positions: vec![Span(0, 6), Span(0, 11), Span(0, 15), Span(15, 15)],
-        constants: vec![ConcreteValue::Integer(40), ConcreteValue::Integer(2)],
+        integer_constants: vec![40, 2],
         ..Chunk::default()
     };
     let return_value = Some(Value::integer(84));
@@ -259,10 +254,7 @@ fn add_strings() {
             Instruction::r#return(true, 0, TypeCode::STRING),
         ],
         positions: vec![Span(0, 20), Span(20, 20)],
-        constants: vec![
-            ConcreteValue::String(DustString::from("Hello, ")),
-            ConcreteValue::String(DustString::from("World!")),
-        ],
+        string_constants: vec![DustString::from("Hello, "), DustString::from("World!")],
         ..Chunk::default()
     };
     let return_value = Some(Value::string("Hello, World!"));
@@ -295,11 +287,11 @@ fn add_many_strings() {
             Instruction::r#return(true, 2, TypeCode::STRING),
         ],
         positions: vec![Span(0, 13), Span(0, 21), Span(0, 30), Span(30, 30)],
-        constants: vec![
-            ConcreteValue::String(DustString::from("foo")),
-            ConcreteValue::String(DustString::from("bar")),
-            ConcreteValue::String(DustString::from("baz")),
-            ConcreteValue::String(DustString::from("buzz")),
+        string_constants: vec![
+            DustString::from("foo"),
+            DustString::from("bar"),
+            DustString::from("baz"),
+            DustString::from("buzz"),
         ],
         ..Chunk::default()
     };
