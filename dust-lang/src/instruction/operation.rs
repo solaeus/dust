@@ -18,8 +18,8 @@ impl Operation {
     // Loaders
     pub const LOAD_ENCODED: Operation = Operation(3);
     pub const LOAD_CONSTANT: Operation = Operation(4);
-    pub const LOAD_FUNCTION: Operation = Operation(5);
-    pub const LOAD_LIST: Operation = Operation(6);
+    pub const LOAD_LIST: Operation = Operation(5);
+    pub const LOAD_FUNCTION: Operation = Operation(6);
     pub const LOAD_SELF: Operation = Operation(7);
 
     // Arithmetic

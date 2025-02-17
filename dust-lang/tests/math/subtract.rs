@@ -65,7 +65,7 @@ fn subtract_many_bytes() {
 }
 
 #[test]
-fn add_floats() {
+fn subtract_floats() {
     let source = "0.5 - 0.25";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Float),
@@ -88,7 +88,7 @@ fn add_floats() {
 }
 
 #[test]
-fn add_many_floats() {
+fn subtract_many_floats() {
     let source = "0.5 - 0.25 - 0.25";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Float),

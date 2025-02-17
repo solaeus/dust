@@ -184,7 +184,7 @@ impl Thread {
                                 register.close();
                             }
                         }
-                        _ => unreachable!("Invalid CLOSE operation"),
+                        _ => unreachable!("Invalid CLOSE instruction"),
                     }
                 }
                 Operation::LOAD_ENCODED => {
@@ -209,7 +209,7 @@ impl Thread {
                                 .bytes
                                 .set_to_new_register(destination, byte);
                         }
-                        _ => unreachable!(),
+                        _ => unreachable!("Invalid LOAD_ENCODED instruction"),
                     }
 
                     if jump_next {
@@ -259,7 +259,7 @@ impl Thread {
                                 .get_mut(destination)
                                 .set(string);
                         }
-                        _ => unreachable!(),
+                        _ => unreachable!("Invalid LOAD_CONSTANT operation"),
                     }
 
                     if jump_next {
@@ -360,7 +360,7 @@ impl Thread {
                                 item_pointers.push(Pointer::Register(register_index));
                             }
                         }
-                        _ => unreachable!("Invalid LOAD_LIST operation"),
+                        _ => unreachable!("Invalid LOAD_LIST instruction"),
                     }
 
                     let list = AbstractList {
@@ -399,32 +399,20 @@ impl Thread {
                         current_frame.ip += 1;
                     }
                 }
-                Operation::LESS => match (instruction.b_type(), instruction.c_type()) {
-                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
-                        let left = instruction.b_field() as usize;
-                        let left_is_constant = instruction.b_is_constant();
-                        let right = instruction.c_field() as usize;
-                        let right_is_constant = instruction.c_is_constant();
-                        let comparator = instruction.d_field();
+                Operation::LOAD_SELF => {
+                    let destination = instruction.a_field() as usize;
+                    let jump_next = instruction.c_field() != 0;
+                    let self_function = current_frame.chunk.as_function();
 
-                        let left_value = if left_is_constant {
-                            current_frame.get_integer_constant(left)
-                        } else {
-                            current_frame.registers.integers.get(left).copy_value()
-                        };
-                        let right_value = if right_is_constant {
-                            current_frame.get_integer_constant(right)
-                        } else {
-                            current_frame.registers.integers.get(right).copy_value()
-                        };
-                        let is_less_than = left_value < right_value;
+                    current_frame
+                        .registers
+                        .functions
+                        .set_to_new_register(destination, self_function);
 
-                        if is_less_than == comparator {
-                            current_frame.ip += 1;
-                        }
+                    if jump_next {
+                        current_frame.ip += 1;
                     }
-                    _ => todo!(),
-                },
+                }
                 Operation::ADD => match (instruction.b_type(), instruction.c_type()) {
                     (TypeCode::BYTE, TypeCode::BYTE) => {
                         let left_index = instruction.b_field() as usize;
@@ -510,13 +498,21 @@ impl Thread {
                     }
                     (TypeCode::FLOAT, TypeCode::FLOAT) => {
                         let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
                         let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value =
-                            current_frame.registers.floats.get(left_index).copy_value();
-                        let right_value =
-                            current_frame.registers.floats.get(right_index).copy_value();
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left_index)
+                        } else {
+                            current_frame.registers.floats.get(left_index).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right_index)
+                        } else {
+                            current_frame.registers.floats.get(right_index).copy_value()
+                        };
                         let sum = left_value + right_value;
 
                         current_frame
@@ -548,6 +544,34 @@ impl Thread {
                             .integers
                             .set_to_new_register(destination_index, sum);
                     }
+                    (TypeCode::STRING, TypeCode::CHARACTER) => {
+                        let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_string_constant(left_index)
+                        } else {
+                            current_frame.registers.strings.get(left_index).as_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_character_constant(right_index)
+                        } else {
+                            current_frame
+                                .registers
+                                .characters
+                                .get(right_index)
+                                .copy_value()
+                        };
+                        let concatenated = DustString::from(format!("{left_value}{right_value}"));
+
+                        current_frame
+                            .registers
+                            .strings
+                            .set_to_new_register(destination_index, concatenated);
+                    }
                     (TypeCode::STRING, TypeCode::STRING) => {
                         let left = instruction.b_field() as usize;
                         let left_is_constant = instruction.b_is_constant();
@@ -572,8 +596,745 @@ impl Thread {
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
-                    _ => unreachable!("Invalid ADD operation"),
+                    _ => unreachable!("Invalid ADD instruction"),
                 },
+                Operation::SUBTRACT => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = current_frame.registers.bytes.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.bytes.get(right_index).copy_value();
+                        let difference = left_value - right_value;
+
+                        current_frame
+                            .registers
+                            .bytes
+                            .set_to_new_register(destination_index, difference);
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left_index)
+                        } else {
+                            current_frame.registers.floats.get(left_index).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right_index)
+                        } else {
+                            current_frame.registers.floats.get(right_index).copy_value()
+                        };
+                        let difference = left_value - right_value;
+
+                        current_frame
+                            .registers
+                            .floats
+                            .set_to_new_register(destination_index, difference);
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let difference = left_value - right_value;
+
+                        current_frame
+                            .registers
+                            .integers
+                            .set_to_new_register(destination_index, difference);
+                    }
+                    _ => unreachable!("Invalid SUBTRACT instruction"),
+                },
+                Operation::MULTIPLY => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = current_frame.registers.bytes.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.bytes.get(right_index).copy_value();
+                        let product = left_value * right_value;
+
+                        current_frame
+                            .registers
+                            .bytes
+                            .set_to_new_register(destination_index, product);
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left_index)
+                        } else {
+                            current_frame.registers.floats.get(left_index).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right_index)
+                        } else {
+                            current_frame.registers.floats.get(right_index).copy_value()
+                        };
+                        let product = left_value * right_value;
+
+                        current_frame
+                            .registers
+                            .floats
+                            .set_to_new_register(destination_index, product);
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let product = left_value * right_value;
+
+                        current_frame
+                            .registers
+                            .integers
+                            .set_to_new_register(destination_index, product);
+                    }
+                    _ => unreachable!("Invalid MULTIPLY instruction"),
+                },
+                Operation::DIVIDE => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = current_frame.registers.bytes.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.bytes.get(right_index).copy_value();
+                        let quotient = left_value / right_value;
+
+                        current_frame
+                            .registers
+                            .bytes
+                            .set_to_new_register(destination_index, quotient);
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left_index)
+                        } else {
+                            current_frame.registers.floats.get(left_index).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right_index)
+                        } else {
+                            current_frame.registers.floats.get(right_index).copy_value()
+                        };
+                        let quotient = left_value / right_value;
+
+                        current_frame
+                            .registers
+                            .floats
+                            .set_to_new_register(destination_index, quotient);
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let quotient = left_value / right_value;
+
+                        current_frame
+                            .registers
+                            .integers
+                            .set_to_new_register(destination_index, quotient);
+                    }
+                    _ => unreachable!("Invalid DIVIDE instruction"),
+                },
+                Operation::MODULO => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = current_frame.registers.bytes.get(left_index).copy_value();
+                        let right_value =
+                            current_frame.registers.bytes.get(right_index).copy_value();
+                        let remainder = left_value % right_value;
+
+                        current_frame
+                            .registers
+                            .bytes
+                            .set_to_new_register(destination_index, remainder);
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left_index = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right_index = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left_index)
+                        } else {
+                            current_frame.registers.floats.get(left_index).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right_index)
+                        } else {
+                            current_frame.registers.floats.get(right_index).copy_value()
+                        };
+                        let remainder = left_value % right_value;
+
+                        current_frame
+                            .registers
+                            .floats
+                            .set_to_new_register(destination_index, remainder);
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let destination_index = instruction.a_field() as usize;
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let remainder = left_value % right_value;
+
+                        current_frame
+                            .registers
+                            .integers
+                            .set_to_new_register(destination_index, remainder);
+                    }
+                    _ => unreachable!("Invalid MODULO instruction"),
+                },
+                Operation::EQUAL => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame
+                            .registers
+                            .booleans
+                            .get(left_index)
+                            .copy_value();
+                        let right_value = current_frame
+                            .registers
+                            .booleans
+                            .get(right_index)
+                            .copy_value();
+
+                        // See <https://github.com/rust-lang/rust/issues/66780> for more info.
+                        let is_equal = matches!((left_value as i8) - (right_value as i8), 0);
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.bytes.get(left).copy_value();
+                        let right_value = current_frame.registers.bytes.get(right).copy_value();
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_character_constant(left)
+                        } else {
+                            current_frame.registers.characters.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_character_constant(right)
+                        } else {
+                            current_frame.registers.characters.get(right).copy_value()
+                        };
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left)
+                        } else {
+                            current_frame.registers.floats.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right)
+                        } else {
+                            current_frame.registers.floats.get(right).copy_value()
+                        };
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::STRING, TypeCode::STRING) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_string_constant(left)
+                        } else {
+                            current_frame.registers.strings.get(left).as_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_string_constant(right)
+                        } else {
+                            current_frame.registers.strings.get(right).as_value()
+                        };
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::LIST, TypeCode::LIST) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.lists.get(left).as_value();
+                        let right_value = current_frame.registers.lists.get(right).as_value();
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FUNCTION, TypeCode::FUNCTION) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.functions.get(left).as_value();
+                        let right_value = current_frame.registers.functions.get(right).as_value();
+                        let is_equal = left_value == right_value;
+
+                        if is_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    _ => unreachable!("Invalid EQUAL instruction"),
+                },
+                Operation::LESS => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame
+                            .registers
+                            .booleans
+                            .get(left_index)
+                            .copy_value();
+                        let right_value = current_frame
+                            .registers
+                            .booleans
+                            .get(right_index)
+                            .copy_value();
+
+                        // See <https://github.com/rust-lang/rust/issues/66780> for more info.
+                        let is_less_than = matches!((left_value as i8) - (right_value as i8), -1);
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.bytes.get(left).copy_value();
+                        let right_value = current_frame.registers.bytes.get(right).copy_value();
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_character_constant(left)
+                        } else {
+                            current_frame.registers.characters.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_character_constant(right)
+                        } else {
+                            current_frame.registers.characters.get(right).copy_value()
+                        };
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left)
+                        } else {
+                            current_frame.registers.floats.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right)
+                        } else {
+                            current_frame.registers.floats.get(right).copy_value()
+                        };
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::STRING, TypeCode::STRING) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_string_constant(left)
+                        } else {
+                            current_frame.registers.strings.get(left).as_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_string_constant(right)
+                        } else {
+                            current_frame.registers.strings.get(right).as_value()
+                        };
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::LIST, TypeCode::LIST) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.lists.get(left).as_value();
+                        let right_value = current_frame.registers.lists.get(right).as_value();
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FUNCTION, TypeCode::FUNCTION) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.functions.get(left).as_value();
+                        let right_value = current_frame.registers.functions.get(right).as_value();
+                        let is_less_than = left_value < right_value;
+
+                        if is_less_than == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    _ => unreachable!("Invalid LESS instruction"),
+                },
+                Operation::LESS_EQUAL => match (instruction.b_type(), instruction.c_type()) {
+                    (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => {
+                        let left_index = instruction.b_field() as usize;
+                        let right_index = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame
+                            .registers
+                            .booleans
+                            .get(left_index)
+                            .copy_value();
+                        let right_value = current_frame
+                            .registers
+                            .booleans
+                            .get(right_index)
+                            .copy_value();
+
+                        // See <https://github.com/rust-lang/rust/issues/66780> for more info.
+                        let is_less_than_or_equal =
+                            matches!(left_value as i8 - right_value as i8, -1 | 0);
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::BYTE, TypeCode::BYTE) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.bytes.get(left).copy_value();
+                        let right_value = current_frame.registers.bytes.get(right).copy_value();
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_character_constant(left)
+                        } else {
+                            current_frame.registers.characters.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_character_constant(right)
+                        } else {
+                            current_frame.registers.characters.get(right).copy_value()
+                        };
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FLOAT, TypeCode::FLOAT) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_float_constant(left)
+                        } else {
+                            current_frame.registers.floats.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_float_constant(right)
+                        } else {
+                            current_frame.registers.floats.get(right).copy_value()
+                        };
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::INTEGER, TypeCode::INTEGER) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_integer_constant(left)
+                        } else {
+                            current_frame.registers.integers.get(left).copy_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_integer_constant(right)
+                        } else {
+                            current_frame.registers.integers.get(right).copy_value()
+                        };
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::STRING, TypeCode::STRING) => {
+                        let left = instruction.b_field() as usize;
+                        let left_is_constant = instruction.b_is_constant();
+                        let right = instruction.c_field() as usize;
+                        let right_is_constant = instruction.c_is_constant();
+                        let comparator = instruction.d_field();
+
+                        let left_value = if left_is_constant {
+                            current_frame.get_string_constant(left)
+                        } else {
+                            current_frame.registers.strings.get(left).as_value()
+                        };
+                        let right_value = if right_is_constant {
+                            current_frame.get_string_constant(right)
+                        } else {
+                            current_frame.registers.strings.get(right).as_value()
+                        };
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::LIST, TypeCode::LIST) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.lists.get(left).as_value();
+                        let right_value = current_frame.registers.lists.get(right).as_value();
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    (TypeCode::FUNCTION, TypeCode::FUNCTION) => {
+                        let left = instruction.b_field() as usize;
+                        let right = instruction.c_field() as usize;
+                        let comparator = instruction.d_field();
+
+                        let left_value = current_frame.registers.functions.get(left).as_value();
+                        let right_value = current_frame.registers.functions.get(right).as_value();
+                        let is_less_than_or_equal = left_value <= right_value;
+
+                        if is_less_than_or_equal == comparator {
+                            current_frame.ip += 1;
+                        }
+                    }
+                    _ => unreachable!("Invalid LESS_EQUAL instruction"),
+                },
+
                 Operation::JUMP => {
                     let offset = instruction.b_field() as usize;
                     let is_positive = instruction.c_field() != 0;
