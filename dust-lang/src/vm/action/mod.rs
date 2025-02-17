@@ -507,117 +507,117 @@ fn r#return(_: &mut usize, instruction: &Instruction, thread: &mut Thread, _: &m
     let return_type = instruction.b_type();
     let current_frame = thread.current_frame();
 
-    if should_return_value {
-        match return_type {
-            TypeCode::BOOLEAN => {
-                let return_value = current_frame
-                    .get_boolean_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::boolean(return_value));
-            }
-            TypeCode::BYTE => {
-                let return_value = current_frame
-                    .get_byte_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::byte(return_value));
-            }
-            TypeCode::CHARACTER => {
-                let return_value = current_frame
-                    .get_character_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::character(return_value));
-            }
-            TypeCode::FLOAT => {
-                let return_value = current_frame
-                    .get_float_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::float(return_value));
-            }
-            TypeCode::INTEGER => {
-                let return_value = current_frame
-                    .get_integer_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::integer(return_value));
-            }
-            TypeCode::STRING => {
-                let return_value = current_frame
-                    .get_string_from_register(return_register)
-                    .clone_inner();
-                thread.return_value = Some(Value::string(return_value));
-            }
-            TypeCode::LIST => {
-                let abstract_list = current_frame
-                    .get_list_from_register(return_register)
-                    .clone_inner();
-                let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
+    // if should_return_value {
+    //     match return_type {
+    //         TypeCode::BOOLEAN => {
+    //             let return_value = current_frame
+    //                 .get_boolean_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::boolean(return_value));
+    //         }
+    //         TypeCode::BYTE => {
+    //             let return_value = current_frame
+    //                 .get_byte_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::byte(return_value));
+    //         }
+    //         TypeCode::CHARACTER => {
+    //             let return_value = current_frame
+    //                 .get_character_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::character(return_value));
+    //         }
+    //         TypeCode::FLOAT => {
+    //             let return_value = current_frame
+    //                 .get_float_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::float(return_value));
+    //         }
+    //         TypeCode::INTEGER => {
+    //             let return_value = current_frame
+    //                 .get_integer_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::integer(return_value));
+    //         }
+    //         TypeCode::STRING => {
+    //             let return_value = current_frame
+    //                 .get_string_from_register(return_register)
+    //                 .clone_inner();
+    //             thread.return_value = Some(Value::string(return_value));
+    //         }
+    //         TypeCode::LIST => {
+    //             let abstract_list = current_frame
+    //                 .get_list_from_register(return_register)
+    //                 .clone_inner();
+    //             let mut concrete_list = Vec::with_capacity(abstract_list.item_pointers.len());
 
-                match abstract_list.item_type {
-                    TypeCode::BOOLEAN => {
-                        for pointer in abstract_list.item_pointers {
-                            let boolean = current_frame
-                                .get_boolean_from_pointer(&pointer)
-                                .clone_inner();
-                            let value = ConcreteValue::Boolean(boolean);
+    //             match abstract_list.item_type {
+    //                 TypeCode::BOOLEAN => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let boolean = current_frame
+    //                             .get_boolean_from_pointer(&pointer)
+    //                             .clone_inner();
+    //                         let value = ConcreteValue::Boolean(boolean);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    TypeCode::BYTE => {
-                        for pointer in abstract_list.item_pointers {
-                            let byte = current_frame.get_byte_from_pointer(&pointer).clone_inner();
-                            let value = ConcreteValue::Byte(byte);
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 TypeCode::BYTE => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let byte = current_frame.get_byte_from_pointer(&pointer).clone_inner();
+    //                         let value = ConcreteValue::Byte(byte);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    TypeCode::CHARACTER => {
-                        for pointer in abstract_list.item_pointers {
-                            let character = current_frame
-                                .get_character_from_pointer(&pointer)
-                                .clone_inner();
-                            let value = ConcreteValue::Character(character);
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 TypeCode::CHARACTER => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let character = current_frame
+    //                             .get_character_from_pointer(&pointer)
+    //                             .clone_inner();
+    //                         let value = ConcreteValue::Character(character);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    TypeCode::FLOAT => {
-                        for pointer in abstract_list.item_pointers {
-                            let float =
-                                current_frame.get_float_from_pointer(&pointer).clone_inner();
-                            let value = ConcreteValue::Float(float);
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 TypeCode::FLOAT => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let float =
+    //                             current_frame.get_float_from_pointer(&pointer).clone_inner();
+    //                         let value = ConcreteValue::Float(float);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    TypeCode::INTEGER => {
-                        for pointer in abstract_list.item_pointers {
-                            let integer = current_frame
-                                .get_integer_from_pointer(&pointer)
-                                .clone_inner();
-                            let value = ConcreteValue::Integer(integer);
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 TypeCode::INTEGER => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let integer = current_frame
+    //                             .get_integer_from_pointer(&pointer)
+    //                             .clone_inner();
+    //                         let value = ConcreteValue::Integer(integer);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    TypeCode::STRING => {
-                        for pointer in abstract_list.item_pointers {
-                            let string = current_frame
-                                .get_string_from_pointer(&pointer)
-                                .clone_inner();
-                            let value = ConcreteValue::String(string);
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 TypeCode::STRING => {
+    //                     for pointer in abstract_list.item_pointers {
+    //                         let string = current_frame
+    //                             .get_string_from_pointer(&pointer)
+    //                             .clone_inner();
+    //                         let value = ConcreteValue::String(string);
 
-                            concrete_list.push(value);
-                        }
-                    }
-                    _ => todo!(),
-                }
+    //                         concrete_list.push(value);
+    //                     }
+    //                 }
+    //                 _ => todo!(),
+    //             }
 
-                thread.return_value = Some(Value::Concrete(ConcreteValue::list(
-                    concrete_list,
-                    abstract_list.item_type,
-                )));
-            }
-            _ => unreachable!(),
-        }
-    }
+    //             thread.return_value = Some(Value::Concrete(ConcreteValue::list(
+    //                 concrete_list,
+    //                 abstract_list.item_type,
+    //             )));
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
 }

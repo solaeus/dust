@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use rand::Rng;
 
-use crate::vm::{RuntimeValue, Thread};
+use crate::vm::Thread;
 
 pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<usize>) {
     let current_frame = data.current_frame_mut();
@@ -14,9 +14,7 @@ pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<u
             let register_index = argument_range_iter
                 .next()
                 .unwrap_or_else(|| panic!("No argument was passed to \"random_int\""));
-            let integer = current_frame
-                .get_integer_from_register(register_index)
-                .clone_inner();
+            let integer = current_frame.get_integer_from_register(register_index);
 
             if min.is_none() {
                 min = Some(integer);
@@ -31,6 +29,5 @@ pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<u
     current_frame
         .registers
         .integers
-        .get_mut(destination)
-        .set(RuntimeValue::Raw(random_integer));
+        .set_to_new_register(destination, random_integer);
 }

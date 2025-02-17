@@ -15,7 +15,6 @@ pub struct CallFrame {
     pub ip: usize,
     pub return_register: u16,
     pub registers: RegisterTable,
-    pub constants: ConstantTable,
 }
 
 impl CallFrame {
@@ -30,174 +29,126 @@ impl CallFrame {
             lists: RegisterList::new(chunk.list_register_count as usize),
             functions: RegisterList::new(chunk.function_register_count as usize),
         };
-        let constants = ConstantTable {
-            characters: chunk
-                .character_constants
-                .iter()
-                .map(|&character| RuntimeValue::Raw(character))
-                .collect(),
-            floats: chunk
-                .float_constants
-                .iter()
-                .map(|&float| RuntimeValue::Raw(float))
-                .collect(),
-            integers: chunk
-                .integer_constants
-                .iter()
-                .map(|&integer| RuntimeValue::Raw(integer))
-                .collect(),
-            strings: chunk
-                .string_constants
-                .iter()
-                .map(|string| RuntimeValue::Raw(string.clone()))
-                .collect(),
-        };
 
         Self {
             chunk,
             ip: 0,
             return_register,
             registers,
-            constants,
         }
     }
 
-    pub fn get_boolean_from_register(&self, register_index: usize) -> &RuntimeValue<bool> {
+    pub fn get_boolean_from_register(&self, register_index: usize) -> bool {
         let register = self.registers.booleans.get(register_index);
 
         match register {
-            Register::Value { value, .. } => value,
+            Register::Value { value, .. } => *value,
             Register::Pointer { pointer, .. } => self.get_boolean_from_pointer(pointer),
         }
     }
 
-    pub fn get_boolean_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<bool> {
+    pub fn get_boolean_from_pointer(&self, pointer: &Pointer) -> bool {
         match pointer {
             Pointer::Register(register_index) => self.get_boolean_from_register(*register_index),
             Pointer::Constant(_) => panic!("Attempted to get boolean from constant pointer"),
         }
     }
 
-    pub fn get_byte_from_register(&self, register_index: usize) -> &RuntimeValue<u8> {
+    pub fn get_byte_from_register(&self, register_index: usize) -> u8 {
         let register = self.registers.bytes.get(register_index);
 
         match register {
-            Register::Value { value, .. } => value,
+            Register::Value { value, .. } => *value,
             Register::Pointer { pointer, .. } => self.get_byte_from_pointer(pointer),
         }
     }
 
-    pub fn get_byte_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<u8> {
+    pub fn get_byte_from_pointer(&self, pointer: &Pointer) -> u8 {
         match pointer {
             Pointer::Register(register_index) => self.get_byte_from_register(*register_index),
             Pointer::Constant(_) => panic!("Attempted to get byte from constant pointer"),
         }
     }
 
-    pub fn get_character_from_register(&self, register_index: usize) -> &RuntimeValue<char> {
+    pub fn get_character_from_register(&self, register_index: usize) -> char {
         let register = self.registers.characters.get(register_index);
 
         match register {
-            Register::Value { value, .. } => value,
+            Register::Value { value, .. } => *value,
             Register::Pointer { pointer, .. } => self.get_character_from_pointer(pointer),
         }
     }
 
-    pub fn get_character_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<char> {
+    pub fn get_character_from_pointer(&self, pointer: &Pointer) -> char {
         match pointer {
             Pointer::Register(register_index) => self.get_character_from_register(*register_index),
             Pointer::Constant(constant_index) => self.get_character_constant(*constant_index),
         }
     }
 
-    pub fn get_character_constant(&self, constant_index: usize) -> &RuntimeValue<char> {
-        if cfg!(debug_assertions) {
-            self.constants.characters.get(constant_index).unwrap()
+    pub fn get_character_constant(&self, constant_index: usize) -> char {
+        let constant = if cfg!(debug_assertions) {
+            self.chunk.character_constants.get(constant_index).unwrap()
         } else {
-            unsafe { self.constants.characters.get_unchecked(constant_index) }
-        }
+            unsafe { self.chunk.character_constants.get_unchecked(constant_index) }
+        };
+
+        *constant
     }
 
-    pub fn get_float_from_register(&self, register_index: usize) -> &RuntimeValue<f64> {
+    pub fn get_float_from_register(&self, register_index: usize) -> f64 {
         let register = self.registers.floats.get(register_index);
 
         match register {
-            Register::Value { value, .. } => value,
+            Register::Value { value, .. } => *value,
             Register::Pointer { pointer, .. } => self.get_float_from_pointer(pointer),
         }
     }
 
-    pub fn get_float_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<f64> {
+    pub fn get_float_from_pointer(&self, pointer: &Pointer) -> f64 {
         match pointer {
             Pointer::Register(register_index) => self.get_float_from_register(*register_index),
             Pointer::Constant(constant_index) => self.get_float_constant(*constant_index),
         }
     }
 
-    pub fn get_float_constant(&self, constant_index: usize) -> &RuntimeValue<f64> {
-        if cfg!(debug_assertions) {
-            self.constants.floats.get(constant_index).unwrap()
+    pub fn get_float_constant(&self, constant_index: usize) -> f64 {
+        let constant = if cfg!(debug_assertions) {
+            self.chunk.float_constants.get(constant_index).unwrap()
         } else {
-            unsafe { self.constants.floats.get_unchecked(constant_index) }
-        }
+            unsafe { self.chunk.float_constants.get_unchecked(constant_index) }
+        };
+
+        *constant
     }
 
-    pub fn get_integer_from_register(&self, register_index: usize) -> &RuntimeValue<i64> {
+    pub fn get_integer_from_register(&self, register_index: usize) -> i64 {
         let register = self.registers.integers.get(register_index);
 
         match register {
-            Register::Value { value, .. } => value,
+            Register::Value { value, .. } => *value,
             Register::Pointer { pointer, .. } => self.get_integer_from_pointer(pointer),
         }
     }
 
-    pub fn get_integer_from_register_mut(
-        &mut self,
-        register_index: usize,
-    ) -> &mut RuntimeValue<i64> {
-        let register = self.registers.integers.get_mut(register_index);
-
-        match register {
-            Register::Value { value, .. } => value,
-            Register::Pointer { .. } => {
-                panic!("Attempted to get mutable integer from pointer")
-            }
-        }
-    }
-
-    pub fn get_integer_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<i64> {
+    pub fn get_integer_from_pointer(&self, pointer: &Pointer) -> i64 {
         match pointer {
             Pointer::Register(register_index) => self.get_integer_from_register(*register_index),
             Pointer::Constant(constant_index) => self.get_integer_constant(*constant_index),
         }
     }
 
-    pub fn get_integer_from_pointer_mut(&mut self, pointer: &Pointer) -> &mut RuntimeValue<i64> {
-        match pointer {
-            Pointer::Register(register_index) => {
-                self.get_integer_from_register_mut(*register_index)
-            }
-            Pointer::Constant(constant_index) => self.get_integer_constant_mut(*constant_index),
-        }
-    }
-
-    pub fn get_integer_constant(&self, constant_index: usize) -> &RuntimeValue<i64> {
-        if cfg!(debug_assertions) {
-            self.constants.integers.get(constant_index).unwrap()
+    pub fn get_integer_constant(&self, constant_index: usize) -> i64 {
+        let constant = if cfg!(debug_assertions) {
+            self.chunk.integer_constants.get(constant_index).unwrap()
         } else {
-            unsafe { self.constants.integers.get_unchecked(constant_index) }
-        }
+            unsafe { self.chunk.integer_constants.get_unchecked(constant_index) }
+        };
+
+        *constant
     }
 
-    pub fn get_integer_constant_mut(&mut self, constant_index: usize) -> &mut RuntimeValue<i64> {
-        if cfg!(debug_assertions) {
-            self.constants.integers.get_mut(constant_index).unwrap()
-        } else {
-            unsafe { self.constants.integers.get_unchecked_mut(constant_index) }
-        }
-    }
-
-    pub fn get_string_from_register(&self, register_index: usize) -> &RuntimeValue<DustString> {
+    pub fn get_string_from_register(&self, register_index: usize) -> &DustString {
         let register = self.registers.strings.get(register_index);
 
         match register {
@@ -206,33 +157,22 @@ impl CallFrame {
         }
     }
 
-    pub fn get_string_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<DustString> {
+    pub fn get_string_from_pointer(&self, pointer: &Pointer) -> &DustString {
         match pointer {
             Pointer::Register(register_index) => self.get_string_from_register(*register_index),
             Pointer::Constant(constant_index) => self.get_string_constant(*constant_index),
         }
     }
 
-    pub fn get_string_constant(&self, constant_index: usize) -> &RuntimeValue<DustString> {
+    pub fn get_string_constant(&self, constant_index: usize) -> &DustString {
         if cfg!(debug_assertions) {
-            self.constants.strings.get(constant_index).unwrap()
+            self.chunk.string_constants.get(constant_index).unwrap()
         } else {
-            unsafe { self.constants.strings.get_unchecked(constant_index) }
+            unsafe { self.chunk.string_constants.get_unchecked(constant_index) }
         }
     }
 
-    pub fn get_string_constant_mut(
-        &mut self,
-        constant_index: usize,
-    ) -> &mut RuntimeValue<DustString> {
-        if cfg!(debug_assertions) {
-            self.constants.strings.get_mut(constant_index).unwrap()
-        } else {
-            unsafe { self.constants.strings.get_unchecked_mut(constant_index) }
-        }
-    }
-
-    pub fn get_list_from_register(&self, register_index: usize) -> &RuntimeValue<AbstractList> {
+    pub fn get_list_from_register(&self, register_index: usize) -> &AbstractList {
         let register = self.registers.lists.get(register_index);
 
         match register {
@@ -241,10 +181,7 @@ impl CallFrame {
         }
     }
 
-    pub fn get_list_from_register_mut(
-        &mut self,
-        register_index: usize,
-    ) -> &mut RuntimeValue<AbstractList> {
+    pub fn get_list_from_register_mut(&mut self, register_index: usize) -> &mut AbstractList {
         let register = self.registers.lists.get_mut(register_index);
 
         match register {
@@ -253,14 +190,14 @@ impl CallFrame {
         }
     }
 
-    pub fn get_list_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<AbstractList> {
+    pub fn get_list_from_pointer(&self, pointer: &Pointer) -> &AbstractList {
         match pointer {
             Pointer::Register(register_index) => self.get_list_from_register(*register_index),
             Pointer::Constant(_) => panic!("Attempted to get list from constant pointer"),
         }
     }
 
-    pub fn get_function_from_register(&self, register_index: usize) -> &RuntimeValue<Function> {
+    pub fn get_function_from_register(&self, register_index: usize) -> &Function {
         let register = self.registers.functions.get(register_index);
 
         match register {
@@ -269,10 +206,7 @@ impl CallFrame {
         }
     }
 
-    pub fn get_function_from_register_mut(
-        &mut self,
-        register_index: usize,
-    ) -> &mut RuntimeValue<Function> {
+    pub fn get_function_from_register_mut(&mut self, register_index: usize) -> &mut Function {
         let register = self.registers.functions.get_mut(register_index);
 
         match register {
@@ -281,7 +215,7 @@ impl CallFrame {
         }
     }
 
-    pub fn get_function_from_pointer(&self, pointer: &Pointer) -> &RuntimeValue<Function> {
+    pub fn get_function_from_pointer(&self, pointer: &Pointer) -> &Function {
         match pointer {
             Pointer::Register(register_index) => self.get_function_from_register(*register_index),
             Pointer::Constant(_) => panic!("Attempted to get function from constant pointer"),
@@ -301,14 +235,6 @@ impl Display for CallFrame {
             self.ip,
         )
     }
-}
-
-#[derive(Debug, Default)]
-pub struct ConstantTable {
-    pub characters: Vec<RuntimeValue<char>>,
-    pub floats: Vec<RuntimeValue<f64>>,
-    pub integers: Vec<RuntimeValue<i64>>,
-    pub strings: Vec<RuntimeValue<DustString>>,
 }
 
 #[derive(Debug)]
@@ -362,6 +288,12 @@ where
         }
     }
 
+    pub fn set_to_new_register(&mut self, index: usize, new_value: T) {
+        assert!(index < self.registers.len(), "Register index out of bounds");
+
+        self.registers[index] = Register::value(new_value)
+    }
+
     pub fn close(&mut self, index: usize) {
         if cfg!(debug_assertions) {
             self.registers.get_mut(index).unwrap().close()
@@ -395,17 +327,18 @@ impl<T> IndexMut<usize> for RegisterList<T> {
 
 #[derive(Clone, Debug)]
 pub enum Register<T> {
-    Value {
-        value: RuntimeValue<T>,
-        is_closed: bool,
-    },
-    Pointer {
-        pointer: Pointer,
-        is_closed: bool,
-    },
+    Value { value: T, is_closed: bool },
+    Pointer { pointer: Pointer, is_closed: bool },
 }
 
 impl<T> Register<T> {
+    pub fn value(value: T) -> Self {
+        Self::Value {
+            value,
+            is_closed: false,
+        }
+    }
+
     pub fn is_closed(&self) -> bool {
         match self {
             Self::Value { is_closed, .. } => *is_closed,
@@ -420,7 +353,7 @@ impl<T> Register<T> {
         }
     }
 
-    pub fn set(&mut self, new_value: RuntimeValue<T>) {
+    pub fn set(&mut self, new_value: T) {
         match self {
             Self::Value {
                 value: old_value, ..
@@ -434,14 +367,14 @@ impl<T> Register<T> {
         }
     }
 
-    pub fn as_value(&self) -> &RuntimeValue<T> {
+    pub fn as_value(&self) -> &T {
         match self {
             Self::Value { value, .. } => value,
             Self::Pointer { .. } => panic!("Attempted to use pointer as value"),
         }
     }
 
-    pub fn as_value_mut(&mut self) -> &mut RuntimeValue<T> {
+    pub fn as_value_mut(&mut self) -> &mut T {
         match self {
             Self::Value { value, .. } => value,
             Self::Pointer { .. } => panic!("Attempted to use pointer as value"),
@@ -452,213 +385,8 @@ impl<T> Register<T> {
 impl<T: Default> Default for Register<T> {
     fn default() -> Self {
         Self::Value {
-            value: RuntimeValue::Raw(Default::default()),
+            value: Default::default(),
             is_closed: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum RuntimeValue<T> {
-    Raw(T),
-    Rc(Rc<T>),
-    RefCell(Rc<RefCell<T>>),
-}
-
-impl<T: Clone> RuntimeValue<T> {
-    pub fn ref_cell(value: T) -> Self {
-        Self::RefCell(Rc::new(RefCell::new(value)))
-    }
-
-    pub fn rc(value: T) -> Self {
-        Self::Rc(Rc::new(value))
-    }
-
-    pub fn to_ref_cell(&mut self) -> Self {
-        match self {
-            Self::Raw(value) => RuntimeValue::ref_cell(value.clone()),
-            Self::Rc(value) => RuntimeValue::ref_cell(value.as_ref().clone()),
-            Self::RefCell(_) => self.clone(),
-        }
-    }
-
-    pub fn to_rc(&mut self) -> Self {
-        match self {
-            Self::Raw(value) => RuntimeValue::rc(value.clone()),
-            Self::Rc(_) => self.clone(),
-            Self::RefCell(value) => RuntimeValue::rc(value.borrow().clone()),
-        }
-    }
-
-    pub fn set_inner(&mut self, new_value: T) {
-        match self {
-            Self::Raw(value) => *value = new_value,
-            Self::RefCell(value) => {
-                let _ = value.replace(new_value);
-            }
-            Self::Rc(_) => panic!("Attempted to modify immutable runtime value"),
-        }
-    }
-
-    pub fn clone_inner(&self) -> T {
-        match self {
-            Self::Raw(value) => value.clone(),
-            Self::Rc(value) => value.as_ref().clone(),
-            Self::RefCell(value) => value.borrow().clone(),
-        }
-    }
-
-    pub fn borrow_mut(&self) -> RefMut<T> {
-        match self {
-            Self::RefCell(value) => value.borrow_mut(),
-            _ => panic!("Attempted to borrow mutable reference from immutable runtime value"),
-        }
-    }
-}
-
-const BYTE_ADD: fn(u8, u8) -> u8 = u8::saturating_add;
-
-impl Add for &RuntimeValue<u8> {
-    type Output = u8;
-
-    fn add(self, other: Self) -> Self::Output {
-        let left = match self {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-        let right = match other {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-
-        BYTE_ADD(left, right)
-    }
-}
-
-const FLOAT_ADD: fn(f64, f64) -> f64 = f64::add;
-
-impl Add for &RuntimeValue<f64> {
-    type Output = f64;
-
-    fn add(self, other: Self) -> Self::Output {
-        let left = match self {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-        let right = match other {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-
-        FLOAT_ADD(left, right)
-    }
-}
-
-const INTEGER_ADD: fn(i64, i64) -> i64 = i64::saturating_add;
-
-impl Add for &RuntimeValue<i64> {
-    type Output = i64;
-
-    fn add(self, other: Self) -> Self::Output {
-        let left = match self {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-        let right = match other {
-            RuntimeValue::Raw(value) => *value,
-            RuntimeValue::Rc(value) => **value,
-            RuntimeValue::RefCell(value) => *value.borrow(),
-        };
-
-        INTEGER_ADD(left, right)
-    }
-}
-
-impl<T: PartialEq> PartialEq for RuntimeValue<T> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (RuntimeValue::Raw(left), RuntimeValue::Raw(right)) => left == right,
-            (RuntimeValue::Raw(left), RuntimeValue::Rc(right)) => left == &**right,
-            (RuntimeValue::Raw(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
-
-                left == &*right
-            }
-            (RuntimeValue::Rc(left), RuntimeValue::Raw(right)) => **left == *right,
-            (RuntimeValue::Rc(left), RuntimeValue::Rc(right)) => **left == **right,
-            (RuntimeValue::Rc(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
-
-                **left == *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::RefCell(right)) => {
-                let left = left.borrow();
-                let right = right.borrow();
-
-                *left == *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Raw(right)) => {
-                let left = left.borrow();
-
-                *left == *right
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Rc(right)) => {
-                let left = left.borrow();
-
-                *left == **right
-            }
-        }
-    }
-}
-
-impl<T: PartialOrd> PartialOrd for RuntimeValue<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (RuntimeValue::Raw(left), RuntimeValue::Raw(right)) => left.partial_cmp(right),
-            (RuntimeValue::Raw(left), RuntimeValue::Rc(right)) => left.partial_cmp(&**right),
-            (RuntimeValue::Raw(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
-
-                left.partial_cmp(&*right)
-            }
-            (RuntimeValue::Rc(left), RuntimeValue::Raw(right)) => (**left).partial_cmp(right),
-            (RuntimeValue::Rc(left), RuntimeValue::Rc(right)) => left.partial_cmp(right),
-            (RuntimeValue::Rc(left), RuntimeValue::RefCell(right)) => {
-                let right = right.borrow();
-
-                (**left).partial_cmp(&right)
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::RefCell(right)) => {
-                let left = left.borrow();
-                let right = right.borrow();
-
-                left.partial_cmp(&*right)
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Raw(right)) => {
-                let left = left.borrow();
-
-                left.partial_cmp(right)
-            }
-            (RuntimeValue::RefCell(left), RuntimeValue::Rc(right)) => {
-                let left = left.borrow();
-
-                left.partial_cmp(&**right)
-            }
-        }
-    }
-}
-
-impl<T: Display> Display for RuntimeValue<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Raw(value) => write!(f, "{}", value),
-            Self::Rc(value) => write!(f, "{}", value),
-            Self::RefCell(value) => write!(f, "{}", value.borrow()),
         }
     }
 }

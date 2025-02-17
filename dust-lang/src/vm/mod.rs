@@ -1,11 +1,11 @@
 //! Virtual machine and errors
-mod action;
+// mod action;
 mod call_frame;
 mod thread;
 
 use std::{rc::Rc, thread::Builder};
 
-pub use call_frame::{CallFrame, Pointer, Register, RegisterTable, RuntimeValue};
+pub use call_frame::{CallFrame, Pointer, Register, RegisterTable};
 pub use thread::Thread;
 
 use crossbeam_channel::bounded;
