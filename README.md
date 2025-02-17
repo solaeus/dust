@@ -30,6 +30,7 @@ write_line(fib(25))
 ```
 
 > [!IMPORTANT]
+> 🧪 💡 ⚗️
 > Dust is still experimental. Currently, development is more focused on exploring ideas for
 > optimization and performance than on stability or feature completeness. This will change as the
 > project matures.
@@ -102,31 +103,69 @@ languages.
 The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
 different levels and measure the time taken for compilation and execution.
 
+<details>
+    <summary>Show CLI help</summary>
+
 ```text
+Command line interface for the Dust programming language
+
 Usage: dust [OPTIONS] [FILE]
        dust {run|-r} [OPTIONS] [FILE]
-       dust {disassemble|-d} [OPTIONS] [FILE]
+       dust {compile|-c} [OPTIONS] [FILE]
        dust {tokenize|-t} [OPTIONS] [FILE]
        dust help [COMMAND]...
 
-Modes:
-  run, -r          Compile and run the program (default)
-  disassemble, -d  Compile and print the bytecode disassembly
-  tokenize, -t     Lex the source code and print the tokens
-  help             Print this message or the help of the given subcommand(s)
+Arguments:
+  [FILE]  Path to a source code file
 
 Options:
   -l, --log-level <LOG_LEVEL>  Overrides the DUST_LOG environment variable
       --time                   Print the time taken for compilation and execution
       --no-output              Do not print the program's return value
       --name <NAME>            Custom program name, overrides the file name
-  -c, --command <INPUT>        Source code to run instead of a file
+  -e, --eval <INPUT>           Source code to run instead of a file
       --stdin                  Read source code from stdin
+  -i, --input <INPUT>          Input format [default: dust] [possible values: dust, json, ron, yaml]
   -h, --help                   Print help
   -V, --version                Print version
+
+dust {run|-r}:
+Compile and run the program (default)
+      --time           Print the time taken for compilation and execution
+      --no-output      Do not print the program's return value
+      --name <NAME>    Custom program name, overrides the file name
+  -e, --eval <INPUT>   Source code to run instead of a file
+      --stdin          Read source code from stdin
+  -i, --input <INPUT>  Input format [default: dust] [possible values: dust, json, ron, yaml]
+  -h, --help           Print help
+  [FILE]           Path to a source code file
+
+dust {compile|-c}:
+Compile and print the input
+  -s, --style            Style disassembly output
+  -n, --name <NAME>      Custom program name, overrides the file name
+  -e, --eval <INPUT>     Source code to run instead of a file
+      --stdin            Read source code from stdin
+  -o, --output <FORMAT>  [default: cli] [possible values: cli, json, ron, yaml]
+  -h, --help             Print help
+  [FILE]             Path to a source code file
+
+dust {tokenize|-t}:
+Lex the source code and print the tokens
+  -s, --style         Style token output
+  -e, --eval <INPUT>  Source code to run instead of a file
+      --stdin         Read source code from stdin
+  -h, --help          Print help
+  [FILE]          Path to a source code file
+
+dust help:
+Print this message or the help of the given subcommand(s)
+  [COMMAND]...  Print help for the subcommand(s)
 ```
 
-#### Running a program
+</details>
+
+#### Run a program
 
 If not specified, the CLI will use `run` command. This mode compiles and executes the Dust program,
 printing the return value to the console. You can also run Dust code directly from the command line
@@ -137,7 +176,7 @@ dust foobar.ds
 dust -e 'let x = 42; x'
 ```
 
-#### Disassembly
+#### Compile and disassemble
 
 Dust's disassembly output is a detailed, human-readable representation of the internal
 representation of the Dust program. It shows every piece of information that the compiler sends to
