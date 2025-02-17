@@ -1,17 +1,24 @@
 mod add;
+mod equal;
 mod jump;
 mod less;
+mod less_equal;
 
 use add::{
     add_bytes, add_character_string, add_characters, add_floats, add_integers,
     add_string_character, add_strings, optimized_add_integer,
 };
+use equal::optimized_equal_integers;
 use jump::jump;
 use less::{
     less_booleans, less_bytes, less_characters, less_floats, less_integers, less_strings,
     optimized_less_integers,
 };
 
+use less_equal::{
+    less_equal_booleans, less_equal_bytes, less_equal_characters, less_equal_floats,
+    less_equal_integers, less_equal_strings, optimized_less_equal_integers,
+};
 use tracing::info;
 
 use std::fmt::{self, Display, Formatter};
@@ -29,7 +36,6 @@ pub struct ActionSequence {
 }
 
 impl ActionSequence {
-    #[allow(clippy::while_let_on_iterator)]
     pub fn new(instructions: Vec<InstructionFields>) -> Self {
         let mut actions = Vec::with_capacity(instructions.len());
         let mut instructions_reversed = instructions.into_iter().rev();
@@ -93,8 +99,14 @@ impl ActionSequence {
                 Action::OptimizedAddIntegers(cache) => {
                     optimized_add_integer(instruction, thread, cache);
                 }
+                Action::OptimizedEqualIntegers(cache) => {
+                    optimized_equal_integers(&mut local_ip, instruction, thread, cache);
+                }
                 Action::OptimizedLessIntegers(cache) => {
                     optimized_less_integers(&mut local_ip, instruction, thread, cache);
+                }
+                Action::OptimizedLessEqualIntegers(cache) => {
+                    optimized_less_equal_integers(&mut local_ip, instruction, thread, cache);
                 }
                 Action::OptimizedJumpForward { offset } => {
                     local_ip += *offset;
@@ -133,7 +145,9 @@ enum Action {
         actions: ActionSequence,
     },
     OptimizedAddIntegers(Option<[RuntimeValue<i64>; 3]>),
+    OptimizedEqualIntegers(Option<[RuntimeValue<i64>; 2]>),
     OptimizedLessIntegers(Option<[RuntimeValue<i64>; 2]>),
+    OptimizedLessEqualIntegers(Option<[RuntimeValue<i64>; 2]>),
     OptimizedJumpForward {
         offset: usize,
     },
@@ -168,7 +182,15 @@ impl Action {
             Operation::MODULO => modulo,
             Operation::NEGATE => negate,
             Operation::NOT => not,
-            Operation::EQUAL => equal,
+            Operation::EQUAL => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => equal::equal_booleans,
+                (TypeCode::BYTE, TypeCode::BYTE) => equal::equal_bytes,
+                (TypeCode::CHARACTER, TypeCode::CHARACTER) => equal::equal_characters,
+                (TypeCode::FLOAT, TypeCode::FLOAT) => equal::equal_floats,
+                (TypeCode::INTEGER, TypeCode::INTEGER) => equal::equal_integers,
+                (TypeCode::STRING, TypeCode::STRING) => equal::equal_strings,
+                _ => todo!(),
+            },
             Operation::LESS => match (instruction.b_type, instruction.c_type) {
                 (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => less_booleans,
                 (TypeCode::BYTE, TypeCode::BYTE) => less_bytes,
@@ -178,7 +200,15 @@ impl Action {
                 (TypeCode::STRING, TypeCode::STRING) => less_strings,
                 _ => todo!(),
             },
-            Operation::LESS_EQUAL => less_equal,
+            Operation::LESS_EQUAL => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::BOOLEAN, TypeCode::BOOLEAN) => less_equal_booleans,
+                (TypeCode::BYTE, TypeCode::BYTE) => less_equal_bytes,
+                (TypeCode::CHARACTER, TypeCode::CHARACTER) => less_equal_characters,
+                (TypeCode::FLOAT, TypeCode::FLOAT) => less_equal_floats,
+                (TypeCode::INTEGER, TypeCode::INTEGER) => less_equal_integers,
+                (TypeCode::STRING, TypeCode::STRING) => less_equal_strings,
+                _ => todo!(),
+            },
             Operation::TEST => test,
             Operation::TEST_SET => test_set,
             Operation::CALL => call,
@@ -197,8 +227,16 @@ impl Action {
                 (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedAddIntegers(None),
                 _ => todo!(),
             },
+            Operation::EQUAL => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedEqualIntegers(None),
+                _ => todo!(),
+            },
             Operation::LESS => match (instruction.b_type, instruction.c_type) {
                 (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedLessIntegers(None),
+                _ => todo!(),
+            },
+            Operation::LESS_EQUAL => match (instruction.b_type, instruction.c_type) {
+                (TypeCode::INTEGER, TypeCode::INTEGER) => Action::OptimizedLessEqualIntegers(None),
                 _ => todo!(),
             },
             Operation::JUMP => {
@@ -232,8 +270,14 @@ impl Display for Action {
             Action::OptimizedAddIntegers { .. } => {
                 write!(f, "ADD_INTEGERS_OPTIMIZED")
             }
+            Action::OptimizedEqualIntegers { .. } => {
+                write!(f, "EQUAL_INTEGERS_OPTIMIZED")
+            }
             Action::OptimizedLessIntegers { .. } => {
                 write!(f, "LESS_INTEGERS_OPTIMIZED")
+            }
+            Action::OptimizedLessEqualIntegers { .. } => {
+                write!(f, "LESS_EQUAL_INTEGERS_OPTIMIZED")
             }
             Action::OptimizedJumpForward { offset } => {
                 write!(f, "JUMP +{offset}")
@@ -256,7 +300,39 @@ fn close(_: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
 }
 
 fn load_encoded(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
-    todo!()
+    let destination = instruction.a_field;
+    let value_type = instruction.b_type;
+    let jump_next = instruction.c_field != 0;
+
+    match value_type {
+        TypeCode::BOOLEAN => {
+            let value = instruction.b_field != 0;
+
+            thread
+                .current_frame_mut()
+                .registers
+                .booleans
+                .get_mut(destination as usize)
+                .as_value_mut()
+                .set_inner(value);
+        }
+        TypeCode::BYTE => {
+            let value = instruction.b_field as u8;
+
+            thread
+                .current_frame_mut()
+                .registers
+                .bytes
+                .get_mut(destination as usize)
+                .as_value_mut()
+                .set_inner(value);
+        }
+        _ => unreachable!(),
+    }
+
+    if jump_next {
+        *ip += 1;
+    }
 }
 
 fn load_constant(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
@@ -344,10 +420,6 @@ fn test(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
 }
 
 fn test_set(_: &mut usize, _: &InstructionFields, _: &mut Thread) {
-    todo!()
-}
-
-fn equal(ip: &mut usize, instruction: &InstructionFields, thread: &mut Thread) {
     todo!()
 }
 

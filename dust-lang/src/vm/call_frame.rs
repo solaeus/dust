@@ -437,14 +437,10 @@ impl<T: Clone> RuntimeValue<T> {
     pub fn set_inner(&mut self, new_value: T) {
         match self {
             Self::Raw(value) => *value = new_value,
-            Self::Rc(value) => {
-                if let Some(mutable) = Rc::get_mut(value) {
-                    *mutable = new_value;
-                }
-            }
             Self::RefCell(value) => {
                 let _ = value.replace(new_value);
             }
+            Self::Rc(_) => panic!("Attempted to modify immutable runtime value"),
         }
     }
 
@@ -459,7 +455,7 @@ impl<T: Clone> RuntimeValue<T> {
     pub fn borrow_mut(&self) -> RefMut<T> {
         match self {
             Self::RefCell(value) => value.borrow_mut(),
-            _ => panic!("Attempted to borrow mutable reference from immutable register value"),
+            _ => panic!("Attempted to borrow mutable reference from immutable runtime value"),
         }
     }
 }

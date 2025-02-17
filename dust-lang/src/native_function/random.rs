@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use rand::Rng;
 
-use crate::vm::{Register, RuntimeValue, Thread};
+use crate::vm::{RuntimeValue, Thread};
 
 pub fn random_int(data: &mut Thread, destination: usize, argument_range: Range<usize>) {
     let current_frame = data.current_frame_mut();

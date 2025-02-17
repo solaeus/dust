@@ -1,6 +1,6 @@
 use dust_lang::{
-    Chunk, ConcreteValue, DustString, FunctionType, Instruction, Operand, Span, Type, Value,
-    compile, instruction::TypeCode, run,
+    compile, instruction::TypeCode, run, Chunk, DustString, FunctionType, Instruction, Operand,
+    Span, Type, Value,
 };
 
 #[test]
@@ -55,7 +55,7 @@ fn greater_characters() {
             Instruction::r#return(true, 0, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(0, 9), Span(0, 9), Span(0, 9), Span(0, 9), Span(9, 9)],
-        constants: vec![ConcreteValue::Character('a'), ConcreteValue::Character('b')],
+        character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(false));
@@ -87,7 +87,7 @@ fn greater_floats() {
             Span(0, 10),
             Span(10, 10),
         ],
-        constants: vec![ConcreteValue::Float(10.0), ConcreteValue::Float(3.0)],
+        float_constants: vec![10.0, 3.0],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(true));
@@ -113,7 +113,7 @@ fn greater_integers() {
             Instruction::r#return(true, 0, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(0, 6), Span(0, 6), Span(0, 6), Span(0, 6), Span(6, 6)],
-        constants: vec![ConcreteValue::Integer(10), ConcreteValue::Integer(3)],
+        integer_constants: vec![10, 3],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(true));
@@ -145,10 +145,7 @@ fn greater_strings() {
             Span(0, 13),
             Span(13, 13),
         ],
-        constants: vec![
-            ConcreteValue::String(DustString::from("abc")),
-            ConcreteValue::String(DustString::from("def")),
-        ],
+        string_constants: vec![DustString::from("abc"), DustString::from("def")],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(false));

@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Write};
 use std::ops::Range;
 
-use crate::vm::{Register, RuntimeValue, Thread};
+use crate::vm::{RuntimeValue, Thread};
 use crate::DustString;
 
 pub fn read_line(data: &mut Thread, destination: usize, _argument_range: Range<usize>) {
