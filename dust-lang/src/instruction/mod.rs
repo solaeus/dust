@@ -544,14 +544,14 @@ impl Instruction {
     pub fn call(
         destination: u16,
         function_register: u16,
-        argument_count: u16,
-        is_recursive: bool,
+        argument_list_register: u16,
+        return_type: TypeCode,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function_register,
-            argument_count,
-            is_recursive,
+            argument_list_index: argument_list_register,
+            return_type,
         })
     }
 

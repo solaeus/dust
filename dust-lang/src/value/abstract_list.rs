@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 use crate::{
     instruction::TypeCode,
@@ -15,7 +18,6 @@ pub struct AbstractList {
 
 impl AbstractList {
     pub fn display(&self, thread: &Thread) -> DustString {
-        let current_frame = thread.current_frame();
         let mut display = DustString::new();
 
         display.push('[');
@@ -25,15 +27,110 @@ impl AbstractList {
                 display.push_str(", ");
             }
 
-            let item_display = match self.item_type {
-                TypeCode::BOOLEAN => current_frame.get_boolean_from_pointer(pointer).to_string(),
-                TypeCode::BYTE => current_frame.get_byte_from_pointer(pointer).to_string(),
-                TypeCode::CHARACTER => current_frame
-                    .get_character_from_pointer(pointer)
-                    .to_string(),
-                TypeCode::FLOAT => current_frame.get_float_from_pointer(pointer).to_string(),
-                TypeCode::INTEGER => current_frame.get_integer_from_pointer(pointer).to_string(),
-                TypeCode::STRING => current_frame.get_string_from_pointer(pointer).to_string(),
+            let item_display = match (pointer, self.item_type) {
+                (Pointer::Register(register_index), TypeCode::BOOLEAN) => {
+                    let boolean = thread
+                        .current_registers()
+                        .booleans
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", boolean)
+                }
+                (Pointer::Register(register_index), TypeCode::BYTE) => {
+                    let byte = thread
+                        .current_registers()
+                        .bytes
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", byte)
+                }
+                (Pointer::Constant(constant_index), TypeCode::CHARACTER) => {
+                    let character = thread
+                        .current_frame()
+                        .chunk
+                        .character_constants
+                        .get(constant_index as usize)
+                        .unwrap();
+
+                    format!("{}", character)
+                }
+                (Pointer::Register(register_index), TypeCode::CHARACTER) => {
+                    let character = thread
+                        .current_registers()
+                        .characters
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", character)
+                }
+                (Pointer::Constant(constant_index), TypeCode::FLOAT) => {
+                    let float = thread
+                        .current_frame()
+                        .chunk
+                        .float_constants
+                        .get(constant_index as usize)
+                        .unwrap();
+
+                    format!("{}", float)
+                }
+                (Pointer::Register(register_index), TypeCode::FLOAT) => {
+                    let float = thread
+                        .current_registers()
+                        .floats
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", float)
+                }
+                (Pointer::Constant(constant_index), TypeCode::INTEGER) => {
+                    let integer = thread
+                        .current_frame()
+                        .chunk
+                        .integer_constants
+                        .get(constant_index as usize)
+                        .unwrap();
+
+                    format!("{}", integer)
+                }
+                (Pointer::Register(register_index), TypeCode::INTEGER) => {
+                    let integer = thread
+                        .current_registers()
+                        .integers
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", integer)
+                }
+                (Pointer::Constant(constant_index), TypeCode::STRING) => {
+                    let string = thread
+                        .current_frame()
+                        .chunk
+                        .string_constants
+                        .get(constant_index as usize)
+                        .unwrap();
+
+                    format!("{}", string)
+                }
+                (Pointer::Register(register_index), TypeCode::STRING) => {
+                    let string = thread
+                        .current_registers()
+                        .strings
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", string)
+                }
+                (Pointer::Register(register_index), TypeCode::LIST) => {
+                    let list = thread
+                        .current_registers()
+                        .lists
+                        .get(register_index as usize)
+                        .as_value();
+
+                    format!("{}", list)
+                }
                 _ => todo!(),
             };
 
@@ -51,45 +148,130 @@ impl AbstractList {
         match self.item_type {
             TypeCode::BOOLEAN => {
                 for pointer in &self.item_pointers {
-                    let boolean = thread.current_frame().get_boolean_from_pointer(*pointer);
+                    let boolean = *thread
+                        .current_registers()
+                        .booleans
+                        .get(pointer.index() as usize)
+                        .as_value();
 
                     concrete_list.push(ConcreteValue::Boolean(boolean));
                 }
             }
             TypeCode::BYTE => {
                 for pointer in &self.item_pointers {
-                    let byte = thread.current_frame().get_byte_from_pointer(*pointer);
+                    let byte = *thread
+                        .current_registers()
+                        .bytes
+                        .get(pointer.index() as usize)
+                        .as_value();
 
                     concrete_list.push(ConcreteValue::Byte(byte));
                 }
             }
             TypeCode::CHARACTER => {
                 for pointer in &self.item_pointers {
-                    let character = thread.current_frame().get_character_from_pointer(*pointer);
+                    let character = match pointer {
+                        Pointer::Register(register_index) => {
+                            let character = *thread
+                                .current_registers()
+                                .characters
+                                .get(*register_index as usize)
+                                .as_value();
+
+                            character
+                        }
+                        Pointer::Constant(constant_index) => {
+                            let character = thread
+                                .current_frame()
+                                .chunk
+                                .character_constants
+                                .get(*constant_index as usize)
+                                .unwrap();
+
+                            *character
+                        }
+                    };
 
                     concrete_list.push(ConcreteValue::Character(character));
                 }
             }
             TypeCode::FLOAT => {
                 for pointer in &self.item_pointers {
-                    let float = thread.current_frame().get_float_from_pointer(*pointer);
+                    let float = match pointer {
+                        Pointer::Register(register_index) => {
+                            let float = *thread
+                                .current_registers()
+                                .floats
+                                .get(*register_index as usize)
+                                .as_value();
+
+                            float
+                        }
+                        Pointer::Constant(constant_index) => {
+                            let float = thread
+                                .current_frame()
+                                .chunk
+                                .float_constants
+                                .get(*constant_index as usize)
+                                .unwrap();
+
+                            *float
+                        }
+                    };
 
                     concrete_list.push(ConcreteValue::Float(float));
                 }
             }
             TypeCode::INTEGER => {
                 for pointer in &self.item_pointers {
-                    let integer = thread.current_frame().get_integer_from_pointer(*pointer);
+                    let integer = match pointer {
+                        Pointer::Register(register_index) => {
+                            let integer = *thread
+                                .current_registers()
+                                .integers
+                                .get(*register_index as usize)
+                                .as_value();
+
+                            integer
+                        }
+                        Pointer::Constant(constant_index) => {
+                            let integer = thread
+                                .current_frame()
+                                .chunk
+                                .integer_constants
+                                .get(*constant_index as usize)
+                                .unwrap();
+
+                            *integer
+                        }
+                    };
 
                     concrete_list.push(ConcreteValue::Integer(integer));
                 }
             }
             TypeCode::STRING => {
                 for pointer in &self.item_pointers {
-                    let string = thread
-                        .current_frame()
-                        .get_string_from_pointer(*pointer)
-                        .clone();
+                    let string = match pointer {
+                        Pointer::Register(register_index) => {
+                            let string = thread
+                                .current_registers()
+                                .strings
+                                .get(*register_index as usize)
+                                .as_value();
+
+                            string.clone()
+                        }
+                        Pointer::Constant(constant_index) => {
+                            let string = thread
+                                .current_frame()
+                                .chunk
+                                .string_constants
+                                .get(*constant_index as usize)
+                                .unwrap();
+
+                            string.clone()
+                        }
+                    };
 
                     concrete_list.push(ConcreteValue::String(string));
                 }
@@ -97,11 +279,31 @@ impl AbstractList {
             TypeCode::LIST => {
                 for pointer in &self.item_pointers {
                     let list = thread
-                        .current_frame()
-                        .get_list_from_pointer(pointer)
+                        .current_registers()
+                        .lists
+                        .get(pointer.index() as usize)
+                        .as_value()
                         .to_concrete(thread);
 
                     concrete_list.push(list);
+                }
+            }
+            TypeCode::FUNCTION => {
+                for pointer in &self.item_pointers {
+                    let prototype_index = thread
+                        .current_registers()
+                        .functions
+                        .get(pointer.index() as usize)
+                        .as_value()
+                        .prototype_index as usize;
+                    let chunk = thread
+                        .current_frame()
+                        .chunk
+                        .prototypes
+                        .get(prototype_index)
+                        .unwrap();
+
+                    concrete_list.push(ConcreteValue::Function(Arc::clone(chunk)));
                 }
             }
             _ => todo!(),

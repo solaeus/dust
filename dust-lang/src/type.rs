@@ -313,7 +313,7 @@ impl Default for FunctionType {
 
 impl Display for FunctionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "fn ")?;
+        write!(f, "fn")?;
 
         if !self.type_parameters.is_empty() {
             write!(f, "<")?;

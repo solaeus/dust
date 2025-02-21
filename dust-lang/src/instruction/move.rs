@@ -51,6 +51,8 @@ impl Display for Move {
             TypeCode::FLOAT => write!(f, "R_FLOAT_{destination} -> {to}"),
             TypeCode::INTEGER => write!(f, "R_INT_{destination} -> {to}"),
             TypeCode::STRING => write!(f, "R_STR_{destination} -> {to}"),
+            TypeCode::LIST => write!(f, "R_LIST_{destination} -> {to}"),
+            TypeCode::FUNCTION => write!(f, "R_FN_{destination} -> {to}"),
             unsupported => write!(
                 f,
                 "Unsupported type code: {unsupported} for MOVE instruction"

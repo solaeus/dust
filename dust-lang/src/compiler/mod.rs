@@ -107,6 +107,11 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     prototypes: Vec<Arc<Chunk>>,
 
+    /// Lists of arguments for each function call. The integers represent the register of each
+    /// argument. Note that the type of each argument is not stored, so the caller must check the
+    /// function's type to determine the type of each argument.
+    argument_lists: Vec<Vec<u16>>,
+
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
     minimum_boolean_register: u16,
@@ -179,6 +184,7 @@ impl<'src> Compiler<'src> {
             string_constants: Vec::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
+            argument_lists: Vec::new(),
             lexer,
             minimum_byte_register: 0,
             minimum_boolean_register: 0,
@@ -212,19 +218,11 @@ impl<'src> Compiler<'src> {
             self.current_position.to_string()
         );
 
-        loop {
+        while !matches!(self.current_token, Token::Eof | Token::RightBrace) {
             self.parse(Precedence::None)?;
-
-            if matches!(self.current_token, Token::Eof | Token::RightBrace) {
-                if self.get_last_operation() == Some(Operation::RETURN) {
-                    break;
-                }
-
-                self.parse_implicit_return()?;
-
-                break;
-            }
         }
+
+        self.parse_implicit_return()?;
 
         info!("End chunk");
 
@@ -237,6 +235,12 @@ impl<'src> Compiler<'src> {
     /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
     /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
     pub fn finish(mut self) -> Chunk {
+        if self.instructions.is_empty() {
+            let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
+
+            self.emit_instruction(r#return, Type::None, self.current_position);
+        }
+
         let boolean_register_count = self.next_boolean_register();
         let byte_register_count = self.next_byte_register();
         let character_register_count = self.next_character_register();
@@ -262,6 +266,7 @@ impl<'src> Compiler<'src> {
             string_constants: self.string_constants,
             locals: self.locals,
             prototypes: self.prototypes,
+            argument_lists: self.argument_lists,
             boolean_register_count,
             byte_register_count,
             character_register_count,
@@ -397,7 +402,7 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                if instruction.b_type() == TypeCode::FUNCTION && instruction.yields_value() {
+                if instruction.operation() == Operation::LOAD_FUNCTION {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -1253,6 +1258,8 @@ impl<'src> Compiler<'src> {
             Type::Float => self.next_float_register(),
             Type::Integer => self.next_integer_register(),
             Type::String => self.next_string_register(),
+            Type::List(_) => self.next_list_register(),
+            Type::Function(_) => self.next_function_register(),
             _ => todo!(),
         };
         let point = Instruction::r#move(
@@ -1801,26 +1808,21 @@ impl<'src> Compiler<'src> {
             let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
-        } else {
-            let (previous_expression_type, previous_register) = self
-                .instructions
-                .last()
-                .map(|(instruction, r#type, _)| {
-                    if instruction.yields_value() {
-                        (r#type.clone(), instruction.a_field())
-                    } else {
-                        (Type::None, 0)
-                    }
-                })
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
-
+        } else if let Some((previous_expression_type, previous_destination_register)) =
+            self.instructions.last().map(|(instruction, r#type, _)| {
+                if r#type == &Type::None {
+                    (Type::None, 0)
+                } else if instruction.yields_value() {
+                    (r#type.clone(), instruction.a_field())
+                } else {
+                    (Type::None, 0)
+                }
+            })
+        {
             let should_return_value = previous_expression_type != Type::None;
             let r#return = Instruction::r#return(
                 should_return_value,
-                previous_register,
+                previous_destination_register,
                 previous_expression_type.type_code(),
             );
 
@@ -2034,12 +2036,13 @@ impl<'src> Compiler<'src> {
         }
 
         let load_function = Instruction::load_function(destination, prototype_index, false);
+        let r#type = if identifier.is_some() {
+            Type::None
+        } else {
+            Type::Function(function_type)
+        };
 
-        self.emit_instruction(
-            load_function,
-            Type::Function(function_type),
-            Span(function_start, function_end),
-        );
+        self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
         Ok(())
     }
@@ -2056,19 +2059,8 @@ impl<'src> Compiler<'src> {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
+        let b_field = last_instruction.b_field();
 
-        if !matches!(
-            last_instruction_type,
-            Type::Function { .. } | Type::SelfFunction
-        ) {
-            return Err(CompileError::ExpectedFunction {
-                found: self.previous_token.to_owned(),
-                actual_type: last_instruction_type.clone(),
-                position: self.previous_position,
-            });
-        }
-
-        let function_register = last_instruction.a_field();
         let function_return_type = match last_instruction_type {
             Type::Function(function_type) => *function_type.return_type.clone(),
             Type::SelfFunction => *self.r#type.return_type.clone(),
@@ -2080,16 +2072,42 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let is_recursive = last_instruction_type == &Type::SelfFunction;
+        let function_register = if last_instruction.operation() == Operation::LOAD_FUNCTION {
+            last_instruction.a_field()
+        } else if last_instruction.operation() == Operation::MOVE {
+            self.instructions.pop();
 
-        let mut argument_count = 0;
+            b_field
+        } else {
+            return Err(CompileError::ExpectedFunction {
+                found: self.previous_token.to_owned(),
+                actual_type: last_instruction_type.clone(),
+                position: self.previous_position,
+            });
+        };
+
+        let mut argument_list = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            argument_count += 1;
+            let argument_index = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
+
+            argument_list.push(argument_index);
         }
+
+        let argument_list_index = self.argument_lists.len() as u16;
+
+        self.argument_lists.push(argument_list);
 
         let end = self.current_position.1;
         let destination = match function_return_type {
@@ -2102,7 +2120,12 @@ impl<'src> Compiler<'src> {
             Type::String => self.next_string_register(),
             _ => todo!(),
         };
-        let call = Instruction::call(destination, function_register, argument_count, is_recursive);
+        let call = Instruction::call(
+            destination,
+            function_register,
+            argument_list_index,
+            function_return_type.type_code(),
+        );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
 

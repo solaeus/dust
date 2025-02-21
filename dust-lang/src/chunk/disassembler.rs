@@ -65,6 +65,13 @@ const LOCAL_BORDERS: [&str; 3] = [
     "╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯",
 ];
 
+const ARGUMENT_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 21)];
+const ARGUMENT_LIST_BORDERS: [&str; 3] = [
+    "╭─────┬─────────────────────╮",
+    "├─────┼─────────────────────┤",
+    "╰─────┴─────────────────────╯",
+];
+
 const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
 const CONSTANT_BORDERS: [&str; 3] = [
     "╭─────┬──────────────────────────┬──────────────────────────╮",
@@ -326,8 +333,17 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
-            let type_caps = type_display.to_uppercase();
-            let register_display = format!("R_{type_caps}_{register_index}");
+            let register_display = match r#type {
+                Type::Boolean => format!("R_BOOL_{register_index}"),
+                Type::Byte => format!("R_BYTE_{register_index}"),
+                Type::Character => format!("R_CHAR_{register_index}"),
+                Type::Float => format!("R_FLOAT_{register_index}"),
+                Type::Integer => format!("R_INT_{register_index}"),
+                Type::String => format!("R_STR_{register_index}"),
+                Type::List(_) => format!("R_LIST_{register_index}"),
+                Type::Function(_) => format!("R_FN_{register_index}"),
+                _ => unreachable!(),
+            };
             let scope = scope.to_string();
             let row = format!(
                 "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{register_display:^12}│{scope:^7}│{is_mutable:^7}│"
@@ -423,7 +439,38 @@ impl<'a, W: Write> Disassembler<'a, W> {
         Ok(())
     }
 
-    pub fn write_prototype_section(&mut self) -> Result<(), io::Error> {
+    fn write_argument_list_section(&mut self) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in ARGUMENT_LIST_COLUMNS {
+            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
+        }
+
+        column_name_line.push('│');
+        self.write_center_border_bold("Argument Lists")?;
+        self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
+        self.write_center_border(&column_name_line)?;
+        self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
+
+        for (index, argument_list) in self.chunk.argument_lists.iter().enumerate() {
+            let argument_list_display = format!(
+                "│{index:^5}│{:^21}│",
+                argument_list
+                    .iter()
+                    .map(|index| index.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            );
+
+            self.write_center_border(&argument_list_display)?;
+        }
+
+        self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
+
+        Ok(())
+    }
+
+    fn write_prototype_section(&mut self) -> Result<(), io::Error> {
         self.write_center_border_bold("Prototypes")?;
 
         for chunk in &self.chunk.prototypes {
@@ -493,6 +540,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
             || !self.chunk.string_constants.is_empty()
         {
             self.write_constant_section()?;
+        }
+
+        if !self.chunk.argument_lists.is_empty() {
+            self.write_argument_list_section()?;
         }
 
         if !self.chunk.prototypes.is_empty() {

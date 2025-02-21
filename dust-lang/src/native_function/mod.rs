@@ -2,21 +2,15 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
-mod assert;
-mod io;
-mod random;
-mod thread;
 
 use std::{
     fmt::{self, Display, Formatter},
-    io::ErrorKind as IoErrorKind,
     ops::Range,
-    string::ParseError,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnnotatedError, FunctionType, Span, Type, vm::Thread};
+use crate::{vm::Thread, FunctionType, Type};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -86,11 +80,7 @@ macro_rules! define_native_function {
                         $bytes => NativeFunction::$name,
                     )*
                     _ => {
-                        if cfg!(test) {
-                            panic!("Invalid native function byte: {}", bytes)
-                        } else {
-                            NativeFunction::Panic
-                        }
+                        panic!("Invalid native function byte: {}", bytes);
                     }
                 }
             }
@@ -129,13 +119,13 @@ define_native_function! {
     // ),
     // (AssertEqual, 1_u8, "assert_equal", false),
     // (AssertNotEqual, 2_u8, "assert_not_equal", false),
-    (
-        Panic,
-        3,
-        "panic",
-        FunctionType::new([], [], Type::None),
-        assert::panic
-    ),
+    // (
+    //     Panic,
+    //     3,
+    //     "panic",
+    //     FunctionType::new([], [], Type::None),
+    //     assert::panic
+    // ),
 
     // // Type conversion
     // (Parse, 4_u8, "parse", true),
@@ -199,42 +189,42 @@ define_native_function! {
     // // Read
     // (Read, 48_u8, "read", true),
     // (ReadFile, 49_u8, "read_file", true),
-    (
-        ReadLine,
-        50,
-        "read_line",
-        FunctionType::new([], [], Type::String),
-        io::read_line
-    ),
+    // (
+    //     ReadLine,
+    //     50,
+    //     "read_line",
+    //     FunctionType::new([], [], Type::String),
+    //     io::read_line
+    // ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
     // // Write
     // (AppendFile, 53_u8, "append_file", false),
     // (PrependFile, 54_u8, "prepend_file", false),
-    (
-        Write,
-        55,
-        "write",
-        FunctionType::new([], [Type::String], Type::None),
-        io::write
-    ),
+    // (
+    //     Write,
+    //     55,
+    //     "write",
+    //     FunctionType::new([], [Type::String], Type::None),
+    //     io::write
+    // ),
     // (WriteFile, 56_u8, "write_file", false),
-    (
-        WriteLine,
-        57,
-        "write_line",
-        FunctionType::new([], [Type::String], Type::None),
-        io::write_line
-    ),
+    // (
+    //     WriteLine,
+    //     57,
+    //     "write_line",
+    //     FunctionType::new([], [Type::String], Type::None),
+    //     io::write_line
+    // ),
 
     // // Random
-    (
-        RandomInteger,
-        58,
-        "random_int",
-        FunctionType::new([], [Type::Integer, Type::Integer], Type::Integer),
-        random::random_int
-    ),
+    // (
+    //     RandomInteger,
+    //     58,
+    //     "random_int",
+    //     FunctionType::new([], [Type::Integer, Type::Integer], Type::Integer),
+    //     random::random_int
+    // ),
 
     // Thread
     (
@@ -242,70 +232,8 @@ define_native_function! {
         60,
         "spawn",
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
-        thread::spawn
+        spawn
     )
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum NativeFunctionError {
-    ExpectedArgumentCount {
-        expected: usize,
-        found: usize,
-        position: Span,
-    },
-    Panic {
-        message: String,
-        position: Span,
-    },
-    Parse {
-        error: ParseError,
-        position: Span,
-    },
-    Io {
-        error: IoErrorKind,
-        position: Span,
-    },
-}
-
-impl AnnotatedError for NativeFunctionError {
-    fn title() -> &'static str {
-        "Native Function Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            NativeFunctionError::ExpectedArgumentCount { .. } => {
-                "Expected a different number of arguments"
-            }
-            NativeFunctionError::Panic { .. } => "Explicit panic",
-            NativeFunctionError::Parse { .. } => "Failed to parse value",
-            NativeFunctionError::Io { .. } => "I/O error",
-        }
-    }
-
-    fn detail_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            NativeFunctionError::ExpectedArgumentCount {
-                expected,
-                found,
-                position,
-            } => vec![(
-                format!("Expected {expected} arguments, found {found}"),
-                *position,
-            )],
-            NativeFunctionError::Panic { message, position } => {
-                vec![(format!("Dust panic!\n{message}"), *position)]
-            }
-            NativeFunctionError::Parse { error, position } => {
-                vec![(format!("{error}"), *position)]
-            }
-            NativeFunctionError::Io { error, position } => {
-                vec![(format!("{error}"), *position)]
-            }
-        }
-    }
-
-    fn help_snippets(&self) -> Vec<(String, Span)> {
-        Vec::with_capacity(0)
-    }
-}
+fn spawn(_: &mut Thread, _: usize, _: Range<usize>) {}

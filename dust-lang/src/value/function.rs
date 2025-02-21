@@ -16,8 +16,9 @@ impl Display for Function {
         let mut type_string = self.r#type.to_string();
 
         if let Some(name) = &self.name {
-            debug_assert!(type_string.starts_with("fn "));
+            debug_assert!(type_string.starts_with("fn"));
 
+            type_string.insert(2, ' ');
             type_string.insert_str(3, name);
         }
 

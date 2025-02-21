@@ -42,6 +42,7 @@ pub struct Chunk {
     pub string_constants: Vec<DustString>,
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
+    pub argument_lists: Vec<Vec<u16>>,
 
     pub boolean_register_count: u16,
     pub byte_register_count: u16,

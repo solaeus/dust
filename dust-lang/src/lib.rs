@@ -44,7 +44,7 @@ pub use crate::compiler::{compile, CompileError, Compiler};
 pub use crate::dust_error::{AnnotatedError, DustError};
 pub use crate::instruction::{Instruction, Operand, Operation};
 pub use crate::lexer::{lex, LexError, Lexer};
-pub use crate::native_function::{NativeFunction, NativeFunctionError};
+pub use crate::native_function::NativeFunction;
 pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
 pub use crate::token::{Token, TokenKind, TokenOwned};
 pub use crate::value::{

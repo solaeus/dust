@@ -222,12 +222,6 @@ impl AnnotatedError for CompileError {
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
-            Self::CannotAddType {
-                argument_type,
-                position,
-            } => {
-                vec![(format!("Cannot add type `{}`", argument_type), *position)]
-            }
             Self::CannotAddArguments {
                 left_type,
                 left_position,
@@ -241,6 +235,12 @@ impl AnnotatedError for CompileError {
                         *right_position,
                     ),
                 ]
+            }
+            Self::CannotAddType {
+                argument_type,
+                position,
+            } => {
+                vec![(format!("Cannot add type `{}`", argument_type), *position)]
             }
             Self::ReturnTypeConflict { conflict, position } => {
                 vec![(

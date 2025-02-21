@@ -43,7 +43,7 @@ impl Display for LoadFunction {
             jump_next,
         } = self;
 
-        write!(f, "R{destination} = P{prototype_index}")?;
+        write!(f, "R_FN_{destination} = P{prototype_index}")?;
 
         if *jump_next {
             write!(f, " JUMP +1")?;

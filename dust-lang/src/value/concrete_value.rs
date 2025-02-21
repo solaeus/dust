@@ -1,10 +1,13 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 use tracing::trace;
 
-use crate::{Type, Value};
+use crate::{Chunk, Type, Value};
 
 use super::RangeValue;
 
@@ -17,6 +20,7 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
+    Function(Arc<Chunk>),
     Integer(i64),
     List(Vec<ConcreteValue>),
     Range(RangeValue),
@@ -114,6 +118,7 @@ impl ConcreteValue {
             ConcreteValue::List(items) => items.first().map_or(Type::Any, |item| item.r#type()),
             ConcreteValue::Range(range) => range.r#type(),
             ConcreteValue::String(_) => Type::String,
+            ConcreteValue::Function(chunk) => Type::Function(chunk.r#type.clone()),
         }
     }
 }
@@ -131,6 +136,7 @@ impl Clone for ConcreteValue {
             ConcreteValue::List(items) => ConcreteValue::List(items.clone()),
             ConcreteValue::Range(range) => ConcreteValue::Range(*range),
             ConcreteValue::String(string) => ConcreteValue::String(string.clone()),
+            ConcreteValue::Function(chunk) => ConcreteValue::Function(chunk.clone()),
         }
     }
 }
@@ -168,6 +174,7 @@ impl Display for ConcreteValue {
                 write!(f, "{range_value}")
             }
             ConcreteValue::String(string) => write!(f, "{string}"),
+            ConcreteValue::Function(chunk) => write!(f, "{}", chunk.r#type),
         }
     }
 }
