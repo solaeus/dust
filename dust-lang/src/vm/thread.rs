@@ -1352,11 +1352,6 @@ impl Thread {
 
                     function.call(instruction, &mut self);
                 }
-                Operation::CALL_NATIVE => {
-                    let function = NativeFunction::from(instruction.b_field());
-
-                    function.call(instruction, &mut self);
-                }
                 Operation::JUMP => {
                     let offset = instruction.b_field() as usize;
                     let is_positive = instruction.c_field() != 0;
