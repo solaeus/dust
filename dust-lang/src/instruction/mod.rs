@@ -183,15 +183,15 @@ impl From<&Instruction> for InstructionFields {
 impl Default for InstructionFields {
     fn default() -> Self {
         InstructionFields {
-            operation: Operation::MOVE,
+            operation: Operation::NO_OP,
             a_field: 0,
             b_field: 0,
             c_field: 0,
             d_field: false,
             b_is_constant: false,
             c_is_constant: false,
-            b_type: TypeCode::BOOLEAN,
-            c_type: TypeCode::BOOLEAN,
+            b_type: TypeCode::NONE,
+            c_type: TypeCode::NONE,
         }
     }
 }
@@ -278,9 +278,9 @@ impl Instruction {
     pub fn as_operand(&self) -> Operand {
         match self.operation() {
             Operation::MOVE => {
-                let Move { operand: to, .. } = Move::from(self);
+                let Move { operand, .. } = Move::from(self);
 
-                Operand::Register(to.index(), to.as_type())
+                operand
             }
             Operation::LOAD_ENCODED => {
                 let LoadEncoded {
@@ -361,6 +361,15 @@ impl Instruction {
                 } = Modulo::from(*self);
 
                 Operand::Register(destination, left.as_type())
+            }
+            Operation::CALL => {
+                let Call {
+                    destination,
+                    return_type,
+                    ..
+                } = Call::from(*self);
+
+                Operand::Register(destination, return_type)
             }
             unsupported => todo!("Support {unsupported}"),
         }
@@ -546,24 +555,26 @@ impl Instruction {
         function_register: u16,
         argument_list_register: u16,
         return_type: TypeCode,
+        is_recursive: bool,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function_register,
             argument_list_index: argument_list_register,
             return_type,
+            is_recursive,
         })
     }
 
     pub fn call_native(
         destination: u16,
         function: NativeFunction,
-        first_argument_index: u16,
+        argument_list_index: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
-            first_argument_index,
+            argument_list_index,
         })
     }
 

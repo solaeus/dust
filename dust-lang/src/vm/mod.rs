@@ -1,5 +1,4 @@
 //! Virtual machine and errors
-// mod action;
 mod thread;
 
 use std::{
@@ -13,7 +12,7 @@ pub use thread::Thread;
 use crossbeam_channel::bounded;
 use tracing::{span, Level};
 
-use crate::{compile, AbstractList, Chunk, DustError, DustString, Function, Value};
+use crate::{compile, AbstractList, Chunk, DustError, DustString, Function, Type, Value};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
@@ -104,6 +103,14 @@ impl CallFrame {
             self.chunk.string_constants.get(constant_index).unwrap()
         } else {
             unsafe { self.chunk.string_constants.get_unchecked(constant_index) }
+        }
+    }
+
+    pub fn get_argument_list(&self, index: u16) -> &(Vec<u16>, Vec<Type>) {
+        if cfg!(debug_assertions) {
+            self.chunk.argument_lists.get(index as usize).unwrap()
+        } else {
+            unsafe { self.chunk.argument_lists.get_unchecked(index as usize) }
         }
     }
 }

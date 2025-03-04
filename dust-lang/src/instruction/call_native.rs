@@ -7,7 +7,7 @@ use super::InstructionFields;
 pub struct CallNative {
     pub destination: u16,
     pub function: NativeFunction,
-    pub first_argument_index: u16,
+    pub argument_list_index: u16,
 }
 
 impl From<Instruction> for CallNative {
@@ -19,7 +19,7 @@ impl From<Instruction> for CallNative {
         CallNative {
             destination,
             function,
-            first_argument_index,
+            argument_list_index: first_argument_index,
         }
     }
 }
@@ -29,7 +29,7 @@ impl From<CallNative> for Instruction {
         let operation = Operation::CALL_NATIVE;
         let a_field = call_native.destination;
         let b_field = call_native.function as u16;
-        let c_field = call_native.first_argument_index;
+        let c_field = call_native.argument_list_index;
 
         InstructionFields {
             operation,
@@ -47,57 +47,23 @@ impl Display for CallNative {
         let CallNative {
             destination,
             function,
-            first_argument_index,
+            argument_list_index,
         } = self;
-        let argument_count = function.r#type().value_parameters.len() as u16;
+        let return_type = function.r#type().return_type;
 
-        if function.returns_value() {
-            write!(f, "R{destination} = ")?;
+        match *return_type {
+            Type::None => {}
+            Type::Boolean => write!(f, "R_BOOL_{destination} = ")?,
+            Type::Byte => write!(f, "R_BYTE_{destination} = ")?,
+            Type::Character => write!(f, "R_CHR_{destination} = ")?,
+            Type::Float => write!(f, "R_FLT_{destination} = ")?,
+            Type::Integer => write!(f, "R_INT_{destination} = ")?,
+            Type::String => write!(f, "R_STR_{destination} = ")?,
+            Type::List(_) => write!(f, "R_LIST_{destination} = ")?,
+            Type::Function(_) => write!(f, "R_FN_{destination} = ")?,
+            _ => unreachable!(),
         }
 
-        write!(f, "{function}")?;
-
-        match argument_count {
-            0 => {
-                write!(f, "()")
-            }
-            _ => {
-                let arguments_end = first_argument_index + argument_count - 1;
-                let arguments_index_range = *first_argument_index..=arguments_end;
-                let function_type = function.r#type();
-                let argument_types = function_type.value_parameters.iter();
-
-                write!(f, "(")?;
-
-                for (index, r#type) in arguments_index_range.zip(argument_types) {
-                    match r#type {
-                        Type::Boolean => {
-                            write!(f, "R_BOOL_{index}")
-                        }
-                        Type::Byte => {
-                            write!(f, "R_BYTE_{index}")
-                        }
-                        Type::Float => {
-                            write!(f, "R_FLOAT_{index}")
-                        }
-                        Type::Integer => {
-                            write!(f, "R_INT_{index}")
-                        }
-                        Type::String => {
-                            write!(f, "R_STR_{index}")
-                        }
-                        unsupported => {
-                            todo!("Support for {unsupported:?} arguments")
-                        }
-                    }?;
-
-                    if index != arguments_end {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, ")")
-            }
-        }
+        write!(f, "{function}(ARGS_{argument_list_index})")
     }
 }

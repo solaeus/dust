@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Function, FunctionType, Instruction, Span};
+use crate::{DustString, Function, FunctionType, Instruction, Span, Type};
 
 /// Representation of a Dust program or function.
 ///
@@ -42,7 +42,7 @@ pub struct Chunk {
     pub string_constants: Vec<DustString>,
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
-    pub argument_lists: Vec<Vec<u16>>,
+    pub argument_lists: Vec<(Vec<u16>, Vec<Type>)>,
 
     pub boolean_register_count: u16,
     pub byte_register_count: u16,
