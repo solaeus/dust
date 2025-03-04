@@ -110,7 +110,7 @@ pub struct Compiler<'src> {
     /// Lists of arguments for each function call. The integers represent the register of each
     /// argument. Note that the type of each argument is not stored, so the caller must check the
     /// function's type to determine the type of each argument.
-    argument_lists: Vec<Vec<u16>>,
+    argument_lists: Vec<(Vec<u16>, Vec<Type>)>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -357,7 +357,7 @@ impl<'src> Compiler<'src> {
             .find_map(|(instruction, r#type, _)| {
                 if (instruction.operation() == Operation::LOAD_CONSTANT
                     && instruction.b_type() == TypeCode::INTEGER)
-                    || r#type == &Type::Integer
+                    || instruction.yields_value() && r#type == &Type::Integer
                 {
                     Some(instruction.a_field() + 1)
                 } else {
@@ -402,7 +402,10 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                if instruction.operation() == Operation::LOAD_FUNCTION {
+                if matches!(
+                    instruction.operation(),
+                    Operation::LOAD_FUNCTION | Operation::LOAD_SELF
+                ) {
                     Some(instruction.a_field() + 1)
                 } else {
                     None
@@ -862,6 +865,8 @@ impl<'src> Compiler<'src> {
             Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
             | Operation::LOAD_SELF
+            | Operation::CALL
+            | Operation::CALL_NATIVE
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -1201,7 +1206,7 @@ impl<'src> Compiler<'src> {
         let local_index = if let Ok(local_index) = self.get_local_index(identifier) {
             local_index
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
-            return self.parse_call_native(native_function);
+            return self.parse_call_native(native_function, start_position);
         } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
             let destination = self.next_function_register();
             let load_self = Instruction::load_self(destination, false);
@@ -1656,41 +1661,6 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_call_native(&mut self, function: NativeFunction) -> Result<(), CompileError> {
-        let start = self.previous_position.0;
-        let mut first_argument_index = None;
-
-        self.expect(Token::LeftParenthesis)?;
-
-        while !self.allow(Token::RightParenthesis)? {
-            self.parse_expression()?;
-            self.allow(Token::Comma)?;
-
-            if first_argument_index.is_none() {
-                first_argument_index = Some(self.instructions.last().unwrap().0.a_field());
-            }
-        }
-
-        let end = self.previous_position.1;
-        let destination = match function.r#type().return_type.as_ref() {
-            Type::Boolean => self.next_boolean_register(),
-            Type::Byte => self.next_byte_register(),
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
-            Type::None => 0,
-            _ => todo!(),
-        };
-        let return_type = *function.r#type().return_type;
-        let call_native =
-            Instruction::call_native(destination, function, first_argument_index.unwrap_or(0));
-
-        self.emit_instruction(call_native, return_type, Span(start, end));
-
-        Ok(())
-    }
-
     fn parse_expression(&mut self) -> Result<(), CompileError> {
         self.parse(Precedence::None)?;
 
@@ -2036,11 +2006,7 @@ impl<'src> Compiler<'src> {
         }
 
         let load_function = Instruction::load_function(destination, prototype_index, false);
-        let r#type = if identifier.is_some() {
-            Type::None
-        } else {
-            Type::Function(function_type)
-        };
+        let r#type = Type::Function(function_type);
 
         self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
@@ -2072,7 +2038,11 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let function_register = if last_instruction.operation() == Operation::LOAD_FUNCTION {
+        let last_operation = last_instruction.operation();
+        let function_register = if matches!(
+            last_operation,
+            Operation::LOAD_FUNCTION | Operation::LOAD_SELF
+        ) {
             last_instruction.a_field()
         } else if last_instruction.operation() == Operation::MOVE {
             self.instructions.pop();
@@ -2086,7 +2056,9 @@ impl<'src> Compiler<'src> {
             });
         };
 
-        let mut argument_list = Vec::new();
+        let type_argument_list = Vec::new();
+
+        let mut value_argument_list = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
@@ -2102,12 +2074,13 @@ impl<'src> Compiler<'src> {
                 _ => todo!(),
             };
 
-            argument_list.push(argument_index);
+            value_argument_list.push(argument_index);
         }
 
         let argument_list_index = self.argument_lists.len() as u16;
 
-        self.argument_lists.push(argument_list);
+        self.argument_lists
+            .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
         let destination = match function_return_type {
@@ -2120,14 +2093,79 @@ impl<'src> Compiler<'src> {
             Type::String => self.next_string_register(),
             _ => todo!(),
         };
+        let is_recursive = last_operation == Operation::LOAD_SELF;
         let call = Instruction::call(
             destination,
             function_register,
             argument_list_index,
             function_return_type.type_code(),
+            is_recursive,
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
+
+        Ok(())
+    }
+
+    fn parse_call_native(
+        &mut self,
+        function: NativeFunction,
+        start: Span,
+    ) -> Result<(), CompileError> {
+        let mut type_argument_list = Vec::new();
+
+        if self.allow(Token::Less)? {
+            while !self.allow(Token::Greater)? {
+                let r#type = self.parse_type_from(self.current_token, self.current_position)?;
+
+                type_argument_list.push(r#type);
+                self.advance()?;
+
+                self.allow(Token::Comma)?;
+            }
+        }
+
+        self.expect(Token::LeftParenthesis)?;
+
+        let mut value_argument_list = Vec::new();
+
+        while !self.allow(Token::RightParenthesis)? {
+            self.parse_expression()?;
+            self.allow(Token::Comma)?;
+
+            let argument_index = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_register() - 1,
+                Type::Byte => self.next_byte_register() - 1,
+                Type::Character => self.next_character_register() - 1,
+                Type::Float => self.next_float_register() - 1,
+                Type::Integer => self.next_integer_register() - 1,
+                Type::String => self.next_string_register() - 1,
+                _ => todo!(),
+            };
+
+            value_argument_list.push(argument_index);
+        }
+
+        let argument_list_index = self.argument_lists.len() as u16;
+
+        self.argument_lists
+            .push((value_argument_list, type_argument_list));
+
+        let end = self.current_position.1;
+        let return_type = function.r#type().return_type.as_ref().clone();
+        let destination = match return_type {
+            Type::None => 0,
+            Type::Boolean => self.next_boolean_register(),
+            Type::Byte => self.next_byte_register(),
+            Type::Character => self.next_character_register(),
+            Type::Float => self.next_float_register(),
+            Type::Integer => self.next_integer_register(),
+            Type::String => self.next_string_register(),
+            _ => todo!(),
+        };
+        let call_native = Instruction::call_native(destination, function, argument_list_index);
+
+        self.emit_instruction(call_native, return_type, Span(start.0, end));
 
         Ok(())
     }

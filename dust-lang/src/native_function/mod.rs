@@ -2,15 +2,14 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
+mod io;
+mod string;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    ops::Range,
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{vm::Thread, FunctionType, Type};
+use crate::{vm::Thread, FunctionType, Instruction, Type};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -25,15 +24,10 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            pub fn call(
-                &self,
-                thread: &mut Thread,
-                destination: usize,
-                argument_range: Range<usize>,
-            ) {
+            pub fn call(&self, instruction: Instruction, thread: &mut Thread) {
                 match self {
                     $(
-                        NativeFunction::$name => $function(thread, destination, argument_range),
+                        NativeFunction::$name => $function(instruction, thread),
                     )*
                 }
             }
@@ -127,18 +121,18 @@ define_native_function! {
     //     assert::panic
     // ),
 
-    // // Type conversion
+    // Type conversion
     // (Parse, 4_u8, "parse", true),
     // (ToByte, 5_u8, "to_byte", true),
     // (ToFloat, 6_u8, "to_float", true),
     // (ToInteger, 7_u8, "to_integer", true),
-    // (
-    //     ToString,
-    //     8,
-    //     "to_string",
-    //     FunctionType::new([], [Type::Any], Type::String),
-    //     string::to_string
-    // ),
+    (
+        ToString,
+        8,
+        "to_string",
+        FunctionType::new([], [Type::Any], Type::String),
+        string::to_string
+    ),
 
     // // List and string
     // (All, 9_u8, "all", true),
@@ -209,13 +203,13 @@ define_native_function! {
     //     io::write
     // ),
     // (WriteFile, 56_u8, "write_file", false),
-    // (
-    //     WriteLine,
-    //     57,
-    //     "write_line",
-    //     FunctionType::new([], [Type::String], Type::None),
-    //     io::write_line
-    // ),
+    (
+        WriteLine,
+        57,
+        "write_line",
+        FunctionType::new([], [Type::String], Type::None),
+        io::write_line
+    ),
 
     // // Random
     // (
@@ -236,4 +230,4 @@ define_native_function! {
     )
 }
 
-fn spawn(_: &mut Thread, _: usize, _: Range<usize>) {}
+fn spawn(_: Instruction, _: &mut Thread) {}

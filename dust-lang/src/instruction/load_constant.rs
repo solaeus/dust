@@ -51,16 +51,12 @@ impl Display for LoadConstant {
         } = self;
 
         match *constant_type {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination}")?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination}")?,
-            TypeCode::INTEGER => write!(f, "R_INT_{destination}")?,
-            TypeCode::STRING => write!(f, "R_STR_{destination}")?,
+            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination} = C_CHAR_{constant_index}")?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination} = C_FLOAT_{constant_index}")?,
+            TypeCode::INTEGER => write!(f, "R_INT_{destination} = C_INT_{constant_index}")?,
+            TypeCode::STRING => write!(f, "R_STR_{destination} = C_STR_{constant_index}")?,
             unsupported => panic!("Unsupported type code: {}", unsupported.0),
         }
-
-        write!(f, " = C{constant_index}")?;
 
         if *jump_next {
             write!(f, " JUMP +1")?;

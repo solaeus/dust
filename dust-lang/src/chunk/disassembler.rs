@@ -65,18 +65,18 @@ const LOCAL_BORDERS: [&str; 3] = [
     "╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯",
 ];
 
-const ARGUMENT_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 21)];
+const ARGUMENT_LIST_COLUMNS: [(&str, usize); 3] = [("i", 5), ("REGISTERS", 21), ("TYPES", 21)];
 const ARGUMENT_LIST_BORDERS: [&str; 3] = [
-    "╭─────┬─────────────────────╮",
-    "├─────┼─────────────────────┤",
-    "╰─────┴─────────────────────╯",
+    "╭─────┬─────────────────────┬─────────────────────╮",
+    "├─────┼─────────────────────┼─────────────────────┤",
+    "╰─────┴─────────────────────┴─────────────────────╯",
 ];
 
-const CONSTANT_COLUMNS: [(&str, usize); 3] = [("i", 5), ("TYPE", 26), ("VALUE", 26)];
+const CONSTANT_COLUMNS: [(&str, usize); 3] = [("ADDRESS", 9), ("TYPE", 26), ("VALUE", 26)];
 const CONSTANT_BORDERS: [&str; 3] = [
-    "╭─────┬──────────────────────────┬──────────────────────────╮",
-    "├─────┼──────────────────────────┼──────────────────────────┤",
-    "╰─────┴──────────────────────────┴──────────────────────────╯",
+    "╭─────────┬──────────────────────────┬──────────────────────────╮",
+    "├─────────┼──────────────────────────┼──────────────────────────┤",
+    "╰─────────┴──────────────────────────┴──────────────────────────╯",
 ];
 
 const INDENTATION: &str = "│  ";
@@ -280,7 +280,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         column_name_line.push('│');
         self.write_center_border_bold("Instructions")?;
         self.write_center_border(INSTRUCTION_BORDERS[0])?;
-        self.write_center_border(&column_name_line)?;
+        self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(INSTRUCTION_BORDERS[1])?;
 
         for (index, instruction) in self.chunk.instructions.iter().enumerate() {
@@ -312,7 +312,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         column_name_line.push('│');
         self.write_center_border_bold("Locals")?;
         self.write_center_border(LOCAL_BORDERS[0])?;
-        self.write_center_border(&column_name_line)?;
+        self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(LOCAL_BORDERS[1])?;
 
         for (
@@ -367,7 +367,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         column_name_line.push('│');
         self.write_center_border_bold("Constants")?;
         self.write_center_border(CONSTANT_BORDERS[0])?;
-        self.write_center_border(&column_name_line)?;
+        self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
         for (index, value) in self.chunk.character_constants.iter().enumerate() {
@@ -381,7 +381,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let register_display = format!("C_CHAR_{index}");
+            let constant_display =
+                format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
@@ -397,7 +399,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let register_display = format!("C_FLOAT_{index}");
+            let constant_display =
+                format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
@@ -413,7 +417,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let register_display = format!("C_INT_{index}");
+            let constant_display =
+                format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
@@ -429,7 +435,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
                 value_string
             };
-            let constant_display = format!("│{index:^5}│{type_display:^26}│{value_display:^26}│");
+            let register_display = format!("C_STR_{index}");
+            let constant_display =
+                format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 
             self.write_center_border(&constant_display)?;
         }
@@ -449,15 +457,22 @@ impl<'a, W: Write> Disassembler<'a, W> {
         column_name_line.push('│');
         self.write_center_border_bold("Argument Lists")?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
-        self.write_center_border(&column_name_line)?;
+        self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        for (index, argument_list) in self.chunk.argument_lists.iter().enumerate() {
+        for (index, (value_argument_list, type_argument_list)) in
+            self.chunk.argument_lists.iter().enumerate()
+        {
             let argument_list_display = format!(
-                "│{index:^5}│{:^21}│",
-                argument_list
+                "│{index:^5}│{:^21}│{:^21}│",
+                value_argument_list
                     .iter()
                     .map(|index| index.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                type_argument_list
+                    .iter()
+                    .map(|r#type| r#type.to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
             );

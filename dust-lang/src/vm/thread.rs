@@ -5,7 +5,7 @@ use tracing::{info, trace};
 use crate::{
     instruction::TypeCode,
     vm::{CallFrame, Pointer},
-    AbstractList, Chunk, DustString, Operation, Span, Type, Value,
+    AbstractList, Chunk, DustString, NativeFunction, Operation, Span, Type, Value,
 };
 
 use super::RegisterTable;
@@ -1274,16 +1274,26 @@ impl Thread {
                     let destination = instruction.a_field();
                     let function_register = instruction.b_field();
                     let argument_list_register = instruction.c_field();
+                    let is_recursive = instruction.b_is_constant();
 
-                    let function = registers
-                        .functions
-                        .get(function_register as usize)
-                        .as_value();
-                    let function_prototype = current_frame
-                        .chunk
-                        .prototypes
-                        .get(function.prototype_index as usize)
-                        .unwrap();
+                    let function = if is_recursive {
+                        current_frame.chunk.as_function()
+                    } else {
+                        registers
+                            .functions
+                            .get(function_register as usize)
+                            .as_value()
+                            .clone()
+                    };
+                    let function_prototype = if is_recursive {
+                        &current_frame.chunk
+                    } else {
+                        current_frame
+                            .chunk
+                            .prototypes
+                            .get(function.prototype_index as usize)
+                            .unwrap()
+                    };
                     let argument_list = current_frame
                         .chunk
                         .argument_lists
@@ -1300,7 +1310,7 @@ impl Thread {
                         .r#type
                         .value_parameters
                         .iter()
-                        .zip(argument_list.iter())
+                        .zip(argument_list.0.iter())
                     {
                         let register_index = *register_index as usize;
 
@@ -1335,21 +1345,12 @@ impl Thread {
                     self.call_stack.push(call_frame);
                     self.register_stack.push(new_registers);
 
-                    trace!(
-                        "Call Stack: [{}]",
-                        self.call_stack
-                            .iter()
-                            .map(|call_frame| format!(
-                                "{}:{} ",
-                                call_frame
-                                    .chunk
-                                    .name
-                                    .clone()
-                                    .unwrap_or_else(|| DustString::from("anonymous")),
-                                call_frame.ip
-                            ))
-                            .collect::<String>()
-                    );
+                    trace!("Call Stack: {:?}", self.call_stack);
+                }
+                Operation::CALL_NATIVE => {
+                    let function = NativeFunction::from(instruction.b_field());
+
+                    function.call(instruction, &mut self);
                 }
                 Operation::JUMP => {
                     let offset = instruction.b_field() as usize;
