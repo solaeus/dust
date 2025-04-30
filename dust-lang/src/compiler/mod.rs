@@ -229,11 +229,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    /// Creates a new chunk with the compiled data, optionally assigning a name to the chunk.
-    ///
-    /// Note for maintainers: Do not give a name when compiling functions, only the main chunk. This
-    /// will allow [`Compiler::function_name`] to be both the name used for recursive calls and the
-    /// name of the function when it is compiled. The name can later be seen in the VM's call stack.
+    /// Creates a new chunk with the compiled data.
     pub fn finish(mut self) -> Chunk {
         if self.instructions.is_empty() {
             let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
@@ -416,6 +412,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_function_register)
     }
 
+    /// Advances to the next token emitted by the lexer.
     fn advance(&mut self) -> Result<(), CompileError> {
         if self.is_eof() {
             return Ok(());
@@ -435,6 +432,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
+    /// Returns the local with the given index.
     fn get_local(&self, index: u16) -> Result<&Local, CompileError> {
         self.locals
             .get(index as usize)
@@ -444,6 +442,7 @@ impl<'src> Compiler<'src> {
             })
     }
 
+    /// Returns the index of the local with the given identifier.
     fn get_local_index(&self, identifier_text: &str) -> Result<u16, CompileError> {
         self.locals
             .iter()
@@ -464,6 +463,9 @@ impl<'src> Compiler<'src> {
             })
     }
 
+    /// Adds a new local to `self.locals` and returns a tuple holding the index
+    /// of the new local and the index of its identifier in
+    /// `self.string_constants`.
     fn declare_local(
         &mut self,
         identifier: &str,

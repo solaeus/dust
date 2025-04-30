@@ -23,7 +23,7 @@
 //! - Use the associated function on `Instruction`
 //! - Use the corresponding struct and call `Instruction::from`
 //!
-//! Both produce the same result, but the first is usuall more concise. The structs are more useful
+//! Both produce the same result, but the first is usually more concise. The structs are more useful
 //! when reading instructions, as shown below.
 //!
 //! Use the [`Operand`][] type when creating instructions. In addition to being easy to read and
@@ -45,7 +45,7 @@
 //! assert_eq!(add_1, add_2);
 //! ```
 //!
-//! ## Reading Instructions
+//! # Reading Instructions
 //!
 //! To read an instruction, check its operation with [`Instruction::operation`], then convert the
 //! instruction to the struct that corresponds to that operation. Like the example above, this
