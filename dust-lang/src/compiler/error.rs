@@ -222,6 +222,120 @@ impl AnnotatedError for CompileError {
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
+            // Token errors
+            Self::ExpectedToken {
+                expected,
+                found,
+                position,
+            } => {
+                vec![(
+                    format!("Expected token `{}` but found `{}`", expected, found),
+                    *position,
+                )]
+            }
+            Self::ExpectedTokenMultiple {
+                expected,
+                found,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Expected one of the tokens `{:?}` but found `{}`",
+                        expected, found
+                    ),
+                    *position,
+                )]
+            }
+
+            // Parsing errors
+            Self::ComparisonChain { position } => {
+                vec![("Cannot chain comparison operations".to_string(), *position)]
+            }
+            Self::ExpectedBoolean { found, position } => {
+                vec![(
+                    format!("Expected a boolean but found `{}`", found),
+                    *position,
+                )]
+            }
+            Self::ExpectedExpression { found, position } => {
+                vec![(
+                    format!("Expected an expression but found `{}`", found),
+                    *position,
+                )]
+            }
+            Self::ExpectedFunction {
+                found,
+                actual_type,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Expected a function but found `{}` of type `{}`",
+                        found, actual_type
+                    ),
+                    *position,
+                )]
+            }
+            Self::ExpectedFunctionType { found, position } => {
+                vec![(
+                    format!("Expected a function type but found `{}`", found),
+                    *position,
+                )]
+            }
+            Self::InvalidAssignmentTarget { found, position } => {
+                vec![(format!("Invalid assignment target `{}`", found), *position)]
+            }
+            Self::UnexpectedReturn { position } => {
+                vec![("Unexpected return statement".to_string(), *position)]
+            }
+
+            // Variable errors
+            Self::CannotMutateImmutableVariable {
+                identifier,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot mutate immutable variable `{}`", identifier),
+                    *position,
+                )]
+            }
+            Self::ExpectedMutableVariable { found, position } => {
+                vec![(
+                    format!("Expected a mutable variable but found `{}`", found),
+                    *position,
+                )]
+            }
+            Self::UndeclaredVariable {
+                identifier,
+                position,
+            } => {
+                vec![(
+                    format!("Variable `{}` is not declared", identifier),
+                    *position,
+                )]
+            }
+            Self::VariableOutOfScope {
+                identifier,
+                variable_scope,
+                access_scope,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Variable `{}` is out of scope. Declared in scope `{}` but accessed in scope `{}`",
+                        identifier, variable_scope, access_scope
+                    ),
+                    *position,
+                )]
+            }
+
+            // Type errors
+            Self::CannotAddType {
+                argument_type,
+                position,
+            } => {
+                vec![(format!("Cannot add type `{}`", argument_type), *position)]
+            }
             Self::CannotAddArguments {
                 left_type,
                 left_position,
@@ -229,48 +343,433 @@ impl AnnotatedError for CompileError {
                 right_position,
             } => {
                 vec![
-                    (format!("`{left_type}` value was used here"), *left_position),
                     (
-                        format!("`{right_type}` value was used here"),
+                        format!("`{}` value was used here", left_type),
+                        *left_position,
+                    ),
+                    (
+                        format!("`{}` value was used here", right_type),
                         *right_position,
                     ),
                 ]
             }
-            Self::CannotAddType {
+            Self::CannotDivideType {
                 argument_type,
                 position,
             } => {
-                vec![(format!("Cannot add type `{}`", argument_type), *position)]
+                vec![(format!("Cannot divide type `{}`", argument_type), *position)]
             }
-            Self::ReturnTypeConflict { conflict, position } => {
+            Self::CannotDivideArguments {
+                left_type,
+                right_type,
+                position,
+            } => {
                 vec![(
                     format!(
-                        "Expected type `{}` but found type `{}`",
+                        "Cannot divide type `{}` by type `{}`",
+                        left_type, right_type
+                    ),
+                    *position,
+                )]
+            }
+            Self::CannotModuloType {
+                argument_type,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot compute modulo for type `{}`", argument_type),
+                    *position,
+                )]
+            }
+            Self::CannotModuloArguments {
+                left_type,
+                right_type,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Cannot compute modulo for type `{}` with type `{}`",
+                        left_type, right_type
+                    ),
+                    *position,
+                )]
+            }
+            Self::CannotMultiplyType {
+                argument_type,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot multiply type `{}`", argument_type),
+                    *position,
+                )]
+            }
+            Self::CannotMultiplyArguments {
+                left_type,
+                right_type,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Cannot multiply type `{}` with type `{}`",
+                        left_type, right_type
+                    ),
+                    *position,
+                )]
+            }
+            Self::CannotNegateType {
+                argument_type,
+                position,
+            } => {
+                vec![(format!("Cannot negate type `{}`", argument_type), *position)]
+            }
+            Self::CannotNotType {
+                argument_type,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot apply `not` operation to type `{}`", argument_type),
+                    *position,
+                )]
+            }
+            Self::CannotSubtractType {
+                argument_type,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot subtract type `{}`", argument_type),
+                    *position,
+                )]
+            }
+            Self::CannotSubtractArguments {
+                left_type,
+                right_type,
+                position,
+            } => {
+                vec![(
+                    format!(
+                        "Cannot subtract type `{}` from type `{}`",
+                        right_type, left_type
+                    ),
+                    *position,
+                )]
+            }
+            Self::CannotResolveRegisterType {
+                register_index,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot resolve type for register `{}`", register_index),
+                    *position,
+                )]
+            }
+            Self::CannotResolveVariableType {
+                identifier,
+                position,
+            } => {
+                vec![(
+                    format!("Cannot resolve type for variable `{}`", identifier),
+                    *position,
+                )]
+            }
+            Self::IfElseBranchMismatch { conflict, position } => {
+                vec![(
+                    format!(
+                        "Type mismatch in if/else branches: expected `{}` but found `{}`",
                         conflict.expected, conflict.actual
                     ),
                     *position,
                 )]
             }
-            _ => Vec::with_capacity(0),
+            Self::IfMissingElse { position } => {
+                vec![(
+                    "If statement is missing an else branch".to_string(),
+                    *position,
+                )]
+            }
+            Self::ListItemTypeConflict { conflict, position } => {
+                vec![(
+                    format!(
+                        "List item type conflict: expected `{}` but found `{}`",
+                        conflict.expected, conflict.actual
+                    ),
+                    *position,
+                )]
+            }
+            Self::ReturnTypeConflict { conflict, position } => {
+                vec![(
+                    format!(
+                        "Return type conflict: expected `{}` but found `{}`",
+                        conflict.expected, conflict.actual
+                    ),
+                    *position,
+                )]
+            }
+
+            // Chunk errors
+            Self::ConstantIndexOutOfBounds { index, position } => {
+                vec![(
+                    format!("Constant index `{}` is out of bounds", index),
+                    *position,
+                )]
+            }
+            Self::InstructionIndexOutOfBounds { index, position } => {
+                vec![(
+                    format!("Instruction index `{}` is out of bounds", index),
+                    *position,
+                )]
+            }
+            Self::LocalIndexOutOfBounds { index, position } => {
+                vec![(
+                    format!("Local index `{}` is out of bounds", index),
+                    *position,
+                )]
+            }
+
+            // Wrappers around foreign errors
+            Self::Lex(error) => error.detail_snippets(),
+            Self::ParseFloatError { error, position } => {
+                vec![(format!("Failed to parse float: {}", error), *position)]
+            }
+            Self::ParseIntError { error, position } => {
+                vec![(format!("Failed to parse integer: {}", error), *position)]
+            }
         }
     }
 
     fn help_snippets(&self) -> Vec<(String, Span)> {
         match self {
-            Self::CannotAddArguments {
-                left_type,
-                left_position,
-                right_type,
-                right_position,
+            // Token errors
+            Self::ExpectedToken {
+                expected, position, ..
             } => {
                 vec![(
-                    format!(
-                        "Type `{left_type}` cannot be added to type `{right_type}`. Try converting one of the values to the other type."
-                    ),
+                    format!("Insert the expected token `{}` here", expected),
+                    *position,
+                )]
+            }
+            Self::ExpectedTokenMultiple {
+                expected, position, ..
+            } => {
+                vec![(
+                    format!("Insert one of the expected tokens `{:?}` here", expected),
+                    *position,
+                )]
+            }
+
+            // Parsing errors
+            Self::ComparisonChain { position } => {
+                vec![(
+                    "Break the comparison chain into separate comparisons".to_string(),
+                    *position,
+                )]
+            }
+            Self::ExpectedBoolean { position, .. } => {
+                vec![(
+                    "Provide a boolean value (e.g., `true` or `false`) here".to_string(),
+                    *position,
+                )]
+            }
+            Self::ExpectedExpression { position, .. } => {
+                vec![("Provide a valid expression here".to_string(), *position)]
+            }
+            Self::ExpectedFunction { position, .. } => {
+                vec![(
+                    "Provide a function or callable value here".to_string(),
+                    *position,
+                )]
+            }
+            Self::ExpectedFunctionType { position, .. } => {
+                vec![("Provide a valid function type here".to_string(), *position)]
+            }
+            Self::InvalidAssignmentTarget { position, .. } => {
+                vec![(
+                    "Ensure the left-hand side of the assignment is a valid variable or property"
+                        .to_string(),
+                    *position,
+                )]
+            }
+            Self::UnexpectedReturn { position } => {
+                vec![(
+                    "Remove the `return` statement or place it inside a function".to_string(),
+                    *position,
+                )]
+            }
+
+            // Variable errors
+            Self::CannotMutateImmutableVariable { position, .. } => {
+                vec![(
+                    "Declare the variable as `mut` to make it mutable".to_string(),
+                    *position,
+                )]
+            }
+            Self::ExpectedMutableVariable { position, .. } => {
+                vec![(
+                    "Use a mutable variable here or declare it with `mut`".to_string(),
+                    *position,
+                )]
+            }
+            Self::UndeclaredVariable { position, .. } => {
+                vec![(
+                    "Declare the variable before using it".to_string(),
+                    *position,
+                )]
+            }
+            Self::VariableOutOfScope { position, .. } => {
+                vec![(
+                    "Ensure the variable is declared in the current scope or passed as an argument"
+                        .to_string(),
+                    *position,
+                )]
+            }
+
+            // Type errors
+            Self::CannotAddArguments {
+                left_position,
+                right_position,
+                ..
+            } => {
+                vec![(
+                    "Ensure both arguments are of compatible types for addition".to_string(),
                     Span(left_position.0, right_position.1),
                 )]
             }
-            _ => Vec::with_capacity(0),
+            Self::CannotAddType { position, .. } => {
+                vec![("Ensure the type supports addition".to_string(), *position)]
+            }
+            Self::CannotDivideArguments { position, .. } => {
+                vec![(
+                    "Ensure both arguments are of compatible types for division".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotDivideType { position, .. } => {
+                vec![("Ensure the type supports division".to_string(), *position)]
+            }
+            Self::CannotModuloArguments { position, .. } => {
+                vec![(
+                    "Ensure both arguments are of compatible types for modulo operation"
+                        .to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotModuloType { position, .. } => {
+                vec![(
+                    "Ensure the type supports modulo operation".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotMultiplyArguments { position, .. } => {
+                vec![(
+                    "Ensure both arguments are of compatible types for multiplication".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotMultiplyType { position, .. } => {
+                vec![(
+                    "Ensure the type supports multiplication".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotNegateType { position, .. } => {
+                vec![(
+                    "Ensure the type supports negation (e.g., numeric types)".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotNotType { position, .. } => {
+                vec![(
+                    "Ensure the type supports logical negation (e.g., boolean types)".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotSubtractArguments { position, .. } => {
+                vec![(
+                    "Ensure both arguments are of compatible types for subtraction".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotSubtractType { position, .. } => {
+                vec![(
+                    "Ensure the type supports subtraction".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotResolveRegisterType { position, .. } => {
+                vec![(
+                    "Ensure the register is initialized with a valid type".to_string(),
+                    *position,
+                )]
+            }
+            Self::CannotResolveVariableType { position, .. } => {
+                vec![(
+                    "Ensure the variable is declared with a valid type".to_string(),
+                    *position,
+                )]
+            }
+            Self::IfElseBranchMismatch { position, .. } => {
+                vec![(
+                    "Ensure both branches of the if/else statement return the same type"
+                        .to_string(),
+                    *position,
+                )]
+            }
+            Self::IfMissingElse { position } => {
+                vec![(
+                    "Add an else branch to handle all possible cases".to_string(),
+                    *position,
+                )]
+            }
+            Self::ListItemTypeConflict { position, .. } => {
+                vec![(
+                    "Ensure all items in the list are of the same type".to_string(),
+                    *position,
+                )]
+            }
+            Self::ReturnTypeConflict { position, .. } => {
+                vec![(
+                    "Ensure the return type matches the function's declared return type"
+                        .to_string(),
+                    *position,
+                )]
+            }
+
+            // Chunk errors
+            Self::ConstantIndexOutOfBounds { position, .. } => {
+                vec![(
+                    "Ensure the constant index is within the valid range".to_string(),
+                    *position,
+                )]
+            }
+            Self::InstructionIndexOutOfBounds { position, .. } => {
+                vec![(
+                    "Ensure the instruction index is within the valid range".to_string(),
+                    *position,
+                )]
+            }
+            Self::LocalIndexOutOfBounds { position, .. } => {
+                vec![(
+                    "Ensure the local index is within the valid range".to_string(),
+                    *position,
+                )]
+            }
+
+            // Wrappers around foreign errors
+            Self::Lex(_) => vec![(
+                "Fix the lexing error in the source code".to_string(),
+                Span(0, 0),
+            )],
+            Self::ParseFloatError { position, .. } => {
+                vec![(
+                    "Ensure the float value is valid and properly formatted".to_string(),
+                    *position,
+                )]
+            }
+            Self::ParseIntError { position, .. } => {
+                vec![(
+                    "Ensure the integer value is valid and properly formatted".to_string(),
+                    *position,
+                )]
+            }
         }
     }
 }
