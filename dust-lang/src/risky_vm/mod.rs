@@ -1,4 +1,6 @@
-//! Virtual machine and errors
+//! A Dust virtual machine that uses `unsafe` code. This VM never emits errors.
+//! Instead, errors are handled as panics in debug mode but, in release mode,
+//! the use of `unsafe` will cause undefined behavior.
 mod thread;
 
 use std::{
@@ -10,9 +12,9 @@ use std::{
 pub use thread::Thread;
 
 use crossbeam_channel::bounded;
-use tracing::{span, Level};
+use tracing::{Level, span};
 
-use crate::{compile, AbstractList, Chunk, DustError, DustString, Function, Type, Value};
+use crate::{AbstractList, Chunk, DustError, DustString, Function, Type, Value, compile};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
