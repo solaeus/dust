@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use dust_lang::{
-    compile, instruction::TypeCode, run, Chunk, ConcreteValue, DustString, FunctionType,
-    Instruction, Span, Type, Value,
+    Chunk, ConcreteValue, DustString, Function, FunctionType, Instruction, Span, Type, Value,
+    compile, instruction::TypeCode, run,
 };
 
 #[test]
@@ -372,6 +374,37 @@ fn load_deeply_nested_list() {
             ConcreteValue::List(vec![ConcreteValue::Integer(7), ConcreteValue::Integer(8)]),
         ]),
     ])));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_function() {
+    let source = "fn () {}";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::None)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 8), Span(8, 8)],
+        prototypes: vec![Arc::new(Chunk {
+            instructions: vec![Instruction::r#return(false, 0, TypeCode::NONE)],
+            positions: vec![Span(8, 8)],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::None),
+        prototype_index: 0,
+    }));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
