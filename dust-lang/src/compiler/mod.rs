@@ -288,8 +288,10 @@ impl<'src> Compiler<'src> {
             .iter()
             .rev()
             .find_map(|(instruction, _, _)| {
-                if instruction.operation() == Operation::LOAD_ENCODED
-                    && instruction.b_type() == TypeCode::BOOLEAN
+                if matches!(
+                    instruction.operation(),
+                    Operation::LOAD_ENCODED | Operation::NOT
+                ) && instruction.b_type() == TypeCode::BOOLEAN
                 {
                     return Some(instruction.a_field() + 1);
                 }

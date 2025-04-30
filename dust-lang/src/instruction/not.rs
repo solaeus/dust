@@ -26,12 +26,14 @@ impl From<Not> for Instruction {
         let operation = Operation::NOT;
         let a_field = not.destination;
         let (b_field, b_is_constant) = not.argument.as_index_and_constant_flag();
+        let b_type = not.argument.as_type();
 
         InstructionFields {
             operation,
             a_field,
             b_field,
             b_is_constant,
+            b_type,
             ..Default::default()
         }
         .build()

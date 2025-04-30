@@ -122,3 +122,7 @@ path = "tests/logic/or_and.rs"
 [[test]]
 name = "assignment_errors"
 path = "tests/compiler_errors/assignment_errors.rs"
+
+[[test]]
+name = "if_else"
+path = "tests/control_flow/if_else.rs"

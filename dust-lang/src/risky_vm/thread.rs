@@ -1270,6 +1270,20 @@ impl Thread {
                         current_frame.ip += 1;
                     }
                 }
+                Operation::NOT => {
+                    let boolean = match instruction.b_type() {
+                        TypeCode::BOOLEAN => {
+                            let operand_register_index = instruction.b_field() as usize;
+
+                            registers.booleans.get(operand_register_index).as_value()
+                        }
+                        _ => unreachable!("Invalid NOT instruction"),
+                    };
+                    let negated = !boolean;
+                    let destination = instruction.a_field() as usize;
+
+                    registers.booleans.set_to_new_register(destination, negated);
+                }
                 Operation::CALL => {
                     let destination = instruction.a_field();
                     let function_register = instruction.b_field();
