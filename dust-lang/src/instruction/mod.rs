@@ -362,6 +362,14 @@ impl Instruction {
 
                 Operand::Register(destination, left.as_type())
             }
+            Operation::NOT => {
+                let Not {
+                    destination,
+                    argument,
+                } = Not::from(*self);
+
+                Operand::Register(destination, argument.as_type())
+            }
             Operation::CALL => {
                 let Call {
                     destination,

@@ -873,7 +873,8 @@ impl<'src> Compiler<'src> {
             | Operation::SUBTRACT
             | Operation::MULTIPLY
             | Operation::DIVIDE
-            | Operation::MODULO => true,
+            | Operation::MODULO
+            | Operation::NOT => true,
             _ => !instruction.yields_value(),
         };
 
