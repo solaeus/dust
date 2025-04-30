@@ -409,3 +409,431 @@ fn load_function() {
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
+
+#[test]
+fn load_boolean_in_function() {
+    let source = "fn () { true }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::Boolean)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 14), Span(14, 14)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
+                Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            ],
+            positions: vec![Span(8, 12), Span(13, 14)],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::Boolean),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_integer_in_function() {
+    let source = "fn () { 42 }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::Integer)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 12), Span(12, 12)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+                Instruction::r#return(true, 0, TypeCode::INTEGER),
+            ],
+            positions: vec![Span(8, 10), Span(11, 12)],
+            integer_constants: vec![42],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::Integer),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_string_in_function() {
+    let source = "fn () { \"Hello\" }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::String)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 17), Span(17, 17)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::String),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::STRING, false),
+                Instruction::r#return(true, 0, TypeCode::STRING),
+            ],
+            positions: vec![Span(8, 15), Span(16, 17)],
+            string_constants: vec![DustString::from("Hello")],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::String),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_list_in_function() {
+    let source = "fn () { [1, 2, 3] }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::List(TypeCode::INTEGER))),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 19), Span(19, 19)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::List(TypeCode::INTEGER)),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+                Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
+                Instruction::load_constant(2, 2, TypeCode::INTEGER, false),
+                Instruction::load_list(0, TypeCode::INTEGER, 0, 2, false),
+                Instruction::r#return(true, 0, TypeCode::LIST),
+            ],
+            positions: vec![
+                Span(9, 10),
+                Span(12, 13),
+                Span(15, 16),
+                Span(8, 17),
+                Span(18, 19),
+            ],
+            integer_constants: vec![1, 2, 3],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::List(TypeCode::INTEGER)),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_byte_in_function() {
+    let source = "fn () { 0x2a }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::Byte)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 14), Span(14, 14)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![
+                Instruction::load_encoded(0, 0x2a, TypeCode::BYTE, false),
+                Instruction::r#return(true, 0, TypeCode::BYTE),
+            ],
+            positions: vec![Span(8, 12), Span(13, 14)],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::Byte),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_character_in_function() {
+    let source = "fn () { 'a' }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::Character)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 13), Span(13, 13)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::Character),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::CHARACTER, false),
+                Instruction::r#return(true, 0, TypeCode::CHARACTER),
+            ],
+            positions: vec![Span(8, 11), Span(12, 13)],
+            character_constants: vec!['a'],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::Character),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_float_in_function() {
+    let source = "fn () { 42.42 }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::Float)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 15), Span(15, 15)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::FLOAT, false),
+                Instruction::r#return(true, 0, TypeCode::FLOAT),
+            ],
+            positions: vec![Span(8, 13), Span(14, 15)],
+            float_constants: vec![42.42],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::Float),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_nested_list_in_function() {
+    let source = "fn () { [[1, 2], [3, 4]] }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::List(TypeCode::LIST))),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 26), Span(26, 26)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+                Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
+                Instruction::load_list(0, TypeCode::INTEGER, 0, 1, false),
+                Instruction::load_constant(2, 2, TypeCode::INTEGER, false),
+                Instruction::load_constant(3, 3, TypeCode::INTEGER, false),
+                Instruction::load_list(1, TypeCode::INTEGER, 2, 3, false),
+                Instruction::load_list(2, TypeCode::LIST, 0, 1, false),
+                Instruction::r#return(true, 2, TypeCode::LIST),
+            ],
+            positions: vec![
+                Span(10, 11),
+                Span(13, 14),
+                Span(9, 15),
+                Span(18, 19),
+                Span(21, 22),
+                Span(17, 23),
+                Span(8, 24),
+                Span(25, 26),
+            ],
+            integer_constants: vec![1, 2, 3, 4],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_deeply_nested_list_in_function() {
+    let source = "fn () { [[[1, 2], [3, 4]], [[5, 6], [7, 8]]] }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::List(TypeCode::LIST))),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 46), Span(46, 46)],
+        prototypes: vec![Arc::new(Chunk {
+            r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
+            instructions: vec![
+                Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+                Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
+                Instruction::load_list(0, TypeCode::INTEGER, 0, 1, false),
+                Instruction::load_constant(2, 2, TypeCode::INTEGER, false),
+                Instruction::load_constant(3, 3, TypeCode::INTEGER, false),
+                Instruction::load_list(1, TypeCode::INTEGER, 2, 3, false),
+                Instruction::load_list(2, TypeCode::LIST, 0, 1, false),
+                Instruction::close(0, 1, TypeCode::LIST),
+                Instruction::load_constant(4, 4, TypeCode::INTEGER, false),
+                Instruction::load_constant(5, 5, TypeCode::INTEGER, false),
+                Instruction::load_list(3, TypeCode::INTEGER, 4, 5, false),
+                Instruction::load_constant(6, 6, TypeCode::INTEGER, false),
+                Instruction::load_constant(7, 7, TypeCode::INTEGER, false),
+                Instruction::load_list(4, TypeCode::INTEGER, 6, 7, false),
+                Instruction::load_list(5, TypeCode::LIST, 3, 4, false),
+                Instruction::close(3, 4, TypeCode::LIST),
+                Instruction::load_list(6, TypeCode::LIST, 2, 5, false),
+                Instruction::r#return(true, 6, TypeCode::LIST),
+            ],
+            positions: vec![
+                Span(11, 12),
+                Span(14, 15),
+                Span(10, 16),
+                Span(19, 20),
+                Span(22, 23),
+                Span(18, 24),
+                Span(9, 25),
+                Span(27, 28),
+                Span(29, 30),
+                Span(32, 33),
+                Span(28, 34),
+                Span(37, 38),
+                Span(40, 41),
+                Span(36, 42),
+                Span(27, 43),
+                Span(43, 44),
+                Span(8, 44),
+                Span(45, 46),
+            ],
+            integer_constants: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            ..Chunk::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: None,
+        r#type: FunctionType::new([], [], Type::List(TypeCode::LIST)),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}
+
+#[test]
+fn load_function_in_function() {
+    let source = "fn outer() { fn inner() { 42 } }";
+    let chunk = Chunk {
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(FunctionType::new([], [], Type::None)),
+        ),
+        instructions: vec![
+            Instruction::load_function(0, 0, false),
+            Instruction::r#return(true, 0, TypeCode::FUNCTION),
+        ],
+        positions: vec![Span(0, 32), Span(32, 32)],
+        prototypes: vec![Arc::new(Chunk {
+            name: Some(DustString::from("outer")),
+            r#type: FunctionType::new([], [], Type::None),
+            instructions: vec![
+                Instruction::load_function(0, 0, false),
+                Instruction::r#return(true, 0, TypeCode::FUNCTION),
+            ],
+            positions: vec![Span(11, 30), Span(30, 30)],
+            prototypes: vec![Arc::new(Chunk {
+                name: Some(DustString::from("inner")),
+                r#type: FunctionType::new([], [], Type::Integer),
+                instructions: vec![
+                    Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
+                    Instruction::r#return(true, 0, TypeCode::INTEGER),
+                ],
+                positions: vec![Span(22, 24), Span(24, 24)],
+                integer_constants: vec![42],
+                ..Default::default()
+            })],
+            ..Default::default()
+        })],
+        ..Default::default()
+    };
+    let return_value = Some(Value::Function(Function {
+        name: Some(DustString::from("outer")),
+        r#type: FunctionType::new([], [], Type::None),
+        prototype_index: 0,
+    }));
+
+    assert_eq!(chunk, compile(source).unwrap());
+    assert_eq!(return_value, run(source).unwrap());
+}

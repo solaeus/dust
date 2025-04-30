@@ -4,7 +4,7 @@
 //! - [`compile`] is a simple function that borrows a string and returns a chunk, handling
 //!   compilation and turning any resulting error into a [`DustError`], which can easily display a
 //!   detailed report. The main chunk will be named "main".
-//! - [`Compiler`] is created with a [`Lexer`] and protentially emits a [`CompileError`] or
+//! - [`Compiler`] is created with a [`Lexer`] and potentially emits a [`CompileError`] or
 //!   [`LexError`] if the input is invalid. Allows passing a name for the main chunk when
 //!   [`Compiler::finish`] is called.
 //!
@@ -24,15 +24,15 @@ mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
-use tracing::{debug, info, span, Level};
+use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
 use std::{mem::replace, sync::Arc};
 
 use crate::{
-    instruction::{Jump, Move, Return, TypeCode},
     Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
     Operation, Scope, Span, Token, TokenKind, Type,
+    instruction::{Jump, LoadFunction, Move, Return, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -1001,8 +1001,13 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), CompileError> {
-        if let Some([Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL, _, _]) =
-            self.get_last_operations()
+        if let Some(
+            [
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                _,
+                _,
+            ],
+        ) = self.get_last_operations()
         {
             return Err(CompileError::ComparisonChain {
                 position: self.current_position,
@@ -1778,7 +1783,7 @@ impl<'src> Compiler<'src> {
             let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
-        } else if let Some((previous_expression_type, previous_destination_register)) =
+        } else if let Some((mut previous_expression_type, previous_destination_register)) =
             self.instructions.last().map(|(instruction, r#type, _)| {
                 if r#type == &Type::None {
                     (Type::None, 0)
@@ -1789,6 +1794,22 @@ impl<'src> Compiler<'src> {
                 }
             })
         {
+            if let Type::Function(_) = previous_expression_type {
+                if let Some((instruction, _, _)) = self.instructions.last() {
+                    let LoadFunction {
+                        prototype_index, ..
+                    } = LoadFunction::from(*instruction);
+
+                    let function_type = self
+                        .prototypes
+                        .get(prototype_index as usize)
+                        .map(|prototype| Type::Function(prototype.r#type.clone()))
+                        .unwrap_or(Type::None);
+
+                    previous_expression_type = function_type;
+                }
+            }
+
             let should_return_value = previous_expression_type != Type::None;
             let r#return = Instruction::r#return(
                 should_return_value,
