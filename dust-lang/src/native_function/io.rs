@@ -1,6 +1,20 @@
 use std::io::{Write, stdout};
 
-use crate::{Instruction, Type, instruction::CallNative, risky_vm::Thread};
+use crate::{DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread};
+
+pub fn read_line(instruction: Instruction, thread: &mut Thread) {
+    let CallNative { destination, .. } = CallNative::from(instruction);
+    let mut buffer = String::new();
+    let stdin = std::io::stdin();
+
+    stdin.read_line(&mut buffer).unwrap();
+
+    *thread
+        .current_registers_mut()
+        .strings
+        .get_mut(destination as usize)
+        .as_value_mut() = DustString::from(buffer.trim_end_matches('\n'));
+}
 
 pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     let CallNative {

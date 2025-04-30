@@ -183,13 +183,13 @@ define_native_function! {
     // // Read
     // (Read, 48_u8, "read", true),
     // (ReadFile, 49_u8, "read_file", true),
-    // (
-    //     ReadLine,
-    //     50,
-    //     "read_line",
-    //     FunctionType::new([], [], Type::String),
-    //     io::read_line
-    // ),
+    (
+        ReadLine,
+        50,
+        "read_line",
+        FunctionType::new([], [], Type::String),
+        io::read_line
+    ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
     // // Write
