@@ -1345,7 +1345,17 @@ impl Thread {
                     self.call_stack.push(call_frame);
                     self.register_stack.push(new_registers);
 
-                    trace!("Call Stack: {:?}", self.call_stack);
+                    trace!(
+                        "Call Stack: {:?}",
+                        self.call_stack
+                            .iter()
+                            .map(|call_frame| call_frame
+                                .chunk
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| DustString::from("anonymous")))
+                            .collect::<Vec<_>>()
+                    );
                 }
                 Operation::CALL_NATIVE => {
                     let function = NativeFunction::from(instruction.b_field());
