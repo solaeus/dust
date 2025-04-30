@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Type, vm::Thread};
+use crate::{Type, risky_vm::Thread};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {

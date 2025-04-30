@@ -9,7 +9,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{vm::Thread, FunctionType, Instruction, Type};
+use crate::{FunctionType, Instruction, Type, risky_vm::Thread};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {

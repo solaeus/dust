@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     instruction::TypeCode,
-    vm::{Pointer, Thread},
+    risky_vm::{Pointer, Thread},
 };
 
 use super::{ConcreteValue, DustString};

@@ -3,9 +3,9 @@ use std::{sync::Arc, thread::JoinHandle};
 use tracing::{info, trace};
 
 use crate::{
-    instruction::TypeCode,
-    vm::{CallFrame, Pointer},
     AbstractList, Chunk, DustString, NativeFunction, Operation, Span, Type, Value,
+    instruction::TypeCode,
+    risky_vm::{CallFrame, Pointer},
 };
 
 use super::RegisterTable;

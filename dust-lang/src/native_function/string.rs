@@ -1,4 +1,4 @@
-use crate::{instruction::CallNative, vm::Thread, DustString, Instruction, Type};
+use crate::{DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread};
 
 pub fn to_string(instruction: Instruction, thread: &mut Thread) {
     let CallNative {

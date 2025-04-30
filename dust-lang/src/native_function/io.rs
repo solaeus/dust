@@ -1,6 +1,6 @@
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 
-use crate::{instruction::CallNative, vm::Thread, Instruction, Type};
+use crate::{Instruction, Type, instruction::CallNative, risky_vm::Thread};
 
 pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     let CallNative {
