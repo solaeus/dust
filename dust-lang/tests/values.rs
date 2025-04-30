@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use dust_lang::{
-    Chunk, ConcreteValue, DustString, Function, FunctionType, Instruction, Span, Type, Value,
-    compile, instruction::TypeCode, run,
+    Chunk, ConcreteValue, DustString, Function, FunctionType, Instruction, Local, Scope, Span,
+    Type, Value, compile, instruction::TypeCode, run,
 };
 
 #[test]
@@ -793,26 +793,42 @@ fn load_deeply_nested_list_in_function() {
 
 #[test]
 fn load_function_in_function() {
-    let source = "fn outer() { fn inner() { 42 } }";
+    let source = "fn outer() { fn inner() -> int { 42 } }";
     let chunk = Chunk {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::None)),
+            Type::function([], [], Type::function([], [], Type::Integer)),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
             Instruction::r#return(true, 0, TypeCode::FUNCTION),
         ],
-        positions: vec![Span(0, 32), Span(32, 32)],
+        positions: vec![Span(0, 39), Span(39, 39)],
+        locals: vec![Local::new(
+            0,
+            0,
+            Type::function([], [], Type::function([], [], Type::Integer)),
+            false,
+            Scope::new(0, 0),
+        )],
+        string_constants: vec![DustString::from("outer")],
         prototypes: vec![Arc::new(Chunk {
             name: Some(DustString::from("outer")),
-            r#type: FunctionType::new([], [], Type::None),
+            r#type: FunctionType::new([], [], Type::function([], [], Type::Integer)),
             instructions: vec![
                 Instruction::load_function(0, 0, false),
                 Instruction::r#return(true, 0, TypeCode::FUNCTION),
             ],
-            positions: vec![Span(11, 30), Span(30, 30)],
+            positions: vec![Span(13, 37), Span(38, 39)],
+            locals: vec![Local::new(
+                0,
+                0,
+                Type::Function(FunctionType::new([], [], Type::Integer)),
+                false,
+                Scope::new(0, 0),
+            )],
+            string_constants: vec![DustString::from("inner")],
             prototypes: vec![Arc::new(Chunk {
                 name: Some(DustString::from("inner")),
                 r#type: FunctionType::new([], [], Type::Integer),
@@ -820,7 +836,7 @@ fn load_function_in_function() {
                     Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
                     Instruction::r#return(true, 0, TypeCode::INTEGER),
                 ],
-                positions: vec![Span(22, 24), Span(24, 24)],
+                positions: vec![Span(33, 35), Span(36, 37)],
                 integer_constants: vec![42],
                 ..Default::default()
             })],
@@ -830,7 +846,7 @@ fn load_function_in_function() {
     };
     let return_value = Some(Value::Function(Function {
         name: Some(DustString::from("outer")),
-        r#type: FunctionType::new([], [], Type::None),
+        r#type: FunctionType::new([], [], Type::function([], [], Type::Integer)),
         prototype_index: 0,
     }));
 

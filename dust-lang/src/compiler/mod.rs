@@ -1994,9 +1994,7 @@ impl<'src> Compiler<'src> {
         } else {
             Type::None
         };
-        let function_type = FunctionType::new([], value_parameters, return_type);
-
-        function_compiler.r#type = function_type.clone();
+        function_compiler.r#type = FunctionType::new([], value_parameters, return_type);
 
         function_compiler.expect(Token::LeftBrace)?;
         function_compiler.compile()?;
@@ -2013,22 +2011,20 @@ impl<'src> Compiler<'src> {
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
         let destination = self.next_function_register();
-
-        self.prototypes.push(Arc::new(chunk));
+        let load_function = Instruction::load_function(destination, prototype_index, false);
+        let r#type = Type::Function(chunk.r#type.clone());
 
         if let Some(identifier) = identifier {
             self.declare_local(
                 identifier,
                 destination,
-                Type::Function(function_type.clone()),
+                Type::Function(chunk.r#type.clone()),
                 false,
                 self.current_scope,
             );
         }
 
-        let load_function = Instruction::load_function(destination, prototype_index, false);
-        let r#type = Type::Function(function_type);
-
+        self.prototypes.push(Arc::new(chunk));
         self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
         Ok(())
