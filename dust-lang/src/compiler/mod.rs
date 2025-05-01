@@ -110,7 +110,7 @@ pub struct Compiler<'src> {
     /// Lists of arguments for each function call. The integers represent the register of each
     /// argument. Note that the type of each argument is not stored, so the caller must check the
     /// function's type to determine the type of each argument.
-    argument_lists: Vec<(Vec<u16>, Vec<Type>)>,
+    argument_lists: Vec<(Vec<(u16, TypeCode)>, Vec<Type>)>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -286,7 +286,7 @@ impl<'src> Compiler<'src> {
             .find_map(|(instruction, _, _)| {
                 if matches!(
                     instruction.operation(),
-                    Operation::LOAD_ENCODED | Operation::NOT
+                    Operation::LOAD_ENCODED | Operation::NOT | Operation::MOVE
                 ) && instruction.b_type() == TypeCode::BOOLEAN
                 {
                     return Some(instruction.a_field() + 1);
@@ -297,6 +297,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_boolean_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_byte_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -314,6 +315,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_byte_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_character_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -331,6 +333,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_character_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_float_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -348,6 +351,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_float_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_integer_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -365,6 +369,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_integer_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_string_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -379,6 +384,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_string_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_list_register(&mut self) -> u16 {
         self.instructions
             .iter()
@@ -395,6 +401,7 @@ impl<'src> Compiler<'src> {
             .unwrap_or(self.minimum_list_register)
     }
 
+    // TODO: Account for MOVE instructions
     fn next_function_register(&self) -> u16 {
         self.instructions
             .iter()
@@ -2086,17 +2093,17 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_index = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
+            let (argument_index, type_code) = match self.get_last_instruction_type() {
+                Type::Boolean => (self.next_boolean_register() - 1, TypeCode::BOOLEAN),
+                Type::Byte => (self.next_byte_register() - 1, TypeCode::BYTE),
+                Type::Character => (self.next_character_register() - 1, TypeCode::CHARACTER),
+                Type::Float => (self.next_float_register() - 1, TypeCode::FLOAT),
+                Type::Integer => (self.next_integer_register() - 1, TypeCode::INTEGER),
+                Type::String => (self.next_string_register() - 1, TypeCode::STRING),
                 _ => todo!(),
             };
 
-            value_argument_list.push(argument_index);
+            value_argument_list.push((argument_index, type_code));
         }
 
         let argument_list_index = self.argument_lists.len() as u16;
@@ -2155,17 +2162,17 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_index = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
+            let (argument_index, type_code) = match self.get_last_instruction_type() {
+                Type::Boolean => (self.next_boolean_register() - 1, TypeCode::BOOLEAN),
+                Type::Byte => (self.next_byte_register() - 1, TypeCode::BYTE),
+                Type::Character => (self.next_character_register() - 1, TypeCode::CHARACTER),
+                Type::Float => (self.next_float_register() - 1, TypeCode::FLOAT),
+                Type::Integer => (self.next_integer_register() - 1, TypeCode::INTEGER),
+                Type::String => (self.next_string_register() - 1, TypeCode::STRING),
                 _ => todo!(),
             };
 
-            value_argument_list.push(argument_index);
+            value_argument_list.push((argument_index, type_code));
         }
 
         let argument_list_index = self.argument_lists.len() as u16;

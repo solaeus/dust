@@ -28,7 +28,7 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     let arguments = current_frame.get_argument_list(argument_list_index);
     let mut stdout = stdout();
 
-    for (argument_index, argument_type) in arguments
+    for ((argument_index, _), argument_type) in arguments
         .0
         .iter()
         .zip(function.r#type().value_parameters.iter())

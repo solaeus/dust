@@ -6,20 +6,13 @@ while count <= 15 {
 
 	if divides_by_3 && divides_by_5 {
 		write_line("fizzbuzz")
-		return
-	}
-
-	if divides_by_3 {
+	} else if divides_by_3 {
 		write_line("fizz")
-		return
-	}
-
-	if divides_by_5 {
+	} else if divides_by_5 {
 		write_line("buzz")
-        return
+	} else {
+	    write_line(to_string(count))
 	}
-
-	write_line(count)
 
 	count += 1
 }
