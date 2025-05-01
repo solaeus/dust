@@ -1549,7 +1549,11 @@ impl<'src> Compiler<'src> {
         if let Token::Else = self.current_token {
             self.advance()?;
 
-            if let Token::LeftBrace = self.current_token {
+            if let Token::If = self.current_token {
+                self.parse_if();
+
+                return Ok(());
+            } else if let Token::LeftBrace = self.current_token {
                 self.parse_block()?;
             } else {
                 return Err(CompileError::ExpectedTokenMultiple {
