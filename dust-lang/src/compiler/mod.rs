@@ -1020,6 +1020,15 @@ impl<'src> Compiler<'src> {
                 _,
             ],
         ) = self.get_last_operations()
+            && matches!(
+                self.previous_token,
+                Token::DoubleEqual
+                    | Token::BangEqual
+                    | Token::Greater
+                    | Token::GreaterEqual
+                    | Token::Less
+                    | Token::LessEqual
+            )
         {
             return Err(CompileError::ComparisonChain {
                 position: self.current_position,
