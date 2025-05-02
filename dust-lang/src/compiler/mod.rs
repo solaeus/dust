@@ -1517,6 +1517,7 @@ impl<'src> Compiler<'src> {
         } else {
             None
         };
+        let start = self.instructions.len();
 
         self.advance()?;
         self.parse_expression()?;
@@ -1651,6 +1652,15 @@ impl<'src> Compiler<'src> {
 
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
+
+        for index in start..if_block_start {
+            let previous = self.instructions.get_mut(index).unwrap();
+
+            if previous.0.operation() == Operation::JUMP {
+                let jump_distance = if_block_start - index;
+                previous.0 = Instruction::jump(jump_distance as u16, true);
+            }
+        }
 
         Ok(())
     }
