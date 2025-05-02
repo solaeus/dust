@@ -1550,9 +1550,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             if let Token::If = self.current_token {
-                self.parse_if();
-
-                return Ok(());
+                return self.parse_if();
             } else if let Token::LeftBrace = self.current_token {
                 self.parse_block()?;
             } else {
