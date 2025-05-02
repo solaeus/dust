@@ -1505,6 +1505,12 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_if(&mut self) -> Result<(), CompileError> {
+        let previous = if self.previous_token == Token::Else {
+            self.instructions.last().cloned()
+        } else {
+            None
+        };
+
         self.advance()?;
         self.parse_expression()?;
 
@@ -1551,7 +1557,16 @@ impl<'src> Compiler<'src> {
         let if_block_end = self.instructions.len();
         let mut if_block_distance = if_block_end - if_block_start;
 
-        let (if_block_last_instruction, if_block_type, _) = self.instructions.last().unwrap();
+        let (if_block_last_instruction, if_block_type, _) = if let Some(previous) = previous {
+            let previous_active_register = previous.0.a_field();
+            let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
+
+            last_instruction.set_a_field(previous_active_register);
+
+            previous
+        } else {
+            self.instructions.last().cloned().unwrap()
+        };
         let if_block_type = if_block_type.clone();
         let if_block_last_instruction_destination = if_block_last_instruction.a_field();
 
@@ -1559,7 +1574,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             if let Token::If = self.current_token {
-                return self.parse_if();
+                self.parse_if();
             } else if let Token::LeftBrace = self.current_token {
                 self.parse_block()?;
             } else {
