@@ -163,6 +163,7 @@ pub struct Compiler<'src> {
     current_position: Span,
     previous_token: Token<'src>,
     previous_position: Span,
+    previous_statement_end: usize,
 }
 
 impl<'src> Compiler<'src> {
@@ -202,6 +203,7 @@ impl<'src> Compiler<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
+            previous_statement_end: 0,
         })
     }
 
@@ -1194,6 +1196,12 @@ impl<'src> Compiler<'src> {
         let instructions_length = self.instructions.len();
 
         for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
+            let index = instructions_length - group_index * 3 - 1;
+
+            if index < self.previous_statement_end {
+                break;
+            }
+
             if instructions.len() < 3 {
                 continue;
             }
@@ -1207,8 +1215,7 @@ impl<'src> Compiler<'src> {
             }
 
             let old_jump = &mut instructions[1].0;
-            let jump_index = instructions_length - group_index * 3 - 1;
-            let short_circuit_distance = (instructions_length - jump_index) as u16;
+            let short_circuit_distance = (instructions_length - index) as u16;
 
             *old_jump = Instruction::jump(short_circuit_distance, true);
         }
@@ -1293,12 +1300,12 @@ impl<'src> Compiler<'src> {
             Type::Function(_) => self.next_function_register(),
             _ => todo!(),
         };
-        let point = Instruction::r#move(
+        let r#move = Instruction::r#move(
             destination,
             Operand::Register(local_register_index, local_type.type_code()),
         );
 
-        self.emit_instruction(point, local_type, self.previous_position);
+        self.emit_instruction(r#move, local_type, self.previous_position);
 
         Ok(())
     }
@@ -1547,21 +1554,24 @@ impl<'src> Compiler<'src> {
         if let Token::LeftBrace = self.current_token {
             self.parse_block()?;
         } else {
-            return Err(CompileError::ExpectedTokenMultiple {
-                expected: &[TokenKind::If, TokenKind::LeftBrace],
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::LeftBrace,
                 found: self.current_token.to_owned(),
                 position: self.current_position,
             });
         }
 
         let if_block_end = self.instructions.len();
+        let if_block_end_position = self.current_position;
         let mut if_block_distance = if_block_end - if_block_start;
 
         let (if_block_last_instruction, if_block_type, _) = if let Some(previous) = previous {
-            let previous_active_register = previous.0.a_field();
-            let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
+            if previous.0.yields_value() {
+                let previous_active_register = previous.0.a_field();
+                let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
 
-            last_instruction.set_a_field(previous_active_register);
+                last_instruction.set_a_field(previous_active_register);
+            }
 
             previous
         } else {
@@ -1574,7 +1584,7 @@ impl<'src> Compiler<'src> {
             self.advance()?;
 
             if let Token::If = self.current_token {
-                self.parse_if();
+                self.parse_if()?;
             } else if let Token::LeftBrace = self.current_token {
                 self.parse_block()?;
             } else {
@@ -1622,7 +1632,7 @@ impl<'src> Compiler<'src> {
                     });
 
                     self.instructions
-                        .insert(if_block_end, (jump, Type::None, self.current_position));
+                        .insert(if_block_end, (jump, Type::None, if_block_end_position));
                 }
             }
             2.. => {
@@ -1633,7 +1643,7 @@ impl<'src> Compiler<'src> {
                 });
 
                 self.instructions
-                    .insert(if_block_end, (jump, Type::None, self.current_position));
+                    .insert(if_block_end, (jump, Type::None, if_block_end_position));
             }
         }
 
@@ -1908,6 +1918,7 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
 
+        self.previous_statement_end = self.instructions.len();
         let register_index = match self.get_last_instruction_type() {
             Type::Boolean => self.next_boolean_register() - 1,
             Type::Byte => self.next_byte_register() - 1,
