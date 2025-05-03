@@ -164,6 +164,7 @@ pub struct Compiler<'src> {
     previous_token: Token<'src>,
     previous_position: Span,
     previous_statement_end: usize,
+    previous_expression_end: usize,
 }
 
 impl<'src> Compiler<'src> {
@@ -204,6 +205,7 @@ impl<'src> Compiler<'src> {
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
             previous_statement_end: 0,
+            previous_expression_end: 0,
         })
     }
 
@@ -284,19 +286,21 @@ impl<'src> Compiler<'src> {
     fn next_boolean_register(&self) -> u16 {
         self.instructions
             .iter()
-            .rev()
-            .find_map(|(instruction, _, _)| {
+            .fold(self.minimum_boolean_register, |acc, (instruction, _, _)| {
                 if matches!(
                     instruction.operation(),
                     Operation::LOAD_ENCODED | Operation::NOT | Operation::MOVE
                 ) && instruction.b_type() == TypeCode::BOOLEAN
                 {
-                    return Some(instruction.a_field() + 1);
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
+                } else {
+                    acc
                 }
-
-                None
             })
-            .unwrap_or(self.minimum_boolean_register)
     }
 
     // TODO: Account for MOVE instructions
@@ -1117,6 +1121,10 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
+        let is_logic_chain = matches!(
+            self.previous_token,
+            Token::DoubleAmpersand | Token::DoublePipe | Token::Bang
+        );
         let (left_instruction, left_type, left_position) =
             self.instructions
                 .pop()
@@ -1125,7 +1133,12 @@ impl<'src> Compiler<'src> {
                     position: self.previous_position,
                 })?;
 
-        // TODO: Check if the left type is boolean
+        if left_type != Type::Boolean {
+            return Err(CompileError::ExpectedBoolean {
+                found: self.previous_token.to_owned(),
+                position: left_position,
+            });
+        }
 
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
 
@@ -1149,21 +1162,27 @@ impl<'src> Compiler<'src> {
             }
         };
         let test = Instruction::test(left.index(), test_boolean);
-        let jump = Instruction::jump(1, true);
 
         self.emit_instruction(test, Type::None, operator_position);
-        self.emit_instruction(jump, Type::None, operator_position);
 
-        let instruction_count_before_right = self.instructions.len();
+        let jump_index = self.instructions.len();
+        let jump_position = self.current_position;
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        // TODO: Check if the right type is boolean
+        let right_type = &self.instructions.last().unwrap().1;
+
+        if right_type != &Type::Boolean {
+            return Err(CompileError::ExpectedBoolean {
+                found: self.previous_token.to_owned(),
+                position: left_position,
+            });
+        }
 
         let instruction_count = self.instructions.len();
 
-        if instruction_count == instruction_count_before_right + 1 {
+        if instruction_count == jump_index + 1 {
             self.instructions
                 .last_mut()
                 .unwrap()
@@ -1194,31 +1213,45 @@ impl<'src> Compiler<'src> {
         }
 
         let instructions_length = self.instructions.len();
+        let jump_distance = if is_logic_chain
+            || !matches!(
+                self.current_token,
+                Token::DoubleAmpersand | Token::DoublePipe | Token::Bang
+            ) {
+            instructions_length - jump_index
+        } else {
+            instructions_length - jump_index + 1
+        } as u16;
+        let jump = Instruction::jump(jump_distance, true);
 
-        for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
-            let index = instructions_length - group_index * 3 - 1;
+        self.instructions
+            .insert(jump_index, (jump, Type::None, jump_position));
 
-            if index < self.previous_statement_end {
-                break;
-            }
+        // for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
+        //     let index = instructions_length - group_index * 3 - 1;
 
-            if instructions.len() < 3 {
-                continue;
-            }
+        //     if index < self.previous_statement_end {
+        //         break;
+        //     }
 
-            if !matches!(
-                instructions[0].0.operation(),
-                Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
-            ) || !matches!(instructions[1].0.operation(), Operation::JUMP)
-            {
-                continue;
-            }
+        //     if instructions.len() < 3 {
+        //         continue;
+        //     }
 
-            let old_jump = &mut instructions[1].0;
-            let short_circuit_distance = (instructions_length - index) as u16;
+        //     if !matches!(
+        //         instructions[0].0.operation(),
+        //         Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
+        //     ) || !matches!(instructions[1].0.operation(), Operation::JUMP)
+        //     {
+        //         break;
+        //     }
 
-            *old_jump = Instruction::jump(short_circuit_distance, true);
-        }
+        //     let old_jump = &mut instructions[1].0;
+        //     let short_circuit_distance = (instructions_length - index) as u16;
+
+        //     *old_jump = Instruction::jump(short_circuit_distance, true);
+
+        // }
 
         Ok(())
     }
@@ -1517,7 +1550,6 @@ impl<'src> Compiler<'src> {
         } else {
             None
         };
-        let start = self.instructions.len();
 
         self.advance()?;
         self.parse_expression()?;
@@ -1537,12 +1569,12 @@ impl<'src> Compiler<'src> {
         } else {
             let operand_register = match self.get_last_instruction_type() {
                 Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
-                _ => todo!(),
+                _ => {
+                    return Err(CompileError::ExpectedBoolean {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    });
+                }
             };
             let test = Instruction::test(operand_register, true);
 
@@ -1602,7 +1634,7 @@ impl<'src> Compiler<'src> {
         }
 
         let else_block_end = self.instructions.len();
-        let else_block_distance = else_block_end - if_block_end;
+        let jump_distance = else_block_end - if_block_end;
         let (else_block_last_instruction, else_block_type, _) =
             self.instructions.last_mut().unwrap();
 
@@ -1615,7 +1647,7 @@ impl<'src> Compiler<'src> {
             });
         }
 
-        match else_block_distance {
+        match jump_distance {
             0 => {}
             1 => {
                 if let Some([Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT, _]) =
@@ -1628,7 +1660,7 @@ impl<'src> Compiler<'src> {
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
-                        offset: else_block_distance as u16,
+                        offset: jump_distance as u16,
                         is_positive: true,
                     });
 
@@ -1639,7 +1671,7 @@ impl<'src> Compiler<'src> {
             2.. => {
                 if_block_distance += 1;
                 let jump = Instruction::from(Jump {
-                    offset: else_block_distance as u16,
+                    offset: jump_distance as u16,
                     is_positive: true,
                 });
 
@@ -1652,15 +1684,6 @@ impl<'src> Compiler<'src> {
 
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
-
-        for index in start..if_block_start {
-            let previous = self.instructions.get_mut(index).unwrap();
-
-            if previous.0.operation() == Operation::JUMP {
-                let jump_distance = if_block_start - index;
-                previous.0 = Instruction::jump(jump_distance as u16, true);
-            }
-        }
 
         Ok(())
     }
@@ -1735,6 +1758,8 @@ impl<'src> Compiler<'src> {
                 position: self.current_position,
             });
         }
+
+        self.previous_expression_end = self.instructions.len() - 1;
 
         Ok(())
     }
@@ -1879,22 +1904,6 @@ impl<'src> Compiler<'src> {
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 
-        let instruction_length = self.instructions.len();
-
-        for (index, (instruction, _, _)) in self.instructions.iter_mut().enumerate() {
-            if instruction.operation() == Operation::JUMP {
-                let Jump {
-                    offset,
-                    is_positive,
-                } = Jump::from(&*instruction);
-                let offset = offset as usize;
-
-                if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump((offset + 1) as u16, true);
-                }
-            }
-        }
-
         Ok(())
     }
 
@@ -1928,7 +1937,9 @@ impl<'src> Compiler<'src> {
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
 
-        self.previous_statement_end = self.instructions.len();
+        self.previous_statement_end = self.instructions.len() - 1;
+        self.previous_expression_end = self.instructions.len() - 1;
+
         let register_index = match self.get_last_instruction_type() {
             Type::Boolean => self.next_boolean_register() - 1,
             Type::Byte => self.next_byte_register() - 1,
