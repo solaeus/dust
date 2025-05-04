@@ -31,25 +31,13 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 name = "addictive_addition"
 harness = false
 
-[[bench]]
-name = "addictive_subtraction"
-harness = false
+# [[bench]]
+# name = "fibonacci"
+# harness = false
 
-[[bench]]
-name = "addictive_multiplication"
-harness = false
-
-[[bench]]
-name = "addictive_division"
-harness = false
-
-[[bench]]
-name = "fibonacci"
-harness = false
-
-[[bench]]
-name = "threads"
-harness = false
+# [[bench]]
+# name = "threads"
+# harness = false
 
 [[test]]
 name = "add"
