@@ -20,18 +20,24 @@
 //! runtime error, it is the compiler's fault and the error should be fixed here.
 mod error;
 mod parse_rule;
+mod path;
 mod type_checks;
 
 pub use error::CompileError;
 use parse_rule::{ParseRule, Precedence};
+use path::Path;
 use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{mem::replace, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    mem::replace,
+    sync::Arc,
+};
 
 use crate::{
-    Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
-    Operation, Scope, Span, Token, TokenKind, Type,
+    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
+    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
     instruction::{Jump, LoadFunction, Move, Return, TypeCode},
 };
 
@@ -77,6 +83,9 @@ pub struct Compiler<'src> {
     /// Type of the function being compiled. This is assigned to the chunk when [`Compiler::finish`]
     /// is called.
     r#type: FunctionType,
+
+    /// Values associated with a relative path that indicates its module and identifier.
+    pathed_values: HashMap<Path, ConcreteValue>,
 
     /// Instructions, along with their types and positions, that have been compiled. The
     /// instructions and positions are assigned to the chunk when [`Compiler::finish`] is called.
@@ -149,7 +158,9 @@ pub struct Compiler<'src> {
     block_index: u8,
 
     /// The current block scope of the compiler. This is used to test if a variable is in scope.
-    current_scope: Scope,
+    current_block_scope: Scope,
+
+    namespace: HashSet<Path>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
@@ -177,6 +188,7 @@ impl<'src> Compiler<'src> {
         Ok(Compiler {
             function_name,
             r#type: FunctionType::default(),
+            pathed_values: HashMap::new(),
             instructions: Vec::new(),
             character_constants: Vec::new(),
             float_constants: Vec::new(),
@@ -195,7 +207,8 @@ impl<'src> Compiler<'src> {
             minimum_list_register: 0,
             minimum_function_register: 0,
             block_index: 0,
-            current_scope: Scope::default(),
+            current_block_scope: Scope::default(),
+            namespace: HashSet::new(),
             prototype_index: 0,
             is_main,
             current_token,
@@ -1236,12 +1249,12 @@ impl<'src> Compiler<'src> {
         let is_mutable = local.is_mutable;
         let local_register_index = local.register_index;
 
-        if !self.current_scope.contains(&local.scope) {
+        if !self.current_block_scope.contains(&local.scope) {
             return Err(CompileError::VariableOutOfScope {
                 identifier: self.get_identifier(local_index).unwrap(),
                 position: start_position,
                 variable_scope: local.scope,
-                access_scope: self.current_scope,
+                access_scope: self.current_block_scope,
             });
         }
 
@@ -1309,16 +1322,16 @@ impl<'src> Compiler<'src> {
     fn parse_block(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let starting_block = self.current_scope.block_index;
+        let starting_block = self.current_block_scope.block_index;
 
         self.block_index += 1;
-        self.current_scope.begin(self.block_index);
+        self.current_block_scope.begin(self.block_index);
 
         while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
         }
 
-        self.current_scope.end(starting_block);
+        self.current_block_scope.end(starting_block);
 
         Ok(())
     }
@@ -1895,7 +1908,7 @@ impl<'src> Compiler<'src> {
             register_index,
             r#type,
             is_mutable,
-            self.current_scope,
+            self.current_block_scope,
         );
 
         // The last instruction is now an assignment, so it should not yield a value
@@ -1970,7 +1983,7 @@ impl<'src> Compiler<'src> {
                 local_register_index,
                 r#type.clone(),
                 is_mutable,
-                function_compiler.current_scope,
+                function_compiler.current_block_scope,
             );
 
             match r#type {
@@ -2025,7 +2038,7 @@ impl<'src> Compiler<'src> {
                 destination,
                 Type::Function(chunk.r#type.clone()),
                 false,
-                self.current_scope,
+                self.current_block_scope,
             );
         }
 
