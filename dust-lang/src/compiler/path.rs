@@ -1,12 +1,15 @@
 use crate::DustString;
 
+/// A correctly formatted relative or absolute path to a module or value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Path {
     inner: DustString,
 }
 
 impl Path {
-    pub fn new(inner: DustString) -> Option<Self> {
+    pub fn new(inner: impl Into<DustString>) -> Option<Self> {
+        let inner = inner.into();
+
         if inner.split("::").any(|module_name| {
             module_name.is_empty()
                 || module_name
@@ -46,10 +49,10 @@ mod tests {
 
     #[test]
     fn no_module_and_one_value() {
-        let path = Path::new(DustString::from("foo.bar")).unwrap();
+        let path = Path::new(DustString::from("foo")).unwrap();
 
         assert_eq!(path.module_names().len(), 0);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["foo", "bar"]);
+        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["foo"]);
     }
 
     #[test]

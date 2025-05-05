@@ -11,7 +11,7 @@
 //! If an error occurs, it is returned as a DustError. This error can be used to create a report
 //! with source annotations, which should be printed to the user.
 //!
-//! ## Examples
+//! # Examples
 //!
 //! ```rust
 //! # use dust_lang::{run, Value};

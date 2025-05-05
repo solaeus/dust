@@ -157,9 +157,12 @@ pub struct Compiler<'src> {
     /// when a new block is entered.
     block_index: u8,
 
-    /// The current block scope of the compiler. This is used to test if a variable is in scope.
+    /// The current block scope of the compiler. This is mutated during compilation to match the
+    /// current block and is used to test if a variable is in scope.
     current_block_scope: Scope,
 
+    /// The currently active paths from which the compiler can resolve symbols. This is mutated
+    /// during compilation to enforce Dust's scope rules.
     namespace: HashSet<Path>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
@@ -476,9 +479,8 @@ impl<'src> Compiler<'src> {
             })
     }
 
-    /// Adds a new local to `self.locals` and returns a tuple holding the index
-    /// of the new local and the index of its identifier in
-    /// `self.string_constants`.
+    /// Adds a new local to `self.locals` and returns a tuple holding the index of the new local and
+    /// the index of its identifier in `self.string_constants`.
     fn declare_local(
         &mut self,
         identifier: &str,
