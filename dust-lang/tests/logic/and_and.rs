@@ -10,7 +10,7 @@ fn true_and_true_and_true() {
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -43,7 +43,7 @@ fn true_and_true_and_false() {
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -76,7 +76,7 @@ fn true_and_false_and_true() {
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -109,7 +109,7 @@ fn true_and_false_and_false() {
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -142,7 +142,7 @@ fn false_and_true_and_true() {
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -175,7 +175,7 @@ fn false_and_true_and_false() {
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -208,7 +208,7 @@ fn false_and_false_and_true() {
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),
@@ -241,7 +241,7 @@ fn false_and_false_and_false() {
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
-            Instruction::jump(4, true),
+            Instruction::jump(2, true),
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
             Instruction::test(0, true),
             Instruction::jump(1, true),

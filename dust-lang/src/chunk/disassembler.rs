@@ -467,7 +467,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 "│{index:^5}│{:^21}│{:^21}│",
                 value_argument_list
                     .iter()
-                    .map(|index| index.to_string())
+                    .map(|(index, type_code)| format!("{} ({})", index, type_code))
                     .collect::<Vec<String>>()
                     .join(", "),
                 type_argument_list

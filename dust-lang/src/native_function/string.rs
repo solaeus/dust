@@ -1,4 +1,4 @@
-use crate::{DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread};
+use crate::{DustString, Instruction, TypeCode, instruction::CallNative, risky_vm::Thread};
 
 pub fn to_string(instruction: Instruction, thread: &mut Thread) {
     let CallNative {
@@ -9,13 +9,17 @@ pub fn to_string(instruction: Instruction, thread: &mut Thread) {
 
     let current_frame = thread.current_frame();
     let current_registers = thread.current_registers();
-    let arguments = current_frame.get_argument_list(argument_list_index);
+    let (argument_index, argument_type) = current_frame
+        .get_argument_list(argument_list_index)
+        .0
+        .first()
+        .unwrap();
 
-    let string = match arguments.1[0] {
-        Type::Integer => {
+    let string = match *argument_type {
+        TypeCode::INTEGER => {
             let integer = current_registers
                 .integers
-                .get(arguments.0[0] as usize)
+                .get(*argument_index as usize)
                 .as_value();
 
             DustString::from(integer.to_string())

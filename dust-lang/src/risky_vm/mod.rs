@@ -14,7 +14,7 @@ pub use thread::Thread;
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{AbstractList, Chunk, DustError, DustString, Function, Type, Value, compile};
+use crate::{AbstractList, Chunk, DustError, DustString, Function, Type, TypeCode, Value, compile};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
@@ -108,7 +108,7 @@ impl CallFrame {
         }
     }
 
-    pub fn get_argument_list(&self, index: u16) -> &(Vec<u16>, Vec<Type>) {
+    pub fn get_argument_list(&self, index: u16) -> &(Vec<(u16, TypeCode)>, Vec<Type>) {
         if cfg!(debug_assertions) {
             self.chunk.argument_lists.get(index as usize).unwrap()
         } else {

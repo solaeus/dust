@@ -247,6 +247,26 @@ in `R_INT_0` by `1`. In the "Locals" section, we can see that `R_INT_0` is the r
 Eventually, Dust should be available via package managers and as an embeddable library. For now,
 the only way to use Dust is to clone the repository and build it from source.
 
+## Benchmarks
+
+> [!IMPORTANT]
+> Anything shown here is a preliminary benchmark to guage the performance of Dust as it
+> is being developed. Benchmarks at this point in development are not intended to be rigorous.
+
+See `bench/addictive_addition` for the code used for each language.
+
+| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
+|:---|---:|---:|---:|---:|
+| `luajit addictive_addition.lua` | 4.6 ± 0.2 | 4.4 | 5.3 | 1.00 |
+| `bun addictive_addition.js` | 10.6 ± 0.4 | 9.5 | 11.6 | 2.29 ± 0.12 |
+| `lua addictive_addition.lua` | 22.2 ± 0.5 | 21.2 | 23.7 | 4.80 ± 0.20 |
+| **`dust addictive_addition.ds`** | 46.5 ± 1.6 | 44.1 | 51.5 | 10.07 ± 0.50 |
+| `node addictive_addition.js` | 50.4 ± 1.5 | 47.9 | 54.4 | 10.91 ± 0.50 |
+| `deno addictive_addition.js` | 80.4 ± 1.0 | 78.6 | 82.4 | 17.40 ± 0.65 |
+| `ruby addictive_addition.rb` | 82.5 ± 5.7 | 71.6 | 91.0 | 17.86 ± 1.38 |
+| `java addictive_addition.java` | 198.2 ± 5.2 | 190.3 | 209.0 | 42.89 ± 1.88 |
+| `python addictive_addition.py` | 215.7 ± 10.9 | 202.9 | 236.3 | 46.67 ± 2.87 |
+
 ## Inspiration
 
 *Crafting Interpreters*[^0] by Bob Nystrom was a great resource for writing the compiler, especially

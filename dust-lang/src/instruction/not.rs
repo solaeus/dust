@@ -47,6 +47,6 @@ impl Display for Not {
             argument,
         } = self;
 
-        write!(f, "R{destination} = !{argument}")
+        write!(f, "R_BOOL_{destination} = !{argument}")
     }
 }

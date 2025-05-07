@@ -1320,7 +1320,7 @@ impl Thread {
                     };
                     let mut new_registers = RegisterTable::new(function_prototype);
 
-                    for (r#type, register_index) in function
+                    for (r#type, (register_index, _)) in function
                         .r#type
                         .value_parameters
                         .iter()
