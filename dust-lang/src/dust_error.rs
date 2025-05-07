@@ -25,7 +25,7 @@ impl<'src> DustError<'src> {
             self.error.detail_snippets(),
             self.error.help_snippets(),
         );
-        let label = format!("{}: {}", title, description);
+        let label = format!("{title}: {description}");
         let message = Level::Error
             .title(&label)
             .snippets(detail_snippets.iter().map(|(details, position)| {

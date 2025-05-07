@@ -118,7 +118,7 @@ impl ConcreteValue {
             ConcreteValue::List(items) => items.first().map_or(Type::Any, |item| item.r#type()),
             ConcreteValue::Range(range) => range.r#type(),
             ConcreteValue::String(_) => Type::String,
-            ConcreteValue::Function(chunk) => Type::Function(chunk.r#type.clone()),
+            ConcreteValue::Function(chunk) => Type::Function(Box::new(chunk.r#type.clone())),
         }
     }
 }

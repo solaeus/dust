@@ -26,6 +26,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{DustString, Function, FunctionType, Instruction, Span, Type, TypeCode};
 
+/// A tuple that represents the value and type arguments passed to a function when called. Each tuple
+/// in this list corresponds to a function call. The first item in each tuple represents the
+/// registers of the values passed to the call. The second item is the call's type arguments.
+pub type ArgumentLists = (Vec<(u16, TypeCode)>, Vec<Type>);
+
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
@@ -42,7 +47,7 @@ pub struct Chunk {
     pub string_constants: Vec<DustString>,
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
-    pub argument_lists: Vec<(Vec<(u16, TypeCode)>, Vec<Type>)>,
+    pub argument_lists: Vec<ArgumentLists>,
 
     pub boolean_register_count: u16,
     pub byte_register_count: u16,

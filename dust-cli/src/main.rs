@@ -1,19 +1,21 @@
 use std::{
     fs::read_to_string,
-    io::{self, stdout, Read},
+    io::{self, Read, stdout},
     path::PathBuf,
     time::{Duration, Instant},
 };
 
 use clap::{
-    builder::{styling::AnsiColor, Styles},
+    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
+    builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
     error::ErrorKind,
-    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
 };
-use dust_lang::{CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm};
-use tracing::{subscriber::set_global_default, Level};
-use tracing_subscriber::{fmt::time::Uptime, FmtSubscriber};
+use dust_lang::{
+    CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
+};
+use tracing::{Level, subscriber::set_global_default};
+use tracing_subscriber::{FmtSubscriber, fmt::time::Uptime};
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold().underline())
@@ -202,14 +204,15 @@ fn main() {
         let program_name = name.or(file_name);
         let chunk = match input {
             InputFormat::Dust => {
-                let mut compiler = match Compiler::new(lexer, program_name, true) {
-                    Ok(compiler) => compiler,
-                    Err(error) => {
-                        handle_compile_error(error, &source);
+                let mut compiler =
+                    match Compiler::new(lexer, CompileMode::Main { name: program_name }) {
+                        Ok(compiler) => compiler,
+                        Err(error) => {
+                            handle_compile_error(error, &source);
 
-                        return;
-                    }
-                };
+                            return;
+                        }
+                    };
 
                 match compiler.compile() {
                     Ok(()) => {}
@@ -240,7 +243,7 @@ fn main() {
 
         if !no_output {
             if let Some(value) = return_value {
-                println!("{}", value)
+                println!("{value}")
             }
         }
 
@@ -266,7 +269,7 @@ fn main() {
         let (source, file_name) = get_source_and_file_name(source);
         let lexer = Lexer::new(&source);
         let program_name = name.or(file_name);
-        let mut compiler = match Compiler::new(lexer, program_name, true) {
+        let mut compiler = match Compiler::new(lexer, CompileMode::Main { name: program_name }) {
             Ok(compiler) => compiler,
             Err(error) => {
                 handle_compile_error(error, &source);

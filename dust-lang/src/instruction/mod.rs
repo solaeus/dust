@@ -743,21 +743,21 @@ impl Display for Operand {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Operand::Constant(index, r#type) => match *r#type {
-                TypeCode::CHARACTER => write!(f, "C_CHAR_{}", index),
-                TypeCode::FLOAT => write!(f, "C_FLOAT_{}", index),
-                TypeCode::INTEGER => write!(f, "C_INT_{}", index),
-                TypeCode::STRING => write!(f, "C_STR_{}", index),
+                TypeCode::CHARACTER => write!(f, "C_CHAR_{index}"),
+                TypeCode::FLOAT => write!(f, "C_FLOAT_{index}"),
+                TypeCode::INTEGER => write!(f, "C_INT_{index}"),
+                TypeCode::STRING => write!(f, "C_STR_{index}"),
                 unsupported => panic!("Unsupported type code: {}", unsupported.0),
             },
             Operand::Register(index, r#type) => match *r#type {
-                TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", index),
-                TypeCode::BYTE => write!(f, "R_BYTE_{}", index),
-                TypeCode::CHARACTER => write!(f, "R_CHAR_{}", index),
-                TypeCode::INTEGER => write!(f, "R_INT_{}", index),
-                TypeCode::FLOAT => write!(f, "R_FLOAT_{}", index),
-                TypeCode::STRING => write!(f, "R_STR_{}", index),
-                TypeCode::LIST => write!(f, "R_LIST_{}", index),
-                TypeCode::FUNCTION => write!(f, "R_FN_{}", index),
+                TypeCode::BOOLEAN => write!(f, "R_BOOL_{index}"),
+                TypeCode::BYTE => write!(f, "R_BYTE_{index}"),
+                TypeCode::CHARACTER => write!(f, "R_CHAR_{index}"),
+                TypeCode::INTEGER => write!(f, "R_INT_{index}"),
+                TypeCode::FLOAT => write!(f, "R_FLOAT_{index}"),
+                TypeCode::STRING => write!(f, "R_STR_{index}"),
+                TypeCode::LIST => write!(f, "R_LIST_{index}"),
+                TypeCode::FUNCTION => write!(f, "R_FN_{index}"),
                 unsupported => panic!("Unsupported type code: {}", unsupported.0),
             },
         }

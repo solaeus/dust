@@ -229,7 +229,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Expected token `{}` but found `{}`", expected, found),
+                    format!("Expected token `{expected}` but found `{found}`"),
                     *position,
                 )]
             }
@@ -239,10 +239,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Expected one of the tokens `{:?}` but found `{}`",
-                        expected, found
-                    ),
+                    format!("Expected one of the tokens `{expected:?}` but found `{found}`",),
                     *position,
                 )]
             }
@@ -252,14 +249,11 @@ impl AnnotatedError for CompileError {
                 vec![("Cannot chain comparison operations".to_string(), *position)]
             }
             Self::ExpectedBoolean { found, position } => {
-                vec![(
-                    format!("Expected a boolean but found `{}`", found),
-                    *position,
-                )]
+                vec![(format!("Expected a boolean but found `{found}`"), *position)]
             }
             Self::ExpectedExpression { found, position } => {
                 vec![(
-                    format!("Expected an expression but found `{}`", found),
+                    format!("Expected an expression but found `{found}`"),
                     *position,
                 )]
             }
@@ -269,21 +263,18 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Expected a function but found `{}` of type `{}`",
-                        found, actual_type
-                    ),
+                    format!("Expected a function but found `{found}` of type `{actual_type}`",),
                     *position,
                 )]
             }
             Self::ExpectedFunctionType { found, position } => {
                 vec![(
-                    format!("Expected a function type but found `{}`", found),
+                    format!("Expected a function type but found `{found}`"),
                     *position,
                 )]
             }
             Self::InvalidAssignmentTarget { found, position } => {
-                vec![(format!("Invalid assignment target `{}`", found), *position)]
+                vec![(format!("Invalid assignment target `{found}`"), *position)]
             }
             Self::UnexpectedReturn { position } => {
                 vec![("Unexpected return statement".to_string(), *position)]
@@ -295,13 +286,13 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Cannot mutate immutable variable `{}`", identifier),
+                    format!("Cannot mutate immutable variable `{identifier}`"),
                     *position,
                 )]
             }
             Self::ExpectedMutableVariable { found, position } => {
                 vec![(
-                    format!("Expected a mutable variable but found `{}`", found),
+                    format!("Expected a mutable variable but found `{found}`"),
                     *position,
                 )]
             }
@@ -310,7 +301,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Variable `{}` is not declared", identifier),
+                    format!("Variable `{identifier}` is not declared"),
                     *position,
                 )]
             }
@@ -322,8 +313,7 @@ impl AnnotatedError for CompileError {
             } => {
                 vec![(
                     format!(
-                        "Variable `{}` is out of scope. Declared in scope `{}` but accessed in scope `{}`",
-                        identifier, variable_scope, access_scope
+                        "Variable `{identifier}` is out of scope. Declared in scope `{variable_scope}` but accessed in scope `{access_scope}`"
                     ),
                     *position,
                 )]
@@ -334,7 +324,7 @@ impl AnnotatedError for CompileError {
                 argument_type,
                 position,
             } => {
-                vec![(format!("Cannot add type `{}`", argument_type), *position)]
+                vec![(format!("Cannot add type `{argument_type}`"), *position)]
             }
             Self::CannotAddArguments {
                 left_type,
@@ -343,12 +333,9 @@ impl AnnotatedError for CompileError {
                 right_position,
             } => {
                 vec![
+                    (format!("`{left_type}` value was used here"), *left_position),
                     (
-                        format!("`{}` value was used here", left_type),
-                        *left_position,
-                    ),
-                    (
-                        format!("`{}` value was used here", right_type),
+                        format!("`{right_type}` value was used here"),
                         *right_position,
                     ),
                 ]
@@ -357,7 +344,7 @@ impl AnnotatedError for CompileError {
                 argument_type,
                 position,
             } => {
-                vec![(format!("Cannot divide type `{}`", argument_type), *position)]
+                vec![(format!("Cannot divide type `{argument_type}`"), *position)]
             }
             Self::CannotDivideArguments {
                 left_type,
@@ -365,10 +352,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Cannot divide type `{}` by type `{}`",
-                        left_type, right_type
-                    ),
+                    format!("Cannot divide type `{left_type}` by type `{right_type}`",),
                     *position,
                 )]
             }
@@ -377,7 +361,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Cannot compute modulo for type `{}`", argument_type),
+                    format!("Cannot compute modulo for type `{argument_type}`"),
                     *position,
                 )]
             }
@@ -388,8 +372,7 @@ impl AnnotatedError for CompileError {
             } => {
                 vec![(
                     format!(
-                        "Cannot compute modulo for type `{}` with type `{}`",
-                        left_type, right_type
+                        "Cannot compute modulo for type `{left_type}` with type `{right_type}`"
                     ),
                     *position,
                 )]
@@ -398,10 +381,7 @@ impl AnnotatedError for CompileError {
                 argument_type,
                 position,
             } => {
-                vec![(
-                    format!("Cannot multiply type `{}`", argument_type),
-                    *position,
-                )]
+                vec![(format!("Cannot multiply type `{argument_type}`"), *position)]
             }
             Self::CannotMultiplyArguments {
                 left_type,
@@ -409,10 +389,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Cannot multiply type `{}` with type `{}`",
-                        left_type, right_type
-                    ),
+                    format!("Cannot multiply type `{left_type}` with type `{right_type}`"),
                     *position,
                 )]
             }
@@ -420,14 +397,14 @@ impl AnnotatedError for CompileError {
                 argument_type,
                 position,
             } => {
-                vec![(format!("Cannot negate type `{}`", argument_type), *position)]
+                vec![(format!("Cannot negate type `{argument_type}`"), *position)]
             }
             Self::CannotNotType {
                 argument_type,
                 position,
             } => {
                 vec![(
-                    format!("Cannot apply `not` operation to type `{}`", argument_type),
+                    format!("Cannot apply `not` operation to type `{argument_type}`"),
                     *position,
                 )]
             }
@@ -435,10 +412,7 @@ impl AnnotatedError for CompileError {
                 argument_type,
                 position,
             } => {
-                vec![(
-                    format!("Cannot subtract type `{}`", argument_type),
-                    *position,
-                )]
+                vec![(format!("Cannot subtract type `{argument_type}`"), *position)]
             }
             Self::CannotSubtractArguments {
                 left_type,
@@ -446,10 +420,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Cannot subtract type `{}` from type `{}`",
-                        right_type, left_type
-                    ),
+                    format!("Cannot subtract type `{left_type}` from type `{right_type}`"),
                     *position,
                 )]
             }
@@ -458,7 +429,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Cannot resolve type for register `{}`", register_index),
+                    format!("Cannot resolve type for register `{register_index}`"),
                     *position,
                 )]
             }
@@ -467,7 +438,7 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 vec![(
-                    format!("Cannot resolve type for variable `{}`", identifier),
+                    format!("Cannot resolve type for variable `{identifier}`"),
                     *position,
                 )]
             }
@@ -508,30 +479,27 @@ impl AnnotatedError for CompileError {
             // Chunk errors
             Self::ConstantIndexOutOfBounds { index, position } => {
                 vec![(
-                    format!("Constant index `{}` is out of bounds", index),
+                    format!("Constant index `{index}` is out of bounds"),
                     *position,
                 )]
             }
             Self::InstructionIndexOutOfBounds { index, position } => {
                 vec![(
-                    format!("Instruction index `{}` is out of bounds", index),
+                    format!("Instruction index `{index}` is out of bounds"),
                     *position,
                 )]
             }
             Self::LocalIndexOutOfBounds { index, position } => {
-                vec![(
-                    format!("Local index `{}` is out of bounds", index),
-                    *position,
-                )]
+                vec![(format!("Local index `{index}` is out of bounds"), *position)]
             }
 
             // Wrappers around foreign errors
             Self::Lex(error) => error.detail_snippets(),
             Self::ParseFloatError { error, position } => {
-                vec![(format!("Failed to parse float: {}", error), *position)]
+                vec![(format!("Failed to parse float: {error}"), *position)]
             }
             Self::ParseIntError { error, position } => {
-                vec![(format!("Failed to parse integer: {}", error), *position)]
+                vec![(format!("Failed to parse integer: {error}"), *position)]
             }
         }
     }
@@ -543,7 +511,7 @@ impl AnnotatedError for CompileError {
                 expected, position, ..
             } => {
                 vec![(
-                    format!("Insert the expected token `{}` here", expected),
+                    format!("Insert the expected token `{expected}` here"),
                     *position,
                 )]
             }
@@ -551,7 +519,7 @@ impl AnnotatedError for CompileError {
                 expected, position, ..
             } => {
                 vec![(
-                    format!("Insert one of the expected tokens `{:?}` here", expected),
+                    format!("Insert one of the expected tokens `{expected:?}` here"),
                     *position,
                 )]
             }

@@ -1,6 +1,4 @@
-use dust_lang::{
-    Chunk, FunctionType, Instruction, Operand, Span, Type, TypeCode, Value, compile, run,
-};
+use dust_lang::{Value, run};
 
 mod boolean_returns {
     use super::*;

@@ -50,7 +50,7 @@ impl Display for Close {
             TypeCode::INTEGER => write!(f, "R_INT_{from}..=R_INT_{to}"),
             TypeCode::STRING => write!(f, "R_STR_{from}..=R_STR_{to}"),
             TypeCode::LIST => write!(f, "R_LIST_{from}..=R_LIST_{to}"),
-            unsupported => panic!("Unsupported type code: {:?}", unsupported),
+            unsupported => panic!("Unsupported type code: {unsupported:?}"),
         }
     }
 }

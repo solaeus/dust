@@ -444,6 +444,69 @@ impl Display for Token<'_> {
     }
 }
 
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            TokenKind::ArrowThin => write!(f, "->"),
+            TokenKind::Async => write!(f, "async"),
+            TokenKind::BangEqual => write!(f, "!="),
+            TokenKind::Bang => write!(f, "!"),
+            TokenKind::Bool => write!(f, "bool"),
+            TokenKind::Boolean => write!(f, "boolean"),
+            TokenKind::Break => write!(f, "break"),
+            TokenKind::Byte => write!(f, "byte"),
+            TokenKind::Character => write!(f, "character"),
+            TokenKind::Colon => write!(f, ":"),
+            TokenKind::Comma => write!(f, ","),
+            TokenKind::Dot => write!(f, "."),
+            TokenKind::DoubleAmpersand => write!(f, "&&"),
+            TokenKind::DoubleDot => write!(f, ".."),
+            TokenKind::DoubleEqual => write!(f, "=="),
+            TokenKind::DoublePipe => write!(f, "||"),
+            TokenKind::Else => write!(f, "else"),
+            TokenKind::Eof => write!(f, "EOF"),
+            TokenKind::Equal => write!(f, "="),
+            TokenKind::Float => write!(f, "float"),
+            TokenKind::FloatKeyword => write!(f, "float"),
+            TokenKind::Fn => write!(f, "fn"),
+            TokenKind::Greater => write!(f, ">"),
+            TokenKind::GreaterEqual => write!(f, ">="),
+            TokenKind::Identifier => write!(f, "identifier"),
+            TokenKind::If => write!(f, "if"),
+            TokenKind::Int => write!(f, "int"),
+            TokenKind::Integer => write!(f, "integer"),
+            TokenKind::LeftBrace => write!(f, "{{"),
+            TokenKind::LeftParenthesis => write!(f, "("),
+            TokenKind::LeftBracket => write!(f, "["),
+            TokenKind::Let => write!(f, "let"),
+            TokenKind::Less => write!(f, "<"),
+            TokenKind::LessEqual => write!(f, "<="),
+            TokenKind::Loop => write!(f, "loop"),
+            TokenKind::Map => write!(f, "map"),
+            TokenKind::Minus => write!(f, "-"),
+            TokenKind::MinusEqual => write!(f, "-="),
+            TokenKind::Mut => write!(f, "mut"),
+            TokenKind::Percent => write!(f, "%"),
+            TokenKind::PercentEqual => write!(f, "%="),
+            TokenKind::Plus => write!(f, "+"),
+            TokenKind::PlusEqual => write!(f, "+="),
+            TokenKind::Return => write!(f, "return"),
+            TokenKind::RightBrace => write!(f, "}}"),
+            TokenKind::RightParenthesis => write!(f, ")"),
+            TokenKind::RightBracket => write!(f, "]"),
+            TokenKind::Semicolon => write!(f, ";"),
+            TokenKind::Slash => write!(f, "/"),
+            TokenKind::SlashEqual => write!(f, "/="),
+            TokenKind::Star => write!(f, "*"),
+            TokenKind::StarEqual => write!(f, "*="),
+            TokenKind::Str => write!(f, "str"),
+            TokenKind::String => write!(f, "string"),
+            TokenKind::Struct => write!(f, "struct"),
+            TokenKind::While => write!(f, "while"),
+        }
+    }
+}
+
 /// Owned representation of a source token.
 ///
 /// If a [Token] borrows from the source text, its TokenOwned omits the data.
@@ -574,11 +637,5 @@ impl Display for TokenOwned {
             TokenOwned::Struct => Token::Struct.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
         }
-    }
-}
-
-impl Display for TokenKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
     }
 }

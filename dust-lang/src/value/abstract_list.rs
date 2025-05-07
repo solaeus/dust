@@ -28,109 +28,76 @@ impl AbstractList {
             }
 
             let item_display = match (pointer, self.item_type) {
-                (Pointer::Register(register_index), TypeCode::BOOLEAN) => {
-                    let boolean = thread
-                        .current_registers()
-                        .booleans
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", boolean)
-                }
-                (Pointer::Register(register_index), TypeCode::BYTE) => {
-                    let byte = thread
-                        .current_registers()
-                        .bytes
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", byte)
-                }
-                (Pointer::Constant(constant_index), TypeCode::CHARACTER) => {
-                    let character = thread
-                        .current_frame()
-                        .chunk
-                        .character_constants
-                        .get(constant_index as usize)
-                        .unwrap();
-
-                    format!("{}", character)
-                }
-                (Pointer::Register(register_index), TypeCode::CHARACTER) => {
-                    let character = thread
-                        .current_registers()
-                        .characters
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", character)
-                }
-                (Pointer::Constant(constant_index), TypeCode::FLOAT) => {
-                    let float = thread
-                        .current_frame()
-                        .chunk
-                        .float_constants
-                        .get(constant_index as usize)
-                        .unwrap();
-
-                    format!("{}", float)
-                }
-                (Pointer::Register(register_index), TypeCode::FLOAT) => {
-                    let float = thread
-                        .current_registers()
-                        .floats
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", float)
-                }
-                (Pointer::Constant(constant_index), TypeCode::INTEGER) => {
-                    let integer = thread
-                        .current_frame()
-                        .chunk
-                        .integer_constants
-                        .get(constant_index as usize)
-                        .unwrap();
-
-                    format!("{}", integer)
-                }
-                (Pointer::Register(register_index), TypeCode::INTEGER) => {
-                    let integer = thread
-                        .current_registers()
-                        .integers
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", integer)
-                }
-                (Pointer::Constant(constant_index), TypeCode::STRING) => {
-                    let string = thread
-                        .current_frame()
-                        .chunk
-                        .string_constants
-                        .get(constant_index as usize)
-                        .unwrap();
-
-                    format!("{}", string)
-                }
-                (Pointer::Register(register_index), TypeCode::STRING) => {
-                    let string = thread
-                        .current_registers()
-                        .strings
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", string)
-                }
-                (Pointer::Register(register_index), TypeCode::LIST) => {
-                    let list = thread
-                        .current_registers()
-                        .lists
-                        .get(register_index as usize)
-                        .as_value();
-
-                    format!("{}", list)
-                }
+                (Pointer::Register(register_index), TypeCode::BOOLEAN) => thread
+                    .current_registers()
+                    .booleans
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::BYTE) => thread
+                    .current_registers()
+                    .bytes
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Constant(constant_index), TypeCode::CHARACTER) => thread
+                    .current_frame()
+                    .chunk
+                    .character_constants
+                    .get(constant_index as usize)
+                    .unwrap()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::CHARACTER) => thread
+                    .current_registers()
+                    .characters
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Constant(constant_index), TypeCode::FLOAT) => thread
+                    .current_frame()
+                    .chunk
+                    .float_constants
+                    .get(constant_index as usize)
+                    .unwrap()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::FLOAT) => thread
+                    .current_registers()
+                    .floats
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Constant(constant_index), TypeCode::INTEGER) => thread
+                    .current_frame()
+                    .chunk
+                    .integer_constants
+                    .get(constant_index as usize)
+                    .unwrap()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::INTEGER) => thread
+                    .current_registers()
+                    .integers
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Constant(constant_index), TypeCode::STRING) => thread
+                    .current_frame()
+                    .chunk
+                    .string_constants
+                    .get(constant_index as usize)
+                    .unwrap()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::STRING) => thread
+                    .current_registers()
+                    .strings
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
+                (Pointer::Register(register_index), TypeCode::LIST) => thread
+                    .current_registers()
+                    .lists
+                    .get(register_index as usize)
+                    .as_value()
+                    .to_string(),
                 _ => todo!(),
             };
 
@@ -171,25 +138,17 @@ impl AbstractList {
             TypeCode::CHARACTER => {
                 for pointer in &self.item_pointers {
                     let character = match pointer {
-                        Pointer::Register(register_index) => {
-                            let character = *thread
-                                .current_registers()
-                                .characters
-                                .get(*register_index as usize)
-                                .as_value();
-
-                            character
-                        }
-                        Pointer::Constant(constant_index) => {
-                            let character = thread
-                                .current_frame()
-                                .chunk
-                                .character_constants
-                                .get(*constant_index as usize)
-                                .unwrap();
-
-                            *character
-                        }
+                        Pointer::Register(register_index) => *thread
+                            .current_registers()
+                            .characters
+                            .get(*register_index as usize)
+                            .as_value(),
+                        Pointer::Constant(constant_index) => *thread
+                            .current_frame()
+                            .chunk
+                            .character_constants
+                            .get(*constant_index as usize)
+                            .unwrap(),
                     };
 
                     concrete_list.push(ConcreteValue::Character(character));
@@ -198,25 +157,17 @@ impl AbstractList {
             TypeCode::FLOAT => {
                 for pointer in &self.item_pointers {
                     let float = match pointer {
-                        Pointer::Register(register_index) => {
-                            let float = *thread
-                                .current_registers()
-                                .floats
-                                .get(*register_index as usize)
-                                .as_value();
-
-                            float
-                        }
-                        Pointer::Constant(constant_index) => {
-                            let float = thread
-                                .current_frame()
-                                .chunk
-                                .float_constants
-                                .get(*constant_index as usize)
-                                .unwrap();
-
-                            *float
-                        }
+                        Pointer::Register(register_index) => *thread
+                            .current_registers()
+                            .floats
+                            .get(*register_index as usize)
+                            .as_value(),
+                        Pointer::Constant(constant_index) => *thread
+                            .current_frame()
+                            .chunk
+                            .float_constants
+                            .get(*constant_index as usize)
+                            .unwrap(),
                     };
 
                     concrete_list.push(ConcreteValue::Float(float));
@@ -225,25 +176,17 @@ impl AbstractList {
             TypeCode::INTEGER => {
                 for pointer in &self.item_pointers {
                     let integer = match pointer {
-                        Pointer::Register(register_index) => {
-                            let integer = *thread
-                                .current_registers()
-                                .integers
-                                .get(*register_index as usize)
-                                .as_value();
-
-                            integer
-                        }
-                        Pointer::Constant(constant_index) => {
-                            let integer = thread
-                                .current_frame()
-                                .chunk
-                                .integer_constants
-                                .get(*constant_index as usize)
-                                .unwrap();
-
-                            *integer
-                        }
+                        Pointer::Register(register_index) => *thread
+                            .current_registers()
+                            .integers
+                            .get(*register_index as usize)
+                            .as_value(),
+                        Pointer::Constant(constant_index) => *thread
+                            .current_frame()
+                            .chunk
+                            .integer_constants
+                            .get(*constant_index as usize)
+                            .unwrap(),
                     };
 
                     concrete_list.push(ConcreteValue::Integer(integer));
@@ -327,7 +270,7 @@ impl Display for AbstractList {
         write!(f, "[")?;
 
         for pointer in &self.item_pointers {
-            write!(f, "{:?}", pointer)?;
+            write!(f, "{pointer:?}")?;
         }
 
         write!(f, "]")

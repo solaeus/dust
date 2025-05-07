@@ -126,7 +126,7 @@ impl Value {
         match self {
             Value::Concrete(concrete_value) => concrete_value.r#type(),
             Value::AbstractList(AbstractList { item_type, .. }) => Type::List(*item_type),
-            Value::Function(Function { r#type, .. }) => Type::Function(r#type.clone()),
+            Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
         }
     }
 

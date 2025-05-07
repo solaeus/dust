@@ -11,7 +11,6 @@ use crate::instruction::TypeCode;
 
 /// Description of a kind of value.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "Type", content = "Value")]
 pub enum Type {
     Any,
     Boolean,
@@ -19,7 +18,7 @@ pub enum Type {
     Character,
     Enum(EnumType),
     Float,
-    Function(FunctionType),
+    Function(Box<FunctionType>),
     Generic(GenericType),
     Integer,
     List(TypeCode),
@@ -29,7 +28,7 @@ pub enum Type {
     Range(Box<Type>),
     SelfFunction,
     String,
-    Struct(StructType),
+    Struct(Box<StructType>),
     Tuple(Vec<Type>),
 }
 
@@ -39,11 +38,11 @@ impl Type {
         value_parameters: U,
         return_type: Type,
     ) -> Self {
-        Type::Function(FunctionType {
+        Type::Function(Box::new(FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
-            return_type: Box::new(return_type),
-        })
+            return_type,
+        }))
     }
 
     pub fn type_code(&self) -> TypeCode {
@@ -132,12 +131,12 @@ impl Type {
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
-                } = left_function_type;
+                } = left_function_type.as_ref();
                 let FunctionType {
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
-                } = right_function_type;
+                } = right_function_type.as_ref();
 
                 if left_return != right_return
                     || left_type_parameters != right_type_parameters
@@ -284,7 +283,7 @@ impl Ord for Type {
 pub struct FunctionType {
     pub type_parameters: Vec<u16>,
     pub value_parameters: Vec<Type>,
-    pub return_type: Box<Type>,
+    pub return_type: Type,
 }
 
 impl FunctionType {
@@ -296,7 +295,7 @@ impl FunctionType {
         FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
-            return_type: Box::new(return_type),
+            return_type,
         }
     }
 }
@@ -306,7 +305,7 @@ impl Default for FunctionType {
         FunctionType {
             type_parameters: Vec::new(),
             value_parameters: Vec::new(),
-            return_type: Box::new(Type::None),
+            return_type: Type::None,
         }
     }
 }
@@ -343,7 +342,7 @@ impl Display for FunctionType {
 
         write!(f, ")")?;
 
-        if self.return_type.as_ref() != &Type::None {
+        if self.return_type != Type::None {
             write!(f, " -> {}", self.return_type)?;
         }
 

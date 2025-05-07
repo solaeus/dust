@@ -18,26 +18,25 @@
 //! It is a logic error to call [`Compiler::finish`] on a compiler that has emitted an error and
 //! pass that chunk to the VM. Otherwise, if the compiler gives no errors and the VM encounters a
 //! runtime error, it is the compiler's fault and the error should be fixed here.
-mod error;
+mod compile_error;
+mod compile_mode;
 mod parse_rule;
 mod path;
 mod type_checks;
 
-pub use error::CompileError;
+pub use compile_error::CompileError;
+pub use compile_mode::CompileMode;
 use parse_rule::{ParseRule, Precedence};
 use path::Path;
 use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{
-    collections::{HashMap, HashSet},
-    mem::replace,
-    sync::Arc,
-};
+use std::{collections::HashSet, mem::replace, sync::Arc};
 
 use crate::{
-    Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operand, Operation, Scope, Span, Token, TokenKind, Type,
+    Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
+    Operation, Scope, Span, Token, TokenKind, Type,
+    chunk::ArgumentLists,
     instruction::{Jump, LoadFunction, Move, Return, TypeCode},
 };
 
@@ -54,8 +53,8 @@ use crate::{
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler =
-        Compiler::new(lexer, None, true).map_err(|error| DustError::compile(error, source))?;
+    let mut compiler = Compiler::new(lexer, CompileMode::Main { name: None })
+        .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -72,20 +71,16 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
 pub struct Compiler<'src> {
+    /// Indication of what the compiler will produce when it finishes. This value should never be
+    /// mutated.
+    mode: CompileMode,
+
     /// Used to get tokens for the compiler.
     lexer: Lexer<'src>,
-
-    /// Name of the function being compiled. This is used to identify recursive calls, so it should
-    /// be `None` for the main chunk. The main chunk can still be named by passing a name to
-    /// [`Compiler::finish`], which will override this value.
-    function_name: Option<DustString>,
 
     /// Type of the function being compiled. This is assigned to the chunk when [`Compiler::finish`]
     /// is called.
     r#type: FunctionType,
-
-    /// Values associated with a relative path that indicates its module and identifier.
-    pathed_values: HashMap<Path, ConcreteValue>,
 
     /// Instructions, along with their types and positions, that have been compiled. The
     /// instructions and positions are assigned to the chunk when [`Compiler::finish`] is called.
@@ -119,7 +114,7 @@ pub struct Compiler<'src> {
     /// Lists of arguments for each function call. The integers represent the register of each
     /// argument. Note that the type of each argument is not stored, so the caller must check the
     /// function's type to determine the type of each argument.
-    argument_lists: Vec<(Vec<(u16, TypeCode)>, Vec<Type>)>,
+    argument_lists: Vec<ArgumentLists>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -169,10 +164,6 @@ pub struct Compiler<'src> {
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: u16,
 
-    /// Whether the chunk is the program's main chunk. This is used to prevent recursive calls to
-    /// the main chunk.
-    is_main: bool,
-
     current_token: Token<'src>,
     current_position: Span,
     previous_token: Token<'src>,
@@ -183,17 +174,12 @@ pub struct Compiler<'src> {
 
 impl<'src> Compiler<'src> {
     /// Creates a new compiler.
-    pub fn new(
-        mut lexer: Lexer<'src>,
-        function_name: Option<DustString>,
-        is_main: bool,
-    ) -> Result<Self, CompileError> {
+    pub fn new(mut lexer: Lexer<'src>, mode: CompileMode) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
         Ok(Compiler {
-            function_name,
+            mode,
             r#type: FunctionType::default(),
-            pathed_values: HashMap::new(),
             instructions: Vec::new(),
             character_constants: Vec::new(),
             float_constants: Vec::new(),
@@ -215,7 +201,6 @@ impl<'src> Compiler<'src> {
             current_block_scope: Scope::default(),
             namespace: HashSet::new(),
             prototype_index: 0,
-            is_main,
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -272,7 +257,7 @@ impl<'src> Compiler<'src> {
             .unzip();
 
         Chunk {
-            name: self.function_name,
+            name: self.mode.into_name(),
             r#type: self.r#type,
             instructions,
             positions,
@@ -466,7 +451,7 @@ impl<'src> Compiler<'src> {
         self.locals
             .get(index as usize)
             .ok_or(CompileError::UndeclaredVariable {
-                identifier: format!("#{}", index),
+                identifier: format!("#{index}"),
                 position: self.current_position,
             })
     }
@@ -597,7 +582,7 @@ impl<'src> Compiler<'src> {
     ///
     /// If [`Self::type`] is already set, it will check if the given [Type] is compatible.
     fn update_return_type(&mut self, new_return_type: Type) -> Result<(), CompileError> {
-        if self.r#type.return_type.as_ref() != &Type::None {
+        if self.r#type.return_type != Type::None {
             self.r#type
                 .return_type
                 .check(&new_return_type)
@@ -607,7 +592,7 @@ impl<'src> Compiler<'src> {
                 })?;
         }
 
-        *self.r#type.return_type.as_mut() = new_return_type;
+        self.r#type.return_type = new_return_type;
 
         Ok(())
     }
@@ -1288,13 +1273,20 @@ impl<'src> Compiler<'src> {
             local_index
         } else if let Some(native_function) = NativeFunction::from_str(identifier) {
             return self.parse_call_native(native_function, start_position);
-        } else if self.function_name.as_deref() == Some(identifier) && !self.is_main {
-            let destination = self.next_function_register();
-            let load_self = Instruction::load_self(destination, false);
+        } else if let CompileMode::Function { name } = &self.mode {
+            if name.as_deref() == Some(identifier) {
+                let destination = self.next_function_register();
+                let load_self = Instruction::load_self(destination, false);
 
-            self.emit_instruction(load_self, Type::SelfFunction, start_position);
+                self.emit_instruction(load_self, Type::SelfFunction, start_position);
 
-            return Ok(());
+                return Ok(());
+            } else {
+                return Err(CompileError::UndeclaredVariable {
+                    identifier: identifier.to_string(),
+                    position: start_position,
+                });
+            }
         } else {
             return Err(CompileError::UndeclaredVariable {
                 identifier: identifier.to_string(),
@@ -1901,7 +1893,7 @@ impl<'src> Compiler<'src> {
                     let function_type = self
                         .prototypes
                         .get(prototype_index as usize)
-                        .map(|prototype| Type::Function(prototype.r#type.clone()))
+                        .map(|prototype| Type::Function(Box::new(prototype.r#type.clone())))
                         .unwrap_or(Type::None);
 
                     previous_expression_type = function_type;
@@ -1998,9 +1990,11 @@ impl<'src> Compiler<'src> {
         };
 
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
-            let function_name = identifier.map(DustString::from);
+            let compile_mode = CompileMode::Function {
+                name: identifier.map(DustString::from),
+            };
 
-            Compiler::new(self.lexer, function_name, false)? // This will consume the parenthesis
+            Compiler::new(self.lexer, compile_mode)? // This will consume the parenthesis
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftParenthesis,
@@ -2097,13 +2091,13 @@ impl<'src> Compiler<'src> {
         let chunk = function_compiler.finish();
         let destination = self.next_function_register();
         let load_function = Instruction::load_function(destination, prototype_index, false);
-        let r#type = Type::Function(chunk.r#type.clone());
+        let r#type = Type::Function(Box::new(chunk.r#type.clone()));
 
         if let Some(identifier) = identifier {
             self.declare_local(
                 identifier,
                 destination,
-                Type::Function(chunk.r#type.clone()),
+                Type::Function(Box::new(chunk.r#type.clone())),
                 false,
                 self.current_block_scope,
             );
@@ -2130,8 +2124,8 @@ impl<'src> Compiler<'src> {
         let b_field = last_instruction.b_field();
 
         let function_return_type = match last_instruction_type {
-            Type::Function(function_type) => *function_type.return_type.clone(),
-            Type::SelfFunction => *self.r#type.return_type.clone(),
+            Type::Function(function_type) => function_type.return_type.clone(),
+            Type::SelfFunction => self.r#type.return_type.clone(),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
@@ -2254,7 +2248,7 @@ impl<'src> Compiler<'src> {
             .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
-        let return_type = function.r#type().return_type.as_ref().clone();
+        let return_type = function.r#type().return_type.clone();
         let destination = match return_type {
             Type::None => 0,
             Type::Boolean => self.next_boolean_register(),

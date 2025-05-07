@@ -386,7 +386,7 @@ fn load_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::None)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::None))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -417,7 +417,7 @@ fn load_boolean_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::Boolean)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::Boolean))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -452,7 +452,7 @@ fn load_integer_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::Integer)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::Integer))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -488,7 +488,7 @@ fn load_string_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::String)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::String))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -524,7 +524,11 @@ fn load_list_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::List(TypeCode::INTEGER))),
+            Type::Function(Box::new(FunctionType::new(
+                [],
+                [],
+                Type::List(TypeCode::INTEGER),
+            ))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -569,7 +573,7 @@ fn load_byte_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::Byte)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::Byte))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -604,7 +608,7 @@ fn load_character_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::Character)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::Character))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -640,7 +644,7 @@ fn load_float_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::Float)),
+            Type::Function(Box::new(FunctionType::new([], [], Type::Float))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -676,7 +680,11 @@ fn load_nested_list_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::List(TypeCode::LIST))),
+            Type::Function(Box::new(FunctionType::new(
+                [],
+                [],
+                Type::List(TypeCode::LIST),
+            ))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -727,7 +735,11 @@ fn load_deeply_nested_list_in_function() {
         r#type: FunctionType::new(
             [],
             [],
-            Type::Function(FunctionType::new([], [], Type::List(TypeCode::LIST))),
+            Type::Function(Box::new(FunctionType::new(
+                [],
+                [],
+                Type::List(TypeCode::LIST),
+            ))),
         ),
         instructions: vec![
             Instruction::load_function(0, 0, false),
@@ -824,7 +836,7 @@ fn load_function_in_function() {
             locals: vec![Local::new(
                 0,
                 0,
-                Type::Function(FunctionType::new([], [], Type::Integer)),
+                Type::Function(Box::new(FunctionType::new([], [], Type::Integer))),
                 false,
                 Scope::new(0, 0),
             )],

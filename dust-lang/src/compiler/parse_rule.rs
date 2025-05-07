@@ -313,6 +313,6 @@ impl Precedence {
 
 impl Display for Precedence {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }

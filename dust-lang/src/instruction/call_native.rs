@@ -51,7 +51,7 @@ impl Display for CallNative {
         } = self;
         let return_type = function.r#type().return_type;
 
-        match *return_type {
+        match return_type {
             Type::None => {}
             Type::Boolean => write!(f, "R_BOOL_{destination} = ")?,
             Type::Byte => write!(f, "R_BYTE_{destination} = ")?,

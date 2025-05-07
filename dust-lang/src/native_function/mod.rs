@@ -61,7 +61,7 @@ macro_rules! define_native_function {
             pub fn returns_value(&self) -> bool {
                 match self {
                     $(
-                        NativeFunction::$name => $type.return_type.as_ref() != &Type::None,
+                        NativeFunction::$name => $type.return_type != Type::None,
                     )*
                 }
             }

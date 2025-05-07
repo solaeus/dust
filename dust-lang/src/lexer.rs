@@ -761,7 +761,7 @@ impl AnnotatedError for LexError {
                 position,
             } => {
                 vec![(
-                    format!("Expected character `{}`, but found `{}`", expected, actual),
+                    format!("Expected character `{expected}`, but found `{actual}`"),
                     Span(*position, *position + 1),
                 )]
             }
@@ -771,16 +771,13 @@ impl AnnotatedError for LexError {
                 position,
             } => {
                 vec![(
-                    format!(
-                        "Expected one of the characters `{:?}`, but found `{}`",
-                        expected, actual
-                    ),
+                    format!("Expected one of the characters `{expected:?}`, but found `{actual}`"),
                     Span(*position, *position + 1),
                 )]
             }
             Self::UnexpectedCharacter { actual, position } => {
                 vec![(
-                    format!("Unexpected character `{}`", actual),
+                    format!("Unexpected character `{actual}`"),
                     Span(*position, *position + 1),
                 )]
             }
@@ -806,7 +803,7 @@ impl AnnotatedError for LexError {
                 expected, position, ..
             } => {
                 vec![(
-                    format!("Insert the expected character `{}` here", expected),
+                    format!("Insert the expected character `{expected}` here"),
                     Span(*position, *position + 1),
                 )]
             }
@@ -814,10 +811,7 @@ impl AnnotatedError for LexError {
                 expected, position, ..
             } => {
                 vec![(
-                    format!(
-                        "Insert one of the expected characters `{:?}` here",
-                        expected
-                    ),
+                    format!("Insert one of the expected characters `{expected:?}` here"),
                     Span(*position, *position + 1),
                 )]
             }
