@@ -2,18 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand, TypeCode};
+use super::{Address, Destination, InstructionFields, TypeCode};
 
 pub struct Move {
     pub destination: Destination,
-    pub operand: Operand,
+    pub operand: Address,
 }
 
 impl From<&Instruction> for Move {
     fn from(instruction: &Instruction) -> Self {
         Move {
             destination: instruction.destination(),
-            operand: instruction.b_operand(),
+            operand: instruction.b_address(),
         }
     }
 }
@@ -25,7 +25,7 @@ impl From<Move> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = r#move.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = r#move.operand;

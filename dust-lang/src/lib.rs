@@ -42,7 +42,7 @@ pub mod value;
 pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Instruction, Operand, Operation, TypeCode};
+pub use crate::instruction::{Instruction, Address, Operation, TypeCode};
 pub use crate::lexer::{LexError, Lexer, lex};
 pub use crate::native_function::NativeFunction;
 pub use crate::risky_vm::{Vm, run};

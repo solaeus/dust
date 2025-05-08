@@ -1,18 +1,18 @@
 use std::fmt::Display;
 
-use crate::{Instruction, Operand, Operation, TypeCode};
+use crate::{Address, Instruction, Operation, TypeCode};
 
 use super::{Destination, InstructionFields};
 
 pub struct Not {
     pub destination: Destination,
-    pub operand: Operand,
+    pub operand: Address,
 }
 
 impl From<Instruction> for Not {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let operand = instruction.b_operand();
+        let operand = instruction.b_address();
 
         Not {
             destination,
@@ -28,7 +28,7 @@ impl From<Not> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = not.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = not.operand;

@@ -2,18 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand};
+use super::{Address, Destination, InstructionFields};
 
 pub struct LoadConstant {
     pub destination: Destination,
-    pub constant: Operand,
+    pub constant: Address,
     pub jump_next: bool,
 }
 
 impl From<Instruction> for LoadConstant {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let constant = instruction.b_operand();
+        let constant = instruction.b_address();
         let jump_next = instruction.c_field() != 0;
 
         LoadConstant {
@@ -31,7 +31,7 @@ impl From<LoadConstant> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = load_constant.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = load_constant.constant;

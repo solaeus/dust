@@ -27,13 +27,13 @@ impl AbstractList {
 
             match (pointer, self.item_type) {
                 (Pointer::Register(register_index), TypeCode::BOOLEAN) => thread
-                    .current_registers()
+                    .current_memory()
                     .booleans
                     .get(register_index as usize)
                     .as_value()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::BYTE) => thread
-                    .current_registers()
+                    .current_memory()
                     .bytes
                     .get(register_index as usize)
                     .as_value()
@@ -46,7 +46,7 @@ impl AbstractList {
                     .unwrap()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::CHARACTER) => thread
-                    .current_registers()
+                    .current_memory()
                     .characters
                     .get(register_index as usize)
                     .as_value()
@@ -59,7 +59,7 @@ impl AbstractList {
                     .unwrap()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::FLOAT) => thread
-                    .current_registers()
+                    .current_memory()
                     .floats
                     .get(register_index as usize)
                     .as_value()
@@ -72,7 +72,7 @@ impl AbstractList {
                     .unwrap()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::INTEGER) => thread
-                    .current_registers()
+                    .current_memory()
                     .integers
                     .get(register_index as usize)
                     .as_value()
@@ -85,13 +85,13 @@ impl AbstractList {
                     .unwrap()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::STRING) => thread
-                    .current_registers()
+                    .current_memory()
                     .strings
                     .get(register_index as usize)
                     .as_value()
                     .fmt(f)?,
                 (Pointer::Register(register_index), TypeCode::LIST) => thread
-                    .current_registers()
+                    .current_memory()
                     .lists
                     .get(register_index as usize)
                     .as_value()
@@ -110,7 +110,7 @@ impl AbstractList {
             TypeCode::BOOLEAN => {
                 for pointer in &self.item_pointers {
                     let boolean = *thread
-                        .current_registers()
+                        .current_memory()
                         .booleans
                         .get(pointer.index() as usize)
                         .as_value();
@@ -121,7 +121,7 @@ impl AbstractList {
             TypeCode::BYTE => {
                 for pointer in &self.item_pointers {
                     let byte = *thread
-                        .current_registers()
+                        .current_memory()
                         .bytes
                         .get(pointer.index() as usize)
                         .as_value();
@@ -132,17 +132,22 @@ impl AbstractList {
             TypeCode::CHARACTER => {
                 for pointer in &self.item_pointers {
                     let character = match pointer {
-                        Pointer::Register(register_index) => *thread
-                            .current_registers()
-                            .characters
-                            .get(*register_index as usize)
-                            .as_value(),
                         Pointer::Constant(constant_index) => *thread
                             .current_frame()
                             .chunk
                             .character_constants
                             .get(*constant_index as usize)
                             .unwrap(),
+                        Pointer::Memory(memory_index) => *thread
+                            .current_memory()
+                            .characters
+                            .get(*memory_index as usize)
+                            .as_value(),
+                        Pointer::Register(register_index) => *thread
+                            .current_memory()
+                            .characters
+                            .get(*register_index as usize)
+                            .as_value(),
                     };
 
                     concrete_list.push(ConcreteValue::Character(character));
@@ -152,7 +157,7 @@ impl AbstractList {
                 for pointer in &self.item_pointers {
                     let float = match pointer {
                         Pointer::Register(register_index) => *thread
-                            .current_registers()
+                            .current_memory()
                             .floats
                             .get(*register_index as usize)
                             .as_value(),
@@ -171,7 +176,7 @@ impl AbstractList {
                 for pointer in &self.item_pointers {
                     let integer = match pointer {
                         Pointer::Register(register_index) => *thread
-                            .current_registers()
+                            .current_memory()
                             .integers
                             .get(*register_index as usize)
                             .as_value(),
@@ -191,7 +196,7 @@ impl AbstractList {
                     let string = match pointer {
                         Pointer::Register(register_index) => {
                             let string = thread
-                                .current_registers()
+                                .current_memory()
                                 .strings
                                 .get(*register_index as usize)
                                 .as_value();
@@ -216,7 +221,7 @@ impl AbstractList {
             TypeCode::LIST => {
                 for pointer in &self.item_pointers {
                     let list = thread
-                        .current_registers()
+                        .current_memory()
                         .lists
                         .get(pointer.index() as usize)
                         .as_value()
@@ -228,7 +233,7 @@ impl AbstractList {
             TypeCode::FUNCTION => {
                 for pointer in &self.item_pointers {
                     let prototype_index = thread
-                        .current_registers()
+                        .current_memory()
                         .functions
                         .get(pointer.index() as usize)
                         .as_value()

@@ -1,18 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operand, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Less {
     pub comparator: bool,
-    pub left: Operand,
-    pub right: Operand,
+    pub left: Address,
+    pub right: Address,
 }
 
 impl From<Instruction> for Less {
     fn from(instruction: Instruction) -> Self {
         let comparator = instruction.a_field() != 0;
-        let left = instruction.b_operand();
-        let right = instruction.c_operand();
+        let left = instruction.b_address();
+        let right = instruction.c_address();
 
         Less {
             comparator,
@@ -25,11 +25,11 @@ impl From<Instruction> for Less {
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
         let operation = Operation::LESS;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = less.left;
-        let Operand {
+        let Address {
             index: c_field,
             kind: c_kind,
         } = less.right;

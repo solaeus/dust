@@ -1,18 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operand, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Equal {
     pub comparator: bool,
-    pub left: Operand,
-    pub right: Operand,
+    pub left: Address,
+    pub right: Address,
 }
 
 impl From<Instruction> for Equal {
     fn from(instruction: Instruction) -> Self {
         let comparator = instruction.a_field() != 0;
-        let left = instruction.b_operand();
-        let right = instruction.c_operand();
+        let left = instruction.b_address();
+        let right = instruction.c_address();
 
         Equal {
             comparator,
@@ -26,11 +26,11 @@ impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
         let operation = Operation::EQUAL;
         let a_field = equal.comparator as u16;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = equal.left;
-        let Operand {
+        let Address {
             index: c_field,
             kind: c_kind,
         } = equal.right;

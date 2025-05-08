@@ -49,22 +49,20 @@ pub struct Chunk {
     pub prototypes: Vec<Arc<Chunk>>,
     pub argument_lists: Vec<ArgumentLists>,
 
-    pub boolean_register_count: u16,
-    pub byte_register_count: u16,
-    pub character_register_count: u16,
-    pub float_register_count: u16,
-    pub integer_register_count: u16,
-    pub string_register_count: u16,
-    pub list_register_count: u16,
-    pub function_register_count: u16,
+    pub boolean_memory_length: u16,
+    pub byte_memory_length: u16,
+    pub character_memory_length: u16,
+    pub float_memory_length: u16,
+    pub integer_memory_length: u16,
+    pub string_memory_length: u16,
+    pub list_memory_length: u16,
+    pub function_memory_length: u16,
     pub prototype_index: u16,
 }
 
 impl Chunk {
     pub fn as_function(&self) -> Function {
         Function {
-            name: self.name.clone(),
-            r#type: self.r#type.clone(),
             prototype_index: self.prototype_index,
         }
     }

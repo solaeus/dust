@@ -2,18 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionFields, Operand};
+use super::{Address, InstructionFields};
 
 pub struct Close {
-    pub from: Operand,
-    pub to: Operand,
+    pub from: Address,
+    pub to: Address,
 }
 
 impl From<&Instruction> for Close {
     fn from(instruction: &Instruction) -> Self {
         Close {
-            from: instruction.b_operand(),
-            to: instruction.c_operand(),
+            from: instruction.b_address(),
+            to: instruction.c_address(),
         }
     }
 }
@@ -21,11 +21,11 @@ impl From<&Instruction> for Close {
 impl From<Close> for Instruction {
     fn from(close: Close) -> Self {
         let operation = Operation::CLOSE;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = close.from;
-        let Operand {
+        let Address {
             index: c_field,
             kind: c_kind,
         } = close.to;

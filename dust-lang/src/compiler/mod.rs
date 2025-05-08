@@ -31,13 +31,17 @@ use path::Path;
 use tracing::{Level, debug, info, span};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{collections::HashSet, mem::replace, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    mem::replace,
+    sync::Arc,
+};
 
 use crate::{
-    Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction, Operand,
+    Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction,
     Operation, Scope, Span, Token, TokenKind, Type,
     chunk::ArgumentLists,
-    instruction::{Jump, LoadFunction, Move, Return, TypeCode},
+    instruction::{AddressKind, Destination, Jump, LoadFunction, Move, TypeCode},
 };
 
 /// Compiles the input and returns a chunk.
@@ -236,20 +240,77 @@ impl<'src> Compiler<'src> {
 
     /// Creates a new chunk with the compiled data.
     pub fn finish(mut self) -> Chunk {
+        let mut boolean_address_rankings = HashMap::<Address, usize>::new();
+        let mut byte_address_rankings = HashMap::<Address, usize>::new();
+        let mut character_address_rankings = HashMap::<Address, usize>::new();
+        let mut float_address_rankings = HashMap::<Address, usize>::new();
+        let mut integer_address_rankings = HashMap::<Address, usize>::new();
+        let mut string_address_rankings = HashMap::<Address, usize>::new();
+        let mut list_address_rankings = HashMap::<Address, usize>::new();
+        let mut function_address_rankings = HashMap::<Address, usize>::new();
+
+        let increment_rank = |address: Address, address_rankings: &mut HashMap<Address, usize>| {
+            if let Some(rank) = address_rankings.get_mut(&address) {
+                *rank += 1;
+            } else {
+                address_rankings.insert(address, 0);
+            }
+        };
+
+        for (instruction, r#type, _) in &self.instructions {
+            let destination_address = instruction.destination().as_address(r#type.type_code());
+            let b_address = instruction.b_address();
+            let c_address = instruction.c_address();
+
+            match r#type.type_code() {
+                TypeCode::BOOLEAN => {
+                    increment_rank(destination_address, &mut boolean_address_rankings);
+                }
+                TypeCode::BYTE => {
+                    increment_rank(destination_address, &mut byte_address_rankings);
+                }
+                TypeCode::CHARACTER => {
+                    increment_rank(destination_address, &mut character_address_rankings);
+                }
+                TypeCode::FLOAT => {
+                    increment_rank(destination_address, &mut float_address_rankings);
+                }
+                TypeCode::INTEGER => {
+                    increment_rank(destination_address, &mut integer_address_rankings)
+                }
+                TypeCode::STRING => {
+                    increment_rank(destination_address, &mut string_address_rankings)
+                }
+                TypeCode::LIST => increment_rank(destination_address, &mut list_address_rankings),
+                TypeCode::FUNCTION => {
+                    increment_rank(destination_address, &mut function_address_rankings)
+                }
+                _ => unimplemented!(),
+            }
+
+            if b_address.as_type_code() == TypeCode::BOOLEAN {
+                increment_rank(b_address, &mut boolean_address_rankings);
+            }
+
+            if c_address.as_type_code() == TypeCode::BOOLEAN {
+                increment_rank(c_address, &mut boolean_address_rankings);
+            }
+        }
+
         if self.instructions.is_empty() {
-            let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
+            let r#return = Instruction::r#return(false, Address::default());
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 
-        let boolean_register_count = self.next_boolean_register();
-        let byte_register_count = self.next_byte_register();
-        let character_register_count = self.next_character_register();
-        let float_register_count = self.next_float_register();
-        let integer_register_count = self.next_integer_register();
-        let string_register_count = self.next_string_register();
-        let list_register_count = self.next_list_register();
-        let function_register_count = self.next_function_register();
+        let boolean_memory_length = self.next_boolean_memory_index();
+        let byte_memory_length = self.next_byte_memory_index();
+        let character_memory_length = self.next_character_memory_index();
+        let float_memory_length = self.next_float_memory_index();
+        let integer_memory_length = self.next_integer_memory_index();
+        let string_memory_length = self.next_string_memory_index();
+        let list_memory_length = self.next_list_memory_index();
+        let function_memory_length = self.next_function_memory_index();
         let (instructions, positions): (Vec<Instruction>, Vec<Span>) = self
             .instructions
             .into_iter()
@@ -268,14 +329,14 @@ impl<'src> Compiler<'src> {
             locals: self.locals,
             prototypes: self.prototypes,
             argument_lists: self.argument_lists,
-            boolean_register_count,
-            byte_register_count,
-            character_register_count,
-            float_register_count,
-            integer_register_count,
-            string_register_count,
-            list_register_count,
-            function_register_count,
+            boolean_memory_length,
+            byte_memory_length,
+            character_memory_length,
+            float_memory_length,
+            integer_memory_length,
+            string_memory_length,
+            list_memory_length,
+            function_memory_length,
             prototype_index: self.prototype_index,
         }
     }
@@ -284,15 +345,11 @@ impl<'src> Compiler<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_boolean_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .fold(self.minimum_boolean_register, |acc, (instruction, _, _)| {
-                if matches!(
-                    instruction.operation(),
-                    Operation::LOAD_ENCODED | Operation::NOT | Operation::MOVE
-                ) && instruction.b_type() == TypeCode::BOOLEAN
-                {
+    fn next_boolean_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::Boolean {
                     if instruction.a_field() >= acc {
                         instruction.a_field() + 1
                     } else {
@@ -301,129 +358,134 @@ impl<'src> Compiler<'src> {
                 } else {
                     acc
                 }
-            })
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_byte_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if *r#type == Type::Byte
-                    || (instruction.operation() == Operation::LOAD_ENCODED
-                        && instruction.b_type() == TypeCode::BYTE)
-                {
-                    return Some(instruction.a_field() + 1);
-                }
-
-                None
-            })
-            .unwrap_or(self.minimum_byte_register)
-    }
-
-    // TODO: Account for MOVE instructions
-    fn next_character_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if instruction.b_type() == TypeCode::CHARACTER
-                    && r#type == &Type::Character
-                    && instruction.yields_value()
-                {
-                    Some(instruction.a_field() + 1)
+    fn next_byte_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_byte_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::Byte {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_character_register)
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_float_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if *r#type == Type::Float
-                    || (instruction.operation() == Operation::LOAD_CONSTANT
-                        && instruction.b_type() == TypeCode::FLOAT)
-                {
-                    Some(instruction.a_field() + 1)
+    fn next_character_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::Character {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_float_register)
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_integer_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if (instruction.operation() == Operation::LOAD_CONSTANT
-                    && instruction.b_type() == TypeCode::INTEGER)
-                    || instruction.yields_value() && r#type == &Type::Integer
-                {
-                    Some(instruction.a_field() + 1)
+    fn next_float_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::Float {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_integer_register)
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_string_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if r#type == &Type::String {
-                    Some(instruction.a_field() + 1)
+    fn next_integer_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::Integer {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_string_register)
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_list_register(&mut self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, r#type, _)| {
-                if let Type::List { .. } = r#type {
-                    Some(instruction.a_field() + 1)
-                } else if instruction.operation() == Operation::LOAD_LIST {
-                    Some(instruction.a_field() + 1)
+    fn next_string_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && r#type == &Type::String {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_list_register)
+            },
+        )
     }
 
     // TODO: Account for MOVE instructions
-    fn next_function_register(&self) -> u16 {
-        self.instructions
-            .iter()
-            .rev()
-            .find_map(|(instruction, _, _)| {
-                if matches!(
-                    instruction.operation(),
-                    Operation::LOAD_FUNCTION | Operation::LOAD_SELF
-                ) {
-                    Some(instruction.a_field() + 1)
+    fn next_list_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && matches!(r#type, Type::List(_)) {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
                 } else {
-                    None
+                    acc
                 }
-            })
-            .unwrap_or(self.minimum_function_register)
+            },
+        )
+    }
+
+    // TODO: Account for MOVE instructions
+    fn next_function_memory_index(&self) -> u16 {
+        self.instructions.iter().fold(
+            self.minimum_boolean_register,
+            |acc, (instruction, r#type, _)| {
+                if instruction.yields_value() && matches!(r#type, Type::Function(_)) {
+                    if instruction.a_field() >= acc {
+                        instruction.a_field() + 1
+                    } else {
+                        acc
+                    }
+                } else {
+                    acc
+                }
+            },
+        )
     }
 
     /// Advances to the next token emitted by the lexer.
@@ -613,10 +675,10 @@ impl<'src> Compiler<'src> {
         if let Token::Boolean(text) = self.current_token {
             self.advance()?;
 
-            let boolean = text.parse::<bool>().unwrap() as u8;
-            let destination = self.next_boolean_register();
-            let load_encoded =
-                Instruction::load_encoded(destination, boolean, TypeCode::BOOLEAN, false);
+            let boolean = text.parse::<bool>().unwrap();
+            let destination = Destination::memory(self.next_boolean_memory_index());
+            let address = Address::new(boolean as u16, AddressKind::BOOLEAN_MEMORY);
+            let load_encoded = Instruction::load_encoded(destination, address, false);
 
             self.emit_instruction(load_encoded, Type::Boolean, position);
 
@@ -638,8 +700,9 @@ impl<'src> Compiler<'src> {
 
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
-            let destination = self.next_byte_register();
-            let load_encoded = Instruction::load_encoded(destination, byte, TypeCode::BYTE, false);
+            let destination = Destination::memory(self.next_byte_memory_index());
+            let address = Address::new(byte as u16, AddressKind::BYTE_MEMORY);
+            let load_encoded = Instruction::load_encoded(destination, address, false);
 
             self.emit_instruction(load_encoded, Type::Byte, position);
 
@@ -659,7 +722,7 @@ impl<'src> Compiler<'src> {
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let destination = self.next_character_register();
+            let destination = self.next_character_memory_index();
             let constant_index = if let Some(index) = self
                 .character_constants
                 .iter()
@@ -673,8 +736,11 @@ impl<'src> Compiler<'src> {
 
                 index
             };
-            let load_constant =
-                Instruction::load_constant(destination, constant_index, TypeCode::CHARACTER, false);
+            let load_constant = Instruction::load_constant(
+                Destination::memory(destination),
+                Address::new(constant_index, AddressKind::CHARACTER_CONSTANT),
+                false,
+            );
 
             self.emit_instruction(load_constant, Type::Character, position);
 
@@ -700,7 +766,7 @@ impl<'src> Compiler<'src> {
                     error,
                     position: self.previous_position,
                 })?;
-            let destination = self.next_float_register();
+            let destination = self.next_float_memory_index();
             let constant_index = if let Some(index) = self
                 .float_constants
                 .iter()
@@ -714,8 +780,11 @@ impl<'src> Compiler<'src> {
 
                 index
             };
-            let load_constant =
-                Instruction::load_constant(destination, constant_index, TypeCode::FLOAT, false);
+            let load_constant = Instruction::load_constant(
+                Destination::memory(destination),
+                Address::new(constant_index, AddressKind::CHARACTER_CONSTANT),
+                false,
+            );
 
             self.emit_instruction(load_constant, Type::Float, position);
 
@@ -760,9 +829,12 @@ impl<'src> Compiler<'src> {
 
                 index
             };
-            let destination = self.next_integer_register();
-            let load_constant =
-                Instruction::load_constant(destination, constant_index, TypeCode::INTEGER, false);
+            let destination = self.next_integer_memory_index();
+            let load_constant = Instruction::load_constant(
+                Destination::memory(destination),
+                Address::new(constant_index, AddressKind::INTEGER_CONSTANT),
+                false,
+            );
 
             self.emit_instruction(load_constant, Type::Integer, position);
 
@@ -796,9 +868,12 @@ impl<'src> Compiler<'src> {
 
                 index
             };
-            let destination = self.next_string_register();
-            let load_constant =
-                Instruction::load_constant(destination, constant_index, TypeCode::STRING, false);
+            let destination = self.next_string_memory_index();
+            let load_constant = Instruction::load_constant(
+                Destination::memory(destination),
+                Address::new(constant_index, AddressKind::STRING_CONSTANT),
+                false,
+            );
 
             self.emit_instruction(load_constant, Type::String, position);
 
@@ -829,7 +904,7 @@ impl<'src> Compiler<'src> {
 
         let (previous_instruction, previous_type, previous_position) =
             self.instructions.pop().unwrap();
-        let (argument, push_back) = self.handle_binary_argument(&previous_instruction);
+        let (address, push_back) = self.handle_binary_argument(&previous_instruction);
 
         if push_back {
             self.instructions.push((
@@ -839,10 +914,10 @@ impl<'src> Compiler<'src> {
             ))
         }
 
-        let (type_code, destination) = match previous_type {
-            Type::Boolean => (TypeCode::BOOLEAN, self.next_boolean_register()),
-            Type::Float => (TypeCode::FLOAT, self.next_float_register()),
-            Type::Integer => (TypeCode::INTEGER, self.next_integer_register()),
+        let destination_index = match previous_type {
+            Type::Boolean => self.next_boolean_memory_index(),
+            Type::Float => self.next_float_memory_index(),
+            Type::Integer => self.next_integer_memory_index(),
             _ => match operator {
                 Token::Minus => {
                     return Err(CompileError::CannotNegateType {
@@ -865,10 +940,13 @@ impl<'src> Compiler<'src> {
                 }
             },
         };
+        let destination = Destination::memory(destination_index);
         let instruction = match operator {
-            Token::Bang => Instruction::not(destination, argument),
-            Token::Minus => Instruction::negate(destination, argument, type_code),
-            _ => unreachable!(),
+            Token::Bang => Instruction::not(destination, address),
+            Token::Minus => Instruction::negate(destination, address),
+            _ => unreachable!(
+                "If used correctly, the pratt parsing algorithm should make this impossible."
+            ),
         };
 
         self.emit_instruction(instruction, previous_type, operator_position);
@@ -876,12 +954,14 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Operand, bool) {
-        let operand = instruction.as_operand();
+    /// Takes an instruction and returns an [`address`] that corresponds to its address and a
+    /// boolean indicating whether the instruction should be pushed back onto the instruction list.
+    /// If `false`, the address makes the instruction irrelevant.
+    fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Address, bool) {
+        let address = instruction.as_address();
         let push_back = match instruction.operation() {
             Operation::LOAD_ENCODED
             | Operation::LOAD_LIST
-            | Operation::LOAD_SELF
             | Operation::CALL
             | Operation::CALL_NATIVE
             | Operation::ADD
@@ -893,7 +973,7 @@ impl<'src> Compiler<'src> {
             _ => !instruction.yields_value(),
         };
 
-        (operand, push_back)
+        (address, push_back)
     }
 
     fn parse_math_binary(&mut self) -> Result<(), CompileError> {
@@ -906,10 +986,10 @@ impl<'src> Compiler<'src> {
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
         let left_is_mutable_local = if left_instruction.operation() == Operation::MOVE {
-            let Move { operand: to, .. } = Move::from(&left_instruction);
+            let Move { operand: from, .. } = Move::from(&left_instruction);
 
             self.locals
-                .get(to.index() as usize)
+                .get(from.index as usize)
                 .map(|local| local.is_mutable)
                 .unwrap_or(false)
         } else {
@@ -973,19 +1053,20 @@ impl<'src> Compiler<'src> {
         } else {
             left_type.clone()
         };
-        let destination = if is_assignment {
-            left.index()
+        let destination_index = if is_assignment {
+            left.index
         } else {
             match left_type {
-                Type::Boolean => self.next_boolean_register(),
-                Type::Byte => self.next_byte_register(),
-                Type::Character => self.next_string_register(),
-                Type::Float => self.next_float_register(),
-                Type::Integer => self.next_integer_register(),
-                Type::String => self.next_string_register(),
+                Type::Boolean => self.next_boolean_memory_index(),
+                Type::Byte => self.next_byte_memory_index(),
+                Type::Character => self.next_string_memory_index(),
+                Type::Float => self.next_float_memory_index(),
+                Type::Integer => self.next_integer_memory_index(),
+                Type::String => self.next_string_memory_index(),
                 _ => unreachable!(),
             }
         };
+        let destination = Destination::memory(destination_index);
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
             Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
@@ -1106,10 +1187,12 @@ impl<'src> Compiler<'src> {
             }
         };
         let jump = Instruction::jump(1, true);
-        let destination = self.next_boolean_register();
-        let load_true = Instruction::load_encoded(destination, true as u8, TypeCode::BOOLEAN, true);
-        let load_false =
-            Instruction::load_encoded(destination, false as u8, TypeCode::BOOLEAN, false);
+        let destination_index = self.next_boolean_memory_index();
+        let destination = Destination::memory(destination_index);
+        let address_with_true_encoded = Address::new(true as u16, AddressKind::BOOLEAN_MEMORY);
+        let load_true = Instruction::load_encoded(destination, address_with_true_encoded, true);
+        let address_with_false_encoded = Address::new(false as u16, AddressKind::BOOLEAN_MEMORY);
+        let load_false = Instruction::load_encoded(destination, address_with_false_encoded, false);
         let comparison_position = Span(left_position.0, right_position.1);
 
         self.emit_instruction(comparison, Type::Boolean, comparison_position);
@@ -1161,7 +1244,7 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let test = Instruction::test(left.index(), test_boolean);
+        let test = Instruction::test(left.index, test_boolean);
 
         self.emit_instruction(test, Type::None, operator_position);
 
@@ -1187,7 +1270,7 @@ impl<'src> Compiler<'src> {
                 .last_mut()
                 .unwrap()
                 .0
-                .set_a_field(left.index());
+                .set_a_field(left.index);
         } else if matches!(
             self.get_last_operations(),
             Some([
@@ -1208,8 +1291,8 @@ impl<'src> Compiler<'src> {
                 }
             };
 
-            loaders[0].0.set_a_field(left.index());
-            loaders[1].0.set_a_field(left.index());
+            loaders[0].0.set_a_field(left.index);
+            loaders[1].0.set_a_field(left.index);
         }
 
         let instructions_length = self.instructions.len();
@@ -1275,8 +1358,13 @@ impl<'src> Compiler<'src> {
             return self.parse_call_native(native_function, start_position);
         } else if let CompileMode::Function { name } = &self.mode {
             if name.as_deref() == Some(identifier) {
-                let destination = self.next_function_register();
-                let load_self = Instruction::load_self(destination, false);
+                let destination_index = self.next_function_memory_index();
+                let destination = Destination::memory(destination_index);
+                let load_self = Instruction::load_function(
+                    destination,
+                    Address::new(0, AddressKind::FUNCTION_SELF),
+                    false,
+                );
 
                 self.emit_instruction(load_self, Type::SelfFunction, start_position);
 
@@ -1329,20 +1417,32 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let destination = match local_type {
-            Type::Boolean => self.next_boolean_register(),
-            Type::Byte => self.next_byte_register(),
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
-            Type::List(_) => self.next_list_register(),
-            Type::Function(_) => self.next_function_register(),
+        let (destination_index, address_kind) = match local_type {
+            Type::Boolean => (
+                self.next_boolean_memory_index(),
+                AddressKind::BOOLEAN_MEMORY,
+            ),
+            Type::Byte => (self.next_byte_memory_index(), AddressKind::BYTE_MEMORY),
+            Type::Character => (
+                self.next_character_memory_index(),
+                AddressKind::CHARACTER_MEMORY,
+            ),
+            Type::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
+            Type::Integer => (
+                self.next_integer_memory_index(),
+                AddressKind::INTEGER_MEMORY,
+            ),
+            Type::String => (self.next_string_memory_index(), AddressKind::STRING_MEMORY),
+            Type::List(_) => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
+            Type::Function(_) => (
+                self.next_function_memory_index(),
+                AddressKind::FUNCTION_MEMORY,
+            ),
             _ => todo!(),
         };
         let r#move = Instruction::r#move(
-            destination,
-            Operand::Register(local_register_index, local_type.type_code()),
+            Destination::memory(destination_index),
+            Address::new(local_register_index, address_kind),
         );
 
         self.emit_instruction(r#move, local_type, self.previous_position);
@@ -1395,13 +1495,13 @@ impl<'src> Compiler<'src> {
         let mut start_register = None;
 
         while !self.allow(Token::RightBracket)? {
-            let next_boolean_register = self.next_boolean_register();
-            let next_byte_register = self.next_byte_register();
-            let next_character_register = self.next_character_register();
-            let next_float_register = self.next_float_register();
-            let next_integer_register = self.next_integer_register();
-            let next_string_register = self.next_string_register();
-            let next_list_register = self.next_list_register();
+            let start_boolean_address = self.next_boolean_memory_index();
+            let start_byte_address = self.next_byte_memory_index();
+            let start_character_address = self.next_character_memory_index();
+            let start_float_address = self.next_float_memory_index();
+            let start_integer_address = self.next_integer_memory_index();
+            let start_string_address = self.next_string_memory_index();
+            let start_list_address = self.next_list_memory_index();
 
             self.parse_expression()?;
             self.allow(Token::Comma)?;
@@ -1418,121 +1518,107 @@ impl<'src> Compiler<'src> {
                 start_register = Some(first_index);
             }
 
+            let handle_closing_addresses =
+                |compiler: &mut Compiler,
+                 start_closing: u16,
+                 next_address: u16,
+                 kind: AddressKind| {
+                    let used_addresses = next_address - start_closing;
+
+                    if used_addresses > 1 {
+                        let end_closing = next_address - 2;
+                        let close = Instruction::close(
+                            Address::new(start_closing, kind),
+                            Address::new(end_closing, kind),
+                        );
+
+                        compiler.emit_instruction(close, Type::None, compiler.current_position);
+                    }
+                };
+
             match self.get_last_instruction_type() {
-                Type::Boolean => {
-                    let used_boolean_registers =
-                        self.next_boolean_register() - next_boolean_register;
-
-                    if used_boolean_registers > 1 {
-                        let close = Instruction::close(
-                            next_boolean_register,
-                            self.next_boolean_register() - 2,
-                            TypeCode::BOOLEAN,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::Byte => {
-                    let used_byte_registers = self.next_byte_register() - next_byte_register;
-
-                    if used_byte_registers > 1 {
-                        let close = Instruction::close(
-                            next_byte_register,
-                            self.next_byte_register() - 2,
-                            TypeCode::BYTE,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::Character => {
-                    let used_character_registers =
-                        self.next_character_register() - next_character_register;
-
-                    if used_character_registers > 1 {
-                        let close = Instruction::close(
-                            next_character_register,
-                            self.next_character_register() - 2,
-                            TypeCode::CHARACTER,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::Float => {
-                    let used_float_registers = self.next_float_register() - next_float_register;
-
-                    if used_float_registers > 1 {
-                        let close = Instruction::close(
-                            next_float_register,
-                            self.next_float_register() - 2,
-                            TypeCode::FLOAT,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::Integer => {
-                    let used_integer_registers =
-                        self.next_integer_register() - next_integer_register;
-
-                    if used_integer_registers > 1 {
-                        let close = Instruction::close(
-                            next_integer_register,
-                            self.next_integer_register() - 2,
-                            TypeCode::INTEGER,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::String => {
-                    let used_string_registers = self.next_string_register() - next_string_register;
-
-                    if used_string_registers > 1 {
-                        let close = Instruction::close(
-                            next_string_register,
-                            self.next_string_register() - 2,
-                            TypeCode::STRING,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
-                Type::List { .. } => {
-                    let used_list_registers = self.next_list_register() - next_list_register;
-
-                    if used_list_registers > 1 {
-                        let close = Instruction::close(
-                            next_list_register,
-                            self.next_list_register() - 2,
-                            TypeCode::LIST,
-                        );
-
-                        self.emit_instruction(close, Type::None, self.current_position);
-                    }
-                }
+                Type::Boolean => handle_closing_addresses(
+                    self,
+                    start_boolean_address,
+                    self.next_boolean_memory_index(),
+                    AddressKind::BOOLEAN_MEMORY,
+                ),
+                Type::Byte => handle_closing_addresses(
+                    self,
+                    start_byte_address,
+                    self.next_byte_memory_index(),
+                    AddressKind::BYTE_MEMORY,
+                ),
+                Type::Character => handle_closing_addresses(
+                    self,
+                    start_character_address,
+                    self.next_character_memory_index(),
+                    AddressKind::CHARACTER_MEMORY,
+                ),
+                Type::Float => handle_closing_addresses(
+                    self,
+                    start_float_address,
+                    self.next_float_memory_index(),
+                    AddressKind::FLOAT_MEMORY,
+                ),
+                Type::Integer => handle_closing_addresses(
+                    self,
+                    start_integer_address,
+                    self.next_integer_memory_index(),
+                    AddressKind::INTEGER_MEMORY,
+                ),
+                Type::String => handle_closing_addresses(
+                    self,
+                    start_string_address,
+                    self.next_string_memory_index(),
+                    AddressKind::STRING_MEMORY,
+                ),
+                Type::List { .. } => handle_closing_addresses(
+                    self,
+                    start_list_address,
+                    self.next_list_memory_index(),
+                    AddressKind::LIST_MEMORY,
+                ),
                 _ => unimplemented!(),
             };
         }
 
         let end = self.previous_position.1;
-        let end_register = match item_type {
-            Type::Boolean => self.next_boolean_register().saturating_sub(1),
-            Type::Byte => self.next_byte_register().saturating_sub(1),
-            Type::Character => self.next_character_register().saturating_sub(1),
-            Type::Float => self.next_float_register().saturating_sub(1),
-            Type::Integer => self.next_integer_register().saturating_sub(1),
-            Type::String => self.next_string_register().saturating_sub(1),
-            Type::List { .. } => self.next_list_register().saturating_sub(1),
+        let (end_register, address_kind) = match item_type {
+            Type::Boolean => (
+                self.next_boolean_memory_index().saturating_sub(1),
+                AddressKind::BOOLEAN_MEMORY,
+            ),
+            Type::Byte => (
+                self.next_byte_memory_index().saturating_sub(1),
+                AddressKind::BYTE_MEMORY,
+            ),
+            Type::Character => (
+                self.next_character_memory_index().saturating_sub(1),
+                AddressKind::CHARACTER_MEMORY,
+            ),
+            Type::Float => (
+                self.next_float_memory_index().saturating_sub(1),
+                AddressKind::FLOAT_MEMORY,
+            ),
+            Type::Integer => (
+                self.next_integer_memory_index().saturating_sub(1),
+                AddressKind::INTEGER_MEMORY,
+            ),
+            Type::String => (
+                self.next_string_memory_index().saturating_sub(1),
+                AddressKind::STRING_MEMORY,
+            ),
+            Type::List { .. } => (
+                self.next_list_memory_index().saturating_sub(1),
+                AddressKind::LIST_MEMORY,
+            ),
             _ => todo!(),
         };
-        let destination = self.next_list_register();
+        let destination_index = self.next_list_memory_index();
         let load_list = Instruction::load_list(
-            destination,
-            item_type.type_code(),
-            start_register.unwrap_or(0),
+            Destination::memory(destination_index),
+            Address::new(start_register.unwrap_or(0), address_kind),
             end_register,
             false,
         );
@@ -1574,8 +1660,8 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let operand_register = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_register() - 1,
+            let address_register = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_memory_index() - 1,
                 _ => {
                     return Err(CompileError::ExpectedBoolean {
                         found: self.previous_token.to_owned(),
@@ -1583,7 +1669,7 @@ impl<'src> Compiler<'src> {
                     });
                 }
             };
-            let test = Instruction::test(operand_register, true);
+            let test = Instruction::test(address_register, true);
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -1715,16 +1801,16 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let operand_register = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_register() - 1,
-                Type::Byte => self.next_byte_register() - 1,
-                Type::Character => self.next_character_register() - 1,
-                Type::Float => self.next_float_register() - 1,
-                Type::Integer => self.next_integer_register() - 1,
-                Type::String => self.next_string_register() - 1,
+            let address_register = match self.get_last_instruction_type() {
+                Type::Boolean => self.next_boolean_memory_index() - 1,
+                Type::Byte => self.next_byte_memory_index() - 1,
+                Type::Character => self.next_character_memory_index() - 1,
+                Type::Float => self.next_float_memory_index() - 1,
+                Type::Integer => self.next_integer_memory_index() - 1,
+                Type::String => self.next_string_memory_index() - 1,
                 _ => todo!(),
             };
-            let test = Instruction::test(operand_register, true);
+            let test = Instruction::test(address_register, true);
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -1791,36 +1877,52 @@ impl<'src> Compiler<'src> {
 
         self.advance()?;
 
-        let (should_return_value, type_code, return_register) =
+        let (should_return_value, return_register, address_kind) =
             if matches!(self.current_token, Token::Semicolon | Token::RightBrace) {
                 self.update_return_type(Type::None)?;
 
-                (false, TypeCode::NONE, 0)
+                (false, 0, AddressKind(0))
             } else {
                 self.parse_expression()?;
 
                 let expression_type = self.get_last_instruction_type();
-                let type_code = expression_type.type_code();
-                let return_register = match expression_type {
-                    Type::Boolean => self.next_boolean_register() - 1,
-                    Type::Byte => self.next_byte_register() - 1,
-                    Type::Character => self.next_character_register() - 1,
-                    Type::Float => self.next_float_register() - 1,
-                    Type::Integer => self.next_integer_register() - 1,
-                    Type::String => self.next_string_register() - 1,
+                let (return_register, address_kind) = match expression_type {
+                    Type::Boolean => (
+                        self.next_boolean_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
+                    Type::Byte => (
+                        self.next_byte_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
+                    Type::Character => (
+                        self.next_character_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
+                    Type::Float => (
+                        self.next_float_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
+                    Type::Integer => (
+                        self.next_integer_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
+                    Type::String => (
+                        self.next_string_memory_index() - 1,
+                        AddressKind::BOOLEAN_MEMORY,
+                    ),
                     _ => todo!(),
                 };
 
                 self.update_return_type(expression_type)?;
 
-                (true, type_code, return_register)
+                (true, return_register, address_kind)
             };
         let end = self.current_position.1;
-        let r#return = Instruction::from(Return {
+        let r#return = Instruction::r#return(
             should_return_value,
-            return_register,
-            r#type: type_code,
-        });
+            Address::new(return_register, address_kind),
+        );
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
 
@@ -1846,16 +1948,15 @@ impl<'src> Compiler<'src> {
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if matches!(self.get_last_operation(), Some(Operation::MOVE)) {
             let last_instruction = self.instructions.last().unwrap().0;
-            let Move { operand, .. } = Move::from(&last_instruction);
+            let Move { operand: from, .. } = Move::from(&last_instruction);
 
             let (r#move, r#type, position) = self.instructions.pop().unwrap();
             let (should_return, target_register) = if r#type == Type::None {
-                (false, 0)
+                (false, Address::default())
             } else {
-                (true, operand.index())
+                (true, from)
             };
-            let r#return =
-                Instruction::r#return(should_return, target_register, r#type.type_code());
+            let r#return = Instruction::r#return(should_return, target_register);
 
             if !should_return {
                 self.instructions.push((r#move, r#type.clone(), position));
@@ -1870,7 +1971,7 @@ impl<'src> Compiler<'src> {
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, 0, TypeCode::NONE);
+            let r#return = Instruction::r#return(false, Address::default());
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else if let Some((mut previous_expression_type, previous_destination_register)) =
@@ -1886,13 +1987,11 @@ impl<'src> Compiler<'src> {
         {
             if let Type::Function(_) = previous_expression_type {
                 if let Some((instruction, _, _)) = self.instructions.last() {
-                    let LoadFunction {
-                        prototype_index, ..
-                    } = LoadFunction::from(*instruction);
+                    let LoadFunction { prototype, .. } = LoadFunction::from(*instruction);
 
                     let function_type = self
                         .prototypes
-                        .get(prototype_index as usize)
+                        .get(prototype.index as usize)
                         .map(|prototype| Type::Function(Box::new(prototype.r#type.clone())))
                         .unwrap_or(Type::None);
 
@@ -1901,13 +2000,21 @@ impl<'src> Compiler<'src> {
             }
 
             let should_return_value = previous_expression_type != Type::None;
-            let r#return = Instruction::r#return(
-                should_return_value,
-                previous_destination_register,
-                previous_expression_type.type_code(),
-            );
+            let address_kind = match &previous_expression_type {
+                Type::Boolean => AddressKind::BOOLEAN_MEMORY,
+                Type::Byte => AddressKind::BYTE_MEMORY,
+                Type::Character => AddressKind::CHARACTER_MEMORY,
+                Type::Float => AddressKind::FLOAT_MEMORY,
+                Type::Integer => AddressKind::INTEGER_MEMORY,
+                Type::String => AddressKind::STRING_MEMORY,
+                Type::List(_) => AddressKind::LIST_MEMORY,
+                Type::Function(_) | Type::SelfFunction => AddressKind::FUNCTION_MEMORY,
+                _ => unimplemented!(),
+            };
+            let return_value = Address::new(previous_destination_register, address_kind);
+            let r#return = Instruction::r#return(should_return_value, return_value);
 
-            self.update_return_type(previous_expression_type.clone())?;
+            self.update_return_type(previous_expression_type)?;
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 
@@ -1948,12 +2055,12 @@ impl<'src> Compiler<'src> {
         self.previous_expression_end = self.instructions.len() - 1;
 
         let register_index = match self.get_last_instruction_type() {
-            Type::Boolean => self.next_boolean_register() - 1,
-            Type::Byte => self.next_byte_register() - 1,
-            Type::Character => self.next_character_register() - 1,
-            Type::Float => self.next_float_register() - 1,
-            Type::Integer => self.next_integer_register() - 1,
-            Type::String => self.next_string_register() - 1,
+            Type::Boolean => self.next_boolean_memory_index() - 1,
+            Type::Byte => self.next_byte_memory_index() - 1,
+            Type::Character => self.next_character_memory_index() - 1,
+            Type::Float => self.next_float_memory_index() - 1,
+            Type::Integer => self.next_integer_memory_index() - 1,
+            Type::String => self.next_string_memory_index() - 1,
             _ => todo!(),
         };
         let r#type = if let Some(r#type) = explicit_type {
@@ -2031,12 +2138,12 @@ impl<'src> Compiler<'src> {
             function_compiler.advance()?;
 
             let local_register_index = match r#type {
-                Type::Boolean => function_compiler.next_boolean_register(),
-                Type::Byte => function_compiler.next_byte_register(),
-                Type::Character => function_compiler.next_character_register(),
-                Type::Float => function_compiler.next_float_register(),
-                Type::Integer => function_compiler.next_integer_register(),
-                Type::String => function_compiler.next_string_register(),
+                Type::Boolean => function_compiler.next_boolean_memory_index(),
+                Type::Byte => function_compiler.next_byte_memory_index(),
+                Type::Character => function_compiler.next_character_memory_index(),
+                Type::Float => function_compiler.next_float_memory_index(),
+                Type::Integer => function_compiler.next_integer_memory_index(),
+                Type::String => function_compiler.next_string_memory_index(),
                 _ => todo!(),
             };
             function_compiler.declare_local(
@@ -2089,14 +2196,18 @@ impl<'src> Compiler<'src> {
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
-        let destination = self.next_function_register();
-        let load_function = Instruction::load_function(destination, prototype_index, false);
+        let destination_index = self.next_function_memory_index();
+        let load_function = Instruction::load_function(
+            Destination::memory(destination_index),
+            Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
+            false,
+        );
         let r#type = Type::Function(Box::new(chunk.r#type.clone()));
 
         if let Some(identifier) = identifier {
             self.declare_local(
                 identifier,
-                destination,
+                destination_index,
                 Type::Function(Box::new(chunk.r#type.clone())),
                 false,
                 self.current_block_scope,
@@ -2135,10 +2246,7 @@ impl<'src> Compiler<'src> {
             }
         };
         let last_operation = last_instruction.operation();
-        let function_register = if matches!(
-            last_operation,
-            Operation::LOAD_FUNCTION | Operation::LOAD_SELF
-        ) {
+        let function_register = if last_operation == Operation::LOAD_FUNCTION {
             last_instruction.a_field()
         } else if last_instruction.operation() == Operation::MOVE {
             self.instructions.pop();
@@ -2161,12 +2269,12 @@ impl<'src> Compiler<'src> {
             self.allow(Token::Comma)?;
 
             let (argument_index, type_code) = match self.get_last_instruction_type() {
-                Type::Boolean => (self.next_boolean_register() - 1, TypeCode::BOOLEAN),
-                Type::Byte => (self.next_byte_register() - 1, TypeCode::BYTE),
-                Type::Character => (self.next_character_register() - 1, TypeCode::CHARACTER),
-                Type::Float => (self.next_float_register() - 1, TypeCode::FLOAT),
-                Type::Integer => (self.next_integer_register() - 1, TypeCode::INTEGER),
-                Type::String => (self.next_string_register() - 1, TypeCode::STRING),
+                Type::Boolean => (self.next_boolean_memory_index() - 1, TypeCode::BOOLEAN),
+                Type::Byte => (self.next_byte_memory_index() - 1, TypeCode::BYTE),
+                Type::Character => (self.next_character_memory_index() - 1, TypeCode::CHARACTER),
+                Type::Float => (self.next_float_memory_index() - 1, TypeCode::FLOAT),
+                Type::Integer => (self.next_integer_memory_index() - 1, TypeCode::INTEGER),
+                Type::String => (self.next_string_memory_index() - 1, TypeCode::STRING),
                 _ => todo!(),
             };
 
@@ -2179,23 +2287,21 @@ impl<'src> Compiler<'src> {
             .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
-        let destination = match function_return_type {
+        let destination_index = match function_return_type {
             Type::None => 0,
-            Type::Boolean => self.next_boolean_register(),
-            Type::Byte => self.next_byte_register(),
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
+            Type::Boolean => self.next_boolean_memory_index(),
+            Type::Byte => self.next_byte_memory_index(),
+            Type::Character => self.next_character_memory_index(),
+            Type::Float => self.next_float_memory_index(),
+            Type::Integer => self.next_integer_memory_index(),
+            Type::String => self.next_string_memory_index(),
             _ => todo!(),
         };
-        let is_recursive = last_operation == Operation::LOAD_SELF;
         let call = Instruction::call(
-            destination,
-            function_register,
+            Destination::memory(destination_index),
+            Address::new(function_register, AddressKind::FUNCTION_MEMORY),
             argument_list_index,
             function_return_type.type_code(),
-            is_recursive,
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
@@ -2230,12 +2336,12 @@ impl<'src> Compiler<'src> {
             self.allow(Token::Comma)?;
 
             let (argument_index, type_code) = match self.get_last_instruction_type() {
-                Type::Boolean => (self.next_boolean_register() - 1, TypeCode::BOOLEAN),
-                Type::Byte => (self.next_byte_register() - 1, TypeCode::BYTE),
-                Type::Character => (self.next_character_register() - 1, TypeCode::CHARACTER),
-                Type::Float => (self.next_float_register() - 1, TypeCode::FLOAT),
-                Type::Integer => (self.next_integer_register() - 1, TypeCode::INTEGER),
-                Type::String => (self.next_string_register() - 1, TypeCode::STRING),
+                Type::Boolean => (self.next_boolean_memory_index() - 1, TypeCode::BOOLEAN),
+                Type::Byte => (self.next_byte_memory_index() - 1, TypeCode::BYTE),
+                Type::Character => (self.next_character_memory_index() - 1, TypeCode::CHARACTER),
+                Type::Float => (self.next_float_memory_index() - 1, TypeCode::FLOAT),
+                Type::Integer => (self.next_integer_memory_index() - 1, TypeCode::INTEGER),
+                Type::String => (self.next_string_memory_index() - 1, TypeCode::STRING),
                 _ => todo!(),
             };
 
@@ -2249,17 +2355,21 @@ impl<'src> Compiler<'src> {
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();
-        let destination = match return_type {
+        let destination_index = match return_type {
             Type::None => 0,
-            Type::Boolean => self.next_boolean_register(),
-            Type::Byte => self.next_byte_register(),
-            Type::Character => self.next_character_register(),
-            Type::Float => self.next_float_register(),
-            Type::Integer => self.next_integer_register(),
-            Type::String => self.next_string_register(),
+            Type::Boolean => self.next_boolean_memory_index(),
+            Type::Byte => self.next_byte_memory_index(),
+            Type::Character => self.next_character_memory_index(),
+            Type::Float => self.next_float_memory_index(),
+            Type::Integer => self.next_integer_memory_index(),
+            Type::String => self.next_string_memory_index(),
             _ => todo!(),
         };
-        let call_native = Instruction::call_native(destination, function, argument_list_index);
+        let call_native = Instruction::call_native(
+            Destination::memory(destination_index),
+            function,
+            argument_list_index,
+        );
 
         self.emit_instruction(call_native, return_type, Span(start.0, end));
 

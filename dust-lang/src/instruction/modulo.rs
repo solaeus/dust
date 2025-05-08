@@ -1,18 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Destination, Instruction, InstructionFields, Operand, Operation, TypeCode};
+use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
 
 pub struct Modulo {
     pub destination: Destination,
-    pub left: Operand,
-    pub right: Operand,
+    pub left: Address,
+    pub right: Address,
 }
 
 impl From<Instruction> for Modulo {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let left = instruction.b_operand();
-        let right = instruction.c_operand();
+        let left = instruction.b_address();
+        let right = instruction.c_address();
 
         Modulo {
             destination,
@@ -29,11 +29,11 @@ impl From<Modulo> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = modulo.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = modulo.left;
-        let Operand {
+        let Address {
             index: c_field,
             kind: c_kind,
         } = modulo.right;

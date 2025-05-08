@@ -1,6 +1,6 @@
 use dust_lang::{
-    compile, instruction::TypeCode, run, Chunk, DustString, FunctionType, Instruction, Operand,
-    Span, Type, Value,
+    Chunk, DustString, FunctionType, Instruction, Address, Span, Type, Value, compile,
+    instruction::TypeCode, run,
 };
 
 #[test]
@@ -13,8 +13,8 @@ fn greater_bytes() {
             Instruction::load_encoded(1, 0x03, TypeCode::BYTE, false),
             Instruction::less_equal(
                 false,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
@@ -46,8 +46,8 @@ fn greater_characters() {
         instructions: vec![
             Instruction::less_equal(
                 false,
-                Operand::Constant(0, TypeCode::CHARACTER),
-                Operand::Constant(1, TypeCode::CHARACTER),
+                Address::Constant(0, TypeCode::CHARACTER),
+                Address::Constant(1, TypeCode::CHARACTER),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
@@ -72,8 +72,8 @@ fn greater_floats() {
         instructions: vec![
             Instruction::less_equal(
                 false,
-                Operand::Constant(0, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
@@ -104,8 +104,8 @@ fn greater_integers() {
         instructions: vec![
             Instruction::less_equal(
                 false,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
@@ -130,8 +130,8 @@ fn greater_strings() {
         instructions: vec![
             Instruction::less_equal(
                 false,
-                Operand::Constant(0, TypeCode::STRING),
-                Operand::Constant(1, TypeCode::STRING),
+                Address::Constant(0, TypeCode::STRING),
+                Address::Constant(1, TypeCode::STRING),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
@@ -170,8 +170,8 @@ fn greater_lists() {
             Instruction::load_list(1, TypeCode::INTEGER, 3, 5, false),
             Instruction::less_equal(
                 false,
-                Operand::Register(0, TypeCode::LIST),
-                Operand::Register(1, TypeCode::LIST),
+                Address::Register(0, TypeCode::LIST),
+                Address::Register(1, TypeCode::LIST),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),

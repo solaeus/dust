@@ -10,9 +10,9 @@ pub fn read_line(instruction: Instruction, thread: &mut Thread) {
     stdin.read_line(&mut buffer).unwrap();
 
     *thread
-        .current_registers_mut()
+        .current_memory_mut()
         .strings
-        .get_mut(destination as usize)
+        .get_mut(destination.index as usize)
         .as_value_mut() = DustString::from(buffer.trim_end_matches('\n'));
 }
 
@@ -24,7 +24,7 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     } = CallNative::from(instruction);
 
     let current_frame = thread.current_frame();
-    let current_registers = thread.current_registers();
+    let current_registers = thread.current_memory();
     let arguments = current_frame.get_argument_list(argument_list_index);
     let mut stdout = stdout();
 

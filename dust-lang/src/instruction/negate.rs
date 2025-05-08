@@ -1,16 +1,16 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Destination, Instruction, InstructionFields, Operand, Operation, TypeCode};
+use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
 
 pub struct Negate {
     pub destination: Destination,
-    pub operand: Operand,
+    pub operand: Address,
 }
 
 impl From<Instruction> for Negate {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let operand = instruction.b_operand();
+        let operand = instruction.b_address();
 
         Negate {
             destination,
@@ -26,7 +26,7 @@ impl From<Negate> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = negate.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = negate.operand;

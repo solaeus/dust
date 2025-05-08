@@ -2,11 +2,11 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand, OperandKind, TypeCode};
+use super::{Address, AddressKind, Destination, InstructionFields, TypeCode};
 
 pub struct LoadList {
     pub destination: Destination,
-    pub start: Operand,
+    pub start: Address,
     pub end: u16,
     pub jump_next: bool,
 }
@@ -14,9 +14,9 @@ pub struct LoadList {
 impl From<Instruction> for LoadList {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let start_register = instruction.b_operand();
+        let start_register = instruction.b_address();
         let (end_register, jump_next) = {
-            let Operand { index, kind } = instruction.c_operand();
+            let Address { index, kind } = instruction.c_address();
             let jump_next = kind.0 != 0;
 
             (index, jump_next)
@@ -38,7 +38,7 @@ impl From<LoadList> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = load_list.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = load_list.start;
@@ -46,7 +46,7 @@ impl From<LoadList> for Instruction {
         let c_kind = {
             let jump_next_encoded = load_list.jump_next as u8;
 
-            OperandKind(jump_next_encoded)
+            AddressKind(jump_next_encoded)
         };
 
         InstructionFields {

@@ -1,16 +1,21 @@
 //! An experimental Dust virtual machine that uses `unsafe` code. This VM never emits errors.
 //! Instead, errors are handled as panics in debug mode but, in release mode, the use of `unsafe`
 //! will cause undefined behavior.
+mod runner;
 mod thread;
 
-use std::{ops::RangeInclusive, sync::Arc, thread::Builder};
+use core::panicking::panic;
+use std::{collections::HashMap, ops::RangeInclusive, sync::Arc, thread::Builder};
 
 pub use thread::Thread;
 
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{AbstractList, Chunk, DustError, DustString, Function, Type, TypeCode, Value, compile};
+use crate::{
+    AbstractList, Address, Chunk, DustError, DustString, Function, Type, TypeCode, Value, compile,
+    instruction::AddressKind,
+};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
@@ -114,7 +119,13 @@ impl CallFrame {
 }
 
 #[derive(Debug)]
-pub struct Registers {
+pub struct Memory {
+    pub register_table: RegisterTable,
+    pub heap_slot_table: HeapSlotTable,
+}
+
+#[derive(Debug)]
+pub struct RegisterTable {
     pub booleans: RegisterList<bool>,
     pub bytes: RegisterList<u8>,
     pub characters: RegisterList<char>,
@@ -125,9 +136,9 @@ pub struct Registers {
     pub functions: RegisterList<Function>,
 }
 
-impl Default for Registers {
+impl Default for RegisterTable {
     fn default() -> Self {
-        Registers {
+        RegisterTable {
             booleans: RegisterList::default(),
             bytes: RegisterList::default(),
             characters: RegisterList::default(),
@@ -172,100 +183,28 @@ impl<T: Default> Default for RegisterList<T> {
 }
 
 #[derive(Debug)]
-pub struct MemoryHeap {
-    pub booleans: HeapSlotList<bool>,
-    pub bytes: HeapSlotList<u8>,
-    pub characters: HeapSlotList<char>,
-    pub floats: HeapSlotList<f64>,
-    pub integers: HeapSlotList<i64>,
-    pub strings: HeapSlotList<DustString>,
-    pub lists: HeapSlotList<AbstractList>,
-    pub functions: HeapSlotList<Function>,
+pub struct HeapSlotTable {
+    pub booleans: HashMap<u16, HeapSlot<bool>>,
+    pub bytes: HashMap<u16, HeapSlot<u8>>,
+    pub characters: HashMap<u16, HeapSlot<char>>,
+    pub floats: HashMap<u16, HeapSlot<f64>>,
+    pub integers: HashMap<u16, HeapSlot<i64>>,
+    pub strings: HashMap<u16, HeapSlot<DustString>>,
+    pub lists: HashMap<u16, HeapSlot<AbstractList>>,
+    pub functions: HashMap<u16, HeapSlot<Function>>,
 }
 
-impl MemoryHeap {
+impl HeapSlotTable {
     pub fn new(chunk: &Chunk) -> Self {
         Self {
-            booleans: HeapSlotList::new(chunk.boolean_register_count as usize),
-            bytes: HeapSlotList::new(chunk.byte_register_count as usize),
-            characters: HeapSlotList::new(chunk.character_register_count as usize),
-            floats: HeapSlotList::new(chunk.float_register_count as usize),
-            integers: HeapSlotList::new(chunk.integer_register_count as usize),
-            strings: HeapSlotList::new(chunk.string_register_count as usize),
-            lists: HeapSlotList::new(chunk.list_register_count as usize),
-            functions: HeapSlotList::new(chunk.function_register_count as usize),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct HeapSlotList<T, const STACK_LEN: usize = 64> {
-    pub registers: Vec<HeapSlot<T>>,
-}
-
-impl<T, const STACK_LEN: usize> HeapSlotList<T, STACK_LEN>
-where
-    T: Clone + Default,
-{
-    pub fn new(length: usize) -> Self {
-        let mut registers = Vec::with_capacity(length);
-
-        for _ in 0..length {
-            registers.push(HeapSlot::default());
-        }
-
-        Self { registers }
-    }
-
-    pub fn get(&self, index: usize) -> &HeapSlot<T> {
-        if cfg!(debug_assertions) {
-            self.registers.get(index).unwrap()
-        } else {
-            unsafe { self.registers.get_unchecked(index) }
-        }
-    }
-
-    pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [HeapSlot<T>] {
-        let registers = if cfg!(debug_assertions) {
-            self.registers.get_disjoint_mut([indices]).unwrap()
-        } else {
-            unsafe { self.registers.get_disjoint_unchecked_mut([indices]) }
-        };
-
-        registers[0]
-    }
-
-    pub fn get_mut(&mut self, index: usize) -> &mut HeapSlot<T> {
-        if cfg!(debug_assertions) {
-            let length = self.registers.len();
-
-            self.registers
-                .get_mut(index)
-                .unwrap_or_else(|| panic!("Index out of bounds: {index}. Length is {length}"))
-        } else {
-            unsafe { self.registers.get_unchecked_mut(index) }
-        }
-    }
-
-    pub fn set_to_new_register(&mut self, index: usize, new_value: T) {
-        assert!(index < self.registers.len(), "Register index out of bounds");
-
-        self.registers[index] = HeapSlot::new(new_value)
-    }
-
-    pub fn close(&mut self, index: usize) {
-        if cfg!(debug_assertions) {
-            self.registers.get_mut(index).unwrap().close()
-        } else {
-            unsafe { self.registers.get_unchecked_mut(index).close() }
-        }
-    }
-
-    pub fn is_closed(&self, index: usize) -> bool {
-        if cfg!(debug_assertions) {
-            self.registers.get(index).unwrap().is_closed()
-        } else {
-            unsafe { self.registers.get_unchecked(index).is_closed() }
+            booleans: HashMap::with_capacity(chunk.boolean_memory_length as usize),
+            bytes: HashMap::with_capacity(chunk.byte_memory_length as usize),
+            characters: HashMap::with_capacity(chunk.character_memory_length as usize),
+            floats: HashMap::with_capacity(chunk.function_memory_length as usize),
+            integers: HashMap::with_capacity(chunk.integer_memory_length as usize),
+            strings: HashMap::with_capacity(chunk.string_memory_length as usize),
+            lists: HashMap::with_capacity(chunk.list_memory_length as usize),
+            functions: HashMap::with_capacity(chunk.function_memory_length as usize),
         }
     }
 }

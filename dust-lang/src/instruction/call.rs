@@ -2,11 +2,11 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand, TypeCode, operand::OperandKind};
+use super::{Address, Destination, InstructionFields, TypeCode, address::AddressKind};
 
 pub struct Call {
     pub destination: Destination,
-    pub function: Operand,
+    pub function: Address,
     pub argument_list_index: u16,
     pub return_type: TypeCode,
 }
@@ -14,11 +14,11 @@ pub struct Call {
 impl From<Instruction> for Call {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let function_register = instruction.b_operand();
-        let Operand {
+        let function_register = instruction.b_address();
+        let Address {
             index: argument_list_index,
             kind: return_kind,
-        } = instruction.c_operand();
+        } = instruction.c_address();
         let return_type = TypeCode(return_kind.0);
 
         Call {
@@ -37,12 +37,12 @@ impl From<Call> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = call.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = call.function;
         let c_field = call.argument_list_index;
-        let c_kind = OperandKind(call.return_type.0);
+        let c_kind = AddressKind(call.return_type.0);
 
         InstructionFields {
             operation,

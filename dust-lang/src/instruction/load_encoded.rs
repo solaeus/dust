@@ -2,18 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand, TypeCode};
+use super::{Address, Destination, InstructionFields, TypeCode};
 
 pub struct LoadEncoded {
     pub destination: Destination,
-    pub value: Operand,
+    pub value: Address,
     pub jump_next: bool,
 }
 
 impl From<Instruction> for LoadEncoded {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let value = instruction.b_operand();
+        let value = instruction.b_address();
         let jump_next = instruction.c_field() != 0;
 
         LoadEncoded {
@@ -31,7 +31,7 @@ impl From<LoadEncoded> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = load_encoded.destination;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = load_encoded.value;

@@ -9,7 +9,7 @@ fn not_true() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
-            Instruction::not(1, dust_lang::Operand::Register(0, TypeCode::BOOLEAN)),
+            Instruction::not(1, dust_lang::Address::Register(0, TypeCode::BOOLEAN)),
             Instruction::r#return(true, 1, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(1, 5), Span(0, 1), Span(5, 5)],
@@ -28,7 +28,7 @@ fn not_false() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::not(1, dust_lang::Operand::Register(0, TypeCode::BOOLEAN)),
+            Instruction::not(1, dust_lang::Address::Register(0, TypeCode::BOOLEAN)),
             Instruction::r#return(true, 1, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(1, 6), Span(0, 1), Span(6, 6)],
@@ -47,8 +47,8 @@ fn not_not_true() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
-            Instruction::not(1, dust_lang::Operand::Register(0, TypeCode::BOOLEAN)),
-            Instruction::not(2, dust_lang::Operand::Register(1, TypeCode::BOOLEAN)),
+            Instruction::not(1, dust_lang::Address::Register(0, TypeCode::BOOLEAN)),
+            Instruction::not(2, dust_lang::Address::Register(1, TypeCode::BOOLEAN)),
             Instruction::r#return(true, 2, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(2, 6), Span(1, 2), Span(0, 1), Span(6, 6)],
@@ -67,8 +67,8 @@ fn not_not_false() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::not(1, dust_lang::Operand::Register(0, TypeCode::BOOLEAN)),
-            Instruction::not(2, dust_lang::Operand::Register(1, TypeCode::BOOLEAN)),
+            Instruction::not(1, dust_lang::Address::Register(0, TypeCode::BOOLEAN)),
+            Instruction::not(2, dust_lang::Address::Register(1, TypeCode::BOOLEAN)),
             Instruction::r#return(true, 2, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(2, 7), Span(1, 2), Span(0, 1), Span(7, 7)],

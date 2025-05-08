@@ -1,6 +1,6 @@
 use dust_lang::{
-    compile, instruction::TypeCode, run, Chunk, DustString, FunctionType, Instruction, Operand,
-    Span, Type, Value,
+    Chunk, DustString, FunctionType, Instruction, Address, Span, Type, Value, compile,
+    instruction::TypeCode, run,
 };
 
 #[test]
@@ -13,8 +13,8 @@ fn add_bytes() {
             Instruction::load_encoded(1, 2, TypeCode::BYTE, false),
             Instruction::add(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 2, TypeCode::BYTE),
         ],
@@ -37,20 +37,20 @@ fn add_many_bytes() {
             Instruction::load_encoded(1, 2, TypeCode::BYTE, false),
             Instruction::add(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::load_encoded(3, 2, TypeCode::BYTE, false),
             Instruction::add(
                 4,
-                Operand::Register(2, TypeCode::BYTE),
-                Operand::Register(3, TypeCode::BYTE),
+                Address::Register(2, TypeCode::BYTE),
+                Address::Register(3, TypeCode::BYTE),
             ),
             Instruction::load_encoded(5, 2, TypeCode::BYTE, false),
             Instruction::add(
                 6,
-                Operand::Register(4, TypeCode::BYTE),
-                Operand::Register(5, TypeCode::BYTE),
+                Address::Register(4, TypeCode::BYTE),
+                Address::Register(5, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 6, TypeCode::BYTE),
         ],
@@ -80,8 +80,8 @@ fn add_characters() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::CHARACTER),
-                Operand::Constant(1, TypeCode::CHARACTER),
+                Address::Constant(0, TypeCode::CHARACTER),
+                Address::Constant(1, TypeCode::CHARACTER),
             ),
             Instruction::r#return(true, 0, TypeCode::STRING),
         ],
@@ -103,18 +103,18 @@ fn add_many_characters() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::CHARACTER),
-                Operand::Constant(1, TypeCode::CHARACTER),
+                Address::Constant(0, TypeCode::CHARACTER),
+                Address::Constant(1, TypeCode::CHARACTER),
             ),
             Instruction::add(
                 1,
-                Operand::Register(0, TypeCode::STRING),
-                Operand::Constant(2, TypeCode::CHARACTER),
+                Address::Register(0, TypeCode::STRING),
+                Address::Constant(2, TypeCode::CHARACTER),
             ),
             Instruction::add(
                 2,
-                Operand::Register(1, TypeCode::STRING),
-                Operand::Constant(3, TypeCode::CHARACTER),
+                Address::Register(1, TypeCode::STRING),
+                Address::Constant(3, TypeCode::CHARACTER),
             ),
             Instruction::r#return(true, 2, TypeCode::STRING),
         ],
@@ -136,8 +136,8 @@ fn add_floats() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
@@ -159,18 +159,18 @@ fn add_many_floats() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::add(
                 1,
-                Operand::Register(0, TypeCode::FLOAT),
-                Operand::Constant(0, TypeCode::FLOAT),
+                Address::Register(0, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
             ),
             Instruction::add(
                 2,
-                Operand::Register(1, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Register(1, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::r#return(true, 2, TypeCode::FLOAT),
         ],
@@ -192,8 +192,8 @@ fn add_integers() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
@@ -215,18 +215,18 @@ fn add_many_integers() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::add(
                 1,
-                Operand::Register(0, TypeCode::INTEGER),
-                Operand::Constant(0, TypeCode::INTEGER),
+                Address::Register(0, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
             ),
             Instruction::add(
                 2,
-                Operand::Register(1, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Register(1, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 2, TypeCode::INTEGER),
         ],
@@ -248,8 +248,8 @@ fn add_strings() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::STRING),
-                Operand::Constant(1, TypeCode::STRING),
+                Address::Constant(0, TypeCode::STRING),
+                Address::Constant(1, TypeCode::STRING),
             ),
             Instruction::r#return(true, 0, TypeCode::STRING),
         ],
@@ -271,18 +271,18 @@ fn add_many_strings() {
         instructions: vec![
             Instruction::add(
                 0,
-                Operand::Constant(0, TypeCode::STRING),
-                Operand::Constant(1, TypeCode::STRING),
+                Address::Constant(0, TypeCode::STRING),
+                Address::Constant(1, TypeCode::STRING),
             ),
             Instruction::add(
                 1,
-                Operand::Register(0, TypeCode::STRING),
-                Operand::Constant(2, TypeCode::STRING),
+                Address::Register(0, TypeCode::STRING),
+                Address::Constant(2, TypeCode::STRING),
             ),
             Instruction::add(
                 2,
-                Operand::Register(1, TypeCode::STRING),
-                Operand::Constant(3, TypeCode::STRING),
+                Address::Register(1, TypeCode::STRING),
+                Address::Constant(3, TypeCode::STRING),
             ),
             Instruction::r#return(true, 2, TypeCode::STRING),
         ],

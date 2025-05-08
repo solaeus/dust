@@ -1,6 +1,6 @@
 use dust_lang::{
-    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
-    Value,
+    Chunk, FunctionType, Instruction, Address, Span, Type, Value, compile, instruction::TypeCode,
+    run,
 };
 
 #[test]
@@ -13,8 +13,8 @@ fn modulo_bytes() {
             Instruction::load_encoded(1, 3, TypeCode::BYTE, false),
             Instruction::modulo(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 2, TypeCode::BYTE),
         ],
@@ -37,14 +37,14 @@ fn modulo_many_bytes() {
             Instruction::load_encoded(1, 4, TypeCode::BYTE, false),
             Instruction::modulo(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::load_encoded(3, 2, TypeCode::BYTE, false),
             Instruction::modulo(
                 4,
-                Operand::Register(2, TypeCode::BYTE),
-                Operand::Register(3, TypeCode::BYTE),
+                Address::Register(2, TypeCode::BYTE),
+                Address::Register(3, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 4, TypeCode::BYTE),
         ],
@@ -72,8 +72,8 @@ fn modulo_integers() {
         instructions: vec![
             Instruction::modulo(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
@@ -95,13 +95,13 @@ fn modulo_many_integers() {
         instructions: vec![
             Instruction::modulo(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::modulo(
                 1,
-                Operand::Register(0, TypeCode::INTEGER),
-                Operand::Constant(2, TypeCode::INTEGER),
+                Address::Register(0, TypeCode::INTEGER),
+                Address::Constant(2, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],

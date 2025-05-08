@@ -1,20 +1,20 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operand, Operation, TypeCode};
+use crate::{Address, Instruction, Operation, TypeCode};
 
 use super::{Destination, InstructionFields};
 
 pub struct TestSet {
     pub destination: Destination,
     pub comparator: bool,
-    pub operand: Operand,
+    pub operand: Address,
 }
 
 impl From<Instruction> for TestSet {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let comparator = instruction.b_field() != 0;
-        let operand = instruction.c_operand();
+        let operand = instruction.c_address();
 
         TestSet {
             destination,
@@ -32,7 +32,7 @@ impl From<TestSet> for Instruction {
             is_register: a_is_register,
         } = test_set.destination;
         let b_field = test_set.comparator as u16;
-        let Operand {
+        let Address {
             index: c_field,
             kind: c_kind,
         } = test_set.operand;

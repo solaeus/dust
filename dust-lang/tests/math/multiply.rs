@@ -1,6 +1,6 @@
 use dust_lang::{
-    compile, instruction::TypeCode, run, Chunk, FunctionType, Instruction, Operand, Span, Type,
-    Value,
+    Chunk, FunctionType, Instruction, Address, Span, Type, Value, compile, instruction::TypeCode,
+    run,
 };
 
 #[test]
@@ -13,8 +13,8 @@ fn multiply_bytes() {
             Instruction::load_encoded(1, 2, TypeCode::BYTE, false),
             Instruction::multiply(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 2, TypeCode::BYTE),
         ],
@@ -37,14 +37,14 @@ fn multiply_many_bytes() {
             Instruction::load_encoded(1, 2, TypeCode::BYTE, false),
             Instruction::multiply(
                 2,
-                Operand::Register(0, TypeCode::BYTE),
-                Operand::Register(1, TypeCode::BYTE),
+                Address::Register(0, TypeCode::BYTE),
+                Address::Register(1, TypeCode::BYTE),
             ),
             Instruction::load_encoded(3, 2, TypeCode::BYTE, false),
             Instruction::multiply(
                 4,
-                Operand::Register(2, TypeCode::BYTE),
-                Operand::Register(3, TypeCode::BYTE),
+                Address::Register(2, TypeCode::BYTE),
+                Address::Register(3, TypeCode::BYTE),
             ),
             Instruction::r#return(true, 4, TypeCode::BYTE),
         ],
@@ -72,8 +72,8 @@ fn multiply_floats() {
         instructions: vec![
             Instruction::multiply(
                 0,
-                Operand::Constant(0, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::r#return(true, 0, TypeCode::FLOAT),
         ],
@@ -95,13 +95,13 @@ fn multiply_many_floats() {
         instructions: vec![
             Instruction::multiply(
                 0,
-                Operand::Constant(0, TypeCode::FLOAT),
-                Operand::Constant(1, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
+                Address::Constant(1, TypeCode::FLOAT),
             ),
             Instruction::multiply(
                 1,
-                Operand::Register(0, TypeCode::FLOAT),
-                Operand::Constant(0, TypeCode::FLOAT),
+                Address::Register(0, TypeCode::FLOAT),
+                Address::Constant(0, TypeCode::FLOAT),
             ),
             Instruction::r#return(true, 1, TypeCode::FLOAT),
         ],
@@ -123,8 +123,8 @@ fn multiply_integers() {
         instructions: vec![
             Instruction::multiply(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 0, TypeCode::INTEGER),
         ],
@@ -146,13 +146,13 @@ fn multiply_many_integers() {
         instructions: vec![
             Instruction::multiply(
                 0,
-                Operand::Constant(0, TypeCode::INTEGER),
-                Operand::Constant(1, TypeCode::INTEGER),
+                Address::Constant(0, TypeCode::INTEGER),
+                Address::Constant(1, TypeCode::INTEGER),
             ),
             Instruction::multiply(
                 1,
-                Operand::Register(0, TypeCode::INTEGER),
-                Operand::Constant(2, TypeCode::INTEGER),
+                Address::Register(0, TypeCode::INTEGER),
+                Address::Constant(2, TypeCode::INTEGER),
             ),
             Instruction::r#return(true, 1, TypeCode::INTEGER),
         ],

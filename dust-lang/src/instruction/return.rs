@@ -2,17 +2,17 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionFields, Operand, TypeCode};
+use super::{Address, InstructionFields, TypeCode};
 
 pub struct Return {
     pub should_return_value: bool,
-    pub return_value: Operand,
+    pub return_value: Address,
 }
 
 impl From<Instruction> for Return {
     fn from(instruction: Instruction) -> Self {
         let should_return_value = instruction.a_field() != 0;
-        let return_value = instruction.b_operand();
+        let return_value = instruction.b_address();
 
         Return {
             should_return_value,
@@ -25,7 +25,7 @@ impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
         let operation = Operation::RETURN;
         let a_field = r#return.should_return_value as u16;
-        let Operand {
+        let Address {
             index: b_field,
             kind: b_kind,
         } = r#return.return_value;
