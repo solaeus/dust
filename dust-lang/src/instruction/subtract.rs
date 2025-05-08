@@ -27,8 +27,8 @@ impl From<Subtract> for Instruction {
         let a_field = subtract.destination;
         let (b_field, b_is_constant) = subtract.left.as_index_and_constant_flag();
         let (c_field, c_is_constant) = subtract.right.as_index_and_constant_flag();
-        let b_type = subtract.left.as_type();
-        let c_type = subtract.right.as_type();
+        let b_type = subtract.left.as_type_code();
+        let c_type = subtract.right.as_type_code();
 
         InstructionFields {
             operation,
@@ -53,7 +53,7 @@ impl Display for Subtract {
             right,
         } = self;
 
-        match left.as_type() {
+        match left.as_type_code() {
             TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
             TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
             TypeCode::CHARACTER => write!(f, "R_STR_{destination}")?,

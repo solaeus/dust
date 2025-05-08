@@ -2,20 +2,18 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionFields, TypeCode};
+use super::{InstructionFields, Operand};
 
 pub struct Close {
-    pub from: u16,
-    pub to: u16,
-    pub r#type: TypeCode,
+    pub from: Operand,
+    pub to: Operand,
 }
 
 impl From<&Instruction> for Close {
     fn from(instruction: &Instruction) -> Self {
         Close {
-            from: instruction.b_field(),
-            to: instruction.c_field(),
-            r#type: instruction.b_type(),
+            from: instruction.b_operand(),
+            to: instruction.c_operand(),
         }
     }
 }
@@ -23,15 +21,21 @@ impl From<&Instruction> for Close {
 impl From<Close> for Instruction {
     fn from(close: Close) -> Self {
         let operation = Operation::CLOSE;
-        let b_field = close.from;
-        let b_type = close.r#type;
-        let c_field = close.to;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = close.from;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = close.to;
 
         InstructionFields {
             operation,
             b_field,
-            b_type,
+            b_kind,
             c_field,
+            c_kind,
             ..Default::default()
         }
         .build()
@@ -40,17 +44,8 @@ impl From<Close> for Instruction {
 
 impl Display for Close {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Close { from, to, r#type } = self;
+        let Close { from, to } = self;
 
-        match *r#type {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{from}..=R_BOOL_{to}"),
-            TypeCode::BYTE => write!(f, "R_BYTE_{from}..=R_BYTE_{to}"),
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{from}..=R_CHAR_{to}"),
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{from}..=R_FLOAT_{to}"),
-            TypeCode::INTEGER => write!(f, "R_INT_{from}..=R_INT_{to}"),
-            TypeCode::STRING => write!(f, "R_STR_{from}..=R_STR_{to}"),
-            TypeCode::LIST => write!(f, "R_LIST_{from}..=R_LIST_{to}"),
-            unsupported => panic!("Unsupported type code: {unsupported:?}"),
-        }
+        write!(f, "{from}..={to}")
     }
 }

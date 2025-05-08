@@ -10,8 +10,9 @@ pub struct LessEqual {
 
 impl From<Instruction> for LessEqual {
     fn from(instruction: Instruction) -> Self {
-        let comparator = instruction.d_field();
-        let (left, right) = instruction.b_and_c_as_operands();
+        let comparator = instruction.a_field() != 0;
+        let left = instruction.b_operand();
+        let right = instruction.c_operand();
 
         LessEqual {
             comparator,
@@ -22,23 +23,23 @@ impl From<Instruction> for LessEqual {
 }
 
 impl From<LessEqual> for Instruction {
-    fn from(less_equal_byte: LessEqual) -> Self {
+    fn from(less_equal: LessEqual) -> Self {
         let operation = Operation::LESS_EQUAL;
-        let (b_field, b_is_constant) = less_equal_byte.left.as_index_and_constant_flag();
-        let (c_field, c_is_constant) = less_equal_byte.right.as_index_and_constant_flag();
-        let d_field = less_equal_byte.comparator;
-        let b_type = less_equal_byte.left.as_type();
-        let c_type = less_equal_byte.right.as_type();
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = less_equal.left;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = less_equal.right;
 
         InstructionFields {
             operation,
             b_field,
+            b_kind,
             c_field,
-            d_field,
-            b_is_constant,
-            c_is_constant,
-            b_type,
-            c_type,
+            c_kind,
             ..Default::default()
         }
         .build()

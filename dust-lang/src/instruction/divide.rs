@@ -1,17 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
+use super::{Destination, Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Divide {
-    pub destination: u16,
+    pub destination: Destination,
     pub left: Operand,
     pub right: Operand,
 }
 
 impl From<Instruction> for Divide {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.a_field();
-        let (left, right) = instruction.b_and_c_as_operands();
+        let destination = instruction.destination();
+        let left = instruction.b_operand();
+        let right = instruction.c_operand();
 
         Divide {
             destination,
@@ -24,22 +25,27 @@ impl From<Instruction> for Divide {
 impl From<Divide> for Instruction {
     fn from(divide: Divide) -> Self {
         let operation = Operation::DIVIDE;
-        let a_field = divide.destination;
-        let (b_field, b_is_constant) = divide.left.as_index_and_constant_flag();
-        let (c_field, c_is_constant) = divide.right.as_index_and_constant_flag();
-        let b_type = divide.left.as_type();
-        let c_type = divide.right.as_type();
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = divide.destination;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = divide.left;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = divide.right;
 
         InstructionFields {
             operation,
             a_field,
+            a_is_register,
             b_field,
+            b_kind,
             c_field,
-            b_is_constant,
-            c_is_constant,
-            b_type,
-            c_type,
-            ..Default::default()
+            c_kind,
         }
         .build()
     }
@@ -53,14 +59,14 @@ impl Display for Divide {
             right,
         } = self;
 
-        match left.as_type() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
-            TypeCode::CHARACTER => write!(f, "R_STR_{destination}")?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination}")?,
-            TypeCode::INTEGER => write!(f, "R_INT_{destination}")?,
-            TypeCode::STRING => write!(f, "R_STR_{destination}")?,
-            _ => todo!(),
+        match left.as_type_code() {
+            TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", destination.index)?,
+            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
+            TypeCode::CHARACTER => write!(f, "R_STR_{}", destination.index)?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
+            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
+            TypeCode::STRING => write!(f, "R_STR_{}", destination.index)?,
+            unsupported => unsupported.unsupported_write(f)?,
         }
 
         write!(f, " = {left} ÷ {right}",)

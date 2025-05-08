@@ -23,7 +23,7 @@ impl From<Move> for Instruction {
         let operation = Operation::MOVE;
         let a_field = r#move.destination;
         let (b_field, b_is_constant) = r#move.operand.as_index_and_constant_flag();
-        let b_type = r#move.operand.as_type();
+        let b_type = r#move.operand.as_type_code();
 
         InstructionFields {
             operation,
@@ -44,7 +44,7 @@ impl Display for Move {
             operand,
         } = self;
 
-        match operand.as_type() {
+        match operand.as_type_code() {
             TypeCode::BOOLEAN => write!(f, "{operand} -> R_BOOL_{destination}"),
             TypeCode::BYTE => write!(f, "{operand} -> R_BYTE_{destination}"),
             TypeCode::CHARACTER => write!(f, "{operand} -> R_CHAR_{destination}"),

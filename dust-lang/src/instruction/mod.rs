@@ -1,20 +1,18 @@
 //! The Dust instruction set.
 //!
-//! Each instruction is 64 bits and uses up to nine distinct fields.
+//! Each instruction is 64 bits and uses up to seven distinct fields.
 //!
 //! # Layout
 //!
 //! Bits  | Description
 //! ----- | -----------
 //! 0-4   | Operation
-//! 5-8   | B field type
-//! 9     | Flag indicating if the B field is a constant
-//! 10-13 | C field type
-//! 14    | Flag indicating if the C field is a constant
-//! 15    | D field (boolean)
-//! 16-31 | A field (unsigned 16-bit integer)
-//! 32-47 | B field (unsigned 16-bit integer)
-//! 48-63 | C field (unsigned 16-bit integer)
+//! 5     | Flag indicating whether the A field is a register or memory index
+//! 6-10  | Operand address kind (for the B field)
+//! 11-15 | Operand address kind (for the C field)
+//! 16-31 | A field (unsigned 16-bit integer), usually the destination index
+//! 32-47 | B field (unsigned 16-bit integer), usually an operand index
+//! 48-63 | C field (unsigned 16-bit integer), usually an operand index
 //!
 //! # Creating Instructions
 //!
@@ -97,6 +95,7 @@ mod r#move;
 mod multiply;
 mod negate;
 mod not;
+mod operand;
 mod operation;
 mod r#return;
 mod subtract;
@@ -123,78 +122,19 @@ pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
+pub use operand::Operand;
+use operand::OperandKind;
 pub use operation::Operation;
 pub use r#return::Return;
 pub use subtract::Subtract;
 pub use test::Test;
 pub use test_set::TestSet;
+pub use type_code::TypeCode;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
-pub use type_code::TypeCode;
 
-use crate::NativeFunction;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InstructionFields {
-    pub operation: Operation,
-    pub a_field: u16,
-    pub b_field: u16,
-    pub c_field: u16,
-    pub d_field: bool,
-    pub b_is_constant: bool,
-    pub c_is_constant: bool,
-    pub b_type: TypeCode,
-    pub c_type: TypeCode,
-}
-
-impl InstructionFields {
-    pub fn build(self) -> Instruction {
-        let bits = ((self.operation.0 as u64) << 59)
-            | ((self.b_type.0 as u64) << 54)
-            | ((self.b_is_constant as u64) << 53)
-            | ((self.c_type.0 as u64) << 49)
-            | ((self.c_is_constant as u64) << 48)
-            | ((self.d_field as u64) << 47)
-            | ((self.a_field as u64) << 32)
-            | ((self.b_field as u64) << 16)
-            | (self.c_field as u64);
-
-        Instruction(bits)
-    }
-}
-
-impl From<&Instruction> for InstructionFields {
-    fn from(instruction: &Instruction) -> Self {
-        InstructionFields {
-            operation: instruction.operation(),
-            a_field: instruction.a_field(),
-            b_field: instruction.b_field(),
-            c_field: instruction.c_field(),
-            d_field: instruction.d_field(),
-            b_is_constant: instruction.b_is_constant(),
-            c_is_constant: instruction.c_is_constant(),
-            b_type: instruction.b_type(),
-            c_type: instruction.c_type(),
-        }
-    }
-}
-
-impl Default for InstructionFields {
-    fn default() -> Self {
-        InstructionFields {
-            operation: Operation::NO_OP,
-            a_field: 0,
-            b_field: 0,
-            c_field: 0,
-            d_field: false,
-            b_is_constant: false,
-            c_is_constant: false,
-            b_type: TypeCode::NONE,
-            c_type: TypeCode::NONE,
-        }
-    }
-}
+use crate::{NativeFunction, Type};
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -203,40 +143,49 @@ impl Default for InstructionFields {
 pub struct Instruction(u64);
 
 impl Instruction {
+    pub fn destination(&self) -> Destination {
+        Destination {
+            index: self.a_field(),
+            is_register: self.a_is_register(),
+        }
+    }
+
+    pub fn b_operand(&self) -> Operand {
+        Operand {
+            index: self.b_field(),
+            kind: self.b_kind(),
+        }
+    }
+
+    pub fn c_operand(&self) -> Operand {
+        Operand {
+            index: self.c_field(),
+            kind: self.c_kind(),
+        }
+    }
+
     pub fn operation(&self) -> Operation {
-        let first_5_bits = (self.0 >> 59) as u8;
+        let first_5_bits = (self.0 & 0b11111) as u8;
 
         Operation(first_5_bits)
     }
 
-    pub fn b_type(&self) -> TypeCode {
-        let bits_5_to_8 = (self.0 >> 54) & 0b1111;
+    pub fn a_is_register(&self) -> bool {
+        let sixth_bit = (self.0 >> 5) & 1;
 
-        TypeCode(bits_5_to_8 as u8)
+        sixth_bit != 0
     }
 
-    pub fn b_is_constant(&self) -> bool {
-        let bit_9 = (self.0 >> 53) & 1;
+    pub fn b_kind(&self) -> OperandKind {
+        let bits_6_to_10 = (self.0 >> 5) & 0x1F;
 
-        bit_9 != 0
+        OperandKind(bits_6_to_10 as u8)
     }
 
-    pub fn c_type(&self) -> TypeCode {
-        let bits_10_to_13 = (self.0 >> 49) & 0b1111;
+    pub fn c_kind(&self) -> OperandKind {
+        let bits_11_to_15 = (self.0 >> 10) & 0x1F;
 
-        TypeCode(bits_10_to_13 as u8)
-    }
-
-    pub fn c_is_constant(&self) -> bool {
-        let bit_14 = (self.0 >> 48) & 1;
-
-        bit_14 != 0
-    }
-
-    pub fn d_field(&self) -> bool {
-        let bit_15 = (self.0 >> 47) & 1;
-
-        bit_15 != 0
+        OperandKind(bits_11_to_15 as u8)
     }
 
     pub fn a_field(&self) -> u16 {
@@ -285,11 +234,14 @@ impl Instruction {
             Operation::LOAD_ENCODED => {
                 let LoadEncoded {
                     destination,
-                    value_type,
+                    value_kind,
                     ..
                 } = LoadEncoded::from(*self);
 
-                Operand::Register(destination, value_type)
+                Operand {
+                    index: destination,
+                    kind: value_kind,
+                }
             }
             Operation::LOAD_CONSTANT => {
                 let LoadConstant {
@@ -320,7 +272,7 @@ impl Instruction {
                     destination, left, ..
                 } = Add::from(self);
 
-                let register_type = match left.as_type() {
+                let register_type = match left.as_type_code() {
                     TypeCode::BOOLEAN => TypeCode::BOOLEAN,
                     TypeCode::BYTE => TypeCode::BYTE,
                     TypeCode::CHARACTER => TypeCode::STRING, // Adding characters concatenates them
@@ -339,28 +291,28 @@ impl Instruction {
                     destination, left, ..
                 } = Subtract::from(*self);
 
-                Operand::Register(destination, left.as_type())
+                Operand::Register(destination, left.as_type_code())
             }
             Operation::MULTIPLY => {
                 let Multiply {
                     destination, left, ..
                 } = Multiply::from(*self);
 
-                Operand::Register(destination, left.as_type())
+                Operand::Register(destination, left.as_type_code())
             }
             Operation::DIVIDE => {
                 let Divide {
                     destination, left, ..
                 } = Divide::from(*self);
 
-                Operand::Register(destination, left.as_type())
+                Operand::Register(destination, left.as_type_code())
             }
             Operation::MODULO => {
                 let Modulo {
                     destination, left, ..
                 } = Modulo::from(*self);
 
-                Operand::Register(destination, left.as_type())
+                Operand::Register(destination, left.as_type_code())
             }
             Operation::NOT => {
                 let Not {
@@ -368,7 +320,7 @@ impl Instruction {
                     argument,
                 } = Not::from(*self);
 
-                Operand::Register(destination, argument.as_type())
+                Operand::Register(destination, argument.as_type_code())
             }
             Operation::CALL => {
                 let Call {
@@ -567,7 +519,7 @@ impl Instruction {
     ) -> Instruction {
         Instruction::from(Call {
             destination,
-            function_register,
+            function: function_register,
             argument_list_index: argument_list_register,
             return_type,
             is_recursive,
@@ -604,25 +556,6 @@ impl Instruction {
 
     pub fn is_comparison(&self) -> bool {
         self.operation().is_comparison()
-    }
-
-    pub fn b_as_operand(&self) -> Operand {
-        if self.b_is_constant() {
-            Operand::Constant(self.b_field(), self.b_type())
-        } else {
-            Operand::Register(self.b_field(), self.b_type())
-        }
-    }
-
-    pub fn b_and_c_as_operands(&self) -> (Operand, Operand) {
-        let left = self.b_as_operand();
-        let right = if self.c_is_constant() {
-            Operand::Constant(self.c_field(), self.c_type())
-        } else {
-            Operand::Register(self.c_field(), self.c_type())
-        };
-
-        (left, right)
     }
 
     pub fn yields_value(&self) -> bool {
@@ -699,68 +632,6 @@ impl Debug for Instruction {
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{} | {}", self.operation(), self.disassembly_info())
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Operand {
-    Constant(u16, TypeCode),
-    Register(u16, TypeCode),
-}
-
-impl Operand {
-    pub fn index(&self) -> u16 {
-        match self {
-            Operand::Constant(index, _) => *index,
-            Operand::Register(index, _) => *index,
-        }
-    }
-
-    pub fn is_constant(&self) -> bool {
-        matches!(self, Operand::Constant(_, _))
-    }
-
-    pub fn is_register(&self) -> bool {
-        matches!(self, Operand::Register(_, _))
-    }
-
-    pub fn as_index_and_constant_flag(&self) -> (u16, bool) {
-        match self {
-            Operand::Constant(index, _) => (*index, true),
-            Operand::Register(index, _) => (*index, false),
-        }
-    }
-
-    pub fn as_type(&self) -> TypeCode {
-        match self {
-            Operand::Constant(_, r#type) => *r#type,
-            Operand::Register(_, r#type) => *r#type,
-        }
-    }
-}
-
-impl Display for Operand {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Operand::Constant(index, r#type) => match *r#type {
-                TypeCode::CHARACTER => write!(f, "C_CHAR_{index}"),
-                TypeCode::FLOAT => write!(f, "C_FLOAT_{index}"),
-                TypeCode::INTEGER => write!(f, "C_INT_{index}"),
-                TypeCode::STRING => write!(f, "C_STR_{index}"),
-                unsupported => panic!("Unsupported type code: {}", unsupported.0),
-            },
-            Operand::Register(index, r#type) => match *r#type {
-                TypeCode::BOOLEAN => write!(f, "R_BOOL_{index}"),
-                TypeCode::BYTE => write!(f, "R_BYTE_{index}"),
-                TypeCode::CHARACTER => write!(f, "R_CHAR_{index}"),
-                TypeCode::INTEGER => write!(f, "R_INT_{index}"),
-                TypeCode::FLOAT => write!(f, "R_FLOAT_{index}"),
-                TypeCode::STRING => write!(f, "R_STR_{index}"),
-                TypeCode::LIST => write!(f, "R_LIST_{index}"),
-                TypeCode::FUNCTION => write!(f, "R_FN_{index}"),
-                unsupported => panic!("Unsupported type code: {}", unsupported.0),
-            },
-        }
     }
 }
 
@@ -866,4 +737,63 @@ mod tests {
 
         assert_eq!(TypeCode::CHARACTER, instruction.c_type());
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InstructionFields {
+    pub operation: Operation,
+    pub a_field: u16,
+    pub b_field: u16,
+    pub c_field: u16,
+    pub a_is_register: bool,
+    pub b_kind: OperandKind,
+    pub c_kind: OperandKind,
+}
+
+impl InstructionFields {
+    pub fn build(self) -> Instruction {
+        let bits = ((self.operation.0 as u64) << 59)
+            | ((self.a_is_register as u64) << 54)
+            | ((self.b_kind.0 as u64) << 53)
+            | ((self.c_kind.0 as u64) << 49)
+            | ((self.a_field as u64) << 32)
+            | ((self.b_field as u64) << 16)
+            | (self.c_field as u64);
+
+        Instruction(bits)
+    }
+}
+
+impl From<&Instruction> for InstructionFields {
+    fn from(instruction: &Instruction) -> Self {
+        InstructionFields {
+            operation: instruction.operation(),
+            a_field: instruction.a_field(),
+            b_field: instruction.b_field(),
+            c_field: instruction.c_field(),
+            a_is_register: instruction.a_is_register(),
+            b_kind: instruction.b_kind(),
+            c_kind: instruction.c_kind(),
+        }
+    }
+}
+
+impl Default for InstructionFields {
+    fn default() -> Self {
+        InstructionFields {
+            operation: Operation::NO_OP,
+            a_field: 0,
+            b_field: 0,
+            c_field: 0,
+            a_is_register: false,
+            b_kind: OperandKind(0),
+            c_kind: OperandKind(0),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+struct Destination {
+    pub index: u16,
+    pub is_register: bool,
 }

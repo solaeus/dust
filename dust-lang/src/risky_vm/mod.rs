@@ -1,6 +1,6 @@
-//! A Dust virtual machine that uses `unsafe` code. This VM never emits errors.
-//! Instead, errors are handled as panics in debug mode but, in release mode,
-//! the use of `unsafe` will cause undefined behavior.
+//! An experimental Dust virtual machine that uses `unsafe` code. This VM never emits errors.
+//! Instead, errors are handled as panics in debug mode but, in release mode, the use of `unsafe`
+//! will cause undefined behavior.
 mod thread;
 
 use std::{
@@ -118,38 +118,38 @@ impl CallFrame {
 }
 
 #[derive(Debug)]
-pub struct RegisterTable {
-    pub booleans: RegisterList<bool>,
-    pub bytes: RegisterList<u8>,
-    pub characters: RegisterList<char>,
-    pub floats: RegisterList<f64>,
-    pub integers: RegisterList<i64>,
-    pub strings: RegisterList<DustString>,
-    pub lists: RegisterList<AbstractList>,
-    pub functions: RegisterList<Function>,
+pub struct Memory {
+    pub booleans: MemorySlotList<bool>,
+    pub bytes: MemorySlotList<u8>,
+    pub characters: MemorySlotList<char>,
+    pub floats: MemorySlotList<f64>,
+    pub integers: MemorySlotList<i64>,
+    pub strings: MemorySlotList<DustString>,
+    pub lists: MemorySlotList<AbstractList>,
+    pub functions: MemorySlotList<Function>,
 }
 
-impl RegisterTable {
+impl Memory {
     pub fn new(chunk: &Chunk) -> Self {
         Self {
-            booleans: RegisterList::new(chunk.boolean_register_count as usize),
-            bytes: RegisterList::new(chunk.byte_register_count as usize),
-            characters: RegisterList::new(chunk.character_register_count as usize),
-            floats: RegisterList::new(chunk.float_register_count as usize),
-            integers: RegisterList::new(chunk.integer_register_count as usize),
-            strings: RegisterList::new(chunk.string_register_count as usize),
-            lists: RegisterList::new(chunk.list_register_count as usize),
-            functions: RegisterList::new(chunk.function_register_count as usize),
+            booleans: MemorySlotList::new(chunk.boolean_register_count as usize),
+            bytes: MemorySlotList::new(chunk.byte_register_count as usize),
+            characters: MemorySlotList::new(chunk.character_register_count as usize),
+            floats: MemorySlotList::new(chunk.float_register_count as usize),
+            integers: MemorySlotList::new(chunk.integer_register_count as usize),
+            strings: MemorySlotList::new(chunk.string_register_count as usize),
+            lists: MemorySlotList::new(chunk.list_register_count as usize),
+            functions: MemorySlotList::new(chunk.function_register_count as usize),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct RegisterList<T, const STACK_LEN: usize = 64> {
-    pub registers: Vec<Register<T>>,
+pub struct MemorySlotList<T, const STACK_LEN: usize = 64> {
+    pub registers: Vec<MemorySlot<T>>,
 }
 
-impl<T, const STACK_LEN: usize> RegisterList<T, STACK_LEN>
+impl<T, const STACK_LEN: usize> MemorySlotList<T, STACK_LEN>
 where
     T: Clone + Default,
 {
@@ -157,13 +157,13 @@ where
         let mut registers = Vec::with_capacity(length);
 
         for _ in 0..length {
-            registers.push(Register::default());
+            registers.push(MemorySlot::default());
         }
 
         Self { registers }
     }
 
-    pub fn get(&self, index: usize) -> &Register<T> {
+    pub fn get(&self, index: usize) -> &MemorySlot<T> {
         if cfg!(debug_assertions) {
             self.registers.get(index).unwrap()
         } else {
@@ -171,7 +171,7 @@ where
         }
     }
 
-    pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [Register<T>] {
+    pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [MemorySlot<T>] {
         let registers = if cfg!(debug_assertions) {
             self.registers.get_disjoint_mut([indices]).unwrap()
         } else {
@@ -181,7 +181,7 @@ where
         registers[0]
     }
 
-    pub fn get_mut(&mut self, index: usize) -> &mut Register<T> {
+    pub fn get_mut(&mut self, index: usize) -> &mut MemorySlot<T> {
         if cfg!(debug_assertions) {
             let length = self.registers.len();
 
@@ -196,7 +196,7 @@ where
     pub fn set_to_new_register(&mut self, index: usize, new_value: T) {
         assert!(index < self.registers.len(), "Register index out of bounds");
 
-        self.registers[index] = Register::value(new_value)
+        self.registers[index] = MemorySlot::new(new_value)
     }
 
     pub fn close(&mut self, index: usize) {
@@ -216,28 +216,28 @@ where
     }
 }
 
-impl<T> Index<usize> for RegisterList<T> {
-    type Output = Register<T>;
+impl<T> Index<usize> for MemorySlotList<T> {
+    type Output = MemorySlot<T>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.registers[index]
     }
 }
 
-impl<T> IndexMut<usize> for RegisterList<T> {
+impl<T> IndexMut<usize> for MemorySlotList<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.registers[index]
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Register<T> {
+pub struct MemorySlot<T> {
     value: T,
     is_closed: bool,
 }
 
-impl<T> Register<T> {
-    pub fn value(value: T) -> Self {
+impl<T> MemorySlot<T> {
+    pub fn new(value: T) -> Self {
         Self {
             value,
             is_closed: false,
@@ -265,19 +265,19 @@ impl<T> Register<T> {
     }
 }
 
-impl<T: Copy> Register<T> {
+impl<T: Copy> MemorySlot<T> {
     pub fn copy_value(&self) -> T {
         self.value
     }
 }
 
-impl<T: Clone> Register<T> {
+impl<T: Clone> MemorySlot<T> {
     pub fn clone_value(&self) -> T {
         self.value.clone()
     }
 }
 
-impl<T: Default> Default for Register<T> {
+impl<T: Default> Default for MemorySlot<T> {
     fn default() -> Self {
         Self {
             value: Default::default(),

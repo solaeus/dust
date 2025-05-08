@@ -8,12 +8,12 @@ use crate::{
     risky_vm::{CallFrame, Pointer},
 };
 
-use super::RegisterTable;
+use super::Memory;
 
 pub struct Thread {
     chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
-    register_stack: Vec<RegisterTable>,
+    register_stack: Vec<Memory>,
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
@@ -25,7 +25,7 @@ impl Thread {
         call_stack.push(main_call);
 
         let mut register_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_registers = RegisterTable::new(&chunk);
+        let main_registers = Memory::new(&chunk);
 
         register_stack.push(main_registers);
 
@@ -59,7 +59,7 @@ impl Thread {
         }
     }
 
-    pub fn current_registers(&self) -> &RegisterTable {
+    pub fn current_registers(&self) -> &Memory {
         if cfg!(debug_assertions) {
             self.register_stack.last().unwrap()
         } else {
@@ -67,7 +67,7 @@ impl Thread {
         }
     }
 
-    pub fn current_registers_mut(&mut self) -> &mut RegisterTable {
+    pub fn current_registers_mut(&mut self) -> &mut Memory {
         if cfg!(debug_assertions) {
             self.register_stack.last_mut().unwrap()
         } else {
@@ -1318,7 +1318,7 @@ impl Thread {
                         ip: 0,
                         return_register: destination,
                     };
-                    let mut new_registers = RegisterTable::new(function_prototype);
+                    let mut new_registers = Memory::new(function_prototype);
 
                     for (r#type, (register_index, _)) in function
                         .r#type

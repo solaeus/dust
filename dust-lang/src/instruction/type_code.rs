@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,14 +16,19 @@ impl TypeCode {
     pub const LIST: TypeCode = TypeCode(7);
     pub const FUNCTION: TypeCode = TypeCode(8);
 
-    pub fn panic_from_unknown_code(self) -> ! {
-        panic!("Unknown type code: {}", self.0);
+    pub fn unknown_write(self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Malformed instruction: type code {} is unknown.", self.0)
+    }
+
+    pub fn unsupported_write(self, f: &mut Formatter) -> fmt::Result {
+        write!("Malformed instruction: type code {self} is not supported here.")
     }
 }
 
 impl Display for TypeCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            TypeCode::NONE => fmt::Result::Ok(()),
             TypeCode::BOOLEAN => write!(f, "bool"),
             TypeCode::BYTE => write!(f, "byte"),
             TypeCode::CHARACTER => write!(f, "char"),
@@ -32,7 +37,7 @@ impl Display for TypeCode {
             TypeCode::STRING => write!(f, "str"),
             TypeCode::LIST => write!(f, "list"),
             TypeCode::FUNCTION => write!(f, "fn"),
-            _ => self.panic_from_unknown_code(),
+            _ => self.unknown_write(f),
         }
     }
 }

@@ -10,8 +10,9 @@ pub struct Equal {
 
 impl From<Instruction> for Equal {
     fn from(instruction: Instruction) -> Self {
-        let comparator = instruction.d_field();
-        let (left, right) = instruction.b_and_c_as_operands();
+        let comparator = instruction.a_field() != 0;
+        let left = instruction.b_operand();
+        let right = instruction.c_operand();
 
         Equal {
             comparator,
@@ -22,23 +23,25 @@ impl From<Instruction> for Equal {
 }
 
 impl From<Equal> for Instruction {
-    fn from(equal_bool: Equal) -> Self {
+    fn from(equal: Equal) -> Self {
         let operation = Operation::EQUAL;
-        let (b_field, b_is_constant) = equal_bool.left.as_index_and_constant_flag();
-        let (c_field, c_is_constant) = equal_bool.right.as_index_and_constant_flag();
-        let d_field = equal_bool.comparator;
-        let b_type = equal_bool.left.as_type();
-        let c_type = equal_bool.right.as_type();
+        let a_field = equal.comparator as u16;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = equal.left;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = equal.right;
 
         InstructionFields {
             operation,
+            a_field,
             b_field,
+            b_kind,
             c_field,
-            d_field,
-            b_is_constant,
-            c_is_constant,
-            b_type,
-            c_type,
+            c_kind,
             ..Default::default()
         }
         .build()

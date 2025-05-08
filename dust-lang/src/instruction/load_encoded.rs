@@ -2,39 +2,47 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionFields, TypeCode};
+use super::{Destination, InstructionFields, Operand, TypeCode};
 
 pub struct LoadEncoded {
-    pub destination: u16,
-    pub value: u8,
-    pub value_type: TypeCode,
+    pub destination: Destination,
+    pub value: Operand,
     pub jump_next: bool,
 }
 
 impl From<Instruction> for LoadEncoded {
     fn from(instruction: Instruction) -> Self {
+        let destination = instruction.destination();
+        let value = instruction.b_operand();
+        let jump_next = instruction.c_field() != 0;
+
         LoadEncoded {
-            destination: instruction.a_field(),
-            value: instruction.b_field() as u8,
-            value_type: instruction.b_type(),
-            jump_next: instruction.c_field() != 0,
+            destination,
+            value,
+            jump_next,
         }
     }
 }
 
 impl From<LoadEncoded> for Instruction {
-    fn from(load_boolean: LoadEncoded) -> Self {
+    fn from(load_encoded: LoadEncoded) -> Self {
         let operation = Operation::LOAD_ENCODED;
-        let a_field = load_boolean.destination;
-        let b_field = load_boolean.value as u16;
-        let b_type = load_boolean.value_type;
-        let c_field = load_boolean.jump_next as u16;
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = load_encoded.destination;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = load_encoded.value;
+        let c_field = load_encoded.jump_next as u16;
 
         InstructionFields {
             operation,
             a_field,
+            a_is_register,
             b_field,
-            b_type,
+            b_kind,
             c_field,
             ..Default::default()
         }
@@ -47,18 +55,21 @@ impl Display for LoadEncoded {
         let LoadEncoded {
             destination,
             value,
-            value_type,
             jump_next,
         } = self;
 
-        match *value_type {
+        match value.as_type_code() {
             TypeCode::BOOLEAN => {
-                let boolean = *value != 0;
+                let boolean = value.index != 0;
 
-                write!(f, "R_BOOL_{destination} = {boolean}")?
+                write!(f, "R_BOOL_{} = {boolean}", destination.index)?
             }
-            TypeCode::BYTE => write!(f, "R_BYTE_{destination} = 0x{value:0X}")?,
-            _ => panic!("Invalid type code {value_type} for LoadEncoded instruction"),
+            TypeCode::BYTE => {
+                let byte = value.index as u8;
+
+                write!(f, "R_BYTE_{} = 0x{byte}", destination.index)?
+            }
+            unsupported => unsupported.unsupported_write(f)?,
         }
 
         if *jump_next {

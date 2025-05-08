@@ -27,8 +27,8 @@ impl From<Multiply> for Instruction {
         let a_field = multiply.destination;
         let (b_field, b_is_constant) = multiply.left.as_index_and_constant_flag();
         let (c_field, c_is_constant) = multiply.right.as_index_and_constant_flag();
-        let b_type = multiply.left.as_type();
-        let c_type = multiply.right.as_type();
+        let b_type = multiply.left.as_type_code();
+        let c_type = multiply.right.as_type_code();
 
         InstructionFields {
             operation,
@@ -53,7 +53,7 @@ impl Display for Multiply {
             right,
         } = self;
 
-        match left.as_type() {
+        match left.as_type_code() {
             TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
             TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
             TypeCode::CHARACTER => write!(f, "R_STR_{destination}")?,

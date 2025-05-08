@@ -10,8 +10,9 @@ pub struct Less {
 
 impl From<Instruction> for Less {
     fn from(instruction: Instruction) -> Self {
-        let comparator = instruction.d_field();
-        let (left, right) = instruction.b_and_c_as_operands();
+        let comparator = instruction.a_field() != 0;
+        let left = instruction.b_operand();
+        let right = instruction.c_operand();
 
         Less {
             comparator,
@@ -24,21 +25,21 @@ impl From<Instruction> for Less {
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
         let operation = Operation::LESS;
-        let (b_field, b_is_constant) = less.left.as_index_and_constant_flag();
-        let (c_field, c_is_constant) = less.right.as_index_and_constant_flag();
-        let d_field = less.comparator;
-        let b_type = less.left.as_type();
-        let c_type = less.right.as_type();
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = less.left;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = less.right;
 
         InstructionFields {
             operation,
             b_field,
+            b_kind,
             c_field,
-            d_field,
-            b_is_constant,
-            c_is_constant,
-            b_type,
-            c_type,
+            c_kind,
             ..Default::default()
         }
         .build()
