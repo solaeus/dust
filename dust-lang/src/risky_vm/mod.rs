@@ -3,11 +3,7 @@
 //! will cause undefined behavior.
 mod thread;
 
-use std::{
-    ops::{Index, IndexMut, RangeInclusive},
-    sync::Arc,
-    thread::Builder,
-};
+use std::{ops::RangeInclusive, sync::Arc, thread::Builder};
 
 pub use thread::Thread;
 
@@ -118,38 +114,96 @@ impl CallFrame {
 }
 
 #[derive(Debug)]
-pub struct Memory {
-    pub booleans: MemorySlotList<bool>,
-    pub bytes: MemorySlotList<u8>,
-    pub characters: MemorySlotList<char>,
-    pub floats: MemorySlotList<f64>,
-    pub integers: MemorySlotList<i64>,
-    pub strings: MemorySlotList<DustString>,
-    pub lists: MemorySlotList<AbstractList>,
-    pub functions: MemorySlotList<Function>,
+pub struct Registers {
+    pub booleans: RegisterList<bool>,
+    pub bytes: RegisterList<u8>,
+    pub characters: RegisterList<char>,
+    pub floats: RegisterList<f64>,
+    pub integers: RegisterList<i64>,
+    pub strings: RegisterList<String>,
+    pub lists: RegisterList<AbstractList>,
+    pub functions: RegisterList<Function>,
 }
 
-impl Memory {
-    pub fn new(chunk: &Chunk) -> Self {
-        Self {
-            booleans: MemorySlotList::new(chunk.boolean_register_count as usize),
-            bytes: MemorySlotList::new(chunk.byte_register_count as usize),
-            characters: MemorySlotList::new(chunk.character_register_count as usize),
-            floats: MemorySlotList::new(chunk.float_register_count as usize),
-            integers: MemorySlotList::new(chunk.integer_register_count as usize),
-            strings: MemorySlotList::new(chunk.string_register_count as usize),
-            lists: MemorySlotList::new(chunk.list_register_count as usize),
-            functions: MemorySlotList::new(chunk.function_register_count as usize),
+impl Default for Registers {
+    fn default() -> Self {
+        Registers {
+            booleans: RegisterList::default(),
+            bytes: RegisterList::default(),
+            characters: RegisterList::default(),
+            floats: RegisterList::default(),
+            integers: RegisterList::default(),
+            strings: RegisterList::default(),
+            lists: RegisterList::default(),
+            functions: RegisterList::default(),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct MemorySlotList<T, const STACK_LEN: usize = 64> {
-    pub registers: Vec<MemorySlot<T>>,
+pub struct RegisterList<T> {
+    pub r_0: T,
+    pub r_1: T,
+    pub r_2: T,
+    pub r_3: T,
+    pub r_4: T,
+    pub r_5: T,
+    pub r_6: T,
+    pub r_7: T,
+    pub r_8: T,
+    pub r_9: T,
 }
 
-impl<T, const STACK_LEN: usize> MemorySlotList<T, STACK_LEN>
+impl<T: Default> Default for RegisterList<T> {
+    fn default() -> Self {
+        RegisterList {
+            r_0: T::default(),
+            r_1: T::default(),
+            r_2: T::default(),
+            r_3: T::default(),
+            r_4: T::default(),
+            r_5: T::default(),
+            r_6: T::default(),
+            r_7: T::default(),
+            r_8: T::default(),
+            r_9: T::default(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MemoryHeap {
+    pub booleans: HeapSlotList<bool>,
+    pub bytes: HeapSlotList<u8>,
+    pub characters: HeapSlotList<char>,
+    pub floats: HeapSlotList<f64>,
+    pub integers: HeapSlotList<i64>,
+    pub strings: HeapSlotList<DustString>,
+    pub lists: HeapSlotList<AbstractList>,
+    pub functions: HeapSlotList<Function>,
+}
+
+impl MemoryHeap {
+    pub fn new(chunk: &Chunk) -> Self {
+        Self {
+            booleans: HeapSlotList::new(chunk.boolean_register_count as usize),
+            bytes: HeapSlotList::new(chunk.byte_register_count as usize),
+            characters: HeapSlotList::new(chunk.character_register_count as usize),
+            floats: HeapSlotList::new(chunk.float_register_count as usize),
+            integers: HeapSlotList::new(chunk.integer_register_count as usize),
+            strings: HeapSlotList::new(chunk.string_register_count as usize),
+            lists: HeapSlotList::new(chunk.list_register_count as usize),
+            functions: HeapSlotList::new(chunk.function_register_count as usize),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HeapSlotList<T, const STACK_LEN: usize = 64> {
+    pub registers: Vec<HeapSlot<T>>,
+}
+
+impl<T, const STACK_LEN: usize> HeapSlotList<T, STACK_LEN>
 where
     T: Clone + Default,
 {
@@ -157,13 +211,13 @@ where
         let mut registers = Vec::with_capacity(length);
 
         for _ in 0..length {
-            registers.push(MemorySlot::default());
+            registers.push(HeapSlot::default());
         }
 
         Self { registers }
     }
 
-    pub fn get(&self, index: usize) -> &MemorySlot<T> {
+    pub fn get(&self, index: usize) -> &HeapSlot<T> {
         if cfg!(debug_assertions) {
             self.registers.get(index).unwrap()
         } else {
@@ -171,7 +225,7 @@ where
         }
     }
 
-    pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [MemorySlot<T>] {
+    pub fn get_many_mut(&mut self, indices: RangeInclusive<usize>) -> &mut [HeapSlot<T>] {
         let registers = if cfg!(debug_assertions) {
             self.registers.get_disjoint_mut([indices]).unwrap()
         } else {
@@ -181,7 +235,7 @@ where
         registers[0]
     }
 
-    pub fn get_mut(&mut self, index: usize) -> &mut MemorySlot<T> {
+    pub fn get_mut(&mut self, index: usize) -> &mut HeapSlot<T> {
         if cfg!(debug_assertions) {
             let length = self.registers.len();
 
@@ -196,7 +250,7 @@ where
     pub fn set_to_new_register(&mut self, index: usize, new_value: T) {
         assert!(index < self.registers.len(), "Register index out of bounds");
 
-        self.registers[index] = MemorySlot::new(new_value)
+        self.registers[index] = HeapSlot::new(new_value)
     }
 
     pub fn close(&mut self, index: usize) {
@@ -216,27 +270,13 @@ where
     }
 }
 
-impl<T> Index<usize> for MemorySlotList<T> {
-    type Output = MemorySlot<T>;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.registers[index]
-    }
-}
-
-impl<T> IndexMut<usize> for MemorySlotList<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.registers[index]
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
-pub struct MemorySlot<T> {
+pub struct HeapSlot<T> {
     value: T,
     is_closed: bool,
 }
 
-impl<T> MemorySlot<T> {
+impl<T> HeapSlot<T> {
     pub fn new(value: T) -> Self {
         Self {
             value,
@@ -265,19 +305,19 @@ impl<T> MemorySlot<T> {
     }
 }
 
-impl<T: Copy> MemorySlot<T> {
+impl<T: Copy> HeapSlot<T> {
     pub fn copy_value(&self) -> T {
         self.value
     }
 }
 
-impl<T: Clone> MemorySlot<T> {
+impl<T: Clone> HeapSlot<T> {
     pub fn clone_value(&self) -> T {
         self.value.clone()
     }
 }
 
-impl<T: Default> Default for MemorySlot<T> {
+impl<T: Default> Default for HeapSlot<T> {
     fn default() -> Self {
         Self {
             value: Default::default(),
@@ -288,15 +328,17 @@ impl<T: Default> Default for MemorySlot<T> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Pointer {
-    Register(u16),
     Constant(u16),
+    Memory(u16),
+    Register(u16),
 }
 
 impl Pointer {
     pub fn index(&self) -> u16 {
         match self {
-            Pointer::Register(index) => *index,
             Pointer::Constant(index) => *index,
+            Pointer::Memory(index) => *index,
+            Pointer::Register(index) => *index,
         }
     }
 }

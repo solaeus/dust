@@ -61,17 +61,13 @@ impl Display for Add {
             left,
             right,
         } = self;
+        let left_type = left.as_type_code();
+        let return_type = match left_type {
+            TypeCode::CHARACTER => TypeCode::STRING,
+            _ => left_type,
+        };
 
-        match left.as_type_code() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", destination.index)?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
-            TypeCode::CHARACTER => write!(f, "R_STR_{}", destination.index)?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
-            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
-            TypeCode::STRING => write!(f, "R_STR_{}", destination.index)?,
-            unsupported => unsupported.unsupported_write(f)?,
-        }
-
+        destination.display(f, return_type)?;
         write!(f, " = {left} + {right}")
     }
 }

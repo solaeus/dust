@@ -1,23 +1,20 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
+use super::{Destination, Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Negate {
-    pub destination: u16,
-    pub argument: Operand,
-    pub argument_type: TypeCode,
+    pub destination: Destination,
+    pub operand: Operand,
 }
 
 impl From<Instruction> for Negate {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.a_field();
-        let argument = instruction.b_as_operand();
-        let argument_type = instruction.b_type();
+        let destination = instruction.destination();
+        let operand = instruction.b_operand();
 
         Negate {
             destination,
-            argument,
-            argument_type,
+            operand,
         }
     }
 }
@@ -25,16 +22,21 @@ impl From<Instruction> for Negate {
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
         let operation = Operation::NEGATE;
-        let a_field = negate.destination;
-        let (b_field, b_is_constant) = negate.argument.as_index_and_constant_flag();
-        let b_type = negate.argument_type;
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = negate.destination;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = negate.operand;
 
         InstructionFields {
             operation,
             a_field,
+            a_is_register,
             b_field,
-            b_is_constant,
-            b_type,
+            b_kind,
             ..Default::default()
         }
         .build()
@@ -45,10 +47,16 @@ impl Display for Negate {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Negate {
             destination,
-            argument,
-            ..
+            operand,
         } = self;
 
-        write!(f, "R{destination} = -{argument}")
+        match operand.as_type_code() {
+            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
+            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
+            unsupported => unsupported.unsupported_write(f)?,
+        }
+
+        write!(f, " = -{operand}",)
     }
 }

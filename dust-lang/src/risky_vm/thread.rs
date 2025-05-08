@@ -3,17 +3,17 @@ use std::{sync::Arc, thread::JoinHandle};
 use tracing::{info, trace};
 
 use crate::{
-    AbstractList, Chunk, DustString, NativeFunction, Operation, Span, Type, Value,
-    instruction::TypeCode,
+    AbstractList, Chunk, DustString, NativeFunction, Operand, Operation, Span, Type, Value,
+    instruction::{Move, OperandKind, TypeCode},
     risky_vm::{CallFrame, Pointer},
 };
 
-use super::Memory;
+use super::{MemoryHeap, Registers};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
     call_stack: Vec<CallFrame>,
-    register_stack: Vec<Memory>,
+    memory_stack: Vec<(Registers, MemoryHeap)>,
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
@@ -24,20 +24,21 @@ impl Thread {
 
         call_stack.push(main_call);
 
-        let mut register_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_registers = Memory::new(&chunk);
+        let mut memory_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
+        let main_heap = MemoryHeap::new(&chunk);
+        let main_regisers = Registers::default();
 
-        register_stack.push(main_registers);
+        memory_stack.push((main_regisers, main_heap));
 
         Thread {
             chunk,
             call_stack,
-            register_stack,
+            memory_stack,
             _spawned_threads: Vec::new(),
         }
     }
 
-    pub fn current_position(&self) -> Span {
+    fn current_position(&self) -> Span {
         let current_frame = self.current_frame();
 
         current_frame.chunk.positions[current_frame.ip]
@@ -59,19 +60,19 @@ impl Thread {
         }
     }
 
-    pub fn current_registers(&self) -> &Memory {
+    pub fn current_registers(&self) -> &MemoryHeap {
         if cfg!(debug_assertions) {
-            self.register_stack.last().unwrap()
+            &self.memory_stack.last().unwrap().1
         } else {
-            unsafe { self.register_stack.last().unwrap_unchecked() }
+            unsafe { &self.memory_stack.last().unwrap_unchecked().1 }
         }
     }
 
-    pub fn current_registers_mut(&mut self) -> &mut Memory {
+    pub fn current_registers_mut(&mut self) -> &mut MemoryHeap {
         if cfg!(debug_assertions) {
-            self.register_stack.last_mut().unwrap()
+            &mut self.memory_stack.last_mut().unwrap().1
         } else {
-            unsafe { self.register_stack.last_mut().unwrap_unchecked() }
+            unsafe { &mut self.memory_stack.last_mut().unwrap_unchecked().1 }
         }
     }
 
@@ -90,10 +91,10 @@ impl Thread {
             } else {
                 unsafe { self.call_stack.last_mut().unwrap_unchecked() }
             };
-            let registers = if cfg!(debug_assertions) {
-                self.register_stack.last_mut().unwrap()
+            let (registers, memory) = if cfg!(debug_assertions) {
+                self.memory_stack.last_mut().unwrap()
             } else {
-                unsafe { self.register_stack.last_mut().unwrap_unchecked() }
+                unsafe { self.memory_stack.last_mut().unwrap_unchecked() }
             };
             let instructions = &current_frame.chunk.instructions;
             let ip = current_frame.ip;
@@ -107,45 +108,46 @@ impl Thread {
 
             match instruction.operation() {
                 Operation::MOVE => {
-                    let source = instruction.b_field() as usize;
-                    let destination = instruction.a_field() as usize;
-                    let source_type = instruction.b_type();
+                    let Move {
+                        destination,
+                        operand: Operand { index, kind },
+                    } = Move::from(&instruction);
 
-                    match source_type {
+                    match operand.as_type_code() {
                         TypeCode::BOOLEAN => {
-                            let value = registers.booleans.get(source).copy_value();
+                            let value = memory.booleans.get(source).copy_value();
 
-                            registers.booleans.get_mut(destination).set(value);
+                            memory.booleans.get_mut(destination).set(value);
                         }
                         TypeCode::BYTE => {
-                            let value = registers.bytes.get(source).copy_value();
+                            let value = memory.bytes.get(source).copy_value();
 
-                            registers.bytes.get_mut(destination).set(value);
+                            memory.bytes.get_mut(destination).set(value);
                         }
                         TypeCode::CHARACTER => {
-                            let value = registers.characters.get(source).copy_value();
+                            let value = memory.characters.get(source).copy_value();
 
-                            registers.characters.get_mut(destination).set(value);
+                            memory.characters.get_mut(destination).set(value);
                         }
                         TypeCode::FLOAT => {
-                            let value = registers.floats.get(source).copy_value();
+                            let value = memory.floats.get(source).copy_value();
 
-                            registers.floats.get_mut(destination).set(value);
+                            memory.floats.get_mut(destination).set(value);
                         }
                         TypeCode::INTEGER => {
-                            let value = registers.integers.get(source).copy_value();
+                            let value = memory.integers.get(source).copy_value();
 
-                            registers.integers.get_mut(destination).set(value);
+                            memory.integers.get_mut(destination).set(value);
                         }
                         TypeCode::STRING => {
-                            let value = registers.strings.get(source).clone_value();
+                            let value = memory.strings.get(source).clone_value();
 
-                            registers.strings.get_mut(destination).set(value);
+                            memory.strings.get_mut(destination).set(value);
                         }
                         TypeCode::LIST => {
-                            let value = registers.lists.get(source).clone_value();
+                            let value = memory.lists.get(source).clone_value();
 
-                            registers.lists.get_mut(destination).set(value);
+                            memory.lists.get_mut(destination).set(value);
                         }
                         _ => todo!(),
                     }
@@ -157,49 +159,49 @@ impl Thread {
 
                     match r#type {
                         TypeCode::BOOLEAN => {
-                            let registers = registers.booleans.get_many_mut(from..=to);
+                            let registers = memory.booleans.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::BYTE => {
-                            let registers = registers.bytes.get_many_mut(from..=to);
+                            let registers = memory.bytes.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::CHARACTER => {
-                            let registers = registers.characters.get_many_mut(from..=to);
+                            let registers = memory.characters.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::FLOAT => {
-                            let registers = registers.floats.get_many_mut(from..=to);
+                            let registers = memory.floats.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::INTEGER => {
-                            let registers = registers.integers.get_many_mut(from..=to);
+                            let registers = memory.integers.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::STRING => {
-                            let registers = registers.strings.get_many_mut(from..=to);
+                            let registers = memory.strings.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
                             }
                         }
                         TypeCode::LIST => {
-                            let registers = registers.lists.get_many_mut(from..=to);
+                            let registers = memory.lists.get_many_mut(from..=to);
 
                             for register in registers {
                                 register.close();
@@ -217,12 +219,12 @@ impl Thread {
                         TypeCode::BOOLEAN => {
                             let boolean = instruction.b_field() != 0;
 
-                            registers.booleans.set_to_new_register(destination, boolean);
+                            memory.booleans.set_to_new_register(destination, boolean);
                         }
                         TypeCode::BYTE => {
                             let byte = instruction.b_field() as u8;
 
-                            registers.bytes.set_to_new_register(destination, byte);
+                            memory.bytes.set_to_new_register(destination, byte);
                         }
                         _ => unreachable!("Invalid LOAD_ENCODED instruction"),
                     }
@@ -241,22 +243,22 @@ impl Thread {
                         TypeCode::CHARACTER => {
                             let character = current_frame.get_character_constant(constant_index);
 
-                            registers.characters.get_mut(destination).set(character);
+                            memory.characters.get_mut(destination).set(character);
                         }
                         TypeCode::FLOAT => {
                             let float = current_frame.get_float_constant(constant_index);
 
-                            registers.floats.get_mut(destination).set(float);
+                            memory.floats.get_mut(destination).set(float);
                         }
                         TypeCode::INTEGER => {
                             let integer = current_frame.get_integer_constant(constant_index);
 
-                            registers.integers.get_mut(destination).set(integer);
+                            memory.integers.get_mut(destination).set(integer);
                         }
                         TypeCode::STRING => {
                             let string = current_frame.get_string_constant(constant_index).clone();
 
-                            registers.strings.get_mut(destination).set(string);
+                            memory.strings.get_mut(destination).set(string);
                         }
                         _ => unreachable!("Invalid LOAD_CONSTANT operation"),
                     }
@@ -277,8 +279,7 @@ impl Thread {
                     match item_type {
                         TypeCode::BOOLEAN => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed =
-                                    registers.booleans.is_closed(register_index);
+                                let register_is_closed = memory.booleans.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -289,7 +290,7 @@ impl Thread {
                         }
                         TypeCode::BYTE => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed = registers.bytes.is_closed(register_index);
+                                let register_is_closed = memory.bytes.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -301,7 +302,7 @@ impl Thread {
                         TypeCode::CHARACTER => {
                             for register_index in start_register..=end_register {
                                 let register_is_closed =
-                                    registers.characters.is_closed(register_index);
+                                    memory.characters.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -312,7 +313,7 @@ impl Thread {
                         }
                         TypeCode::FLOAT => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed = registers.floats.is_closed(register_index);
+                                let register_is_closed = memory.floats.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -323,8 +324,7 @@ impl Thread {
                         }
                         TypeCode::INTEGER => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed =
-                                    registers.integers.is_closed(register_index);
+                                let register_is_closed = memory.integers.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -335,8 +335,7 @@ impl Thread {
                         }
                         TypeCode::STRING => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed =
-                                    registers.strings.is_closed(register_index);
+                                let register_is_closed = memory.strings.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -347,7 +346,7 @@ impl Thread {
                         }
                         TypeCode::LIST => {
                             for register_index in start_register..=end_register {
-                                let register_is_closed = registers.lists.is_closed(register_index);
+                                let register_is_closed = memory.lists.is_closed(register_index);
 
                                 if register_is_closed {
                                     continue;
@@ -364,7 +363,7 @@ impl Thread {
                         item_pointers,
                     };
 
-                    registers.lists.get_mut(destination).set(list);
+                    memory.lists.get_mut(destination).set(list);
 
                     if jump_next {
                         current_frame.ip += 1;
@@ -386,9 +385,7 @@ impl Thread {
                     };
                     let function = prototype.as_function();
 
-                    registers
-                        .functions
-                        .set_to_new_register(destination, function);
+                    memory.functions.set_to_new_register(destination, function);
 
                     if jump_next {
                         current_frame.ip += 1;
@@ -399,7 +396,7 @@ impl Thread {
                     let jump_next = instruction.c_field() != 0;
                     let self_function = current_frame.chunk.as_function();
 
-                    registers
+                    memory
                         .functions
                         .set_to_new_register(destination, self_function);
 
@@ -413,11 +410,11 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = registers.bytes.get(left_index).copy_value();
-                        let right_value = registers.bytes.get(right_index).copy_value();
+                        let left_value = memory.bytes.get(left_index).copy_value();
+                        let right_value = memory.bytes.get(right_index).copy_value();
                         let sum = left_value + right_value;
 
-                        registers.bytes.set_to_new_register(destination_index, sum);
+                        memory.bytes.set_to_new_register(destination_index, sum);
                     }
                     (TypeCode::CHARACTER, TypeCode::CHARACTER) => {
                         let left_index = instruction.b_field() as usize;
@@ -429,12 +426,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left_index)
                         } else {
-                            registers.characters.get(left_index).copy_value()
+                            memory.characters.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right_index)
                         } else {
-                            registers.characters.get(right_index).copy_value()
+                            memory.characters.get(right_index).copy_value()
                         };
                         let concatenated = {
                             let mut concatenated = DustString::from(String::with_capacity(2));
@@ -445,7 +442,7 @@ impl Thread {
                             concatenated
                         };
 
-                        registers
+                        memory
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
@@ -459,16 +456,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left_index)
                         } else {
-                            registers.characters.get(left_index).copy_value()
+                            memory.characters.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right_index)
                         } else {
-                            registers.strings.get(right_index).as_value()
+                            memory.strings.get(right_index).as_value()
                         };
                         let concatenated = DustString::from(format!("{left_value}{right_value}"));
 
-                        registers
+                        memory
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
@@ -482,16 +479,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left_index)
                         } else {
-                            registers.floats.get(left_index).copy_value()
+                            memory.floats.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right_index)
                         } else {
-                            registers.floats.get(right_index).copy_value()
+                            memory.floats.get(right_index).copy_value()
                         };
                         let sum = left_value + right_value;
 
-                        registers.floats.set_to_new_register(destination_index, sum);
+                        memory.floats.set_to_new_register(destination_index, sum);
                     }
                     (TypeCode::INTEGER, TypeCode::INTEGER) => {
                         let left = instruction.b_field() as usize;
@@ -503,18 +500,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let sum = left_value + right_value;
 
-                        registers
-                            .integers
-                            .set_to_new_register(destination_index, sum);
+                        memory.integers.set_to_new_register(destination_index, sum);
                     }
                     (TypeCode::STRING, TypeCode::CHARACTER) => {
                         let left_index = instruction.b_field() as usize;
@@ -526,16 +521,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left_index)
                         } else {
-                            registers.strings.get(left_index).as_value()
+                            memory.strings.get(left_index).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right_index)
                         } else {
-                            registers.characters.get(right_index).copy_value()
+                            memory.characters.get(right_index).copy_value()
                         };
                         let concatenated = DustString::from(format!("{left_value}{right_value}"));
 
-                        registers
+                        memory
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
@@ -549,16 +544,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left)
                         } else {
-                            registers.strings.get(left).as_value()
+                            memory.strings.get(left).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right)
                         } else {
-                            registers.strings.get(right).as_value()
+                            memory.strings.get(right).as_value()
                         };
                         let concatenated = DustString::from(format!("{left_value}{right_value}"));
 
-                        registers
+                        memory
                             .strings
                             .set_to_new_register(destination_index, concatenated);
                     }
@@ -570,11 +565,11 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = registers.bytes.get(left_index).copy_value();
-                        let right_value = registers.bytes.get(right_index).copy_value();
+                        let left_value = memory.bytes.get(left_index).copy_value();
+                        let right_value = memory.bytes.get(right_index).copy_value();
                         let difference = left_value - right_value;
 
-                        registers
+                        memory
                             .bytes
                             .set_to_new_register(destination_index, difference);
                     }
@@ -588,16 +583,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left_index)
                         } else {
-                            registers.floats.get(left_index).copy_value()
+                            memory.floats.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right_index)
                         } else {
-                            registers.floats.get(right_index).copy_value()
+                            memory.floats.get(right_index).copy_value()
                         };
                         let difference = left_value - right_value;
 
-                        registers
+                        memory
                             .floats
                             .set_to_new_register(destination_index, difference);
                     }
@@ -611,16 +606,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let difference = left_value - right_value;
 
-                        registers
+                        memory
                             .integers
                             .set_to_new_register(destination_index, difference);
                     }
@@ -632,13 +627,11 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = registers.bytes.get(left_index).copy_value();
-                        let right_value = registers.bytes.get(right_index).copy_value();
+                        let left_value = memory.bytes.get(left_index).copy_value();
+                        let right_value = memory.bytes.get(right_index).copy_value();
                         let product = left_value * right_value;
 
-                        registers
-                            .bytes
-                            .set_to_new_register(destination_index, product);
+                        memory.bytes.set_to_new_register(destination_index, product);
                     }
                     (TypeCode::FLOAT, TypeCode::FLOAT) => {
                         let left_index = instruction.b_field() as usize;
@@ -650,16 +643,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left_index)
                         } else {
-                            registers.floats.get(left_index).copy_value()
+                            memory.floats.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right_index)
                         } else {
-                            registers.floats.get(right_index).copy_value()
+                            memory.floats.get(right_index).copy_value()
                         };
                         let product = left_value * right_value;
 
-                        registers
+                        memory
                             .floats
                             .set_to_new_register(destination_index, product);
                     }
@@ -673,16 +666,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let product = left_value * right_value;
 
-                        registers
+                        memory
                             .integers
                             .set_to_new_register(destination_index, product);
                     }
@@ -694,11 +687,11 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = registers.bytes.get(left_index).copy_value();
-                        let right_value = registers.bytes.get(right_index).copy_value();
+                        let left_value = memory.bytes.get(left_index).copy_value();
+                        let right_value = memory.bytes.get(right_index).copy_value();
                         let quotient = left_value / right_value;
 
-                        registers
+                        memory
                             .bytes
                             .set_to_new_register(destination_index, quotient);
                     }
@@ -712,16 +705,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left_index)
                         } else {
-                            registers.floats.get(left_index).copy_value()
+                            memory.floats.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right_index)
                         } else {
-                            registers.floats.get(right_index).copy_value()
+                            memory.floats.get(right_index).copy_value()
                         };
                         let quotient = left_value / right_value;
 
-                        registers
+                        memory
                             .floats
                             .set_to_new_register(destination_index, quotient);
                     }
@@ -735,16 +728,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let quotient = left_value / right_value;
 
-                        registers
+                        memory
                             .integers
                             .set_to_new_register(destination_index, quotient);
                     }
@@ -756,11 +749,11 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let destination_index = instruction.a_field() as usize;
 
-                        let left_value = registers.bytes.get(left_index).copy_value();
-                        let right_value = registers.bytes.get(right_index).copy_value();
+                        let left_value = memory.bytes.get(left_index).copy_value();
+                        let right_value = memory.bytes.get(right_index).copy_value();
                         let remainder = left_value % right_value;
 
-                        registers
+                        memory
                             .bytes
                             .set_to_new_register(destination_index, remainder);
                     }
@@ -774,16 +767,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left_index)
                         } else {
-                            registers.floats.get(left_index).copy_value()
+                            memory.floats.get(left_index).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right_index)
                         } else {
-                            registers.floats.get(right_index).copy_value()
+                            memory.floats.get(right_index).copy_value()
                         };
                         let remainder = left_value % right_value;
 
-                        registers
+                        memory
                             .floats
                             .set_to_new_register(destination_index, remainder);
                     }
@@ -797,16 +790,16 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let remainder = left_value % right_value;
 
-                        registers
+                        memory
                             .integers
                             .set_to_new_register(destination_index, remainder);
                     }
@@ -818,8 +811,8 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.booleans.get(left_index).copy_value();
-                        let right_value = registers.booleans.get(right_index).copy_value();
+                        let left_value = memory.booleans.get(left_index).copy_value();
+                        let right_value = memory.booleans.get(right_index).copy_value();
 
                         // See <https://github.com/rust-lang/rust/issues/66780> for more info.
                         let is_equal = matches!((left_value as i8) - (right_value as i8), 0);
@@ -833,8 +826,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.bytes.get(left).copy_value();
-                        let right_value = registers.bytes.get(right).copy_value();
+                        let left_value = memory.bytes.get(left).copy_value();
+                        let right_value = memory.bytes.get(right).copy_value();
                         let is_equal = left_value == right_value;
 
                         if is_equal == comparator {
@@ -851,12 +844,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left)
                         } else {
-                            registers.characters.get(left).copy_value()
+                            memory.characters.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right)
                         } else {
-                            registers.characters.get(right).copy_value()
+                            memory.characters.get(right).copy_value()
                         };
                         let is_equal = left_value == right_value;
 
@@ -874,12 +867,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left)
                         } else {
-                            registers.floats.get(left).copy_value()
+                            memory.floats.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right)
                         } else {
-                            registers.floats.get(right).copy_value()
+                            memory.floats.get(right).copy_value()
                         };
                         let is_equal = left_value == right_value;
 
@@ -897,12 +890,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let is_equal = left_value == right_value;
 
@@ -920,12 +913,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left)
                         } else {
-                            registers.strings.get(left).as_value()
+                            memory.strings.get(left).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right)
                         } else {
-                            registers.strings.get(right).as_value()
+                            memory.strings.get(right).as_value()
                         };
                         let is_equal = left_value == right_value;
 
@@ -938,8 +931,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.lists.get(left).as_value();
-                        let right_value = registers.lists.get(right).as_value();
+                        let left_value = memory.lists.get(left).as_value();
+                        let right_value = memory.lists.get(right).as_value();
                         let is_equal = left_value == right_value;
 
                         if is_equal == comparator {
@@ -951,8 +944,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.functions.get(left).as_value();
-                        let right_value = registers.functions.get(right).as_value();
+                        let left_value = memory.functions.get(left).as_value();
+                        let right_value = memory.functions.get(right).as_value();
                         let is_equal = left_value == right_value;
 
                         if is_equal == comparator {
@@ -967,8 +960,8 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.booleans.get(left_index).copy_value();
-                        let right_value = registers.booleans.get(right_index).copy_value();
+                        let left_value = memory.booleans.get(left_index).copy_value();
+                        let right_value = memory.booleans.get(right_index).copy_value();
 
                         // See <https://github.com/rust-lang/rust/issues/66780> for more info.
                         let is_less_than = matches!((left_value as i8) - (right_value as i8), -1);
@@ -982,8 +975,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.bytes.get(left).copy_value();
-                        let right_value = registers.bytes.get(right).copy_value();
+                        let left_value = memory.bytes.get(left).copy_value();
+                        let right_value = memory.bytes.get(right).copy_value();
                         let is_less_than = left_value < right_value;
 
                         if is_less_than == comparator {
@@ -1000,12 +993,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left)
                         } else {
-                            registers.characters.get(left).copy_value()
+                            memory.characters.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right)
                         } else {
-                            registers.characters.get(right).copy_value()
+                            memory.characters.get(right).copy_value()
                         };
                         let is_less_than = left_value < right_value;
 
@@ -1023,12 +1016,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left)
                         } else {
-                            registers.floats.get(left).copy_value()
+                            memory.floats.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right)
                         } else {
-                            registers.floats.get(right).copy_value()
+                            memory.floats.get(right).copy_value()
                         };
                         let is_less_than = left_value < right_value;
 
@@ -1046,12 +1039,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let is_less_than = left_value < right_value;
 
@@ -1069,12 +1062,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left)
                         } else {
-                            registers.strings.get(left).as_value()
+                            memory.strings.get(left).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right)
                         } else {
-                            registers.strings.get(right).as_value()
+                            memory.strings.get(right).as_value()
                         };
                         let is_less_than = left_value < right_value;
 
@@ -1087,8 +1080,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.lists.get(left).as_value();
-                        let right_value = registers.lists.get(right).as_value();
+                        let left_value = memory.lists.get(left).as_value();
+                        let right_value = memory.lists.get(right).as_value();
                         let is_less_than = left_value < right_value;
 
                         if is_less_than == comparator {
@@ -1100,8 +1093,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.functions.get(left).as_value();
-                        let right_value = registers.functions.get(right).as_value();
+                        let left_value = memory.functions.get(left).as_value();
+                        let right_value = memory.functions.get(right).as_value();
                         let is_less_than = left_value < right_value;
 
                         if is_less_than == comparator {
@@ -1116,8 +1109,8 @@ impl Thread {
                         let right_index = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.booleans.get(left_index).copy_value();
-                        let right_value = registers.booleans.get(right_index).copy_value();
+                        let left_value = memory.booleans.get(left_index).copy_value();
+                        let right_value = memory.booleans.get(right_index).copy_value();
 
                         // See <https://github.com/rust-lang/rust/issues/66780> for more info.
                         let is_less_than_or_equal =
@@ -1132,8 +1125,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.bytes.get(left).copy_value();
-                        let right_value = registers.bytes.get(right).copy_value();
+                        let left_value = memory.bytes.get(left).copy_value();
+                        let right_value = memory.bytes.get(right).copy_value();
                         let is_less_than_or_equal = left_value <= right_value;
 
                         if is_less_than_or_equal == comparator {
@@ -1150,12 +1143,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_character_constant(left)
                         } else {
-                            registers.characters.get(left).copy_value()
+                            memory.characters.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_character_constant(right)
                         } else {
-                            registers.characters.get(right).copy_value()
+                            memory.characters.get(right).copy_value()
                         };
                         let is_less_than_or_equal = left_value <= right_value;
 
@@ -1173,12 +1166,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_float_constant(left)
                         } else {
-                            registers.floats.get(left).copy_value()
+                            memory.floats.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_float_constant(right)
                         } else {
-                            registers.floats.get(right).copy_value()
+                            memory.floats.get(right).copy_value()
                         };
                         let is_less_than_or_equal = left_value <= right_value;
 
@@ -1196,12 +1189,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_integer_constant(left)
                         } else {
-                            registers.integers.get(left).copy_value()
+                            memory.integers.get(left).copy_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_integer_constant(right)
                         } else {
-                            registers.integers.get(right).copy_value()
+                            memory.integers.get(right).copy_value()
                         };
                         let is_less_than_or_equal = left_value <= right_value;
 
@@ -1219,12 +1212,12 @@ impl Thread {
                         let left_value = if left_is_constant {
                             current_frame.get_string_constant(left)
                         } else {
-                            registers.strings.get(left).as_value()
+                            memory.strings.get(left).as_value()
                         };
                         let right_value = if right_is_constant {
                             current_frame.get_string_constant(right)
                         } else {
-                            registers.strings.get(right).as_value()
+                            memory.strings.get(right).as_value()
                         };
                         let is_less_than_or_equal = left_value <= right_value;
 
@@ -1237,8 +1230,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.lists.get(left).as_value();
-                        let right_value = registers.lists.get(right).as_value();
+                        let left_value = memory.lists.get(left).as_value();
+                        let right_value = memory.lists.get(right).as_value();
                         let is_less_than_or_equal = left_value <= right_value;
 
                         if is_less_than_or_equal == comparator {
@@ -1250,8 +1243,8 @@ impl Thread {
                         let right = instruction.c_field() as usize;
                         let comparator = instruction.d_field();
 
-                        let left_value = registers.functions.get(left).as_value();
-                        let right_value = registers.functions.get(right).as_value();
+                        let left_value = memory.functions.get(left).as_value();
+                        let right_value = memory.functions.get(right).as_value();
                         let is_less_than_or_equal = left_value <= right_value;
 
                         if is_less_than_or_equal == comparator {
@@ -1263,8 +1256,7 @@ impl Thread {
                 Operation::TEST => {
                     let operand_register_index = instruction.b_field() as usize;
                     let test_value = instruction.c_field() != 0;
-                    let operand_boolean =
-                        registers.booleans.get(operand_register_index).copy_value();
+                    let operand_boolean = memory.booleans.get(operand_register_index).copy_value();
 
                     if operand_boolean == test_value {
                         current_frame.ip += 1;
@@ -1275,14 +1267,14 @@ impl Thread {
                         TypeCode::BOOLEAN => {
                             let operand_register_index = instruction.b_field() as usize;
 
-                            registers.booleans.get(operand_register_index).as_value()
+                            memory.booleans.get(operand_register_index).as_value()
                         }
                         _ => unreachable!("Invalid NOT instruction"),
                     };
                     let negated = !boolean;
                     let destination = instruction.a_field() as usize;
 
-                    registers.booleans.set_to_new_register(destination, negated);
+                    memory.booleans.set_to_new_register(destination, negated);
                 }
                 Operation::CALL => {
                     let destination = instruction.a_field();
@@ -1293,7 +1285,7 @@ impl Thread {
                     let function = if is_recursive {
                         current_frame.chunk.as_function()
                     } else {
-                        registers
+                        memory
                             .functions
                             .get(function_register as usize)
                             .as_value()
@@ -1318,7 +1310,7 @@ impl Thread {
                         ip: 0,
                         return_register: destination,
                     };
-                    let mut new_registers = Memory::new(function_prototype);
+                    let mut new_registers = MemoryHeap::new(function_prototype);
 
                     for (r#type, (register_index, _)) in function
                         .r#type
@@ -1330,7 +1322,7 @@ impl Thread {
 
                         match r#type {
                             Type::Boolean => {
-                                let boolean = *registers.booleans.get(register_index).as_value();
+                                let boolean = *memory.booleans.get(register_index).as_value();
 
                                 *new_registers
                                     .booleans
@@ -1338,7 +1330,7 @@ impl Thread {
                                     .as_value_mut() = boolean;
                             }
                             Type::Integer => {
-                                let integer = *registers.integers.get(register_index).as_value();
+                                let integer = *memory.integers.get(register_index).as_value();
 
                                 *new_registers
                                     .integers
@@ -1346,8 +1338,7 @@ impl Thread {
                                     .as_value_mut() = integer;
                             }
                             Type::String => {
-                                let string =
-                                    registers.strings.get(register_index).as_value().clone();
+                                let string = memory.strings.get(register_index).as_value().clone();
 
                                 *new_registers.strings.get_mut(register_index).as_value_mut() =
                                     string;
@@ -1357,7 +1348,7 @@ impl Thread {
                     }
 
                     self.call_stack.push(call_frame);
-                    self.register_stack.push(new_registers);
+                    self.memory_stack.push(new_registers);
 
                     trace!(
                         "Call Stack: {:?}",
@@ -1396,42 +1387,42 @@ impl Thread {
                             match return_type {
                                 TypeCode::BOOLEAN => {
                                     let return_value =
-                                        registers.booleans.get(return_register).copy_value();
+                                        memory.booleans.get(return_register).copy_value();
 
                                     return Some(Value::boolean(return_value));
                                 }
                                 TypeCode::BYTE => {
                                     let return_value =
-                                        registers.bytes.get(return_register).copy_value();
+                                        memory.bytes.get(return_register).copy_value();
 
                                     return Some(Value::byte(return_value));
                                 }
                                 TypeCode::CHARACTER => {
                                     let return_value =
-                                        registers.characters.get(return_register).copy_value();
+                                        memory.characters.get(return_register).copy_value();
 
                                     return Some(Value::character(return_value));
                                 }
                                 TypeCode::FLOAT => {
                                     let return_value =
-                                        registers.floats.get(return_register).copy_value();
+                                        memory.floats.get(return_register).copy_value();
 
                                     return Some(Value::float(return_value));
                                 }
                                 TypeCode::INTEGER => {
                                     let return_value =
-                                        registers.integers.get(return_register).copy_value();
+                                        memory.integers.get(return_register).copy_value();
 
                                     return Some(Value::integer(return_value));
                                 }
                                 TypeCode::STRING => {
                                     let return_value =
-                                        registers.strings.get(return_register).clone_value();
+                                        memory.strings.get(return_register).clone_value();
 
                                     return Some(Value::string(return_value));
                                 }
                                 TypeCode::LIST => {
-                                    let concrete_list = registers
+                                    let concrete_list = memory
                                         .lists
                                         .get(return_register)
                                         .as_value()
@@ -1442,7 +1433,7 @@ impl Thread {
                                 }
                                 TypeCode::FUNCTION => {
                                     let return_value =
-                                        registers.functions.get(return_register).clone_value();
+                                        memory.functions.get(return_register).clone_value();
 
                                     return Some(Value::Function(return_value));
                                 }
@@ -1455,112 +1446,110 @@ impl Thread {
                         match return_type {
                             TypeCode::BOOLEAN => {
                                 let return_value =
-                                    registers.booleans.get(return_register).copy_value();
+                                    memory.booleans.get(return_register).copy_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.booleans.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::BYTE => {
-                                let return_value =
-                                    registers.bytes.get(return_register).copy_value();
+                                let return_value = memory.bytes.get(return_register).copy_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.bytes.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::CHARACTER => {
                                 let return_value =
-                                    registers.characters.get(return_register).copy_value();
+                                    memory.characters.get(return_register).copy_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.characters.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::FLOAT => {
-                                let return_value =
-                                    registers.floats.get(return_register).copy_value();
+                                let return_value = memory.floats.get(return_register).copy_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.floats.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::INTEGER => {
                                 let return_value =
-                                    registers.integers.get(return_register).copy_value();
+                                    memory.integers.get(return_register).copy_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.integers.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::STRING => {
                                 let return_value =
-                                    registers.strings.get(return_register).clone_value();
+                                    memory.strings.get(return_register).clone_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.strings.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::LIST => {
                                 let return_value =
-                                    registers.lists.get(return_register).as_value().clone();
+                                    memory.lists.get(return_register).as_value().clone();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.lists.get_mut(return_register).as_value_mut() =
                                     return_value;
                             }
                             TypeCode::FUNCTION => {
                                 let return_value =
-                                    registers.functions.get(return_register).clone_value();
+                                    memory.functions.get(return_register).clone_value();
                                 let return_register =
                                     self.call_stack.last().unwrap().return_register as usize;
 
                                 self.call_stack.pop();
-                                self.register_stack.pop();
+                                self.memory_stack.pop();
 
-                                let registers = self.register_stack.last_mut().unwrap();
+                                let registers = self.memory_stack.last_mut().unwrap();
 
                                 *registers.functions.get_mut(return_register).as_value_mut() =
                                     return_value;

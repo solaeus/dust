@@ -9,6 +9,7 @@ pub use concrete_value::{ConcreteValue, DustString};
 pub use function::Function;
 pub use range_value::RangeValue;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -143,8 +144,16 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
-            Value::AbstractList(list) => write!(f, "{list}"),
-            Value::Function(function) => write!(f, "{function}"),
+            Value::AbstractList(list) => {
+                warn!(
+                    "Using Display implementation on an AbstractList. Use AbstractList::display instead."
+                );
+                write!(f, "{list:?}")
+            }
+            Value::Function(function) => {
+                warn!("Using Display implementation on a Function. Use Function::display instead.");
+                write!(f, "{function:?}")
+            }
         }
     }
 }

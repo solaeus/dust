@@ -89,7 +89,6 @@ mod load_constant;
 mod load_encoded;
 mod load_function;
 mod load_list;
-mod load_self;
 mod modulo;
 mod r#move;
 mod multiply;
@@ -116,14 +115,12 @@ pub use load_constant::LoadConstant;
 pub use load_encoded::LoadEncoded;
 pub use load_function::LoadFunction;
 pub use load_list::LoadList;
-pub use load_self::LoadSelf;
 pub use modulo::Modulo;
 pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use not::Not;
-pub use operand::Operand;
-use operand::OperandKind;
+pub use operand::{Operand, OperandKind};
 pub use operation::Operation;
 pub use r#return::Return;
 pub use subtract::Subtract;
@@ -134,7 +131,7 @@ pub use type_code::TypeCode;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{NativeFunction, Type};
+use crate::NativeFunction;
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -233,94 +230,89 @@ impl Instruction {
             }
             Operation::LOAD_ENCODED => {
                 let LoadEncoded {
-                    destination,
-                    value_kind,
-                    ..
+                    destination, value, ..
                 } = LoadEncoded::from(*self);
 
                 Operand {
-                    index: destination,
-                    kind: value_kind,
+                    index: destination.index,
+                    kind: value.kind,
                 }
             }
             Operation::LOAD_CONSTANT => {
-                let LoadConstant {
-                    constant_type,
-                    constant_index,
-                    ..
-                } = LoadConstant::from(*self);
+                let LoadConstant { constant, .. } = LoadConstant::from(*self);
 
-                Operand::Constant(constant_index, constant_type)
+                constant
             }
             Operation::LOAD_LIST => {
                 let LoadList { destination, .. } = LoadList::from(*self);
+                let kind = if destination.is_register {
+                    OperandKind::LIST_REGISTER
+                } else {
+                    OperandKind::LIST_MEMORY
+                };
 
-                Operand::Register(destination, TypeCode::LIST)
+                Operand {
+                    index: destination.index,
+                    kind,
+                }
             }
             Operation::LOAD_FUNCTION => {
                 let LoadFunction { destination, .. } = LoadFunction::from(*self);
+                let kind = if destination.is_register {
+                    OperandKind::FUNCTION_REGISTER
+                } else {
+                    OperandKind::FUNCTION_MEMORY
+                };
 
-                Operand::Register(destination, TypeCode::FUNCTION)
-            }
-            Operation::LOAD_SELF => {
-                let LoadSelf { destination, .. } = LoadSelf::from(*self);
-
-                Operand::Register(destination, TypeCode::FUNCTION)
+                Operand {
+                    index: destination.index,
+                    kind,
+                }
             }
             Operation::ADD => {
                 let Add {
                     destination, left, ..
                 } = Add::from(self);
-
-                let register_type = match left.as_type_code() {
-                    TypeCode::BOOLEAN => TypeCode::BOOLEAN,
-                    TypeCode::BYTE => TypeCode::BYTE,
-                    TypeCode::CHARACTER => TypeCode::STRING, // Adding characters concatenates them
-                    TypeCode::INTEGER => TypeCode::INTEGER,
-                    TypeCode::FLOAT => TypeCode::FLOAT,
-                    TypeCode::STRING => TypeCode::STRING,
-                    TypeCode::LIST => TypeCode::LIST,
-                    TypeCode::FUNCTION => TypeCode::FUNCTION,
-                    _ => unreachable!(),
+                let left_type = left.as_type_code();
+                let destination_type = match left_type {
+                    TypeCode::CHARACTER => TypeCode::STRING,
+                    _ => left_type,
                 };
 
-                Operand::Register(destination, register_type)
+                destination.as_operand(destination_type)
             }
             Operation::SUBTRACT => {
                 let Subtract {
                     destination, left, ..
                 } = Subtract::from(*self);
 
-                Operand::Register(destination, left.as_type_code())
+                destination.as_operand(left.as_type_code())
             }
             Operation::MULTIPLY => {
                 let Multiply {
                     destination, left, ..
                 } = Multiply::from(*self);
 
-                Operand::Register(destination, left.as_type_code())
+                destination.as_operand(left.as_type_code())
             }
             Operation::DIVIDE => {
                 let Divide {
                     destination, left, ..
                 } = Divide::from(*self);
 
-                Operand::Register(destination, left.as_type_code())
+                destination.as_operand(left.as_type_code())
             }
             Operation::MODULO => {
                 let Modulo {
                     destination, left, ..
                 } = Modulo::from(*self);
 
-                Operand::Register(destination, left.as_type_code())
+                destination.as_operand(left.as_type_code())
             }
             Operation::NOT => {
-                let Not {
-                    destination,
-                    argument,
-                } = Not::from(*self);
+                let Not { destination, .. } = Not::from(*self);
 
-                Operand::Register(destination, argument.as_type_code())
+                destination.as_operand(TypeCode::BOOLEAN)
             }
             Operation::CALL => {
                 let Call {
@@ -329,7 +321,7 @@ impl Instruction {
                     ..
                 } = Call::from(*self);
 
-                Operand::Register(destination, return_type)
+                destination.as_operand(return_type)
             }
             unsupported => todo!("Support {unsupported}"),
         }
@@ -339,46 +331,42 @@ impl Instruction {
         Instruction(Operation::NO_OP.0 as u64)
     }
 
-    pub fn r#move(destination: u16, to: Operand) -> Instruction {
+    pub fn r#move(destination: Destination, to: Operand) -> Instruction {
         Instruction::from(Move {
             destination,
             operand: to,
         })
     }
 
-    pub fn close(from: u16, to: u16, r#type: TypeCode) -> Instruction {
-        Instruction::from(Close { from, to, r#type })
+    pub fn close(from: Operand, to: Operand) -> Instruction {
+        Instruction::from(Close { from, to })
     }
 
-    pub fn load_encoded(
-        destination: u16,
-        value: u8,
-        value_type: TypeCode,
-        jump_next: bool,
-    ) -> Instruction {
+    pub fn load_encoded(destination: Destination, value: Operand, jump_next: bool) -> Instruction {
         Instruction::from(LoadEncoded {
             destination,
             value,
-            value_type,
             jump_next,
         })
     }
 
     pub fn load_constant(
-        destination: u16,
-        constant_index: u16,
-        constant_type: TypeCode,
+        destination: Destination,
+        constant: Operand,
         jump_next: bool,
     ) -> Instruction {
         Instruction::from(LoadConstant {
             destination,
-            constant_index,
-            constant_type,
+            constant,
             jump_next,
         })
     }
 
-    pub fn load_function(destination: u16, prototype_index: u16, jump_next: bool) -> Instruction {
+    pub fn load_function(
+        destination: Destination,
+        prototype_index: u16,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadFunction {
             destination,
             prototype_index,
@@ -387,29 +375,20 @@ impl Instruction {
     }
 
     pub fn load_list(
-        destination: u16,
-        item_type: TypeCode,
-        start_register: u16,
-        end_register: u16,
+        destination: Destination,
+        start: Operand,
+        end: u16,
         jump_next: bool,
     ) -> Instruction {
         Instruction::from(LoadList {
             destination,
-            item_type,
-            start_register,
-            end_register,
+            start,
+            end,
             jump_next,
         })
     }
 
-    pub fn load_self(destination: u16, jump_next: bool) -> Instruction {
-        Instruction::from(LoadSelf {
-            destination,
-            jump_next,
-        })
-    }
-
-    pub fn add(destination: u16, left: Operand, right: Operand) -> Instruction {
+    pub fn add(destination: Destination, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
@@ -417,7 +396,7 @@ impl Instruction {
         })
     }
 
-    pub fn subtract(destination: u16, left: Operand, right: Operand) -> Instruction {
+    pub fn subtract(destination: Destination, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
@@ -425,7 +404,7 @@ impl Instruction {
         })
     }
 
-    pub fn multiply(destination: u16, left: Operand, right: Operand) -> Instruction {
+    pub fn multiply(destination: Destination, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
@@ -433,7 +412,7 @@ impl Instruction {
         })
     }
 
-    pub fn divide(destination: u16, left: Operand, right: Operand) -> Instruction {
+    pub fn divide(destination: Destination, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
@@ -441,7 +420,7 @@ impl Instruction {
         })
     }
 
-    pub fn modulo(destination: u16, left: Operand, right: Operand) -> Instruction {
+    pub fn modulo(destination: Destination, left: Operand, right: Operand) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
@@ -473,33 +452,32 @@ impl Instruction {
         })
     }
 
-    pub fn negate(destination: u16, argument: Operand, argument_type: TypeCode) -> Instruction {
+    pub fn negate(destination: Destination, operand: Operand) -> Instruction {
         Instruction::from(Negate {
             destination,
-            argument,
-            argument_type,
+            operand,
         })
     }
 
-    pub fn not(destination: u16, argument: Operand) -> Instruction {
+    pub fn not(destination: Destination, operand: Operand) -> Instruction {
         Instruction::from(Not {
             destination,
-            argument,
+            operand,
         })
     }
 
     pub fn test(operand_register: u16, value: bool) -> Instruction {
         Instruction::from(Test {
             operand_register,
-            test_value: value,
+            comparator: value,
         })
     }
 
-    pub fn test_set(destination: u16, argument: Operand, value: bool) -> Instruction {
+    pub fn test_set(destination: Destination, operand: Operand, value: bool) -> Instruction {
         Instruction::from(TestSet {
             destination,
-            argument,
-            test_value: value,
+            operand,
+            comparator: value,
         })
     }
 
@@ -511,23 +489,21 @@ impl Instruction {
     }
 
     pub fn call(
-        destination: u16,
-        function_register: u16,
-        argument_list_register: u16,
+        destination: Destination,
+        function: Operand,
+        argument_list_index: u16,
         return_type: TypeCode,
-        is_recursive: bool,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
-            function: function_register,
-            argument_list_index: argument_list_register,
+            function,
+            argument_list_index,
             return_type,
-            is_recursive,
         })
     }
 
     pub fn call_native(
-        destination: u16,
+        destination: Destination,
         function: NativeFunction,
         argument_list_index: u16,
     ) -> Instruction {
@@ -538,15 +514,10 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(
-        should_return_value: bool,
-        return_register: u16,
-        r#type: TypeCode,
-    ) -> Instruction {
+    pub fn r#return(should_return_value: bool, return_value: Operand) -> Instruction {
         Instruction::from(Return {
             should_return_value,
-            return_register,
-            r#type,
+            return_value,
         })
     }
 
@@ -565,7 +536,6 @@ impl Instruction {
             | Operation::LOAD_CONSTANT
             | Operation::LOAD_FUNCTION
             | Operation::LOAD_LIST
-            | Operation::LOAD_SELF
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -601,7 +571,6 @@ impl Instruction {
             Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),
-            Operation::LOAD_SELF => LoadSelf::from(*self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(*self).to_string(),
             Operation::MULTIPLY => Multiply::from(*self).to_string(),
@@ -642,100 +611,18 @@ mod tests {
     #[test]
     fn decode_operation() {
         let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
+            Destination::memory(42),
+            Operand {
+                index: 1,
+                kind: OperandKind::CHARACTER_MEMORY,
+            },
+            Operand {
+                index: 2,
+                kind: OperandKind::CHARACTER_MEMORY,
+            },
         );
 
         assert_eq!(Operation::ADD, instruction.operation());
-    }
-
-    #[test]
-    fn decode_a_field() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert_eq!(42, instruction.a_field());
-    }
-
-    #[test]
-    fn decode_b_field() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert_eq!(4, instruction.b_field());
-    }
-
-    #[test]
-    fn decode_c_field() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert_eq!(2, instruction.c_field());
-    }
-
-    #[test]
-    fn decode_d_field() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert!(!instruction.d_field());
-    }
-
-    #[test]
-    fn decode_b_is_constant() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert!(instruction.b_is_constant());
-    }
-
-    #[test]
-    fn decode_c_is_constant() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Register(2, TypeCode::STRING),
-            Operand::Constant(4, TypeCode::CHARACTER),
-        );
-
-        assert!(instruction.c_is_constant());
-    }
-
-    #[test]
-    fn decode_b_type() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert_eq!(TypeCode::STRING, instruction.b_type());
-    }
-
-    #[test]
-    fn decode_c_type() {
-        let instruction = Instruction::add(
-            42,
-            Operand::Constant(4, TypeCode::STRING),
-            Operand::Register(2, TypeCode::CHARACTER),
-        );
-
-        assert_eq!(TypeCode::CHARACTER, instruction.c_type());
     }
 }
 
@@ -796,4 +683,71 @@ impl Default for InstructionFields {
 struct Destination {
     pub index: u16,
     pub is_register: bool,
+}
+
+impl Destination {
+    pub fn memory(index: u16) -> Destination {
+        Destination {
+            index,
+            is_register: false,
+        }
+    }
+
+    pub fn register(index: u16) -> Destination {
+        Destination {
+            index,
+            is_register: true,
+        }
+    }
+
+    pub fn as_operand(&self, destination_type: TypeCode) -> Operand {
+        let kind = match (destination_type, self.is_register) {
+            (TypeCode::BOOLEAN, true) => OperandKind::BOOLEAN_REGISTER,
+            (TypeCode::BOOLEAN, false) => OperandKind::BOOLEAN_MEMORY,
+            (TypeCode::BYTE, true) => OperandKind::BYTE_REGISTER,
+            (TypeCode::BYTE, false) => OperandKind::BYTE_MEMORY,
+            (TypeCode::CHARACTER, true) => OperandKind::CHARACTER_REGISTER,
+            (TypeCode::CHARACTER, false) => OperandKind::CHARACTER_MEMORY,
+            (TypeCode::FLOAT, true) => OperandKind::FLOAT_REGISTER,
+            (TypeCode::FLOAT, false) => OperandKind::FLOAT_MEMORY,
+            (TypeCode::INTEGER, true) => OperandKind::INTEGER_REGISTER,
+            (TypeCode::INTEGER, false) => OperandKind::INTEGER_MEMORY,
+            (TypeCode::STRING, true) => OperandKind::STRING_REGISTER,
+            (TypeCode::STRING, false) => OperandKind::STRING_MEMORY,
+            (TypeCode::LIST, true) => OperandKind::LIST_REGISTER,
+            (TypeCode::LIST, false) => OperandKind::LIST_MEMORY,
+            (TypeCode::FUNCTION, true) => OperandKind::FUNCTION_REGISTER,
+            (TypeCode::FUNCTION, false) => OperandKind::FUNCTION_MEMORY,
+            (_, _) => unreachable!(),
+        };
+
+        Operand {
+            index: self.index,
+            kind,
+        }
+    }
+}
+
+impl Destination {
+    pub fn display(&self, f: &mut Formatter, destination_type: TypeCode) -> fmt::Result {
+        if self.is_register {
+            write!(f, "R_")?;
+        } else {
+            write!(f, "M_")?;
+        }
+
+        match destination_type {
+            TypeCode::BOOLEAN => write!(f, "BOOL_")?,
+            TypeCode::BYTE => write!(f, "BYTE_")?,
+            TypeCode::CHARACTER => write!(f, "CHAR_")?,
+            TypeCode::FLOAT => write!(f, "FLOAT_")?,
+            TypeCode::INTEGER => write!(f, "INT_")?,
+            TypeCode::STRING => write!(f, "STR_")?,
+            TypeCode::LIST => write!(f, "LIST_")?,
+            TypeCode::FUNCTION => write!(f, "FN_")?,
+            unknown => unknown.unknown_write(f)?,
+        }
+
+        write!(f, "{}", self.index)
+    }
 }

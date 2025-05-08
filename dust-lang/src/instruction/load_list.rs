@@ -6,8 +6,8 @@ use super::{Destination, InstructionFields, Operand, OperandKind, TypeCode};
 
 pub struct LoadList {
     pub destination: Destination,
-    pub start_register: Operand,
-    pub end_register: u16,
+    pub start: Operand,
+    pub end: u16,
     pub jump_next: bool,
 }
 
@@ -24,8 +24,8 @@ impl From<Instruction> for LoadList {
 
         LoadList {
             destination,
-            start_register,
-            end_register,
+            start: start_register,
+            end: end_register,
             jump_next,
         }
     }
@@ -41,8 +41,8 @@ impl From<LoadList> for Instruction {
         let Operand {
             index: b_field,
             kind: b_kind,
-        } = load_list.start_register;
-        let c_field = load_list.end_register;
+        } = load_list.start;
+        let c_field = load_list.end;
         let c_kind = {
             let jump_next_encoded = load_list.jump_next as u8;
 
@@ -66,8 +66,8 @@ impl Display for LoadList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let LoadList {
             destination,
-            start_register,
-            end_register,
+            start: start_register,
+            end: end_register,
             jump_next,
         } = self;
 

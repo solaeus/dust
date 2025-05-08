@@ -1,25 +1,25 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operand, Operation};
+use crate::{Instruction, Operand, Operation, TypeCode};
 
-use super::InstructionFields;
+use super::{Destination, InstructionFields};
 
 pub struct TestSet {
-    pub destination: u16,
-    pub argument: Operand,
-    pub test_value: bool,
+    pub destination: Destination,
+    pub comparator: bool,
+    pub operand: Operand,
 }
 
 impl From<Instruction> for TestSet {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.a_field();
-        let argument = instruction.b_as_operand();
-        let test_value = instruction.c_field() != 0;
+        let destination = instruction.destination();
+        let comparator = instruction.b_field() != 0;
+        let operand = instruction.c_operand();
 
         TestSet {
             destination,
-            argument,
-            test_value,
+            operand,
+            comparator,
         }
     }
 }
@@ -27,16 +27,23 @@ impl From<Instruction> for TestSet {
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
         let operation = Operation::TEST;
-        let a_field = test_set.destination;
-        let (b_field, b_is_constant) = test_set.argument.as_index_and_constant_flag();
-        let c_field = test_set.test_value as u16;
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = test_set.destination;
+        let b_field = test_set.comparator as u16;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = test_set.operand;
 
         InstructionFields {
             operation,
             a_field,
+            a_is_register,
             b_field,
             c_field,
-            b_is_constant,
+            c_kind,
             ..Default::default()
         }
         .build()
@@ -47,14 +54,13 @@ impl Display for TestSet {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let TestSet {
             destination,
-            argument,
-            test_value,
+            operand,
+            comparator,
         } = self;
-        let bang = if *test_value { "" } else { "!" };
+        let bang = if *comparator { "" } else { "!" };
 
-        write!(
-            f,
-            "if {bang}{argument} {{ JUMP +1 }} else {{ R{destination} = {argument} }}"
-        )
+        write!(f, "if {bang}{operand} {{ JUMP +1 }} else {{")?;
+        destination.display(f, TypeCode::BOOLEAN)?;
+        write!(f, " = {operand} }}")
     }
 }

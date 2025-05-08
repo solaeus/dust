@@ -1,17 +1,18 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operand, Operation, TypeCode};
+use super::{Destination, Instruction, InstructionFields, Operand, Operation, TypeCode};
 
 pub struct Subtract {
-    pub destination: u16,
+    pub destination: Destination,
     pub left: Operand,
     pub right: Operand,
 }
 
 impl From<Instruction> for Subtract {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.a_field();
-        let (left, right) = instruction.b_and_c_as_operands();
+        let destination = instruction.destination();
+        let left = instruction.b_operand();
+        let right = instruction.c_operand();
 
         Subtract {
             destination,
@@ -24,22 +25,27 @@ impl From<Instruction> for Subtract {
 impl From<Subtract> for Instruction {
     fn from(subtract: Subtract) -> Self {
         let operation = Operation::SUBTRACT;
-        let a_field = subtract.destination;
-        let (b_field, b_is_constant) = subtract.left.as_index_and_constant_flag();
-        let (c_field, c_is_constant) = subtract.right.as_index_and_constant_flag();
-        let b_type = subtract.left.as_type_code();
-        let c_type = subtract.right.as_type_code();
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = subtract.destination;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = subtract.left;
+        let Operand {
+            index: c_field,
+            kind: c_kind,
+        } = subtract.right;
 
         InstructionFields {
             operation,
             a_field,
+            a_is_register,
             b_field,
+            b_kind,
             c_field,
-            b_is_constant,
-            c_is_constant,
-            b_type,
-            c_type,
-            ..Default::default()
+            c_kind,
         }
         .build()
     }
@@ -54,13 +60,10 @@ impl Display for Subtract {
         } = self;
 
         match left.as_type_code() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{destination}")?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{destination}")?,
-            TypeCode::CHARACTER => write!(f, "R_STR_{destination}")?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination}")?,
-            TypeCode::INTEGER => write!(f, "R_INT_{destination}")?,
-            TypeCode::STRING => write!(f, "R_STR_{destination}")?,
-            _ => todo!(),
+            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
+            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
+            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
+            unsupported => unsupported.unsupported_write(f)?,
         }
 
         write!(f, " = {left} - {right}",)

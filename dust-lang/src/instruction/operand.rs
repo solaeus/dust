@@ -16,8 +16,20 @@ impl Operand {
             OperandKind::CHARACTER_CONSTANT
             | OperandKind::CHARACTER_MEMORY
             | OperandKind::CHARACTER_REGISTER => TypeCode::CHARACTER,
-            _ => todo!(),
-            _ => unreachable!("Invalid OperandKind"),
+            OperandKind::FLOAT_CONSTANT
+            | OperandKind::FLOAT_MEMORY
+            | OperandKind::FLOAT_REGISTER => TypeCode::FLOAT,
+            OperandKind::INTEGER_CONSTANT
+            | OperandKind::INTEGER_MEMORY
+            | OperandKind::INTEGER_REGISTER => TypeCode::INTEGER,
+            OperandKind::STRING_CONSTANT
+            | OperandKind::STRING_MEMORY
+            | OperandKind::STRING_REGISTER => TypeCode::STRING,
+            OperandKind::LIST_MEMORY | OperandKind::LIST_REGISTER => TypeCode::LIST,
+            OperandKind::FUNCTION_SELF
+            | OperandKind::FUNCTION_MEMORY
+            | OperandKind::FUNCTION_REGISTER => TypeCode::FUNCTION,
+            unknown => unreachable!("Invalid OperandKind: {}", unknown.0),
         }
     }
 

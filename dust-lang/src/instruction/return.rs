@@ -2,24 +2,21 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{InstructionFields, TypeCode};
+use super::{InstructionFields, Operand, TypeCode};
 
 pub struct Return {
     pub should_return_value: bool,
-    pub return_register: u16,
-    pub r#type: TypeCode,
+    pub return_value: Operand,
 }
 
 impl From<Instruction> for Return {
     fn from(instruction: Instruction) -> Self {
-        let should_return_value = instruction.b_field() != 0;
-        let return_register = instruction.c_field();
-        let r#type = instruction.b_type();
+        let should_return_value = instruction.a_field() != 0;
+        let return_value = instruction.b_operand();
 
         Return {
             should_return_value,
-            return_register,
-            r#type,
+            return_value,
         }
     }
 }
@@ -27,15 +24,17 @@ impl From<Instruction> for Return {
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
         let operation = Operation::RETURN;
-        let b_field = r#return.should_return_value as u16;
-        let b_type = r#return.r#type;
-        let c_field = r#return.return_register;
+        let a_field = r#return.should_return_value as u16;
+        let Operand {
+            index: b_field,
+            kind: b_kind,
+        } = r#return.return_value;
 
         InstructionFields {
             operation,
+            a_field,
             b_field,
-            b_type,
-            c_field,
+            b_kind,
             ..Default::default()
         }
         .build()
@@ -46,26 +45,24 @@ impl Display for Return {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Return {
             should_return_value,
-            return_register,
-            r#type,
+            return_value,
         } = self;
+        write!(f, "RETURN")?;
 
         if *should_return_value {
-            write!(f, "RETURN ")?;
-
-            match *r#type {
-                TypeCode::BOOLEAN => write!(f, "R_BOOL_{return_register}"),
-                TypeCode::BYTE => write!(f, "R_BYTE_{return_register}"),
-                TypeCode::CHARACTER => write!(f, "R_CHAR_{return_register}"),
-                TypeCode::FLOAT => write!(f, "R_FLOAT_{return_register}"),
-                TypeCode::INTEGER => write!(f, "R_INT_{return_register}"),
-                TypeCode::STRING => write!(f, "R_STR_{return_register}"),
-                TypeCode::LIST => write!(f, "R_LIST_{return_register}"),
-                TypeCode::FUNCTION => write!(f, "R_FN_{return_register}"),
-                unsupported => unreachable!("Unsupported return type: {}", unsupported),
+            match return_value.as_type_code() {
+                TypeCode::BOOLEAN => write!(f, " R_BOOL_{}", return_value.index)?,
+                TypeCode::BYTE => write!(f, " R_BYTE_{}", return_value.index)?,
+                TypeCode::CHARACTER => write!(f, " R_CHAR_{}", return_value.index)?,
+                TypeCode::FLOAT => write!(f, " R_FLOAT_{}", return_value.index)?,
+                TypeCode::INTEGER => write!(f, " R_INT_{}", return_value.index)?,
+                TypeCode::STRING => write!(f, " R_STR_{}", return_value.index)?,
+                TypeCode::LIST => write!(f, " R_LIST_{}", return_value.index)?,
+                TypeCode::FUNCTION => write!(f, " R_FN_{}", return_value.index)?,
+                unsupported => unsupported.unsupported_write(f)?,
             }
-        } else {
-            write!(f, "RETURN")
         }
+
+        Ok(())
     }
 }

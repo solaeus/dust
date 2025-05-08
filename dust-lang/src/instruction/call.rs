@@ -66,19 +66,7 @@ impl Display for Call {
             return_type,
         } = self;
 
-        match *return_type {
-            TypeCode::NONE => {}
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{} = ", destination.index)?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{} = ", destination.index)?,
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{} = ", destination.index)?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{} = ", destination.index)?,
-            TypeCode::INTEGER => write!(f, "R_INT_{} = ", destination.index)?,
-            TypeCode::STRING => write!(f, "R_STR_{} = ", destination.index)?,
-            TypeCode::LIST => write!(f, "R_LIST_{} = ", destination.index)?,
-            TypeCode::FUNCTION => write!(f, "R_FN_{} = ", destination.index)?,
-            _ => unreachable!(),
-        }
-
-        write!(f, "R_FN_{function_register}(ARGS_{argument_list_index})")
+        destination.display(f, *return_type)?;
+        write!(f, " = R_FN_{function_register}(ARGS_{argument_list_index})")
     }
 }

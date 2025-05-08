@@ -21,7 +21,10 @@ impl TypeCode {
     }
 
     pub fn unsupported_write(self, f: &mut Formatter) -> fmt::Result {
-        write!("Malformed instruction: type code {self} is not supported here.")
+        write!(
+            f,
+            "Malformed instruction: type code {self} is not supported here."
+        )
     }
 }
 

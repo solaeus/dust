@@ -1,16 +1,16 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionFields, Operation};
+use super::{Destination, Instruction, InstructionFields, Operation, TypeCode};
 
 pub struct LoadFunction {
-    pub destination: u16,
+    pub destination: Destination,
     pub prototype_index: u16,
     pub jump_next: bool,
 }
 
 impl From<Instruction> for LoadFunction {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.a_field();
+        let destination = instruction.destination();
         let prototype_index = instruction.b_field();
         let jump_next = instruction.c_field() != 0;
 
@@ -24,11 +24,20 @@ impl From<Instruction> for LoadFunction {
 
 impl From<LoadFunction> for Instruction {
     fn from(load_function: LoadFunction) -> Self {
+        let operation = Operation::LOAD_FUNCTION;
+        let Destination {
+            index: a_field,
+            is_register: a_is_register,
+        } = load_function.destination;
+        let b_field = load_function.prototype_index;
+        let c_field = load_function.jump_next as u16;
+
         InstructionFields {
-            operation: Operation::LOAD_FUNCTION,
-            a_field: load_function.destination,
-            b_field: load_function.prototype_index,
-            c_field: load_function.jump_next as u16,
+            operation,
+            a_field,
+            a_is_register,
+            b_field,
+            c_field,
             ..Default::default()
         }
         .build()
@@ -43,7 +52,8 @@ impl Display for LoadFunction {
             jump_next,
         } = self;
 
-        write!(f, "R_FN_{destination} = P{prototype_index}")?;
+        destination.display(f, TypeCode::FUNCTION)?;
+        write!(f, " = PROTO_{prototype_index}")?;
 
         if *jump_next {
             write!(f, " JUMP +1")?;

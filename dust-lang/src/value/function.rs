@@ -1,27 +1,38 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Formatter};
 
-use crate::FunctionType;
+use tracing::error;
 
-use super::DustString;
+use crate::risky_vm::Thread;
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Function {
-    pub name: Option<DustString>,
-    pub r#type: FunctionType,
     pub prototype_index: u16,
 }
 
-impl Display for Function {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut type_string = self.r#type.to_string();
+impl Function {
+    pub fn display(&self, f: &mut Formatter, thread: &Thread) -> fmt::Result {
+        let (function_name, mut type_display) = if let Some(chunk) = thread
+            .current_frame()
+            .chunk
+            .prototypes
+            .get(self.prototype_index as usize)
+        {
+            (chunk.name.as_ref(), chunk.r#type.to_string())
+        } else {
+            error!(
+                "Failed to display function because its prototype could not be found in the current call frame."
+            );
 
-        if let Some(name) = &self.name {
-            debug_assert!(type_string.starts_with("fn"));
+            return Ok(());
+        };
 
-            type_string.insert(2, ' ');
-            type_string.insert_str(3, name);
+        debug_assert!(type_display.starts_with("fn"));
+
+        if let Some(name) = function_name {
+            type_display.insert(2, ' ');
+            type_display.insert_str(3, name);
         }
 
-        write!(f, "{type_string}")
+        write!(f, "{type_display}")
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Destination, InstructionFields, Operand, TypeCode};
+use super::{Destination, InstructionFields, Operand};
 
 pub struct LoadConstant {
     pub destination: Destination,
@@ -53,23 +53,13 @@ impl From<LoadConstant> for Instruction {
 impl Display for LoadConstant {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let LoadConstant {
-            destination:
-                Destination {
-                    index: destination_index,
-                    ..
-                },
+            destination,
             constant,
             jump_next,
         } = self;
+        let return_type = constant.as_type_code();
 
-        match constant.as_type_code() {
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{destination_index}")?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{destination_index}")?,
-            TypeCode::INTEGER => write!(f, "R_INT_{destination_index}")?,
-            TypeCode::STRING => write!(f, "R_STR_{destination_index}")?,
-            unsupported => unsupported.unsupported_write(f)?,
-        }
-
+        destination.display(f, return_type)?;
         write!(f, " = {constant}");
 
         if *jump_next {

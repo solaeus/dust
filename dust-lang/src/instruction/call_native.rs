@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{Instruction, NativeFunction, Operation, Type};
+use crate::{Instruction, NativeFunction, Operation};
 
 use super::{Destination, InstructionFields};
 
@@ -53,21 +53,9 @@ impl Display for CallNative {
             function,
             argument_list_index,
         } = self;
-        let return_type = function.r#type().return_type;
+        let return_type = function.r#type().return_type.type_code();
 
-        match return_type {
-            Type::None => {}
-            Type::Boolean => write!(f, "R_BOOL_{} = ", destination.index)?,
-            Type::Byte => write!(f, "R_BYTE_{} = ", destination.index)?,
-            Type::Character => write!(f, "R_CHR_{} = ", destination.index)?,
-            Type::Float => write!(f, "R_FLT_{} = ", destination.index)?,
-            Type::Integer => write!(f, "R_INT_{} = ", destination.index)?,
-            Type::String => write!(f, "R_STR_{} = ", destination.index)?,
-            Type::List(_) => write!(f, "R_LIST_{} = ", destination.index)?,
-            Type::Function(_) => write!(f, "R_FN_{} = ", destination.index)?,
-            _ => unreachable!(),
-        }
-
-        write!(f, "{function}(ARGS_{argument_list_index})")
+        destination.display(f, return_type)?;
+        write!(f, " = {function}(ARGS_{argument_list_index})")
     }
 }
