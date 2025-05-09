@@ -64,6 +64,7 @@ impl Chunk {
     pub fn as_function(&self) -> Function {
         Function {
             prototype_index: self.prototype_index,
+            r#type: Box::new(self.r#type.clone()),
         }
     }
 
@@ -114,7 +115,7 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.character_constants == other.character_constants
+            && self.string_constants == other.string_constants
             && self.float_constants == other.float_constants
             && self.integer_constants == other.integer_constants
             && self.string_constants == other.string_constants

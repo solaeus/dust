@@ -2,17 +2,18 @@ use std::fmt::{self, Formatter};
 
 use tracing::error;
 
-use crate::risky_vm::Thread;
+use crate::{FunctionType, risky_vm::Thread};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd)]
 pub struct Function {
     pub prototype_index: u16,
+    pub r#type: Box<FunctionType>,
 }
 
 impl Function {
     pub fn display(&self, f: &mut Formatter, thread: &Thread) -> fmt::Result {
         let (function_name, mut type_display) = if let Some(chunk) = thread
-            .current_frame()
+            .current_call
             .chunk
             .prototypes
             .get(self.prototype_index as usize)

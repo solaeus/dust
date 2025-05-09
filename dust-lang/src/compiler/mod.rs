@@ -240,62 +240,140 @@ impl<'src> Compiler<'src> {
 
     /// Creates a new chunk with the compiled data.
     pub fn finish(mut self) -> Chunk {
-        let mut boolean_address_rankings = HashMap::<Address, usize>::new();
-        let mut byte_address_rankings = HashMap::<Address, usize>::new();
-        let mut character_address_rankings = HashMap::<Address, usize>::new();
-        let mut float_address_rankings = HashMap::<Address, usize>::new();
-        let mut integer_address_rankings = HashMap::<Address, usize>::new();
-        let mut string_address_rankings = HashMap::<Address, usize>::new();
-        let mut list_address_rankings = HashMap::<Address, usize>::new();
-        let mut function_address_rankings = HashMap::<Address, usize>::new();
+        // let mut boolean_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut byte_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut character_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut float_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut integer_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut string_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut list_address_rankings = Vec::<(u16, Address)>::new();
+        // let mut function_address_rankings = Vec::<(u16, Address)>::new();
 
-        let increment_rank = |address: Address, address_rankings: &mut HashMap<Address, usize>| {
-            if let Some(rank) = address_rankings.get_mut(&address) {
-                *rank += 1;
-            } else {
-                address_rankings.insert(address, 0);
-            }
-        };
+        // // Increases the rank of the given address by 1 to indicate that it was used. If the
+        // // address has no existing rank, it is inserted in sorted order with a rank of 0.
+        // let increment_rank =
+        //     |address: Address, address_rankings: &mut Vec<(u16, Address)>| match address_rankings
+        //         .binary_search_by_key(&address, |(_, address)| *address)
+        //     {
+        //         Ok(index) => {
+        //             let rank = &mut address_rankings[index].0;
+        //             *rank = rank.saturating_add(1);
+        //         }
+        //         Err(index) => {
+        //             address_rankings.insert(index, (0, address));
+        //         }
+        //     };
+        // // Uses the given type code to determine which address rankings to pass to `increment_rank`
+        // // with the given address.
+        // let mut increment_rank_by_type = |type_code: TypeCode, address: Address| match type_code {
+        //     TypeCode::BOOLEAN => increment_rank(address, &mut boolean_address_rankings),
+        //     TypeCode::BYTE => increment_rank(address, &mut byte_address_rankings),
+        //     TypeCode::CHARACTER => increment_rank(address, &mut character_address_rankings),
+        //     TypeCode::FLOAT => increment_rank(address, &mut float_address_rankings),
+        //     TypeCode::INTEGER => increment_rank(address, &mut integer_address_rankings),
+        //     TypeCode::STRING => increment_rank(address, &mut string_address_rankings),
+        //     TypeCode::LIST => increment_rank(address, &mut list_address_rankings),
+        //     TypeCode::FUNCTION => increment_rank(address, &mut function_address_rankings),
+        //     TypeCode::NONE => {}
+        //     _ => unimplemented!(),
+        // };
 
-        for (instruction, r#type, _) in &self.instructions {
-            let destination_address = instruction.destination().as_address(r#type.type_code());
-            let b_address = instruction.b_address();
-            let c_address = instruction.c_address();
+        // for (instruction, r#type, _) in &self.instructions {
+        //     let destination_address = instruction.destination().as_address(r#type.type_code());
+        //     let b_address = instruction.b_address();
+        //     let b_type = b_address.as_type_code();
+        //     let c_address = instruction.c_address();
+        //     let c_type = c_address.as_type_code();
 
-            match r#type.type_code() {
-                TypeCode::BOOLEAN => {
-                    increment_rank(destination_address, &mut boolean_address_rankings);
-                }
-                TypeCode::BYTE => {
-                    increment_rank(destination_address, &mut byte_address_rankings);
-                }
-                TypeCode::CHARACTER => {
-                    increment_rank(destination_address, &mut character_address_rankings);
-                }
-                TypeCode::FLOAT => {
-                    increment_rank(destination_address, &mut float_address_rankings);
-                }
-                TypeCode::INTEGER => {
-                    increment_rank(destination_address, &mut integer_address_rankings)
-                }
-                TypeCode::STRING => {
-                    increment_rank(destination_address, &mut string_address_rankings)
-                }
-                TypeCode::LIST => increment_rank(destination_address, &mut list_address_rankings),
-                TypeCode::FUNCTION => {
-                    increment_rank(destination_address, &mut function_address_rankings)
-                }
-                _ => unimplemented!(),
-            }
+        //     increment_rank_by_type(r#type.type_code(), destination_address);
+        //     increment_rank_by_type(b_type, b_address);
+        //     increment_rank_by_type(c_type, c_address);
+        // }
 
-            if b_address.as_type_code() == TypeCode::BOOLEAN {
-                increment_rank(b_address, &mut boolean_address_rankings);
-            }
+        // // Returns an `None` for empty rankings, otherwise returns a `HashMap` in which the keys are
+        // // addresses that need to be replaced and the values are their intended replacements.
+        // let create_replacement_map =
+        //     |rankings: Vec<(u16, Address)>| -> Option<HashMap<Address, Address>> {
+        //         if rankings.is_empty() {
+        //             return None;
+        //         }
 
-            if c_address.as_type_code() == TypeCode::BOOLEAN {
-                increment_rank(c_address, &mut boolean_address_rankings);
-            }
-        }
+        //         Some(
+        //             rankings
+        //                 .into_iter()
+        //                 .take(10)
+        //                 .zip(0..10)
+        //                 .map(|((_, old_address), register_index)| {
+        //                     let new_address = match old_address.as_type_code() {
+        //                         TypeCode::BOOLEAN => {
+        //                             Address::new(register_index, AddressKind::BOOLEAN_REGISTER)
+        //                         }
+        //                         TypeCode::BYTE => {
+        //                             Address::new(register_index, AddressKind::BYTE_REGISTER)
+        //                         }
+        //                         TypeCode::CHARACTER => {
+        //                             Address::new(register_index, AddressKind::CHARACTER_REGISTER)
+        //                         }
+        //                         TypeCode::FLOAT => {
+        //                             Address::new(register_index, AddressKind::FLOAT_REGISTER)
+        //                         }
+        //                         TypeCode::INTEGER => {
+        //                             Address::new(register_index, AddressKind::INTEGER_REGISTER)
+        //                         }
+        //                         TypeCode::STRING => {
+        //                             Address::new(register_index, AddressKind::STRING_REGISTER)
+        //                         }
+        //                         TypeCode::LIST => {
+        //                             Address::new(register_index, AddressKind::LIST_REGISTER)
+        //                         }
+        //                         TypeCode::FUNCTION => {
+        //                             Address::new(register_index, AddressKind::FUNCTION_REGISTER)
+        //                         }
+        //                         _ => todo!(),
+        //                     };
+
+        //                     (old_address, new_address)
+        //                 })
+        //                 .collect(),
+        //         )
+        //     };
+
+        // // Searches the instruction list for addresses that are keys in the replacement map and
+        // // sets the appropriate fields to replace those addresses with the new one.
+        // let mut replace_addresses = |replacements: HashMap<Address, Address>| {
+        //     for (instruction, r#type, _) in &mut self.instructions {
+        //         let destination_address = instruction.destination().as_address(r#type.type_code());
+        //         let b_address = instruction.b_address();
+        //         let c_address = instruction.c_address();
+
+        //         if let Some(replacement) = replacements.get(&destination_address) {
+        //             instruction.set_destination(*replacement);
+        //         }
+
+        //         if let Some(replacement) = replacements.get(&b_address) {
+        //             instruction.set_b_address(*replacement);
+        //         }
+
+        //         if let Some(replacement) = replacements.get(&c_address) {
+        //             instruction.set_c_address(*replacement);
+        //         }
+        //     }
+        // };
+
+        // for address_rankings in [
+        //     boolean_address_rankings,
+        //     byte_address_rankings,
+        //     character_address_rankings,
+        //     float_address_rankings,
+        //     integer_address_rankings,
+        //     string_address_rankings,
+        //     list_address_rankings,
+        //     function_address_rankings,
+        // ] {
+        //     if let Some(replacements) = create_replacement_map(address_rankings) {
+        //         replace_addresses(replacements)
+        //     }
+        // }
 
         if self.instructions.is_empty() {
             let r#return = Instruction::r#return(false, Address::default());
@@ -679,6 +757,8 @@ impl<'src> Compiler<'src> {
             let destination = Destination::memory(self.next_boolean_memory_index());
             let address = Address::new(boolean as u16, AddressKind::BOOLEAN_MEMORY);
             let load_encoded = Instruction::load_encoded(destination, address, false);
+
+            println!("{load_encoded}");
 
             self.emit_instruction(load_encoded, Type::Boolean, position);
 
@@ -2009,6 +2089,7 @@ impl<'src> Compiler<'src> {
                 Type::String => AddressKind::STRING_MEMORY,
                 Type::List(_) => AddressKind::LIST_MEMORY,
                 Type::Function(_) | Type::SelfFunction => AddressKind::FUNCTION_MEMORY,
+                Type::None => AddressKind::NONE,
                 _ => unimplemented!(),
             };
             let return_value = Address::new(previous_destination_register, address_kind);

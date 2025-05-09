@@ -162,43 +162,43 @@ impl Instruction {
     }
 
     pub fn operation(&self) -> Operation {
-        let first_5_bits = (self.0 & 0b11111) as u8;
+        let bits_0_to_4 = (self.0 & 0x1F) as u8;
 
-        Operation(first_5_bits)
+        Operation(bits_0_to_4)
     }
 
     pub fn a_is_register(&self) -> bool {
-        let sixth_bit = (self.0 >> 5) & 1;
+        let bit_5 = (self.0 & (1 << 5));
 
-        sixth_bit != 0
+        bit_5 != 0
     }
 
     pub fn b_kind(&self) -> AddressKind {
-        let bits_6_to_10 = (self.0 >> 5) & 0x1F;
+        let bits_6_to_10 = (self.0 >> 6) & 0x1F;
 
         AddressKind(bits_6_to_10 as u8)
     }
 
     pub fn c_kind(&self) -> AddressKind {
-        let bits_11_to_15 = (self.0 >> 10) & 0x1F;
+        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
 
         AddressKind(bits_11_to_15 as u8)
     }
 
     pub fn a_field(&self) -> u16 {
-        let bits_16_to_31 = (self.0 >> 32) & 0xFFFF;
+        let bits_16_to_31 = (self.0 >> 16) & 0xFFFF;
 
         bits_16_to_31 as u16
     }
 
     pub fn b_field(&self) -> u16 {
-        let bits_32_to_47 = (self.0 >> 16) & 0xFFFF;
+        let bits_32_to_47 = (self.0 >> 32) & 0xFFFF;
 
         bits_32_to_47 as u16
     }
 
     pub fn c_field(&self) -> u16 {
-        let bits_48_to_63 = self.0 & 0xFFFF;
+        let bits_48_to_63 = (self.0 >> 48) & 0xFFFF;
 
         bits_48_to_63 as u16
     }
@@ -218,6 +218,27 @@ impl Instruction {
     pub fn set_c_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.c_field = bits;
+        *self = fields.build();
+    }
+
+    pub fn set_destination(&mut self, address: Address) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.a_field = address.index;
+        fields.a_is_register = address.is_register();
+        *self = fields.build();
+    }
+
+    pub fn set_b_address(&mut self, address: Address) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.b_field = address.index;
+        fields.b_kind = address.kind;
+        *self = fields.build();
+    }
+
+    pub fn set_c_address(&mut self, address: Address) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.c_field = address.index;
+        fields.c_kind = address.kind;
         *self = fields.build();
     }
 
@@ -323,6 +344,7 @@ impl Instruction {
 
                 destination.as_address(return_type)
             }
+            Operation::NO_OP => Address::default(),
             unsupported => todo!("Support {unsupported}"),
         }
     }
@@ -556,7 +578,8 @@ impl Instruction {
             | Operation::TEST
             | Operation::TEST_SET
             | Operation::JUMP
-            | Operation::RETURN => false,
+            | Operation::RETURN
+            | Operation::NO_OP => false,
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
@@ -587,6 +610,7 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(*self).to_string(),
+            Operation::NO_OP => String::new(),
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
@@ -604,28 +628,6 @@ impl Display for Instruction {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn decode_operation() {
-        let instruction = Instruction::add(
-            Destination::memory(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
-
-        assert_eq!(Operation::ADD, instruction.operation());
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InstructionFields {
     pub operation: Operation,
@@ -639,13 +641,15 @@ pub struct InstructionFields {
 
 impl InstructionFields {
     pub fn build(self) -> Instruction {
-        let bits = ((self.operation.0 as u64) << 59)
-            | ((self.a_is_register as u64) << 54)
-            | ((self.b_kind.0 as u64) << 53)
-            | ((self.c_kind.0 as u64) << 49)
-            | ((self.a_field as u64) << 32)
-            | ((self.b_field as u64) << 16)
-            | (self.c_field as u64);
+        let mut bits = 0_u64;
+
+        bits |= self.operation.0 as u64;
+        bits |= (self.a_is_register as u64) << 5;
+        bits |= (self.b_kind.0 as u64) << 6;
+        bits |= (self.c_kind.0 as u64) << 11;
+        bits |= (self.a_field as u64) << 16;
+        bits |= (self.b_field as u64) << 32;
+        bits |= (self.c_field as u64) << 48;
 
         Instruction(bits)
     }
@@ -718,6 +722,7 @@ impl Destination {
             (TypeCode::LIST, false) => AddressKind::LIST_MEMORY,
             (TypeCode::FUNCTION, true) => AddressKind::FUNCTION_REGISTER,
             (TypeCode::FUNCTION, false) => AddressKind::FUNCTION_MEMORY,
+            (TypeCode::NONE, false) => AddressKind::NONE,
             (_, _) => unreachable!(),
         };
 
@@ -749,5 +754,129 @@ impl Destination {
         }
 
         write!(f, "{}", self.index)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_operation() {
+        let instruction = Instruction::add(
+            Destination::memory(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert_eq!(Operation::ADD, instruction.operation());
+    }
+
+    #[test]
+    fn decode_a_is_register() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert!(instruction.a_is_register());
+    }
+
+    #[test]
+    fn decode_b_kind() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert_eq!(AddressKind::CHARACTER_MEMORY, instruction.b_kind());
+    }
+
+    #[test]
+    fn decode_c_kind() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::STRING_MEMORY,
+            },
+        );
+
+        assert_eq!(AddressKind::STRING_MEMORY, instruction.c_kind());
+    }
+
+    #[test]
+    fn decode_a_field() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert_eq!(42, instruction.a_field());
+    }
+
+    #[test]
+    fn decode_b_field() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert_eq!(1, instruction.b_field());
+    }
+
+    #[test]
+    fn decode_c_field() {
+        let instruction = Instruction::add(
+            Destination::register(42),
+            Address {
+                index: 1,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+            Address {
+                index: 2,
+                kind: AddressKind::CHARACTER_MEMORY,
+            },
+        );
+
+        assert_eq!(2, instruction.c_field());
     }
 }

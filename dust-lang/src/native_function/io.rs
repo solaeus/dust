@@ -10,9 +10,10 @@ pub fn read_line(instruction: Instruction, thread: &mut Thread) {
     stdin.read_line(&mut buffer).unwrap();
 
     *thread
-        .current_memory_mut()
+        .current_memory
         .strings
         .get_mut(destination.index as usize)
+        .unwrap()
         .as_value_mut() = DustString::from(buffer.trim_end_matches('\n'));
 }
 
@@ -23,9 +24,12 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
         argument_list_index,
     } = CallNative::from(instruction);
 
-    let current_frame = thread.current_frame();
-    let current_registers = thread.current_memory();
-    let arguments = current_frame.get_argument_list(argument_list_index);
+    let arguments = thread
+        .current_call
+        .chunk
+        .argument_lists
+        .get(argument_list_index as usize)
+        .unwrap();
     let mut stdout = stdout();
 
     for ((argument_index, _), argument_type) in arguments
@@ -35,9 +39,11 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     {
         match argument_type {
             Type::String => {
-                let string = current_registers
+                let string = thread
+                    .current_memory
                     .strings
                     .get(*argument_index as usize)
+                    .unwrap()
                     .as_value();
 
                 stdout.write_all(string.as_bytes()).unwrap();

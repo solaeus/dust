@@ -1,5 +1,5 @@
 use dust_lang::{
-    Chunk, DustString, FunctionType, Instruction, Address, Span, Type, Value, compile,
+    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile,
     instruction::TypeCode, run,
 };
 
@@ -55,7 +55,7 @@ fn greater_characters() {
             Instruction::r#return(true, 0, TypeCode::BOOLEAN),
         ],
         positions: vec![Span(0, 9), Span(0, 9), Span(0, 9), Span(0, 9), Span(9, 9)],
-        character_constants: vec!['a', 'b'],
+        string_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(false));

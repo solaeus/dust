@@ -69,7 +69,7 @@ fn load_character() {
             Instruction::r#return(true, 0, TypeCode::CHARACTER),
         ],
         positions: vec![Span(0, 3), Span(3, 3)],
-        character_constants: vec!['a'],
+        string_constants: vec!['a'],
         ..Chunk::default()
     };
     let return_value = Some(Value::character('a'));
@@ -193,7 +193,7 @@ fn load_character_list() {
             Instruction::r#return(true, 0, TypeCode::LIST),
         ],
         positions: vec![Span(1, 4), Span(6, 9), Span(0, 10), Span(10, 10)],
-        character_constants: vec!['a', 'b'],
+        string_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::Concrete(ConcreteValue::List(vec![
@@ -622,7 +622,7 @@ fn load_character_in_function() {
                 Instruction::r#return(true, 0, TypeCode::CHARACTER),
             ],
             positions: vec![Span(8, 11), Span(12, 13)],
-            character_constants: vec!['a'],
+            string_constants: vec!['a'],
             ..Default::default()
         })],
         ..Default::default()

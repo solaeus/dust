@@ -7,19 +7,23 @@ pub fn to_string(instruction: Instruction, thread: &mut Thread) {
         argument_list_index,
     } = CallNative::from(instruction);
 
-    let current_frame = thread.current_frame();
-    let current_registers = thread.current_memory();
-    let (argument_index, argument_type) = current_frame
-        .get_argument_list(argument_list_index)
+    let (argument_index, argument_type) = thread
+        .current_call
+        .chunk
+        .argument_lists
+        .get(argument_list_index as usize)
+        .unwrap()
         .0
         .first()
         .unwrap();
 
     let string = match *argument_type {
         TypeCode::INTEGER => {
-            let integer = current_registers
+            let integer = thread
+                .current_memory
                 .integers
                 .get(*argument_index as usize)
+                .unwrap()
                 .as_value();
 
             DustString::from(integer.to_string())
@@ -28,8 +32,9 @@ pub fn to_string(instruction: Instruction, thread: &mut Thread) {
     };
 
     *thread
-        .current_memory_mut()
+        .current_memory
         .strings
         .get_mut(destination.index as usize)
+        .unwrap()
         .as_value_mut() = DustString::from(string);
 }

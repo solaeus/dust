@@ -13,7 +13,7 @@ use tracing::warn;
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Type, risky_vm::Thread};
+use crate::Type;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
@@ -127,15 +127,7 @@ impl Value {
         match self {
             Value::Concrete(concrete_value) => concrete_value.r#type(),
             Value::AbstractList(AbstractList { item_type, .. }) => Type::List(*item_type),
-            Value::Function(Function { r#type, .. }) => Type::Function(Box::new(r#type.clone())),
-        }
-    }
-
-    pub fn display(&self, data: &Thread) -> DustString {
-        match self {
-            Value::AbstractList(list) => list.display(data),
-            Value::Concrete(concrete_value) => concrete_value.display(),
-            Value::Function(function) => DustString::from(function.to_string()),
+            Value::Function(Function { r#type, .. }) => Type::Function(r#type.clone()),
         }
     }
 }

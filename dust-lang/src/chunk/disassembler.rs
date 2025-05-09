@@ -370,7 +370,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.character_constants.iter().enumerate() {
+        for (index, value) in self.chunk.string_constants.iter().enumerate() {
             let type_display = Type::Character.to_string();
             let value_display = {
                 let mut value_string = value.to_string();
@@ -530,7 +530,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let info_line = format!(
             "{} instructions, {} constants, {} locals, returns {}",
             self.chunk.instructions.len(),
-            self.chunk.character_constants.len()
+            self.chunk.string_constants.len()
                 + self.chunk.float_constants.len()
                 + self.chunk.integer_constants.len()
                 + self.chunk.string_constants.len(),
@@ -549,7 +549,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_local_section()?;
         }
 
-        if !self.chunk.character_constants.is_empty()
+        if !self.chunk.string_constants.is_empty()
             || !self.chunk.float_constants.is_empty()
             || !self.chunk.integer_constants.is_empty()
             || !self.chunk.string_constants.is_empty()

@@ -2,12 +2,9 @@ use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::info;
 
-use crate::{
-    Chunk, DustString, Span, Value,
-    risky_vm::{CallFrame, runner::RUNNERS},
-};
+use crate::{Chunk, DustString, Span, Value, risky_vm::runner::RUNNERS};
 
-use super::{HeapSlotTable, Memory, RegisterTable};
+use super::{CallFrame, Memory, RegisterTable};
 
 pub struct Thread {
     pub chunk: Arc<Chunk>,
@@ -27,8 +24,15 @@ impl Thread {
         let main_call = CallFrame::new(Arc::clone(&chunk), 0);
         let memory_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
         let main_memory = Memory {
+            booleans: Vec::new(),
+            bytes: Vec::new(),
+            characters: Vec::new(),
+            floats: Vec::new(),
+            integers: Vec::new(),
+            strings: Vec::new(),
+            lists: Vec::new(),
+            functions: Vec::new(),
             register_table: RegisterTable::default(),
-            heap_slot_table: HeapSlotTable::new(chunk.as_ref()),
         };
 
         Thread {
@@ -42,41 +46,7 @@ impl Thread {
     }
 
     fn current_position(&self) -> Span {
-        let current_frame = self.current_frame();
-
-        current_frame.chunk.positions[current_frame.ip]
-    }
-
-    pub fn current_frame(&self) -> &CallFrame {
-        if cfg!(debug_assertions) {
-            self.call_stack.last().unwrap()
-        } else {
-            unsafe { self.call_stack.last().unwrap_unchecked() }
-        }
-    }
-
-    pub fn current_frame_mut(&mut self) -> &mut CallFrame {
-        if cfg!(debug_assertions) {
-            self.call_stack.last_mut().unwrap()
-        } else {
-            unsafe { self.call_stack.last_mut().unwrap_unchecked() }
-        }
-    }
-
-    pub fn current_memory(&self) -> &Memory {
-        if cfg!(debug_assertions) {
-            &self.memory_stack.last().unwrap()
-        } else {
-            unsafe { &self.memory_stack.last().unwrap_unchecked() }
-        }
-    }
-
-    pub fn current_memory_mut(&mut self) -> &mut Memory {
-        if cfg!(debug_assertions) {
-            self.memory_stack.last_mut().unwrap()
-        } else {
-            unsafe { self.memory_stack.last_mut().unwrap_unchecked() }
-        }
+        self.current_call.chunk.positions[self.current_call.ip]
     }
 
     pub fn run(mut self) -> Option<Value> {

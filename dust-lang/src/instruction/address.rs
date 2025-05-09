@@ -15,6 +15,7 @@ impl Address {
 
     pub fn as_type_code(&self) -> TypeCode {
         match self.kind {
+            AddressKind::NONE => TypeCode::NONE,
             AddressKind::BOOLEAN_MEMORY | AddressKind::BOOLEAN_REGISTER => TypeCode::BOOLEAN,
             AddressKind::BYTE_MEMORY | AddressKind::BYTE_REGISTER => TypeCode::BYTE,
             AddressKind::CHARACTER_CONSTANT
@@ -97,7 +98,7 @@ impl Display for Address {
             AddressKind::FUNCTION_MEMORY => write!(f, "M_FN_{index}"),
             AddressKind::FUNCTION_REGISTER => write!(f, "R_FN_{index}"),
             AddressKind::FUNCTION_SELF => write!(f, "SELF"),
-            _ => unreachable!("Invalid OperandKind"),
+            _ => write!(f, "INVALID_{index}"),
         }
     }
 }
@@ -106,33 +107,35 @@ impl Display for Address {
 pub struct AddressKind(pub u8);
 
 impl AddressKind {
-    pub const BOOLEAN_MEMORY: AddressKind = AddressKind(0);
-    pub const BOOLEAN_REGISTER: AddressKind = AddressKind(1);
+    pub const NONE: AddressKind = AddressKind(0);
 
-    pub const BYTE_MEMORY: AddressKind = AddressKind(2);
-    pub const BYTE_REGISTER: AddressKind = AddressKind(3);
+    pub const BOOLEAN_MEMORY: AddressKind = AddressKind(1);
+    pub const BOOLEAN_REGISTER: AddressKind = AddressKind(2);
 
-    pub const CHARACTER_CONSTANT: AddressKind = AddressKind(4);
-    pub const CHARACTER_MEMORY: AddressKind = AddressKind(5);
-    pub const CHARACTER_REGISTER: AddressKind = AddressKind(6);
+    pub const BYTE_MEMORY: AddressKind = AddressKind(3);
+    pub const BYTE_REGISTER: AddressKind = AddressKind(4);
 
-    pub const FLOAT_CONSTANT: AddressKind = AddressKind(7);
-    pub const FLOAT_MEMORY: AddressKind = AddressKind(8);
-    pub const FLOAT_REGISTER: AddressKind = AddressKind(9);
+    pub const CHARACTER_CONSTANT: AddressKind = AddressKind(5);
+    pub const CHARACTER_MEMORY: AddressKind = AddressKind(6);
+    pub const CHARACTER_REGISTER: AddressKind = AddressKind(7);
 
-    pub const INTEGER_CONSTANT: AddressKind = AddressKind(10);
-    pub const INTEGER_MEMORY: AddressKind = AddressKind(11);
-    pub const INTEGER_REGISTER: AddressKind = AddressKind(12);
+    pub const FLOAT_CONSTANT: AddressKind = AddressKind(8);
+    pub const FLOAT_MEMORY: AddressKind = AddressKind(9);
+    pub const FLOAT_REGISTER: AddressKind = AddressKind(10);
 
-    pub const STRING_CONSTANT: AddressKind = AddressKind(13);
-    pub const STRING_MEMORY: AddressKind = AddressKind(14);
-    pub const STRING_REGISTER: AddressKind = AddressKind(15);
+    pub const INTEGER_CONSTANT: AddressKind = AddressKind(11);
+    pub const INTEGER_MEMORY: AddressKind = AddressKind(12);
+    pub const INTEGER_REGISTER: AddressKind = AddressKind(13);
 
-    pub const LIST_MEMORY: AddressKind = AddressKind(16);
-    pub const LIST_REGISTER: AddressKind = AddressKind(17);
+    pub const STRING_CONSTANT: AddressKind = AddressKind(14);
+    pub const STRING_MEMORY: AddressKind = AddressKind(15);
+    pub const STRING_REGISTER: AddressKind = AddressKind(16);
 
-    pub const FUNCTION_MEMORY: AddressKind = AddressKind(18);
-    pub const FUNCTION_PROTOTYPE: AddressKind = AddressKind(19);
-    pub const FUNCTION_REGISTER: AddressKind = AddressKind(20);
-    pub const FUNCTION_SELF: AddressKind = AddressKind(21);
+    pub const LIST_MEMORY: AddressKind = AddressKind(17);
+    pub const LIST_REGISTER: AddressKind = AddressKind(18);
+
+    pub const FUNCTION_MEMORY: AddressKind = AddressKind(19);
+    pub const FUNCTION_PROTOTYPE: AddressKind = AddressKind(20);
+    pub const FUNCTION_REGISTER: AddressKind = AddressKind(21);
+    pub const FUNCTION_SELF: AddressKind = AddressKind(22);
 }

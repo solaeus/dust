@@ -1,5 +1,5 @@
 use dust_lang::{
-    Chunk, DustString, FunctionType, Instruction, Address, Span, Type, Value, compile,
+    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile,
     instruction::TypeCode, run,
 };
 
@@ -61,7 +61,7 @@ fn equal_characters() {
             Span(0, 10),
             Span(10, 10),
         ],
-        character_constants: vec!['a', 'b'],
+        string_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(false));
