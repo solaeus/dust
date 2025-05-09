@@ -50,7 +50,7 @@ impl Display for Negate {
             operand,
         } = self;
 
-        destination.display(f, operand.r#type());
+        destination.display(f, operand.r#type())?;
         write!(f, " = -{operand}",)
     }
 }

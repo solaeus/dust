@@ -370,7 +370,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in self.chunk.string_constants.iter().enumerate() {
+        for (index, value) in self.chunk.character_constants.iter().enumerate() {
             let type_display = Type::Character.to_string();
             let value_display = {
                 let mut value_string = value.to_string();

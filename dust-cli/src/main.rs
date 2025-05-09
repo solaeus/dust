@@ -169,7 +169,6 @@ fn get_source_and_file_name(source: Source) -> (String, Option<DustString>) {
 
 fn main() {
     let start_time = Instant::now();
-    let start_type_clone = start_time.clone();
     let Cli {
         log_level,
         mode,
