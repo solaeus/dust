@@ -16,9 +16,9 @@ macro_rules! define_tokens {
         }
 
         #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-        /// Data-less representation of a source token.
+        /// Source-free representation of a token.
         ///
-        /// If a [Token] borrows from the source text, its TokenKind omits the data.
+        /// If a [Token] borrows from the source text, its TokenKind omits that data.
         pub enum TokenKind {
             $(
                 $variant,

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{Address, Instruction, Operation, TypeCode};
+use crate::{Address, Instruction, Operation, r#type::TypeKind};
 
 use super::{Destination, InstructionFields};
 
@@ -52,11 +52,7 @@ impl Display for Not {
             operand,
         } = self;
 
-        match operand.as_type_code() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", destination.index)?,
-            unsupported => unsupported.unsupported_write(f)?,
-        }
-
+        destination.display(f, TypeKind::Boolean)?;
         write!(f, " = !{operand}",)
     }
 }

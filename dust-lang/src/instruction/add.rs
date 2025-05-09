@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
+use crate::r#type::TypeKind;
+
+use super::{Address, Destination, Instruction, InstructionFields, Operation};
 
 pub struct Add {
     pub destination: Destination,
@@ -61,9 +63,9 @@ impl Display for Add {
             left,
             right,
         } = self;
-        let left_type = left.as_type_code();
+        let left_type = left.r#type();
         let return_type = match left_type {
-            TypeCode::CHARACTER => TypeCode::STRING,
+            TypeKind::Character => TypeKind::String,
             _ => left_type,
         };
 

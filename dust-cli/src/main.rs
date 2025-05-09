@@ -1,6 +1,7 @@
 use std::{
     fs::read_to_string,
     io::{self, Read, stdout},
+    panic,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -14,8 +15,13 @@ use clap::{
 use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
 };
-use tracing::{Level, subscriber::set_global_default};
-use tracing_subscriber::{FmtSubscriber, fmt::time::Uptime};
+use tracing::{Level, Subscriber, level_filters::LevelFilter, subscriber::set_global_default};
+use tracing_subscriber::{
+    FmtSubscriber, Layer,
+    fmt::{SubscriberBuilder, layer, time::Uptime},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold().underline())
@@ -36,19 +42,8 @@ const STYLES: Styles = Styles::styled()
 )]
 struct Cli {
     /// Overrides the DUST_LOG environment variable
-    #[arg(
-        short,
-        long,
-        value_parser = |input: &str| match input.to_uppercase().as_str() {
-            "TRACE" => Ok(Level::TRACE),
-            "DEBUG" => Ok(Level::DEBUG),
-            "INFO" => Ok(Level::INFO),
-            "WARN" => Ok(Level::WARN),
-            "ERROR" => Ok(Level::ERROR),
-            _ => Err(Error::new(ErrorKind::ValueValidation)),
-        }
-    )]
-    log_level: Option<Level>,
+    #[arg(short, long)]
+    log_level: LevelFilter,
 
     #[command(subcommand)]
     mode: Option<Command>,
@@ -174,22 +169,36 @@ fn get_source_and_file_name(source: Source) -> (String, Option<DustString>) {
 
 fn main() {
     let start_time = Instant::now();
+    let start_type_clone = start_time.clone();
     let Cli {
         log_level,
         mode,
         run,
     } = Cli::parse();
     let mode = mode.unwrap_or(Command::Run(run));
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(log_level)
-        .with_ansi(true)
-        .with_file(false)
-        .with_line_number(false)
-        .with_thread_names(true)
-        .with_timer(Uptime::from(start_time))
-        .finish();
 
-    set_global_default(subscriber).expect("Failed to set tracing subscriber");
+    panic::set_hook(Box::new(|info| {
+        println!("Dust has encountered an error and was forced to exit.",);
+
+        if let Some(location) = info.location() {
+            println!("The error occured at {location}.");
+        }
+
+        if let Some(message) = info.payload().downcast_ref::<&str>() {
+            println!("Extra info: {message}");
+        }
+    }));
+
+    let tracing_layer = layer()
+        .with_file(false)
+        .with_level(true)
+        .with_target(true)
+        .with_thread_names(true)
+        .with_thread_ids(false)
+        .with_timer(Uptime::from(start_time))
+        .with_filter(log_level);
+
+    tracing_subscriber::registry().with(tracing_layer).init();
 
     if let Command::Run(Run {
         time,

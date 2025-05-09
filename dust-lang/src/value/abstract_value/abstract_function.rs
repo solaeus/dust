@@ -1,16 +1,16 @@
 use std::fmt::{self, Formatter};
 
+use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{FunctionType, risky_vm::Thread};
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd)]
-pub struct Function {
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct AbstractFunction {
     pub prototype_index: u16,
-    pub r#type: Box<FunctionType>,
 }
 
-impl Function {
+impl AbstractFunction {
     pub fn display(&self, f: &mut Formatter, thread: &Thread) -> fmt::Result {
         let (function_name, mut type_display) = if let Some(chunk) = thread
             .current_call

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Instruction, Operation};
 
-use super::{Address, AddressKind, Destination, InstructionFields, TypeCode};
+use super::{Address, AddressKind, Destination, InstructionFields, TypeKind};
 
 pub struct LoadList {
     pub destination: Destination,
@@ -66,39 +66,40 @@ impl Display for LoadList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let LoadList {
             destination,
-            start: start_register,
-            end: end_register,
+            start,
+            end: end_index,
             jump_next,
         } = self;
+        let end = Address::new(*end_index, start.kind);
 
         write!(f, "{} = [", destination.index)?;
 
-        match start_register.as_type_code() {
-            TypeCode::BOOLEAN => {
-                write!(f, "{start_register}..=R_BOOL_{end_register}")?;
+        match start.r#type() {
+            TypeKind::Boolean => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::BYTE => {
-                write!(f, "{start_register}..=R_BYTE_{end_register}")?;
+            TypeKind::Byte => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::CHARACTER => {
-                write!(f, "{start_register}..=R_CHAR_{end_register}")?;
+            TypeKind::Character => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::FLOAT => {
-                write!(f, "{start_register}..=R_FLOAT_{end_register}")?;
+            TypeKind::Float => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::INTEGER => {
-                write!(f, "{start_register}..=R_INT_{end_register}")?;
+            TypeKind::Integer => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::STRING => {
-                write!(f, "{start_register}..=R_STR_{end_register}")?;
+            TypeKind::String => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::LIST => {
-                write!(f, "{start_register}..=R_LIST_{end_register}")?;
+            TypeKind::List => {
+                write!(f, "{start}..={end}")?;
             }
-            TypeCode::FUNCTION => {
-                write!(f, "{start_register}..=R_FN_{end_register}")?;
+            TypeKind::Function => {
+                write!(f, "{start}..={end}")?;
             }
-            unsupported => unsupported.unsupported_write(f)?,
+            invalid => invalid.write_invalid(f)?,
         }
 
         write!(f, "]")?;

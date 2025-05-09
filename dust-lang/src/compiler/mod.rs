@@ -28,7 +28,7 @@ pub use compile_error::CompileError;
 pub use compile_mode::CompileMode;
 use parse_rule::{ParseRule, Precedence};
 use path::Path;
-use tracing::{Level, debug, info, span};
+use tracing::{Level, debug, error, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
 use std::{
@@ -40,8 +40,9 @@ use std::{
 use crate::{
     Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction,
     Operation, Scope, Span, Token, TokenKind, Type,
-    chunk::ArgumentLists,
-    instruction::{AddressKind, Destination, Jump, LoadFunction, Move, TypeCode},
+    chunk::Arguments,
+    instruction::{AddressKind, Destination, Jump, LoadFunction, Move},
+    r#type::TypeKind,
 };
 
 /// Compiles the input and returns a chunk.
@@ -118,7 +119,7 @@ pub struct Compiler<'src> {
     /// Lists of arguments for each function call. The integers represent the register of each
     /// argument. Note that the type of each argument is not stored, so the caller must check the
     /// function's type to determine the type of each argument.
-    argument_lists: Vec<ArgumentLists>,
+    arguments_list: Vec<Arguments>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -191,7 +192,7 @@ impl<'src> Compiler<'src> {
             string_constants: Vec::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
-            argument_lists: Vec::new(),
+            arguments_list: Vec::new(),
             lexer,
             minimum_byte_register: 0,
             minimum_boolean_register: 0,
@@ -233,153 +234,20 @@ impl<'src> Compiler<'src> {
 
         self.parse_implicit_return()?;
 
-        info!("End chunk");
-
         Ok(())
     }
 
     /// Creates a new chunk with the compiled data.
     pub fn finish(mut self) -> Chunk {
-        // let mut boolean_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut byte_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut character_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut float_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut integer_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut string_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut list_address_rankings = Vec::<(u16, Address)>::new();
-        // let mut function_address_rankings = Vec::<(u16, Address)>::new();
-
-        // // Increases the rank of the given address by 1 to indicate that it was used. If the
-        // // address has no existing rank, it is inserted in sorted order with a rank of 0.
-        // let increment_rank =
-        //     |address: Address, address_rankings: &mut Vec<(u16, Address)>| match address_rankings
-        //         .binary_search_by_key(&address, |(_, address)| *address)
-        //     {
-        //         Ok(index) => {
-        //             let rank = &mut address_rankings[index].0;
-        //             *rank = rank.saturating_add(1);
-        //         }
-        //         Err(index) => {
-        //             address_rankings.insert(index, (0, address));
-        //         }
-        //     };
-        // // Uses the given type code to determine which address rankings to pass to `increment_rank`
-        // // with the given address.
-        // let mut increment_rank_by_type = |type_code: TypeCode, address: Address| match type_code {
-        //     TypeCode::BOOLEAN => increment_rank(address, &mut boolean_address_rankings),
-        //     TypeCode::BYTE => increment_rank(address, &mut byte_address_rankings),
-        //     TypeCode::CHARACTER => increment_rank(address, &mut character_address_rankings),
-        //     TypeCode::FLOAT => increment_rank(address, &mut float_address_rankings),
-        //     TypeCode::INTEGER => increment_rank(address, &mut integer_address_rankings),
-        //     TypeCode::STRING => increment_rank(address, &mut string_address_rankings),
-        //     TypeCode::LIST => increment_rank(address, &mut list_address_rankings),
-        //     TypeCode::FUNCTION => increment_rank(address, &mut function_address_rankings),
-        //     TypeCode::NONE => {}
-        //     _ => unimplemented!(),
-        // };
-
-        // for (instruction, r#type, _) in &self.instructions {
-        //     let destination_address = instruction.destination().as_address(r#type.type_code());
-        //     let b_address = instruction.b_address();
-        //     let b_type = b_address.as_type_code();
-        //     let c_address = instruction.c_address();
-        //     let c_type = c_address.as_type_code();
-
-        //     increment_rank_by_type(r#type.type_code(), destination_address);
-        //     increment_rank_by_type(b_type, b_address);
-        //     increment_rank_by_type(c_type, c_address);
-        // }
-
-        // // Returns an `None` for empty rankings, otherwise returns a `HashMap` in which the keys are
-        // // addresses that need to be replaced and the values are their intended replacements.
-        // let create_replacement_map =
-        //     |rankings: Vec<(u16, Address)>| -> Option<HashMap<Address, Address>> {
-        //         if rankings.is_empty() {
-        //             return None;
-        //         }
-
-        //         Some(
-        //             rankings
-        //                 .into_iter()
-        //                 .take(10)
-        //                 .zip(0..10)
-        //                 .map(|((_, old_address), register_index)| {
-        //                     let new_address = match old_address.as_type_code() {
-        //                         TypeCode::BOOLEAN => {
-        //                             Address::new(register_index, AddressKind::BOOLEAN_REGISTER)
-        //                         }
-        //                         TypeCode::BYTE => {
-        //                             Address::new(register_index, AddressKind::BYTE_REGISTER)
-        //                         }
-        //                         TypeCode::CHARACTER => {
-        //                             Address::new(register_index, AddressKind::CHARACTER_REGISTER)
-        //                         }
-        //                         TypeCode::FLOAT => {
-        //                             Address::new(register_index, AddressKind::FLOAT_REGISTER)
-        //                         }
-        //                         TypeCode::INTEGER => {
-        //                             Address::new(register_index, AddressKind::INTEGER_REGISTER)
-        //                         }
-        //                         TypeCode::STRING => {
-        //                             Address::new(register_index, AddressKind::STRING_REGISTER)
-        //                         }
-        //                         TypeCode::LIST => {
-        //                             Address::new(register_index, AddressKind::LIST_REGISTER)
-        //                         }
-        //                         TypeCode::FUNCTION => {
-        //                             Address::new(register_index, AddressKind::FUNCTION_REGISTER)
-        //                         }
-        //                         _ => todo!(),
-        //                     };
-
-        //                     (old_address, new_address)
-        //                 })
-        //                 .collect(),
-        //         )
-        //     };
-
-        // // Searches the instruction list for addresses that are keys in the replacement map and
-        // // sets the appropriate fields to replace those addresses with the new one.
-        // let mut replace_addresses = |replacements: HashMap<Address, Address>| {
-        //     for (instruction, r#type, _) in &mut self.instructions {
-        //         let destination_address = instruction.destination().as_address(r#type.type_code());
-        //         let b_address = instruction.b_address();
-        //         let c_address = instruction.c_address();
-
-        //         if let Some(replacement) = replacements.get(&destination_address) {
-        //             instruction.set_destination(*replacement);
-        //         }
-
-        //         if let Some(replacement) = replacements.get(&b_address) {
-        //             instruction.set_b_address(*replacement);
-        //         }
-
-        //         if let Some(replacement) = replacements.get(&c_address) {
-        //             instruction.set_c_address(*replacement);
-        //         }
-        //     }
-        // };
-
-        // for address_rankings in [
-        //     boolean_address_rankings,
-        //     byte_address_rankings,
-        //     character_address_rankings,
-        //     float_address_rankings,
-        //     integer_address_rankings,
-        //     string_address_rankings,
-        //     list_address_rankings,
-        //     function_address_rankings,
-        // ] {
-        //     if let Some(replacements) = create_replacement_map(address_rankings) {
-        //         replace_addresses(replacements)
-        //     }
-        // }
+        self.optimize_instructions();
 
         if self.instructions.is_empty() {
             let r#return = Instruction::r#return(false, Address::default());
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
+
+        info!("End chunk");
 
         let boolean_memory_length = self.next_boolean_memory_index();
         let byte_memory_length = self.next_byte_memory_index();
@@ -406,7 +274,7 @@ impl<'src> Compiler<'src> {
             string_constants: self.string_constants,
             locals: self.locals,
             prototypes: self.prototypes,
-            argument_lists: self.argument_lists,
+            arguments: self.arguments_list,
             boolean_memory_length,
             byte_memory_length,
             character_memory_length,
@@ -416,6 +284,133 @@ impl<'src> Compiler<'src> {
             list_memory_length,
             function_memory_length,
             prototype_index: self.prototype_index,
+        }
+    }
+
+    fn optimize_instructions(&mut self) {
+        let mut boolean_address_rankings = Vec::<(u16, Address)>::new();
+        let mut byte_address_rankings = Vec::<(u16, Address)>::new();
+        let mut character_address_rankings = Vec::<(u16, Address)>::new();
+        let mut float_address_rankings = Vec::<(u16, Address)>::new();
+        let mut integer_address_rankings = Vec::<(u16, Address)>::new();
+        let mut string_address_rankings = Vec::<(u16, Address)>::new();
+        let mut list_address_rankings = Vec::<(u16, Address)>::new();
+        let mut function_address_rankings = Vec::<(u16, Address)>::new();
+
+        // Increases the rank of the given address by 1 to indicate that it was used. If the
+        // address has no existing rank, it is inserted in sorted order with a rank of 0.
+        let mut increment_rank = |address: Address| {
+            if address.is_constant() {
+                return;
+            }
+
+            let address_rankings = match address.r#type() {
+                TypeKind::Boolean => &mut boolean_address_rankings,
+                TypeKind::Byte => &mut byte_address_rankings,
+                TypeKind::Character => &mut character_address_rankings,
+                TypeKind::Float => &mut float_address_rankings,
+                TypeKind::Integer => &mut integer_address_rankings,
+                TypeKind::String => &mut string_address_rankings,
+                TypeKind::List => &mut list_address_rankings,
+                TypeKind::Function => &mut function_address_rankings,
+                TypeKind::None => return,
+                invalid => {
+                    error!("Malformed instruction is using type {invalid:?}");
+
+                    return;
+                }
+            };
+
+            match address_rankings.binary_search_by_key(&address, |(_, address)| *address) {
+                Ok(index) => {
+                    let rank = &mut address_rankings[index].0;
+                    *rank = rank.saturating_add(1);
+                }
+                Err(index) => {
+                    address_rankings.insert(index, (0, address));
+                }
+            }
+        };
+
+        for (instruction, r#type, _) in &self.instructions {
+            let destination_address = instruction.destination().as_address(r#type.kind());
+            let b_address = instruction.b_address();
+            let c_address = instruction.c_address();
+
+            increment_rank(destination_address);
+            increment_rank(b_address);
+            increment_rank(c_address);
+        }
+
+        // Returns an `None` for empty rankings, otherwise returns a `HashMap` in which the keys are
+        // addresses that need to be replaced and the values are their intended replacements.
+        let mut replacements = HashMap::new();
+
+        for (_rank, old_address) in boolean_address_rankings
+            .into_iter()
+            .rev()
+            .take(10)
+            .chain(byte_address_rankings.into_iter().rev().take(10))
+            .chain(float_address_rankings.into_iter().rev().take(10))
+            .chain(integer_address_rankings.into_iter().rev().take(10))
+            .chain(string_address_rankings.into_iter().rev().take(10))
+            .chain(list_address_rankings.into_iter().rev().take(10))
+            .chain(function_address_rankings.into_iter().rev().take(10))
+        {
+            let new_address = match old_address.r#type() {
+                TypeKind::Boolean => Address::new(old_address.index, AddressKind::BOOLEAN_REGISTER),
+                TypeKind::Byte => Address::new(old_address.index, AddressKind::BYTE_REGISTER),
+                TypeKind::Character => {
+                    Address::new(old_address.index, AddressKind::CHARACTER_REGISTER)
+                }
+                TypeKind::Float => Address::new(old_address.index, AddressKind::FLOAT_REGISTER),
+                TypeKind::Integer => Address::new(old_address.index, AddressKind::INTEGER_REGISTER),
+                TypeKind::String => Address::new(old_address.index, AddressKind::STRING_REGISTER),
+                TypeKind::List => Address::new(old_address.index, AddressKind::LIST_REGISTER),
+                TypeKind::Function => {
+                    Address::new(old_address.index, AddressKind::FUNCTION_REGISTER)
+                }
+                _ => todo!(),
+            };
+
+            trace!("Optimization found: replace {old_address} with {new_address}.");
+
+            replacements.insert(old_address, new_address);
+        }
+
+        for (instruction, r#type, _) in &mut self.instructions {
+            let destination_address = instruction.destination().as_address(r#type.kind());
+            let b_address = instruction.b_address();
+            let c_address = instruction.c_address();
+
+            println!("{destination_address}");
+
+            if let Some(replacement) = replacements.get(&destination_address) {
+                trace!(
+                    "Optimizing {}: replace {destination_address} with {replacement}",
+                    instruction.operation()
+                );
+
+                instruction.set_destination(*replacement);
+            }
+
+            if let Some(replacement) = replacements.get(&b_address) {
+                trace!(
+                    "Optimizing {}: replace {b_address} with {replacement}",
+                    instruction.operation()
+                );
+
+                instruction.set_b_address(*replacement);
+            }
+
+            if let Some(replacement) = replacements.get(&c_address) {
+                trace!(
+                    "Optimizing {}: replace {c_address} with {replacement}",
+                    instruction.operation()
+                );
+
+                instruction.set_c_address(*replacement);
+            }
         }
     }
 
@@ -497,7 +492,7 @@ impl<'src> Compiler<'src> {
     // TODO: Account for MOVE instructions
     fn next_integer_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_integer_register,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Integer {
                     if instruction.a_field() >= acc {
@@ -757,8 +752,6 @@ impl<'src> Compiler<'src> {
             let destination = Destination::memory(self.next_boolean_memory_index());
             let address = Address::new(boolean as u16, AddressKind::BOOLEAN_MEMORY);
             let load_encoded = Instruction::load_encoded(destination, address, false);
-
-            println!("{load_encoded}");
 
             self.emit_instruction(load_encoded, Type::Boolean, position);
 
@@ -1324,7 +1317,10 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let test = Instruction::test(left.index, test_boolean);
+        let test = Instruction::test(
+            Address::new(left.index, AddressKind::BOOLEAN_MEMORY),
+            test_boolean,
+        );
 
         self.emit_instruction(test, Type::None, operator_position);
 
@@ -1446,7 +1442,7 @@ impl<'src> Compiler<'src> {
                     false,
                 );
 
-                self.emit_instruction(load_self, Type::SelfFunction, start_position);
+                self.emit_instruction(load_self, Type::FunctionSelf, start_position);
 
                 return Ok(());
             } else {
@@ -1708,11 +1704,7 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
         }
 
-        self.emit_instruction(
-            load_list,
-            Type::List(item_type.type_code()),
-            Span(start, end),
-        );
+        self.emit_instruction(load_list, Type::List(Box::new(item_type)), Span(start, end));
 
         Ok(())
     }
@@ -1740,7 +1732,7 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let address_register = match self.get_last_instruction_type() {
+            let address_index = match self.get_last_instruction_type() {
                 Type::Boolean => self.next_boolean_memory_index() - 1,
                 _ => {
                     return Err(CompileError::ExpectedBoolean {
@@ -1749,7 +1741,10 @@ impl<'src> Compiler<'src> {
                     });
                 }
             };
-            let test = Instruction::test(address_register, true);
+            let test = Instruction::test(
+                Address::new(address_index, AddressKind::BOOLEAN_MEMORY),
+                true,
+            );
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -1881,7 +1876,7 @@ impl<'src> Compiler<'src> {
             self.instructions.pop();
             self.instructions.pop();
         } else {
-            let address_register = match self.get_last_instruction_type() {
+            let address_index = match self.get_last_instruction_type() {
                 Type::Boolean => self.next_boolean_memory_index() - 1,
                 Type::Byte => self.next_byte_memory_index() - 1,
                 Type::Character => self.next_character_memory_index() - 1,
@@ -1890,7 +1885,10 @@ impl<'src> Compiler<'src> {
                 Type::String => self.next_string_memory_index() - 1,
                 _ => todo!(),
             };
-            let test = Instruction::test(address_register, true);
+            let test = Instruction::test(
+                Address::new(address_index, AddressKind::BOOLEAN_MEMORY),
+                true,
+            );
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -2088,7 +2086,7 @@ impl<'src> Compiler<'src> {
                 Type::Integer => AddressKind::INTEGER_MEMORY,
                 Type::String => AddressKind::STRING_MEMORY,
                 Type::List(_) => AddressKind::LIST_MEMORY,
-                Type::Function(_) | Type::SelfFunction => AddressKind::FUNCTION_MEMORY,
+                Type::Function(_) | Type::FunctionSelf => AddressKind::FUNCTION_MEMORY,
                 Type::None => AddressKind::NONE,
                 _ => unimplemented!(),
             };
@@ -2157,9 +2155,6 @@ impl<'src> Compiler<'src> {
             is_mutable,
             self.current_block_scope,
         );
-
-        // The last instruction is now an assignment, so it should not yield a value
-        self.instructions.last_mut().unwrap().1 = Type::None;
 
         Ok(())
     }
@@ -2317,7 +2312,7 @@ impl<'src> Compiler<'src> {
 
         let function_return_type = match last_instruction_type {
             Type::Function(function_type) => function_type.return_type.clone(),
-            Type::SelfFunction => self.r#type.return_type.clone(),
+            Type::FunctionSelf => self.r#type.return_type.clone(),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
@@ -2349,23 +2344,41 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (argument_index, type_code) = match self.get_last_instruction_type() {
-                Type::Boolean => (self.next_boolean_memory_index() - 1, TypeCode::BOOLEAN),
-                Type::Byte => (self.next_byte_memory_index() - 1, TypeCode::BYTE),
-                Type::Character => (self.next_character_memory_index() - 1, TypeCode::CHARACTER),
-                Type::Float => (self.next_float_memory_index() - 1, TypeCode::FLOAT),
-                Type::Integer => (self.next_integer_memory_index() - 1, TypeCode::INTEGER),
-                Type::String => (self.next_string_memory_index() - 1, TypeCode::STRING),
+            let (argument_index, address_kind) = match self.get_last_instruction_type() {
+                Type::Boolean => (
+                    self.next_boolean_memory_index() - 1,
+                    AddressKind::BOOLEAN_MEMORY,
+                ),
+                Type::Byte => (self.next_byte_memory_index() - 1, AddressKind::BYTE_MEMORY),
+                Type::Character => (
+                    self.next_character_memory_index() - 1,
+                    AddressKind::CHARACTER_MEMORY,
+                ),
+                Type::Float => (
+                    self.next_float_memory_index() - 1,
+                    AddressKind::FLOAT_MEMORY,
+                ),
+                Type::Integer => (
+                    self.next_integer_memory_index() - 1,
+                    AddressKind::INTEGER_MEMORY,
+                ),
+                Type::String => (
+                    self.next_string_memory_index() - 1,
+                    AddressKind::STRING_MEMORY,
+                ),
                 _ => todo!(),
             };
+            let address = Address::new(argument_index, address_kind);
 
-            value_argument_list.push((argument_index, type_code));
+            value_argument_list.push(address);
         }
 
-        let argument_list_index = self.argument_lists.len() as u16;
+        let argument_list_index = self.arguments_list.len() as u16;
 
-        self.argument_lists
-            .push((value_argument_list, type_argument_list));
+        self.arguments_list.push(Arguments {
+            values: value_argument_list,
+            types: type_argument_list,
+        });
 
         let end = self.current_position.1;
         let destination_index = match function_return_type {
@@ -2382,7 +2395,7 @@ impl<'src> Compiler<'src> {
             Destination::memory(destination_index),
             Address::new(function_register, AddressKind::FUNCTION_MEMORY),
             argument_list_index,
-            function_return_type.type_code(),
+            function_return_type.kind(),
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
@@ -2416,23 +2429,41 @@ impl<'src> Compiler<'src> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (argument_index, type_code) = match self.get_last_instruction_type() {
-                Type::Boolean => (self.next_boolean_memory_index() - 1, TypeCode::BOOLEAN),
-                Type::Byte => (self.next_byte_memory_index() - 1, TypeCode::BYTE),
-                Type::Character => (self.next_character_memory_index() - 1, TypeCode::CHARACTER),
-                Type::Float => (self.next_float_memory_index() - 1, TypeCode::FLOAT),
-                Type::Integer => (self.next_integer_memory_index() - 1, TypeCode::INTEGER),
-                Type::String => (self.next_string_memory_index() - 1, TypeCode::STRING),
+            let (argument_index, address_kind) = match self.get_last_instruction_type() {
+                Type::Boolean => (
+                    self.next_boolean_memory_index() - 1,
+                    AddressKind::BOOLEAN_MEMORY,
+                ),
+                Type::Byte => (self.next_byte_memory_index() - 1, AddressKind::BYTE_MEMORY),
+                Type::Character => (
+                    self.next_character_memory_index() - 1,
+                    AddressKind::CHARACTER_MEMORY,
+                ),
+                Type::Float => (
+                    self.next_float_memory_index() - 1,
+                    AddressKind::FLOAT_MEMORY,
+                ),
+                Type::Integer => (
+                    self.next_integer_memory_index() - 1,
+                    AddressKind::INTEGER_MEMORY,
+                ),
+                Type::String => (
+                    self.next_string_memory_index() - 1,
+                    AddressKind::STRING_MEMORY,
+                ),
                 _ => todo!(),
             };
+            let address = Address::new(argument_index, address_kind);
 
-            value_argument_list.push((argument_index, type_code));
+            value_argument_list.push(address);
         }
 
-        let argument_list_index = self.argument_lists.len() as u16;
+        let argument_list_index = self.arguments_list.len() as u16;
 
-        self.argument_lists
-            .push((value_argument_list, type_argument_list));
+        self.arguments_list.push(Arguments {
+            values: value_argument_list,
+            types: type_argument_list,
+        });
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();

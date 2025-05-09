@@ -1,4 +1,4 @@
-use crate::{DustString, Instruction, TypeCode, instruction::CallNative, risky_vm::Thread};
+use crate::{DustString, Instruction, instruction::CallNative, risky_vm::Thread, r#type::TypeKind};
 
 pub fn to_string(instruction: Instruction, thread: &mut Thread) {
     let CallNative {
@@ -7,22 +7,22 @@ pub fn to_string(instruction: Instruction, thread: &mut Thread) {
         argument_list_index,
     } = CallNative::from(instruction);
 
-    let (argument_index, argument_type) = thread
+    let address = thread
         .current_call
         .chunk
-        .argument_lists
+        .arguments
         .get(argument_list_index as usize)
         .unwrap()
-        .0
+        .values
         .first()
         .unwrap();
 
-    let string = match *argument_type {
-        TypeCode::INTEGER => {
+    let string = match address.r#type() {
+        TypeKind::Integer => {
             let integer = thread
                 .current_memory
                 .integers
-                .get(*argument_index as usize)
+                .get(address.index as usize)
                 .unwrap()
                 .as_value();
 

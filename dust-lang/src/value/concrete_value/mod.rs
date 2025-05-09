@@ -1,3 +1,9 @@
+mod concrete_list;
+mod concrete_range;
+
+pub use concrete_list::ConcreteList;
+pub use concrete_range::ConcreteRange;
+
 use std::{
     fmt::{self, Display, Formatter},
     sync::Arc,
@@ -9,9 +15,9 @@ use tracing::trace;
 
 use crate::{Chunk, Type, Value};
 
-use super::RangeValue;
+use super::DustString;
 
-pub type DustString = SmartString<LazyCompact>;
+pub type ConcreteFunction = Arc<Chunk>;
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
@@ -20,10 +26,10 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(Arc<Chunk>),
+    Function(ConcreteFunction),
     Integer(i64),
-    List(Vec<ConcreteValue>),
-    Range(RangeValue),
+    List(ConcreteList),
+    Range(ConcreteRange),
     String(DustString),
 }
 
@@ -32,8 +38,8 @@ impl ConcreteValue {
         Value::Concrete(self)
     }
 
-    pub fn list<T: Into<Vec<ConcreteValue>>>(into_items: T) -> Self {
-        ConcreteValue::List(into_items.into())
+    pub fn list<T: Into<ConcreteList>>(to_list: T) -> Self {
+        ConcreteValue::List(to_list.into())
     }
 
     pub fn string<T: Into<SmartString<LazyCompact>>>(to_string: T) -> Self {
@@ -88,7 +94,7 @@ impl ConcreteValue {
         }
     }
 
-    pub fn as_list(&self) -> Option<&Vec<ConcreteValue>> {
+    pub fn as_list(&self) -> Option<&ConcreteList> {
         if let ConcreteValue::List(list) = self {
             Some(list)
         } else {
@@ -96,7 +102,7 @@ impl ConcreteValue {
         }
     }
 
-    pub fn as_range(&self) -> Option<&RangeValue> {
+    pub fn as_range(&self) -> Option<&ConcreteRange> {
         if let ConcreteValue::Range(range) = self {
             Some(range)
         } else {
@@ -115,7 +121,7 @@ impl ConcreteValue {
             ConcreteValue::Character(_) => Type::Character,
             ConcreteValue::Float(_) => Type::Float,
             ConcreteValue::Integer(_) => Type::Integer,
-            ConcreteValue::List(items) => items.first().map_or(Type::Any, |item| item.r#type()),
+            ConcreteValue::List(list) => list.r#type(),
             ConcreteValue::Range(range) => range.r#type(),
             ConcreteValue::String(_) => Type::String,
             ConcreteValue::Function(chunk) => Type::Function(Box::new(chunk.r#type.clone())),
@@ -133,7 +139,7 @@ impl Clone for ConcreteValue {
             ConcreteValue::Character(character) => ConcreteValue::Character(*character),
             ConcreteValue::Float(float) => ConcreteValue::Float(*float),
             ConcreteValue::Integer(integer) => ConcreteValue::Integer(*integer),
-            ConcreteValue::List(items) => ConcreteValue::List(items.clone()),
+            ConcreteValue::List(list) => ConcreteValue::List(list.clone()),
             ConcreteValue::Range(range) => ConcreteValue::Range(*range),
             ConcreteValue::String(string) => ConcreteValue::String(string.clone()),
             ConcreteValue::Function(chunk) => ConcreteValue::Function(chunk.clone()),
@@ -157,22 +163,8 @@ impl Display for ConcreteValue {
                 Ok(())
             }
             ConcreteValue::Integer(integer) => write!(f, "{integer}"),
-            ConcreteValue::List(items) => {
-                write!(f, "[")?;
-
-                for (index, item) in items.iter().enumerate() {
-                    if index > 0 {
-                        write!(f, ", ")?;
-                    }
-
-                    write!(f, "{item}")?;
-                }
-
-                write!(f, "]")
-            }
-            ConcreteValue::Range(range_value) => {
-                write!(f, "{range_value}")
-            }
+            ConcreteValue::List(list) => write!(f, "{list}"),
+            ConcreteValue::Range(range_value) => write!(f, "{range_value}"),
             ConcreteValue::String(string) => write!(f, "{string}"),
             ConcreteValue::Function(chunk) => write!(f, "{}", chunk.r#type),
         }

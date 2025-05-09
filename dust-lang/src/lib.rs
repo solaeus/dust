@@ -27,6 +27,7 @@
 //!
 //! println!("{}", report);
 //! ```
+#![feature(new_range_api)]
 
 pub mod chunk;
 pub mod compiler;
@@ -42,15 +43,13 @@ pub mod value;
 pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Address, Instruction, Operation, TypeCode};
+pub use crate::instruction::{Address, Instruction, Operation};
 pub use crate::lexer::{LexError, Lexer, lex};
 pub use crate::native_function::NativeFunction;
 pub use crate::risky_vm::{Vm, run};
 pub use crate::token::{Token, TokenKind, TokenOwned};
 pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
-pub use crate::value::{
-    AbstractList, ConcreteValue, DustString, Function, RangeValue, Value, ValueError,
-};
+pub use crate::value::{AbstractList, ConcreteValue, DustString, Value};
 
 use std::fmt::Display;
 

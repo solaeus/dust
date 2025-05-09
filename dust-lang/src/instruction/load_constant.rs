@@ -57,10 +57,10 @@ impl Display for LoadConstant {
             constant,
             jump_next,
         } = self;
-        let return_type = constant.as_type_code();
+        let return_type = constant.r#type();
 
         destination.display(f, return_type)?;
-        write!(f, " = {constant}");
+        write!(f, " = {constant}")?;
 
         if *jump_next {
             write!(f, " JUMP +1")?;

@@ -43,6 +43,8 @@ use colored::{ColoredString, Colorize};
 
 use crate::{Chunk, Local, Type};
 
+use super::Arguments;
+
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -144,9 +146,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
     }
 
     fn content_length() -> usize {
-        let longest_line_length = INSTRUCTION_BORDERS[0].chars().count();
-
-        longest_line_length
+        INSTRUCTION_BORDERS[0].chars().count()
     }
 
     fn line_length(&self) -> usize {
@@ -155,16 +155,16 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.width + (indentation_length * self.indent) + 2 // Left and right border
     }
 
-    fn write_char(&mut self, c: char) -> Result<(), io::Error> {
-        write!(&mut self.writer, "{}", c)
+    fn write_char(&mut self, character: char) -> Result<(), io::Error> {
+        write!(&mut self.writer, "{character}")
     }
 
     fn write_colored(&mut self, text: &ColoredString) -> Result<(), io::Error> {
-        write!(&mut self.writer, "{}", text)
+        write!(&mut self.writer, "{text}")
     }
 
     fn write_str(&mut self, text: &str) -> Result<(), io::Error> {
-        write!(&mut self.writer, "{}", text)
+        write!(&mut self.writer, "{text}")
     }
 
     fn write_content(
@@ -274,7 +274,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in INSTRUCTION_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}", width = width));
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
         }
 
         column_name_line.push('│');
@@ -306,7 +306,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in LOCAL_COLUMNS {
-            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
         }
 
         column_name_line.push('│');
@@ -361,7 +361,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in CONSTANT_COLUMNS {
-            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
         }
 
         column_name_line.push('│');
@@ -451,7 +451,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in ARGUMENT_LIST_COLUMNS {
-            column_name_line.push_str(&format!("│{:^width$}", column_name, width = width));
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
         }
 
         column_name_line.push('│');
@@ -460,17 +460,15 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        for (index, (value_argument_list, type_argument_list)) in
-            self.chunk.argument_lists.iter().enumerate()
-        {
+        for (index, Arguments { values, types }) in self.chunk.arguments.iter().enumerate() {
             let argument_list_display = format!(
                 "│{index:^5}│{:^21}│{:^21}│",
-                value_argument_list
+                values
                     .iter()
-                    .map(|(index, type_code)| format!("{} ({})", index, type_code))
+                    .map(|address| address.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
-                type_argument_list
+                types
                     .iter()
                     .map(|r#type| r#type.to_string())
                     .collect::<Vec<String>>()
@@ -557,7 +555,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.write_constant_section()?;
         }
 
-        if !self.chunk.argument_lists.is_empty() {
+        if !self.chunk.arguments.is_empty() {
             self.write_argument_list_section()?;
         }
 

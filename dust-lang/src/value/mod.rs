@@ -1,29 +1,24 @@
 //! Runtime values used by the VM.
-mod abstract_list;
+mod abstract_value;
 mod concrete_value;
-mod function;
-mod range_value;
 
-pub use abstract_list::AbstractList;
-pub use concrete_value::{ConcreteValue, DustString};
-pub use function::Function;
-pub use range_value::RangeValue;
+pub use abstract_value::{AbstractFunction, AbstractList, AbstractValue};
+use concrete_value::ConcreteFunction;
+pub use concrete_value::ConcreteValue;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use smartstring::{LazyCompact, SmartString};
 
 use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::Type;
 
+pub type DustString = SmartString<LazyCompact>;
+
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
+    #[serde(skip)]
+    Abstract(AbstractValue),
     Concrete(ConcreteValue),
-
-    #[serde(skip)]
-    AbstractList(AbstractList),
-
-    #[serde(skip)]
-    Function(Function),
 }
 
 impl Value {
@@ -91,8 +86,8 @@ impl Value {
         }
     }
 
-    pub fn as_function(&self) -> Option<&Function> {
-        if let Value::Function(function) = self {
+    pub fn as_concrete_function(&self) -> Option<&ConcreteFunction> {
+        if let Value::Concrete(ConcreteValue::Function(function)) = self {
             Some(function)
         } else {
             None
@@ -120,83 +115,59 @@ impl Value {
     }
 
     pub fn is_function(&self) -> bool {
-        matches!(self, Value::Function(_))
+        matches!(
+            self,
+            Value::Concrete(ConcreteValue::Function(_))
+                | Value::Abstract(AbstractValue::Function(_))
+        )
     }
+}
 
+/// An ordered sequence of values. These variants mirror the range types in `std::range`. This type
+/// is not used on its own but forms the basis for Dust's [`ConcreteRange`] values.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub enum DustRange<T> {
+    FromStart { start: T },
+    Full,
+    Inclusive { start: T, end: T },
+    SemiInclusive { start: T, end: T },
+    ToEnd { end: T },
+    ToEndInclusive { end: T },
+}
+
+impl DustRange<u8> {
     pub fn r#type(&self) -> Type {
-        match self {
-            Value::Concrete(concrete_value) => concrete_value.r#type(),
-            Value::AbstractList(AbstractList { item_type, .. }) => Type::List(*item_type),
-            Value::Function(Function { r#type, .. }) => Type::Function(r#type.clone()),
-        }
+        Type::Range(Box::new(Type::Byte))
     }
 }
 
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Concrete(concrete_value) => write!(f, "{concrete_value}"),
-            Value::AbstractList(list) => {
-                warn!(
-                    "Using Display implementation on an AbstractList. Use AbstractList::display instead."
-                );
-                write!(f, "{list:?}")
-            }
-            Value::Function(function) => {
-                warn!("Using Display implementation on a Function. Use Function::display instead.");
-                write!(f, "{function:?}")
-            }
-        }
+impl DustRange<char> {
+    pub fn r#type(&self) -> Type {
+        Type::Range(Box::new(Type::Character))
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValueError {
-    CannotAdd(Value, Value),
-    CannotAnd(Value, Value),
-    CannotCompare(Value, Value),
-    CannotDivide(Value, Value),
-    CannotModulo(Value, Value),
-    CannotMultiply(Value, Value),
-    CannotNegate(Value),
-    CannotNot(Value),
-    CannotSubtract(Value, Value),
-    CannotOr(Value, Value),
+impl DustRange<f64> {
+    pub fn r#type(&self) -> Type {
+        Type::Range(Box::new(Type::Float))
+    }
 }
 
-impl Display for ValueError {
+impl DustRange<i64> {
+    pub fn r#type(&self) -> Type {
+        Type::Range(Box::new(Type::Integer))
+    }
+}
+
+impl<T: Display> Display for DustRange<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ValueError::CannotAdd(left, right) => {
-                write!(f, "Cannot add {left} and {right}")
-            }
-            ValueError::CannotAnd(left, right) => {
-                write!(f, "Cannot use logical AND operation on {left} and {right}")
-            }
-            ValueError::CannotCompare(left, right) => {
-                write!(f, "Cannot compare {left} and {right}")
-            }
-            ValueError::CannotDivide(left, right) => {
-                write!(f, "Cannot divide {left} by {right}")
-            }
-            ValueError::CannotModulo(left, right) => {
-                write!(f, "Cannot use modulo operation on {left} and {right}")
-            }
-            ValueError::CannotMultiply(left, right) => {
-                write!(f, "Cannot multiply {left} by {right}")
-            }
-            ValueError::CannotNegate(value) => {
-                write!(f, "Cannot negate {value}")
-            }
-            ValueError::CannotNot(value) => {
-                write!(f, "Cannot use logical NOT operation on {value}")
-            }
-            ValueError::CannotSubtract(left, right) => {
-                write!(f, "Cannot subtract {right} from {left}")
-            }
-            ValueError::CannotOr(left, right) => {
-                write!(f, "Cannot use logical OR operation on {left} and {right}")
-            }
+            DustRange::FromStart { start } => write!(f, "{start}.."),
+            DustRange::Full => write!(f, ".."),
+            DustRange::Inclusive { start, end } => write!(f, "{start}..={end}"),
+            DustRange::SemiInclusive { start, end } => write!(f, "{start}..{end}"),
+            DustRange::ToEnd { end } => write!(f, "..{end}"),
+            DustRange::ToEndInclusive { end } => write!(f, "..={end}"),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
+use super::{Address, Destination, Instruction, InstructionFields, Operation};
 
 pub struct Subtract {
     pub destination: Destination,
@@ -59,13 +59,7 @@ impl Display for Subtract {
             right,
         } = self;
 
-        match left.as_type_code() {
-            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
-            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
-            unsupported => unsupported.unsupported_write(f)?,
-        }
-
+        destination.display(f, left.r#type())?;
         write!(f, " = {left} - {right}",)
     }
 }

@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
+use super::{Address, Destination, Instruction, InstructionFields, Operation};
 
 pub struct Divide {
     pub destination: Destination,
@@ -58,13 +58,8 @@ impl Display for Divide {
             left,
             right,
         } = self;
-        let left_type = left.as_type_code();
-        let return_type = match left_type {
-            TypeCode::CHARACTER => TypeCode::STRING,
-            _ => left_type,
-        };
 
-        destination.display(f, return_type)?;
+        destination.display(f, left.r#type())?;
         write!(f, " = {left} ÷ {right}")
     }
 }

@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
+use crate::{Instruction, Operation, r#type::TypeKind};
 
-use super::{Address, Destination, InstructionFields, TypeCode};
+use super::{Address, Destination, InstructionFields};
 
 pub struct LoadEncoded {
     pub destination: Destination,
@@ -57,19 +57,23 @@ impl Display for LoadEncoded {
             value,
             jump_next,
         } = self;
+        let r#type = value.r#type();
+        let destination_address = destination.as_address(r#type);
 
-        match value.as_type_code() {
-            TypeCode::BOOLEAN => {
+        write!(f, "{destination_address} = ")?;
+
+        match r#type {
+            TypeKind::Boolean => {
                 let boolean = value.index != 0;
 
-                write!(f, "R_BOOL_{} = {boolean}", destination.index)?
+                write!(f, "{boolean}")?
             }
-            TypeCode::BYTE => {
+            TypeKind::Byte => {
                 let byte = value.index as u8;
 
-                write!(f, "R_BYTE_{} = 0x{byte}", destination.index)?
+                write!(f, "0x{byte}")?
             }
-            unsupported => unsupported.unsupported_write(f)?,
+            invalid => invalid.write_invalid(f)?,
         }
 
         if *jump_next {

@@ -3,12 +3,12 @@
 //! will cause undefined behavior.
 mod call_frame;
 mod memory;
-mod runner;
+mod runners;
 mod thread;
 
 pub use call_frame::CallFrame;
 pub use memory::{Memory, RegisterTable};
-pub use runner::{RUNNERS, Runner};
+pub use runners::{RUNNERS, Runner};
 pub use thread::Thread;
 
 use std::{sync::Arc, thread::Builder};
@@ -16,9 +16,9 @@ use std::{sync::Arc, thread::Builder};
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{Chunk, DustError, Value, compile};
+use crate::{Chunk, ConcreteValue, DustError, Value, compile};
 
-pub fn run(source: &str) -> Result<Option<Value>, DustError> {
+pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;
     let vm = Vm::new(chunk);
 
@@ -34,7 +34,7 @@ impl Vm {
         Self { main_chunk }
     }
 
-    pub fn run(self) -> Option<Value> {
+    pub fn run(self) -> Option<ConcreteValue> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 

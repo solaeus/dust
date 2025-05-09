@@ -2,7 +2,10 @@ use std::{sync::Arc, thread::JoinHandle};
 
 use tracing::info;
 
-use crate::{Chunk, DustString, Span, Value, risky_vm::runner::RUNNERS};
+use crate::{
+    Address, Chunk, ConcreteValue, DustString, Value, instruction::AddressKind,
+    risky_vm::runners::RUNNERS,
+};
 
 use super::{CallFrame, Memory, RegisterTable};
 
@@ -45,11 +48,56 @@ impl Thread {
         }
     }
 
-    fn current_position(&self) -> Span {
-        self.current_call.chunk.positions[self.current_call.ip]
+    pub fn resolve_boolean(&self, address: &Address) -> bool {
+        match address.kind {
+            AddressKind::BOOLEAN_MEMORY => *self
+                .current_memory
+                .booleans
+                .get(address.index as usize)
+                .unwrap()
+                .as_value(),
+            AddressKind::BOOLEAN_REGISTER => *self
+                .current_memory
+                .register_table
+                .booleans
+                .get(address.index),
+            _ => unreachable!(),
+        }
     }
 
-    pub fn run(mut self) -> Option<Value> {
+    pub fn resolve_byte(&self, address: &Address) -> u8 {
+        match address.kind {
+            AddressKind::BOOLEAN_MEMORY => *self
+                .current_memory
+                .bytes
+                .get(address.index as usize)
+                .unwrap()
+                .as_value(),
+            AddressKind::BOOLEAN_REGISTER => {
+                *self.current_memory.register_table.bytes.get(address.index)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn resolve_string(&self, address: &Address) -> &DustString {
+        match address.kind {
+            AddressKind::BOOLEAN_MEMORY => self
+                .current_memory
+                .strings
+                .get(address.index as usize)
+                .unwrap()
+                .as_value(),
+            AddressKind::BOOLEAN_REGISTER => self
+                .current_memory
+                .register_table
+                .strings
+                .get(address.index),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn run(mut self) -> Option<ConcreteValue> {
         info!(
             "Starting thread {}",
             self.chunk
@@ -67,10 +115,9 @@ impl Thread {
 
             let instruction = instructions[ip];
             let operation = instruction.operation();
+            let runner = RUNNERS[operation.0 as usize];
 
             info!("IP = {ip} Run {operation}");
-
-            let runner = RUNNERS[operation.0 as usize];
 
             self = runner(instruction, self);
         }

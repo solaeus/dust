@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
+use crate::{Instruction, Operation, r#type::TypeKind};
 
-use super::{Address, Destination, InstructionFields, TypeCode};
+use super::{Address, Destination, InstructionFields};
 
 pub struct Move {
     pub destination: Destination,
@@ -49,16 +49,16 @@ impl Display for Move {
             operand,
         } = self;
 
-        match operand.as_type_code() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", destination.index)?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
-            TypeCode::CHARACTER => write!(f, "R_CHAR_{}", destination.index)?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
-            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
-            TypeCode::STRING => write!(f, "R_STR_{}", destination.index)?,
-            TypeCode::LIST => write!(f, "R_LIST_{}", destination.index)?,
-            TypeCode::FUNCTION => write!(f, "R_FN_{}", destination.index)?,
-            unsupported => unsupported.unsupported_write(f)?,
+        match operand.r#type() {
+            TypeKind::Boolean => write!(f, "R_BOOL_{}", destination.index)?,
+            TypeKind::Byte => write!(f, "R_BYTE_{}", destination.index)?,
+            TypeKind::Character => write!(f, "R_CHAR_{}", destination.index)?,
+            TypeKind::Float => write!(f, "R_FLOAT_{}", destination.index)?,
+            TypeKind::Integer => write!(f, "R_INT_{}", destination.index)?,
+            TypeKind::String => write!(f, "R_STR_{}", destination.index)?,
+            TypeKind::List => write!(f, "R_LIST_{}", destination.index)?,
+            TypeKind::Function => write!(f, "R_FN_{}", destination.index)?,
+            invalid => invalid.write_invalid(f)?,
         }
 
         write!(f, " = {operand}")

@@ -1,8 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::TypeCode;
+use serde::{Deserialize, Serialize};
+use tracing::error;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+use crate::r#type::TypeKind;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Address {
     pub index: u16,
     pub kind: AddressKind,
@@ -13,28 +16,32 @@ impl Address {
         Address { index, kind }
     }
 
-    pub fn as_type_code(&self) -> TypeCode {
+    pub fn r#type(&self) -> TypeKind {
         match self.kind {
-            AddressKind::NONE => TypeCode::NONE,
-            AddressKind::BOOLEAN_MEMORY | AddressKind::BOOLEAN_REGISTER => TypeCode::BOOLEAN,
-            AddressKind::BYTE_MEMORY | AddressKind::BYTE_REGISTER => TypeCode::BYTE,
+            AddressKind::BOOLEAN_MEMORY | AddressKind::BOOLEAN_REGISTER => TypeKind::Boolean,
+            AddressKind::BYTE_MEMORY | AddressKind::BYTE_REGISTER => TypeKind::Byte,
             AddressKind::CHARACTER_CONSTANT
             | AddressKind::CHARACTER_MEMORY
-            | AddressKind::CHARACTER_REGISTER => TypeCode::CHARACTER,
+            | AddressKind::CHARACTER_REGISTER => TypeKind::Character,
             AddressKind::FLOAT_CONSTANT
             | AddressKind::FLOAT_MEMORY
-            | AddressKind::FLOAT_REGISTER => TypeCode::FLOAT,
+            | AddressKind::FLOAT_REGISTER => TypeKind::Float,
             AddressKind::INTEGER_CONSTANT
             | AddressKind::INTEGER_MEMORY
-            | AddressKind::INTEGER_REGISTER => TypeCode::INTEGER,
+            | AddressKind::INTEGER_REGISTER => TypeKind::Integer,
             AddressKind::STRING_CONSTANT
             | AddressKind::STRING_MEMORY
-            | AddressKind::STRING_REGISTER => TypeCode::STRING,
-            AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeCode::LIST,
+            | AddressKind::STRING_REGISTER => TypeKind::String,
+            AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeKind::List,
             AddressKind::FUNCTION_SELF
             | AddressKind::FUNCTION_MEMORY
-            | AddressKind::FUNCTION_REGISTER => TypeCode::FUNCTION,
-            unknown => unreachable!("Invalid OperandKind: {}", unknown.0),
+            | AddressKind::FUNCTION_REGISTER => TypeKind::Function,
+            AddressKind::NONE => TypeKind::None,
+            unknown => {
+                error!("Invalid AddressKind, has inner value {}", unknown.0);
+
+                TypeKind::None
+            }
         }
     }
 
@@ -96,6 +103,7 @@ impl Display for Address {
             AddressKind::LIST_MEMORY => write!(f, "M_LIST_{index}"),
             AddressKind::LIST_REGISTER => write!(f, "R_LIST_{index}"),
             AddressKind::FUNCTION_MEMORY => write!(f, "M_FN_{index}"),
+            AddressKind::FUNCTION_PROTOTYPE => write!(f, "P_{index}"),
             AddressKind::FUNCTION_REGISTER => write!(f, "R_FN_{index}"),
             AddressKind::FUNCTION_SELF => write!(f, "SELF"),
             _ => write!(f, "INVALID_{index}"),
@@ -103,7 +111,7 @@ impl Display for Address {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AddressKind(pub u8);
 
 impl AddressKind {

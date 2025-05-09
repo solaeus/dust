@@ -1,4 +1,4 @@
-use crate::{AbstractList, DustString, Function};
+use crate::{AbstractList, DustString, value::AbstractFunction};
 
 #[derive(Debug)]
 pub struct Memory {
@@ -9,12 +9,12 @@ pub struct Memory {
     pub integers: Vec<Slot<i64>>,
     pub strings: Vec<Slot<DustString>>,
     pub lists: Vec<Slot<AbstractList>>,
-    pub functions: Vec<Slot<Function>>,
+    pub functions: Vec<Slot<AbstractFunction>>,
 
     pub register_table: RegisterTable,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RegisterTable {
     pub booleans: RegisterList<bool>,
     pub bytes: RegisterList<u8>,
@@ -23,22 +23,7 @@ pub struct RegisterTable {
     pub integers: RegisterList<i64>,
     pub strings: RegisterList<DustString>,
     pub lists: RegisterList<AbstractList>,
-    pub functions: RegisterList<Function>,
-}
-
-impl Default for RegisterTable {
-    fn default() -> Self {
-        RegisterTable {
-            booleans: RegisterList::default(),
-            bytes: RegisterList::default(),
-            characters: RegisterList::default(),
-            floats: RegisterList::default(),
-            integers: RegisterList::default(),
-            strings: RegisterList::default(),
-            lists: RegisterList::default(),
-            functions: RegisterList::default(),
-        }
-    }
+    pub functions: RegisterList<AbstractFunction>,
 }
 
 #[derive(Debug)]

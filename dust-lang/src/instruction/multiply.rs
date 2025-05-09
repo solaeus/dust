@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation, TypeCode};
+use super::{Address, Destination, Instruction, InstructionFields, Operation};
 
 pub struct Multiply {
     pub destination: Destination,
@@ -59,16 +59,7 @@ impl Display for Multiply {
             right,
         } = self;
 
-        match left.as_type_code() {
-            TypeCode::BOOLEAN => write!(f, "R_BOOL_{}", destination.index)?,
-            TypeCode::BYTE => write!(f, "R_BYTE_{}", destination.index)?,
-            TypeCode::CHARACTER => write!(f, "R_STR_{}", destination.index)?,
-            TypeCode::FLOAT => write!(f, "R_FLOAT_{}", destination.index)?,
-            TypeCode::INTEGER => write!(f, "R_INT_{}", destination.index)?,
-            TypeCode::STRING => write!(f, "R_STR_{}", destination.index)?,
-            _ => todo!(),
-        }
-
+        destination.display(f, left.r#type())?;
         write!(f, " = {left} ✕ {right}",)
     }
 }

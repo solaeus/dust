@@ -24,12 +24,8 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Function, FunctionType, Instruction, Span, Type, TypeCode};
-
-/// A tuple that represents the value and type arguments passed to a function when called. Each tuple
-/// in this list corresponds to a function call. The first item in each tuple represents the
-/// registers of the values passed to the call. The second item is the call's type arguments.
-pub type ArgumentLists = (Vec<(u16, TypeCode)>, Vec<Type>);
+use crate::value::AbstractFunction;
+use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
 
 /// Representation of a Dust program or function.
 ///
@@ -47,7 +43,7 @@ pub struct Chunk {
     pub string_constants: Vec<DustString>,
     pub locals: Vec<Local>,
     pub prototypes: Vec<Arc<Chunk>>,
-    pub argument_lists: Vec<ArgumentLists>,
+    pub arguments: Vec<Arguments>,
 
     pub boolean_memory_length: u16,
     pub byte_memory_length: u16,
@@ -61,10 +57,9 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn as_function(&self) -> Function {
-        Function {
+    pub fn as_function(&self) -> AbstractFunction {
+        AbstractFunction {
             prototype_index: self.prototype_index,
-            r#type: Box::new(self.r#type.clone()),
         }
     }
 
@@ -107,8 +102,9 @@ impl Debug for Chunk {
     }
 }
 
-impl Eq for Chunk {}
-
+/// For testing purposes, ignore the "memory_length" fields so that we don't have to write them them
+/// when writing Chunks for tests.
+#[cfg(debug_assertions)]
 impl PartialEq for Chunk {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
@@ -121,5 +117,39 @@ impl PartialEq for Chunk {
             && self.string_constants == other.string_constants
             && self.locals == other.locals
             && self.prototypes == other.prototypes
+            && self.arguments == other.arguments
     }
+}
+
+#[cfg(not(debug_assertions))]
+impl PartialEq for Chunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.r#type == other.r#type
+            && self.instructions == other.instructions
+            && self.positions == other.positions
+            && self.string_constants == other.string_constants
+            && self.float_constants == other.float_constants
+            && self.integer_constants == other.integer_constants
+            && self.string_constants == other.string_constants
+            && self.locals == other.locals
+            && self.prototypes == other.prototypes
+            && self.arguments == other.arguments
+            && self.boolean_memory_length == other.boolean_memory_length
+            && self.byte_memory_length == other.byte_memory_length
+            && self.character_memory_length == other.character_memory_length
+            && self.float_memory_length == other.float_memory_length
+            && self.integer_memory_length == other.integer_memory_length
+            && self.string_memory_length == other.string_memory_length
+            && self.list_memory_length == other.list_memory_length
+            && self.function_memory_length == other.function_memory_length
+            && self.prototype_index == other.prototype_index
+    }
+}
+
+/// Represents the value and type arguments passed to a function when called.
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct Arguments {
+    pub values: Vec<Address>,
+    pub types: Vec<Type>,
 }

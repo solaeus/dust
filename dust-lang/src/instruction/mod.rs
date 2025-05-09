@@ -100,7 +100,6 @@ mod r#return;
 mod subtract;
 mod test;
 mod test_set;
-mod type_code;
 
 pub use add::Add;
 pub use address::{Address, AddressKind};
@@ -126,12 +125,11 @@ pub use r#return::Return;
 pub use subtract::Subtract;
 pub use test::Test;
 pub use test_set::TestSet;
-pub use type_code::TypeCode;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::NativeFunction;
+use crate::{NativeFunction, r#type::TypeKind};
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -168,7 +166,7 @@ impl Instruction {
     }
 
     pub fn a_is_register(&self) -> bool {
-        let bit_5 = (self.0 & (1 << 5));
+        let bit_5 = self.0 & (1 << 5);
 
         bit_5 != 0
     }
@@ -294,9 +292,9 @@ impl Instruction {
                 let Add {
                     destination, left, ..
                 } = Add::from(self);
-                let left_type = left.as_type_code();
+                let left_type = left.r#type();
                 let destination_type = match left_type {
-                    TypeCode::CHARACTER => TypeCode::STRING,
+                    TypeKind::Character => TypeKind::String,
                     _ => left_type,
                 };
 
@@ -307,33 +305,33 @@ impl Instruction {
                     destination, left, ..
                 } = Subtract::from(*self);
 
-                destination.as_address(left.as_type_code())
+                destination.as_address(left.r#type())
             }
             Operation::MULTIPLY => {
                 let Multiply {
                     destination, left, ..
                 } = Multiply::from(*self);
 
-                destination.as_address(left.as_type_code())
+                destination.as_address(left.r#type())
             }
             Operation::DIVIDE => {
                 let Divide {
                     destination, left, ..
                 } = Divide::from(*self);
 
-                destination.as_address(left.as_type_code())
+                destination.as_address(left.r#type())
             }
             Operation::MODULO => {
                 let Modulo {
                     destination, left, ..
                 } = Modulo::from(*self);
 
-                destination.as_address(left.as_type_code())
+                destination.as_address(left.r#type())
             }
             Operation::NOT => {
                 let Not { destination, .. } = Not::from(*self);
 
-                destination.as_address(TypeCode::BOOLEAN)
+                destination.as_address(TypeKind::Boolean)
             }
             Operation::CALL => {
                 let Call {
@@ -488,10 +486,10 @@ impl Instruction {
         })
     }
 
-    pub fn test(operand_register: u16, value: bool) -> Instruction {
+    pub fn test(operand: Address, comparator: bool) -> Instruction {
         Instruction::from(Test {
-            operand_register,
-            comparator: value,
+            operand,
+            comparator,
         })
     }
 
@@ -514,7 +512,7 @@ impl Instruction {
         destination: Destination,
         function: Address,
         argument_list_index: u16,
-        return_type: TypeCode,
+        return_type: TypeKind,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
@@ -536,10 +534,10 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_value: Address) -> Instruction {
+    pub fn r#return(should_return_value: bool, return_address: Address) -> Instruction {
         Instruction::from(Return {
             should_return_value,
-            return_value,
+            return_address,
         })
     }
 
@@ -624,7 +622,7 @@ impl Debug for Instruction {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} | {}", self.operation(), self.disassembly_info())
+        write!(f, "{}: {}", self.operation(), self.disassembly_info())
     }
 }
 
@@ -704,26 +702,26 @@ impl Destination {
         }
     }
 
-    pub fn as_address(&self, destination_type: TypeCode) -> Address {
+    pub fn as_address(&self, destination_type: TypeKind) -> Address {
         let kind = match (destination_type, self.is_register) {
-            (TypeCode::BOOLEAN, true) => AddressKind::BOOLEAN_REGISTER,
-            (TypeCode::BOOLEAN, false) => AddressKind::BOOLEAN_MEMORY,
-            (TypeCode::BYTE, true) => AddressKind::BYTE_REGISTER,
-            (TypeCode::BYTE, false) => AddressKind::BYTE_MEMORY,
-            (TypeCode::CHARACTER, true) => AddressKind::CHARACTER_REGISTER,
-            (TypeCode::CHARACTER, false) => AddressKind::CHARACTER_MEMORY,
-            (TypeCode::FLOAT, true) => AddressKind::FLOAT_REGISTER,
-            (TypeCode::FLOAT, false) => AddressKind::FLOAT_MEMORY,
-            (TypeCode::INTEGER, true) => AddressKind::INTEGER_REGISTER,
-            (TypeCode::INTEGER, false) => AddressKind::INTEGER_MEMORY,
-            (TypeCode::STRING, true) => AddressKind::STRING_REGISTER,
-            (TypeCode::STRING, false) => AddressKind::STRING_MEMORY,
-            (TypeCode::LIST, true) => AddressKind::LIST_REGISTER,
-            (TypeCode::LIST, false) => AddressKind::LIST_MEMORY,
-            (TypeCode::FUNCTION, true) => AddressKind::FUNCTION_REGISTER,
-            (TypeCode::FUNCTION, false) => AddressKind::FUNCTION_MEMORY,
-            (TypeCode::NONE, false) => AddressKind::NONE,
-            (_, _) => unreachable!(),
+            (TypeKind::Boolean, true) => AddressKind::BOOLEAN_REGISTER,
+            (TypeKind::Boolean, false) => AddressKind::BOOLEAN_MEMORY,
+            (TypeKind::Byte, true) => AddressKind::BYTE_REGISTER,
+            (TypeKind::Byte, false) => AddressKind::BYTE_MEMORY,
+            (TypeKind::Character, true) => AddressKind::CHARACTER_REGISTER,
+            (TypeKind::Character, false) => AddressKind::CHARACTER_MEMORY,
+            (TypeKind::Float, true) => AddressKind::FLOAT_REGISTER,
+            (TypeKind::Float, false) => AddressKind::FLOAT_MEMORY,
+            (TypeKind::Integer, true) => AddressKind::INTEGER_REGISTER,
+            (TypeKind::Integer, false) => AddressKind::INTEGER_MEMORY,
+            (TypeKind::String, true) => AddressKind::STRING_REGISTER,
+            (TypeKind::String, false) => AddressKind::STRING_MEMORY,
+            (TypeKind::List, true) => AddressKind::LIST_REGISTER,
+            (TypeKind::List, false) => AddressKind::LIST_MEMORY,
+            (TypeKind::Function, true) => AddressKind::FUNCTION_REGISTER,
+            (TypeKind::Function, false) => AddressKind::FUNCTION_MEMORY,
+            (TypeKind::None, _) => AddressKind::NONE,
+            _ => todo!(),
         };
 
         Address {
@@ -731,10 +729,8 @@ impl Destination {
             kind,
         }
     }
-}
 
-impl Destination {
-    pub fn display(&self, f: &mut Formatter, destination_type: TypeCode) -> fmt::Result {
+    pub fn display(&self, f: &mut Formatter, destination_type: TypeKind) -> fmt::Result {
         if self.is_register {
             write!(f, "R_")?;
         } else {
@@ -742,15 +738,15 @@ impl Destination {
         }
 
         match destination_type {
-            TypeCode::BOOLEAN => write!(f, "BOOL_")?,
-            TypeCode::BYTE => write!(f, "BYTE_")?,
-            TypeCode::CHARACTER => write!(f, "CHAR_")?,
-            TypeCode::FLOAT => write!(f, "FLOAT_")?,
-            TypeCode::INTEGER => write!(f, "INT_")?,
-            TypeCode::STRING => write!(f, "STR_")?,
-            TypeCode::LIST => write!(f, "LIST_")?,
-            TypeCode::FUNCTION => write!(f, "FN_")?,
-            unknown => unknown.unknown_write(f)?,
+            TypeKind::Boolean => write!(f, "BOOL_")?,
+            TypeKind::Byte => write!(f, "BYTE_")?,
+            TypeKind::Character => write!(f, "CHAR_")?,
+            TypeKind::Float => write!(f, "FLOAT_")?,
+            TypeKind::Integer => write!(f, "INT_")?,
+            TypeKind::String => write!(f, "STR_")?,
+            TypeKind::List => write!(f, "LIST_")?,
+            TypeKind::Function => write!(f, "FN_")?,
+            invalid => invalid.write_invalid(f)?,
         }
 
         write!(f, "{}", self.index)

@@ -53,7 +53,7 @@ impl Display for CallNative {
             function,
             argument_list_index,
         } = self;
-        let return_type = function.r#type().return_type.type_code();
+        let return_type = function.r#type().return_type.kind();
 
         destination.display(f, return_type)?;
         write!(f, " = {function}(ARGS_{argument_list_index})")

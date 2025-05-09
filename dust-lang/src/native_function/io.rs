@@ -1,6 +1,8 @@
 use std::io::{Write, stdout};
 
-use crate::{DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread};
+use crate::{
+    DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread, r#type::TypeKind,
+};
 
 pub fn read_line(instruction: Instruction, thread: &mut Thread) {
     let CallNative { destination, .. } = CallNative::from(instruction);
@@ -27,24 +29,19 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     let arguments = thread
         .current_call
         .chunk
-        .argument_lists
+        .arguments
         .get(argument_list_index as usize)
         .unwrap();
     let mut stdout = stdout();
 
-    for ((argument_index, _), argument_type) in arguments
-        .0
+    for (address, r#type) in arguments
+        .values
         .iter()
         .zip(function.r#type().value_parameters.iter())
     {
-        match argument_type {
-            Type::String => {
-                let string = thread
-                    .current_memory
-                    .strings
-                    .get(*argument_index as usize)
-                    .unwrap()
-                    .as_value();
+        match address.r#type() {
+            TypeKind::String => {
+                let string = thread.resolve_string(address);
 
                 stdout.write_all(string.as_bytes()).unwrap();
             }

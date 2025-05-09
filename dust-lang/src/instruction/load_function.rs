@@ -2,9 +2,9 @@ use std::fmt::{self, Display, Formatter};
 
 use tracing::error;
 
-use super::{
-    Address, AddressKind, Destination, Instruction, InstructionFields, Operation, TypeCode,
-};
+use crate::r#type::TypeKind;
+
+use super::{Address, AddressKind, Destination, Instruction, InstructionFields, Operation};
 
 pub struct LoadFunction {
     pub destination: Destination,
@@ -60,7 +60,7 @@ impl Display for LoadFunction {
             jump_next,
         } = self;
 
-        destination.display(f, TypeCode::FUNCTION)?;
+        destination.display(f, TypeKind::Function)?;
 
         match prototype.kind {
             AddressKind::FUNCTION_PROTOTYPE => write!(f, " = PROTO_{}", prototype.index)?,

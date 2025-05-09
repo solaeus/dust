@@ -6,8 +6,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-
-use crate::instruction::TypeCode;
+use tracing::error;
 
 /// Description of a kind of value.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -21,12 +20,12 @@ pub enum Type {
     Function(Box<FunctionType>),
     Generic(GenericType),
     Integer,
-    List(TypeCode),
+    List(Box<Type>),
     Map(Vec<Type>),
     #[default]
     None,
     Range(Box<Type>),
-    SelfFunction,
+    FunctionSelf,
     String,
     Struct(Box<StructType>),
     Tuple(Vec<Type>),
@@ -45,18 +44,25 @@ impl Type {
         }))
     }
 
-    pub fn type_code(&self) -> TypeCode {
+    pub fn kind(&self) -> TypeKind {
         match self {
-            Type::Boolean => TypeCode::BOOLEAN,
-            Type::Byte => TypeCode::BYTE,
-            Type::Character => TypeCode::CHARACTER,
-            Type::Float => TypeCode::FLOAT,
-            Type::Integer => TypeCode::INTEGER,
-            Type::None => TypeCode::NONE,
-            Type::String => TypeCode::STRING,
-            Type::List { .. } => TypeCode::LIST,
-            Type::Function { .. } => TypeCode::FUNCTION,
-            _ => todo!(),
+            Type::Any => TypeKind::Any,
+            Type::Boolean => TypeKind::Boolean,
+            Type::Byte => TypeKind::Byte,
+            Type::Character => TypeKind::Character,
+            Type::Enum(_) => TypeKind::Enum,
+            Type::Float => TypeKind::Float,
+            Type::Function(_) => TypeKind::Function,
+            Type::Generic(_) => TypeKind::Generic,
+            Type::Integer => TypeKind::Integer,
+            Type::List(_) => TypeKind::List,
+            Type::Map(_) => TypeKind::Map,
+            Type::None => TypeKind::None,
+            Type::Range(_) => TypeKind::Range,
+            Type::FunctionSelf => TypeKind::FunctionSelf,
+            Type::String => TypeKind::String,
+            Type::Struct(_) => TypeKind::Struct,
+            Type::Tuple(_) => TypeKind::Tuple,
         }
     }
 
@@ -203,7 +209,7 @@ impl Display for Type {
             }
             Type::None => write!(f, "none"),
             Type::Range(r#type) => write!(f, "{type} range"),
-            Type::SelfFunction => write!(f, "self"),
+            Type::FunctionSelf => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple(fields) => {
@@ -264,8 +270,8 @@ impl Ord for Type {
             (Type::None, _) => Ordering::Greater,
             (Type::Range(left_type), Type::Range(right_type)) => left_type.cmp(right_type),
             (Type::Range { .. }, _) => Ordering::Greater,
-            (Type::SelfFunction, Type::SelfFunction) => Ordering::Equal,
-            (Type::SelfFunction, _) => Ordering::Greater,
+            (Type::FunctionSelf, Type::FunctionSelf) => Ordering::Equal,
+            (Type::FunctionSelf, _) => Ordering::Greater,
             (Type::String, Type::String) => Ordering::Equal,
             (Type::String, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
@@ -276,6 +282,45 @@ impl Ord for Type {
             (Type::Tuple(left), Type::Tuple(right)) => left.cmp(right),
             (Type::Tuple { .. }, _) => Ordering::Greater,
         }
+    }
+}
+
+/// An opaque representation of a value's type that does not hold of a type's details.
+///
+/// For primitive types (i.e. `bool`, `byte`, `char`, `float`, `int`, `str`, `[]` and `fn`) the
+/// TypeKind is identitcal to the [`Type`]. But for `Generic` and all the compound types, none of
+/// the type details are available. Therefore a `TypeKind` can represent a list but cannot convey
+/// that it is a list of integers. This makes `TypeKind` much smaller (1 byte v.s. 32 bytes), which
+/// is useful for performance.
+#[derive(Clone, Copy, Default, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum TypeKind {
+    Any,
+    Boolean,
+    Byte,
+    Character,
+    Enum,
+    Float,
+    Function,
+    Generic,
+    Integer,
+    List,
+    Map,
+    Range,
+    FunctionSelf,
+    String,
+    Struct,
+    Tuple,
+    #[default]
+    None,
+}
+
+impl TypeKind {
+    pub fn write_invalid(&self, f: &mut Formatter) -> fmt::Result {
+        error!(
+            "Invalid type used: {:?}, writing \"INVALID\" instead.",
+            self
+        );
+        write!(f, "INVALID")
     }
 }
 
