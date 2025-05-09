@@ -24,20 +24,31 @@
 //! Both produce the same result, but the first is usually more concise. The structs are more useful
 //! when reading instructions, as shown below.
 //!
-//! Use the [`Operand`][] type when creating instructions. In addition to being easy to read and
-//! write, this ensures that the instruction has the correct flags to represent the operands.
+//! Use the [`Destination`][], [`Address`][] and [`AddressKind`][] types when creating instructions.
+//! In addition to being easy to read and write, this ensures that the instruction has the correct
+//! flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Operand, TypeCode};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operand};
+//! // Add the integers at M_INT_4 and M_INT_6 then store the result in M_INT_42.
 //! let add_1 = Instruction::add(
-//!     0,
-//!     Operand::Register(1, TypeCode::INTEGER),
-//!     Operand::Constant(2, TypeCode::INTEGER)
+//!     Destination::memory(42),
+//!     Address::new(4, AddressKind::INTEGER_MEMORY),
+//!     Address::new(6, AddressKind::INTEGER_MEMORY),
 //! );
 //! let add_2 = Instruction::from(Add {
-//!     destination: 0,
-//!     left: Operand::Register(1, TypeCode::INTEGER),
-//!     right: Operand::Constant(2, TypeCode::INTEGER),
+//!     destination: Destination {
+//!         index: 42,
+//!         is_register: false,
+//!     },
+//!     left: Address {
+//!         index: 4,
+//!         kind: AddressKind::INTEGER_MEMORY,
+//!     },
+//!     right: Address {
+//!         index: 6,
+//!         kind: AddressKind::INTEGER_MEMORY,
+//!     },
 //! });
 //!
 //! assert_eq!(add_1, add_2);
@@ -47,15 +58,14 @@
 //!
 //! To read an instruction, check its operation with [`Instruction::operation`], then convert the
 //! instruction to the struct that corresponds to that operation. Like the example above, this
-//! removes the burden of dealing with the options directly and automatically casts the A, B, C and
-//! D fields as `u16`, `bool` or `Operand` values.
+//! removes the burden of dealing with the instruction bit fields directly.
 //!
 //! ```
-//! # use dust_lang::instruction::{Instruction, Add, Operand, Operation, TypeCode};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operand};
 //! # let mystery_instruction = Instruction::add(
-//! #     1,
-//! #     Operand::Register(1, TypeCode::INTEGER),
-//! #     Operand::Constant(2, TypeCode::INTEGER)
+//! #     Destination::memory(0),
+//! #     Address::new(0, AddressKind::INTEGER_MEMORY),
+//! #     Address::new(1, AddressKind::INTEGER_CONSTANT),
 //! # );
 //! // Let's read an instruction and see if it performs addition-assignment,
 //! // like in one of the following examples:
@@ -63,15 +73,10 @@
 //! //   - `a = a + 2`
 //! //   - `a = 2 + a`
 //! let operation = mystery_instruction.operation();
-//! let is_add_assign = match operation {
-//!     Operation::ADD => {
-//!         let Add { destination, left, right } = Add::from(&mystery_instruction);
+//! let is_add_assign = operation == Operation::ADD && {
+//!     let Add { destination, left, right  = Add::from(&mystery_instruction);
 //!
-//!         left == Operand::Register(destination, TypeCode::INTEGER)
-//!         || right == Operand::Register(destination, TypeCode::INTEGER)
-//!
-//!     }
-//!     _ => false,
+//!     destination.index == left.index || destination.index == right.index
 //! };
 //!
 //! assert!(is_add_assign);
@@ -81,6 +86,7 @@ mod address;
 mod call;
 mod call_native;
 mod close;
+mod destination;
 mod divide;
 mod equal;
 mod jump;
@@ -106,6 +112,7 @@ pub use address::{Address, AddressKind};
 pub use call::Call;
 pub use call_native::CallNative;
 pub use close::Close;
+pub use destination::Destination;
 pub use divide::Divide;
 pub use equal::Equal;
 pub use jump::Jump;
@@ -678,78 +685,6 @@ impl Default for InstructionFields {
             b_kind: AddressKind(0),
             c_kind: AddressKind(0),
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Destination {
-    pub index: u16,
-    pub is_register: bool,
-}
-
-impl Destination {
-    pub fn memory(index: u16) -> Destination {
-        Destination {
-            index,
-            is_register: false,
-        }
-    }
-
-    pub fn register(index: u16) -> Destination {
-        Destination {
-            index,
-            is_register: true,
-        }
-    }
-
-    pub fn as_address(&self, destination_type: TypeKind) -> Address {
-        let kind = match (destination_type, self.is_register) {
-            (TypeKind::Boolean, true) => AddressKind::BOOLEAN_REGISTER,
-            (TypeKind::Boolean, false) => AddressKind::BOOLEAN_MEMORY,
-            (TypeKind::Byte, true) => AddressKind::BYTE_REGISTER,
-            (TypeKind::Byte, false) => AddressKind::BYTE_MEMORY,
-            (TypeKind::Character, true) => AddressKind::CHARACTER_REGISTER,
-            (TypeKind::Character, false) => AddressKind::CHARACTER_MEMORY,
-            (TypeKind::Float, true) => AddressKind::FLOAT_REGISTER,
-            (TypeKind::Float, false) => AddressKind::FLOAT_MEMORY,
-            (TypeKind::Integer, true) => AddressKind::INTEGER_REGISTER,
-            (TypeKind::Integer, false) => AddressKind::INTEGER_MEMORY,
-            (TypeKind::String, true) => AddressKind::STRING_REGISTER,
-            (TypeKind::String, false) => AddressKind::STRING_MEMORY,
-            (TypeKind::List, true) => AddressKind::LIST_REGISTER,
-            (TypeKind::List, false) => AddressKind::LIST_MEMORY,
-            (TypeKind::Function, true) => AddressKind::FUNCTION_REGISTER,
-            (TypeKind::Function, false) => AddressKind::FUNCTION_MEMORY,
-            (TypeKind::None, _) => AddressKind::NONE,
-            _ => todo!(),
-        };
-
-        Address {
-            index: self.index,
-            kind,
-        }
-    }
-
-    pub fn display(&self, f: &mut Formatter, destination_type: TypeKind) -> fmt::Result {
-        if self.is_register {
-            write!(f, "R_")?;
-        } else {
-            write!(f, "M_")?;
-        }
-
-        match destination_type {
-            TypeKind::Boolean => write!(f, "BOOL_")?,
-            TypeKind::Byte => write!(f, "BYTE_")?,
-            TypeKind::Character => write!(f, "CHAR_")?,
-            TypeKind::Float => write!(f, "FLOAT_")?,
-            TypeKind::Integer => write!(f, "INT_")?,
-            TypeKind::String => write!(f, "STR_")?,
-            TypeKind::List => write!(f, "LIST_")?,
-            TypeKind::Function => write!(f, "FN_")?,
-            invalid => invalid.write_invalid(f)?,
-        }
-
-        write!(f, "{}", self.index)
     }
 }
 

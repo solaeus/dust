@@ -119,7 +119,7 @@ pub struct Compiler<'src> {
     /// Lists of arguments for each function call. The integers represent the register of each
     /// argument. Note that the type of each argument is not stored, so the caller must check the
     /// function's type to determine the type of each argument.
-    arguments_list: Vec<Arguments>,
+    arguments: Vec<Arguments>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
     /// the registers that are used for the function's arguments.
@@ -192,7 +192,7 @@ impl<'src> Compiler<'src> {
             string_constants: Vec::new(),
             locals: Vec::new(),
             prototypes: Vec::new(),
-            arguments_list: Vec::new(),
+            arguments: Vec::new(),
             lexer,
             minimum_byte_register: 0,
             minimum_boolean_register: 0,
@@ -233,12 +233,6 @@ impl<'src> Compiler<'src> {
         }
 
         self.parse_implicit_return()?;
-
-        Ok(())
-    }
-
-    /// Creates a new chunk with the compiled data.
-    pub fn finish(mut self) -> Chunk {
         self.optimize_instructions();
 
         if self.instructions.is_empty() {
@@ -249,6 +243,11 @@ impl<'src> Compiler<'src> {
 
         info!("End chunk");
 
+        Ok(())
+    }
+
+    /// Creates a new chunk with the compiled data.
+    pub fn finish(self) -> Chunk {
         let boolean_memory_length = self.next_boolean_memory_index();
         let byte_memory_length = self.next_byte_memory_index();
         let character_memory_length = self.next_character_memory_index();
@@ -274,7 +273,7 @@ impl<'src> Compiler<'src> {
             string_constants: self.string_constants,
             locals: self.locals,
             prototypes: self.prototypes,
-            arguments: self.arguments_list,
+            arguments: self.arguments,
             boolean_memory_length,
             byte_memory_length,
             character_memory_length,
@@ -288,14 +287,17 @@ impl<'src> Compiler<'src> {
     }
 
     fn optimize_instructions(&mut self) {
-        let mut boolean_address_rankings = Vec::<(u16, Address)>::new();
-        let mut byte_address_rankings = Vec::<(u16, Address)>::new();
-        let mut character_address_rankings = Vec::<(u16, Address)>::new();
-        let mut float_address_rankings = Vec::<(u16, Address)>::new();
-        let mut integer_address_rankings = Vec::<(u16, Address)>::new();
-        let mut string_address_rankings = Vec::<(u16, Address)>::new();
-        let mut list_address_rankings = Vec::<(u16, Address)>::new();
-        let mut function_address_rankings = Vec::<(u16, Address)>::new();
+        let span = span!(Level::TRACE, "Optimize");
+        let _enter = span.enter();
+
+        let mut boolean_address_rankings = Vec::<(usize, Address)>::new();
+        let mut byte_address_rankings = Vec::<(usize, Address)>::new();
+        let mut character_address_rankings = Vec::<(usize, Address)>::new();
+        let mut float_address_rankings = Vec::<(usize, Address)>::new();
+        let mut integer_address_rankings = Vec::<(usize, Address)>::new();
+        let mut string_address_rankings = Vec::<(usize, Address)>::new();
+        let mut list_address_rankings = Vec::<(usize, Address)>::new();
+        let mut function_address_rankings = Vec::<(usize, Address)>::new();
 
         // Increases the rank of the given address by 1 to indicate that it was used. If the
         // address has no existing rank, it is inserted in sorted order with a rank of 0.
@@ -342,38 +344,40 @@ impl<'src> Compiler<'src> {
             increment_rank(c_address);
         }
 
-        // Returns an `None` for empty rankings, otherwise returns a `HashMap` in which the keys are
-        // addresses that need to be replaced and the values are their intended replacements.
+        // A map in which the keys are addresses that need to be replaced and the values are their
+        // intended replacements.
         let mut replacements = HashMap::new();
 
-        for (_rank, old_address) in boolean_address_rankings
-            .into_iter()
-            .rev()
-            .take(10)
-            .chain(byte_address_rankings.into_iter().rev().take(10))
-            .chain(float_address_rankings.into_iter().rev().take(10))
-            .chain(integer_address_rankings.into_iter().rev().take(10))
-            .chain(string_address_rankings.into_iter().rev().take(10))
-            .chain(list_address_rankings.into_iter().rev().take(10))
-            .chain(function_address_rankings.into_iter().rev().take(10))
+        let get_top_ten_with_registers = |address_rankings: Vec<(usize, Address)>| {
+            address_rankings.into_iter().take(10).zip(0..10)
+        };
+
+        for ((rank, old_address), register_index) in
+            get_top_ten_with_registers(boolean_address_rankings)
+                .chain(get_top_ten_with_registers(byte_address_rankings))
+                .chain(get_top_ten_with_registers(character_address_rankings))
+                .chain(get_top_ten_with_registers(float_address_rankings))
+                .chain(get_top_ten_with_registers(integer_address_rankings))
+                .chain(get_top_ten_with_registers(string_address_rankings))
+                .chain(get_top_ten_with_registers(list_address_rankings))
+                .chain(get_top_ten_with_registers(function_address_rankings))
         {
             let new_address = match old_address.r#type() {
-                TypeKind::Boolean => Address::new(old_address.index, AddressKind::BOOLEAN_REGISTER),
-                TypeKind::Byte => Address::new(old_address.index, AddressKind::BYTE_REGISTER),
+                TypeKind::Boolean => Address::new(register_index, AddressKind::BOOLEAN_REGISTER),
+                TypeKind::Byte => Address::new(register_index, AddressKind::BYTE_REGISTER),
                 TypeKind::Character => {
                     Address::new(old_address.index, AddressKind::CHARACTER_REGISTER)
                 }
-                TypeKind::Float => Address::new(old_address.index, AddressKind::FLOAT_REGISTER),
-                TypeKind::Integer => Address::new(old_address.index, AddressKind::INTEGER_REGISTER),
-                TypeKind::String => Address::new(old_address.index, AddressKind::STRING_REGISTER),
-                TypeKind::List => Address::new(old_address.index, AddressKind::LIST_REGISTER),
-                TypeKind::Function => {
-                    Address::new(old_address.index, AddressKind::FUNCTION_REGISTER)
-                }
+                TypeKind::Float => Address::new(register_index, AddressKind::FLOAT_REGISTER),
+                TypeKind::Integer => Address::new(register_index, AddressKind::INTEGER_REGISTER),
+                TypeKind::String => Address::new(register_index, AddressKind::STRING_REGISTER),
+                TypeKind::List => Address::new(register_index, AddressKind::LIST_REGISTER),
+                TypeKind::Function => Address::new(register_index, AddressKind::FUNCTION_REGISTER),
                 _ => todo!(),
             };
 
-            trace!("Optimization found: replace {old_address} with {new_address}.");
+            trace!("Optimization found: replace {old_address} with {new_address}");
+            trace!("{old_address} was used {} times", rank + 1);
 
             replacements.insert(old_address, new_address);
         }
@@ -382,8 +386,6 @@ impl<'src> Compiler<'src> {
             let destination_address = instruction.destination().as_address(r#type.kind());
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
-
-            println!("{destination_address}");
 
             if let Some(replacement) = replacements.get(&destination_address) {
                 trace!(
@@ -410,6 +412,12 @@ impl<'src> Compiler<'src> {
                 );
 
                 instruction.set_c_address(*replacement);
+            }
+        }
+
+        for local in &mut self.locals {
+            if let Some(replacement) = replacements.get(&local.address) {
+                local.address = *replacement;
             }
         }
     }
@@ -617,7 +625,7 @@ impl<'src> Compiler<'src> {
     fn declare_local(
         &mut self,
         identifier: &str,
-        register_index: u16,
+        address: Address,
         r#type: Type,
         is_mutable: bool,
         scope: Scope,
@@ -630,7 +638,7 @@ impl<'src> Compiler<'src> {
 
         self.locals.push(Local::new(
             identifier_index,
-            register_index,
+            address,
             r#type,
             is_mutable,
             scope,
@@ -1461,7 +1469,7 @@ impl<'src> Compiler<'src> {
         let local = self.get_local(local_index)?;
         let local_type = local.r#type.clone();
         let is_mutable = local.is_mutable;
-        let local_register_index = local.register_index;
+        let local_register_index = local.address.index;
 
         if !self.current_block_scope.contains(&local.scope) {
             return Err(CompileError::VariableOutOfScope {
@@ -2133,7 +2141,7 @@ impl<'src> Compiler<'src> {
         self.previous_statement_end = self.instructions.len() - 1;
         self.previous_expression_end = self.instructions.len() - 1;
 
-        let register_index = match self.get_last_instruction_type() {
+        let memory_index = match self.get_last_instruction_type() {
             Type::Boolean => self.next_boolean_memory_index() - 1,
             Type::Byte => self.next_byte_memory_index() - 1,
             Type::Character => self.next_character_memory_index() - 1,
@@ -2147,10 +2155,26 @@ impl<'src> Compiler<'src> {
         } else {
             self.get_last_instruction_type()
         };
+        let address_kind = match r#type {
+            Type::Boolean => AddressKind::BOOLEAN_MEMORY,
+            Type::Byte => AddressKind::BYTE_MEMORY,
+            Type::Character => AddressKind::CHARACTER_MEMORY,
+            Type::Float => AddressKind::FLOAT_MEMORY,
+            Type::Function(_) => AddressKind::FUNCTION_MEMORY,
+            Type::Integer => AddressKind::INTEGER_MEMORY,
+            Type::List(_) => AddressKind::LIST_MEMORY,
+            Type::FunctionSelf => AddressKind::FUNCTION_SELF,
+            Type::String => AddressKind::STRING_MEMORY,
+            _ => todo!(),
+        };
+        let address = Address {
+            index: memory_index,
+            kind: address_kind,
+        };
 
         self.declare_local(
             identifier,
-            register_index,
+            address,
             r#type,
             is_mutable,
             self.current_block_scope,
@@ -2213,18 +2237,38 @@ impl<'src> Compiler<'src> {
 
             function_compiler.advance()?;
 
-            let local_register_index = match r#type {
-                Type::Boolean => function_compiler.next_boolean_memory_index(),
-                Type::Byte => function_compiler.next_byte_memory_index(),
-                Type::Character => function_compiler.next_character_memory_index(),
-                Type::Float => function_compiler.next_float_memory_index(),
-                Type::Integer => function_compiler.next_integer_memory_index(),
-                Type::String => function_compiler.next_string_memory_index(),
+            let (local_memory_index, address_kind) = match r#type {
+                Type::Boolean => (
+                    function_compiler.next_boolean_memory_index(),
+                    AddressKind::BOOLEAN_MEMORY,
+                ),
+                Type::Byte => (
+                    function_compiler.next_byte_memory_index(),
+                    AddressKind::BYTE_MEMORY,
+                ),
+                Type::Character => (
+                    function_compiler.next_character_memory_index(),
+                    AddressKind::CHARACTER_MEMORY,
+                ),
+                Type::Float => (
+                    function_compiler.next_float_memory_index(),
+                    AddressKind::FLOAT_MEMORY,
+                ),
+                Type::Integer => (
+                    function_compiler.next_integer_memory_index(),
+                    AddressKind::INTEGER_MEMORY,
+                ),
+                Type::String => (
+                    function_compiler.next_string_memory_index(),
+                    AddressKind::STRING_MEMORY,
+                ),
                 _ => todo!(),
             };
+            let address = Address::new(local_memory_index, address_kind);
+
             function_compiler.declare_local(
                 parameter,
-                local_register_index,
+                address,
                 r#type.clone(),
                 is_mutable,
                 function_compiler.current_block_scope,
@@ -2272,9 +2316,10 @@ impl<'src> Compiler<'src> {
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
-        let destination_index = self.next_function_memory_index();
+        let memory_index = self.next_function_memory_index();
+        let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
         let load_function = Instruction::load_function(
-            Destination::memory(destination_index),
+            Destination::memory(memory_index),
             Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
             false,
         );
@@ -2283,8 +2328,8 @@ impl<'src> Compiler<'src> {
         if let Some(identifier) = identifier {
             self.declare_local(
                 identifier,
-                destination_index,
-                Type::Function(Box::new(chunk.r#type.clone())),
+                address,
+                r#type.clone(),
                 false,
                 self.current_block_scope,
             );
@@ -2373,9 +2418,9 @@ impl<'src> Compiler<'src> {
             value_argument_list.push(address);
         }
 
-        let argument_list_index = self.arguments_list.len() as u16;
+        let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments_list.push(Arguments {
+        self.arguments.push(Arguments {
             values: value_argument_list,
             types: type_argument_list,
         });
@@ -2458,9 +2503,9 @@ impl<'src> Compiler<'src> {
             value_argument_list.push(address);
         }
 
-        let argument_list_index = self.arguments_list.len() as u16;
+        let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments_list.push(Arguments {
+        self.arguments.push(Arguments {
             values: value_argument_list,
             types: type_argument_list,
         });
@@ -2489,10 +2534,6 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
-        let (_, last_instruction_type, _) = self.instructions.last_mut().unwrap();
-
-        *last_instruction_type = Type::None;
-
         self.advance()?;
 
         Ok(())

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Scope, Type};
+use crate::{Address, Scope, Type};
 
 /// Scoped variable.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -11,7 +11,7 @@ pub struct Local {
     pub identifier_index: u16,
 
     /// Index of the register where the variable's value is stored.
-    pub register_index: u16,
+    pub address: Address,
 
     /// Whether the local is mutable.
     pub is_mutable: bool,
@@ -27,14 +27,14 @@ impl Local {
     /// Creates a new Local instance.
     pub fn new(
         identifier_index: u16,
-        register_index: u16,
+        address: Address,
         r#type: Type,
         is_mutable: bool,
         scope: Scope,
     ) -> Self {
         Self {
             identifier_index,
-            register_index,
+            address,
             r#type,
             is_mutable,
             scope,

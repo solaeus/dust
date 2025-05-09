@@ -34,11 +34,7 @@ pub fn write_line(instruction: Instruction, thread: &mut Thread) {
         .unwrap();
     let mut stdout = stdout();
 
-    for (address, r#type) in arguments
-        .values
-        .iter()
-        .zip(function.r#type().value_parameters.iter())
-    {
+    for address in &arguments.values {
         match address.r#type() {
             TypeKind::String => {
                 let string = thread.resolve_string(address);

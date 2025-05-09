@@ -7,21 +7,14 @@ use std::{
 };
 
 use clap::{
-    Args, ColorChoice, Error, Parser, Subcommand, ValueEnum, ValueHint,
+    Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint,
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
-    error::ErrorKind,
 };
 use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
 };
-use tracing::{Level, Subscriber, level_filters::LevelFilter, subscriber::set_global_default};
-use tracing_subscriber::{
-    FmtSubscriber, Layer,
-    fmt::{SubscriberBuilder, layer, time::Uptime},
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-};
+use tracing::level_filters::LevelFilter;
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold().underline())
@@ -41,12 +34,12 @@ const STYLES: Styles = Styles::styled()
     styles = STYLES,
 )]
 struct Cli {
-    /// Overrides the DUST_LOG environment variable
-    #[arg(short, long)]
-    log_level: LevelFilter,
-
     #[command(subcommand)]
     mode: Option<Command>,
+
+    /// Overrides the DUST_LOG environment variable
+    #[arg(short, long)]
+    log_level: Option<LevelFilter>,
 
     #[command(flatten)]
     run: Run,
@@ -92,7 +85,7 @@ struct Run {
 }
 
 #[derive(Subcommand)]
-#[clap(subcommand_value_name = "COMMAND", flatten_help = true)]
+#[clap(subcommand_value_name = "COMMAND")]
 enum Command {
     Run(Run),
 
@@ -142,38 +135,18 @@ enum InputFormat {
     Yaml,
 }
 
-fn get_source_and_file_name(source: Source) -> (String, Option<DustString>) {
-    if let Some(path) = source.file {
-        let source = read_to_string(&path).expect("Failed to read source file");
-        let file_name = path
-            .file_name()
-            .and_then(|os_str| os_str.to_str())
-            .map(DustString::from);
-
-        return (source, file_name);
-    }
-
-    if source.stdin {
-        let mut source = String::new();
-        io::stdin()
-            .read_to_string(&mut source)
-            .expect("Failed to read from stdin");
-
-        return (source, None);
-    }
-
-    let source = source.eval.expect("No source code provided");
-
-    (source, None)
-}
-
 fn main() {
     let start_time = Instant::now();
     let Cli {
-        log_level,
         mode,
         run,
+        log_level,
     } = Cli::parse();
+
+    if let Some(level) = log_level {
+        start_logging(level);
+    }
+
     let mode = mode.unwrap_or(Command::Run(run));
 
     panic::set_hook(Box::new(|info| {
@@ -188,23 +161,13 @@ fn main() {
         }
     }));
 
-    let tracing_layer = layer()
-        .with_file(false)
-        .with_level(true)
-        .with_target(true)
-        .with_thread_names(true)
-        .with_thread_ids(false)
-        .with_timer(Uptime::from(start_time))
-        .with_filter(log_level);
-
-    tracing_subscriber::registry().with(tracing_layer).init();
-
     if let Command::Run(Run {
         time,
         no_output,
         name,
         source,
         input,
+        ..
     }) = mode
     {
         let (source, file_name) = get_source_and_file_name(source);
@@ -374,6 +337,44 @@ fn main() {
             println!("{token_kind:^21}|{token:^22}|{position:^22}");
         }
     }
+}
+
+fn start_logging(level: LevelFilter) {
+    tracing_subscriber::fmt()
+        .with_max_level(level)
+        .event_format(
+            tracing_subscriber::fmt::format()
+                .with_file(false)
+                .with_source_location(false)
+                .with_target(false)
+                .with_timer(tracing_subscriber::fmt::time::uptime()),
+        )
+        .init();
+}
+
+fn get_source_and_file_name(source: Source) -> (String, Option<DustString>) {
+    if let Some(path) = source.file {
+        let source = read_to_string(&path).expect("Failed to read source file");
+        let file_name = path
+            .file_name()
+            .and_then(|os_str| os_str.to_str())
+            .map(DustString::from);
+
+        return (source, file_name);
+    }
+
+    if source.stdin {
+        let mut source = String::new();
+        io::stdin()
+            .read_to_string(&mut source)
+            .expect("Failed to read from stdin");
+
+        return (source, None);
+    }
+
+    let source = source.eval.expect("No source code provided");
+
+    (source, None)
 }
 
 fn print_time(phase: &str, instant: Duration) {

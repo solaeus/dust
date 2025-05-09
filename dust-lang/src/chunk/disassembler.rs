@@ -319,7 +319,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             index,
             Local {
                 identifier_index,
-                register_index,
+                address,
                 r#type,
                 scope,
                 is_mutable,
@@ -333,20 +333,10 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
-            let register_display = match r#type {
-                Type::Boolean => format!("R_BOOL_{register_index}"),
-                Type::Byte => format!("R_BYTE_{register_index}"),
-                Type::Character => format!("R_CHAR_{register_index}"),
-                Type::Float => format!("R_FLOAT_{register_index}"),
-                Type::Integer => format!("R_INT_{register_index}"),
-                Type::String => format!("R_STR_{register_index}"),
-                Type::List(_) => format!("R_LIST_{register_index}"),
-                Type::Function(_) => format!("R_FN_{register_index}"),
-                _ => unreachable!(),
-            };
+            let address_display = address.to_string();
             let scope = scope.to_string();
             let row = format!(
-                "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{register_display:^12}│{scope:^7}│{is_mutable:^7}│"
+                "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{address_display:^12}│{scope:^7}│{is_mutable:^7}│"
             );
 
             self.write_center_border(&row)?;
