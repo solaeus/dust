@@ -7,9 +7,6 @@
 //! program. In addition to the program itself, each function in the source is compiled into its own
 //! chunk and stored in the `prototypes` field of its parent. Thus, a chunk can also represent a
 //! function prototype.
-//!
-//! Chunks have a name when they belong to a named function. They also have a type, so the input
-//! parameters and the type of the return value are statically known.
 mod disassembler;
 mod local;
 mod scope;
@@ -32,28 +29,28 @@ use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    pub name: Option<DustString>,
-    pub r#type: FunctionType,
+    pub(crate) name: Option<DustString>,
+    pub(crate) r#type: FunctionType,
 
-    pub instructions: Vec<Instruction>,
-    pub positions: Vec<Span>,
-    pub character_constants: Vec<char>,
-    pub float_constants: Vec<f64>,
-    pub integer_constants: Vec<i64>,
-    pub string_constants: Vec<DustString>,
-    pub locals: Vec<Local>,
-    pub prototypes: Vec<Arc<Chunk>>,
-    pub arguments: Vec<Arguments>,
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) positions: Vec<Span>,
+    pub(crate) character_constants: Vec<char>,
+    pub(crate) float_constants: Vec<f64>,
+    pub(crate) integer_constants: Vec<i64>,
+    pub(crate) string_constants: Vec<DustString>,
+    pub(crate) locals: Vec<Local>,
+    pub(crate) prototypes: Vec<Arc<Chunk>>,
+    pub(crate) arguments: Vec<Arguments>,
 
-    pub boolean_memory_length: u16,
-    pub byte_memory_length: u16,
-    pub character_memory_length: u16,
-    pub float_memory_length: u16,
-    pub integer_memory_length: u16,
-    pub string_memory_length: u16,
-    pub list_memory_length: u16,
-    pub function_memory_length: u16,
-    pub prototype_index: u16,
+    pub(crate) boolean_memory_length: u16,
+    pub(crate) byte_memory_length: u16,
+    pub(crate) character_memory_length: u16,
+    pub(crate) float_memory_length: u16,
+    pub(crate) integer_memory_length: u16,
+    pub(crate) string_memory_length: u16,
+    pub(crate) list_memory_length: u16,
+    pub(crate) function_memory_length: u16,
+    pub(crate) prototype_index: u16,
 }
 
 impl Chunk {
@@ -111,7 +108,7 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.string_constants == other.string_constants
+            && self.character_constants == other.character_constants
             && self.float_constants == other.float_constants
             && self.integer_constants == other.integer_constants
             && self.string_constants == other.string_constants
@@ -128,7 +125,7 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.string_constants == other.string_constants
+            && self.character_constants == other.character_constants
             && self.float_constants == other.float_constants
             && self.integer_constants == other.integer_constants
             && self.string_constants == other.string_constants

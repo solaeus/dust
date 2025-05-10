@@ -27,8 +27,6 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(new_range_api)]
-
 pub mod chunk;
 pub mod compiler;
 pub mod dust_error;

@@ -1,6 +1,7 @@
 //! Token, TokenOwned and TokenKind types.
 use std::fmt::{self, Display, Formatter};
 
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
 macro_rules! define_tokens {
@@ -19,6 +20,7 @@ macro_rules! define_tokens {
         /// Source-free representation of a token.
         ///
         /// If a [Token] borrows from the source text, its TokenKind omits that data.
+        #[derive(Sequence)]
         pub enum TokenKind {
             $(
                 $variant,
@@ -28,8 +30,6 @@ macro_rules! define_tokens {
 }
 
 define_tokens! {
-    Eof,
-
     // Hard-coded values
     Boolean(&'src str),
     Byte(&'src str),
@@ -40,7 +40,6 @@ define_tokens! {
     String(&'src str),
 
     // Keywords
-    Async,
     Bool,
     Break,
     Else,
@@ -89,7 +88,9 @@ define_tokens! {
     Slash,
     SlashEqual,
     Star,
-    StarEqual
+    StarEqual,
+
+    Eof
 }
 
 impl Token<'_> {
@@ -104,7 +105,6 @@ impl Token<'_> {
             Token::Identifier(text) => text.len(),
             Token::Integer(text) => text.len(),
             Token::String(text) => text.len() + 2,
-            Token::Async => 5,
             Token::ArrowThin => 2,
             Token::Bool => 4,
             Token::Break => 5,
@@ -165,7 +165,6 @@ impl Token<'_> {
             Token::Identifier(text) => text,
             Token::Integer(text) => text,
             Token::String(text) => text,
-            Token::Async => "async",
             Token::ArrowThin => "->",
             Token::Bool => "bool",
             Token::Break => "break",
@@ -219,7 +218,6 @@ impl Token<'_> {
     pub fn to_owned(&self) -> TokenOwned {
         match self {
             Token::ArrowThin => TokenOwned::ArrowThin,
-            Token::Async => TokenOwned::Async,
             Token::BangEqual => TokenOwned::BangEqual,
             Token::Bang => TokenOwned::Bang,
             Token::Bool => TokenOwned::Bool,
@@ -280,7 +278,6 @@ impl Token<'_> {
     pub fn kind(&self) -> TokenKind {
         match self {
             Token::ArrowThin => TokenKind::ArrowThin,
-            Token::Async => TokenKind::Async,
             Token::BangEqual => TokenKind::BangEqual,
             Token::Bang => TokenKind::Bang,
             Token::Bool => TokenKind::Bool,
@@ -337,55 +334,12 @@ impl Token<'_> {
             Token::While => TokenKind::While,
         }
     }
-
-    /// Returns true if the token yields a value, begins an expression or is an expression operator.
-    pub fn is_expression(&self) -> bool {
-        matches!(
-            self,
-            Token::Boolean(_)
-                | Token::Byte(_)
-                | Token::Character(_)
-                | Token::Float(_)
-                | Token::Identifier(_)
-                | Token::Integer(_)
-                | Token::String(_)
-                | Token::Break
-                | Token::If
-                | Token::Return
-                | Token::Map
-                | Token::Loop
-                | Token::Struct
-                | Token::BangEqual
-                | Token::DoubleAmpersand
-                | Token::DoubleEqual
-                | Token::DoublePipe
-                | Token::Equal
-                | Token::Greater
-                | Token::GreaterEqual
-                | Token::LeftBrace
-                | Token::LeftParenthesis
-                | Token::LeftBracket
-                | Token::Less
-                | Token::LessEqual
-                | Token::Minus
-                | Token::MinusEqual
-                | Token::Percent
-                | Token::PercentEqual
-                | Token::Plus
-                | Token::PlusEqual
-                | Token::Slash
-                | Token::SlashEqual
-                | Token::Star
-                | Token::StarEqual
-        )
-    }
 }
 
 impl Display for Token<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::ArrowThin => write!(f, "->"),
-            Token::Async => write!(f, "async"),
             Token::BangEqual => write!(f, "!="),
             Token::Bang => write!(f, "!"),
             Token::Bool => write!(f, "bool"),
@@ -448,7 +402,6 @@ impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             TokenKind::ArrowThin => write!(f, "->"),
-            TokenKind::Async => write!(f, "async"),
             TokenKind::BangEqual => write!(f, "!="),
             TokenKind::Bang => write!(f, "!"),
             TokenKind::Bool => write!(f, "bool"),
@@ -525,7 +478,6 @@ pub enum TokenOwned {
     String(String),
 
     // Keywords
-    Async,
     Bool,
     Break,
     Else,
@@ -581,7 +533,6 @@ impl Display for TokenOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TokenOwned::ArrowThin => Token::ArrowThin.fmt(f),
-            TokenOwned::Async => Token::Async.fmt(f),
             TokenOwned::Bang => Token::Bang.fmt(f),
             TokenOwned::BangEqual => Token::BangEqual.fmt(f),
             TokenOwned::Bool => Token::Bool.fmt(f),

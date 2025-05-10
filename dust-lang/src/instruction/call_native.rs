@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, NativeFunction, Operation};
+use crate::{Instruction, NativeFunction, Operation, r#type::TypeKind};
 
 use super::{Destination, InstructionFields};
 
@@ -47,7 +47,7 @@ impl From<CallNative> for Instruction {
 }
 
 impl Display for CallNative {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let CallNative {
             destination,
             function,
@@ -55,7 +55,11 @@ impl Display for CallNative {
         } = self;
         let return_type = function.r#type().return_type.kind();
 
-        destination.display(f, return_type)?;
-        write!(f, " = {function}(ARGS_{argument_list_index})")
+        if return_type != TypeKind::None {
+            destination.display(f, return_type)?;
+            write!(f, " = ")?;
+        }
+
+        write!(f, "{function}(ARGS_{argument_list_index})")
     }
 }

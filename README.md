@@ -20,13 +20,39 @@ write_line("Hello " + name + "!")
 ```rust
 // The classic, unoptimized Fibonacci sequence
 fn fib (n: int) -> int {
-    if n <= 0 { return 0 }
-    if n == 1 { return 1 }
-
-    fib(n - 1) + fib(n - 2)
+    if n <= 0 {
+        0
+    } else if n == 1 {
+        1
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
 }
 
-write_line(fib(25))
+fib(25)
+```
+
+```rust
+// Guessing game, based on an example from The Rust Programming Language book
+let secret_number = random(0..100)
+
+write_line("Guess the number.")
+
+loop {
+	  write_line("Input your guess.")
+
+	  let input = io.read_line()
+	  let guess = int.parse(input)
+
+	  if guess < secret_number {
+		    io.write_line("Too low!")
+	  } else if guess > secret_number {
+		    io.write_line("Too high!")
+	  } else {
+		    io.write_line("You win!")
+		    break
+	  }
+}
 ```
 
 > [!IMPORTANT]
@@ -101,7 +127,7 @@ languages.
 ### CLI
 
 The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
-different levels and measure the time taken for compilation and execution.
+different levels and measures the time taken for compilation and execution.
 
 <details>
     <summary>Show CLI help</summary>
@@ -110,57 +136,25 @@ different levels and measure the time taken for compilation and execution.
 Command line interface for the Dust programming language
 
 Usage: dust [OPTIONS] [FILE]
-       dust {run|-r} [OPTIONS] [FILE]
-       dust {compile|-c} [OPTIONS] [FILE]
-       dust {tokenize|-t} [OPTIONS] [FILE]
-       dust help [COMMAND]...
 
 Arguments:
   [FILE]  Path to a source code file
 
 Options:
-  -l, --log-level <LOG_LEVEL>  Overrides the DUST_LOG environment variable
-      --time                   Print the time taken for compilation and execution
-      --no-output              Do not print the program's return value
-      --name <NAME>            Custom program name, overrides the file name
-  -e, --eval <INPUT>           Source code to run instead of a file
-      --stdin                  Read source code from stdin
-  -i, --input <INPUT>          Input format [default: dust] [possible values: dust, json, ron, yaml]
-  -h, --help                   Print help
-  -V, --version                Print version
-
-dust {run|-r}:
-Compile and run the program (default)
-      --time           Print the time taken for compilation and execution
-      --no-output      Do not print the program's return value
-      --name <NAME>    Custom program name, overrides the file name
-  -e, --eval <INPUT>   Source code to run instead of a file
-      --stdin          Read source code from stdin
-  -i, --input <INPUT>  Input format [default: dust] [possible values: dust, json, ron, yaml]
-  -h, --help           Print help
-  [FILE]           Path to a source code file
-
-dust {compile|-c}:
-Compile and print the input
-  -s, --style            Style disassembly output
-  -n, --name <NAME>      Custom program name, overrides the file name
   -e, --eval <INPUT>     Source code to run instead of a file
       --stdin            Read source code from stdin
-  -o, --output <FORMAT>  [default: cli] [possible values: cli, json, ron, yaml]
+  -c, --compile          Compile and print the chunk disassembly
+  -r, --run              Compile and run the program (default)
+  -t, --tokenize         Lex the source code and print the tokens
+  -n, --name <NAME>      Custom program name, overrides the file name
+  -l, --log <LOG>        Overrides the DUST_LOG environment variable
+  -i, --input <INPUT>    Input format [default: dust] [possible values: dust, json, ron, yaml]
+  -o, --output <OUTPUT>  Output format [default: cli] [possible values: cli, json, ron, yaml]
+      --no-output        Do not print the program's return value
+  -s, --style            Style disassembly output
+      --time             Print the time taken for compilation and execution
   -h, --help             Print help
-  [FILE]             Path to a source code file
-
-dust {tokenize|-t}:
-Lex the source code and print the tokens
-  -s, --style         Style token output
-  -e, --eval <INPUT>  Source code to run instead of a file
-      --stdin         Read source code from stdin
-  -h, --help          Print help
-  [FILE]          Path to a source code file
-
-dust help:
-Print this message or the help of the given subcommand(s)
-  [COMMAND]...  Print help for the subcommand(s)
+  -V, --version          Print version
 ```
 
 </details>

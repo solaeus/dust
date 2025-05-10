@@ -43,6 +43,7 @@ impl Destination {
             (TypeKind::List, false) => AddressKind::LIST_MEMORY,
             (TypeKind::Function, true) => AddressKind::FUNCTION_REGISTER,
             (TypeKind::Function, false) => AddressKind::FUNCTION_MEMORY,
+            (TypeKind::FunctionSelf, _) => AddressKind::FUNCTION_SELF,
             (TypeKind::None, _) => AddressKind::NONE,
             _ => todo!(),
         };
@@ -54,6 +55,10 @@ impl Destination {
     }
 
     pub fn display(&self, f: &mut Formatter, destination_type: TypeKind) -> fmt::Result {
+        if destination_type == TypeKind::None {
+            return Ok(());
+        }
+
         if self.is_register {
             write!(f, "R_")?;
         } else {

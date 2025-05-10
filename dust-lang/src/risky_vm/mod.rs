@@ -16,7 +16,7 @@ use std::{sync::Arc, thread::Builder};
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{Chunk, ConcreteValue, DustError, Value, compile};
+use crate::{Chunk, ConcreteValue, DustError, compile};
 
 pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
     let chunk = compile(source)?;

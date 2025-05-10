@@ -26,7 +26,7 @@ mod type_checks;
 
 pub use compile_error::CompileError;
 pub use compile_mode::CompileMode;
-use parse_rule::{ParseRule, Precedence};
+pub use parse_rule::{ParseRule, Precedence};
 use path::Path;
 use tracing::{Level, debug, error, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
@@ -174,6 +174,8 @@ pub struct Compiler<'src> {
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: u16,
 
+    parsing_rules: [ParseRule<'src>; 55],
+
     current_token: Token<'src>,
     current_position: Span,
     previous_token: Token<'src>,
@@ -211,6 +213,7 @@ impl<'src> Compiler<'src> {
             current_block_scope: Scope::default(),
             namespace: HashSet::new(),
             prototype_index: 0,
+            parsing_rules: parse_rule::create_look_up_table(),
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -238,7 +241,6 @@ impl<'src> Compiler<'src> {
         }
 
         self.parse_implicit_return()?;
-        self.optimize_instructions();
 
         if self.instructions.is_empty() {
             let r#return = Instruction::r#return(false, Address::default());
@@ -252,7 +254,9 @@ impl<'src> Compiler<'src> {
     }
 
     /// Creates a new chunk with the compiled data.
-    pub fn finish(self) -> Chunk {
+    pub fn finish(mut self) -> Chunk {
+        self.optimize_instructions();
+
         let boolean_memory_length = self.next_boolean_memory_index();
         let byte_memory_length = self.next_byte_memory_index();
         let character_memory_length = self.next_character_memory_index();
@@ -386,34 +390,25 @@ impl<'src> Compiler<'src> {
             replacements.insert(old_address, new_address);
         }
 
-        for (instruction, r#type, _) in &mut self.instructions {
+        for (index, (instruction, r#type, _)) in self.instructions.iter_mut().enumerate() {
             let destination_address = instruction.destination().as_address(r#type.kind());
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
 
             if let Some(replacement) = replacements.get(&destination_address) {
-                trace!(
-                    "Optimizing {}: replace {destination_address} with {replacement}",
-                    instruction.operation()
-                );
+                trace!("Instruction {index}: replace {destination_address} with {replacement}",);
 
                 instruction.set_destination(*replacement);
             }
 
             if let Some(replacement) = replacements.get(&b_address) {
-                trace!(
-                    "Optimizing {}: replace {b_address} with {replacement}",
-                    instruction.operation()
-                );
+                trace!("Instruction {index}: replace {b_address} with {replacement}",);
 
                 instruction.set_b_address(*replacement);
             }
 
             if let Some(replacement) = replacements.get(&c_address) {
-                trace!(
-                    "Optimizing {}: replace {c_address} with {replacement}",
-                    instruction.operation()
-                );
+                trace!("Instruction {index}: replace {c_address} with {replacement}",);
 
                 instruction.set_c_address(*replacement);
             }
@@ -424,6 +419,18 @@ impl<'src> Compiler<'src> {
                 local.address = *replacement;
             }
         }
+
+        for arguments in &mut self.arguments {
+            for address in &mut arguments.values {
+                if let Some(replacement) = replacements.get(address) {
+                    *address = *replacement;
+                }
+            }
+        }
+    }
+
+    fn current_parse_rule(&self) -> ParseRule<'src> {
+        self.parsing_rules[self.current_token.kind() as u32 as usize]
     }
 
     fn is_eof(&self) -> bool {
@@ -1088,7 +1095,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = self.current_parse_rule();
         let is_assignment = matches!(
             operator,
             Token::PlusEqual
@@ -1225,7 +1232,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = self.current_parse_rule();
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -1317,7 +1324,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = self.current_parse_rule();
         let test_boolean = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -1962,7 +1969,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_return_statement(&mut self) -> Result<(), CompileError> {
+    fn parse_return(&mut self) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -2112,7 +2119,7 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_let_statement(&mut self) -> Result<(), CompileError> {
+    fn parse_let(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
         let is_mutable = self.allow(Token::Mut)?;
@@ -2537,12 +2544,6 @@ impl<'src> Compiler<'src> {
         Ok(())
     }
 
-    fn parse_semicolon(&mut self) -> Result<(), CompileError> {
-        self.advance()?;
-
-        Ok(())
-    }
-
     fn expect_expression(&mut self) -> Result<(), CompileError> {
         Err(CompileError::ExpectedExpression {
             found: self.current_token.to_owned(),
@@ -2551,7 +2552,9 @@ impl<'src> Compiler<'src> {
     }
 
     fn parse(&mut self, precedence: Precedence) -> Result<(), CompileError> {
-        if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
+        let prefix_rule = self.current_parse_rule();
+
+        if let Some(prefix_parser) = prefix_rule.prefix {
             debug!(
                 "{} is prefix with precedence {precedence}",
                 self.current_token,
@@ -2560,7 +2563,7 @@ impl<'src> Compiler<'src> {
             prefix_parser(self)?;
         }
 
-        let mut infix_rule = ParseRule::from(&self.current_token);
+        let mut infix_rule = self.current_parse_rule();
 
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
@@ -2581,7 +2584,7 @@ impl<'src> Compiler<'src> {
                 break;
             }
 
-            infix_rule = ParseRule::from(&self.current_token);
+            infix_rule = self.current_parse_rule();
         }
 
         Ok(())

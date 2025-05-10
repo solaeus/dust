@@ -33,9 +33,8 @@ impl Address {
             | AddressKind::STRING_MEMORY
             | AddressKind::STRING_REGISTER => TypeKind::String,
             AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeKind::List,
-            AddressKind::FUNCTION_SELF
-            | AddressKind::FUNCTION_MEMORY
-            | AddressKind::FUNCTION_REGISTER => TypeKind::Function,
+            AddressKind::FUNCTION_SELF => TypeKind::FunctionSelf,
+            AddressKind::FUNCTION_MEMORY | AddressKind::FUNCTION_REGISTER => TypeKind::Function,
             AddressKind::NONE => TypeKind::None,
             unknown => {
                 error!("Invalid AddressKind, has inner value {}", unknown.0);

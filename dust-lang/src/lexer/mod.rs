@@ -3,9 +3,14 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
+mod error;
+mod lex_rule;
+
+pub use error::LexError;
+use lex_rule::LexRule;
 use serde::{Deserialize, Serialize};
 
-use crate::{CompileError, DustError, Span, Token, dust_error::AnnotatedError};
+use crate::{CompileError, DustError, Span, Token};
 
 /// Lexes the input and returns a vector of tokens and their positions.
 ///
@@ -83,9 +88,9 @@ impl<'src> Lexer<'src> {
         self.skip_whitespace();
 
         let (token, span) = if let Some(character) = self.peek_char() {
-            let lexer = LexRule::from(&character).lex_action;
+            let lex_action = LexRule::from(&character).lex_action;
 
-            lexer(self)?
+            lex_action(self)?
         } else {
             self.is_eof = true;
 
@@ -256,7 +261,6 @@ impl<'src> Lexer<'src> {
         let token = match string {
             "Infinity" => Token::Float("Infinity"),
             "NaN" => Token::Float("NaN"),
-            "async" => Token::Async,
             "bool" => Token::Bool,
             "break" => Token::Break,
             "else" => Token::Else,
@@ -609,224 +613,6 @@ impl<'src> Lexer<'src> {
             Ok((Token::DoubleDot, Span(start_pos, self.position)))
         } else {
             Ok((Token::Dot, Span(start_pos, self.position)))
-        }
-    }
-}
-
-type LexAction<'src> = fn(&mut Lexer<'src>) -> Result<(Token<'src>, Span), LexError>;
-
-pub struct LexRule<'src> {
-    lex_action: LexAction<'src>,
-}
-
-impl From<&char> for LexRule<'_> {
-    fn from(char: &char) -> Self {
-        match char {
-            '0'..='9' => LexRule {
-                lex_action: Lexer::lex_numeric,
-            },
-            char if char.is_alphabetic() => LexRule {
-                lex_action: Lexer::lex_keyword_or_identifier,
-            },
-            '"' => LexRule {
-                lex_action: Lexer::lex_string,
-            },
-            '\'' => LexRule {
-                lex_action: Lexer::lex_char,
-            },
-            '+' => LexRule {
-                lex_action: Lexer::lex_plus,
-            },
-            '-' => LexRule {
-                lex_action: Lexer::lex_minus,
-            },
-            '*' => LexRule {
-                lex_action: Lexer::lex_star,
-            },
-            '/' => LexRule {
-                lex_action: Lexer::lex_slash,
-            },
-            '%' => LexRule {
-                lex_action: Lexer::lex_percent,
-            },
-            '!' => LexRule {
-                lex_action: Lexer::lex_exclamation_mark,
-            },
-            '=' => LexRule {
-                lex_action: Lexer::lex_equal,
-            },
-            '<' => LexRule {
-                lex_action: Lexer::lex_less_than,
-            },
-            '>' => LexRule {
-                lex_action: Lexer::lex_greater_than,
-            },
-            '&' => LexRule {
-                lex_action: Lexer::lex_ampersand,
-            },
-            '|' => LexRule {
-                lex_action: Lexer::lex_pipe,
-            },
-            '(' => LexRule {
-                lex_action: Lexer::lex_left_parenthesis,
-            },
-            ')' => LexRule {
-                lex_action: Lexer::lex_right_parenthesis,
-            },
-            '[' => LexRule {
-                lex_action: Lexer::lex_left_bracket,
-            },
-            ']' => LexRule {
-                lex_action: Lexer::lex_right_bracket,
-            },
-            '{' => LexRule {
-                lex_action: Lexer::lex_left_brace,
-            },
-            '}' => LexRule {
-                lex_action: Lexer::lex_right_brace,
-            },
-            ';' => LexRule {
-                lex_action: Lexer::lex_semicolon,
-            },
-            ':' => LexRule {
-                lex_action: Lexer::lex_colon,
-            },
-            ',' => LexRule {
-                lex_action: Lexer::lex_comma,
-            },
-            '.' => LexRule {
-                lex_action: Lexer::lex_dot,
-            },
-            _ => LexRule {
-                lex_action: Lexer::lex_unexpected,
-            },
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum LexError {
-    ExpectedAsciiHexDigit {
-        actual: Option<char>,
-        position: usize,
-    },
-    ExpectedCharacter {
-        expected: char,
-        actual: char,
-        position: usize,
-    },
-    ExpectedCharacterMultiple {
-        expected: &'static [char],
-        actual: char,
-        position: usize,
-    },
-    UnexpectedCharacter {
-        actual: char,
-        position: usize,
-    },
-    UnexpectedEndOfFile {
-        position: usize,
-    },
-}
-
-impl AnnotatedError for LexError {
-    fn title() -> &'static str {
-        "Lex Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            Self::ExpectedAsciiHexDigit { .. } => "Expected ASCII hex digit",
-            Self::ExpectedCharacter { .. } => "Expected character",
-            Self::ExpectedCharacterMultiple { .. } => "Expected one of multiple characters",
-            Self::UnexpectedCharacter { .. } => "Unexpected character",
-            Self::UnexpectedEndOfFile { .. } => "Unexpected end of file",
-        }
-    }
-
-    fn detail_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            Self::ExpectedAsciiHexDigit { actual, position } => {
-                vec![(
-                    format!(
-                        "Expected an ASCII hex digit (0-9, A-F, a-f), but found `{}`",
-                        actual.map_or("end of input".to_string(), |c| c.to_string())
-                    ),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacter {
-                expected,
-                actual,
-                position,
-            } => {
-                vec![(
-                    format!("Expected character `{expected}`, but found `{actual}`"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacterMultiple {
-                expected,
-                actual,
-                position,
-            } => {
-                vec![(
-                    format!("Expected one of the characters `{expected:?}`, but found `{actual}`"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedCharacter { actual, position } => {
-                vec![(
-                    format!("Unexpected character `{actual}`"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedEndOfFile { position } => {
-                vec![(
-                    "Unexpected end of file while lexing".to_string(),
-                    Span(*position, *position),
-                )]
-            }
-        }
-    }
-
-    fn help_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            Self::ExpectedAsciiHexDigit { position, .. } => {
-                vec![(
-                    "Ensure the input contains valid hexadecimal digits (0-9, A-F, a-f)"
-                        .to_string(),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacter {
-                expected, position, ..
-            } => {
-                vec![(
-                    format!("Insert the expected character `{expected}` here"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacterMultiple {
-                expected, position, ..
-            } => {
-                vec![(
-                    format!("Insert one of the expected characters `{expected:?}` here"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedCharacter { position, .. } => {
-                vec![(
-                    "Remove or replace the unexpected character".to_string(),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedEndOfFile { position } => {
-                vec![(
-                    "Ensure the input is complete and properly terminated".to_string(),
-                    Span(*position, *position),
-                )]
-            }
         }
     }
 }
