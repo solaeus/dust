@@ -58,8 +58,13 @@ use crate::{
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler = Compiler::new(lexer, CompileMode::Main { name: None })
-        .map_err(|error| DustError::compile(error, source))?;
+    let mut compiler = Compiler::new(
+        lexer,
+        CompileMode::Main {
+            name: DustString::from("anonymous".to_string()),
+        },
+    )
+    .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -223,7 +228,7 @@ impl<'src> Compiler<'src> {
         let _enter = span.enter();
 
         info!(
-            "Begin chunk with {} at {}",
+            "Begin chunk with `{}` at {}",
             self.current_token.to_string(),
             self.current_position.to_string()
         );
@@ -376,7 +381,6 @@ impl<'src> Compiler<'src> {
                 _ => todo!(),
             };
 
-            trace!("Optimization found: replace {old_address} with {new_address}");
             trace!("{old_address} was used {} times", rank + 1);
 
             replacements.insert(old_address, new_address);

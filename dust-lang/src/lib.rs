@@ -35,6 +35,7 @@ pub mod dust_error;
 pub mod instruction;
 pub mod lexer;
 pub mod native_function;
+pub mod panic;
 pub mod risky_vm;
 pub mod token;
 pub mod r#type;

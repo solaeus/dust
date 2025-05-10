@@ -28,16 +28,16 @@ pub struct RegisterTable {
 
 #[derive(Debug)]
 pub struct RegisterList<T> {
-    pub r_0: T,
-    pub r_1: T,
-    pub r_2: T,
-    pub r_3: T,
-    pub r_4: T,
-    pub r_5: T,
-    pub r_6: T,
-    pub r_7: T,
-    pub r_8: T,
-    pub r_9: T,
+    r_0: T,
+    r_1: T,
+    r_2: T,
+    r_3: T,
+    r_4: T,
+    r_5: T,
+    r_6: T,
+    r_7: T,
+    r_8: T,
+    r_9: T,
 }
 
 impl<T> RegisterList<T> {
