@@ -1,7 +1,6 @@
 use std::{
-    fs::{File, OpenOptions, read_to_string},
+    fs::OpenOptions,
     io::{self, Read, stdout},
-    panic,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -13,6 +12,7 @@ use clap::{
 };
 use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
+    panic::set_dust_panic_hook,
 };
 use prettytable::{
     Table,
@@ -119,6 +119,9 @@ enum OutputFormat {
 
 fn main() {
     let start_time = Instant::now();
+
+    set_dust_panic_hook();
+
     let Cli {
         mode,
         log,

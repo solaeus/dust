@@ -111,7 +111,7 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.string_constants == other.string_constants
+            && self.character_constants == other.character_constants
             && self.float_constants == other.float_constants
             && self.integer_constants == other.integer_constants
             && self.string_constants == other.string_constants
@@ -128,7 +128,7 @@ impl PartialEq for Chunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.string_constants == other.string_constants
+            && self.character_constants == other.character_constants
             && self.float_constants == other.float_constants
             && self.integer_constants == other.integer_constants
             && self.string_constants == other.string_constants

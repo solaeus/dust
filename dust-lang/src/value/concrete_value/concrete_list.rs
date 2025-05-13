@@ -110,10 +110,7 @@ impl Display for ConcreteList {
                     write!(f, "{item}")?;
                 }
             }
-            ConcreteList::List {
-                list_items,
-                list_item_type,
-            } => {
+            ConcreteList::List { list_items, .. } => {
                 for (index, list) in list_items.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
@@ -122,7 +119,7 @@ impl Display for ConcreteList {
                     write!(f, "{list}")?;
                 }
             }
-            ConcreteList::Range { ranges, range_type } => {
+            ConcreteList::Range { ranges, .. } => {
                 for (index, range) in ranges.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;

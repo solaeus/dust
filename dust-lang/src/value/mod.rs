@@ -8,10 +8,6 @@ pub use concrete_value::ConcreteValue;
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 
-use std::fmt::{self, Debug, Display, Formatter};
-
-use crate::Type;
-
 pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -120,54 +116,5 @@ impl Value {
             Value::Concrete(ConcreteValue::Function(_))
                 | Value::Abstract(AbstractValue::Function(_))
         )
-    }
-}
-
-/// An ordered sequence of values. These variants mirror the range types in `std::range`. This type
-/// is not used on its own but forms the basis for Dust's [`ConcreteRange`] values.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum DustRange<T> {
-    FromStart { start: T },
-    Full,
-    Inclusive { start: T, end: T },
-    SemiInclusive { start: T, end: T },
-    ToEnd { end: T },
-    ToEndInclusive { end: T },
-}
-
-impl DustRange<u8> {
-    pub fn r#type(&self) -> Type {
-        Type::Range(Box::new(Type::Byte))
-    }
-}
-
-impl DustRange<char> {
-    pub fn r#type(&self) -> Type {
-        Type::Range(Box::new(Type::Character))
-    }
-}
-
-impl DustRange<f64> {
-    pub fn r#type(&self) -> Type {
-        Type::Range(Box::new(Type::Float))
-    }
-}
-
-impl DustRange<i64> {
-    pub fn r#type(&self) -> Type {
-        Type::Range(Box::new(Type::Integer))
-    }
-}
-
-impl<T: Display> Display for DustRange<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            DustRange::FromStart { start } => write!(f, "{start}.."),
-            DustRange::Full => write!(f, ".."),
-            DustRange::Inclusive { start, end } => write!(f, "{start}..={end}"),
-            DustRange::SemiInclusive { start, end } => write!(f, "{start}..{end}"),
-            DustRange::ToEnd { end } => write!(f, "..{end}"),
-            DustRange::ToEndInclusive { end } => write!(f, "..={end}"),
-        }
     }
 }

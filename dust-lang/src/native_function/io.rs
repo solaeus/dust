@@ -1,8 +1,6 @@
 use std::io::{Write, stdout};
 
-use crate::{
-    DustString, Instruction, Type, instruction::CallNative, risky_vm::Thread, r#type::TypeKind,
-};
+use crate::{DustString, Instruction, instruction::CallNative, risky_vm::Thread, r#type::TypeKind};
 
 pub fn read_line(instruction: Instruction, thread: &mut Thread) {
     let CallNative { destination, .. } = CallNative::from(instruction);
@@ -21,9 +19,8 @@ pub fn read_line(instruction: Instruction, thread: &mut Thread) {
 
 pub fn write_line(instruction: Instruction, thread: &mut Thread) {
     let CallNative {
-        destination: _,
-        function,
         argument_list_index,
+        ..
     } = CallNative::from(instruction);
 
     let arguments = thread

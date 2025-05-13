@@ -31,6 +31,10 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 name = "addictive_addition"
 harness = false
 
+[[bench]]
+name = "compile"
+harness = false
+
 # [[bench]]
 # name = "fibonacci"
 # harness = false

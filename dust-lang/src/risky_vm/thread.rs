@@ -3,8 +3,7 @@ use std::{sync::Arc, thread::JoinHandle};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, ConcreteValue, DustString, Value, instruction::AddressKind,
-    risky_vm::runners::RUNNERS,
+    Address, Chunk, ConcreteValue, DustString, instruction::AddressKind, risky_vm::runners::RUNNERS,
 };
 
 use super::{CallFrame, Memory, RegisterTable};
