@@ -66,6 +66,10 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    pub fn reset(&mut self, source: &'src str) {
+        *self = Lexer::new(source);
+    }
+
     pub fn source(&self) -> &'src str {
         self.source
     }

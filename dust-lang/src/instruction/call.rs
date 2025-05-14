@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation, r#type::TypeKind};
+use crate::{Instruction, Operation};
 
 use super::{Address, Destination, InstructionFields, address::AddressKind};
 

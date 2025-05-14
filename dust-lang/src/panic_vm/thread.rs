@@ -4,10 +4,7 @@ use tracing::{Level, info, span, warn};
 
 use crate::{
     Address, Chunk, ConcreteValue, DustString, Operation,
-    chunk::Arguments,
     instruction::{Add, AddressKind, Call, Jump, Less, LoadConstant, LoadFunction, Move, Return},
-    panic_vm::call_frame,
-    r#type::TypeKind,
 };
 
 use super::{CallFrame, Memory};
@@ -189,10 +186,13 @@ impl Thread {
                         left,
                         right,
                     } = Add::from(&instruction);
+                    let left_index = left.index as usize;
 
                     match left.kind {
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left.index as usize];
+                            assert!(left_index < self.chunk.integer_constants.len());
+
+                            let left_value = self.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
                                     self.chunk.integer_constants[right.index as usize]
@@ -214,7 +214,9 @@ impl Thread {
                             }
                         }
                         AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left.index as usize].as_value();
+                            assert!(left_index < memory.integers.len());
+
+                            let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
                                     self.chunk.integer_constants[right.index as usize]
@@ -236,10 +238,15 @@ impl Thread {
                             }
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left.index as usize];
+                            assert!(left_index < memory.registers.integers.len());
+
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    assert!(right_index < self.chunk.integer_constants.len());
+
+                                    self.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -272,9 +279,12 @@ impl Thread {
                         right,
                     } = Less::from(&instruction);
 
+                    let left_index = left.index as usize;
                     let is_less_than = match left.kind {
                         AddressKind::INTEGER_MEMORY => {
-                            let left_value = *memory.integers[left.index as usize].as_value();
+                            assert!(left_index < memory.integers.len());
+
+                            let left_value = *memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
                                     self.chunk.integer_constants[right.index as usize]
@@ -291,10 +301,15 @@ impl Thread {
                             left_value < right_value
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left.index as usize];
+                            assert!(left_index < memory.registers.integers.len());
+
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    assert!(right_index < self.chunk.integer_constants.len());
+
+                                    self.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -381,16 +396,16 @@ impl Thread {
                     if is_positive {
                         call.ip += offset as usize;
                     } else {
-                        call.ip -= (offset + 1) as usize;
+                        call.ip -= offset as usize + 1;
                     }
                 }
                 Operation::RETURN => {
                     let Return {
                         should_return_value,
-                        return_address,
+                        return_value_address,
                     } = Return::from(&instruction);
 
-                    match return_address.kind {
+                    match return_value_address.kind {
                         AddressKind::NONE => {
                             if self.call_stack.is_empty() {
                                 return None;
@@ -400,7 +415,8 @@ impl Thread {
                             memory = self.memory_stack.pop().unwrap();
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let integer = memory.registers.integers[return_address.index as usize];
+                            let integer =
+                                memory.registers.integers[return_value_address.index as usize];
 
                             if self.call_stack.is_empty() {
                                 if should_return_value {
@@ -427,7 +443,7 @@ impl Thread {
                         }
                         AddressKind::FUNCTION_REGISTER => {
                             let prototype_address = memory.registers.functions
-                                [return_address.index as usize]
+                                [return_value_address.index as usize]
                                 .prototype_address;
                             let prototype = match prototype_address.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {

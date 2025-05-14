@@ -554,7 +554,7 @@ impl Instruction {
     pub fn r#return(should_return_value: bool, return_address: Address) -> Instruction {
         Instruction::from(Return {
             should_return_value,
-            return_address,
+            return_value_address: return_address,
         })
     }
 

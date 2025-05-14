@@ -38,7 +38,7 @@ impl Memory {
 }
 
 #[derive(Debug)]
-pub struct RegisterTable<const LENGTH: usize = 5> {
+pub struct RegisterTable<const LENGTH: usize = 3> {
     pub booleans: [bool; LENGTH],
     pub bytes: [u8; LENGTH],
     pub characters: [char; LENGTH],

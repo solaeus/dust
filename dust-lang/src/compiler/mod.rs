@@ -38,8 +38,8 @@ use std::{
 };
 
 use crate::{
-    Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, Local, NativeFunction,
-    Operation, Scope, Span, Token, TokenKind, Type,
+    Address, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
+    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type,
     chunk::Arguments,
     instruction::{AddressKind, Destination, Jump, LoadFunction, Move},
     r#type::TypeKind,
@@ -164,20 +164,23 @@ pub struct Compiler<'src> {
     /// current block and is used to test if a variable is in scope.
     current_block_scope: Scope,
 
+    main_namespace: HashMap<Path, ConcreteValue>,
+
     /// The currently active paths from which the compiler can resolve symbols. This is mutated
     /// during compilation to enforce Dust's scope rules.
-    namespace: HashSet<Path>,
+    active_namespace: HashSet<Path>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: u16,
 
+    previous_statement_end: usize,
+    previous_expression_end: usize,
+
     current_token: Token<'src>,
     current_position: Span,
     previous_token: Token<'src>,
     previous_position: Span,
-    previous_statement_end: usize,
-    previous_expression_end: usize,
 }
 
 impl<'src> Compiler<'src> {
@@ -207,7 +210,8 @@ impl<'src> Compiler<'src> {
             minimum_function_register: 0,
             block_index: 0,
             current_block_scope: Scope::default(),
-            namespace: HashSet::new(),
+            main_namespace: HashMap::new(),
+            active_namespace: HashSet::new(),
             prototype_index: 0,
             current_token,
             current_position,
@@ -351,19 +355,18 @@ impl<'src> Compiler<'src> {
         // intended replacements.
         let mut replacements = HashMap::new();
 
-        let get_top_ten_with_registers = |address_rankings: Vec<(usize, Address)>| {
-            address_rankings.into_iter().take(5).zip(0..5)
-        };
+        let get_top_ranks_with_registers =
+            |address_rankings: Vec<(usize, Address)>| address_rankings.into_iter().take(3).zip(0..);
 
         for ((rank, old_address), register_index) in
-            get_top_ten_with_registers(boolean_address_rankings)
-                .chain(get_top_ten_with_registers(byte_address_rankings))
-                .chain(get_top_ten_with_registers(character_address_rankings))
-                .chain(get_top_ten_with_registers(float_address_rankings))
-                .chain(get_top_ten_with_registers(integer_address_rankings))
-                .chain(get_top_ten_with_registers(string_address_rankings))
-                .chain(get_top_ten_with_registers(list_address_rankings))
-                .chain(get_top_ten_with_registers(function_address_rankings))
+            get_top_ranks_with_registers(boolean_address_rankings)
+                .chain(get_top_ranks_with_registers(byte_address_rankings))
+                .chain(get_top_ranks_with_registers(character_address_rankings))
+                .chain(get_top_ranks_with_registers(float_address_rankings))
+                .chain(get_top_ranks_with_registers(integer_address_rankings))
+                .chain(get_top_ranks_with_registers(string_address_rankings))
+                .chain(get_top_ranks_with_registers(list_address_rankings))
+                .chain(get_top_ranks_with_registers(function_address_rankings))
         {
             let new_address = match old_address.r#type() {
                 TypeKind::Boolean => Address::new(register_index, AddressKind::BOOLEAN_REGISTER),
@@ -2556,6 +2559,10 @@ impl<'src> Compiler<'src> {
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
+        Ok(())
+    }
+
+    fn parse_module(&mut self) -> Result<(), CompileError> {
         Ok(())
     }
 

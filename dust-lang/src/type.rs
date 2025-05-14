@@ -8,8 +8,6 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::Address;
-
 /// Description of a kind of value.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Type {
