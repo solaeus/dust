@@ -152,6 +152,10 @@ impl Instruction {
         }
     }
 
+    pub fn destination_as_address(&self) -> Address {
+        self.destination().as_address(self.operand_type())
+    }
+
     pub fn b_address(&self) -> Address {
         Address {
             index: self.b_field(),
@@ -247,6 +251,13 @@ impl Instruction {
         *self = fields.build();
     }
 
+    pub fn operand_type(&self) -> TypeKind {
+        match self.operation() {
+            Operation::NO_OP | Operation::CLOSE => TypeKind::None,
+            _ => self.b_kind().r#type(),
+        }
+    }
+
     pub fn as_address(&self) -> Address {
         match self.operation() {
             Operation::MOVE => {
@@ -265,7 +276,7 @@ impl Instruction {
                 }
             }
             Operation::LOAD_CONSTANT => {
-                let LoadConstant { constant, .. } = LoadConstant::from(*self);
+                let LoadConstant { constant, .. } = LoadConstant::from(self);
 
                 constant
             }
@@ -596,7 +607,7 @@ impl Instruction {
             Operation::MOVE => Move::from(self).to_string(),
             Operation::CLOSE => Close::from(self).to_string(),
             Operation::LOAD_ENCODED => LoadEncoded::from(*self).to_string(),
-            Operation::LOAD_CONSTANT => LoadConstant::from(*self).to_string(),
+            Operation::LOAD_CONSTANT => LoadConstant::from(self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
@@ -607,14 +618,14 @@ impl Instruction {
             Operation::NEGATE => Negate::from(*self).to_string(),
             Operation::NOT => Not::from(*self).to_string(),
             Operation::EQUAL => Equal::from(*self).to_string(),
-            Operation::LESS => Less::from(*self).to_string(),
+            Operation::LESS => Less::from(self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
             Operation::TEST => Test::from(self).to_string(),
             Operation::TEST_SET => TestSet::from(*self).to_string(),
             Operation::CALL => Call::from(*self).to_string(),
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
-            Operation::RETURN => Return::from(*self).to_string(),
+            Operation::RETURN => Return::from(self).to_string(),
             Operation::NO_OP => String::new(),
             unknown => panic!("Unknown operation: {}", unknown.0),
         }

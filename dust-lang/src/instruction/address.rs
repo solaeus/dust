@@ -147,3 +147,31 @@ impl AddressKind {
     pub const FUNCTION_REGISTER: AddressKind = AddressKind(21);
     pub const FUNCTION_SELF: AddressKind = AddressKind(22);
 }
+
+impl AddressKind {
+    pub fn r#type(&self) -> TypeKind {
+        match *self {
+            AddressKind::NONE => TypeKind::None,
+            AddressKind::BOOLEAN_MEMORY | AddressKind::BOOLEAN_REGISTER => TypeKind::Boolean,
+            AddressKind::BYTE_MEMORY | AddressKind::BYTE_REGISTER => TypeKind::Byte,
+            AddressKind::CHARACTER_CONSTANT
+            | AddressKind::CHARACTER_MEMORY
+            | AddressKind::CHARACTER_REGISTER => TypeKind::Character,
+            AddressKind::FLOAT_CONSTANT
+            | AddressKind::FLOAT_MEMORY
+            | AddressKind::FLOAT_REGISTER => TypeKind::Float,
+            AddressKind::INTEGER_CONSTANT
+            | AddressKind::INTEGER_MEMORY
+            | AddressKind::INTEGER_REGISTER => TypeKind::Integer,
+            AddressKind::STRING_CONSTANT
+            | AddressKind::STRING_MEMORY
+            | AddressKind::STRING_REGISTER => TypeKind::String,
+            AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeKind::List,
+            AddressKind::FUNCTION_MEMORY
+            | AddressKind::FUNCTION_PROTOTYPE
+            | AddressKind::FUNCTION_REGISTER
+            | AddressKind::FUNCTION_SELF => TypeKind::Function,
+            _ => unreachable!(),
+        }
+    }
+}

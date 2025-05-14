@@ -1,3 +1,5 @@
+#![feature(duration_millis_float)]
+
 use std::{
     fs::OpenOptions,
     io::{self, Read, stdout},
@@ -356,40 +358,20 @@ fn start_logging(level: LevelFilter) {
 }
 
 fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
-    let mut table = Table::new();
-    let format = format::FormatBuilder::new()
-        .column_separator('│')
-        .borders('┃')
-        .separator(LinePosition::Top, LineSeparator::new('━', '┯', '┏', '┓'))
-        .separator(LinePosition::Title, LineSeparator::new('┈', '┼', '┠', '┨'))
-        .separator(LinePosition::Intern, LineSeparator::new('─', '┼', '├', '┤'))
-        .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', '┗', '┛'))
-        .padding(1, 1)
-        .build();
-    table.set_format(format);
-    table.set_titles(row!["Source", "Compile Time", "Run Time", "Total"]);
-
     for (source_name, compile_time, run_time) in times {
         let total_time = run_time
             .map(|run_time| run_time + *compile_time)
             .unwrap_or(*compile_time);
-        let compile_time_display = format!("{}ns", compile_time.as_nanos());
+        let compile_time_display = format!("{}ms", compile_time.as_millis_f64());
         let run_time_display = run_time
-            .map(|run_time| format!("{}ns", run_time.as_nanos()))
+            .map(|run_time| format!("{}ms", run_time.as_millis_f64()))
             .unwrap_or("none".to_string());
-        let total_time_display = format!("{}ns", total_time.as_nanos());
+        let total_time_display = format!("{}ms", total_time.as_millis_f64());
 
-        table.add_row(row![
-            source_name,
-            compile_time_display,
-            run_time_display,
-            total_time_display,
-        ]);
+        println!(
+            "{source_name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
+        );
     }
-
-    table
-        .print(&mut stdout().lock())
-        .expect("Failed to print times to stdout");
 }
 
 fn handle_compile_error(error: CompileError, source: &str) {

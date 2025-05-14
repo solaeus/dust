@@ -1,40 +1,53 @@
-use crate::{DustString, Instruction, instruction::CallNative, risky_vm::Thread, r#type::TypeKind};
+use crate::{
+    DustString, Instruction,
+    instruction::CallNative,
+    risky_vm::{RegisterTable, Thread},
+    r#type::TypeKind,
+};
 
-pub fn to_string(instruction: Instruction, thread: &mut Thread) {
-    let CallNative {
-        destination,
-        function: _,
-        argument_list_index,
-    } = CallNative::from(instruction);
+pub fn to_string(
+    instruction: Instruction,
+    thread: &mut Thread,
+    registers: RegisterTable,
+) -> RegisterTable {
+    todo!();
 
-    let address = thread
-        .current_call
-        .chunk
-        .arguments
-        .get(argument_list_index as usize)
-        .unwrap()
-        .values
-        .first()
-        .unwrap();
+    // let CallNative {
+    //     destination,
+    //     function: _,
+    //     argument_list_index,
+    // } = CallNative::from(instruction);
 
-    let string = match address.r#type() {
-        TypeKind::Integer => {
-            let integer = thread
-                .current_memory
-                .integers
-                .get(address.index as usize)
-                .unwrap()
-                .as_value();
+    // let address = thread
+    //     .current_call
+    //     .chunk
+    //     .arguments
+    //     .get(argument_list_index as usize)
+    //     .unwrap()
+    //     .values
+    //     .first()
+    //     .unwrap();
 
-            DustString::from(integer.to_string())
-        }
-        _ => unreachable!(),
-    };
+    // let string = match address.r#type() {
+    //     TypeKind::Integer => {
+    //         let integer = thread
+    //             .current_memory
+    //             .integers
+    //             .get(address.index as usize)
+    //             .unwrap()
+    //             .as_value();
 
-    *thread
-        .current_memory
-        .strings
-        .get_mut(destination.index as usize)
-        .unwrap()
-        .as_value_mut() = DustString::from(string);
+    //         DustString::from(integer.to_string())
+    //     }
+    //     _ => unreachable!(),
+    // };
+
+    // *thread
+    //     .current_memory
+    //     .strings
+    //     .get_mut(destination.index as usize)
+    //     .unwrap()
+    //     .as_value_mut() = DustString::from(string);
+
+    // registers
 }

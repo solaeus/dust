@@ -9,8 +9,8 @@ pub struct Return {
     pub return_address: Address,
 }
 
-impl From<Instruction> for Return {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Return {
+    fn from(instruction: &Instruction) -> Self {
         let should_return_value = instruction.a_field() != 0;
         let return_address = instruction.b_address();
 

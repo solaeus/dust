@@ -339,8 +339,8 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        for (instruction, r#type, _) in &self.instructions {
-            let destination_address = instruction.destination().as_address(r#type.kind());
+        for (instruction, _, _) in &self.instructions {
+            let destination_address = instruction.destination_as_address();
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
 
@@ -354,7 +354,7 @@ impl<'src> Compiler<'src> {
         let mut replacements = HashMap::new();
 
         let get_top_ten_with_registers = |address_rankings: Vec<(usize, Address)>| {
-            address_rankings.into_iter().take(10).zip(0..10)
+            address_rankings.into_iter().take(5).zip(0..5)
         };
 
         for ((rank, old_address), register_index) in
@@ -386,8 +386,8 @@ impl<'src> Compiler<'src> {
             replacements.insert(old_address, new_address);
         }
 
-        for (instruction, r#type, _) in &mut self.instructions {
-            let destination_address = instruction.destination().as_address(r#type.kind());
+        for (instruction, _, _) in &mut self.instructions {
+            let destination_address = instruction.destination_as_address();
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
 

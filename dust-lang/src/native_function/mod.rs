@@ -9,7 +9,10 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FunctionType, Instruction, Type, risky_vm::Thread};
+use crate::{
+    FunctionType, Instruction, Type,
+    risky_vm::{RegisterTable, Thread},
+};
 
 macro_rules! define_native_function {
     ($(($name:ident, $bytes:literal, $str:expr, $type:expr, $function:expr)),*) => {
@@ -24,10 +27,15 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            pub fn call(&self, instruction: Instruction, thread: &mut Thread) {
+            pub fn call(
+                &self,
+                instruction: Instruction,
+                thread: &mut Thread,
+                registers: RegisterTable
+            ) -> RegisterTable {
                 match self {
                     $(
-                        NativeFunction::$name => $function(instruction, thread),
+                        NativeFunction::$name => $function(instruction, thread, registers),
                     )*
                 }
             }
@@ -209,7 +217,7 @@ define_native_function! {
         "write_line",
         FunctionType::new([], [Type::String], Type::None),
         io::write_line
-    ),
+    )
 
     // // Random
     // (
@@ -221,13 +229,11 @@ define_native_function! {
     // ),
 
     // Thread
-    (
-        Spawn,
-        60,
-        "spawn",
-        FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
-        spawn
-    )
+    // (
+    //     Spawn,
+    //     60,
+    //     "spawn",
+    //     FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
+    //     spawn
+    // )
 }
-
-fn spawn(_: Instruction, _: &mut Thread) {}

@@ -8,8 +8,8 @@ pub struct Less {
     pub right: Address,
 }
 
-impl From<Instruction> for Less {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Less {
+    fn from(instruction: &Instruction) -> Self {
         let comparator = instruction.a_field() != 0;
         let left = instruction.b_address();
         let right = instruction.c_address();

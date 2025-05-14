@@ -11,7 +11,7 @@ pub struct Memory {
     pub lists: Vec<Slot<AbstractList>>,
     pub functions: Vec<Slot<AbstractFunction>>,
 
-    pub register_table: RegisterTable,
+    pub registers: RegisterTable,
 }
 
 #[derive(Debug, Default)]
@@ -28,16 +28,11 @@ pub struct RegisterTable {
 
 #[derive(Debug)]
 pub struct RegisterList<T> {
-    r_0: T,
-    r_1: T,
-    r_2: T,
-    r_3: T,
-    r_4: T,
-    r_5: T,
-    r_6: T,
-    r_7: T,
-    r_8: T,
-    r_9: T,
+    pub r_0: T,
+    pub r_1: T,
+    pub r_2: T,
+    pub r_3: T,
+    pub r_4: T,
 }
 
 impl<T> RegisterList<T> {
@@ -48,11 +43,6 @@ impl<T> RegisterList<T> {
             2 => &self.r_2,
             3 => &self.r_3,
             4 => &self.r_4,
-            5 => &self.r_5,
-            6 => &self.r_6,
-            7 => &self.r_7,
-            8 => &self.r_8,
-            9 => &self.r_9,
             invalid => panic!("Invalid register index: {invalid}"),
         }
     }
@@ -64,11 +54,6 @@ impl<T> RegisterList<T> {
             2 => self.r_2,
             3 => self.r_3,
             4 => self.r_4,
-            5 => self.r_5,
-            6 => self.r_6,
-            7 => self.r_7,
-            8 => self.r_8,
-            9 => self.r_9,
             invalid => panic!("Invalid register index: {invalid}"),
         }
     }
@@ -80,11 +65,6 @@ impl<T> RegisterList<T> {
             2 => self.r_2 = new_value,
             3 => self.r_3 = new_value,
             4 => self.r_4 = new_value,
-            5 => self.r_5 = new_value,
-            6 => self.r_6 = new_value,
-            7 => self.r_7 = new_value,
-            8 => self.r_8 = new_value,
-            9 => self.r_9 = new_value,
             invalid => panic!("Invalid register index: {invalid}"),
         }
     }
@@ -98,11 +78,6 @@ impl<T: Default> Default for RegisterList<T> {
             r_2: T::default(),
             r_3: T::default(),
             r_4: T::default(),
-            r_5: T::default(),
-            r_6: T::default(),
-            r_7: T::default(),
-            r_8: T::default(),
-            r_9: T::default(),
         }
     }
 }

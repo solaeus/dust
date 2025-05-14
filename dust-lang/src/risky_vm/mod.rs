@@ -3,12 +3,10 @@
 //! will cause undefined behavior.
 mod call_frame;
 mod memory;
-mod runners;
 mod thread;
 
 pub use call_frame::CallFrame;
 pub use memory::{Memory, RegisterTable};
-pub use runners::{RUNNERS, Runner};
 pub use thread::Thread;
 
 use std::{sync::Arc, thread::Builder};

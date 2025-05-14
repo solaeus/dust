@@ -10,8 +10,8 @@ pub struct LoadConstant {
     pub jump_next: bool,
 }
 
-impl From<Instruction> for LoadConstant {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for LoadConstant {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let constant = instruction.b_address();
         let jump_next = instruction.c_field() != 0;
