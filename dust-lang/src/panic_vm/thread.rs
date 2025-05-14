@@ -3,8 +3,11 @@ use std::{mem::replace, sync::Arc, thread::JoinHandle};
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    Chunk, ConcreteValue, DustString, Operation,
+    Address, Chunk, ConcreteValue, DustString, Operation,
+    chunk::Arguments,
     instruction::{Add, AddressKind, Call, Jump, Less, LoadConstant, LoadFunction, Move, Return},
+    panic_vm::call_frame,
+    r#type::TypeKind,
 };
 
 use super::{CallFrame, Memory};
@@ -21,7 +24,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(chunk: Arc<Chunk>) -> Self {
         let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_call = CallFrame::new(Arc::clone(&chunk), 0);
+        let main_call = CallFrame::new(Arc::clone(&chunk), Address::default());
 
         call_stack.push(main_call);
 
@@ -52,7 +55,6 @@ impl Thread {
 
         let mut call = self.call_stack.pop().unwrap();
         let mut memory = self.memory_stack.pop().unwrap();
-        let mut r#return = None;
 
         loop {
             let instructions = &call.chunk.instructions;
@@ -321,8 +323,11 @@ impl Thread {
                     let Call {
                         destination,
                         function: function_address,
-                        argument_list_index,
-                        return_type,
+                        argument_list_index_and_return_type:
+                            Address {
+                                index: argument_list_index,
+                                kind: return_type,
+                            },
                     } = Call::from(&instruction);
                     let prototype_address = match function_address.kind {
                         AddressKind::FUNCTION_REGISTER => {
@@ -333,13 +338,35 @@ impl Thread {
                     };
                     let function = match prototype_address.kind {
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            &self.chunk.prototypes[prototype_address.index as usize]
+                            &call.chunk.prototypes[prototype_address.index as usize]
                         }
                         AddressKind::FUNCTION_SELF => &self.chunk,
                         _ => unreachable!(),
                     };
-                    let new_call = CallFrame::new(Arc::clone(function), destination.index);
-                    let new_memory = Memory::new(function);
+                    let arguments_list = &call.chunk.arguments[argument_list_index as usize];
+                    let parameters_list = function.locals.iter().map(|local| local.address);
+                    let new_call = CallFrame::new(
+                        Arc::clone(function),
+                        destination.as_address(return_type.r#type()),
+                    );
+                    let mut new_memory = Memory::new(function);
+
+                    for (argument, parameter) in arguments_list.values.iter().zip(parameters_list) {
+                        match argument.kind {
+                            AddressKind::INTEGER_REGISTER => {
+                                let integer = memory.registers.integers[argument.index as usize];
+
+                                match parameter.kind {
+                                    AddressKind::INTEGER_REGISTER => {
+                                        new_memory.registers.integers[parameter.index as usize] =
+                                            integer;
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
 
                     self.memory_stack.push(replace(&mut memory, new_memory));
                     self.call_stack.push(replace(&mut call, new_call));
@@ -363,46 +390,57 @@ impl Thread {
                         return_address,
                     } = Return::from(&instruction);
 
-                    let return_option = if should_return_value {
-                        match return_address.kind {
-                            AddressKind::INTEGER_REGISTER => {
-                                let integer =
-                                    memory.registers.integers[return_address.index as usize];
-
-                                Some(ConcreteValue::Integer(integer))
+                    match return_address.kind {
+                        AddressKind::NONE => {
+                            if self.call_stack.is_empty() {
+                                return None;
                             }
-                            AddressKind::FUNCTION_REGISTER => {
-                                let prototype_address = memory.registers.functions
-                                    [return_address.index as usize]
-                                    .prototype_address;
-                                let prototype = match prototype_address.kind {
-                                    AddressKind::FUNCTION_PROTOTYPE => {
-                                        &self.chunk.prototypes[prototype_address.index as usize]
-                                    }
-                                    AddressKind::FUNCTION_SELF => &self.chunk,
-                                    _ => unreachable!(),
-                                };
 
-                                Some(ConcreteValue::Function(Arc::clone(prototype)))
-                            }
-                            _ => todo!(),
+                            call = self.call_stack.pop().unwrap();
+                            memory = self.memory_stack.pop().unwrap();
                         }
-                    } else {
-                        None
-                    };
+                        AddressKind::INTEGER_REGISTER => {
+                            let integer = memory.registers.integers[return_address.index as usize];
 
-                    if self.call_stack.is_empty() {
-                        r#return = Some(return_option);
-                    } else {
-                        call = self.call_stack.pop().unwrap();
-                        memory = self.memory_stack.pop().unwrap();
+                            if self.call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Integer(integer));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = self.call_stack.pop().unwrap();
+                            let mut new_memory = self.memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.integers
+                                        [call.return_address.index as usize] = integer;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            call = new_call;
+                            memory = new_memory;
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let prototype_address = memory.registers.functions
+                                [return_address.index as usize]
+                                .prototype_address;
+                            let prototype = match prototype_address.kind {
+                                AddressKind::FUNCTION_PROTOTYPE => {
+                                    &self.chunk.prototypes[prototype_address.index as usize]
+                                }
+                                AddressKind::FUNCTION_SELF => &self.chunk,
+                                _ => unreachable!(),
+                            };
+                        }
+                        _ => todo!(),
                     }
                 }
                 _ => unreachable!(),
-            }
-
-            if let Some(return_option) = r#return {
-                return return_option;
             }
         }
     }

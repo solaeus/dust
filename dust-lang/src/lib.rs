@@ -41,6 +41,9 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
+#[cfg(test)]
+mod tests;
+
 pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};

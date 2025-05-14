@@ -1,6 +1,5 @@
 use dust_lang::{
-    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile, run,
 };
 
 #[test]

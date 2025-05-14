@@ -1,8 +1,5 @@
 //! Representation of a Dust program or function.
 //!
-//! **Except for testing purposes, a chunk should not be created directly. Instead, use the compiler
-//! to generate a chunk from Dust source code.**
-//!
 //! A chunk is output by the compiler to represent all the information needed to execute a Dust
 //! program. In addition to the program itself, each function in the source is compiled into its own
 //! chunk and stored in the `prototypes` field of its parent. Thus, a chunk can also represent a
@@ -33,28 +30,28 @@ use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
-    pub name: Option<DustString>,
-    pub r#type: FunctionType,
+    pub(crate) name: Option<DustString>,
+    pub(crate) r#type: FunctionType,
 
-    pub instructions: Vec<Instruction>,
-    pub positions: Vec<Span>,
-    pub character_constants: Vec<char>,
-    pub float_constants: Vec<f64>,
-    pub integer_constants: Vec<i64>,
-    pub string_constants: Vec<DustString>,
-    pub locals: Vec<Local>,
-    pub prototypes: Vec<Arc<Chunk>>,
-    pub arguments: Vec<Arguments>,
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) positions: Vec<Span>,
+    pub(crate) character_constants: Vec<char>,
+    pub(crate) float_constants: Vec<f64>,
+    pub(crate) integer_constants: Vec<i64>,
+    pub(crate) string_constants: Vec<DustString>,
+    pub(crate) locals: Vec<Local>,
+    pub(crate) prototypes: Vec<Arc<Chunk>>,
+    pub(crate) arguments: Vec<Arguments>,
 
-    pub boolean_memory_length: u16,
-    pub byte_memory_length: u16,
-    pub character_memory_length: u16,
-    pub float_memory_length: u16,
-    pub integer_memory_length: u16,
-    pub string_memory_length: u16,
-    pub list_memory_length: u16,
-    pub function_memory_length: u16,
-    pub prototype_index: u16,
+    pub(crate) boolean_memory_length: u16,
+    pub(crate) byte_memory_length: u16,
+    pub(crate) character_memory_length: u16,
+    pub(crate) float_memory_length: u16,
+    pub(crate) integer_memory_length: u16,
+    pub(crate) string_memory_length: u16,
+    pub(crate) list_memory_length: u16,
+    pub(crate) function_memory_length: u16,
+    pub(crate) prototype_index: u16,
 }
 
 impl Chunk {

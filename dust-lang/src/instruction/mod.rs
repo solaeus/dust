@@ -354,9 +354,10 @@ impl Instruction {
             Operation::CALL => {
                 let Call {
                     destination,
-                    return_type,
+                    argument_list_index_and_return_type,
                     ..
                 } = Call::from(self);
+                let return_type = argument_list_index_and_return_type.kind.r#type();
 
                 destination.as_address(return_type)
             }
@@ -529,14 +530,12 @@ impl Instruction {
     pub fn call(
         destination: Destination,
         function: Address,
-        argument_list_index: u16,
-        return_type: TypeKind,
+        argument_list_index_and_return_type: Address,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function,
-            argument_list_index,
-            return_type,
+            argument_list_index_and_return_type,
         })
     }
 

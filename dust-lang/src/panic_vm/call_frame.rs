@@ -1,20 +1,24 @@
 use std::sync::Arc;
 
-use crate::Chunk;
+use crate::{Address, Chunk};
 
-#[derive(Clone, Debug)]
+use super::Memory;
+
+#[derive(Debug)]
 pub struct CallFrame {
     pub chunk: Arc<Chunk>,
     pub ip: usize,
-    pub return_register: u16,
+    pub return_address: Address,
+    pub memory: Memory,
 }
 
 impl CallFrame {
-    pub fn new(chunk: Arc<Chunk>, return_register: u16) -> Self {
+    pub fn new(chunk: Arc<Chunk>, return_address: Address) -> Self {
         CallFrame {
+            memory: Memory::new(&chunk),
             chunk,
             ip: 0,
-            return_register,
+            return_address,
         }
     }
 }

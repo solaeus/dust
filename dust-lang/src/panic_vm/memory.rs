@@ -1,8 +1,7 @@
 use std::array;
 
 use crate::{
-    AbstractList, Address, Chunk, DustString, instruction::AddressKind, r#type::TypeKind,
-    value::AbstractFunction,
+    AbstractList, Address, Chunk, DustString, instruction::AddressKind, value::AbstractFunction,
 };
 
 #[derive(Debug)]
@@ -22,14 +21,17 @@ pub struct Memory {
 impl Memory {
     pub fn new(chunk: &Chunk) -> Self {
         Memory {
-            booleans: Vec::with_capacity(chunk.boolean_memory_length as usize),
-            bytes: Vec::with_capacity(chunk.byte_memory_length as usize),
-            characters: Vec::with_capacity(chunk.character_memory_length as usize),
-            floats: Vec::with_capacity(chunk.float_memory_length as usize),
-            integers: Vec::with_capacity(chunk.integer_memory_length as usize),
-            strings: Vec::with_capacity(chunk.string_memory_length as usize),
-            lists: Vec::with_capacity(chunk.list_memory_length as usize),
-            functions: Vec::with_capacity(chunk.function_memory_length as usize),
+            booleans: vec![Slot::new(false); chunk.boolean_memory_length as usize],
+            bytes: vec![Slot::new(0); chunk.byte_memory_length as usize],
+            characters: vec![Slot::new(char::default()); chunk.character_memory_length as usize],
+            floats: vec![Slot::new(0.0); chunk.float_memory_length as usize],
+            integers: vec![Slot::new(0); chunk.integer_memory_length as usize],
+            strings: vec![Slot::new(DustString::new()); chunk.string_memory_length as usize],
+            lists: vec![Slot::new(AbstractList::default()); chunk.list_memory_length as usize],
+            functions: vec![
+                Slot::new(AbstractFunction::default());
+                chunk.function_memory_length as usize
+            ],
             registers: RegisterTable::new(),
         }
     }
@@ -57,7 +59,6 @@ impl<const LENGTH: usize> RegisterTable<LENGTH> {
             integers: [0; LENGTH],
             strings: array::from_fn(|_| DustString::new()),
             lists: array::from_fn(|_| AbstractList {
-                item_type: TypeKind::None,
                 item_pointers: Vec::with_capacity(0),
             }),
             functions: [AbstractFunction {

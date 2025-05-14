@@ -113,17 +113,15 @@ pub struct Compiler<'src> {
     /// [`Compiler::finish`] is called.
     string_constants: Vec<DustString>,
 
+    /// Functions that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
+    /// is called.
+    prototypes: Vec<Arc<Chunk>>,
+
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
     locals: Vec<Local>,
 
-    /// Prototypes that have been compiled. These are assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    prototypes: Vec<Arc<Chunk>>,
-
-    /// Lists of arguments for each function call. The integers represent the register of each
-    /// argument. Note that the type of each argument is not stored, so the caller must check the
-    /// function's type to determine the type of each argument.
+    /// Arguments for each function call.
     arguments: Vec<Arguments>,
 
     /// The first boolean register index that the compiler should use. This is used to avoid reusing
@@ -422,6 +420,14 @@ impl<'src> Compiler<'src> {
         for local in &mut self.locals {
             if let Some(replacement) = replacements.get(&local.address) {
                 local.address = *replacement;
+            }
+        }
+
+        for arguments in &mut self.arguments {
+            for address in &mut arguments.values {
+                if let Some(replacement) = replacements.get(address) {
+                    *address = *replacement;
+                }
             }
         }
     }
@@ -2285,7 +2291,9 @@ impl<'src> Compiler<'src> {
                 Type::Float => function_compiler.minimum_float_register += 1,
                 Type::Integer => function_compiler.minimum_integer_register += 1,
                 Type::String => function_compiler.minimum_string_register += 1,
-                _ => {}
+                Type::List(_) => function_compiler.minimum_list_register += 1,
+                Type::Function(_) => function_compiler.minimum_function_register += 1,
+                _ => todo!(),
             }
 
             value_parameters.push(r#type);
@@ -2430,21 +2438,29 @@ impl<'src> Compiler<'src> {
         });
 
         let end = self.current_position.1;
-        let destination_index = match function_return_type {
-            Type::None => 0,
-            Type::Boolean => self.next_boolean_memory_index(),
-            Type::Byte => self.next_byte_memory_index(),
-            Type::Character => self.next_character_memory_index(),
-            Type::Float => self.next_float_memory_index(),
-            Type::Integer => self.next_integer_memory_index(),
-            Type::String => self.next_string_memory_index(),
+        let (destination_index, return_type_as_address_kind) = match function_return_type {
+            Type::None => (0, AddressKind::NONE),
+            Type::Boolean => (
+                self.next_boolean_memory_index(),
+                AddressKind::BOOLEAN_MEMORY,
+            ),
+            Type::Byte => (self.next_byte_memory_index(), AddressKind::BYTE_MEMORY),
+            Type::Character => (
+                self.next_character_memory_index(),
+                AddressKind::CHARACTER_MEMORY,
+            ),
+            Type::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
+            Type::Integer => (
+                self.next_integer_memory_index(),
+                AddressKind::INTEGER_MEMORY,
+            ),
+            Type::String => (self.next_string_memory_index(), AddressKind::STRING_MEMORY),
             _ => todo!(),
         };
         let call = Instruction::call(
             Destination::memory(destination_index),
             Address::new(function_register, AddressKind::FUNCTION_MEMORY),
-            argument_list_index,
-            function_return_type.kind(),
+            Address::new(argument_list_index, return_type_as_address_kind),
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));

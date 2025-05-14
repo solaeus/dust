@@ -5,13 +5,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Address,
     panic_vm::{RegisterTable, Thread},
-    r#type::TypeKind,
     value::concrete_value::ConcreteList,
 };
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct AbstractList {
-    pub item_type: TypeKind,
     pub item_pointers: Vec<Address>,
 }
 
@@ -137,7 +135,6 @@ impl AbstractList {
 impl Default for AbstractList {
     fn default() -> Self {
         Self {
-            item_type: TypeKind::None,
             item_pointers: Vec::new(),
         }
     }
