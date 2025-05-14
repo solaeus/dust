@@ -12,8 +12,8 @@ pub struct LoadFunction {
     pub jump_next: bool,
 }
 
-impl From<Instruction> for LoadFunction {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for LoadFunction {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let prototype = instruction.b_address();
         let jump_next = instruction.c_field() != 0;

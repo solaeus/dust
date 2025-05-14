@@ -294,7 +294,7 @@ impl Instruction {
                 }
             }
             Operation::LOAD_FUNCTION => {
-                let LoadFunction { destination, .. } = LoadFunction::from(*self);
+                let LoadFunction { destination, .. } = LoadFunction::from(self);
                 let kind = if destination.is_register {
                     AddressKind::FUNCTION_REGISTER
                 } else {
@@ -356,7 +356,7 @@ impl Instruction {
                     destination,
                     return_type,
                     ..
-                } = Call::from(*self);
+                } = Call::from(self);
 
                 destination.as_address(return_type)
             }
@@ -608,7 +608,7 @@ impl Instruction {
             Operation::CLOSE => Close::from(self).to_string(),
             Operation::LOAD_ENCODED => LoadEncoded::from(*self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(self).to_string(),
-            Operation::LOAD_FUNCTION => LoadFunction::from(*self).to_string(),
+            Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(*self).to_string(),
@@ -622,7 +622,7 @@ impl Instruction {
             Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
             Operation::TEST => Test::from(self).to_string(),
             Operation::TEST_SET => TestSet::from(*self).to_string(),
-            Operation::CALL => Call::from(*self).to_string(),
+            Operation::CALL => Call::from(self).to_string(),
             Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),

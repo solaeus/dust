@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::instruction::AddressKind;
 use crate::value::AbstractFunction;
 use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
 
@@ -59,7 +60,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn as_function(&self) -> AbstractFunction {
         AbstractFunction {
-            prototype_index: self.prototype_index,
+            prototype_address: Address::new(self.prototype_index, AddressKind::FUNCTION_PROTOTYPE),
         }
     }
 

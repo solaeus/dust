@@ -2077,7 +2077,7 @@ impl<'src> Compiler<'src> {
         {
             if let Type::Function(_) = previous_expression_type {
                 if let Some((instruction, _, _)) = self.instructions.last() {
-                    let LoadFunction { prototype, .. } = LoadFunction::from(*instruction);
+                    let LoadFunction { prototype, .. } = LoadFunction::from(instruction);
 
                     let function_type = self
                         .prototypes

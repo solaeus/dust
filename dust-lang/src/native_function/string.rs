@@ -1,7 +1,7 @@
 use crate::{
     DustString, Instruction,
     instruction::CallNative,
-    risky_vm::{RegisterTable, Thread},
+    panic_vm::{RegisterTable, Thread},
     r#type::TypeKind,
 };
 

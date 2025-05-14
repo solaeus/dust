@@ -1,13 +1,13 @@
-use std::{sync::Arc, thread::JoinHandle};
+use std::{mem::replace, sync::Arc, thread::JoinHandle};
 
-use tracing::{info, warn};
+use tracing::{Level, info, span, warn};
 
 use crate::{
     Chunk, ConcreteValue, DustString, Operation,
-    instruction::{Add, AddressKind, Jump, Less, LoadConstant, Move, Return},
+    instruction::{Add, AddressKind, Call, Jump, Less, LoadConstant, LoadFunction, Move, Return},
 };
 
-use super::{CallFrame, Memory, RegisterTable};
+use super::{CallFrame, Memory};
 
 pub struct Thread {
     chunk: Arc<Chunk>,
@@ -26,17 +26,7 @@ impl Thread {
         call_stack.push(main_call);
 
         let mut memory_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_memory = Memory {
-            booleans: Vec::with_capacity(chunk.boolean_memory_length as usize),
-            bytes: Vec::with_capacity(chunk.byte_memory_length as usize),
-            characters: Vec::with_capacity(chunk.character_memory_length as usize),
-            floats: Vec::with_capacity(chunk.float_memory_length as usize),
-            integers: Vec::with_capacity(chunk.integer_memory_length as usize),
-            strings: Vec::with_capacity(chunk.string_memory_length as usize),
-            lists: Vec::with_capacity(chunk.list_memory_length as usize),
-            functions: Vec::with_capacity(chunk.function_memory_length as usize),
-            registers: RegisterTable::default(),
-        };
+        let main_memory = Memory::new(&chunk);
 
         memory_stack.push(main_memory);
 
@@ -48,7 +38,10 @@ impl Thread {
         }
     }
 
-    pub fn run(mut self) -> Option<ConcreteValue> {
+    pub fn run(&mut self) -> Option<ConcreteValue> {
+        let span = span!(Level::INFO, "Thread");
+        let _enter = span.enter();
+
         info!(
             "Starting thread {}",
             self.chunk
@@ -57,14 +50,14 @@ impl Thread {
                 .unwrap_or_else(|| DustString::from("anonymous"))
         );
 
-        let mut current_call = self.call_stack.pop().unwrap();
-        let mut current_memory = self.memory_stack.pop().unwrap();
+        let mut call = self.call_stack.pop().unwrap();
+        let mut memory = self.memory_stack.pop().unwrap();
         let mut r#return = None;
 
         loop {
-            let instructions = &current_call.chunk.instructions;
-            let ip = current_call.ip;
-            current_call.ip += 1;
+            let instructions = &call.chunk.instructions;
+            let ip = call.ip;
+            call.ip += 1;
 
             assert!(ip < instructions.len(), "IP out of bounds");
 
@@ -85,22 +78,19 @@ impl Thread {
 
                     match from.kind {
                         AddressKind::BOOLEAN_MEMORY => {
-                            let boolean = *current_memory
-                                .booleans
-                                .get(from.index as usize)
-                                .unwrap()
-                                .as_value();
+                            let boolean =
+                                *memory.booleans.get(from.index as usize).unwrap().as_value();
 
-                            *current_memory
+                            *memory
                                 .booleans
                                 .get_mut(to.index as usize)
                                 .unwrap()
                                 .as_value_mut() = boolean;
                         }
                         AddressKind::BOOLEAN_REGISTER => {
-                            let boolean = *current_memory.registers.booleans.get(from.index);
+                            let boolean = memory.registers.booleans[from.index as usize];
 
-                            current_memory.registers.booleans.set(to.index, boolean);
+                            memory.registers.booleans[to.index as usize] = boolean;
                         }
                         _ => unimplemented!(),
                     }
@@ -120,67 +110,76 @@ impl Thread {
                             let value = self.chunk.character_constants[constant_index];
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .characters
-                                    .set(destination.index, value);
+                                memory.registers.characters[destination.index as usize] = value;
                             } else {
                                 let destination_index = destination.index as usize;
 
-                                *current_memory.characters[destination_index].as_value_mut() =
-                                    value;
+                                *memory.characters[destination_index].as_value_mut() = value;
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
                             let value = self.chunk.float_constants[constant_index];
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .floats
-                                    .set(destination.index, value);
+                                memory.registers.floats[destination.index as usize] = value;
                             } else {
                                 let destination_index = destination.index as usize;
 
-                                *current_memory.floats[destination_index].as_value_mut() = value;
+                                *memory.floats[destination_index].as_value_mut() = value;
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
                             let value = self.chunk.integer_constants[constant_index];
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .integers
-                                    .set(destination.index, value);
+                                memory.registers.integers[destination.index as usize] = value;
                             } else {
                                 let destination_index = destination.index as usize;
 
-                                *current_memory.integers[destination_index].as_value_mut() = value;
+                                *memory.integers[destination_index].as_value_mut() = value;
                             }
                         }
                         AddressKind::STRING_CONSTANT => {
                             let value = self.chunk.string_constants[constant_index].clone();
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .strings
-                                    .set(destination.index, value);
+                                memory.registers.strings[destination.index as usize] = value;
                             } else {
                                 let destination_index = destination.index as usize;
 
-                                *current_memory.strings[destination_index].as_value_mut() = value;
+                                *memory.strings[destination_index].as_value_mut() = value;
                             }
                         }
                         _ => unreachable!(),
                     };
 
                     if jump_next {
-                        current_call.ip += 1;
+                        call.ip += 1;
                     }
                 }
-                Operation::LOAD_FUNCTION => todo!(),
+                Operation::LOAD_FUNCTION => {
+                    let LoadFunction {
+                        destination,
+                        prototype: prototype_address,
+                        jump_next,
+                    } = LoadFunction::from(&instruction);
+
+                    let function = match prototype_address.kind {
+                        AddressKind::FUNCTION_PROTOTYPE => {
+                            self.chunk.prototypes[prototype_address.index as usize].as_function()
+                        }
+                        AddressKind::FUNCTION_SELF => self.chunk.as_function(),
+                        _ => unreachable!(),
+                    };
+
+                    if destination.is_register {
+                        memory.registers.functions[destination.index as usize] = function;
+                    }
+
+                    if jump_next {
+                        call.ip += 1;
+                    }
+                }
                 Operation::LOAD_LIST => todo!(),
                 Operation::ADD => {
                     let Add {
@@ -194,79 +193,66 @@ impl Thread {
                             let left_value = self.chunk.integer_constants[left.index as usize];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    &self.chunk.integer_constants[right.index as usize]
+                                    self.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
-                                    current_memory.integers[right.index as usize].as_value()
+                                    *memory.integers[right.index as usize].as_value()
                                 }
                                 AddressKind::INTEGER_REGISTER => {
-                                    current_memory.registers.integers.get(right.index)
+                                    memory.registers.integers[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let sum = left_value + right_value;
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .integers
-                                    .set(destination.index, sum);
+                                memory.registers.integers[destination.index as usize] = sum;
                             } else {
-                                *current_memory.integers[destination.index as usize]
-                                    .as_value_mut() = sum;
+                                *memory.integers[destination.index as usize].as_value_mut() = sum;
                             }
                         }
                         AddressKind::INTEGER_MEMORY => {
-                            let left_value =
-                                current_memory.integers[left.index as usize].as_value();
+                            let left_value = memory.integers[left.index as usize].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    &self.chunk.integer_constants[right.index as usize]
+                                    self.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
-                                    current_memory.integers[right.index as usize].as_value()
+                                    *memory.integers[right.index as usize].as_value()
                                 }
                                 AddressKind::INTEGER_REGISTER => {
-                                    current_memory.registers.integers.get(right.index)
+                                    memory.registers.integers[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let sum = left_value + right_value;
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .integers
-                                    .set(destination.index, sum);
+                                memory.registers.integers[destination.index as usize] = sum;
                             } else {
-                                *current_memory.integers[destination.index as usize]
-                                    .as_value_mut() = sum;
+                                *memory.integers[destination.index as usize].as_value_mut() = sum;
                             }
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let left_value = current_memory.registers.integers.get(left.index);
+                            let left_value = memory.registers.integers[left.index as usize];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    &self.chunk.integer_constants[right.index as usize]
+                                    self.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
-                                    current_memory.integers[right.index as usize].as_value()
+                                    *memory.integers[right.index as usize].as_value()
                                 }
                                 AddressKind::INTEGER_REGISTER => {
-                                    current_memory.registers.integers.get(right.index)
+                                    memory.registers.integers[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let sum = left_value + right_value;
 
                             if destination.is_register {
-                                current_memory
-                                    .registers
-                                    .integers
-                                    .set(destination.index, sum);
+                                memory.registers.integers[destination.index as usize] = sum;
                             } else {
-                                *current_memory.integers[destination.index as usize]
-                                    .as_value_mut() = sum;
+                                *memory.integers[destination.index as usize].as_value_mut() = sum;
                             }
                         }
                         _ => todo!(),
@@ -286,17 +272,16 @@ impl Thread {
 
                     let is_less_than = match left.kind {
                         AddressKind::INTEGER_MEMORY => {
-                            let left_value =
-                                current_memory.integers[left.index as usize].as_value();
+                            let left_value = *memory.integers[left.index as usize].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    &self.chunk.integer_constants[right.index as usize]
+                                    self.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
-                                    current_memory.integers[right.index as usize].as_value()
+                                    *memory.integers[right.index as usize].as_value()
                                 }
                                 AddressKind::INTEGER_REGISTER => {
-                                    current_memory.registers.integers.get(right.index)
+                                    memory.registers.integers[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
@@ -304,16 +289,16 @@ impl Thread {
                             left_value < right_value
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let left_value = current_memory.registers.integers.get(left.index);
+                            let left_value = memory.registers.integers[left.index as usize];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    &self.chunk.integer_constants[right.index as usize]
+                                    self.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
-                                    current_memory.integers[right.index as usize].as_value()
+                                    *memory.integers[right.index as usize].as_value()
                                 }
                                 AddressKind::INTEGER_REGISTER => {
-                                    current_memory.registers.integers.get(right.index)
+                                    memory.registers.integers[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
@@ -324,7 +309,7 @@ impl Thread {
                     };
 
                     if is_less_than != comparator {
-                        current_call.ip += 1;
+                        call.ip += 1;
                     }
                 }
                 Operation::LESS_EQUAL => todo!(),
@@ -332,7 +317,33 @@ impl Thread {
                 Operation::NOT => todo!(),
                 Operation::TEST => todo!(),
                 Operation::TEST_SET => todo!(),
-                Operation::CALL => todo!(),
+                Operation::CALL => {
+                    let Call {
+                        destination,
+                        function: function_address,
+                        argument_list_index,
+                        return_type,
+                    } = Call::from(&instruction);
+                    let prototype_address = match function_address.kind {
+                        AddressKind::FUNCTION_REGISTER => {
+                            memory.registers.functions[function_address.index as usize]
+                                .prototype_address
+                        }
+                        _ => unreachable!(),
+                    };
+                    let function = match prototype_address.kind {
+                        AddressKind::FUNCTION_PROTOTYPE => {
+                            &self.chunk.prototypes[prototype_address.index as usize]
+                        }
+                        AddressKind::FUNCTION_SELF => &self.chunk,
+                        _ => unreachable!(),
+                    };
+                    let new_call = CallFrame::new(Arc::clone(function), destination.index);
+                    let new_memory = Memory::new(function);
+
+                    self.memory_stack.push(replace(&mut memory, new_memory));
+                    self.call_stack.push(replace(&mut call, new_call));
+                }
                 Operation::CALL_NATIVE => todo!(),
                 Operation::JUMP => {
                     let Jump {
@@ -341,9 +352,9 @@ impl Thread {
                     } = Jump::from(&instruction);
 
                     if is_positive {
-                        current_call.ip += offset as usize;
+                        call.ip += offset as usize;
                     } else {
-                        current_call.ip -= (offset + 1) as usize;
+                        call.ip -= (offset + 1) as usize;
                     }
                 }
                 Operation::RETURN => {
@@ -352,18 +363,39 @@ impl Thread {
                         return_address,
                     } = Return::from(&instruction);
 
-                    if should_return_value {
+                    let return_option = if should_return_value {
                         match return_address.kind {
                             AddressKind::INTEGER_REGISTER => {
                                 let integer =
-                                    *current_memory.registers.integers.get(return_address.index);
+                                    memory.registers.integers[return_address.index as usize];
 
-                                r#return = Some(Some(ConcreteValue::Integer(integer)));
+                                Some(ConcreteValue::Integer(integer))
+                            }
+                            AddressKind::FUNCTION_REGISTER => {
+                                let prototype_address = memory.registers.functions
+                                    [return_address.index as usize]
+                                    .prototype_address;
+                                let prototype = match prototype_address.kind {
+                                    AddressKind::FUNCTION_PROTOTYPE => {
+                                        &self.chunk.prototypes[prototype_address.index as usize]
+                                    }
+                                    AddressKind::FUNCTION_SELF => &self.chunk,
+                                    _ => unreachable!(),
+                                };
+
+                                Some(ConcreteValue::Function(Arc::clone(prototype)))
                             }
                             _ => todo!(),
-                        };
+                        }
                     } else {
-                        r#return = Some(None);
+                        None
+                    };
+
+                    if self.call_stack.is_empty() {
+                        r#return = Some(return_option);
+                    } else {
+                        call = self.call_stack.pop().unwrap();
+                        memory = self.memory_stack.pop().unwrap();
                     }
                 }
                 _ => unreachable!(),

@@ -3,17 +3,19 @@ use std::fmt::{self, Formatter};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::risky_vm::CallFrame;
+use crate::{Address, panic_vm::CallFrame};
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct AbstractFunction {
-    pub prototype_index: u16,
+    pub prototype_address: Address,
 }
 
 impl AbstractFunction {
     pub fn display(&self, f: &mut Formatter, call: &CallFrame) -> fmt::Result {
-        let (function_name, mut type_display) = if let Some(chunk) =
-            call.chunk.prototypes.get(self.prototype_index as usize)
+        let (function_name, mut type_display) = if let Some(chunk) = call
+            .chunk
+            .prototypes
+            .get(self.prototype_address.index as usize)
         {
             (chunk.name.as_ref(), chunk.r#type.to_string())
         } else {

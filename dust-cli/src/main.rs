@@ -16,11 +16,6 @@ use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
     panic::set_dust_panic_hook,
 };
-use prettytable::{
-    Table,
-    format::{self, LinePosition, LineSeparator},
-    row,
-};
 use tracing::level_filters::LevelFilter;
 
 const STYLES: Styles = Styles::styled()

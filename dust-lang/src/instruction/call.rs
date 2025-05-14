@@ -11,8 +11,8 @@ pub struct Call {
     pub return_type: TypeKind,
 }
 
-impl From<Instruction> for Call {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Call {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function_register = instruction.b_address();
         let c_address = instruction.c_address();
@@ -72,12 +72,16 @@ impl Display for Call {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Call {
             destination,
-            function: function_register,
+            function,
             argument_list_index,
             return_type,
         } = self;
 
-        destination.display(f, *return_type)?;
-        write!(f, " = R_FN_{function_register}(ARGS_{argument_list_index})")
+        if return_type != &TypeKind::None {
+            destination.display(f, *return_type)?;
+            write!(f, " = ")?;
+        }
+
+        write!(f, "{function}(ARGS_{argument_list_index})")
     }
 }

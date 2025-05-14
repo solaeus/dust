@@ -54,6 +54,10 @@ impl Destination {
     }
 
     pub fn display(&self, f: &mut Formatter, destination_type: TypeKind) -> fmt::Result {
+        if let TypeKind::None = destination_type {
+            return Ok(());
+        }
+
         if self.is_register {
             write!(f, "R_")?;
         } else {

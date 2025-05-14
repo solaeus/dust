@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     FunctionType, Instruction, Type,
-    risky_vm::{RegisterTable, Thread},
+    panic_vm::{RegisterTable, Thread},
 };
 
 macro_rules! define_native_function {

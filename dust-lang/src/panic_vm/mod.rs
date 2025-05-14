@@ -48,7 +48,7 @@ impl Vm {
             .name(thread_name)
             .spawn(move || {
                 let main_chunk = Arc::new(self.main_chunk);
-                let main_thread = Thread::new(main_chunk);
+                let mut main_thread = Thread::new(main_chunk);
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);
             })

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Address,
-    risky_vm::{RegisterTable, Thread},
+    panic_vm::{RegisterTable, Thread},
     r#type::TypeKind,
     value::concrete_value::ConcreteList,
 };

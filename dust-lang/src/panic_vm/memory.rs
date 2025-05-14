@@ -1,0 +1,130 @@
+use std::array;
+
+use crate::{
+    AbstractList, Address, Chunk, DustString, instruction::AddressKind, r#type::TypeKind,
+    value::AbstractFunction,
+};
+
+#[derive(Debug)]
+pub struct Memory {
+    pub booleans: Vec<Slot<bool>>,
+    pub bytes: Vec<Slot<u8>>,
+    pub characters: Vec<Slot<char>>,
+    pub floats: Vec<Slot<f64>>,
+    pub integers: Vec<Slot<i64>>,
+    pub strings: Vec<Slot<DustString>>,
+    pub lists: Vec<Slot<AbstractList>>,
+    pub functions: Vec<Slot<AbstractFunction>>,
+
+    pub registers: RegisterTable,
+}
+
+impl Memory {
+    pub fn new(chunk: &Chunk) -> Self {
+        Memory {
+            booleans: Vec::with_capacity(chunk.boolean_memory_length as usize),
+            bytes: Vec::with_capacity(chunk.byte_memory_length as usize),
+            characters: Vec::with_capacity(chunk.character_memory_length as usize),
+            floats: Vec::with_capacity(chunk.float_memory_length as usize),
+            integers: Vec::with_capacity(chunk.integer_memory_length as usize),
+            strings: Vec::with_capacity(chunk.string_memory_length as usize),
+            lists: Vec::with_capacity(chunk.list_memory_length as usize),
+            functions: Vec::with_capacity(chunk.function_memory_length as usize),
+            registers: RegisterTable::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RegisterTable<const LENGTH: usize = 5> {
+    pub booleans: [bool; LENGTH],
+    pub bytes: [u8; LENGTH],
+    pub characters: [char; LENGTH],
+    pub floats: [f64; LENGTH],
+    pub integers: [i64; LENGTH],
+    pub strings: [DustString; LENGTH],
+    pub lists: [AbstractList; LENGTH],
+    pub functions: [AbstractFunction; LENGTH],
+}
+
+impl<const LENGTH: usize> RegisterTable<LENGTH> {
+    pub fn new() -> Self {
+        RegisterTable {
+            booleans: [false; LENGTH],
+            bytes: [0; LENGTH],
+            characters: [char::default(); LENGTH],
+            floats: [0.0; LENGTH],
+            integers: [0; LENGTH],
+            strings: array::from_fn(|_| DustString::new()),
+            lists: array::from_fn(|_| AbstractList {
+                item_type: TypeKind::None,
+                item_pointers: Vec::with_capacity(0),
+            }),
+            functions: [AbstractFunction {
+                prototype_address: Address::new(0, AddressKind(0)),
+            }; LENGTH],
+        }
+    }
+}
+
+impl<const LENGTH: usize> Default for RegisterTable<LENGTH> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Slot<T> {
+    value: T,
+    is_closed: bool,
+}
+
+impl<T> Slot<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            value,
+            is_closed: false,
+        }
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.is_closed
+    }
+
+    pub fn close(&mut self) {
+        self.is_closed = true;
+    }
+
+    pub fn set(&mut self, new_value: T) {
+        self.value = new_value;
+    }
+
+    pub fn as_value(&self) -> &T {
+        &self.value
+    }
+
+    pub fn as_value_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+}
+
+impl<T: Copy> Slot<T> {
+    pub fn copy_value(&self) -> T {
+        self.value
+    }
+}
+
+impl<T: Clone> Slot<T> {
+    pub fn clone_value(&self) -> T {
+        self.value.clone()
+    }
+}
+
+impl<T: Default> Default for Slot<T> {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            is_closed: false,
+        }
+    }
+}
