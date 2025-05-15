@@ -305,6 +305,7 @@ impl<'src> Compiler<'src> {
         let mut string_address_rankings = Vec::<(usize, Address)>::new();
         let mut list_address_rankings = Vec::<(usize, Address)>::new();
         let mut function_address_rankings = Vec::<(usize, Address)>::new();
+        let mut disqualified = HashSet::<Address>::new();
 
         // Increases the rank of the given address by 1 to indicate that it was used. If the
         // address has no existing rank, it is inserted in sorted order with a rank of 0.
@@ -340,35 +341,65 @@ impl<'src> Compiler<'src> {
                 }
             }
         };
+        let mut disqualify = |address: Address| {
+            if address.is_constant() {
+                return;
+            }
+
+            disqualified.insert(address);
+        };
 
         for (instruction, _, _) in &self.instructions {
+            let destination_address = instruction.destination_as_address();
+            let b_address = instruction.b_address();
+            let c_address = instruction.c_address();
+
             match instruction.operation() {
-                Operation::LOAD_ENCODED | Operation::CLOSE => {
-                    let destination_address = instruction.destination_as_address();
+                Operation::CLOSE => {
+                    for index in b_address.index..=c_address.index {
+                        let address = Address::new(index, b_address.kind);
+
+                        disqualify(address);
+                    }
+                }
+                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT => {
                     increment_rank(destination_address);
                 }
-                Operation::RETURN => {
-                    let b_address = instruction.b_address();
-                    increment_rank(b_address);
-                }
-                _ => {
-                    let destination_address = instruction.destination_as_address();
-                    let b_address = instruction.b_address();
-                    let c_address = instruction.c_address();
+                Operation::LOAD_LIST => {
+                    increment_rank(destination_address);
 
+                    for index in b_address.index..=c_address.index {
+                        let address = Address::new(index, b_address.kind);
+
+                        disqualify(address);
+                    }
+                }
+                Operation::ADD
+                | Operation::SUBTRACT
+                | Operation::MULTIPLY
+                | Operation::DIVIDE
+                | Operation::MODULO => {
                     increment_rank(destination_address);
                     increment_rank(b_address);
                     increment_rank(c_address);
                 }
+                Operation::RETURN => {
+                    increment_rank(b_address);
+                }
+                _ => {}
             }
         }
 
         // A map in which the keys are addresses that need to be replaced and the values are their
         // intended replacements.
         let mut replacements = HashMap::new();
-
-        let get_top_ranks_with_registers =
-            |address_rankings: Vec<(usize, Address)>| address_rankings.into_iter().take(3).zip(0..);
+        let get_top_ranks_with_registers = |address_rankings: Vec<(usize, Address)>| {
+            address_rankings
+                .into_iter()
+                .filter(|(_, address)| !disqualified.contains(address))
+                .take(3)
+                .zip(0..)
+        };
 
         for ((rank, old_address), register_index) in
             get_top_ranks_with_registers(boolean_address_rankings)
@@ -394,22 +425,30 @@ impl<'src> Compiler<'src> {
                 _ => todo!(),
             };
 
-            trace!("{old_address} was used {} times", rank + 1);
+            trace!("{} Uses: {old_address} -> {new_address}", rank + 1);
 
             replacements.insert(old_address, new_address);
         }
 
+        trace!(
+            "{} addresses disqualified for register optimization",
+            disqualified.len()
+        );
+
         for (instruction, _, _) in &mut self.instructions {
             match instruction.operation() {
-                Operation::LOAD_ENCODED | Operation::CLOSE => {
+                Operation::CLOSE => {}
+                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT => {
                     let destination_address = instruction.destination_as_address();
 
                     if let Some(replacement) = replacements.get(&destination_address) {
-                        trace!(
-                            "Optimizing {}: replace {destination_address} with {replacement}",
-                            instruction.operation()
-                        );
+                        instruction.set_destination(*replacement);
+                    }
+                }
+                Operation::LOAD_LIST => {
+                    let destination_address = instruction.destination_as_address();
 
+                    if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
                 }
@@ -417,11 +456,6 @@ impl<'src> Compiler<'src> {
                     let b_address = instruction.b_address();
 
                     if let Some(replacement) = replacements.get(&b_address) {
-                        trace!(
-                            "Optimizing {}: replace {b_address} with {replacement}",
-                            instruction.operation()
-                        );
-
                         instruction.set_b_address(*replacement);
                     }
                 }
@@ -431,29 +465,14 @@ impl<'src> Compiler<'src> {
                     let c_address = instruction.c_address();
 
                     if let Some(replacement) = replacements.get(&destination_address) {
-                        trace!(
-                            "Optimizing {}: replace {destination_address} with {replacement}",
-                            instruction.operation()
-                        );
-
                         instruction.set_destination(*replacement);
                     }
 
                     if let Some(replacement) = replacements.get(&b_address) {
-                        trace!(
-                            "Optimizing {}: replace {b_address} with {replacement}",
-                            instruction.operation()
-                        );
-
                         instruction.set_b_address(*replacement);
                     }
 
                     if let Some(replacement) = replacements.get(&c_address) {
-                        trace!(
-                            "Optimizing {}: replace {c_address} with {replacement}",
-                            instruction.operation()
-                        );
-
                         instruction.set_c_address(*replacement);
                     }
                 }

@@ -72,7 +72,11 @@ impl Display for LoadList {
         } = self;
         let end = Address::new(*end_index, start.kind);
 
-        write!(f, "{} = [", destination.index)?;
+        if destination.is_register {
+            write!(f, "R_LIST_{} = [", destination.index)?;
+        } else {
+            write!(f, "M_LIST_{} = [", destination.index)?;
+        }
 
         match start.r#type() {
             TypeKind::Boolean => {
