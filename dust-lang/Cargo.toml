@@ -22,7 +22,6 @@ smartstring = { version = "1.0.1", features = [
 ], default-features = false }
 tracing = "0.1.41"
 crossbeam-channel = "0.5.14"
-smallvec = { version = "1.14.0", features = ["serde", "const_generics"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

@@ -34,7 +34,6 @@ use type_checks::{check_math_type, check_math_types};
 use std::{
     collections::{HashMap, HashSet},
     mem::replace,
-    sync::Arc,
 };
 
 use crate::{
@@ -115,7 +114,7 @@ pub struct Compiler<'src> {
 
     /// Functions that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    prototypes: Vec<Arc<Chunk>>,
+    prototypes: Vec<Chunk>,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -2421,7 +2420,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        self.prototypes.push(Arc::new(chunk));
+        self.prototypes.push(chunk);
         self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
         Ok(())

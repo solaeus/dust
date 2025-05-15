@@ -1,9 +1,9 @@
-use std::{mem::replace, sync::Arc, thread::JoinHandle};
+use std::{mem::replace, thread::JoinHandle};
 
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    Address, Chunk, ConcreteValue, DustString, Operation,
+    Address, Chunk, ConcreteValue, Operation,
     instruction::{
         Add, AddressKind, Call, Jump, Less, LoadConstant, LoadEncoded, LoadFunction, Move, Return,
     },
@@ -11,24 +11,24 @@ use crate::{
 
 use super::{CallFrame, Memory};
 
-pub struct Thread {
-    chunk: Arc<Chunk>,
+pub struct Thread<'a> {
+    chunk: &'a Chunk,
 
-    call_stack: Vec<CallFrame>,
+    call_stack: Vec<CallFrame<'a>>,
     memory_stack: Vec<Memory>,
 
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
-impl Thread {
-    pub fn new(chunk: Arc<Chunk>) -> Self {
+impl<'a> Thread<'a> {
+    pub fn new(chunk: &'a Chunk) -> Self {
         let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_call = CallFrame::new(Arc::clone(&chunk), Address::default());
+        let main_call = CallFrame::new(chunk, Address::default());
 
         call_stack.push(main_call);
 
         let mut memory_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_memory = Memory::new(&chunk);
+        let main_memory = Memory::new(chunk);
 
         memory_stack.push(main_memory);
 
@@ -48,8 +48,9 @@ impl Thread {
             "Starting thread {}",
             self.chunk
                 .name
-                .clone()
-                .unwrap_or_else(|| DustString::from("anonymous"))
+                .as_ref()
+                .map(|name| name.as_str())
+                .unwrap_or_else(|| "anonymous")
         );
 
         let mut call = self.call_stack.pop().unwrap();
@@ -389,15 +390,13 @@ impl Thread {
                         AddressKind::FUNCTION_PROTOTYPE => {
                             &call.chunk.prototypes[prototype_address.index as usize]
                         }
-                        AddressKind::FUNCTION_SELF => &self.chunk,
+                        AddressKind::FUNCTION_SELF => self.chunk,
                         _ => unreachable!(),
                     };
                     let arguments_list = &call.chunk.arguments[argument_list_index as usize];
                     let parameters_list = function.locals.iter().map(|local| local.address);
-                    let new_call = CallFrame::new(
-                        Arc::clone(function),
-                        destination.as_address(return_type.r#type()),
-                    );
+                    let new_call =
+                        CallFrame::new(function, destination.as_address(return_type.r#type()));
                     let mut new_memory = Memory::new(function);
 
                     for (argument, parameter) in arguments_list.values.iter().zip(parameters_list) {
@@ -510,7 +509,7 @@ impl Thread {
                                 AddressKind::FUNCTION_PROTOTYPE => {
                                     &self.chunk.prototypes[prototype_address.index as usize]
                                 }
-                                AddressKind::FUNCTION_SELF => &self.chunk,
+                                AddressKind::FUNCTION_SELF => self.chunk,
                                 _ => unreachable!(),
                             };
                         }

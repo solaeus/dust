@@ -9,7 +9,7 @@ pub use call_frame::CallFrame;
 pub use memory::{Memory, RegisterTable};
 pub use thread::Thread;
 
-use std::{sync::Arc, thread::Builder};
+use std::thread::Builder;
 
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
@@ -47,8 +47,7 @@ impl Vm {
         Builder::new()
             .name(thread_name)
             .spawn(move || {
-                let main_chunk = Arc::new(self.main_chunk);
-                let mut main_thread = Thread::new(main_chunk);
+                let mut main_thread = Thread::new(&self.main_chunk);
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);
             })

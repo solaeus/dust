@@ -49,6 +49,20 @@ pub struct RegisterTable<const LENGTH: usize = 3> {
     pub functions: [AbstractFunction; LENGTH],
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn register_table_is_well_aligned() {
+        use std::mem::align_of;
+        use std::mem::size_of;
+
+        assert_eq!(align_of::<RegisterTable>(), 8);
+        assert_eq!(size_of::<RegisterTable>(), 8 * 8);
+    }
+}
+
 impl<const LENGTH: usize> RegisterTable<LENGTH> {
     pub fn new() -> Self {
         RegisterTable {
