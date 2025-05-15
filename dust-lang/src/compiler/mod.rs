@@ -342,13 +342,25 @@ impl<'src> Compiler<'src> {
         };
 
         for (instruction, _, _) in &self.instructions {
-            let destination_address = instruction.destination_as_address();
-            let b_address = instruction.b_address();
-            let c_address = instruction.c_address();
+            match instruction.operation() {
+                Operation::LOAD_ENCODED | Operation::CLOSE => {
+                    let destination_address = instruction.destination_as_address();
+                    increment_rank(destination_address);
+                }
+                Operation::RETURN => {
+                    let b_address = instruction.b_address();
+                    increment_rank(b_address);
+                }
+                _ => {
+                    let destination_address = instruction.destination_as_address();
+                    let b_address = instruction.b_address();
+                    let c_address = instruction.c_address();
 
-            increment_rank(destination_address);
-            increment_rank(b_address);
-            increment_rank(c_address);
+                    increment_rank(destination_address);
+                    increment_rank(b_address);
+                    increment_rank(c_address);
+                }
+            }
         }
 
         // A map in which the keys are addresses that need to be replaced and the values are their
@@ -388,35 +400,63 @@ impl<'src> Compiler<'src> {
         }
 
         for (instruction, _, _) in &mut self.instructions {
-            let destination_address = instruction.destination_as_address();
-            let b_address = instruction.b_address();
-            let c_address = instruction.c_address();
+            match instruction.operation() {
+                Operation::LOAD_ENCODED | Operation::CLOSE => {
+                    let destination_address = instruction.destination_as_address();
 
-            if let Some(replacement) = replacements.get(&destination_address) {
-                trace!(
-                    "Optimizing {}: replace {destination_address} with {replacement}",
-                    instruction.operation()
-                );
+                    if let Some(replacement) = replacements.get(&destination_address) {
+                        trace!(
+                            "Optimizing {}: replace {destination_address} with {replacement}",
+                            instruction.operation()
+                        );
 
-                instruction.set_destination(*replacement);
-            }
+                        instruction.set_destination(*replacement);
+                    }
+                }
+                Operation::RETURN => {
+                    let b_address = instruction.b_address();
 
-            if let Some(replacement) = replacements.get(&b_address) {
-                trace!(
-                    "Optimizing {}: replace {b_address} with {replacement}",
-                    instruction.operation()
-                );
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        trace!(
+                            "Optimizing {}: replace {b_address} with {replacement}",
+                            instruction.operation()
+                        );
 
-                instruction.set_b_address(*replacement);
-            }
+                        instruction.set_b_address(*replacement);
+                    }
+                }
+                _ => {
+                    let destination_address = instruction.destination_as_address();
+                    let b_address = instruction.b_address();
+                    let c_address = instruction.c_address();
 
-            if let Some(replacement) = replacements.get(&c_address) {
-                trace!(
-                    "Optimizing {}: replace {c_address} with {replacement}",
-                    instruction.operation()
-                );
+                    if let Some(replacement) = replacements.get(&destination_address) {
+                        trace!(
+                            "Optimizing {}: replace {destination_address} with {replacement}",
+                            instruction.operation()
+                        );
 
-                instruction.set_c_address(*replacement);
+                        instruction.set_destination(*replacement);
+                    }
+
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        trace!(
+                            "Optimizing {}: replace {b_address} with {replacement}",
+                            instruction.operation()
+                        );
+
+                        instruction.set_b_address(*replacement);
+                    }
+
+                    if let Some(replacement) = replacements.get(&c_address) {
+                        trace!(
+                            "Optimizing {}: replace {c_address} with {replacement}",
+                            instruction.operation()
+                        );
+
+                        instruction.set_c_address(*replacement);
+                    }
+                }
             }
         }
 
@@ -771,8 +811,12 @@ impl<'src> Compiler<'src> {
 
             let boolean = text.parse::<bool>().unwrap();
             let destination = Destination::memory(self.next_boolean_memory_index());
-            let address = Address::new(boolean as u16, AddressKind::BOOLEAN_MEMORY);
-            let load_encoded = Instruction::load_encoded(destination, address, false);
+            let load_encoded = Instruction::load_encoded(
+                destination,
+                boolean as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            );
 
             self.emit_instruction(load_encoded, Type::Boolean, position);
 
@@ -795,8 +839,12 @@ impl<'src> Compiler<'src> {
             let byte = u8::from_str_radix(&text[2..], 16)
                 .map_err(|error| CompileError::ParseIntError { error, position })?;
             let destination = Destination::memory(self.next_byte_memory_index());
-            let address = Address::new(byte as u16, AddressKind::BYTE_MEMORY);
-            let load_encoded = Instruction::load_encoded(destination, address, false);
+            let load_encoded = Instruction::load_encoded(
+                destination,
+                byte as u16,
+                AddressKind::BYTE_MEMORY,
+                false,
+            );
 
             self.emit_instruction(load_encoded, Type::Byte, position);
 
@@ -1283,10 +1331,14 @@ impl<'src> Compiler<'src> {
         let jump = Instruction::jump(1, true);
         let destination_index = self.next_boolean_memory_index();
         let destination = Destination::memory(destination_index);
-        let address_with_true_encoded = Address::new(true as u16, AddressKind::BOOLEAN_MEMORY);
-        let load_true = Instruction::load_encoded(destination, address_with_true_encoded, true);
-        let address_with_false_encoded = Address::new(false as u16, AddressKind::BOOLEAN_MEMORY);
-        let load_false = Instruction::load_encoded(destination, address_with_false_encoded, false);
+        let load_true =
+            Instruction::load_encoded(destination, true as u16, AddressKind::BOOLEAN_MEMORY, true);
+        let load_false = Instruction::load_encoded(
+            destination,
+            false as u16,
+            AddressKind::BOOLEAN_MEMORY,
+            false,
+        );
         let comparison_position = Span(left_position.0, right_position.1);
 
         self.emit_instruction(comparison, Type::Boolean, comparison_position);

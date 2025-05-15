@@ -1,24 +1,29 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation, r#type::TypeKind};
+use tracing::error;
 
-use super::{Address, Destination, InstructionFields};
+use crate::{Instruction, Operation};
+
+use super::{AddressKind, Destination, InstructionFields};
 
 pub struct LoadEncoded {
     pub destination: Destination,
-    pub value: Address,
+    pub value: u16,
+    pub r#type: AddressKind,
     pub jump_next: bool,
 }
 
-impl From<Instruction> for LoadEncoded {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for LoadEncoded {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
-        let value = instruction.b_address();
+        let value = instruction.b_field();
+        let r#type = instruction.b_kind();
         let jump_next = instruction.c_field() != 0;
 
         LoadEncoded {
             destination,
             value,
+            r#type,
             jump_next,
         }
     }
@@ -31,10 +36,8 @@ impl From<LoadEncoded> for Instruction {
             index: a_field,
             is_register: a_is_register,
         } = load_encoded.destination;
-        let Address {
-            index: b_field,
-            kind: b_kind,
-        } = load_encoded.value;
+        let b_field = load_encoded.value;
+        let b_kind = load_encoded.r#type;
         let c_field = load_encoded.jump_next as u16;
 
         InstructionFields {
@@ -55,25 +58,29 @@ impl Display for LoadEncoded {
         let LoadEncoded {
             destination,
             value,
+            r#type,
             jump_next,
         } = self;
-        let r#type = value.r#type();
-        let destination_address = destination.as_address(r#type);
+        let destination_address = destination.as_address(r#type.r#type());
 
         write!(f, "{destination_address} = ")?;
 
-        match r#type {
-            TypeKind::Boolean => {
-                let boolean = value.index != 0;
+        match *r#type {
+            AddressKind::BOOLEAN_MEMORY => {
+                let boolean = *value != 0;
 
                 write!(f, "{boolean}")?
             }
-            TypeKind::Byte => {
-                let byte = value.index as u8;
+            AddressKind::BYTE_MEMORY => {
+                let byte = *value as u8;
 
                 write!(f, "0x{byte}")?
             }
-            invalid => invalid.write_invalid(f)?,
+            invalid => {
+                error!("Cannot display {invalid:?} here");
+
+                write!(f, "INVALID")?
+            }
         }
 
         if *jump_next {

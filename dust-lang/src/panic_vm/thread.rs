@@ -4,7 +4,9 @@ use tracing::{Level, info, span, warn};
 
 use crate::{
     Address, Chunk, ConcreteValue, DustString, Operation,
-    instruction::{Add, AddressKind, Call, Jump, Less, LoadConstant, LoadFunction, Move, Return},
+    instruction::{
+        Add, AddressKind, Call, Jump, Less, LoadConstant, LoadEncoded, LoadFunction, Move, Return,
+    },
 };
 
 use super::{CallFrame, Memory};
@@ -95,7 +97,39 @@ impl Thread {
                     }
                 }
                 Operation::CLOSE => todo!(),
-                Operation::LOAD_ENCODED => todo!(),
+                Operation::LOAD_ENCODED => {
+                    let LoadEncoded {
+                        destination,
+                        value,
+                        r#type,
+                        jump_next,
+                    } = LoadEncoded::from(&instruction);
+
+                    match r#type {
+                        AddressKind::BOOLEAN_MEMORY => {
+                            let boolean = value != 0;
+                            if destination.is_register {
+                                memory.registers.booleans[destination.index as usize] = boolean;
+                            } else {
+                                *memory.booleans[destination.index as usize].as_value_mut() =
+                                    boolean;
+                            }
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            let byte = value as u8;
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = byte;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = byte;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+
+                    if jump_next {
+                        call.ip += 1;
+                    }
+                }
                 Operation::LOAD_CONSTANT => {
                     let LoadConstant {
                         destination,
@@ -413,6 +447,33 @@ impl Thread {
 
                             call = self.call_stack.pop().unwrap();
                             memory = self.memory_stack.pop().unwrap();
+                        }
+                        AddressKind::BOOLEAN_REGISTER => {
+                            let boolean =
+                                memory.registers.booleans[return_value_address.index as usize];
+
+                            if self.call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Boolean(boolean));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = self.call_stack.pop().unwrap();
+                            let mut new_memory = self.memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.booleans
+                                        [call.return_address.index as usize] = boolean;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            call = new_call;
+                            memory = new_memory;
                         }
                         AddressKind::INTEGER_REGISTER => {
                             let integer =

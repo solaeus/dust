@@ -267,12 +267,14 @@ impl Instruction {
             }
             Operation::LOAD_ENCODED => {
                 let LoadEncoded {
-                    destination, value, ..
-                } = LoadEncoded::from(*self);
+                    destination,
+                    r#type,
+                    ..
+                } = LoadEncoded::from(self);
 
                 Address {
                     index: destination.index,
-                    kind: value.kind,
+                    kind: r#type,
                 }
             }
             Operation::LOAD_CONSTANT => {
@@ -381,10 +383,16 @@ impl Instruction {
         Instruction::from(Close { from, to })
     }
 
-    pub fn load_encoded(destination: Destination, value: Address, jump_next: bool) -> Instruction {
+    pub fn load_encoded(
+        destination: Destination,
+        value: u16,
+        r#type: AddressKind,
+        jump_next: bool,
+    ) -> Instruction {
         Instruction::from(LoadEncoded {
             destination,
             value,
+            r#type,
             jump_next,
         })
     }
@@ -605,7 +613,7 @@ impl Instruction {
         match operation {
             Operation::MOVE => Move::from(self).to_string(),
             Operation::CLOSE => Close::from(self).to_string(),
-            Operation::LOAD_ENCODED => LoadEncoded::from(*self).to_string(),
+            Operation::LOAD_ENCODED => LoadEncoded::from(self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
             Operation::LOAD_LIST => LoadList::from(*self).to_string(),

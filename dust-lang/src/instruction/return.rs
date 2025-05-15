@@ -47,6 +47,7 @@ impl Display for Return {
             should_return_value,
             return_value_address,
         } = self;
+
         write!(f, "RETURN")?;
 
         if *should_return_value {

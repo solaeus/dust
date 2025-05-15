@@ -15,7 +15,7 @@ pub use disassembler::Disassembler;
 pub use local::Local;
 pub use scope::Scope;
 
-use std::fmt::{self, Debug, Display, Formatter, Write as FmtWrite};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
 use std::sync::Arc;
 
@@ -28,7 +28,7 @@ use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialOrd, Serialize, Deserialize)]
 pub struct Chunk {
     pub(crate) name: Option<DustString>,
     pub(crate) r#type: FunctionType,
@@ -81,24 +81,24 @@ impl Display for Chunk {
     }
 }
 
-impl Debug for Chunk {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut output = Vec::new();
+// impl Debug for Chunk {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let mut output = Vec::new();
 
-        self.disassembler(&mut output)
-            .style(true)
-            .disassemble()
-            .unwrap();
+//         self.disassembler(&mut output)
+//             .style(true)
+//             .disassemble()
+//             .unwrap();
 
-        let string = String::from_utf8_lossy(&output);
+//         let string = String::from_utf8_lossy(&output);
 
-        if cfg!(debug_assertions) {
-            f.write_char('\n')?; // Improves readability in Cargo test output
-        }
+//         if cfg!(debug_assertions) {
+//             f.write_char('\n')?; // Improves readability in Cargo test output
+//         }
 
-        write!(f, "{string}")
-    }
-}
+//         write!(f, "{string}")
+//     }
+// }
 
 /// For testing purposes, ignore the "memory_length" fields so that we don't have to write them them
 /// when writing Chunks for tests.
@@ -116,6 +116,7 @@ impl PartialEq for Chunk {
             && self.locals == other.locals
             && self.prototypes == other.prototypes
             && self.arguments == other.arguments
+            && self.prototype_index == other.prototype_index
     }
 }
 
