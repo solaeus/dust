@@ -19,6 +19,7 @@ use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
     panic::set_dust_panic_hook,
 };
+use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, field::Visit, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{
@@ -48,40 +49,12 @@ struct Cli {
     #[command(subcommand)]
     mode: Option<Mode>,
 
-    /// Overrides the DUST_LOG environment variable
-    #[arg(short, long)]
-    log: Option<LevelFilter>,
-
-    /// Print the time taken for compilation and execution
-    #[arg(long)]
-    time: bool,
-
-    /// Do not print the program's return value
-    #[arg(long)]
-    no_output: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(long)]
-    name: Option<DustString>,
-
-    /// Input format
-    #[arg(short, long, default_value = "dust")]
-    input: InputFormat,
-
-    /// Style disassembly output
-    #[arg(short, long, default_value = "true")]
-    style: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(short, long, default_value = "cli")]
-    output: OutputFormat,
-
     #[command(flatten)]
-    source: Source,
+    options: SharedOptions,
 }
 
 #[derive(Args)]
-#[group(required = true, multiple = false)]
+#[group(required = false, multiple = false)]
 pub struct Source {
     /// Source code to run instead of a file
     #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
@@ -95,31 +68,72 @@ pub struct Source {
     file: Option<PathBuf>,
 }
 
-#[derive(Subcommand, Clone)]
-enum Mode {
-    /// Compile and print the input
-    Compile,
+#[derive(Args)]
+#[group(required = false, multiple = true)]
+struct SharedOptions {
+    /// Possible log levels: error, warn, info, debug, trace
+    #[arg(short, long, value_name = "LEVEL")]
+    log: Option<LevelFilter>,
 
+    /// Use the pretty formatter for logging, defaults to false
+    #[arg(short, long, default_value = "false")]
+    pretty_log: bool,
+
+    /// Print the time taken for compilation and execution, defaults to false
+    #[arg(short, long)]
+    time: bool,
+
+    /// Disable printing, defaults to false
+    #[arg(long)]
+    no_output: bool,
+
+    /// Custom program name, overrides the file name
+    #[arg(short, long)]
+    name: Option<DustString>,
+
+    #[command(flatten)]
+    source: Source,
+}
+
+#[derive(Subcommand)]
+enum Mode {
     /// Compile and run the program (default)
-    Run,
+    #[command(alias = "r")]
+    Run {
+        #[command(flatten)]
+        options: SharedOptions,
+
+        /// Input format
+        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
+        input: Format,
+    },
+
+    /// Compile and output the compiled program
+    #[command(alias = "c")]
+    Compile {
+        #[command(flatten)]
+        options: SharedOptions,
+
+        /// Defaults to "dust", which is the disassembly output
+        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
+        output: Format,
+
+        /// Style disassembly output, defaults to true
+        #[arg(short, long, default_value = "true")]
+        style: bool,
+    },
 
     /// Lex the source code and print the tokens
+    #[command(alias = "t")]
     Tokenize,
 }
 
 #[derive(ValueEnum, Clone, Copy)]
-enum InputFormat {
+enum Format {
     Dust,
     Json,
     Ron,
-    Yaml,
-}
-
-#[derive(ValueEnum, Clone, Copy)]
-enum OutputFormat {
-    Cli,
-    Json,
-    Ron,
+    Postcard,
     Yaml,
 }
 
@@ -128,67 +142,71 @@ fn main() {
 
     set_dust_panic_hook();
 
-    let Cli {
-        mode,
-        log,
-        time,
-        no_output,
-        name,
+    let Cli { mode, options } = Cli::parse();
+    let mode = mode.unwrap_or(Mode::Run {
+        input: Format::Dust,
+        options,
+    });
+
+    if let Mode::Run {
         input,
-        source: Source { eval, stdin, file },
-        style,
-        output,
-    } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run);
-
-    if let Some(log_level) = log {
-        start_logging(log_level, start_time);
-    }
-
-    let (source, source_name) = {
-        if let Some(path) = file {
-            let file_name = path
-                .file_stem()
-                .expect("The path `{path}` has no file name")
-                .to_str()
-                .map(DustString::from)
-                .expect("The path `{path}` contains invalid UTF-8");
-            let mut file = OpenOptions::new()
-                .create(false)
-                .read(true)
-                .write(false)
-                .open(path)
-                .expect("Failed to open {path}");
-            let mut file_contents = String::new();
-
-            file.read_to_string(&mut file_contents)
-                .expect("The file at `{path}` contains invalid UTF-8");
-
-            (file_contents, file_name)
-        } else {
-            let source = if stdin {
-                let mut source = String::new();
-
-                io::stdin()
-                    .read_to_string(&mut source)
-                    .expect("The input from stdin contained invalid UTF-8");
-
-                source
-            } else {
-                eval.expect("No source code provided")
-            };
-
-            (
-                source,
-                name.unwrap_or_else(|| DustString::from("CLI Input")),
-            )
+        options:
+            SharedOptions {
+                log,
+                pretty_log,
+                time,
+                no_output,
+                name,
+                source: Source { eval, stdin, file },
+            },
+    } = mode
+    {
+        if let Some(log_level) = log {
+            start_logging(log_level, pretty_log, start_time);
         }
-    };
 
-    if let Mode::Run = mode {
+        let (source, source_name) = {
+            if let Some(path) = file {
+                let file_name = path
+                    .file_stem()
+                    .expect("The path `{path}` has no file name")
+                    .to_str()
+                    .map(DustString::from)
+                    .expect("The path `{path}` contains invalid UTF-8");
+                let mut file = OpenOptions::new()
+                    .create(false)
+                    .read(true)
+                    .write(false)
+                    .open(path)
+                    .expect("Failed to open {path}");
+                let mut file_contents = String::new();
+
+                file.read_to_string(&mut file_contents)
+                    .expect("The file at `{path}` contains invalid UTF-8");
+
+                (file_contents, file_name)
+            } else {
+                let source = if stdin {
+                    let mut source = String::new();
+
+                    io::stdin()
+                        .read_to_string(&mut source)
+                        .expect("The input from stdin contained invalid UTF-8");
+
+                    source
+                } else {
+                    eval.expect("No source code provided")
+                };
+
+                (
+                    source,
+                    name.unwrap_or_else(|| DustString::from("CLI Input")),
+                )
+            }
+        };
         let lexer = Lexer::new(&source);
         let chunk = match input {
-            InputFormat::Dust => {
+            Format::Dust => {
                 let mut compiler = match Compiler::new(
                     lexer,
                     CompileMode::Main {
@@ -214,13 +232,16 @@ fn main() {
 
                 compiler.finish()
             }
-            InputFormat::Json => {
+            Format::Json => {
                 serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
             }
-            InputFormat::Ron => {
+            Format::Postcard => {
+                todo!()
+            }
+            Format::Ron => {
                 ron::de::from_str(&source).expect("Failed to deserialize RON into chunk")
             }
-            InputFormat::Yaml => {
+            Format::Yaml => {
                 serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
             }
         };
@@ -238,9 +259,67 @@ fn main() {
         if time && !no_output {
             print_times(&[(&source_name, compile_time, Some(run_time))]);
         }
+
+        return;
     }
 
-    if let Mode::Compile = mode {
+    if let Mode::Compile {
+        options:
+            SharedOptions {
+                log,
+                pretty_log,
+                time,
+                no_output,
+                name,
+                source: Source { eval, stdin, file },
+            },
+        output,
+        style,
+    } = mode
+    {
+        if let Some(log_level) = log {
+            start_logging(log_level, pretty_log, start_time);
+        }
+
+        let (source, source_name) = {
+            if let Some(path) = file {
+                let file_name = path
+                    .file_stem()
+                    .expect("The path `{path}` has no file name")
+                    .to_str()
+                    .map(DustString::from)
+                    .expect("The path `{path}` contains invalid UTF-8");
+                let mut file = OpenOptions::new()
+                    .create(false)
+                    .read(true)
+                    .write(false)
+                    .open(path)
+                    .expect("Failed to open {path}");
+                let mut file_contents = String::new();
+
+                file.read_to_string(&mut file_contents)
+                    .expect("The file at `{path}` contains invalid UTF-8");
+
+                (file_contents, file_name)
+            } else {
+                let source = if stdin {
+                    let mut source = String::new();
+
+                    io::stdin()
+                        .read_to_string(&mut source)
+                        .expect("The input from stdin contained invalid UTF-8");
+
+                    source
+                } else {
+                    eval.expect("No source code provided")
+                };
+
+                (
+                    source,
+                    name.unwrap_or_else(|| DustString::from("CLI Input")),
+                )
+            }
+        };
         let lexer = Lexer::new(&source);
         let mut compiler = match Compiler::new(
             lexer,
@@ -268,7 +347,7 @@ fn main() {
         let compile_time = start_time.elapsed();
 
         match output {
-            OutputFormat::Cli => {
+            Format::Dust => {
                 let mut stdout = stdout().lock();
 
                 chunk
@@ -279,19 +358,27 @@ fn main() {
                     .disassemble()
                     .expect("Failed to write disassembly to stdout");
             }
-            OutputFormat::Json => {
+            Format::Json => {
                 let json = serde_json::to_string_pretty(&chunk)
                     .expect("Failed to serialize chunk to JSON");
 
                 println!("{json}");
             }
-            OutputFormat::Ron => {
-                let ron = ron::ser::to_string_pretty(&chunk, Default::default())
-                    .expect("Failed to serialize chunk to RON");
+            Format::Postcard => {
+                let mut buffer = Vec::new();
+                let postcard = postcard::to_slice_cobs(&chunk, &mut buffer)
+                    .expect("Failed to serialize chunk to Postcard");
+
+                println!("{postcard:?}");
+            }
+            Format::Ron => {
+                let ron =
+                    ron::ser::to_string_pretty(&chunk, PrettyConfig::new().struct_names(true))
+                        .expect("Failed to serialize chunk to RON");
 
                 println!("{ron}");
             }
-            OutputFormat::Yaml => {
+            Format::Yaml => {
                 let yaml =
                     serde_yaml::to_string(&chunk).expect("Failed to serialize chunk to YAML");
 
@@ -302,64 +389,34 @@ fn main() {
         if time && !no_output {
             print_times(&[(&source_name, compile_time, None)]);
         }
+
+        return;
     }
 
     if let Mode::Tokenize = mode {
-        let mut lexer = Lexer::new(&source);
-        let mut next_token = || -> Option<(Token, Span, bool)> {
-            match lexer.next_token() {
-                Ok((token, position)) => Some((token, position, lexer.is_eof())),
-                Err(error) => {
-                    let report = DustError::compile(CompileError::Lex(error), &source).report();
-
-                    eprintln!("{report}");
-
-                    None
-                }
-            }
-        };
-
-        println!("{:^66}", "Tokens");
-
-        for _ in 0..66 {
-            print!("-");
-        }
-
-        println!();
-        println!("{:^21}|{:^22}|{:^22}", "Kind", "Value", "Position");
-
-        for _ in 0..66 {
-            print!("-");
-        }
-
-        println!();
-
-        while let Some((token, position, is_eof)) = next_token() {
-            if is_eof {
-                break;
-            }
-
-            let token_kind = token.kind().to_string();
-            let token = token.to_string();
-            let position = position.to_string();
-
-            println!("{token_kind:^21}|{token:^22}|{position:^22}");
-        }
+        todo!()
     }
 }
 
-fn start_logging(level: LevelFilter, start_time: Instant) {
-    tracing_subscriber::fmt()
-        .with_max_level(level)
-        .event_format(LogFormatter { start_time })
-        .init();
+fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
+    if use_pretty {
+        tracing_subscriber::fmt()
+            .with_max_level(level)
+            .event_format(PrettyLogFormatter { start_time })
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_max_level(level)
+            .with_writer(io::stdout)
+            .init();
+    }
 }
 
-struct LogFormatter {
+struct PrettyLogFormatter {
     start_time: Instant,
 }
 
-impl<S, N> FormatEvent<S, N> for LogFormatter
+impl<S, N> FormatEvent<S, N> for PrettyLogFormatter
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
     N: for<'a> FormatFields<'a> + 'static,
@@ -373,8 +430,7 @@ where
 
         event: &Event<'_>,
     ) -> fmt::Result {
-        let meta = event.metadata();
-        let level = meta.level();
+        let level = event.metadata().level();
         let level_color = match *level {
             Level::ERROR => Color::Red,
             Level::WARN => Color::Yellow,
@@ -390,7 +446,6 @@ where
             .unwrap()
             .map(|span| span.metadata().name())
             .collect::<Vec<_>>();
-
         let time = self.start_time.elapsed();
         let time_color = if time.as_secs() > 1 {
             Color::BrightRed
@@ -414,16 +469,24 @@ where
         )?;
         writeln!(
             writer,
-            "{border}{:^7}{border}{:10} {:40} {:24}{border}",
-            level_display,
-            thread_display.bright_cyan().to_string(),
-            scopes
+            "{left_aligned:<20} {scopes:40} {right_aligned:>32}",
+            left_aligned = format!(
+                "{border}{:^7}{border}{}",
+                level_display,
+                thread_display,
+                border = "│".color(level_color),
+            ),
+            scopes = scopes
                 .iter()
                 .map(|scope| scope.to_string())
                 .collect::<Vec<_>>()
                 .join("->")
-                .bright_magenta(),
-            time_display.color(time_color),
+                .to_string(),
+            right_aligned = format!("{} {}", time_display.to_string(), "│".color(level_color),)
+        )?;
+        writeln!(
+            writer,
+            "{border}       {border}{border:>71}",
             border = "│".color(level_color),
         )?;
 
@@ -432,8 +495,9 @@ where
         ctx.format_fields(Writer::new(&mut message), event)?;
         writeln!(
             writer,
-            "{border}       {border}{message:70}{border}",
-            border = "│".color(level_color)
+            "{border}       {border}{message:len$}{border}",
+            border = "│".color(level_color),
+            len = message.len().max(70),
         )?;
         writeln!(
             writer,
