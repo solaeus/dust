@@ -14,28 +14,13 @@ use super::{CallFrame, Memory};
 pub struct Thread<'a> {
     chunk: &'a Chunk,
 
-    call_stack: Vec<CallFrame<'a>>,
-    memory_stack: Vec<Memory>,
-
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
 impl<'a> Thread<'a> {
     pub fn new(chunk: &'a Chunk) -> Self {
-        let mut call_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_call = CallFrame::new(chunk, Address::default());
-
-        call_stack.push(main_call);
-
-        let mut memory_stack = Vec::with_capacity(chunk.prototypes.len() + 1);
-        let main_memory = Memory::new(chunk);
-
-        memory_stack.push(main_memory);
-
         Thread {
             chunk,
-            call_stack,
-            memory_stack,
             _spawned_threads: Vec::new(),
         }
     }
@@ -53,8 +38,11 @@ impl<'a> Thread<'a> {
                 .unwrap_or_else(|| "anonymous")
         );
 
-        let mut call = self.call_stack.pop().unwrap();
-        let mut memory = self.memory_stack.pop().unwrap();
+        let mut call_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
+        let mut memory_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
+
+        let mut call = CallFrame::new(self.chunk, Address::default());
+        let mut memory = Memory::new(self.chunk);
 
         loop {
             let instructions = &call.chunk.instructions;
@@ -416,8 +404,8 @@ impl<'a> Thread<'a> {
                         }
                     }
 
-                    self.memory_stack.push(replace(&mut memory, new_memory));
-                    self.call_stack.push(replace(&mut call, new_call));
+                    memory_stack.push(replace(&mut memory, new_memory));
+                    call_stack.push(replace(&mut call, new_call));
                 }
                 Operation::CALL_NATIVE => todo!(),
                 Operation::JUMP => {
@@ -440,18 +428,18 @@ impl<'a> Thread<'a> {
 
                     match return_value_address.kind {
                         AddressKind::NONE => {
-                            if self.call_stack.is_empty() {
+                            if call_stack.is_empty() {
                                 return None;
                             }
 
-                            call = self.call_stack.pop().unwrap();
-                            memory = self.memory_stack.pop().unwrap();
+                            call = call_stack.pop().unwrap();
+                            memory = memory_stack.pop().unwrap();
                         }
                         AddressKind::BOOLEAN_REGISTER => {
                             let boolean =
                                 memory.registers.booleans[return_value_address.index as usize];
 
-                            if self.call_stack.is_empty() {
+                            if call_stack.is_empty() {
                                 if should_return_value {
                                     return Some(ConcreteValue::Boolean(boolean));
                                 } else {
@@ -459,8 +447,8 @@ impl<'a> Thread<'a> {
                                 }
                             }
 
-                            let new_call = self.call_stack.pop().unwrap();
-                            let mut new_memory = self.memory_stack.pop().unwrap();
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
 
                             match call.return_address.kind {
                                 AddressKind::NONE => {}
@@ -478,7 +466,7 @@ impl<'a> Thread<'a> {
                             let integer =
                                 memory.registers.integers[return_value_address.index as usize];
 
-                            if self.call_stack.is_empty() {
+                            if call_stack.is_empty() {
                                 if should_return_value {
                                     return Some(ConcreteValue::Integer(integer));
                                 } else {
@@ -486,8 +474,8 @@ impl<'a> Thread<'a> {
                                 }
                             }
 
-                            let new_call = self.call_stack.pop().unwrap();
-                            let mut new_memory = self.memory_stack.pop().unwrap();
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
 
                             match call.return_address.kind {
                                 AddressKind::NONE => {}

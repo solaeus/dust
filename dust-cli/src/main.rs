@@ -1,9 +1,11 @@
-#![feature(duration_millis_float)]
+#![feature(duration_millis_float, iter_intersperse)]
 
 use std::{
+    fmt::{self, Formatter, Write, write},
     fs::OpenOptions,
     io::{self, Read, stdout},
     path::PathBuf,
+    thread::{self, scope},
     time::{Duration, Instant},
 };
 
@@ -12,11 +14,18 @@ use clap::{
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
+use colored::{Color, ColoredString, Colorize};
 use dust_lang::{
     CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
     panic::set_dust_panic_hook,
 };
-use tracing::level_filters::LevelFilter;
+use tracing::{Event, Level, Subscriber, field::Visit, level_filters::LevelFilter};
+use tracing_subscriber::{
+    fmt::{
+        FmtContext, FormatEvent, FormatFields, FormattedFields, format::Writer, time::FormatTime,
+    },
+    registry::LookupSpan,
+};
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::BrightMagenta.on_default().bold().underline())
@@ -133,7 +142,7 @@ fn main() {
     let mode = mode.unwrap_or(Mode::Run);
 
     if let Some(log_level) = log {
-        start_logging(log_level);
+        start_logging(log_level, start_time);
     }
 
     let (source, source_name) = {
@@ -339,17 +348,102 @@ fn main() {
     }
 }
 
-fn start_logging(level: LevelFilter) {
+fn start_logging(level: LevelFilter, start_time: Instant) {
     tracing_subscriber::fmt()
         .with_max_level(level)
-        .event_format(
-            tracing_subscriber::fmt::format()
-                .with_file(false)
-                .with_source_location(false)
-                .with_target(false)
-                .with_timer(tracing_subscriber::fmt::time::uptime()),
-        )
+        .event_format(LogFormatter { start_time })
         .init();
+}
+
+struct LogFormatter {
+    start_time: Instant,
+}
+
+impl<S, N> FormatEvent<S, N> for LogFormatter
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+
+        ctx: &FmtContext<'_, S, N>,
+
+        mut writer: Writer<'_>,
+
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        let meta = event.metadata();
+        let level = meta.level();
+        let level_color = match *level {
+            Level::ERROR => Color::Red,
+            Level::WARN => Color::Yellow,
+            Level::INFO => Color::White,
+            Level::DEBUG => Color::Green,
+            Level::TRACE => Color::Blue,
+        };
+        let level_display = level.as_str();
+        let thread_display = thread::current().name().unwrap_or("anonymous").to_string();
+        let scopes = ctx
+            .event_scope()
+            .map(|scope| scope.from_root())
+            .unwrap()
+            .map(|span| span.metadata().name())
+            .collect::<Vec<_>>();
+
+        let time = self.start_time.elapsed();
+        let time_color = if time.as_secs() > 1 {
+            Color::BrightRed
+        } else if time.as_millis() > 1 {
+            Color::BrightYellow
+        } else {
+            Color::BrightGreen
+        };
+        let time_display = format!(
+            "s: {}, ms: {}, ns: {}",
+            time.as_secs(),
+            time.subsec_millis(),
+            time.subsec_nanos()
+        );
+
+        writeln!(
+            writer,
+            "{}",
+            "╭───────┬──────────────────────────────────────────────────────────────────────╮"
+                .color(level_color)
+        )?;
+        writeln!(
+            writer,
+            "{border}{:^7}{border}{:10} {:40} {:24}{border}",
+            level_display,
+            thread_display.bright_cyan().to_string(),
+            scopes
+                .iter()
+                .map(|scope| scope.to_string())
+                .collect::<Vec<_>>()
+                .join("->")
+                .bright_magenta(),
+            time_display.color(time_color),
+            border = "│".color(level_color),
+        )?;
+
+        let mut message = String::new();
+
+        ctx.format_fields(Writer::new(&mut message), event)?;
+        writeln!(
+            writer,
+            "{border}       {border}{message:70}{border}",
+            border = "│".color(level_color)
+        )?;
+        writeln!(
+            writer,
+            "{}",
+            "╰───────┴──────────────────────────────────────────────────────────────────────╯"
+                .color(level_color)
+        )?;
+
+        Ok(())
+    }
 }
 
 fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
