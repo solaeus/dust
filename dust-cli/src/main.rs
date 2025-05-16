@@ -1,11 +1,11 @@
 #![feature(duration_millis_float, iter_intersperse)]
 
 use std::{
-    fmt::{self, Formatter, Write, write},
+    fmt::{self},
     fs::OpenOptions,
     io::{self, Read, stdout},
     path::PathBuf,
-    thread::{self, scope},
+    thread::{self},
     time::{Duration, Instant},
 };
 
@@ -14,17 +14,15 @@ use clap::{
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
-use colored::{Color, ColoredString, Colorize};
+use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DustError, DustString, Lexer, Span, Token, Vm, compiler::CompileMode,
+    CompileError, Compiler, DustError, DustString, Lexer, Vm, compiler::CompileMode,
     panic::set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
-use tracing::{Event, Level, Subscriber, field::Visit, level_filters::LevelFilter};
+use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
-    fmt::{
-        FmtContext, FormatEvent, FormatFields, FormattedFields, format::Writer, time::FormatTime,
-    },
+    fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
 };
 
@@ -447,13 +445,6 @@ where
             .map(|span| span.metadata().name())
             .collect::<Vec<_>>();
         let time = self.start_time.elapsed();
-        let time_color = if time.as_secs() > 1 {
-            Color::BrightRed
-        } else if time.as_millis() > 1 {
-            Color::BrightYellow
-        } else {
-            Color::BrightGreen
-        };
         let time_display = format!(
             "s: {}, ms: {}, ns: {}",
             time.as_secs(),
