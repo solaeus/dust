@@ -942,7 +942,7 @@ impl<'src> Compiler<'src> {
             };
             let load_constant = Instruction::load_constant(
                 Destination::memory(destination),
-                Address::new(constant_index, AddressKind::CHARACTER_CONSTANT),
+                Address::new(constant_index, AddressKind::FLOAT_CONSTANT),
                 false,
             );
 

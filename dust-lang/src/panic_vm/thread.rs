@@ -426,14 +426,13 @@ impl<'a> Thread<'a> {
                         return_value_address,
                     } = Return::from(&instruction);
 
-                    match return_value_address.kind {
+                    let (new_call, new_memory) = match return_value_address.kind {
                         AddressKind::NONE => {
                             if call_stack.is_empty() {
                                 return None;
                             }
 
-                            call = call_stack.pop().unwrap();
-                            memory = memory_stack.pop().unwrap();
+                            (call_stack.pop().unwrap(), memory_stack.pop().unwrap())
                         }
                         AddressKind::BOOLEAN_REGISTER => {
                             let boolean =
@@ -459,8 +458,84 @@ impl<'a> Thread<'a> {
                                 _ => unreachable!(),
                             }
 
-                            call = new_call;
-                            memory = new_memory;
+                            (new_call, new_memory)
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let byte = memory.registers.bytes[return_value_address.index as usize];
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Byte(byte));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.bytes
+                                        [call.return_address.index as usize] = byte;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::CHARACTER_REGISTER => {
+                            let character =
+                                memory.registers.characters[return_value_address.index as usize];
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Character(character));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.characters
+                                        [call.return_address.index as usize] = character;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let float =
+                                memory.registers.floats[return_value_address.index as usize];
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Float(float));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.floats
+                                        [call.return_address.index as usize] = float;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
                         }
                         AddressKind::INTEGER_REGISTER => {
                             let integer =
@@ -486,23 +561,13 @@ impl<'a> Thread<'a> {
                                 _ => unreachable!(),
                             }
 
-                            call = new_call;
-                            memory = new_memory;
-                        }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let prototype_address = memory.registers.functions
-                                [return_value_address.index as usize]
-                                .prototype_address;
-                            let prototype = match prototype_address.kind {
-                                AddressKind::FUNCTION_PROTOTYPE => {
-                                    &self.chunk.prototypes[prototype_address.index as usize]
-                                }
-                                AddressKind::FUNCTION_SELF => self.chunk,
-                                _ => unreachable!(),
-                            };
+                            (new_call, new_memory)
                         }
                         _ => todo!(),
-                    }
+                    };
+
+                    call = new_call;
+                    memory = new_memory;
                 }
                 _ => unreachable!(),
             }
