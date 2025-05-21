@@ -6,7 +6,7 @@ use crate::{
     AbstractList, Address, Chunk, ConcreteList, ConcreteValue, Operation,
     instruction::{
         Add, AddressKind, Call, Close, Jump, Less, LoadConstant, LoadEncoded, LoadFunction,
-        LoadList, Move, Return,
+        LoadList, Move, Multiply, Return,
     },
 };
 
@@ -408,7 +408,96 @@ impl<'a> Thread<'a> {
                     }
                 }
                 Operation::SUBTRACT => todo!(),
-                Operation::MULTIPLY => todo!(),
+                Operation::MULTIPLY => {
+                    let Multiply {
+                        destination,
+                        left,
+                        right,
+                    } = Multiply::from(&instruction);
+                    let left_index = left.index as usize;
+
+                    match left.kind {
+                        AddressKind::INTEGER_CONSTANT => {
+                            assert!(left_index < self.chunk.integer_constants.len());
+
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = product;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    product;
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            assert!(left_index < memory.integers.len());
+
+                            let left_value = memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = product;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    product;
+                            }
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            assert!(left_index < memory.registers.integers.len());
+
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    assert!(right_index < self.chunk.integer_constants.len());
+
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = product;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    product;
+                            }
+                        }
+                        _ => todo!(),
+                    }
+                }
                 Operation::DIVIDE => todo!(),
                 Operation::MODULO => todo!(),
                 Operation::EQUAL => todo!(),

@@ -29,7 +29,7 @@
 //! flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operand};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction};
 //! // Add the integers at M_INT_4 and M_INT_6 then store the result in M_INT_42.
 //! let add_1 = Instruction::add(
 //!     Destination::memory(42),
@@ -61,7 +61,7 @@
 //! removes the burden of dealing with the instruction bit fields directly.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operand};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operation};
 //! # let mystery_instruction = Instruction::add(
 //! #     Destination::memory(0),
 //! #     Address::new(0, AddressKind::INTEGER_MEMORY),
@@ -74,7 +74,7 @@
 //! //   - `a = 2 + a`
 //! let operation = mystery_instruction.operation();
 //! let is_add_assign = operation == Operation::ADD && {
-//!     let Add { destination, left, right  = Add::from(&mystery_instruction);
+//!     let Add { destination, left, right } = Add::from(&mystery_instruction);
 //!
 //!     destination.index == left.index || destination.index == right.index
 //! };
@@ -324,14 +324,14 @@ impl Instruction {
             Operation::SUBTRACT => {
                 let Subtract {
                     destination, left, ..
-                } = Subtract::from(*self);
+                } = Subtract::from(self);
 
                 destination.as_address(left.r#type())
             }
             Operation::MULTIPLY => {
                 let Multiply {
                     destination, left, ..
-                } = Multiply::from(*self);
+                } = Multiply::from(self);
 
                 destination.as_address(left.r#type())
             }
@@ -619,8 +619,8 @@ impl Instruction {
             Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
             Operation::LOAD_LIST => LoadList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
-            Operation::SUBTRACT => Subtract::from(*self).to_string(),
-            Operation::MULTIPLY => Multiply::from(*self).to_string(),
+            Operation::SUBTRACT => Subtract::from(self).to_string(),
+            Operation::MULTIPLY => Multiply::from(self).to_string(),
             Operation::DIVIDE => Divide::from(*self).to_string(),
             Operation::MODULO => Modulo::from(*self).to_string(),
             Operation::NEGATE => Negate::from(*self).to_string(),

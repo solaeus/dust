@@ -8,7 +8,7 @@ use crate::{
     value::concrete_value::ConcreteList,
 };
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct AbstractList {
     pub item_pointers: Vec<Address>,
 }
@@ -72,13 +72,5 @@ impl AbstractList {
         }
 
         write!(f, "]")
-    }
-}
-
-impl Default for AbstractList {
-    fn default() -> Self {
-        Self {
-            item_pointers: Vec::new(),
-        }
     }
 }

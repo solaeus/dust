@@ -53,7 +53,7 @@ use crate::{
 /// let source = "40 + 2 == 42";
 /// let chunk = compile(source).unwrap();
 ///
-/// assert_eq!(chunk.instructions.len(), 6);
+/// assert_eq!(chunk.instructions().len(), 6);
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);

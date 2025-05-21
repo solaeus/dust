@@ -63,6 +63,10 @@ impl Chunk {
     pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, W> {
         Disassembler::new(self, writer)
     }
+
+    pub fn instructions(&self) -> &[Instruction] {
+        &self.instructions
+    }
 }
 
 impl Display for Chunk {

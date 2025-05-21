@@ -14,10 +14,10 @@
 //! # Examples
 //!
 //! ```rust
-//! # use dust_lang::{run, Value};
+//! # use dust_lang::{run, ConcreteValue};
 //! let result = run("21 * 2").unwrap();
 //!
-//! assert_eq!(result, Some(Value::integer(42)));
+//! assert_eq!(result, Some(ConcreteValue::Integer(42)));
 //! ```
 //!
 //! ```rust
