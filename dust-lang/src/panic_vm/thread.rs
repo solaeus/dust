@@ -3,10 +3,10 @@ use std::{mem::replace, thread::JoinHandle};
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    AbstractList, Address, Chunk, ConcreteValue, Operation,
+    AbstractList, Address, Chunk, ConcreteValue, DustString, Operation,
     instruction::{
-        Add, AddressKind, Call, Close, Equal, Jump, Less, LessEqual, LoadConstant, LoadEncoded,
-        LoadFunction, LoadList, Move, Multiply, Return, Test,
+        Add, AddressKind, Call, Close, Divide, Equal, Jump, Less, LessEqual, LoadConstant,
+        LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Return, Subtract, Test,
     },
 };
 
@@ -329,6 +329,187 @@ impl<'a> Thread<'a> {
                     let left_index = left.index as usize;
 
                     match left.kind {
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let sum = left_value + right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = sum;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let sum = left_value + right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = sum;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::CHARACTER_CONSTANT => {
+                            let left_value = self.chunk.character_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_CONSTANT => {
+                                    self.chunk.character_constants[right.index as usize]
+                                }
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push(left_value);
+                            sum.push(right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            let left_value = *memory.characters[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_CONSTANT => {
+                                    self.chunk.character_constants[right.index as usize]
+                                }
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push(left_value);
+                            sum.push(right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::CHARACTER_REGISTER => {
+                            let left_value = memory.registers.characters[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_CONSTANT => {
+                                    self.chunk.character_constants[right_index]
+                                }
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push(left_value);
+                            sum.push(right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let sum = left_value + right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = sum;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let sum = left_value + right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = sum;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right_index]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let sum = left_value + right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = sum;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
                         AddressKind::INTEGER_CONSTANT => {
                             let left_value = self.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
@@ -396,10 +577,277 @@ impl<'a> Thread<'a> {
                                 *memory.integers[destination.index as usize].as_value_mut() = sum;
                             }
                         }
+                        AddressKind::STRING_CONSTANT => {
+                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].as_value().clone()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push_str(&left_value);
+                            sum.push_str(&right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::STRING_MEMORY => {
+                            let left_value = memory.strings[left_index].as_value().clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].as_value().clone()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push_str(&left_value);
+                            sum.push_str(&right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
+                        AddressKind::STRING_REGISTER => {
+                            let left_value = memory.registers.strings[left_index].clone();
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right_index].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].as_value().clone()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+                            let mut sum = DustString::new();
+
+                            sum.push_str(&left_value);
+                            sum.push_str(&right_value);
+
+                            if destination.is_register {
+                                memory.registers.strings[destination.index as usize] = sum;
+                            } else {
+                                *memory.strings[destination.index as usize].as_value_mut() = sum;
+                            }
+                        }
                         _ => todo!(),
                     }
                 }
-                Operation::SUBTRACT => todo!(),
+                Operation::SUBTRACT => {
+                    let Subtract {
+                        destination,
+                        left,
+                        right,
+                    } = Subtract::from(&instruction);
+                    let left_index = left.index as usize;
+
+                    match left.kind {
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = difference;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = difference;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = difference;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = difference;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right_index]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = difference;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = difference;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let left_value = memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = difference;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let difference = left_value - right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = difference;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    difference;
+                            }
+                        }
+                        _ => todo!(),
+                    }
+                }
                 Operation::MULTIPLY => {
                     let Multiply {
                         destination,
@@ -409,6 +857,111 @@ impl<'a> Thread<'a> {
                     let left_index = left.index as usize;
 
                     match left.kind {
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = product;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = product;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = product;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = product;
+                            }
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = product;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = product;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = product;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = product;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right_index]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let product = left_value * right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = product;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() = product;
+                            }
+                        }
                         AddressKind::INTEGER_CONSTANT => {
                             let left_value = self.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
@@ -482,8 +1035,388 @@ impl<'a> Thread<'a> {
                         _ => todo!(),
                     }
                 }
-                Operation::DIVIDE => todo!(),
-                Operation::MODULO => todo!(),
+                Operation::DIVIDE => {
+                    let Divide {
+                        destination,
+                        left,
+                        right,
+                    } = Divide::from(&instruction);
+                    let left_index = left.index as usize;
+
+                    match left.kind {
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = quotient;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = quotient;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = quotient;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() = quotient;
+                            }
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = quotient;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = quotient;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right_index]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = quotient;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = quotient;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let left_value = memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = quotient;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let quotient = left_value / right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = quotient;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    quotient;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                Operation::MODULO => {
+                    let Modulo {
+                        destination,
+                        left,
+                        right,
+                    } = Modulo::from(&instruction);
+                    let left_index = left.index as usize;
+
+                    match left.kind {
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = remainder;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.bytes[destination.index as usize] = remainder;
+                            } else {
+                                *memory.bytes[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = remainder;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = remainder;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right_index]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.floats[destination.index as usize] = remainder;
+                            } else {
+                                *memory.floats[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = remainder;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let left_value = memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = remainder;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+                            let remainder = left_value % right_value;
+
+                            if destination.is_register {
+                                memory.registers.integers[destination.index as usize] = remainder;
+                            } else {
+                                *memory.integers[destination.index as usize].as_value_mut() =
+                                    remainder;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 Operation::EQUAL => {
                     let Equal {
                         comparator,

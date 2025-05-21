@@ -348,14 +348,14 @@ impl Instruction {
             Operation::DIVIDE => {
                 let Divide {
                     destination, left, ..
-                } = Divide::from(*self);
+                } = Divide::from(self);
 
                 destination.as_address(left.r#type())
             }
             Operation::MODULO => {
                 let Modulo {
                     destination, left, ..
-                } = Modulo::from(*self);
+                } = Modulo::from(self);
 
                 destination.as_address(left.r#type())
             }
@@ -631,8 +631,8 @@ impl Instruction {
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),
-            Operation::DIVIDE => Divide::from(*self).to_string(),
-            Operation::MODULO => Modulo::from(*self).to_string(),
+            Operation::DIVIDE => Divide::from(self).to_string(),
+            Operation::MODULO => Modulo::from(self).to_string(),
             Operation::NEGATE => Negate::from(*self).to_string(),
             Operation::NOT => Not::from(*self).to_string(),
             Operation::EQUAL => Equal::from(self).to_string(),

@@ -8,8 +8,8 @@ pub struct Divide {
     pub right: Address,
 }
 
-impl From<Instruction> for Divide {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Divide {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let left = instruction.b_address();
         let right = instruction.c_address();
