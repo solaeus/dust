@@ -3,10 +3,11 @@ mod abstract_value;
 mod concrete_value;
 
 pub use abstract_value::{AbstractFunction, AbstractList, AbstractValue};
-use concrete_value::ConcreteFunction;
 pub use concrete_value::{ConcreteList, ConcreteValue};
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
+
+use crate::Chunk;
 
 pub type DustString = SmartString<LazyCompact>;
 
@@ -82,9 +83,9 @@ impl Value {
         }
     }
 
-    pub fn as_concrete_function(&self) -> Option<&ConcreteFunction> {
-        if let Value::Concrete(ConcreteValue::Function(function)) = self {
-            Some(function)
+    pub fn as_concrete_function(&self) -> Option<&Chunk> {
+        if let Value::Concrete(ConcreteValue::Function(chunk)) = self {
+            Some(chunk)
         } else {
             None
         }

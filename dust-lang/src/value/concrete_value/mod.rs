@@ -4,10 +4,7 @@ mod concrete_range;
 pub use concrete_list::ConcreteList;
 pub use concrete_range::ConcreteRange;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
@@ -17,8 +14,6 @@ use crate::{Chunk, Type, Value};
 
 use super::DustString;
 
-pub type ConcreteFunction = Arc<Chunk>;
-
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 pub enum ConcreteValue {
@@ -26,7 +21,7 @@ pub enum ConcreteValue {
     Byte(u8),
     Character(char),
     Float(f64),
-    Function(ConcreteFunction),
+    Function(Chunk),
     Integer(i64),
     List(ConcreteList),
     Range(ConcreteRange),

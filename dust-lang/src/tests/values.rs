@@ -608,9 +608,33 @@ fn load_deeply_nested_list() {
 fn load_function() {
     let source = "fn () {}";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::None))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 8), Span(8, 8)],
+        prototypes: vec![Chunk {
+            name: None,
+            instructions: vec![Instruction::r#return(
+                false,
+                Address::new(0, AddressKind::NONE),
+            )],
+            positions: vec![Span(7, 8)],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -620,9 +644,38 @@ fn load_function() {
 fn load_boolean_in_function() {
     let source = "fn () { true }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Boolean))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 14), Span(14, 14)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::load_encoded(
+                    Destination::register(0),
+                    true as u16,
+                    AddressKind::BOOLEAN_MEMORY,
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
+            ],
+            positions: vec![Span(8, 12), Span(13, 14)],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -632,9 +685,38 @@ fn load_boolean_in_function() {
 fn load_integer_in_function() {
     let source = "fn () { 42 }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Integer))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 12), Span(12, 12)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::INTEGER_REGISTER)),
+            ],
+            positions: vec![Span(8, 10), Span(11, 12)],
+            integer_constants: vec![42],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -644,9 +726,38 @@ fn load_integer_in_function() {
 fn load_string_in_function() {
     let source = "fn () { \"Hello\" }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::String))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 17), Span(17, 17)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new([], [], Type::String),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::STRING_CONSTANT),
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::STRING_REGISTER)),
+            ],
+            positions: vec![Span(8, 15), Span(16, 17)],
+            string_constants: vec![DustString::from("Hello")],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

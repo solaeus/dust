@@ -680,6 +680,33 @@ impl<'a> Thread<'a> {
 
                             (new_call, new_memory)
                         }
+                        AddressKind::STRING_REGISTER => {
+                            let string = memory.registers.strings
+                                [return_value_address.index as usize]
+                                .clone();
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::String(string));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.strings
+                                        [call.return_address.index as usize] = string;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
                         AddressKind::LIST_REGISTER => {
                             let abstract_list =
                                 memory.registers.lists[return_value_address.index as usize].clone();
@@ -701,6 +728,35 @@ impl<'a> Thread<'a> {
                                 AddressKind::INTEGER_REGISTER => {
                                     new_memory.registers.lists
                                         [call.return_address.index as usize] = abstract_list;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let abstract_function =
+                                memory.registers.functions[return_value_address.index as usize];
+                            let function_prototype = call.chunk.prototypes
+                                [abstract_function.prototype_address.index as usize]
+                                .clone();
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Function(function_prototype));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.functions
+                                        [call.return_address.index as usize] = abstract_function;
                                 }
                                 _ => unreachable!(),
                             }
