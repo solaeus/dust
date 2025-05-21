@@ -44,10 +44,10 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use crate::chunk::{Chunk, Disassembler, Local, Scope};
+pub use crate::chunk::{Arguments, Chunk, Disassembler, Local, Scope};
 pub use crate::compiler::{CompileError, Compiler, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Address, Instruction, Operation};
+pub use crate::instruction::{Address, Destination, Instruction, Operation};
 pub use crate::lexer::{LexError, Lexer, lex};
 pub use crate::native_function::NativeFunction;
 pub use crate::panic_vm::{Vm, run};

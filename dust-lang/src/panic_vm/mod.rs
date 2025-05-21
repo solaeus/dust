@@ -9,7 +9,7 @@ pub use call_frame::CallFrame;
 pub use memory::{Memory, RegisterTable};
 pub use thread::Thread;
 
-use std::thread::Builder;
+use std::{sync::Arc, thread::Builder};
 
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
@@ -18,17 +18,17 @@ use crate::{Chunk, ConcreteValue, DustError, Value, compile};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
-    let vm = Vm::new(chunk);
+    let vm = Vm::new(Arc::new(chunk));
 
     Ok(vm.run().map(Value::Concrete))
 }
 
 pub struct Vm {
-    main_chunk: Chunk,
+    main_chunk: Arc<Chunk>,
 }
 
 impl Vm {
-    pub fn new(main_chunk: Chunk) -> Self {
+    pub fn new(main_chunk: Arc<Chunk>) -> Self {
         Self { main_chunk }
     }
 
@@ -47,7 +47,7 @@ impl Vm {
         Builder::new()
             .name(thread_name)
             .spawn(move || {
-                let mut main_thread = Thread::new(&self.main_chunk);
+                let mut main_thread = Thread::new(Arc::clone(&self.main_chunk));
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);
             })

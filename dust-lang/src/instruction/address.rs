@@ -34,6 +34,7 @@ impl Address {
             | AddressKind::STRING_REGISTER => TypeKind::String,
             AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeKind::List,
             AddressKind::FUNCTION_SELF
+            | AddressKind::FUNCTION_PROTOTYPE
             | AddressKind::FUNCTION_MEMORY
             | AddressKind::FUNCTION_REGISTER => TypeKind::Function,
             AddressKind::NONE => TypeKind::None,

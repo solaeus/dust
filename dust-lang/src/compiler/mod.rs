@@ -357,7 +357,7 @@ impl<'src> Compiler<'src> {
                         disqualify(address);
                     }
                 }
-                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT => {
+                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT | Operation::LOAD_FUNCTION => {
                     increment_rank(destination_address);
                 }
                 Operation::LOAD_LIST => {
@@ -451,11 +451,6 @@ impl<'src> Compiler<'src> {
                         instruction.set_destination(*replacement);
                     }
                 }
-                Operation::RETURN => {
-                    if let Some(replacement) = replacements.get(&b_address) {
-                        instruction.set_b_address(*replacement);
-                    }
-                }
                 Operation::ADD
                 | Operation::SUBTRACT
                 | Operation::MULTIPLY
@@ -482,7 +477,7 @@ impl<'src> Compiler<'src> {
                         instruction.set_c_address(*replacement);
                     }
                 }
-                Operation::TEST => {
+                Operation::TEST | Operation::CALL | Operation::RETURN => {
                     if let Some(replacement) = replacements.get(&b_address) {
                         instruction.set_b_address(*replacement);
                     }
@@ -2543,7 +2538,8 @@ impl<'src> Compiler<'src> {
         let call = Instruction::call(
             Destination::memory(destination_index),
             Address::new(function_register, AddressKind::FUNCTION_MEMORY),
-            Address::new(argument_list_index, return_type_as_address_kind),
+            argument_list_index,
+            return_type_as_address_kind,
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));

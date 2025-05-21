@@ -4,11 +4,11 @@ while count <= 15 {
 	let divides_by_3 = count % 3 == 0;
 	let divides_by_5 = count % 5 == 0;
 
-	if divides_by_3 && divides_by_5 {
+	if count % 3 == 0 && count % 5 == 0 {
 		write_line("fizzbuzz")
-	} else if divides_by_3 {
+	} else if count % 3 == 0 {
 		write_line("fizz")
-	} else if divides_by_5 {
+	} else if count % 5 == 0 {
 		write_line("buzz")
 	} else {
 	    write_line(to_string(count))

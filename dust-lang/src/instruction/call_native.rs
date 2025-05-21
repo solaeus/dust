@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{Instruction, NativeFunction, Operation};
+use crate::{Instruction, NativeFunction, Operation, r#type::TypeKind};
 
 use super::{Destination, InstructionFields};
 
@@ -10,8 +10,8 @@ pub struct CallNative {
     pub argument_list_index: u16,
 }
 
-impl From<Instruction> for CallNative {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for CallNative {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from(instruction.b_field());
         let argument_list_index = instruction.c_field();
@@ -55,7 +55,11 @@ impl Display for CallNative {
         } = self;
         let return_type = function.r#type().return_type.kind();
 
-        destination.display(f, return_type)?;
-        write!(f, " = {function}(ARGS_{argument_list_index})")
+        if return_type != TypeKind::None {
+            destination.display(f, return_type)?;
+            write!(f, " = ")?;
+        }
+
+        write!(f, "{function}(ARGS_{argument_list_index})")
     }
 }

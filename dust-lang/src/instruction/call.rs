@@ -7,19 +7,24 @@ use super::{Address, Destination, InstructionFields, address::AddressKind};
 pub struct Call {
     pub destination: Destination,
     pub function: Address,
-    pub argument_list_index_and_return_type: Address,
+    pub argument_list_index: u16,
+    pub return_type: AddressKind,
 }
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function_register = instruction.b_address();
-        let argument_list_index_and_return_type = instruction.c_address();
+        let Address {
+            index: argument_list_index,
+            kind: return_type,
+        } = instruction.c_address();
 
         Call {
             destination,
             function: function_register,
-            argument_list_index_and_return_type,
+            argument_list_index,
+            return_type,
         }
     }
 }
@@ -35,8 +40,8 @@ impl From<Call> for Instruction {
             index: b_field,
             kind: b_kind,
         } = call.function;
-        let c_field = call.argument_list_index_and_return_type.index;
-        let c_kind = call.argument_list_index_and_return_type.kind;
+        let c_field = call.argument_list_index;
+        let c_kind = call.return_type;
 
         InstructionFields {
             operation,
@@ -56,11 +61,8 @@ impl Display for Call {
         let Call {
             destination,
             function,
-            argument_list_index_and_return_type:
-                Address {
-                    index: argument_list_index,
-                    kind: return_type,
-                },
+            argument_list_index,
+            return_type,
         } = self;
 
         if return_type != &AddressKind::NONE {

@@ -10,8 +10,9 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    FunctionType, Instruction, Type,
-    panic_vm::{RegisterTable, Thread},
+    Arguments, FunctionType, Type,
+    instruction::Destination,
+    panic_vm::{CallFrame, Memory, RegisterTable},
 };
 
 macro_rules! define_native_function {
@@ -29,13 +30,14 @@ macro_rules! define_native_function {
         impl NativeFunction {
             pub fn call(
                 &self,
-                instruction: Instruction,
-                thread: &mut Thread,
-                registers: RegisterTable
-            ) -> RegisterTable {
+                destination: Destination,
+                arguments: &Arguments,
+                call: &mut CallFrame,
+                memory: &mut Memory,
+            ) {
                 match self {
                     $(
-                        NativeFunction::$name => $function(instruction, thread, registers),
+                        NativeFunction::$name => $function(destination, arguments, call, memory),
                     )*
                 }
             }
@@ -191,13 +193,13 @@ define_native_function! {
     // // Read
     // (Read, 48_u8, "read", true),
     // (ReadFile, 49_u8, "read_file", true),
-    (
-        ReadLine,
-        50,
-        "read_line",
-        FunctionType::new([], [], Type::String),
-        io::read_line
-    ),
+    // (
+    //     ReadLine,
+    //     50,
+    //     "read_line",
+    //     FunctionType::new([], [], Type::String),
+    //     io::read_line
+    // ),
     // (ReadTo, 51_u8, "read_to", false),
     // (ReadUntil, 52_u8, "read_until", true),
     // // Write

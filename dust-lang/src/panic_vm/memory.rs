@@ -1,9 +1,6 @@
-use std::array;
+use std::{array, sync::Arc};
 
-use crate::{
-    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
-    r#type::TypeKind, value::AbstractFunction,
-};
+use crate::{AbstractList, Chunk, ConcreteList, DustString, r#type::TypeKind};
 
 #[derive(Debug)]
 pub struct Memory {
@@ -14,7 +11,7 @@ pub struct Memory {
     pub integers: Vec<Slot<i64>>,
     pub strings: Vec<Slot<DustString>>,
     pub lists: Vec<Slot<AbstractList>>,
-    pub functions: Vec<Slot<AbstractFunction>>,
+    pub functions: Vec<Slot<Arc<Chunk>>>,
 
     pub registers: RegisterTable,
 }
@@ -30,7 +27,7 @@ impl Memory {
             strings: vec![Slot::new(DustString::new()); chunk.string_memory_length as usize],
             lists: vec![Slot::new(AbstractList::default()); chunk.list_memory_length as usize],
             functions: vec![
-                Slot::new(AbstractFunction::default());
+                Slot::new(Arc::new(Chunk::default()));
                 chunk.function_memory_length as usize
             ],
             registers: RegisterTable::new(),
@@ -153,7 +150,7 @@ pub struct RegisterTable<const LENGTH: usize = 3> {
     pub integers: [i64; LENGTH],
     pub strings: [DustString; LENGTH],
     pub lists: [AbstractList; LENGTH],
-    pub functions: [AbstractFunction; LENGTH],
+    pub functions: [Arc<Chunk>; LENGTH],
 }
 
 impl<const LENGTH: usize> RegisterTable<LENGTH> {
@@ -168,9 +165,7 @@ impl<const LENGTH: usize> RegisterTable<LENGTH> {
             lists: array::from_fn(|_| AbstractList {
                 item_pointers: Vec::with_capacity(0),
             }),
-            functions: [AbstractFunction {
-                prototype_address: Address::new(0, AddressKind(0)),
-            }; LENGTH],
+            functions: array::from_fn(|_| Arc::new(Chunk::default())),
         }
     }
 }

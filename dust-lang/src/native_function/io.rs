@@ -1,9 +1,9 @@
 use std::io::{Write, stdout};
 
 use crate::{
-    DustString, Instruction,
-    instruction::CallNative,
-    panic_vm::{RegisterTable, Thread},
+    Address, Arguments, Destination, DustString, Instruction,
+    instruction::{AddressKind, CallNative},
+    panic_vm::{CallFrame, Memory, RegisterTable, Thread},
     r#type::TypeKind,
 };
 
@@ -30,38 +30,24 @@ pub fn read_line(
     // registers
 }
 
-pub fn write_line(
-    instruction: Instruction,
-    thread: &mut Thread,
-    registers: RegisterTable,
-) -> RegisterTable {
-    todo!();
+pub fn write_line(_: Destination, arguments: &Arguments, _: &mut CallFrame, memory: &mut Memory) {
+    let mut stdout = stdout();
 
-    // let CallNative {
-    //     argument_list_index,
-    //     ..
-    // } = CallNative::from(instruction);
+    for address in &arguments.values {
+        match address.kind {
+            AddressKind::STRING_REGISTER => {
+                let string = &memory.registers.strings[address.index as usize];
 
-    // let arguments = thread
-    //     .current_call
-    //     .chunk
-    //     .arguments
-    //     .get(argument_list_index as usize)
-    //     .unwrap();
-    // let mut stdout = stdout();
+                stdout.write_all(string.as_bytes()).unwrap();
+            }
+            AddressKind::STRING_MEMORY => {
+                let string = memory.strings[address.index as usize].as_value();
 
-    // for address in &arguments.values {
-    //     match address.r#type() {
-    //         TypeKind::String => {
-    //             let string = thread.resolve_string(address, &registers);
+                stdout.write_all(string.as_bytes()).unwrap();
+            }
+            _ => unreachable!(),
+        }
+    }
 
-    //             stdout.write_all(string.as_bytes()).unwrap();
-    //         }
-    //         _ => unreachable!(),
-    //     }
-    // }
-
-    // stdout.write_all(b"\n").unwrap();
-
-    // registers
+    let _ = stdout.write_all(b"\n");
 }

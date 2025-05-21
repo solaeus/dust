@@ -367,10 +367,10 @@ impl Instruction {
             Operation::CALL => {
                 let Call {
                     destination,
-                    argument_list_index_and_return_type,
+                    return_type,
                     ..
                 } = Call::from(self);
-                let return_type = argument_list_index_and_return_type.kind.r#type();
+                let return_type = return_type.r#type();
 
                 destination.as_address(return_type)
             }
@@ -549,12 +549,14 @@ impl Instruction {
     pub fn call(
         destination: Destination,
         function: Address,
-        argument_list_index_and_return_type: Address,
+        argument_list_index: u16,
+        return_type: AddressKind,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function,
-            argument_list_index_and_return_type,
+            argument_list_index,
+            return_type,
         })
     }
 
@@ -641,7 +643,7 @@ impl Instruction {
             Operation::TEST => Test::from(self).to_string(),
             Operation::TEST_SET => TestSet::from(*self).to_string(),
             Operation::CALL => Call::from(self).to_string(),
-            Operation::CALL_NATIVE => CallNative::from(*self).to_string(),
+            Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
             Operation::NO_OP => String::new(),

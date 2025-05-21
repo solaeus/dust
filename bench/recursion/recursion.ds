@@ -1,9 +1,9 @@
 fn decrement(i: int) -> str {
     if i == 0 {
-        return "Done!";
+        "Done!";
+    } else {
+        decrement(i - 1);
     }
-
-    decrement(i - 1)
 }
 
 write_line(decrement(10_000))

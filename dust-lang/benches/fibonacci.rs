@@ -17,7 +17,7 @@ const SOURCE: &str = r"
     fib(25)
 ";
 
-fn addictive_addition(source: &str) {
+fn fibonacci(source: &str) {
     run(source).unwrap();
 }
 
@@ -25,9 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("fibonacci");
 
     group.measurement_time(Duration::from_secs(15));
-    group.bench_function("fibonacci", |b| {
-        b.iter(|| addictive_addition(black_box(SOURCE)))
-    });
+    group.bench_function("fibonacci", |b| b.iter(|| fibonacci(black_box(SOURCE))));
     group.finish();
 }
 

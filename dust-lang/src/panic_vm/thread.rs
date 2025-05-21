@@ -1,25 +1,26 @@
-use std::{mem::replace, thread::JoinHandle};
+use std::{mem::replace, sync::Arc, thread::JoinHandle};
 
 use tracing::{Level, info, span, warn};
 
 use crate::{
     AbstractList, Address, Chunk, ConcreteValue, DustString, Operation,
     instruction::{
-        Add, AddressKind, Call, Close, Divide, Equal, Jump, Less, LessEqual, LoadConstant,
-        LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Return, Subtract, Test,
+        Add, AddressKind, Call, CallNative, Close, Divide, Equal, Jump, Less, LessEqual,
+        LoadConstant, LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Return,
+        Subtract, Test,
     },
 };
 
 use super::{CallFrame, Memory};
 
-pub struct Thread<'a> {
-    chunk: &'a Chunk,
+pub struct Thread {
+    chunk: Arc<Chunk>,
 
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
-impl<'a> Thread<'a> {
-    pub fn new(chunk: &'a Chunk) -> Self {
+impl Thread {
+    pub fn new(chunk: Arc<Chunk>) -> Self {
         Thread {
             chunk,
             _spawned_threads: Vec::new(),
@@ -42,8 +43,8 @@ impl<'a> Thread<'a> {
         let mut call_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
         let mut memory_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
 
-        let mut call = CallFrame::new(self.chunk, Address::default());
-        let mut memory = Memory::new(call.chunk);
+        let mut call = CallFrame::new(Arc::clone(&self.chunk), Address::default());
+        let mut memory = Memory::new(&call.chunk);
 
         loop {
             let instructions = &call.chunk.instructions;
@@ -72,18 +73,218 @@ impl<'a> Thread<'a> {
                             let boolean =
                                 *memory.booleans.get(from.index as usize).unwrap().as_value();
 
-                            *memory
-                                .booleans
-                                .get_mut(to.index as usize)
-                                .unwrap()
-                                .as_value_mut() = boolean;
+                            if to.is_register {
+                                memory.registers.booleans[to.index as usize] = boolean;
+                            } else {
+                                *memory
+                                    .booleans
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = boolean;
+                            }
                         }
                         AddressKind::BOOLEAN_REGISTER => {
                             let boolean = memory.registers.booleans[from.index as usize];
 
-                            memory.registers.booleans[to.index as usize] = boolean;
+                            if to.is_register {
+                                memory.registers.booleans[to.index as usize] = boolean;
+                            } else {
+                                *memory
+                                    .booleans
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = boolean;
+                            }
                         }
-                        _ => unimplemented!(),
+                        AddressKind::BYTE_MEMORY => {
+                            let byte = *memory.bytes.get(from.index as usize).unwrap().as_value();
+
+                            if to.is_register {
+                                memory.registers.bytes[to.index as usize] = byte;
+                            } else {
+                                *memory
+                                    .bytes
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = byte;
+                            }
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let byte = memory.registers.bytes[from.index as usize];
+
+                            if to.is_register {
+                                memory.registers.bytes[to.index as usize] = byte;
+                            } else {
+                                *memory
+                                    .bytes
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = byte;
+                            }
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            let character = *memory
+                                .characters
+                                .get(from.index as usize)
+                                .unwrap()
+                                .as_value();
+
+                            if to.is_register {
+                                memory.registers.characters[to.index as usize] = character;
+                            } else {
+                                *memory
+                                    .characters
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = character;
+                            }
+                        }
+                        AddressKind::CHARACTER_REGISTER => {
+                            let character = memory.registers.characters[from.index as usize];
+
+                            if to.is_register {
+                                memory.registers.characters[to.index as usize] = character;
+                            } else {
+                                *memory
+                                    .characters
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = character;
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let float = *memory.floats.get(from.index as usize).unwrap().as_value();
+
+                            if to.is_register {
+                                memory.registers.floats[to.index as usize] = float;
+                            } else {
+                                *memory
+                                    .floats
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = float;
+                            }
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let float = memory.registers.floats[from.index as usize];
+
+                            if to.is_register {
+                                memory.registers.floats[to.index as usize] = float;
+                            } else {
+                                *memory
+                                    .floats
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = float;
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let integer =
+                                *memory.integers.get(from.index as usize).unwrap().as_value();
+
+                            if to.is_register {
+                                memory.registers.integers[to.index as usize] = integer;
+                            } else {
+                                *memory
+                                    .integers
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = integer;
+                            }
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let integer = memory.registers.integers[from.index as usize];
+
+                            if to.is_register {
+                                memory.registers.integers[to.index as usize] = integer;
+                            } else {
+                                *memory
+                                    .integers
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = integer;
+                            }
+                        }
+                        AddressKind::STRING_MEMORY => {
+                            let string = memory.strings[from.index as usize].as_value().clone();
+
+                            if to.is_register {
+                                memory.registers.strings[to.index as usize] = string;
+                            } else {
+                                *memory
+                                    .strings
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = string;
+                            }
+                        }
+                        AddressKind::STRING_REGISTER => {
+                            let string = memory.registers.strings[from.index as usize].clone();
+
+                            if to.is_register {
+                                memory.registers.strings[to.index as usize] = string;
+                            } else {
+                                *memory
+                                    .strings
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = string;
+                            }
+                        }
+                        AddressKind::LIST_MEMORY => {
+                            let list = memory.lists[from.index as usize].as_value().clone();
+
+                            if to.is_register {
+                                memory.registers.lists[to.index as usize] = list;
+                            } else {
+                                *memory
+                                    .lists
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = list;
+                            }
+                        }
+                        AddressKind::LIST_REGISTER => {
+                            let list = memory.registers.lists[from.index as usize].clone();
+
+                            if to.is_register {
+                                memory.registers.lists[to.index as usize] = list;
+                            } else {
+                                *memory
+                                    .lists
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = list;
+                            }
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let function = memory.functions[from.index as usize].clone_value();
+
+                            if to.is_register {
+                                memory.registers.functions[to.index as usize] = function;
+                            } else {
+                                *memory
+                                    .functions
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = function;
+                            }
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let function =
+                                Arc::clone(&memory.registers.functions[from.index as usize]);
+
+                            if to.is_register {
+                                memory.registers.functions[to.index as usize] = function;
+                            } else {
+                                *memory
+                                    .functions
+                                    .get_mut(to.index as usize)
+                                    .unwrap()
+                                    .as_value_mut() = function;
+                            }
+                        }
+                        _ => unreachable!(),
                     }
                 }
                 Operation::CLOSE => {
@@ -235,9 +436,11 @@ impl<'a> Thread<'a> {
 
                     let function = match prototype_address.kind {
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            call.chunk.prototypes[prototype_address.index as usize].as_function()
+                            let chunk = &call.chunk.prototypes[prototype_address.index as usize];
+
+                            Arc::clone(chunk)
                         }
-                        AddressKind::FUNCTION_SELF => call.chunk.as_function(),
+                        AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
                         _ => unreachable!(),
                     };
 
@@ -1713,10 +1916,10 @@ impl<'a> Thread<'a> {
                             let left_value = memory.functions[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -1724,13 +1927,13 @@ impl<'a> Thread<'a> {
                             left_value == right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = memory.registers.functions[left_index];
+                            let left_value = Arc::clone(&memory.registers.functions[left_index]);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -2041,10 +2244,10 @@ impl<'a> Thread<'a> {
                             let left_value = memory.functions[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -2052,13 +2255,13 @@ impl<'a> Thread<'a> {
                             left_value < right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = memory.registers.functions[left_index];
+                            let left_value = Arc::clone(&memory.registers.functions[left_index]);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -2368,10 +2571,10 @@ impl<'a> Thread<'a> {
                             let left_value = memory.functions[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -2379,13 +2582,13 @@ impl<'a> Thread<'a> {
                             left_value <= right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = memory.registers.functions[left_index];
+                            let left_value = Arc::clone(&memory.registers.functions[left_index]);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_MEMORY => {
-                                    memory.functions[right.index as usize].copy_value()
+                                    memory.functions[right.index as usize].clone_value()
                                 }
                                 AddressKind::FUNCTION_REGISTER => {
-                                    memory.registers.functions[right.index as usize]
+                                    Arc::clone(&memory.registers.functions[right.index as usize])
                                 }
                                 _ => unreachable!(),
                             };
@@ -2419,35 +2622,51 @@ impl<'a> Thread<'a> {
                     }
                 }
                 Operation::TEST_SET => todo!(),
+                Operation::CALL_NATIVE => {
+                    let CallNative {
+                        destination,
+                        function,
+                        argument_list_index,
+                    } = CallNative::from(&instruction);
+                    let arguments = &call.chunk.arguments[argument_list_index as usize].clone();
+
+                    function.call(destination, arguments, &mut call, &mut memory);
+                }
                 Operation::CALL => {
                     let Call {
                         destination,
                         function: function_address,
-                        argument_list_index_and_return_type:
-                            Address {
-                                index: argument_list_index,
-                                kind: return_type,
-                            },
+                        argument_list_index,
+                        return_type,
                     } = Call::from(&instruction);
-                    let prototype_address = match function_address.kind {
-                        AddressKind::FUNCTION_REGISTER => {
-                            memory.registers.functions[function_address.index as usize]
-                                .prototype_address
-                        }
-                        _ => unreachable!(),
-                    };
-                    let function = match prototype_address.kind {
+
+                    let function = match function_address.kind {
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            &call.chunk.prototypes[prototype_address.index as usize]
+                            Arc::clone(&call.chunk.prototypes[function_address.index as usize])
                         }
-                        AddressKind::FUNCTION_SELF => call.chunk,
+                        AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
+                        AddressKind::FUNCTION_REGISTER => {
+                            let abstract_function =
+                                &memory.registers.functions[function_address.index as usize];
+
+                            Arc::clone(abstract_function)
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let abstract_function =
+                                memory.functions[function_address.index as usize].as_value();
+
+                            Arc::clone(abstract_function)
+                        }
                         _ => unreachable!(),
                     };
+
                     let arguments_list = &call.chunk.arguments[argument_list_index as usize];
                     let parameters_list = function.locals.iter().map(|local| local.address);
-                    let new_call =
-                        CallFrame::new(function, destination.as_address(return_type.r#type()));
-                    let mut new_memory = Memory::new(function);
+                    let new_call = CallFrame::new(
+                        Arc::clone(&function),
+                        destination.as_address(return_type.r#type()),
+                    );
+                    let mut new_memory = Memory::new(&function);
 
                     for (argument, parameter) in arguments_list.values.iter().zip(parameters_list) {
                         match argument.kind {
@@ -2459,6 +2678,25 @@ impl<'a> Thread<'a> {
                                         new_memory.registers.integers[parameter.index as usize] =
                                             integer;
                                     }
+                                    AddressKind::INTEGER_MEMORY => {
+                                        *new_memory.integers[parameter.index as usize]
+                                            .as_value_mut() = integer;
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                            AddressKind::INTEGER_MEMORY => {
+                                let integer = *memory.integers[argument.index as usize].as_value();
+
+                                match parameter.kind {
+                                    AddressKind::INTEGER_REGISTER => {
+                                        new_memory.registers.integers[parameter.index as usize] =
+                                            integer;
+                                    }
+                                    AddressKind::INTEGER_MEMORY => {
+                                        *new_memory.integers[parameter.index as usize]
+                                            .as_value_mut() = integer;
+                                    }
                                     _ => unreachable!(),
                                 }
                             }
@@ -2469,7 +2707,6 @@ impl<'a> Thread<'a> {
                     memory_stack.push(replace(&mut memory, new_memory));
                     call_stack.push(replace(&mut call, new_call));
                 }
-                Operation::CALL_NATIVE => todo!(),
                 Operation::JUMP => {
                     let Jump {
                         offset,
@@ -2620,6 +2857,10 @@ impl<'a> Thread<'a> {
                                     new_memory.registers.integers
                                         [call.return_address.index as usize] = integer;
                                 }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *new_memory.integers[call.return_address.index as usize]
+                                        .as_value_mut() = integer;
+                                }
                                 _ => unreachable!(),
                             }
 
@@ -2680,15 +2921,13 @@ impl<'a> Thread<'a> {
                             (new_call, new_memory)
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let abstract_function =
-                                memory.registers.functions[return_value_address.index as usize];
-                            let function_prototype = call.chunk.prototypes
-                                [abstract_function.prototype_address.index as usize]
-                                .clone();
+                            let function = Arc::clone(
+                                &memory.registers.functions[return_value_address.index as usize],
+                            );
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Function(function_prototype));
+                                    return Some(ConcreteValue::Function(function));
                                 } else {
                                     return None;
                                 }
@@ -2701,7 +2940,7 @@ impl<'a> Thread<'a> {
                                 AddressKind::NONE => {}
                                 AddressKind::INTEGER_REGISTER => {
                                     new_memory.registers.functions
-                                        [call.return_address.index as usize] = abstract_function;
+                                        [call.return_address.index as usize] = function;
                                 }
                                 _ => unreachable!(),
                             }
