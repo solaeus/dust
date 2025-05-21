@@ -23,7 +23,7 @@ fn less_equal_booleans() {
                 false,
             ),
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::BOOLEAN_REGISTER),
                 Address::new(1, AddressKind::BOOLEAN_REGISTER),
             ),
@@ -53,7 +53,7 @@ fn less_equal_booleans() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -78,7 +78,7 @@ fn less_equal_bytes() {
                 false,
             ),
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
@@ -108,7 +108,7 @@ fn less_equal_bytes() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -121,7 +121,7 @@ fn less_equal_characters() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 Address::new(1, AddressKind::CHARACTER_CONSTANT),
             ),
@@ -150,7 +150,7 @@ fn less_equal_characters() {
         character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -163,7 +163,7 @@ fn less_equal_floats() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
@@ -192,7 +192,7 @@ fn less_equal_floats() {
         float_constants: vec![10.0, 3.0],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -205,7 +205,7 @@ fn less_equal_integers() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
@@ -228,7 +228,7 @@ fn less_equal_integers() {
         integer_constants: vec![10, 3],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -241,7 +241,7 @@ fn less_equal_strings() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 Address::new(1, AddressKind::STRING_CONSTANT),
             ),
@@ -270,7 +270,7 @@ fn less_equal_strings() {
         string_constants: vec![DustString::from("abc"), DustString::from("def")],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -325,7 +325,7 @@ fn less_equal_lists() {
                 false,
             ),
             Instruction::less_equal(
-                false,
+                true,
                 Address::new(0, AddressKind::LIST_REGISTER),
                 Address::new(1, AddressKind::LIST_REGISTER),
             ),
@@ -362,7 +362,7 @@ fn less_equal_lists() {
         integer_constants: vec![1, 2, 3, 4, 5, 6],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

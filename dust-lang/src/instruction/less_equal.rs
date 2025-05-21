@@ -25,6 +25,7 @@ impl From<&Instruction> for LessEqual {
 impl From<LessEqual> for Instruction {
     fn from(less_equal: LessEqual) -> Self {
         let operation = Operation::LESS_EQUAL;
+        let a_field = less_equal.comparator as u16;
         let Address {
             index: b_field,
             kind: b_kind,
@@ -36,6 +37,7 @@ impl From<LessEqual> for Instruction {
 
         InstructionFields {
             operation,
+            a_field,
             b_field,
             b_kind,
             c_field,
