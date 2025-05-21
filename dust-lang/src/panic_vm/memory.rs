@@ -1,7 +1,7 @@
 use std::array;
 
 use crate::{
-    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
+    AbstractList, Address, Chunk, ConcreteList, DustString, Type, instruction::AddressKind,
     r#type::TypeKind, value::AbstractFunction,
 };
 
@@ -55,6 +55,7 @@ impl Memory {
                             .map(|slot| slot.copy_value())
                     })
                     .collect::<Vec<_>>();
+
                 ConcreteList::Boolean(list)
             }
             TypeKind::Byte => {
@@ -67,9 +68,78 @@ impl Memory {
                             .map(|slot| slot.copy_value())
                     })
                     .collect::<Vec<_>>();
+
                 ConcreteList::Byte(list)
             }
-            _ => todo!(),
+            TypeKind::Character => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.characters
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.copy_value())
+                    })
+                    .collect::<Vec<_>>();
+
+                ConcreteList::Character(list)
+            }
+            TypeKind::Float => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.floats
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.copy_value())
+                    })
+                    .collect::<Vec<_>>();
+
+                ConcreteList::Float(list)
+            }
+            TypeKind::Integer => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.integers
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.copy_value())
+                    })
+                    .collect::<Vec<_>>();
+
+                ConcreteList::Integer(list)
+            }
+            TypeKind::String => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.strings
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.clone_value())
+                    })
+                    .collect::<Vec<_>>();
+
+                ConcreteList::String(list)
+            }
+            TypeKind::List => {
+                let lists = abstract_list
+                    .item_pointers
+                    .iter()
+                    .map(|pointer| {
+                        let abstract_list = self.lists[pointer.index as usize].as_value();
+
+                        self.make_list_concrete(abstract_list)
+                    })
+                    .collect::<Vec<_>>();
+
+                ConcreteList::List {
+                    list_item_type: lists.first().unwrap().r#type(),
+                    list_items: lists,
+                }
+            }
+            _ => unreachable!(),
         }
     }
 }

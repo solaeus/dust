@@ -5,8 +5,8 @@ use tracing::{Level, info, span, warn};
 use crate::{
     AbstractList, Address, Chunk, ConcreteList, ConcreteValue, Operation,
     instruction::{
-        Add, AddressKind, Call, Jump, Less, LoadConstant, LoadEncoded, LoadFunction, LoadList,
-        Move, Return,
+        Add, AddressKind, Call, Close, Jump, Less, LoadConstant, LoadEncoded, LoadFunction,
+        LoadList, Move, Return,
     },
 };
 
@@ -86,7 +86,53 @@ impl<'a> Thread<'a> {
                         _ => unimplemented!(),
                     }
                 }
-                Operation::CLOSE => todo!(),
+                Operation::CLOSE => {
+                    let Close { from, to } = Close::from(&instruction);
+
+                    match from.kind {
+                        AddressKind::BOOLEAN_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.booleans[i].close();
+                            }
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.bytes[i].close();
+                            }
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.characters[i].close();
+                            }
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.floats[i].close();
+                            }
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.integers[i].close();
+                            }
+                        }
+                        AddressKind::STRING_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.strings[i].close();
+                            }
+                        }
+                        AddressKind::LIST_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.lists[i].close();
+                            }
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            for i in from.index as usize..=to.index as usize {
+                                memory.functions[i].close();
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 Operation::LOAD_ENCODED => {
                     let LoadEncoded {
                         destination,
@@ -215,12 +261,60 @@ impl<'a> Thread<'a> {
                     };
 
                     for i in start.index as usize..=end as usize {
+                        match start.kind {
+                            AddressKind::BOOLEAN_MEMORY => {
+                                if memory.booleans[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::BYTE_MEMORY => {
+                                if memory.bytes[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::CHARACTER_MEMORY => {
+                                if memory.characters[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::FLOAT_MEMORY => {
+                                if memory.floats[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::INTEGER_MEMORY => {
+                                if memory.integers[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::STRING_MEMORY => {
+                                if memory.strings[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::LIST_MEMORY => {
+                                if memory.lists[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            AddressKind::FUNCTION_MEMORY => {
+                                if memory.functions[i].is_closed() {
+                                    continue;
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+
                         let pointer = Address::new(i as u16, start.kind);
 
                         abstract_list.item_pointers.push(pointer);
                     }
 
-                    memory.registers.lists[destination.index as usize] = abstract_list;
+                    if destination.is_register {
+                        memory.registers.lists[destination.index as usize] = abstract_list;
+                    } else {
+                        *memory.lists[destination.index as usize].as_value_mut() = abstract_list;
+                    }
 
                     if jump_next {
                         call.ip += 1;

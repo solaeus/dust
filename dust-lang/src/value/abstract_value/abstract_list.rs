@@ -73,63 +73,6 @@ impl AbstractList {
 
         write!(f, "]")
     }
-
-    pub fn to_concrete(&self, thread: &Thread, registers: &RegisterTable) -> ConcreteList {
-        todo!()
-
-        // match self.item_type {
-        //     TypeKind::Boolean => {
-        //         let mut boolean_list = Vec::with_capacity(self.item_pointers.len());
-
-        //         for pointer in &self.item_pointers {
-        //             let boolean = thread.resolve_boolean(pointer, registers);
-
-        //             boolean_list.push(boolean);
-        //         }
-
-        //         ConcreteList::Boolean(boolean_list)
-        //     }
-        //     TypeKind::Byte => {
-        //         let mut byte_list = Vec::with_capacity(self.item_pointers.len());
-
-        //         for pointer in &self.item_pointers {
-        //             let byte = if pointer.is_register() {
-        //                 *registers.bytes.get(pointer.index)
-        //             } else {
-        //                 *thread
-        //                     .current_memory
-        //                     .bytes
-        //                     .get(pointer.index as usize)
-        //                     .unwrap()
-        //                     .as_value()
-        //             };
-
-        //             byte_list.push(byte);
-        //         }
-
-        //         ConcreteList::Byte(byte_list)
-        //     }
-        //     TypeKind::Character => {
-        //         todo!()
-        //     }
-        //     TypeKind::Float => {
-        //         todo!()
-        //     }
-        //     TypeKind::Integer => {
-        //         todo!()
-        //     }
-        //     TypeKind::String => {
-        //         todo!()
-        //     }
-        //     TypeKind::List => {
-        //         todo!()
-        //     }
-        //     TypeKind::Function => {
-        //         todo!()
-        //     }
-        //     _ => todo!(),
-        // }
-    }
 }
 
 impl Default for AbstractList {

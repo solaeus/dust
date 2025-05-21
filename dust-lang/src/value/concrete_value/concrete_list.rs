@@ -32,6 +32,18 @@ pub enum ConcreteList {
 }
 
 impl ConcreteList {
+    pub fn of_lists(list_items: Vec<ConcreteList>) -> Self {
+        let list_item_type = list_items
+            .first()
+            .map(|list| list.r#type())
+            .unwrap_or(Type::None);
+
+        ConcreteList::List {
+            list_items,
+            list_item_type,
+        }
+    }
+
     pub fn item_type(&self) -> Type {
         match self {
             ConcreteList::Boolean(_) => Type::Boolean,
