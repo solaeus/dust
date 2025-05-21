@@ -4,7 +4,7 @@ mod concrete_value;
 
 pub use abstract_value::{AbstractFunction, AbstractList, AbstractValue};
 use concrete_value::ConcreteFunction;
-pub use concrete_value::ConcreteValue;
+pub use concrete_value::{ConcreteList, ConcreteValue};
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 

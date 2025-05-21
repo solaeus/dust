@@ -53,7 +53,7 @@ pub use crate::native_function::NativeFunction;
 pub use crate::panic_vm::{Vm, run};
 pub use crate::token::{Token, TokenKind, TokenOwned};
 pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
-pub use crate::value::{AbstractList, ConcreteValue, DustString, Value};
+pub use crate::value::{AbstractList, ConcreteList, ConcreteValue, DustString, Value};
 
 use std::fmt::Display;
 

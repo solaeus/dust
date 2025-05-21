@@ -3,9 +3,10 @@ use std::{mem::replace, thread::JoinHandle};
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    Address, Chunk, ConcreteValue, Operation,
+    AbstractList, Address, Chunk, ConcreteList, ConcreteValue, Operation,
     instruction::{
-        Add, AddressKind, Call, Jump, Less, LoadConstant, LoadEncoded, LoadFunction, Move, Return,
+        Add, AddressKind, Call, Jump, Less, LoadConstant, LoadEncoded, LoadFunction, LoadList,
+        Move, Return,
     },
 };
 
@@ -202,7 +203,29 @@ impl<'a> Thread<'a> {
                         call.ip += 1;
                     }
                 }
-                Operation::LOAD_LIST => todo!(),
+                Operation::LOAD_LIST => {
+                    let LoadList {
+                        destination,
+                        start,
+                        end,
+                        jump_next,
+                    } = LoadList::from(&instruction);
+                    let mut abstract_list = AbstractList {
+                        item_pointers: Vec::with_capacity(end as usize - start.index as usize),
+                    };
+
+                    for i in start.index as usize..=end as usize {
+                        let pointer = Address::new(i as u16, start.kind);
+
+                        abstract_list.item_pointers.push(pointer);
+                    }
+
+                    memory.registers.lists[destination.index as usize] = abstract_list;
+
+                    if jump_next {
+                        call.ip += 1;
+                    }
+                }
                 Operation::ADD => {
                     let Add {
                         destination,
@@ -557,6 +580,33 @@ impl<'a> Thread<'a> {
                                 AddressKind::INTEGER_REGISTER => {
                                     new_memory.registers.integers
                                         [call.return_address.index as usize] = integer;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::LIST_REGISTER => {
+                            let abstract_list =
+                                memory.registers.lists[return_value_address.index as usize].clone();
+                            let concrete_list = memory.make_list_concrete(&abstract_list);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::List(concrete_list));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.lists
+                                        [call.return_address.index as usize] = abstract_list;
                                 }
                                 _ => unreachable!(),
                             }

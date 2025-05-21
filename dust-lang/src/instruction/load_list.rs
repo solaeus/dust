@@ -11,8 +11,8 @@ pub struct LoadList {
     pub jump_next: bool,
 }
 
-impl From<Instruction> for LoadList {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for LoadList {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let start_register = instruction.b_address();
         let (end_register, jump_next) = {

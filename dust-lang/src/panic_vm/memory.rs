@@ -1,7 +1,8 @@
 use std::array;
 
 use crate::{
-    AbstractList, Address, Chunk, DustString, instruction::AddressKind, value::AbstractFunction,
+    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
+    r#type::TypeKind, value::AbstractFunction,
 };
 
 #[derive(Debug)]
@@ -33,6 +34,42 @@ impl Memory {
                 chunk.function_memory_length as usize
             ],
             registers: RegisterTable::new(),
+        }
+    }
+
+    pub fn make_list_concrete(&self, abstract_list: &AbstractList) -> ConcreteList {
+        let item_type = abstract_list
+            .item_pointers
+            .first()
+            .map(|pointer| pointer.r#type())
+            .unwrap_or(TypeKind::None);
+
+        match item_type {
+            TypeKind::Boolean => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.booleans
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.copy_value())
+                    })
+                    .collect::<Vec<_>>();
+                ConcreteList::Boolean(list)
+            }
+            TypeKind::Byte => {
+                let list = abstract_list
+                    .item_pointers
+                    .iter()
+                    .filter_map(|pointer| {
+                        self.bytes
+                            .get(pointer.index as usize)
+                            .map(|slot| slot.copy_value())
+                    })
+                    .collect::<Vec<_>>();
+                ConcreteList::Byte(list)
+            }
+            _ => todo!(),
         }
     }
 }

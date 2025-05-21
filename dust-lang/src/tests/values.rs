@@ -1,5 +1,6 @@
 use crate::{
-    Address, Chunk, ConcreteValue, DustString, FunctionType, Instruction, Span, Type, compile,
+    Address, Chunk, ConcreteList, ConcreteValue, DustString, FunctionType, Instruction, Span, Type,
+    compile,
     instruction::{AddressKind, Destination},
     run,
 };
@@ -128,9 +129,21 @@ fn load_float() {
 fn load_integer() {
     let source = "42";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new([], [], Type::Integer),
+        instructions: vec![
+            Instruction::load_constant(
+                Destination::register(0),
+                Address::new(0, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::INTEGER_REGISTER)),
+        ],
+        positions: vec![Span(0, 2), Span(2, 2)],
+        integer_constants: vec![42],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Integer(42));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -140,9 +153,21 @@ fn load_integer() {
 fn load_string() {
     let source = "\"Hello, World!\"";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new([], [], Type::String),
+        instructions: vec![
+            Instruction::load_constant(
+                Destination::register(0),
+                Address::new(0, AddressKind::STRING_CONSTANT),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::STRING_REGISTER)),
+        ],
+        positions: vec![Span(0, 15), Span(15, 15)],
+        string_constants: vec![DustString::from("Hello, World!")],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::String(DustString::from("Hello, World!")));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -152,9 +177,35 @@ fn load_string() {
 fn load_boolean_list() {
     let source = "[true, false]";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new([], [], Type::List(Box::new(Type::Boolean))),
+        instructions: vec![
+            Instruction::load_encoded(
+                Destination::memory(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::load_encoded(
+                Destination::memory(1),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::load_list(
+                Destination::register(0),
+                Address::new(0, AddressKind::BOOLEAN_MEMORY),
+                1,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::LIST_REGISTER)),
+        ],
+        positions: vec![Span(1, 5), Span(7, 12), Span(0, 13), Span(13, 13)],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::List(ConcreteList::Boolean(vec![
+        true, false,
+    ])));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

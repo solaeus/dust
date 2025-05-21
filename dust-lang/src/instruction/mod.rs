@@ -254,6 +254,7 @@ impl Instruction {
     pub fn operand_type(&self) -> TypeKind {
         match self.operation() {
             Operation::NO_OP | Operation::CLOSE => TypeKind::None,
+            Operation::LOAD_LIST => TypeKind::List,
             _ => self.b_kind().r#type(),
         }
     }
@@ -283,7 +284,7 @@ impl Instruction {
                 constant
             }
             Operation::LOAD_LIST => {
-                let LoadList { destination, .. } = LoadList::from(*self);
+                let LoadList { destination, .. } = LoadList::from(self);
                 let kind = if destination.is_register {
                     AddressKind::LIST_REGISTER
                 } else {
@@ -616,7 +617,7 @@ impl Instruction {
             Operation::LOAD_ENCODED => LoadEncoded::from(self).to_string(),
             Operation::LOAD_CONSTANT => LoadConstant::from(self).to_string(),
             Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
-            Operation::LOAD_LIST => LoadList::from(*self).to_string(),
+            Operation::LOAD_LIST => LoadList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(*self).to_string(),
             Operation::MULTIPLY => Multiply::from(*self).to_string(),
