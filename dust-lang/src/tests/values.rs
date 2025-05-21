@@ -454,7 +454,7 @@ fn load_nested_list() {
             ConcreteList::Integer(vec![1, 2]),
             ConcreteList::Integer(vec![3, 4]),
         ],
-        list_item_type: Type::List(Box::new(Type::List(Box::new(Type::Integer)))),
+        list_item_type: Type::List(Box::new(Type::Integer)),
     }));
 
     assert_eq!(chunk, compile(source).unwrap());
@@ -767,9 +767,64 @@ fn load_string_in_function() {
 fn load_list_in_function() {
     let source = "fn () { [1, 2, 3] }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(
+                vec![],
+                vec![],
+                Type::List(Box::new(Type::Integer)),
+            ))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 19), Span(19, 19)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new([], [], Type::List(Box::new(Type::Integer))),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::memory(0),
+                    Address::new(0, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(1),
+                    Address::new(1, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(2),
+                    Address::new(2, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::INTEGER_MEMORY),
+                    2,
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::LIST_REGISTER)),
+            ],
+            positions: vec![
+                Span(9, 10),
+                Span(12, 13),
+                Span(15, 16),
+                Span(8, 17),
+                Span(18, 19),
+            ],
+            integer_constants: vec![1, 2, 3],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -779,9 +834,38 @@ fn load_list_in_function() {
 fn load_byte_in_function() {
     let source = "fn () { 0x2a }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Byte))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 14), Span(14, 14)], // Placeholder positions
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(vec![], vec![], Type::Byte),
+            instructions: vec![
+                Instruction::load_encoded(
+                    Destination::register(0),
+                    42,
+                    AddressKind::BYTE_MEMORY,
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::BYTE_REGISTER)),
+            ],
+            positions: vec![Span(8, 12), Span(13, 14)],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -791,9 +875,38 @@ fn load_byte_in_function() {
 fn load_character_in_function() {
     let source = "fn () { 'a' }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Character))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 13), Span(13, 13)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(vec![], vec![], Type::Character),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::CHARACTER_CONSTANT),
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::CHARACTER_REGISTER)),
+            ],
+            positions: vec![Span(8, 11), Span(12, 13)],
+            character_constants: vec!['a'],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -803,9 +916,38 @@ fn load_character_in_function() {
 fn load_float_in_function() {
     let source = "fn () { 42.42 }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Float))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 15), Span(15, 15)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(vec![], vec![], Type::Float),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::FLOAT_CONSTANT),
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::FLOAT_REGISTER)),
+            ],
+            positions: vec![Span(8, 13), Span(14, 15)],
+            float_constants: vec![42.42],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -815,9 +957,88 @@ fn load_float_in_function() {
 fn load_nested_list_in_function() {
     let source = "fn () { [[1, 2], [3, 4]] }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(
+                vec![],
+                vec![],
+                Type::List(Box::new(Type::List(Box::new(Type::Integer)))),
+            ))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 26), Span(26, 26)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(
+                vec![],
+                vec![],
+                Type::List(Box::new(Type::List(Box::new(Type::Integer)))),
+            ),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::memory(0),
+                    Address::new(0, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(1),
+                    Address::new(1, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(0),
+                    Address::new(0, AddressKind::INTEGER_MEMORY),
+                    1,
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(2),
+                    Address::new(2, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(3),
+                    Address::new(3, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(1),
+                    Address::new(2, AddressKind::INTEGER_MEMORY),
+                    3,
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::LIST_MEMORY),
+                    1,
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::LIST_REGISTER)),
+            ],
+            positions: vec![
+                Span(10, 11),
+                Span(13, 14),
+                Span(9, 15),
+                Span(18, 19),
+                Span(21, 22),
+                Span(17, 23),
+                Span(8, 24),
+                Span(25, 26),
+            ],
+            integer_constants: vec![1, 2, 3, 4],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -827,9 +1048,154 @@ fn load_nested_list_in_function() {
 fn load_deeply_nested_list_in_function() {
     let source = "fn () { [[[1, 2], [3, 4]], [[5, 6], [7, 8]]] }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(
+                vec![],
+                vec![],
+                Type::List(Box::new(Type::List(Box::new(Type::List(Box::new(
+                    Type::Integer,
+                )))))),
+            ))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 46), Span(46, 46)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(
+                [],
+                [],
+                Type::List(Box::new(Type::List(Box::new(Type::List(Box::new(
+                    Type::Integer,
+                )))))),
+            ),
+            instructions: vec![
+                Instruction::load_constant(
+                    Destination::memory(0),
+                    Address::new(0, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(1),
+                    Address::new(1, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(0),
+                    Address::new(0, AddressKind::INTEGER_MEMORY),
+                    1,
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(2),
+                    Address::new(2, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(3),
+                    Address::new(3, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(1),
+                    Address::new(2, AddressKind::INTEGER_MEMORY),
+                    3,
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(2),
+                    Address::new(0, AddressKind::LIST_MEMORY),
+                    1,
+                    false,
+                ),
+                Instruction::close(
+                    Address::new(0, AddressKind::LIST_MEMORY),
+                    Address::new(1, AddressKind::LIST_MEMORY),
+                ),
+                Instruction::load_constant(
+                    Destination::memory(4),
+                    Address::new(4, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(5),
+                    Address::new(5, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(3),
+                    Address::new(4, AddressKind::INTEGER_MEMORY),
+                    5,
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(6),
+                    Address::new(6, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_constant(
+                    Destination::memory(7),
+                    Address::new(7, AddressKind::INTEGER_CONSTANT),
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(4),
+                    Address::new(6, AddressKind::INTEGER_MEMORY),
+                    7,
+                    false,
+                ),
+                Instruction::load_list(
+                    Destination::memory(5),
+                    Address::new(3, AddressKind::LIST_MEMORY),
+                    4,
+                    false,
+                ),
+                Instruction::close(
+                    Address::new(3, AddressKind::LIST_MEMORY),
+                    Address::new(4, AddressKind::LIST_MEMORY),
+                ),
+                Instruction::load_list(
+                    Destination::register(0),
+                    Address::new(2, AddressKind::LIST_MEMORY),
+                    5,
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::LIST_REGISTER)),
+            ],
+            positions: vec![
+                Span(11, 12),
+                Span(14, 15),
+                Span(10, 16),
+                Span(19, 20),
+                Span(22, 23),
+                Span(18, 24),
+                Span(9, 25),
+                Span(27, 28),
+                Span(29, 30),
+                Span(32, 33),
+                Span(28, 34),
+                Span(37, 38),
+                Span(40, 41),
+                Span(36, 42),
+                Span(27, 43),
+                Span(43, 44),
+                Span(8, 44),
+                Span(45, 46),
+            ],
+            integer_constants: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -837,11 +1203,61 @@ fn load_deeply_nested_list_in_function() {
 
 #[test]
 fn load_function_in_function() {
-    let source = "fn outer() { fn inner() -> int { 42 } }";
+    let source = "fn () { fn () -> int { 42 } }";
     let chunk = Chunk {
+        name: Some(DustString::from("anonymous")),
+        r#type: FunctionType::new(
+            [],
+            [],
+            Type::Function(Box::new(FunctionType::new(
+                vec![],
+                vec![],
+                Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Integer))),
+            ))),
+        ),
+        instructions: vec![
+            Instruction::load_function(
+                Destination::register(0),
+                Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+        ],
+        positions: vec![Span(0, 29), Span(29, 29)],
+        prototypes: vec![Chunk {
+            r#type: FunctionType::new(
+                [],
+                [],
+                Type::Function(Box::new(FunctionType::new(vec![], vec![], Type::Integer))),
+            ),
+            instructions: vec![
+                Instruction::load_function(
+                    Destination::register(0),
+                    Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
+                    false,
+                ),
+                Instruction::r#return(true, Address::new(0, AddressKind::FUNCTION_REGISTER)),
+            ],
+            positions: vec![Span(8, 27), Span(28, 29)],
+            prototypes: vec![Chunk {
+                r#type: FunctionType::new(vec![], vec![], Type::Integer),
+                instructions: vec![
+                    Instruction::load_constant(
+                        Destination::register(0),
+                        Address::new(0, AddressKind::INTEGER_CONSTANT),
+                        false,
+                    ),
+                    Instruction::r#return(true, Address::new(0, AddressKind::INTEGER_REGISTER)),
+                ],
+                positions: vec![Span(23, 25), Span(26, 27)],
+                integer_constants: vec![42],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
         ..Default::default()
     };
-    let return_value = Some(ConcreteValue::Boolean(true));
+    let return_value = Some(ConcreteValue::Function(chunk.prototypes[0].clone()));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
