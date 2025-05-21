@@ -5,8 +5,8 @@ use crate::{
 };
 
 #[test]
-fn less_booleans() {
-    let source = "true < false";
+fn greater_booleans() {
+    let source = "true > false";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
@@ -22,8 +22,8 @@ fn less_booleans() {
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::BOOLEAN_REGISTER),
                 Address::new(1, AddressKind::BOOLEAN_REGISTER),
             ),
@@ -60,8 +60,8 @@ fn less_booleans() {
 }
 
 #[test]
-fn less_bytes() {
-    let source = "0x0A < 0x03";
+fn greater_bytes() {
+    let source = "0x0A > 0x03";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
@@ -77,8 +77,8 @@ fn less_bytes() {
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
@@ -115,13 +115,13 @@ fn less_bytes() {
 }
 
 #[test]
-fn less_characters() {
-    let source = "'a' < 'b'";
+fn greater_characters() {
+    let source = "'a' > 'b'";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 Address::new(1, AddressKind::CHARACTER_CONSTANT),
             ),
@@ -151,13 +151,13 @@ fn less_characters() {
 }
 
 #[test]
-fn less_floats() {
-    let source = "10.0 < 3.0";
+fn greater_floats() {
+    let source = "10.0 > 3.0";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
@@ -193,13 +193,13 @@ fn less_floats() {
 }
 
 #[test]
-fn less_integers() {
-    let source = "10 < 3";
+fn greater_integers() {
+    let source = "10 > 3";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
@@ -229,13 +229,13 @@ fn less_integers() {
 }
 
 #[test]
-fn less_strings() {
-    let source = "\"abc\" < \"def\"";
+fn greater_strings() {
+    let source = "\"abc\" > \"def\"";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 Address::new(1, AddressKind::STRING_CONSTANT),
             ),
@@ -271,8 +271,8 @@ fn less_strings() {
 }
 
 #[test]
-fn less_lists() {
-    let source = "[1, 2, 3] < [4, 5, 6]";
+fn greater_lists() {
+    let source = "[1, 2, 3] > [4, 5, 6]";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
@@ -318,8 +318,8 @@ fn less_lists() {
                 5,
                 false,
             ),
-            Instruction::less(
-                true,
+            Instruction::less_equal(
+                false,
                 Address::new(0, AddressKind::LIST_REGISTER),
                 Address::new(1, AddressKind::LIST_REGISTER),
             ),

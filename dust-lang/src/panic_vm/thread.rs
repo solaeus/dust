@@ -819,6 +819,7 @@ impl<'a> Thread<'a> {
                     } = Less::from(&instruction);
 
                     let left_index = left.index as usize;
+                    #[expect(clippy::bool_comparison)]
                     let is_less_than = match left.kind {
                         AddressKind::BOOLEAN_MEMORY => {
                             let left_value = *memory.booleans[left_index].as_value();
