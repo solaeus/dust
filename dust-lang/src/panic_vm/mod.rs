@@ -14,13 +14,13 @@ use std::thread::Builder;
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{Chunk, ConcreteValue, DustError, compile};
+use crate::{Chunk, ConcreteValue, DustError, Value, compile};
 
-pub fn run(source: &str) -> Result<Option<ConcreteValue>, DustError> {
+pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
     let vm = Vm::new(chunk);
 
-    Ok(vm.run())
+    Ok(vm.run().map(Value::Concrete))
 }
 
 pub struct Vm {

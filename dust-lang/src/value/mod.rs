@@ -2,6 +2,8 @@
 mod abstract_value;
 mod concrete_value;
 
+use std::sync::Arc;
+
 pub use abstract_value::{AbstractFunction, AbstractList, AbstractValue};
 pub use concrete_value::{ConcreteList, ConcreteValue};
 use serde::{Deserialize, Serialize};
@@ -41,6 +43,14 @@ impl Value {
 
     pub fn string(string: impl Into<DustString>) -> Self {
         Value::Concrete(ConcreteValue::String(string.into()))
+    }
+
+    pub fn list(list: ConcreteList) -> Self {
+        Value::Concrete(ConcreteValue::List(list))
+    }
+
+    pub fn function(function: Arc<Chunk>) -> Self {
+        Value::Concrete(ConcreteValue::Function(function))
     }
 
     pub fn as_concrete(&self) -> Option<&ConcreteValue> {

@@ -5,7 +5,7 @@ use tracing::{Level, info, span, warn};
 use crate::{
     AbstractList, Address, Chunk, ConcreteList, ConcreteValue, Operation,
     instruction::{
-        Add, AddressKind, Call, Close, Jump, Less, LoadConstant, LoadEncoded, LoadFunction,
+        Add, AddressKind, Call, Close, Equal, Jump, Less, LoadConstant, LoadEncoded, LoadFunction,
         LoadList, Move, Multiply, Return,
     },
 };
@@ -36,7 +36,7 @@ impl<'a> Thread<'a> {
                 .name
                 .as_ref()
                 .map(|name| name.as_str())
-                .unwrap_or_else(|| "anonymous")
+                .unwrap_or_default()
         );
 
         let mut call_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
@@ -500,7 +500,127 @@ impl<'a> Thread<'a> {
                 }
                 Operation::DIVIDE => todo!(),
                 Operation::MODULO => todo!(),
-                Operation::EQUAL => todo!(),
+                Operation::EQUAL => {
+                    let Equal {
+                        comparator,
+                        left,
+                        right,
+                    } = Equal::from(&instruction);
+
+                    let left_index = left.index as usize;
+                    let is_equal = match left.kind {
+                        AddressKind::BOOLEAN_MEMORY => {
+                            assert!(left_index < memory.booleans.len());
+
+                            let left_value = *memory.booleans[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        AddressKind::BOOLEAN_REGISTER => {
+                            assert!(left_index < memory.registers.booleans.len());
+
+                            let left_value = memory.registers.booleans[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            assert!(left_index < memory.bytes.len());
+
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            assert!(left_index < memory.registers.bytes.len());
+
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            assert!(left_index < memory.integers.len());
+
+                            let left_value = *memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            assert!(left_index < memory.registers.integers.len());
+
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    assert!(right_index < self.chunk.integer_constants.len());
+
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value == right_value
+                        }
+                        _ => todo!(),
+                    };
+
+                    if is_equal == comparator {
+                        call.ip += 1;
+                    }
+                }
                 Operation::LESS => {
                     let Less {
                         comparator,

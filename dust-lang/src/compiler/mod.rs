@@ -34,6 +34,7 @@ use type_checks::{check_math_type, check_math_types};
 use std::{
     collections::{HashMap, HashSet},
     mem::replace,
+    sync::Arc,
 };
 
 use crate::{
@@ -57,13 +58,8 @@ use crate::{
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler = Compiler::new(
-        lexer,
-        CompileMode::Main {
-            name: DustString::from("anonymous".to_string()),
-        },
-    )
-    .map_err(|error| DustError::compile(error, source))?;
+    let mut compiler = Compiler::new(lexer, CompileMode::Main { name: None })
+        .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -114,7 +110,7 @@ pub struct Compiler<'src> {
 
     /// Functions that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
     /// is called.
-    prototypes: Vec<Chunk>,
+    prototypes: Vec<Arc<Chunk>>,
 
     /// Block-local variables and their types. The locals are assigned to the chunk when
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
@@ -382,6 +378,10 @@ impl<'src> Compiler<'src> {
                     increment_rank(b_address);
                     increment_rank(c_address);
                 }
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
+                    increment_rank(b_address);
+                    increment_rank(c_address);
+                }
                 Operation::RETURN => {
                     increment_rank(b_address);
                 }
@@ -435,34 +435,29 @@ impl<'src> Compiler<'src> {
         );
 
         for (instruction, _, _) in &mut self.instructions {
+            let destination_address = instruction.destination_as_address();
+            let b_address = instruction.b_address();
+            let c_address = instruction.c_address();
+
             match instruction.operation() {
-                Operation::CLOSE => {}
-                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT => {
-                    let destination_address = instruction.destination_as_address();
-
-                    if let Some(replacement) = replacements.get(&destination_address) {
-                        instruction.set_destination(*replacement);
-                    }
-                }
-                Operation::LOAD_LIST => {
-                    let destination_address = instruction.destination_as_address();
-
+                Operation::LOAD_ENCODED
+                | Operation::LOAD_CONSTANT
+                | Operation::LOAD_LIST
+                | Operation::LOAD_FUNCTION => {
                     if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
                 }
                 Operation::RETURN => {
-                    let b_address = instruction.b_address();
-
                     if let Some(replacement) = replacements.get(&b_address) {
                         instruction.set_b_address(*replacement);
                     }
                 }
-                _ => {
-                    let destination_address = instruction.destination_as_address();
-                    let b_address = instruction.b_address();
-                    let c_address = instruction.c_address();
-
+                Operation::ADD
+                | Operation::SUBTRACT
+                | Operation::MULTIPLY
+                | Operation::DIVIDE
+                | Operation::MODULO => {
                     if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
@@ -475,6 +470,16 @@ impl<'src> Compiler<'src> {
                         instruction.set_c_address(*replacement);
                     }
                 }
+                Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        instruction.set_b_address(*replacement);
+                    }
+
+                    if let Some(replacement) = replacements.get(&c_address) {
+                        instruction.set_c_address(*replacement);
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -2420,7 +2425,7 @@ impl<'src> Compiler<'src> {
             );
         }
 
-        self.prototypes.push(chunk);
+        self.prototypes.push(Arc::new(chunk));
         self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
         Ok(())

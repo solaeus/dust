@@ -625,7 +625,7 @@ impl Instruction {
             Operation::MODULO => Modulo::from(*self).to_string(),
             Operation::NEGATE => Negate::from(*self).to_string(),
             Operation::NOT => Not::from(*self).to_string(),
-            Operation::EQUAL => Equal::from(*self).to_string(),
+            Operation::EQUAL => Equal::from(self).to_string(),
             Operation::LESS => Less::from(self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(*self).to_string(),
             Operation::TEST => Test::from(self).to_string(),

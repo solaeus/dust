@@ -208,7 +208,7 @@ fn main() {
                 let mut compiler = match Compiler::new(
                     lexer,
                     CompileMode::Main {
-                        name: source_name.clone(),
+                        name: Some(source_name.clone()),
                     },
                 ) {
                     Ok(compiler) => compiler,
@@ -322,7 +322,7 @@ fn main() {
         let mut compiler = match Compiler::new(
             lexer,
             CompileMode::Main {
-                name: source_name.clone(),
+                name: Some(source_name.clone()),
             },
         ) {
             Ok(compiler) => compiler,

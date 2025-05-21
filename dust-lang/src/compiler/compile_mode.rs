@@ -7,14 +7,14 @@ pub enum CompileMode {
     Function { name: Option<DustString> },
 
     /// Indicates that the compiler should produce a stand-alone Dust program.
-    Main { name: DustString },
+    Main { name: Option<DustString> },
 }
 
 impl CompileMode {
     pub fn into_name(self) -> Option<DustString> {
         match self {
             Self::Function { name } => name,
-            Self::Main { name } => Some(name),
+            Self::Main { name } => name,
         }
     }
 }

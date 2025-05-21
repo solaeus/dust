@@ -17,6 +17,7 @@ pub use scope::Scope;
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +40,7 @@ pub struct Chunk {
     pub(crate) integer_constants: Vec<i64>,
     pub(crate) string_constants: Vec<DustString>,
     pub(crate) locals: Vec<Local>,
-    pub(crate) prototypes: Vec<Chunk>,
+    pub(crate) prototypes: Vec<Arc<Chunk>>,
     pub(crate) arguments: Vec<Arguments>,
 
     pub(crate) boolean_memory_length: u16,

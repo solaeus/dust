@@ -1,7 +1,7 @@
 use std::array;
 
 use crate::{
-    AbstractList, Address, Chunk, ConcreteList, DustString, Type, instruction::AddressKind,
+    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
     r#type::TypeKind, value::AbstractFunction,
 };
 
@@ -42,7 +42,7 @@ impl Memory {
             .item_pointers
             .first()
             .map(|pointer| pointer.r#type())
-            .unwrap_or(TypeKind::None);
+            .expect("Cannot make an empty abstract list into a concrete list");
 
         match item_type {
             TypeKind::Boolean => {
