@@ -1,4 +1,4 @@
-use dust_lang::{Value, run};
+use crate::{Value, run};
 
 mod boolean_returns {
     use super::*;

@@ -53,7 +53,7 @@ fn less_equal_booleans() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -108,7 +108,7 @@ fn less_equal_bytes() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -150,7 +150,7 @@ fn less_equal_characters() {
         character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -192,7 +192,7 @@ fn less_equal_floats() {
         float_constants: vec![10.0, 3.0],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -228,7 +228,7 @@ fn less_equal_integers() {
         integer_constants: vec![10, 3],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
+    let return_value = Some(Value::boolean(true));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -270,7 +270,7 @@ fn less_equal_strings() {
         string_constants: vec![DustString::from("abc"), DustString::from("def")],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
@@ -362,7 +362,7 @@ fn less_equal_lists() {
         integer_constants: vec![1, 2, 3, 4, 5, 6],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

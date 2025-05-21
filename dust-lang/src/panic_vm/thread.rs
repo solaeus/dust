@@ -43,7 +43,7 @@ impl<'a> Thread<'a> {
         let mut memory_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
 
         let mut call = CallFrame::new(self.chunk, Address::default());
-        let mut memory = Memory::new(self.chunk);
+        let mut memory = Memory::new(call.chunk);
 
         loop {
             let instructions = &call.chunk.instructions;
@@ -176,7 +176,7 @@ impl<'a> Thread<'a> {
 
                     match constant.kind {
                         AddressKind::CHARACTER_CONSTANT => {
-                            let value = self.chunk.character_constants[constant_index];
+                            let value = call.chunk.character_constants[constant_index];
 
                             if destination.is_register {
                                 memory.registers.characters[destination.index as usize] = value;
@@ -187,7 +187,7 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let value = self.chunk.float_constants[constant_index];
+                            let value = call.chunk.float_constants[constant_index];
 
                             if destination.is_register {
                                 memory.registers.floats[destination.index as usize] = value;
@@ -198,7 +198,7 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let value = self.chunk.integer_constants[constant_index];
+                            let value = call.chunk.integer_constants[constant_index];
 
                             if destination.is_register {
                                 memory.registers.integers[destination.index as usize] = value;
@@ -209,7 +209,7 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let value = self.chunk.string_constants[constant_index].clone();
+                            let value = call.chunk.string_constants[constant_index].clone();
 
                             if destination.is_register {
                                 memory.registers.strings[destination.index as usize] = value;
@@ -235,9 +235,9 @@ impl<'a> Thread<'a> {
 
                     let function = match prototype_address.kind {
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            self.chunk.prototypes[prototype_address.index as usize].as_function()
+                            call.chunk.prototypes[prototype_address.index as usize].as_function()
                         }
-                        AddressKind::FUNCTION_SELF => self.chunk.as_function(),
+                        AddressKind::FUNCTION_SELF => call.chunk.as_function(),
                         _ => unreachable!(),
                     };
 
@@ -368,10 +368,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = self.chunk.character_constants[left_index];
+                            let left_value = call.chunk.character_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right.index as usize]
+                                    call.chunk.character_constants[right.index as usize]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -396,7 +396,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.characters[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right.index as usize]
+                                    call.chunk.character_constants[right.index as usize]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -422,7 +422,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right_index]
+                                    call.chunk.character_constants[right_index]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -444,10 +444,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -469,7 +469,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -492,7 +492,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right_index]
+                                    call.chunk.float_constants[right_index]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -511,10 +511,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -536,7 +536,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -559,7 +559,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -578,10 +578,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let left_value = call.chunk.string_constants[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].as_value().clone()
@@ -606,7 +606,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.strings[left_index].as_value().clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].as_value().clone()
@@ -632,7 +632,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right_index].clone()
+                                    call.chunk.string_constants[right_index].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].as_value().clone()
@@ -706,10 +706,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -732,7 +732,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -756,7 +756,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right_index]
+                                    call.chunk.float_constants[right_index]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -776,10 +776,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -802,7 +802,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -826,7 +826,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -896,10 +896,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -921,7 +921,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -944,7 +944,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right_index]
+                                    call.chunk.float_constants[right_index]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -963,10 +963,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -989,7 +989,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1013,7 +1013,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1083,10 +1083,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1109,7 +1109,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1133,7 +1133,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right_index]
+                                    call.chunk.float_constants[right_index]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1153,10 +1153,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1179,7 +1179,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1203,7 +1203,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1275,10 +1275,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1301,7 +1301,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1325,7 +1325,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right_index]
+                                    call.chunk.float_constants[right_index]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1345,10 +1345,10 @@ impl<'a> Thread<'a> {
                             }
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1371,7 +1371,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1395,7 +1395,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1483,10 +1483,10 @@ impl<'a> Thread<'a> {
                             left_value == right_value
                         }
                         AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = self.chunk.character_constants[left_index];
+                            let left_value = call.chunk.character_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right.index as usize]
+                                    call.chunk.character_constants[right.index as usize]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -1528,10 +1528,10 @@ impl<'a> Thread<'a> {
                             left_value == right_value
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1548,7 +1548,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1565,7 +1565,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.floats[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1579,10 +1579,10 @@ impl<'a> Thread<'a> {
                             left_value == right_value
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1599,7 +1599,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1617,7 +1617,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1631,10 +1631,10 @@ impl<'a> Thread<'a> {
                             left_value == right_value
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let left_value = call.chunk.string_constants[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -1651,7 +1651,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.strings[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -1668,7 +1668,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.strings[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -1811,10 +1811,10 @@ impl<'a> Thread<'a> {
                             left_value < right_value
                         }
                         AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = self.chunk.character_constants[left_index];
+                            let left_value = call.chunk.character_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right.index as usize]
+                                    call.chunk.character_constants[right.index as usize]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -1856,10 +1856,10 @@ impl<'a> Thread<'a> {
                             left_value < right_value
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1876,7 +1876,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1893,7 +1893,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.floats[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -1907,10 +1907,10 @@ impl<'a> Thread<'a> {
                             left_value < right_value
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1927,7 +1927,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1945,7 +1945,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -1959,10 +1959,10 @@ impl<'a> Thread<'a> {
                             left_value < right_value
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let left_value = call.chunk.string_constants[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -1979,7 +1979,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.strings[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -1996,7 +1996,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.strings[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -2068,7 +2068,7 @@ impl<'a> Thread<'a> {
                         _ => unreachable!(),
                     };
 
-                    if is_less_than != comparator {
+                    if is_less_than == comparator {
                         call.ip += 1;
                     }
                 }
@@ -2138,10 +2138,10 @@ impl<'a> Thread<'a> {
                             left_value <= right_value
                         }
                         AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = self.chunk.character_constants[left_index];
+                            let left_value = call.chunk.character_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    self.chunk.character_constants[right.index as usize]
+                                    call.chunk.character_constants[right.index as usize]
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     *memory.characters[right.index as usize].as_value()
@@ -2183,10 +2183,10 @@ impl<'a> Thread<'a> {
                             left_value <= right_value
                         }
                         AddressKind::FLOAT_CONSTANT => {
-                            let left_value = self.chunk.float_constants[left_index];
+                            let left_value = call.chunk.float_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -2203,7 +2203,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.floats[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -2220,7 +2220,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.floats[left_index];
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    self.chunk.float_constants[right.index as usize]
+                                    call.chunk.float_constants[right.index as usize]
                                 }
                                 AddressKind::FLOAT_MEMORY => {
                                     *memory.floats[right.index as usize].as_value()
@@ -2234,10 +2234,10 @@ impl<'a> Thread<'a> {
                             left_value <= right_value
                         }
                         AddressKind::INTEGER_CONSTANT => {
-                            let left_value = self.chunk.integer_constants[left_index];
+                            let left_value = call.chunk.integer_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -2254,7 +2254,7 @@ impl<'a> Thread<'a> {
                             let left_value = *memory.integers[left_index].as_value();
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right.index as usize]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -2272,7 +2272,7 @@ impl<'a> Thread<'a> {
                             let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    self.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right_index]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     *memory.integers[right.index as usize].as_value()
@@ -2286,10 +2286,10 @@ impl<'a> Thread<'a> {
                             left_value <= right_value
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let left_value = call.chunk.string_constants[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -2306,7 +2306,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.strings[left_index].clone_value();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -2323,7 +2323,7 @@ impl<'a> Thread<'a> {
                             let left_value = memory.registers.strings[left_index].clone();
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    self.chunk.string_constants[right.index as usize].clone()
+                                    call.chunk.string_constants[right.index as usize].clone()
                                 }
                                 AddressKind::STRING_MEMORY => {
                                     memory.strings[right.index as usize].clone_value()
@@ -2395,7 +2395,7 @@ impl<'a> Thread<'a> {
                         _ => unreachable!(),
                     };
 
-                    if is_less_than_or_equal != comparator {
+                    if is_less_than_or_equal == comparator {
                         call.ip += 1;
                     }
                 }
@@ -2440,7 +2440,7 @@ impl<'a> Thread<'a> {
                         AddressKind::FUNCTION_PROTOTYPE => {
                             &call.chunk.prototypes[prototype_address.index as usize]
                         }
-                        AddressKind::FUNCTION_SELF => self.chunk,
+                        AddressKind::FUNCTION_SELF => call.chunk,
                         _ => unreachable!(),
                     };
                     let arguments_list = &call.chunk.arguments[argument_list_index as usize];
