@@ -43,11 +43,11 @@ impl From<Test> for Instruction {
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Test {
-            operand: operand_register,
+            operand,
             comparator,
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}{operand_register} {{ JUMP +1 }}")
+        write!(f, "if {bang}{operand} {{ JUMP +1 }}")
     }
 }

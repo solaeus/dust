@@ -1,6 +1,12 @@
+mod and;
+mod and_and;
+mod and_or;
 mod equal;
 mod greater;
 mod greater_equal;
 mod less;
 mod less_equal;
 mod not_equal;
+mod or;
+mod or_and;
+mod or_or;

@@ -6,7 +6,7 @@ use crate::{
     AbstractList, Address, Chunk, ConcreteValue, Operation,
     instruction::{
         Add, AddressKind, Call, Close, Equal, Jump, Less, LessEqual, LoadConstant, LoadEncoded,
-        LoadFunction, LoadList, Move, Multiply, Return,
+        LoadFunction, LoadList, Move, Multiply, Return, Test,
     },
 };
 
@@ -1468,7 +1468,23 @@ impl<'a> Thread<'a> {
                 }
                 Operation::NEGATE => todo!(),
                 Operation::NOT => todo!(),
-                Operation::TEST => todo!(),
+                Operation::TEST => {
+                    let Test {
+                        comparator,
+                        operand,
+                    } = Test::from(&instruction);
+
+                    let operand_index = operand.index as usize;
+                    let is_true = match operand.kind {
+                        AddressKind::BOOLEAN_MEMORY => *memory.booleans[operand_index].as_value(),
+                        AddressKind::BOOLEAN_REGISTER => memory.registers.booleans[operand_index],
+                        _ => unreachable!(),
+                    };
+
+                    if is_true == comparator {
+                        call.ip += 1;
+                    }
+                }
                 Operation::TEST_SET => todo!(),
                 Operation::CALL => {
                     let Call {

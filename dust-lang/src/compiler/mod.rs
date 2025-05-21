@@ -382,6 +382,9 @@ impl<'src> Compiler<'src> {
                     increment_rank(b_address);
                     increment_rank(c_address);
                 }
+                Operation::TEST => {
+                    increment_rank(b_address);
+                }
                 Operation::RETURN => {
                     increment_rank(b_address);
                 }
@@ -477,6 +480,11 @@ impl<'src> Compiler<'src> {
 
                     if let Some(replacement) = replacements.get(&c_address) {
                         instruction.set_c_address(*replacement);
+                    }
+                }
+                Operation::TEST => {
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        instruction.set_b_address(*replacement);
                     }
                 }
                 _ => {}
@@ -1413,10 +1421,7 @@ impl<'src> Compiler<'src> {
                 });
             }
         };
-        let test = Instruction::test(
-            Address::new(left.index, AddressKind::BOOLEAN_MEMORY),
-            test_boolean,
-        );
+        let test = Instruction::test(left, test_boolean);
 
         self.emit_instruction(test, Type::None, operator_position);
 

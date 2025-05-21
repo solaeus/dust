@@ -273,9 +273,19 @@ impl Instruction {
                     ..
                 } = LoadEncoded::from(self);
 
+                let kind = if destination.is_register {
+                    match r#type {
+                        AddressKind::BOOLEAN_MEMORY => AddressKind::BOOLEAN_REGISTER,
+                        AddressKind::BYTE_MEMORY => AddressKind::BYTE_REGISTER,
+                        _ => unreachable!(),
+                    }
+                } else {
+                    r#type
+                };
+
                 Address {
                     index: destination.index,
-                    kind: r#type,
+                    kind,
                 }
             }
             Operation::LOAD_CONSTANT => {
