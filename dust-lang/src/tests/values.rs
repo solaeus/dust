@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Address, Chunk, ConcreteList, ConcreteValue, DustString, FunctionType, Instruction, Span, Type,
-    Value, compile,
+    Address, Chunk, ConcreteList, DustString, FunctionType, Instruction, Span, Type, Value,
+    compile,
     instruction::{AddressKind, Destination},
     run,
 };

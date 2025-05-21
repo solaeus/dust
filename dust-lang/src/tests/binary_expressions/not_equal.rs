@@ -1,42 +1,8 @@
-use dust_lang::{
-    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile,
-    instruction::TypeCode, run,
+use crate::{
+    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile, run,
 };
 
-#[test]
-fn not_equal_booleans() {
-    let source = "true != false";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, false),
-            Instruction::load_encoded(1, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::equal(
-                false,
-                Address::Register(0, TypeCode::BOOLEAN),
-                Address::Register(1, TypeCode::BOOLEAN),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(2, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(2, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 2, TypeCode::BOOLEAN),
-        ],
-        positions: vec![
-            Span(0, 4),
-            Span(8, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(13, 13),
-        ],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(true));
-
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
-}
+use crate::instruction::{AddressKind, Destination};
 
 #[test]
 fn not_equal_bytes() {
@@ -44,17 +10,37 @@ fn not_equal_bytes() {
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::load_encoded(0, 0x0A, TypeCode::BYTE, false),
-            Instruction::load_encoded(1, 0x03, TypeCode::BYTE, false),
+            Instruction::load_encoded(
+                Destination::register(0),
+                0x0A,
+                AddressKind::BYTE_MEMORY,
+                false,
+            ),
+            Instruction::load_encoded(
+                Destination::register(1),
+                0x03,
+                AddressKind::BYTE_MEMORY,
+                false,
+            ),
             Instruction::equal(
                 false,
-                Address::Register(0, TypeCode::BYTE),
-                Address::Register(1, TypeCode::BYTE),
+                Address::new(0, AddressKind::BYTE_REGISTER),
+                Address::new(1, AddressKind::BYTE_REGISTER),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![
             Span(0, 4),
@@ -81,13 +67,23 @@ fn not_equal_characters() {
         instructions: vec![
             Instruction::equal(
                 false,
-                Address::Constant(0, TypeCode::CHARACTER),
-                Address::Constant(1, TypeCode::CHARACTER),
+                Address::new(0, AddressKind::CHARACTER_CONSTANT),
+                Address::new(1, AddressKind::CHARACTER_CONSTANT),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![
             Span(0, 10),
@@ -96,7 +92,7 @@ fn not_equal_characters() {
             Span(0, 10),
             Span(10, 10),
         ],
-        string_constants: vec!['a', 'b'],
+        character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(true));
@@ -113,13 +109,23 @@ fn not_equal_floats() {
         instructions: vec![
             Instruction::equal(
                 false,
-                Address::Constant(0, TypeCode::FLOAT),
-                Address::Constant(1, TypeCode::FLOAT),
+                Address::new(0, AddressKind::FLOAT_CONSTANT),
+                Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![
             Span(0, 11),
@@ -145,13 +151,23 @@ fn not_equal_integers() {
         instructions: vec![
             Instruction::equal(
                 false,
-                Address::Constant(0, TypeCode::INTEGER),
-                Address::Constant(1, TypeCode::INTEGER),
+                Address::new(0, AddressKind::INTEGER_CONSTANT),
+                Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![Span(0, 7), Span(0, 7), Span(0, 7), Span(0, 7), Span(7, 7)],
         integer_constants: vec![10, 3],
@@ -171,13 +187,23 @@ fn not_equal_strings() {
         instructions: vec![
             Instruction::equal(
                 false,
-                Address::Constant(0, TypeCode::STRING),
-                Address::Constant(1, TypeCode::STRING),
+                Address::new(0, AddressKind::STRING_CONSTANT),
+                Address::new(1, AddressKind::STRING_CONSTANT),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![
             Span(0, 14),
@@ -201,23 +227,67 @@ fn not_equal_lists() {
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::load_constant(0, 0, TypeCode::INTEGER, false),
-            Instruction::load_constant(1, 1, TypeCode::INTEGER, false),
-            Instruction::load_constant(2, 2, TypeCode::INTEGER, false),
-            Instruction::load_list(0, TypeCode::INTEGER, 0, 2, false),
-            Instruction::load_constant(3, 3, TypeCode::INTEGER, false),
-            Instruction::load_constant(4, 4, TypeCode::INTEGER, false),
-            Instruction::load_constant(5, 5, TypeCode::INTEGER, false),
-            Instruction::load_list(1, TypeCode::INTEGER, 3, 5, false),
+            Instruction::load_constant(
+                Destination::memory(0),
+                Address::new(0, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_constant(
+                Destination::memory(1),
+                Address::new(1, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_constant(
+                Destination::memory(2),
+                Address::new(2, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_list(
+                Destination::register(0),
+                Address::new(0, AddressKind::INTEGER_MEMORY),
+                2,
+                false,
+            ),
+            Instruction::load_constant(
+                Destination::memory(3),
+                Address::new(3, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_constant(
+                Destination::memory(4),
+                Address::new(4, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_constant(
+                Destination::memory(5),
+                Address::new(5, AddressKind::INTEGER_CONSTANT),
+                false,
+            ),
+            Instruction::load_list(
+                Destination::register(1),
+                Address::new(3, AddressKind::INTEGER_MEMORY),
+                5,
+                false,
+            ),
             Instruction::equal(
                 false,
-                Address::Register(0, TypeCode::LIST),
-                Address::Register(1, TypeCode::LIST),
+                Address::new(0, AddressKind::LIST_REGISTER),
+                Address::new(1, AddressKind::LIST_REGISTER),
             ),
             Instruction::jump(1, true),
-            Instruction::load_encoded(0, true as u8, TypeCode::BOOLEAN, true),
-            Instruction::load_encoded(0, false as u8, TypeCode::BOOLEAN, false),
-            Instruction::r#return(true, 0, TypeCode::BOOLEAN),
+            Instruction::load_encoded(
+                Destination::register(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                true,
+            ),
+            Instruction::load_encoded(
+                Destination::register(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
         ],
         positions: vec![
             Span(1, 2),

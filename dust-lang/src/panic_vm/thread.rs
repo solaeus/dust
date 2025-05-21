@@ -5,8 +5,8 @@ use tracing::{Level, info, span, warn};
 use crate::{
     AbstractList, Address, Chunk, ConcreteValue, Operation,
     instruction::{
-        Add, AddressKind, Call, Close, Equal, Jump, Less, LoadConstant, LoadEncoded, LoadFunction,
-        LoadList, Move, Multiply, Return,
+        Add, AddressKind, Call, Close, Equal, Jump, Less, LessEqual, LoadConstant, LoadEncoded,
+        LoadFunction, LoadList, Move, Multiply, Return,
     },
 };
 
@@ -804,7 +804,7 @@ impl<'a> Thread<'a> {
 
                             left_value == right_value
                         }
-                        _ => todo!(),
+                        _ => unreachable!(),
                     };
 
                     if is_equal == comparator {
@@ -820,6 +820,175 @@ impl<'a> Thread<'a> {
 
                     let left_index = left.index as usize;
                     let is_less_than = match left.kind {
+                        AddressKind::BOOLEAN_MEMORY => {
+                            let left_value = *memory.booleans[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::BOOLEAN_REGISTER => {
+                            let left_value = memory.registers.booleans[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::CHARACTER_CONSTANT => {
+                            let left_value = self.chunk.character_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_CONSTANT => {
+                                    self.chunk.character_constants[right.index as usize]
+                                }
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            let left_value = *memory.characters[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::CHARACTER_REGISTER => {
+                            let left_value = memory.registers.characters[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
                         AddressKind::INTEGER_MEMORY => {
                             let left_value = *memory.integers[left_index].as_value();
                             let right_value = match right.kind {
@@ -855,14 +1024,447 @@ impl<'a> Thread<'a> {
 
                             left_value < right_value
                         }
-                        _ => todo!(),
+                        AddressKind::STRING_CONSTANT => {
+                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::STRING_MEMORY => {
+                            let left_value = memory.strings[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::STRING_REGISTER => {
+                            let left_value = memory.registers.strings[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::LIST_MEMORY => {
+                            let left_value = memory.lists[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::LIST_MEMORY => {
+                                    memory.lists[right.index as usize].clone_value()
+                                }
+                                AddressKind::LIST_REGISTER => {
+                                    memory.registers.lists[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::LIST_REGISTER => {
+                            let left_value = memory.registers.lists[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::LIST_MEMORY => {
+                                    memory.lists[right.index as usize].clone_value()
+                                }
+                                AddressKind::LIST_REGISTER => {
+                                    memory.registers.lists[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let left_value = memory.functions[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::FUNCTION_MEMORY => {
+                                    memory.functions[right.index as usize].copy_value()
+                                }
+                                AddressKind::FUNCTION_REGISTER => {
+                                    memory.registers.functions[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let left_value = memory.registers.functions[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FUNCTION_MEMORY => {
+                                    memory.functions[right.index as usize].copy_value()
+                                }
+                                AddressKind::FUNCTION_REGISTER => {
+                                    memory.registers.functions[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value < right_value
+                        }
+                        _ => unreachable!(),
                     };
 
                     if is_less_than != comparator {
                         call.ip += 1;
                     }
                 }
-                Operation::LESS_EQUAL => todo!(),
+                Operation::LESS_EQUAL => {
+                    let LessEqual {
+                        comparator,
+                        left,
+                        right,
+                    } = LessEqual::from(&instruction);
+
+                    let left_index = left.index as usize;
+                    let is_less_than_or_equal = match left.kind {
+                        AddressKind::BOOLEAN_MEMORY => {
+                            let left_value = *memory.booleans[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::BOOLEAN_REGISTER => {
+                            let left_value = memory.registers.booleans[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BOOLEAN_MEMORY => {
+                                    *memory.booleans[right.index as usize].as_value()
+                                }
+                                AddressKind::BOOLEAN_REGISTER => {
+                                    memory.registers.booleans[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            let left_value = *memory.bytes[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::BYTE_REGISTER => {
+                            let left_value = memory.registers.bytes[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::BYTE_MEMORY => {
+                                    *memory.bytes[right.index as usize].as_value()
+                                }
+                                AddressKind::BYTE_REGISTER => {
+                                    memory.registers.bytes[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::CHARACTER_CONSTANT => {
+                            let left_value = self.chunk.character_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_CONSTANT => {
+                                    self.chunk.character_constants[right.index as usize]
+                                }
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            let left_value = *memory.characters[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::CHARACTER_REGISTER => {
+                            let left_value = memory.registers.characters[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::CHARACTER_MEMORY => {
+                                    *memory.characters[right.index as usize].as_value()
+                                }
+                                AddressKind::CHARACTER_REGISTER => {
+                                    memory.registers.characters[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let left_value = self.chunk.float_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let left_value = *memory.floats[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let left_value = memory.registers.floats[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FLOAT_CONSTANT => {
+                                    self.chunk.float_constants[right.index as usize]
+                                }
+                                AddressKind::FLOAT_MEMORY => {
+                                    *memory.floats[right.index as usize].as_value()
+                                }
+                                AddressKind::FLOAT_REGISTER => {
+                                    memory.registers.floats[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let left_value = self.chunk.integer_constants[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let left_value = *memory.integers[left_index].as_value();
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right.index as usize]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let left_value = memory.registers.integers[left_index];
+                            let right_index = right.index as usize;
+                            let right_value = match right.kind {
+                                AddressKind::INTEGER_CONSTANT => {
+                                    self.chunk.integer_constants[right_index]
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    *memory.integers[right.index as usize].as_value()
+                                }
+                                AddressKind::INTEGER_REGISTER => {
+                                    memory.registers.integers[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::STRING_CONSTANT => {
+                            let left_value = self.chunk.string_constants[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::STRING_MEMORY => {
+                            let left_value = memory.strings[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::STRING_REGISTER => {
+                            let left_value = memory.registers.strings[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::STRING_CONSTANT => {
+                                    self.chunk.string_constants[right.index as usize].clone()
+                                }
+                                AddressKind::STRING_MEMORY => {
+                                    memory.strings[right.index as usize].clone_value()
+                                }
+                                AddressKind::STRING_REGISTER => {
+                                    memory.registers.strings[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::LIST_MEMORY => {
+                            let left_value = memory.lists[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::LIST_MEMORY => {
+                                    memory.lists[right.index as usize].clone_value()
+                                }
+                                AddressKind::LIST_REGISTER => {
+                                    memory.registers.lists[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::LIST_REGISTER => {
+                            let left_value = memory.registers.lists[left_index].clone();
+                            let right_value = match right.kind {
+                                AddressKind::LIST_MEMORY => {
+                                    memory.lists[right.index as usize].clone_value()
+                                }
+                                AddressKind::LIST_REGISTER => {
+                                    memory.registers.lists[right.index as usize].clone()
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let left_value = memory.functions[left_index].clone_value();
+                            let right_value = match right.kind {
+                                AddressKind::FUNCTION_MEMORY => {
+                                    memory.functions[right.index as usize].copy_value()
+                                }
+                                AddressKind::FUNCTION_REGISTER => {
+                                    memory.registers.functions[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let left_value = memory.registers.functions[left_index];
+                            let right_value = match right.kind {
+                                AddressKind::FUNCTION_MEMORY => {
+                                    memory.functions[right.index as usize].copy_value()
+                                }
+                                AddressKind::FUNCTION_REGISTER => {
+                                    memory.registers.functions[right.index as usize]
+                                }
+                                _ => unreachable!(),
+                            };
+
+                            left_value <= right_value
+                        }
+                        _ => unreachable!(),
+                    };
+
+                    if is_less_than_or_equal != comparator {
+                        call.ip += 1;
+                    }
+                }
                 Operation::NEGATE => todo!(),
                 Operation::NOT => todo!(),
                 Operation::TEST => todo!(),
