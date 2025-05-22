@@ -521,7 +521,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             self.chunk.string_constants.len()
                 + self.chunk.float_constants.len()
                 + self.chunk.integer_constants.len()
-                + self.chunk.string_constants.len(),
+                + self.chunk.character_constants.len(),
             self.chunk.locals.len(),
             self.chunk.r#type.return_type
         );

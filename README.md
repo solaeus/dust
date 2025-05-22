@@ -20,10 +20,13 @@ write_line("Hello " + name + "!")
 ```rust
 // The classic, unoptimized Fibonacci sequence
 fn fib (n: int) -> int {
-    if n <= 0 { return 0 }
-    if n == 1 { return 1 }
-
-    fib(n - 1) + fib(n - 2)
+    if n <= 0 {
+        0
+    } else if n == 1 {
+        1
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
 }
 
 write_line(fib(25))
