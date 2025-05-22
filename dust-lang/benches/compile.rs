@@ -41,12 +41,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| compile_bench(black_box(&source)))
     });
 
-    for _ in 0..9000 {
+    for _ in 0..4000 {
         source.push_str(LOOP);
         source.push('\n');
     }
 
-    group.bench_function("compile 10,000 loops", |b| {
+    group.bench_function("compile 5,000 loops", |b| {
         b.iter(|| compile_bench(black_box(&source)))
     });
 

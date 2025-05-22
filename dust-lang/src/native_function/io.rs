@@ -41,7 +41,7 @@ pub fn write_line(_: Destination, arguments: &Arguments, _: &mut CallFrame, memo
                 stdout.write_all(string.as_bytes()).unwrap();
             }
             AddressKind::STRING_MEMORY => {
-                let string = memory.strings[address.index as usize].as_value();
+                let string = &memory.strings[address.index as usize];
 
                 stdout.write_all(string.as_bytes()).unwrap();
             }

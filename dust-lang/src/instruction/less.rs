@@ -25,6 +25,7 @@ impl From<&Instruction> for Less {
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
         let operation = Operation::LESS;
+        let a_field = less.comparator as u16;
         let Address {
             index: b_field,
             kind: b_kind,
@@ -36,6 +37,7 @@ impl From<Less> for Instruction {
 
         InstructionFields {
             operation,
+            a_field,
             b_field,
             b_kind,
             c_field,

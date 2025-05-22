@@ -1,35 +1,41 @@
 use std::{array, sync::Arc};
 
-use crate::{AbstractList, Chunk, ConcreteList, DustString, r#type::TypeKind};
+use hashbrown::HashSet;
+
+use crate::{
+    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
+    r#type::TypeKind,
+};
 
 #[derive(Debug)]
 pub struct Memory {
-    pub booleans: Vec<Slot<bool>>,
-    pub bytes: Vec<Slot<u8>>,
-    pub characters: Vec<Slot<char>>,
-    pub floats: Vec<Slot<f64>>,
-    pub integers: Vec<Slot<i64>>,
-    pub strings: Vec<Slot<DustString>>,
-    pub lists: Vec<Slot<AbstractList>>,
-    pub functions: Vec<Slot<Arc<Chunk>>>,
+    pub booleans: Vec<bool>,
+    pub bytes: Vec<u8>,
+    pub characters: Vec<char>,
+    pub floats: Vec<f64>,
+    pub integers: Vec<i64>,
+    pub strings: Vec<DustString>,
+    pub lists: Vec<AbstractList>,
+    pub functions: Vec<Arc<Chunk>>,
+
+    pub closed: HashSet<Address>,
 
     pub registers: RegisterTable,
 }
 
 impl Memory {
+    #[expect(clippy::rc_clone_in_vec_init)]
     pub fn new(chunk: &Chunk) -> Self {
         Memory {
-            booleans: vec![Slot::new(false); chunk.boolean_memory_length as usize],
-            bytes: vec![Slot::new(0); chunk.byte_memory_length as usize],
-            characters: vec![Slot::new(char::default()); chunk.character_memory_length as usize],
-            floats: vec![Slot::new(0.0); chunk.float_memory_length as usize],
-            integers: vec![Slot::new(0); chunk.integer_memory_length as usize],
-            strings: vec![Slot::new(DustString::new()); chunk.string_memory_length as usize],
-            lists: vec![Slot::new(AbstractList::default()); chunk.list_memory_length as usize],
-            functions: vec![
-                Slot::new(Arc::new(Chunk::default()));
-                chunk.function_memory_length as usize
-            ],
+            booleans: vec![false; chunk.boolean_memory_length as usize],
+            bytes: vec![0; chunk.byte_memory_length as usize],
+            characters: vec![char::default(); chunk.character_memory_length as usize],
+            floats: vec![0.0; chunk.float_memory_length as usize],
+            integers: vec![0; chunk.integer_memory_length as usize],
+            strings: vec![DustString::new(); chunk.string_memory_length as usize],
+            lists: vec![AbstractList::default(); chunk.list_memory_length as usize],
+            functions: vec![Arc::new(Chunk::default()); chunk.function_memory_length as usize],
+            closed: HashSet::new(),
             registers: RegisterTable::new(),
         }
     }
@@ -46,11 +52,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.booleans
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.copy_value())
-                    })
+                    .filter_map(|pointer| self.booleans.get(pointer.index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Boolean(list)
@@ -59,11 +61,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.bytes
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.copy_value())
-                    })
+                    .filter_map(|pointer| self.bytes.get(pointer.index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Byte(list)
@@ -72,11 +70,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.characters
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.copy_value())
-                    })
+                    .filter_map(|pointer| self.characters.get(pointer.index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Character(list)
@@ -85,11 +79,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.floats
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.copy_value())
-                    })
+                    .filter_map(|pointer| self.floats.get(pointer.index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Float(list)
@@ -98,11 +88,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.integers
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.copy_value())
-                    })
+                    .filter_map(|pointer| self.integers.get(pointer.index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Integer(list)
@@ -111,11 +97,7 @@ impl Memory {
                 let list = abstract_list
                     .item_pointers
                     .iter()
-                    .filter_map(|pointer| {
-                        self.strings
-                            .get(pointer.index as usize)
-                            .map(|slot| slot.clone_value())
-                    })
+                    .filter_map(|pointer| self.strings.get(pointer.index as usize).cloned())
                     .collect::<Vec<_>>();
 
                 ConcreteList::String(list)
@@ -125,7 +107,7 @@ impl Memory {
                     .item_pointers
                     .iter()
                     .map(|pointer| {
-                        let abstract_list = self.lists[pointer.index as usize].as_value();
+                        let abstract_list = &self.lists[pointer.index as usize];
 
                         self.make_list_concrete(abstract_list)
                     })
@@ -173,61 +155,5 @@ impl<const LENGTH: usize> RegisterTable<LENGTH> {
 impl<const LENGTH: usize> Default for RegisterTable<LENGTH> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Slot<T> {
-    value: T,
-    is_closed: bool,
-}
-
-impl<T> Slot<T> {
-    pub fn new(value: T) -> Self {
-        Self {
-            value,
-            is_closed: false,
-        }
-    }
-
-    pub fn is_closed(&self) -> bool {
-        self.is_closed
-    }
-
-    pub fn close(&mut self) {
-        self.is_closed = true;
-    }
-
-    pub fn set(&mut self, new_value: T) {
-        self.value = new_value;
-    }
-
-    pub fn as_value(&self) -> &T {
-        &self.value
-    }
-
-    pub fn as_value_mut(&mut self) -> &mut T {
-        &mut self.value
-    }
-}
-
-impl<T: Copy> Slot<T> {
-    pub fn copy_value(&self) -> T {
-        self.value
-    }
-}
-
-impl<T: Clone> Slot<T> {
-    pub fn clone_value(&self) -> T {
-        self.value.clone()
-    }
-}
-
-impl<T: Default> Default for Slot<T> {
-    fn default() -> Self {
-        Self {
-            value: Default::default(),
-            is_closed: false,
-        }
     }
 }

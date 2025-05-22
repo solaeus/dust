@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Arguments, FunctionType, Type,
     instruction::Destination,
-    panic_vm::{CallFrame, Memory, RegisterTable},
+    panic_vm::{CallFrame, Memory},
 };
 
 macro_rules! define_native_function {
