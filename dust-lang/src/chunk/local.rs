@@ -7,10 +7,10 @@ use crate::{Address, Scope, Type};
 /// Scoped variable.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Local {
-    /// Index of the identifier in the constants list.
+    /// Index of the identifier in the string constants list.
     pub identifier_index: u16,
 
-    /// Index of the register where the variable's value is stored.
+    /// Pointer to where the variable's value is stored.
     pub address: Address,
 
     /// Whether the local is mutable.

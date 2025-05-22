@@ -1,10 +1,9 @@
 use std::io::{Write, stdin, stdout};
 
 use crate::{
-    Address, Arguments, Destination, DustString, Instruction,
-    instruction::{AddressKind, CallNative},
-    panic_vm::{CallFrame, Memory, RegisterTable, Thread},
-    r#type::TypeKind,
+    Arguments, Destination, DustString,
+    instruction::AddressKind,
+    panic_vm::{CallFrame, Memory},
 };
 
 pub fn read_line(destination: Destination, _: &Arguments, _: &mut CallFrame, memory: &mut Memory) {
