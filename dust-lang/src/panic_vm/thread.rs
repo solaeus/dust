@@ -351,17 +351,18 @@ impl Thread {
                         jump_next,
                     } = LoadList::from(&instruction);
                     let mut abstract_list = AbstractList {
-                        item_pointers: Vec::with_capacity(end as usize - start.index as usize),
+                        pointer_kind: start.kind,
+                        indices: Vec::with_capacity((end - start.index + 1) as usize),
                     };
 
-                    for i in start.index as usize..=end as usize {
-                        let pointer = Address::new(i as u16, start.kind);
+                    for i in start.index..=end {
+                        let pointer = Address::new(i, start.kind);
 
                         if memory.closed.contains(&pointer) {
                             continue;
                         }
 
-                        abstract_list.item_pointers.push(pointer);
+                        abstract_list.indices.push(i);
                     }
 
                     if destination.is_register {
@@ -622,23 +623,21 @@ impl Thread {
                             }
                         }
                         AddressKind::STRING_CONSTANT => {
-                            let left_value = call.chunk.string_constants[left_index].clone();
+                            let left_value = &call.chunk.string_constants[left_index];
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    call.chunk.string_constants[right.index as usize].clone()
+                                    &call.chunk.string_constants[right.index as usize]
                                 }
-                                AddressKind::STRING_MEMORY => {
-                                    memory.strings[right.index as usize].clone()
-                                }
+                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
                                 AddressKind::STRING_REGISTER => {
-                                    memory.registers.strings[right.index as usize].clone()
+                                    &memory.registers.strings[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let mut sum = DustString::new();
 
-                            sum.push_str(&left_value);
-                            sum.push_str(&right_value);
+                            sum.push_str(left_value);
+                            sum.push_str(right_value);
 
                             if destination.is_register {
                                 memory.registers.strings[destination.index as usize] = sum;
@@ -647,23 +646,21 @@ impl Thread {
                             }
                         }
                         AddressKind::STRING_MEMORY => {
-                            let left_value = memory.strings[left_index].clone();
+                            let left_value = &memory.strings[left_index];
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    call.chunk.string_constants[right.index as usize].clone()
+                                    &call.chunk.string_constants[right.index as usize]
                                 }
-                                AddressKind::STRING_MEMORY => {
-                                    memory.strings[right.index as usize].clone()
-                                }
+                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
                                 AddressKind::STRING_REGISTER => {
-                                    memory.registers.strings[right.index as usize].clone()
+                                    &memory.registers.strings[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let mut sum = DustString::new();
 
-                            sum.push_str(&left_value);
-                            sum.push_str(&right_value);
+                            sum.push_str(left_value);
+                            sum.push_str(right_value);
 
                             if destination.is_register {
                                 memory.registers.strings[destination.index as usize] = sum;
@@ -672,24 +669,21 @@ impl Thread {
                             }
                         }
                         AddressKind::STRING_REGISTER => {
-                            let left_value = memory.registers.strings[left_index].clone();
-                            let right_index = right.index as usize;
+                            let left_value = &memory.registers.strings[left_index];
                             let right_value = match right.kind {
                                 AddressKind::STRING_CONSTANT => {
-                                    call.chunk.string_constants[right_index].clone()
+                                    &call.chunk.string_constants[right.index as usize]
                                 }
-                                AddressKind::STRING_MEMORY => {
-                                    memory.strings[right.index as usize].clone()
-                                }
+                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
                                 AddressKind::STRING_REGISTER => {
-                                    memory.registers.strings[right.index as usize].clone()
+                                    &memory.registers.strings[right.index as usize]
                                 }
                                 _ => unreachable!(),
                             };
                             let mut sum = DustString::new();
 
-                            sum.push_str(&left_value);
-                            sum.push_str(&right_value);
+                            sum.push_str(left_value);
+                            sum.push_str(right_value);
 
                             if destination.is_register {
                                 memory.registers.strings[destination.index as usize] = sum;

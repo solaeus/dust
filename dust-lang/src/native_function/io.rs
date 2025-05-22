@@ -1,4 +1,4 @@
-use std::io::{Write, stdout};
+use std::io::{Write, stdin, stdout};
 
 use crate::{
     Address, Arguments, Destination, DustString, Instruction,
@@ -7,27 +7,17 @@ use crate::{
     r#type::TypeKind,
 };
 
-pub fn read_line(
-    instruction: Instruction,
-    thread: &mut Thread,
-    registers: RegisterTable,
-) -> RegisterTable {
-    todo!()
+pub fn read_line(destination: Destination, _: &Arguments, _: &mut CallFrame, memory: &mut Memory) {
+    let mut buffer = String::new();
+    let _ = stdin().read_line(&mut buffer);
 
-    // let CallNative { destination, .. } = CallNative::from(instruction);
-    // let mut buffer = String::new();
-    // let stdin = std::io::stdin();
-
-    // stdin.read_line(&mut buffer).unwrap();
-
-    // *thread
-    //     .current_memory
-    //     .strings
-    //     .get_mut(destination.index as usize)
-    //     .unwrap()
-    //     .as_value_mut() = DustString::from(buffer.trim_end_matches('\n'));
-
-    // registers
+    if destination.is_register {
+        memory.registers.strings[destination.index as usize] =
+            DustString::from(buffer.trim_end_matches('\n'));
+    } else {
+        memory.strings[destination.index as usize] =
+            DustString::from(buffer.trim_end_matches('\n'));
+    }
 }
 
 pub fn write_line(_: Destination, arguments: &Arguments, _: &mut CallFrame, memory: &mut Memory) {

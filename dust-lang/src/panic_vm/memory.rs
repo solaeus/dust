@@ -2,10 +2,7 @@ use std::{array, sync::Arc};
 
 use hashbrown::HashSet;
 
-use crate::{
-    AbstractList, Address, Chunk, ConcreteList, DustString, instruction::AddressKind,
-    r#type::TypeKind,
-};
+use crate::{AbstractList, Address, Chunk, ConcreteList, DustString, Type, r#type::TypeKind};
 
 #[derive(Debug)]
 pub struct Memory {
@@ -41,90 +38,92 @@ impl Memory {
     }
 
     pub fn make_list_concrete(&self, abstract_list: &AbstractList) -> ConcreteList {
-        let item_type = abstract_list
-            .item_pointers
-            .first()
-            .map(|pointer| pointer.r#type())
-            .expect("Cannot make an empty abstract list into a concrete list");
+        let item_type = abstract_list.pointer_kind.r#type();
 
         match item_type {
             TypeKind::Boolean => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.booleans.get(pointer.index as usize).copied())
+                    .filter_map(|index| self.booleans.get(*index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Boolean(list)
             }
             TypeKind::Byte => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.bytes.get(pointer.index as usize).copied())
+                    .filter_map(|index| self.bytes.get(*index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Byte(list)
             }
             TypeKind::Character => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.characters.get(pointer.index as usize).copied())
+                    .filter_map(|index| self.characters.get(*index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Character(list)
             }
             TypeKind::Float => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.floats.get(pointer.index as usize).copied())
+                    .filter_map(|index| self.floats.get(*index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Float(list)
             }
             TypeKind::Integer => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.integers.get(pointer.index as usize).copied())
+                    .filter_map(|index| self.integers.get(*index as usize).copied())
                     .collect::<Vec<_>>();
 
                 ConcreteList::Integer(list)
             }
             TypeKind::String => {
                 let list = abstract_list
-                    .item_pointers
+                    .indices
                     .iter()
-                    .filter_map(|pointer| self.strings.get(pointer.index as usize).cloned())
+                    .filter_map(|index| self.strings.get(*index as usize).cloned())
                     .collect::<Vec<_>>();
 
                 ConcreteList::String(list)
             }
             TypeKind::List => {
-                let lists = abstract_list
-                    .item_pointers
+                let list = abstract_list
+                    .indices
                     .iter()
-                    .map(|pointer| {
-                        let abstract_list = &self.lists[pointer.index as usize];
+                    .map(|index| {
+                        let abstract_list = &self.lists[*index as usize];
 
                         self.make_list_concrete(abstract_list)
                     })
                     .collect::<Vec<_>>();
 
+                let list_item_type = list.first().map(|list| list.r#type()).unwrap_or(Type::None);
+
                 ConcreteList::List {
-                    list_item_type: lists.first().unwrap().r#type(),
-                    list_items: lists,
+                    list_item_type,
+                    list_items: list,
                 }
             }
+            TypeKind::None => ConcreteList::List {
+                list_item_type: Type::None,
+                list_items: Vec::with_capacity(0),
+            },
             _ => unreachable!(),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct RegisterTable<const LENGTH: usize = 3> {
+pub struct RegisterTable<const LENGTH: usize = 4> {
     pub booleans: [bool; LENGTH],
     pub bytes: [u8; LENGTH],
     pub characters: [char; LENGTH],
@@ -144,9 +143,7 @@ impl<const LENGTH: usize> RegisterTable<LENGTH> {
             floats: [0.0; LENGTH],
             integers: [0; LENGTH],
             strings: array::from_fn(|_| DustString::new()),
-            lists: array::from_fn(|_| AbstractList {
-                item_pointers: Vec::with_capacity(0),
-            }),
+            lists: array::from_fn(|_| AbstractList::default()),
             functions: array::from_fn(|_| Arc::new(Chunk::default())),
         }
     }

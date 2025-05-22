@@ -304,7 +304,7 @@ impl<'src> Compiler<'src> {
 
         // Increases the rank of the given address by 1 to indicate that it was used. If the
         // address has no existing rank, it is inserted in sorted order with a rank of 0.
-        let mut increment_rank = |address: Address| {
+        let mut increment_rank = |address: Address, increment: usize| {
             if address.is_constant() {
                 return;
             }
@@ -329,10 +329,10 @@ impl<'src> Compiler<'src> {
             match address_rankings.binary_search_by_key(&address, |(_, address)| *address) {
                 Ok(index) => {
                     let rank = &mut address_rankings[index].0;
-                    *rank = rank.saturating_add(1);
+                    *rank = rank.saturating_add(increment);
                 }
                 Err(index) => {
-                    address_rankings.insert(index, (0, address));
+                    address_rankings.insert(index, (increment - 1, address));
                 }
             }
         };
@@ -358,10 +358,10 @@ impl<'src> Compiler<'src> {
                     }
                 }
                 Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT | Operation::LOAD_FUNCTION => {
-                    increment_rank(destination_address);
+                    increment_rank(destination_address, 1);
                 }
                 Operation::LOAD_LIST => {
-                    increment_rank(destination_address);
+                    increment_rank(destination_address, 1);
 
                     for index in b_address.index..=c_address.index {
                         let address = Address::new(index, b_address.kind);
@@ -374,19 +374,19 @@ impl<'src> Compiler<'src> {
                 | Operation::MULTIPLY
                 | Operation::DIVIDE
                 | Operation::MODULO => {
-                    increment_rank(destination_address);
-                    increment_rank(b_address);
-                    increment_rank(c_address);
+                    increment_rank(destination_address, 2);
+                    increment_rank(b_address, 2);
+                    increment_rank(c_address, 2);
                 }
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
-                    increment_rank(b_address);
-                    increment_rank(c_address);
+                    increment_rank(b_address, 2);
+                    increment_rank(c_address, 2);
                 }
                 Operation::TEST => {
-                    increment_rank(b_address);
+                    increment_rank(b_address, 2);
                 }
                 Operation::RETURN => {
-                    increment_rank(b_address);
+                    increment_rank(b_address, 2);
                 }
                 _ => {}
             }
@@ -399,7 +399,7 @@ impl<'src> Compiler<'src> {
             address_rankings
                 .into_iter()
                 .filter(|(_, address)| !disqualified.contains(address))
-                .take(3)
+                .take(4)
                 .zip(0..)
         };
 
