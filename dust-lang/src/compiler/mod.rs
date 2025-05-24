@@ -45,6 +45,8 @@ use crate::{
     r#type::TypeKind,
 };
 
+pub const DEFAULT_REGISTER_COUNT: usize = 4;
+
 /// Compiles the input and returns a chunk.
 ///
 /// # Example
@@ -58,8 +60,9 @@ use crate::{
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler = Compiler::new(lexer, CompileMode::Main { name: None })
-        .map_err(|error| DustError::compile(error, source))?;
+    let mut compiler =
+        Compiler::<DEFAULT_REGISTER_COUNT>::new(lexer, CompileMode::Main { name: None })
+            .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -75,7 +78,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
-pub struct Compiler<'src> {
+pub struct Compiler<'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
     mode: CompileMode,
@@ -178,7 +181,7 @@ pub struct Compiler<'src> {
     previous_position: Span,
 }
 
-impl<'src> Compiler<'src> {
+impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
     /// Creates a new compiler.
     pub fn new(mut lexer: Lexer<'src>, mode: CompileMode) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
@@ -350,6 +353,10 @@ impl<'src> Compiler<'src> {
             let c_address = instruction.c_address();
 
             match instruction.operation() {
+                Operation::MOVE => {
+                    increment_rank(destination_address, 1);
+                    increment_rank(b_address, 1);
+                }
                 Operation::CLOSE => {
                     for index in b_address.index..=c_address.index {
                         let address = Address::new(index, b_address.kind);
@@ -382,10 +389,11 @@ impl<'src> Compiler<'src> {
                     increment_rank(b_address, 2);
                     increment_rank(c_address, 2);
                 }
-                Operation::TEST => {
+                Operation::TEST | Operation::RETURN => {
                     increment_rank(b_address, 2);
                 }
-                Operation::RETURN => {
+                Operation::CALL => {
+                    increment_rank(destination_address, 2);
                     increment_rank(b_address, 2);
                 }
                 _ => {}
@@ -399,7 +407,7 @@ impl<'src> Compiler<'src> {
             address_rankings
                 .into_iter()
                 .filter(|(_, address)| !disqualified.contains(address))
-                .take(4)
+                .take(REGISTER_COUNT)
                 .zip(0..)
         };
 
@@ -427,7 +435,7 @@ impl<'src> Compiler<'src> {
                 _ => todo!(),
             };
 
-            trace!("{} Uses: {old_address} -> {new_address}", rank + 1);
+            trace!("{old_address} -> {new_address} Usage Rank: {rank}");
 
             replacements.insert(old_address, new_address);
         }
@@ -443,6 +451,15 @@ impl<'src> Compiler<'src> {
             let c_address = instruction.c_address();
 
             match instruction.operation() {
+                Operation::MOVE => {
+                    if let Some(replacement) = replacements.get(&destination_address) {
+                        instruction.set_destination(*replacement);
+                    }
+
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        instruction.set_b_address(*replacement);
+                    }
+                }
                 Operation::LOAD_ENCODED
                 | Operation::LOAD_CONSTANT
                 | Operation::LOAD_LIST
@@ -477,7 +494,16 @@ impl<'src> Compiler<'src> {
                         instruction.set_c_address(*replacement);
                     }
                 }
-                Operation::TEST | Operation::CALL | Operation::RETURN => {
+                Operation::TEST | Operation::RETURN => {
+                    if let Some(replacement) = replacements.get(&b_address) {
+                        instruction.set_b_address(*replacement);
+                    }
+                }
+                Operation::CALL => {
+                    if let Some(replacement) = replacements.get(&destination_address) {
+                        instruction.set_destination(*replacement);
+                    }
+
                     if let Some(replacement) = replacements.get(&b_address) {
                         instruction.set_b_address(*replacement);
                     }
@@ -522,7 +548,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_byte_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_byte_register,
@@ -540,7 +565,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_character_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_boolean_register,
@@ -558,7 +582,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_float_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_boolean_register,
@@ -576,7 +599,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_integer_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_integer_register,
@@ -594,7 +616,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_string_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_boolean_register,
@@ -612,7 +633,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_list_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_boolean_register,
@@ -630,7 +650,6 @@ impl<'src> Compiler<'src> {
         )
     }
 
-    // TODO: Account for MOVE instructions
     fn next_function_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
             self.minimum_boolean_register,
@@ -1171,7 +1190,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = ParseRule::<REGISTER_COUNT>::from(&operator);
         let is_assignment = matches!(
             operator,
             Token::PlusEqual
@@ -1308,7 +1327,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = ParseRule::<REGISTER_COUNT>::from(&operator);
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -1404,7 +1423,7 @@ impl<'src> Compiler<'src> {
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::from(&operator);
+        let rule = ParseRule::<REGISTER_COUNT>::from(&operator);
         let test_boolean = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -1691,7 +1710,7 @@ impl<'src> Compiler<'src> {
             }
 
             let handle_closing_addresses =
-                |compiler: &mut Compiler,
+                |compiler: &mut Compiler<REGISTER_COUNT>,
                  start_closing: u16,
                  next_address: u16,
                  kind: AddressKind| {
@@ -2289,7 +2308,7 @@ impl<'src> Compiler<'src> {
                 name: identifier.map(DustString::from),
             };
 
-            Compiler::new(self.lexer, compile_mode)? // This will consume the parenthesis
+            Compiler::<REGISTER_COUNT>::new(self.lexer, compile_mode)? // This will consume the parenthesis
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftParenthesis,

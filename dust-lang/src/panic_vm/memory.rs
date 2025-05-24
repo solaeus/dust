@@ -5,7 +5,7 @@ use hashbrown::HashSet;
 use crate::{AbstractList, Address, Chunk, ConcreteList, DustString, Type, r#type::TypeKind};
 
 #[derive(Debug)]
-pub struct Memory {
+pub struct Memory<const REGISTER_COUNT: usize> {
     pub booleans: Vec<bool>,
     pub bytes: Vec<u8>,
     pub characters: Vec<char>,
@@ -17,10 +17,10 @@ pub struct Memory {
 
     pub closed: HashSet<Address>,
 
-    pub registers: RegisterTable,
+    pub registers: RegisterTable<REGISTER_COUNT>,
 }
 
-impl Memory {
+impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
     #[expect(clippy::rc_clone_in_vec_init)]
     pub fn new(chunk: &Chunk) -> Self {
         Memory {
@@ -123,7 +123,7 @@ impl Memory {
 }
 
 #[derive(Debug)]
-pub struct RegisterTable<const LENGTH: usize = 4> {
+pub struct RegisterTable<const LENGTH: usize> {
     pub booleans: [bool; LENGTH],
     pub bytes: [u8; LENGTH],
     pub characters: [char; LENGTH],

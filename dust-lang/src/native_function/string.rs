@@ -5,11 +5,11 @@ use crate::{
     panic_vm::{CallFrame, Memory},
 };
 
-pub fn to_string(
+pub fn to_string<const REGISTER_COUNT: usize>(
     destination: Destination,
     arguments: &Arguments,
     call: &mut CallFrame,
-    memory: &mut Memory,
+    memory: &mut Memory<REGISTER_COUNT>,
 ) {
     let argument = &arguments.values[0];
     let stringified = match argument.kind {

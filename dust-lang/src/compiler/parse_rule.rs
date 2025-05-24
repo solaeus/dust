@@ -4,17 +4,18 @@ use crate::Token;
 
 use super::{CompileError, Compiler};
 
-pub type Parser<'a> = fn(&mut Compiler<'a>) -> Result<(), CompileError>;
+pub type Parser<'a, const REGISTER_COUNT: usize> =
+    fn(&mut Compiler<'a, REGISTER_COUNT>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'a> {
-    pub prefix: Option<Parser<'a>>,
-    pub infix: Option<Parser<'a>>,
+pub struct ParseRule<'a, const REGISTER_COUNT: usize> {
+    pub prefix: Option<Parser<'a, REGISTER_COUNT>>,
+    pub infix: Option<Parser<'a, REGISTER_COUNT>>,
     pub precedence: Precedence,
 }
 
-impl From<&Token<'_>> for ParseRule<'_> {
+impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, REGISTER_COUNT> {
     fn from(token: &Token) -> Self {
         match token {
             Token::ArrowThin => ParseRule {

@@ -13,13 +13,13 @@ use crate::{
 
 use super::{CallFrame, Memory};
 
-pub struct Thread {
+pub struct Thread<const REGISTER_COUNT: usize> {
     chunk: Arc<Chunk>,
 
     _spawned_threads: Vec<JoinHandle<()>>,
 }
 
-impl Thread {
+impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
     pub fn new(chunk: Arc<Chunk>) -> Self {
         Thread {
             chunk,
@@ -44,7 +44,7 @@ impl Thread {
         let mut memory_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
 
         let mut call = CallFrame::new(Arc::clone(&self.chunk), Address::default());
-        let mut memory = Memory::new(&call.chunk);
+        let mut memory = Memory::<REGISTER_COUNT>::new(&call.chunk);
 
         loop {
             let instructions = &call.chunk.instructions;
@@ -601,10 +601,9 @@ impl Thread {
                         }
                         AddressKind::INTEGER_REGISTER => {
                             let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
                             let right_value = match right.kind {
                                 AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
+                                    call.chunk.integer_constants[right.index as usize]
                                 }
                                 AddressKind::INTEGER_MEMORY => {
                                     memory.integers[right.index as usize]
@@ -2356,16 +2355,15 @@ impl Thread {
                         }
                         AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
                         AddressKind::FUNCTION_REGISTER => {
-                            let abstract_function =
+                            let function =
                                 &memory.registers.functions[function_address.index as usize];
 
-                            Arc::clone(abstract_function)
+                            Arc::clone(function)
                         }
                         AddressKind::FUNCTION_MEMORY => {
-                            let abstract_function =
-                                &memory.functions[function_address.index as usize];
+                            let function = &memory.functions[function_address.index as usize];
 
-                            Arc::clone(abstract_function)
+                            Arc::clone(function)
                         }
                         _ => unreachable!(),
                     };
@@ -2547,6 +2545,35 @@ impl Thread {
                         AddressKind::INTEGER_REGISTER => {
                             let integer =
                                 memory.registers.integers[return_value_address.index as usize];
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Integer(integer));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            match call.return_address.kind {
+                                AddressKind::NONE => {}
+                                AddressKind::INTEGER_REGISTER => {
+                                    new_memory.registers.integers
+                                        [call.return_address.index as usize] = integer;
+                                }
+                                AddressKind::INTEGER_MEMORY => {
+                                    new_memory.integers[call.return_address.index as usize] =
+                                        integer;
+                                }
+                                _ => unreachable!(),
+                            }
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let integer = memory.integers[return_value_address.index as usize];
 
                             if call_stack.is_empty() {
                                 if should_return_value {

@@ -17,8 +17,8 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DustError, DustString, Lexer, Vm, compiler::CompileMode,
-    panic::set_dust_panic_hook,
+    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, DustString, Lexer, Vm,
+    compiler::CompileMode, panic::set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
@@ -27,22 +27,20 @@ use tracing_subscriber::{
     registry::LookupSpan,
 };
 
-const STYLES: Styles = Styles::styled()
-    .header(AnsiColor::BrightMagenta.on_default().bold().underline())
-    .usage(AnsiColor::BrightMagenta.on_default().bold().underline())
-    .literal(AnsiColor::BrightCyan.on_default().bold())
-    .placeholder(AnsiColor::BrightCyan.on_default().bold())
-    .valid(AnsiColor::BrightGreen.on_default())
-    .invalid(AnsiColor::BrightYellow.on_default())
-    .error(AnsiColor::BrightRed.on_default());
-
 #[derive(Parser)]
 #[clap(
     version = crate_version!(),
     author = crate_authors!(),
     about = crate_description!(),
     color = ColorChoice::Auto,
-    styles = STYLES,
+    styles = Styles::styled()
+        .header(AnsiColor::BrightMagenta.on_default().bold().underline())
+        .usage(AnsiColor::BrightMagenta.on_default().bold().underline())
+        .literal(AnsiColor::BrightCyan.on_default().bold())
+        .placeholder(AnsiColor::BrightCyan.on_default().bold())
+        .valid(AnsiColor::BrightGreen.on_default())
+        .invalid(AnsiColor::BrightYellow.on_default())
+        .error(AnsiColor::BrightRed.on_default()),
 )]
 struct Cli {
     #[command(subcommand)]
@@ -206,7 +204,7 @@ fn main() {
         let lexer = Lexer::new(&source);
         let chunk = match input {
             Format::Dust => {
-                let mut compiler = match Compiler::new(
+                let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
                     lexer,
                     CompileMode::Main {
                         name: Some(source_name.clone()),
@@ -245,7 +243,7 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::new(Arc::new(chunk));
+        let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 
@@ -320,7 +318,7 @@ fn main() {
             }
         };
         let lexer = Lexer::new(&source);
-        let mut compiler = match Compiler::new(
+        let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
             lexer,
             CompileMode::Main {
                 name: Some(source_name.clone()),

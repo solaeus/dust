@@ -28,12 +28,12 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            pub fn call(
+            pub fn call<const REGISTER_COUNT: usize>(
                 &self,
                 destination: Destination,
                 arguments: &Arguments,
                 call: &mut CallFrame,
-                memory: &mut Memory,
+                memory: &mut Memory<REGISTER_COUNT>,
             ) {
                 match self {
                     $(

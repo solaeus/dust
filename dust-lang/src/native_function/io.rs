@@ -6,7 +6,12 @@ use crate::{
     panic_vm::{CallFrame, Memory},
 };
 
-pub fn read_line(destination: Destination, _: &Arguments, _: &mut CallFrame, memory: &mut Memory) {
+pub fn read_line<const REGISTER_COUNT: usize>(
+    destination: Destination,
+    _: &Arguments,
+    _: &mut CallFrame,
+    memory: &mut Memory<REGISTER_COUNT>,
+) {
     let mut buffer = String::new();
     let _ = stdin().read_line(&mut buffer);
 
@@ -19,7 +24,12 @@ pub fn read_line(destination: Destination, _: &Arguments, _: &mut CallFrame, mem
     }
 }
 
-pub fn write_line(_: Destination, arguments: &Arguments, _: &mut CallFrame, memory: &mut Memory) {
+pub fn write_line<const REGISTER_COUNT: usize>(
+    _: Destination,
+    arguments: &Arguments,
+    _: &mut CallFrame,
+    memory: &mut Memory<REGISTER_COUNT>,
+) {
     let mut stdout = stdout();
 
     for address in &arguments.values {

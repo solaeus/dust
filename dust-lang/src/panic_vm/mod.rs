@@ -14,20 +14,20 @@ use std::{sync::Arc, thread::Builder};
 use crossbeam_channel::bounded;
 use tracing::{Level, span};
 
-use crate::{Chunk, ConcreteValue, DustError, Value, compile};
+use crate::{Chunk, ConcreteValue, DustError, Value, compile, compiler::DEFAULT_REGISTER_COUNT};
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
-    let vm = Vm::new(Arc::new(chunk));
+    let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
 
     Ok(vm.run().map(Value::Concrete))
 }
 
-pub struct Vm {
+pub struct Vm<const REGISTER_COUNT: usize> {
     main_chunk: Arc<Chunk>,
 }
 
-impl Vm {
+impl<const REGISTER_COUNT: usize> Vm<REGISTER_COUNT> {
     pub fn new(main_chunk: Arc<Chunk>) -> Self {
         Self { main_chunk }
     }
@@ -47,7 +47,7 @@ impl Vm {
         Builder::new()
             .name(thread_name)
             .spawn(move || {
-                let mut main_thread = Thread::new(Arc::clone(&self.main_chunk));
+                let mut main_thread = Thread::<REGISTER_COUNT>::new(Arc::clone(&self.main_chunk));
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);
             })
