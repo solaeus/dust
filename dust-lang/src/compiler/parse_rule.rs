@@ -186,7 +186,7 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, '_, REGISTE
                 precedence: Precedence::Comparison,
             },
             Token::Let => ParseRule {
-                prefix: Some(Compiler::parse_let_statement),
+                prefix: Some(Compiler::parse_let),
                 infix: None,
                 precedence: Precedence::Assignment,
             },
@@ -233,7 +233,7 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, '_, REGISTE
                 precedence: Precedence::Assignment,
             },
             Token::Return => ParseRule {
-                prefix: Some(Compiler::parse_return_statement),
+                prefix: Some(Compiler::parse_return),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -288,6 +288,11 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, '_, REGISTE
                 precedence: Precedence::None,
             },
             Token::Struct => todo!(),
+            Token::Use => ParseRule {
+                prefix: Some(Compiler::parse_use),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::While => ParseRule {
                 prefix: Some(Compiler::parse_while),
                 infix: None,

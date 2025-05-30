@@ -42,8 +42,8 @@ impl Path {
         module_names
     }
 
-    pub fn value_names(&self) -> impl Iterator<Item = &str> {
-        self.inner.rsplit("::").take(1).next().unwrap().split('.')
+    pub fn item_name(&self) -> &str {
+        self.inner.rsplit("::").next().unwrap()
     }
 }
 
@@ -62,7 +62,7 @@ mod tests {
         let path = Path::new(DustString::from("foo")).unwrap();
 
         assert_eq!(path.module_names().len(), 0);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["foo"]);
+        assert_eq!(path.item_name(), "foo");
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod tests {
         let path = Path::new(DustString::from("bar.baz")).unwrap();
 
         assert_eq!(path.module_names().len(), 0);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["bar", "baz"]);
+        assert_eq!(path.item_name(), "bar.baz");
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
         let path = Path::new(DustString::from("foo::bar")).unwrap();
 
         assert_eq!(path.module_names(), vec!["foo"]);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["bar"]);
+        assert_eq!(path.item_name(), "bar");
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod tests {
         let path = Path::new(DustString::from("foo::bar.baz")).unwrap();
 
         assert_eq!(path.module_names(), vec!["foo"]);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["bar", "baz"]);
+        assert_eq!(path.item_name(), "bar.baz");
     }
 
     #[test]
@@ -94,7 +94,7 @@ mod tests {
         let path = Path::new(DustString::from("foo::bar::baz")).unwrap();
 
         assert_eq!(path.module_names(), vec!["foo", "bar"]);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["baz"]);
+        assert_eq!(path.item_name(), "baz");
     }
 
     #[test]
@@ -102,6 +102,6 @@ mod tests {
         let path = Path::new(DustString::from("foo::bar::baz.qux")).unwrap();
 
         assert_eq!(path.module_names(), vec!["foo", "bar"]);
-        assert_eq!(path.value_names().collect::<Vec<_>>(), vec!["baz", "qux"]);
+        assert_eq!(path.item_name(), "baz.qux");
     }
 }

@@ -174,7 +174,7 @@ pub struct Compiler<'dc, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_CO
 
     /// The currently active paths from which the compiler can resolve symbols. This is mutated
     /// during compilation to enforce Dust's scope rules.
-    active_namespace: HashSet<Path>,
+    active_namespace: HashMap<DustString, Item>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
@@ -221,7 +221,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             block_index: 0,
             current_block_scope: Scope::default(),
             dust_crate,
-            active_namespace: HashSet::new(),
+            active_namespace: HashMap::new(),
             prototype_index: 0,
             current_token,
             current_position,
@@ -776,6 +776,22 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             let index = self.string_constants.len() as u16;
 
             self.string_constants.push(string);
+
+            index
+        }
+    }
+
+    fn push_or_get_constant_integer(&mut self, integer: i64) -> u16 {
+        if let Some(index) = self
+            .integer_constants
+            .iter()
+            .position(|constant| constant == &integer)
+        {
+            index as u16
+        } else {
+            let index = self.integer_constants.len() as u16;
+
+            self.integer_constants.push(integer);
 
             index
         }
@@ -2107,7 +2123,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         Ok(())
     }
 
-    fn parse_return_statement(&mut self) -> Result<(), CompileError> {
+    fn parse_return(&mut self) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -2257,7 +2273,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         Ok(())
     }
 
-    fn parse_let_statement(&mut self) -> Result<(), CompileError> {
+    fn parse_let(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
         let is_mutable = self.allow(Token::Mut)?;
@@ -2885,6 +2901,124 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         }
 
         self.allow(Token::Semicolon)?;
+
+        Ok(())
+    }
+
+    fn parse_use(&mut self) -> Result<(), CompileError> {
+        self.advance()?;
+
+        let item_path = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
+
+            Path::new(text).ok_or(CompileError::InvalidPath {
+                found: text.to_string(),
+                position: self.previous_position,
+            })?
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        self.allow(Token::Semicolon)?;
+
+        let (item_name, item) = {
+            let mut active_module = if let CompileMode::Module { module, .. } = &mut self.mode {
+                module
+            } else {
+                &mut self.dust_crate
+            };
+
+            for module_name in item_path.module_names() {
+                if let Some(Item::Module(module)) = active_module.items.get_mut(module_name) {
+                    active_module = module;
+                } else {
+                    return Err(CompileError::UnknownModule {
+                        module_name: module_name.to_string(),
+                        position: self.previous_position,
+                    });
+                }
+            }
+
+            let item_name = item_path.item_name();
+
+            let item = active_module
+                .items
+                .get(item_name)
+                .ok_or(CompileError::UnknownItem {
+                    item_name: item_name.to_string(),
+                    position: self.previous_position,
+                })?;
+
+            (DustString::from(item_name), item.clone())
+        };
+
+        match item {
+            Item::Constant(value) => {
+                let (instruction, destination_address, r#type) = match value {
+                    ConcreteValue::Boolean(boolean) => {
+                        let memory_index = self.next_boolean_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let instruction = Instruction::load_encoded(
+                            destination,
+                            boolean as u16,
+                            AddressKind::BOOLEAN_MEMORY,
+                            false,
+                        );
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::Boolean),
+                            Type::Boolean,
+                        )
+                    }
+                    ConcreteValue::Byte(byte) => {
+                        let memory_index = self.next_byte_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let instruction = Instruction::load_encoded(
+                            destination,
+                            byte as u16,
+                            AddressKind::BYTE_MEMORY,
+                            false,
+                        );
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::Byte),
+                            Type::Byte,
+                        )
+                    }
+                    ConcreteValue::Integer(integer) => {
+                        let memory_index = self.next_integer_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let constant_index = self.push_or_get_constant_integer(integer);
+                        let address = Address::new(constant_index, AddressKind::INTEGER_CONSTANT);
+                        let instruction = Instruction::load_constant(destination, address, false);
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::Integer),
+                            Type::Integer,
+                        )
+                    }
+                    _ => todo!("Handle other constant types in use statement"),
+                };
+
+                self.emit_instruction(instruction, Type::None, self.current_position);
+
+                self.declare_local(
+                    &item_name,
+                    destination_address,
+                    r#type,
+                    false,
+                    self.current_block_scope,
+                );
+            }
+            _ => todo!("Handle other item types in use statement"),
+        }
 
         Ok(())
     }

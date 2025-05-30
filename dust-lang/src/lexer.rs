@@ -251,6 +251,9 @@ impl<'src> Lexer<'src> {
         while let Some(c) = self.peek_char() {
             if c.is_ascii_alphanumeric() || c == '_' {
                 self.next_char();
+            } else if c == ':' && self.peek_second_char() == Some(':') {
+                self.next_char();
+                self.next_char();
             } else {
                 break;
             }
@@ -279,6 +282,7 @@ impl<'src> Lexer<'src> {
             "str" => Token::Str,
             "struct" => Token::Struct,
             "true" => Token::Boolean("true"),
+            "use" => Token::Use,
             "while" => Token::While,
             _ => Token::Identifier(string),
         };

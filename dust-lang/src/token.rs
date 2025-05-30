@@ -58,6 +58,7 @@ define_tokens! {
     Return,
     Str,
     Struct,
+    Use,
     While,
 
     // Symbols
@@ -125,6 +126,7 @@ impl Token<'_> {
             Token::Mut => 3,
             Token::Str => 3,
             Token::Struct => 6,
+            Token::Use => 3,
             Token::While => 5,
             Token::BangEqual => 2,
             Token::Bang => 1,
@@ -189,6 +191,7 @@ impl Token<'_> {
             Token::Mut => "mut",
             Token::Str => "str",
             Token::Struct => "struct",
+            Token::Use => "use",
             Token::While => "while",
             Token::BangEqual => "!=",
             Token::Bang => "!",
@@ -285,6 +288,7 @@ impl Token<'_> {
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
+            Token::Use => TokenOwned::Use,
             Token::While => TokenOwned::While,
         }
     }
@@ -349,6 +353,7 @@ impl Token<'_> {
             Token::Str => TokenKind::Str,
             Token::String(_) => TokenKind::String,
             Token::Struct => TokenKind::Struct,
+            Token::Use => TokenKind::Use,
             Token::While => TokenKind::While,
         }
     }
@@ -457,6 +462,7 @@ impl Display for Token<'_> {
             Token::Str => write!(f, "str"),
             Token::String(value) => write!(f, "{value}"),
             Token::Struct => write!(f, "struct"),
+            Token::Use => write!(f, "use"),
             Token::While => write!(f, "while"),
         }
     }
@@ -523,6 +529,7 @@ impl Display for TokenKind {
             TokenKind::Str => write!(f, "str"),
             TokenKind::String => write!(f, "string"),
             TokenKind::Struct => write!(f, "struct"),
+            TokenKind::Use => write!(f, "use"),
             TokenKind::While => write!(f, "while"),
         }
     }
@@ -563,6 +570,7 @@ pub enum TokenOwned {
     Mut,
     Return,
     Str,
+    Use,
     While,
 
     // Symbols
@@ -662,6 +670,7 @@ impl Display for TokenOwned {
             TokenOwned::Str => Token::Str.fmt(f),
             TokenOwned::String(string) => Token::String(string).fmt(f),
             TokenOwned::Struct => Token::Struct.fmt(f),
+            TokenOwned::Use => Token::Use.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
         }
     }

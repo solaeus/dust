@@ -49,6 +49,14 @@ pub enum CompileError {
     UnexpectedReturn {
         position: Span,
     },
+    UnknownModule {
+        module_name: String,
+        position: Span,
+    },
+    UnknownItem {
+        item_name: String,
+        position: Span,
+    },
 
     // Variable errors
     CannotMutateImmutableVariable {
@@ -221,6 +229,8 @@ impl AnnotatedError for CompileError {
             Self::ReturnTypeConflict { .. } => "Return type conflict",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UnexpectedReturn { .. } => "Unexpected return",
+            Self::UnknownModule { .. } => "Unknown module",
+            Self::UnknownItem { .. } => "Unknown item",
             Self::VariableOutOfScope { .. } => "Variable out of scope",
         }
     }
@@ -286,6 +296,18 @@ impl AnnotatedError for CompileError {
             }
             Self::UnexpectedReturn { position } => {
                 vec![("Unexpected return statement".to_string(), *position)]
+            }
+            Self::UnknownModule {
+                module_name,
+                position,
+            } => {
+                vec![(format!("Unknown module `{module_name}`"), *position)]
+            }
+            Self::UnknownItem {
+                item_name,
+                position,
+            } => {
+                vec![(format!("Unknown item `{item_name}`"), *position)]
             }
 
             // Variable errors
@@ -575,6 +597,15 @@ impl AnnotatedError for CompileError {
                     "Remove the `return` statement or place it inside a function".to_string(),
                     *position,
                 )]
+            }
+            Self::UnknownModule { position, .. } => {
+                vec![(
+                    "Ensure the path is correct and that its root is in scope".to_string(),
+                    *position,
+                )]
+            }
+            Self::UnknownItem { position, .. } => {
+                vec![("Ensure the item is in scope".to_string(), *position)]
             }
 
             // Variable errors
