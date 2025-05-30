@@ -1727,8 +1727,6 @@ where
             });
         };
 
-        println!("{:#?}", self.current_item_scope);
-
         let (variable_type, register_index, is_mutable) = {
             if let Ok(local_index) = self.get_local_index(identifier) {
                 let local = self.get_local(local_index)?;

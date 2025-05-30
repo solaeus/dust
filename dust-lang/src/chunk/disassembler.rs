@@ -330,7 +330,17 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 .chunk
                 .string_constants
                 .get(*identifier_index as usize)
-                .map(|value| value.to_string())
+                .map(|text| {
+                    let length = text.chars().count();
+
+                    if length > 16 {
+                        let overflow_length = length - 13;
+
+                        format!("...{}", &text[overflow_length..])
+                    } else {
+                        text.to_string()
+                    }
+                })
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
             let address_display = address.to_string();
