@@ -24,7 +24,7 @@ impl<'a> Module<'a> {
         for module_name in path.module_names() {
             if let Some((item, _)) = current_module.items.get(&module_name) {
                 if let Item::Module(module) = item {
-                    current_module = &module;
+                    current_module = module;
 
                     continue;
                 } else {
@@ -44,8 +44,37 @@ impl<'a, 'de: 'a> Deserialize<'de> for Module<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let items = HashMap::<Path<'a>, (Item<'a>, Span)>::deserialize(deserializer)?;
+        struct ModuleVisitor<'a> {
+            marker: std::marker::PhantomData<&'a ()>,
+        }
 
-        Ok(Module { items })
+        impl<'a> serde::de::Visitor<'a> for ModuleVisitor<'a> {
+            type Value = Module<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a module with items")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: serde::de::MapAccess<'a>,
+            {
+                let mut items = HashMap::new();
+
+                while let Some((key, value)) = map.next_entry::<Path<'a>, (Item<'a>, Span)>()? {
+                    items.insert(key, value);
+                }
+
+                Ok(Module { items })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "Module",
+            &["items"],
+            ModuleVisitor {
+                marker: std::marker::PhantomData,
+            },
+        )
     }
 }

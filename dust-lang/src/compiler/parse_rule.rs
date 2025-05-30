@@ -242,7 +242,7 @@ where
                 precedence: Precedence::None,
             },
             Token::RightBrace => ParseRule {
-                prefix: None,
+                prefix: Some(Compiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

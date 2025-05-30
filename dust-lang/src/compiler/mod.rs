@@ -126,14 +126,14 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     /// Arguments for each function call.
     arguments: Vec<Arguments>,
 
-    minimum_boolean_memory: u16,
-    minimum_byte_memory: u16,
-    minimum_character_memory: u16,
-    minimum_float_memory: u16,
-    minimum_integer_memory: u16,
-    minimum_string_memory: u16,
-    minimum_list_memory: u16,
-    minimum_function_memory: u16,
+    minimum_boolean_memory_index: u16,
+    minimum_byte_memory_index: u16,
+    minimum_character_memory_index: u16,
+    minimum_float_memory_index: u16,
+    minimum_integer_memory_index: u16,
+    minimum_string_memory_index: u16,
+    minimum_list_memory_index: u16,
+    minimum_function_memory_index: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -189,14 +189,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_memory: 0,
-            minimum_boolean_memory: 0,
-            minimum_character_memory: 0,
-            minimum_float_memory: 0,
-            minimum_integer_memory: 0,
-            minimum_string_memory: 0,
-            minimum_list_memory: 0,
-            minimum_function_memory: 0,
+            minimum_byte_memory_index: 0,
+            minimum_boolean_memory_index: 0,
+            minimum_character_memory_index: 0,
+            minimum_float_memory_index: 0,
+            minimum_integer_memory_index: 0,
+            minimum_string_memory_index: 0,
+            minimum_list_memory_index: 0,
+            minimum_function_memory_index: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
@@ -232,14 +232,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_memory: 0,
-            minimum_boolean_memory: 0,
-            minimum_character_memory: 0,
-            minimum_float_memory: 0,
-            minimum_integer_memory: 0,
-            minimum_string_memory: 0,
-            minimum_list_memory: 0,
-            minimum_function_memory: 0,
+            minimum_byte_memory_index: 0,
+            minimum_boolean_memory_index: 0,
+            minimum_character_memory_index: 0,
+            minimum_float_memory_index: 0,
+            minimum_integer_memory_index: 0,
+            minimum_string_memory_index: 0,
+            minimum_list_memory_index: 0,
+            minimum_function_memory_index: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope: item_scope,
@@ -280,14 +280,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_memory: 0,
-            minimum_boolean_memory: 0,
-            minimum_character_memory: 0,
-            minimum_float_memory: 0,
-            minimum_integer_memory: 0,
-            minimum_string_memory: 0,
-            minimum_list_memory: 0,
-            minimum_function_memory: 0,
+            minimum_byte_memory_index: 0,
+            minimum_boolean_memory_index: 0,
+            minimum_character_memory_index: 0,
+            minimum_float_memory_index: 0,
+            minimum_integer_memory_index: 0,
+            minimum_string_memory_index: 0,
+            minimum_list_memory_index: 0,
+            minimum_function_memory_index: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
@@ -306,13 +306,12 @@ where
     /// [`CompileError`] if any are found. After calling this function, check its return value for
     /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
-        let span = span!(Level::INFO, "Compile");
-        let _enter = span.enter();
+        let logging = span!(Level::INFO, "Compile");
+        let _enter = logging.enter();
 
         info!(
             "Begin chunk with `{}` at {}",
-            self.current_token.to_string(),
-            self.current_position.to_string()
+            self.current_token, self.current_position
         );
 
         while !matches!(self.current_token, Token::Eof | Token::RightBrace) {
@@ -374,8 +373,8 @@ where
     }
 
     fn optimize_instructions(&mut self) {
-        let span = span!(Level::TRACE, "Optimize");
-        let _enter = span.enter();
+        let logging = span!(Level::TRACE, "Optimize");
+        let _enter = logging.enter();
 
         let mut boolean_address_rankings = Vec::<(usize, Address)>::new();
         let mut byte_address_rankings = Vec::<(usize, Address)>::new();
@@ -615,7 +614,7 @@ where
 
     fn next_boolean_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Boolean {
                     if instruction.a_field() >= acc {
@@ -631,9 +630,9 @@ where
     }
 
     fn next_byte_memory_index(&self) -> u16 {
-        self.instructions
-            .iter()
-            .fold(self.minimum_byte_memory, |acc, (instruction, r#type, _)| {
+        self.instructions.iter().fold(
+            self.minimum_byte_memory_index,
+            |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Byte {
                     if instruction.a_field() >= acc {
                         instruction.a_field() + 1
@@ -643,12 +642,13 @@ where
                 } else {
                     acc
                 }
-            })
+            },
+        )
     }
 
     fn next_character_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Character {
                     if instruction.a_field() >= acc {
@@ -665,7 +665,7 @@ where
 
     fn next_float_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Float {
                     if instruction.a_field() >= acc {
@@ -681,22 +681,9 @@ where
     }
 
     fn next_integer_memory_index(&self) -> u16 {
-        let next_index = self
-            .locals
-            .iter()
-            .filter_map(|local| {
-                if local.r#type == Type::Integer {
-                    Some(local.address.index + 1)
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or(self.minimum_integer_memory);
-
-        self.instructions
-            .iter()
-            .fold(next_index, |acc, (instruction, r#type, _)| {
+        self.instructions.iter().fold(
+            self.minimum_integer_memory_index,
+            |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Integer {
                     if instruction.a_field() >= acc {
                         instruction.a_field() + 1
@@ -706,12 +693,13 @@ where
                 } else {
                     acc
                 }
-            })
+            },
+        )
     }
 
     fn next_string_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::String {
                     if instruction.a_field() >= acc {
@@ -728,7 +716,7 @@ where
 
     fn next_list_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::List(_)) {
                     if instruction.a_field() >= acc {
@@ -745,7 +733,7 @@ where
 
     fn next_function_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory,
+            self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::Function(_)) {
                     if instruction.a_field() >= acc {
@@ -768,7 +756,7 @@ where
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        info!(
+        trace!(
             "Parsing {} at {}",
             new_token.to_string(),
             position.to_string()
@@ -826,6 +814,18 @@ where
         let identifier = DustString::from(identifier);
         let identifier_index = self.push_or_get_constant_string(identifier);
         let local_index = self.locals.len() as u16;
+
+        match r#type.kind() {
+            TypeKind::Boolean => self.minimum_boolean_memory_index += 1,
+            TypeKind::Byte => self.minimum_byte_memory_index += 1,
+            TypeKind::Character => self.minimum_character_memory_index += 1,
+            TypeKind::Float => self.minimum_float_memory_index += 1,
+            TypeKind::Integer => self.minimum_integer_memory_index += 1,
+            TypeKind::String => self.minimum_string_memory_index += 1,
+            TypeKind::List => self.minimum_list_memory_index += 1,
+            TypeKind::Function => self.minimum_function_memory_index += 1,
+            _ => todo!(),
+        }
 
         self.locals.push(Local::new(
             identifier_index,
@@ -2556,19 +2556,6 @@ where
                 is_mutable,
                 function_compiler.current_block_scope,
             );
-
-            match r#type {
-                Type::Boolean => function_compiler.minimum_boolean_memory += 1,
-                Type::Byte => function_compiler.minimum_byte_memory += 1,
-                Type::Character => function_compiler.minimum_character_memory += 1,
-                Type::Float => function_compiler.minimum_float_memory += 1,
-                Type::Integer => function_compiler.minimum_integer_memory += 1,
-                Type::String => function_compiler.minimum_string_memory += 1,
-                Type::List(_) => function_compiler.minimum_list_memory += 1,
-                Type::Function(_) => function_compiler.minimum_function_memory += 1,
-                _ => todo!(),
-            }
-
             value_parameters.push(r#type);
             function_compiler.allow(Token::Comma)?;
         }
@@ -2834,6 +2821,8 @@ where
     }
 
     fn parse_mod(&mut self) -> Result<(), CompileError> {
+        let loggging = span!(Level::TRACE, "Module");
+        let _span_guard = loggging.enter();
         let start = self.current_position.0;
 
         self.advance()?;
@@ -2850,33 +2839,34 @@ where
             });
         };
 
-        let mut module_compiler = if let Token::LeftBrace = self.current_token {
-            Compiler::<REGISTER_COUNT>::new_module(self.lexer, name, self.dust_crate)? // This will consume the left brace
-        } else {
-            return Err(CompileError::ExpectedToken {
-                expected: TokenKind::LeftBrace,
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            });
-        };
+        let old_mode = replace(
+            &mut self.mode,
+            CompileMode::Module {
+                module: Module::new(),
+                name,
+            },
+        );
 
-        module_compiler.compile()?;
-        module_compiler.expect(Token::RightBrace)?;
+        self.expect(Token::LeftBrace)?;
 
-        self.previous_token = module_compiler.previous_token;
-        self.previous_position = module_compiler.previous_position;
-        self.current_token = module_compiler.current_token;
-        self.current_position = module_compiler.current_position;
+        loop {
+            match self.current_token {
+                Token::Const => self.parse_const()?,
+                Token::Fn => self.parse_function()?,
+                Token::Mod => self.parse_mod()?,
+                _ => break,
+            }
+        }
 
-        self.lexer.skip_to(self.current_position.1);
+        self.expect(Token::RightBrace)?;
 
-        let end = module_compiler.previous_position.1;
+        let end = self.previous_position.1;
         let position = Span(start, end);
 
         if let CompileMode::Module {
             module: new_module,
             name: new_module_name,
-        } = module_compiler.mode
+        } = replace(&mut self.mode, old_mode)
         {
             let new_module_path = Path::new(new_module_name).ok_or(CompileError::InvalidPath {
                 found: new_module_name.to_string(),
