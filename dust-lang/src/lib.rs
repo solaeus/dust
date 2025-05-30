@@ -44,7 +44,7 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use crate::chunk::{Arguments, Chunk, Disassembler, Local, BlockScope};
+pub use crate::chunk::{Arguments, BlockScope, Chunk, Disassembler, Local};
 pub use crate::compiler::{CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile};
 pub use crate::dust_error::{AnnotatedError, DustError};
 pub use crate::instruction::{Address, Destination, Instruction, Operation};
@@ -59,7 +59,9 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct Span(pub usize, pub usize);
 
 impl Display for Span {

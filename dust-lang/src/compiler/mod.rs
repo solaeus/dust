@@ -126,37 +126,14 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     /// Arguments for each function call.
     arguments: Vec<Arguments>,
 
-    /// The first boolean register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_boolean_register: u16,
-
-    /// The first byte register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_byte_register: u16,
-
-    /// The first character register index that the compiler should use. This is used to avoid
-    /// reusing the registers that are used for the function's arguments.
-    minimum_character_register: u16,
-
-    /// The first float register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_float_register: u16,
-
-    /// The first integer register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_integer_register: u16,
-
-    /// The first string register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_string_register: u16,
-
-    /// The first list register index that the compiler should use. This is used to avoid reusing
-    /// the registers that are used for the function's arguments.
-    minimum_list_register: u16,
-
-    /// The first function register index that the compiler should use. This is used to avoid
-    /// reusing the registers that are used for the function's arguments.
-    minimum_function_register: u16,
+    minimum_boolean_memory: u16,
+    minimum_byte_memory: u16,
+    minimum_character_memory: u16,
+    minimum_float_memory: u16,
+    minimum_integer_memory: u16,
+    minimum_string_memory: u16,
+    minimum_list_memory: u16,
+    minimum_function_memory: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -196,10 +173,9 @@ where
         let mode = CompileMode::Main { name };
         let (current_token, current_position) = lexer.next_token()?;
         let mut current_item_scope = HashSet::with_capacity(1);
+        let path = Path::new("main").unwrap();
 
-        if let Some(name) = name {
-            current_item_scope.insert(Path::new(name).unwrap());
-        }
+        current_item_scope.insert(path);
 
         Ok(Compiler {
             mode,
@@ -213,14 +189,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_register: 0,
-            minimum_boolean_register: 0,
-            minimum_character_register: 0,
-            minimum_float_register: 0,
-            minimum_integer_register: 0,
-            minimum_string_register: 0,
-            minimum_list_register: 0,
-            minimum_function_register: 0,
+            minimum_byte_memory: 0,
+            minimum_boolean_memory: 0,
+            minimum_character_memory: 0,
+            minimum_float_memory: 0,
+            minimum_integer_memory: 0,
+            minimum_string_memory: 0,
+            minimum_list_memory: 0,
+            minimum_function_memory: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
@@ -256,14 +232,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_register: 0,
-            minimum_boolean_register: 0,
-            minimum_character_register: 0,
-            minimum_float_register: 0,
-            minimum_integer_register: 0,
-            minimum_string_register: 0,
-            minimum_list_register: 0,
-            minimum_function_register: 0,
+            minimum_byte_memory: 0,
+            minimum_boolean_memory: 0,
+            minimum_character_memory: 0,
+            minimum_float_memory: 0,
+            minimum_integer_memory: 0,
+            minimum_string_memory: 0,
+            minimum_list_memory: 0,
+            minimum_function_memory: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope: item_scope,
@@ -304,14 +280,14 @@ where
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
-            minimum_byte_register: 0,
-            minimum_boolean_register: 0,
-            minimum_character_register: 0,
-            minimum_float_register: 0,
-            minimum_integer_register: 0,
-            minimum_string_register: 0,
-            minimum_list_register: 0,
-            minimum_function_register: 0,
+            minimum_byte_memory: 0,
+            minimum_boolean_memory: 0,
+            minimum_character_memory: 0,
+            minimum_float_memory: 0,
+            minimum_integer_memory: 0,
+            minimum_string_memory: 0,
+            minimum_list_memory: 0,
+            minimum_function_memory: 0,
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
@@ -639,7 +615,7 @@ where
 
     fn next_boolean_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Boolean {
                     if instruction.a_field() >= acc {
@@ -655,9 +631,9 @@ where
     }
 
     fn next_byte_memory_index(&self) -> u16 {
-        self.instructions.iter().fold(
-            self.minimum_byte_register,
-            |acc, (instruction, r#type, _)| {
+        self.instructions
+            .iter()
+            .fold(self.minimum_byte_memory, |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Byte {
                     if instruction.a_field() >= acc {
                         instruction.a_field() + 1
@@ -667,13 +643,12 @@ where
                 } else {
                     acc
                 }
-            },
-        )
+            })
     }
 
     fn next_character_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Character {
                     if instruction.a_field() >= acc {
@@ -690,7 +665,7 @@ where
 
     fn next_float_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Float {
                     if instruction.a_field() >= acc {
@@ -706,9 +681,22 @@ where
     }
 
     fn next_integer_memory_index(&self) -> u16 {
-        self.instructions.iter().fold(
-            self.minimum_integer_register,
-            |acc, (instruction, r#type, _)| {
+        let next_index = self
+            .locals
+            .iter()
+            .filter_map(|local| {
+                if local.r#type == Type::Integer {
+                    Some(local.address.index + 1)
+                } else {
+                    None
+                }
+            })
+            .max()
+            .unwrap_or(self.minimum_integer_memory);
+
+        self.instructions
+            .iter()
+            .fold(next_index, |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Integer {
                     if instruction.a_field() >= acc {
                         instruction.a_field() + 1
@@ -718,13 +706,12 @@ where
                 } else {
                     acc
                 }
-            },
-        )
+            })
     }
 
     fn next_string_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::String {
                     if instruction.a_field() >= acc {
@@ -741,7 +728,7 @@ where
 
     fn next_list_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::List(_)) {
                     if instruction.a_field() >= acc {
@@ -758,7 +745,7 @@ where
 
     fn next_function_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_register,
+            self.minimum_boolean_memory,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::Function(_)) {
                     if instruction.a_field() >= acc {
@@ -1684,32 +1671,6 @@ where
         self.instructions
             .insert(jump_index, (jump, Type::None, jump_position));
 
-        // for (group_index, instructions) in self.instructions.rchunks_mut(3).enumerate().rev() {
-        //     let index = instructions_length - group_index * 3 - 1;
-
-        //     if index < self.previous_statement_end {
-        //         break;
-        //     }
-
-        //     if instructions.len() < 3 {
-        //         continue;
-        //     }
-
-        //     if !matches!(
-        //         instructions[0].0.operation(),
-        //         Operation::TEST | Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
-        //     ) || !matches!(instructions[1].0.operation(), Operation::JUMP)
-        //     {
-        //         break;
-        //     }
-
-        //     let old_jump = &mut instructions[1].0;
-        //     let short_circuit_distance = (instructions_length - index) as u16;
-
-        //     *old_jump = Instruction::jump(short_circuit_distance, true);
-
-        // }
-
         Ok(())
     }
 
@@ -1752,7 +1713,7 @@ where
                     found: identifier.to_string(),
                     position: start_position,
                 })?;
-                let item = self.dust_crate.get_item(&path).ok_or_else(|| {
+                let (item, item_position) = self.dust_crate.get_item(&path).ok_or_else(|| {
                     CompileError::UndeclaredVariable {
                         identifier: identifier.to_string(),
                         position: start_position,
@@ -1767,7 +1728,8 @@ where
                     ),
                 };
 
-                let local_index = self.bring_item_into_local_scope(path, item.clone())?;
+                let local_index =
+                    self.bring_item_into_local_scope(path, item.clone(), *item_position)?;
                 let local_register_index = self.get_local(local_index)?.address.index;
 
                 (item_type, local_register_index, false)
@@ -2596,14 +2558,14 @@ where
             );
 
             match r#type {
-                Type::Boolean => function_compiler.minimum_boolean_register += 1,
-                Type::Byte => function_compiler.minimum_byte_register += 1,
-                Type::Character => function_compiler.minimum_character_register += 1,
-                Type::Float => function_compiler.minimum_float_register += 1,
-                Type::Integer => function_compiler.minimum_integer_register += 1,
-                Type::String => function_compiler.minimum_string_register += 1,
-                Type::List(_) => function_compiler.minimum_list_register += 1,
-                Type::Function(_) => function_compiler.minimum_function_register += 1,
+                Type::Boolean => function_compiler.minimum_boolean_memory += 1,
+                Type::Byte => function_compiler.minimum_byte_memory += 1,
+                Type::Character => function_compiler.minimum_character_memory += 1,
+                Type::Float => function_compiler.minimum_float_memory += 1,
+                Type::Integer => function_compiler.minimum_integer_memory += 1,
+                Type::String => function_compiler.minimum_string_memory += 1,
+                Type::List(_) => function_compiler.minimum_list_memory += 1,
+                Type::Function(_) => function_compiler.minimum_function_memory += 1,
                 _ => todo!(),
             }
 
@@ -2872,6 +2834,8 @@ where
     }
 
     fn parse_mod(&mut self) -> Result<(), CompileError> {
+        let start = self.current_position.0;
+
         self.advance()?;
 
         let name = if let Token::Identifier(text) = self.current_token {
@@ -2906,6 +2870,9 @@ where
 
         self.lexer.skip_to(self.current_position.1);
 
+        let end = module_compiler.previous_position.1;
+        let position = Span(start, end);
+
         if let CompileMode::Module {
             module: new_module,
             name: new_module_name,
@@ -2921,13 +2888,15 @@ where
                 ..
             } = &mut self.mode
             {
-                self_module
-                    .items
-                    .insert(new_module_path.clone(), Item::Module(new_module));
+                self_module.items.insert(
+                    new_module_path.clone(),
+                    (Item::Module(new_module), position),
+                );
             } else {
-                self.dust_crate
-                    .items
-                    .insert(new_module_path.clone(), Item::Module(new_module));
+                self.dust_crate.items.insert(
+                    new_module_path.clone(),
+                    (Item::Module(new_module), position),
+                );
             }
 
             self.current_item_scope.insert(new_module_path);
@@ -2937,6 +2906,8 @@ where
     }
 
     fn parse_const(&mut self) -> Result<(), CompileError> {
+        let start = self.current_position.0;
+
         self.advance()?;
 
         let path = if let Token::Identifier(text) = self.current_token {
@@ -3050,11 +3021,15 @@ where
             }
             _ => todo!(),
         };
+        let end = self.current_position.1;
+        let position = Span(start, end);
 
         if let CompileMode::Module { module, .. } = &mut self.mode {
-            module.items.insert(path, Item::Constant(value));
+            module.items.insert(path, (Item::Constant(value), position));
         } else {
-            self.dust_crate.items.insert(path, Item::Constant(value));
+            self.dust_crate
+                .items
+                .insert(path, (Item::Constant(value), position));
         }
 
         self.allow(Token::Semicolon)?;
@@ -3082,38 +3057,39 @@ where
 
         self.allow(Token::Semicolon)?;
 
-        let (item_name, item) = {
-            let mut active_module = if let CompileMode::Module { module, .. } = &mut self.mode {
-                module
-            } else {
-                &mut self.dust_crate
-            };
-
-            for module_name in item_path.module_names() {
-                if let Some(Item::Module(module)) = active_module.items.get_mut(&module_name) {
-                    active_module = module;
-                } else {
-                    return Err(CompileError::UnknownModule {
-                        module_name: module_name.to_string(),
-                        position: self.previous_position,
-                    });
-                }
-            }
-
-            let item_name = item_path.item_name();
-
-            let item = active_module
-                .items
-                .get(&item_name)
-                .ok_or(CompileError::UnknownItem {
-                    item_name: item_name.to_string(),
-                    position: self.previous_position,
-                })?;
-
-            (item_name, item.clone())
+        let mut active_module = if let CompileMode::Module { module, .. } = &self.mode {
+            module
+        } else {
+            &*self.dust_crate
         };
 
-        self.bring_item_into_local_scope(item_name, item)?;
+        for module_name in item_path.module_names() {
+            if let Some((Item::Module(module), _)) = active_module.items.get(&module_name) {
+                active_module = module;
+            } else {
+                return Err(CompileError::UnknownModule {
+                    module_name: module_name.to_string(),
+                    position: self.previous_position,
+                });
+            }
+        }
+
+        let (item_name, item, item_position) = {
+            let item_name = item_path.item_name();
+
+            let (item, position) =
+                active_module
+                    .items
+                    .get(&item_name)
+                    .ok_or(CompileError::UnknownItem {
+                        item_name: item_name.to_string(),
+                        position: self.previous_position,
+                    })?;
+
+            (item_name, item.clone(), position)
+        };
+
+        self.bring_item_into_local_scope(item_name, item, *item_position)?;
 
         Ok(())
     }
@@ -3122,8 +3098,9 @@ where
         &mut self,
         item_name: Path<'paths>,
         item: Item,
+        item_position: Span,
     ) -> Result<u16, CompileError> {
-        let local_index = match item {
+        let constant_index = match item {
             Item::Constant(value) => {
                 let (instruction, destination_address, r#type) = match value {
                     ConcreteValue::Boolean(boolean) => {
@@ -3213,7 +3190,7 @@ where
                     _ => todo!("Handle other constant types in use statement"),
                 };
 
-                self.emit_instruction(instruction, Type::None, self.current_position);
+                self.emit_instruction(instruction, Type::None, item_position);
                 self.declare_local(
                     item_name.inner(),
                     destination_address,
@@ -3226,7 +3203,7 @@ where
             _ => todo!("Handle other item types in use statement"),
         };
 
-        Ok(local_index)
+        Ok(constant_index)
     }
 
     fn expect_expression(&mut self) -> Result<(), CompileError> {

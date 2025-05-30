@@ -57,7 +57,7 @@ const LOCAL_COLUMNS: [(&str, usize); 6] = [
     ("i", 5),
     ("IDENTIFIER", 16),
     ("TYPE", 26),
-    ("REGISTER", 12),
+    ("ADDRESS", 12),
     ("SCOPE", 7),
     ("MUTABLE", 7),
 ];

@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::Span;
+
 use super::{Item, Path};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Module<'a> {
-    pub items: HashMap<Path<'a>, Item<'a>>,
+    pub items: HashMap<Path<'a>, (Item<'a>, Span)>,
 }
 
 impl<'a> Module<'a> {
@@ -16,13 +18,13 @@ impl<'a> Module<'a> {
         }
     }
 
-    pub fn get_item(&self, path: &Path<'a>) -> Option<&Item<'a>> {
+    pub fn get_item(&self, path: &Path<'a>) -> Option<&(Item<'a>, Span)> {
         let mut current_module = self;
 
         for module_name in path.module_names() {
-            if let Some(item) = current_module.items.get(&module_name) {
+            if let Some((item, _)) = current_module.items.get(&module_name) {
                 if let Item::Module(module) = item {
-                    current_module = module;
+                    current_module = &module;
 
                     continue;
                 } else {
@@ -42,7 +44,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for Module<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let items = HashMap::<Path<'a>, Item<'a>>::deserialize(deserializer)?;
+        let items = HashMap::<Path<'a>, (Item<'a>, Span)>::deserialize(deserializer)?;
 
         Ok(Module { items })
     }
