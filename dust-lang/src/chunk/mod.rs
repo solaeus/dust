@@ -13,7 +13,7 @@ mod scope;
 
 pub use disassembler::Disassembler;
 pub use local::Local;
-pub use scope::Scope;
+pub use scope::BlockScope;
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;

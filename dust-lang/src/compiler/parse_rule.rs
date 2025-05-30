@@ -4,18 +4,22 @@ use crate::Token;
 
 use super::{CompileError, Compiler};
 
-pub type Parser<'ns, 'a, const REGISTER_COUNT: usize> =
-    fn(&mut Compiler<'ns, 'a, REGISTER_COUNT>) -> Result<(), CompileError>;
+pub type Parser<'dc, 'paths, 'src, const REGISTER_COUNT: usize> =
+    fn(&mut Compiler<'dc, 'paths, 'src, REGISTER_COUNT>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'ns, 'a, const REGISTER_COUNT: usize> {
-    pub prefix: Option<Parser<'ns, 'a, REGISTER_COUNT>>,
-    pub infix: Option<Parser<'ns, 'a, REGISTER_COUNT>>,
+pub struct ParseRule<'dc, 'paths, 'src, const REGISTER_COUNT: usize> {
+    pub prefix: Option<Parser<'dc, 'paths, 'src, REGISTER_COUNT>>,
+    pub infix: Option<Parser<'dc, 'paths, 'src, REGISTER_COUNT>>,
     pub precedence: Precedence,
 }
 
-impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, '_, REGISTER_COUNT> {
+impl<'dc, 'paths, 'src, const REGISTER_COUNT: usize> From<&Token<'_>>
+    for ParseRule<'dc, 'paths, 'src, REGISTER_COUNT>
+where
+    'src: 'dc + 'paths,
+{
     fn from(token: &Token) -> Self {
         match token {
             Token::ArrowThin => ParseRule {

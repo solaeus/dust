@@ -35,9 +35,9 @@ harness = false
 name = "compile"
 harness = false
 
-[[bench]]
-name = "fibonacci"
-harness = false
+# [[bench]]
+# name = "fibonacci"
+# harness = false
 
 # [[bench]]
 # name = "threads"

@@ -17,8 +17,8 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, DustString, Lexer, Module, Vm,
-    compiler::CompileMode, panic::set_dust_panic_hook,
+    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, Lexer, Module, Vm,
+    panic::set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
@@ -86,7 +86,7 @@ struct SharedOptions {
 
     /// Custom program name, overrides the file name
     #[arg(short, long)]
-    name: Option<DustString>,
+    name: Option<String>,
 
     #[command(flatten)]
     source: Source,
@@ -163,12 +163,9 @@ fn main() {
         }
 
         let (source, source_name) = {
-            if let Some(path) = file {
+            if let Some(path) = &file {
                 let file_name = path
                     .file_stem()
-                    .expect("The path `{path}` has no file name")
-                    .to_str()
-                    .map(DustString::from)
                     .expect("The path `{path}` contains invalid UTF-8");
                 let mut file = OpenOptions::new()
                     .create(false)
@@ -181,7 +178,7 @@ fn main() {
                 file.read_to_string(&mut file_contents)
                     .expect("The file at `{path}` contains invalid UTF-8");
 
-                (file_contents, file_name)
+                (file_contents, file_name.to_string_lossy().to_string())
             } else {
                 let source = if stdin {
                     let mut source = String::new();
@@ -195,21 +192,16 @@ fn main() {
                     eval.expect("No source code provided")
                 };
 
-                (
-                    source,
-                    name.unwrap_or_else(|| DustString::from("CLI Input")),
-                )
+                (source, name.unwrap_or("Dust CLI Input".to_string()))
             }
         };
         let lexer = Lexer::new(&source);
         let mut dust_crate = Module::new();
         let chunk = match input {
             Format::Dust => {
-                let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
+                let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(
                     lexer,
-                    CompileMode::Main {
-                        name: Some(source_name.clone()),
-                    },
+                    Some(&source_name),
                     &mut dust_crate,
                 ) {
                     Ok(compiler) => compiler,
@@ -284,22 +276,19 @@ fn main() {
             if let Some(path) = file {
                 let file_name = path
                     .file_stem()
-                    .expect("The path `{path}` has no file name")
-                    .to_str()
-                    .map(DustString::from)
                     .expect("The path `{path}` contains invalid UTF-8");
                 let mut file = OpenOptions::new()
                     .create(false)
                     .read(true)
                     .write(false)
-                    .open(path)
+                    .open(&path)
                     .expect("Failed to open {path}");
                 let mut file_contents = String::new();
 
                 file.read_to_string(&mut file_contents)
                     .expect("The file at `{path}` contains invalid UTF-8");
 
-                (file_contents, file_name)
+                (file_contents, file_name.to_string_lossy().to_string())
             } else {
                 let source = if stdin {
                     let mut source = String::new();
@@ -313,19 +302,14 @@ fn main() {
                     eval.expect("No source code provided")
                 };
 
-                (
-                    source,
-                    name.unwrap_or_else(|| DustString::from("CLI Input")),
-                )
+                (source, name.unwrap_or("Dust CLI Input".to_string()))
             }
         };
         let lexer = Lexer::new(&source);
         let mut dust_crate = Module::new();
-        let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
+        let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(
             lexer,
-            CompileMode::Main {
-                name: Some(source_name.clone()),
-            },
+            Some(&source_name),
             &mut dust_crate,
         ) {
             Ok(compiler) => compiler,

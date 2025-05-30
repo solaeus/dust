@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Address, Scope, Type};
+use crate::{Address, BlockScope, Type};
 
 /// Scoped variable.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub struct Local {
     pub r#type: Type,
 
     /// Scope where the variable was declared.
-    pub scope: Scope,
+    pub scope: BlockScope,
 }
 
 impl Local {
@@ -30,7 +30,7 @@ impl Local {
         address: Address,
         r#type: Type,
         is_mutable: bool,
-        scope: Scope,
+        scope: BlockScope,
     ) -> Self {
         Self {
             identifier_index,

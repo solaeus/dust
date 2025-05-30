@@ -1,6 +1,8 @@
 use std::num::{ParseFloatError, ParseIntError};
 
-use crate::{AnnotatedError, LexError, Scope, Span, TokenKind, TokenOwned, Type, TypeConflict};
+use crate::{
+    AnnotatedError, BlockScope, LexError, Span, TokenKind, TokenOwned, Type, TypeConflict,
+};
 
 /// Compilation errors
 #[derive(Clone, Debug, PartialEq)]
@@ -67,14 +69,18 @@ pub enum CompileError {
         found: TokenOwned,
         position: Span,
     },
+    UndeclaredModule {
+        path: String,
+        position: Span,
+    },
     UndeclaredVariable {
         identifier: String,
         position: Span,
     },
     VariableOutOfScope {
         identifier: String,
-        variable_scope: Scope,
-        access_scope: Scope,
+        variable_scope: BlockScope,
+        access_scope: BlockScope,
         position: Span,
     },
 
@@ -227,6 +233,7 @@ impl AnnotatedError for CompileError {
             Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
             Self::ReturnTypeConflict { .. } => "Return type conflict",
+            Self::UndeclaredModule { .. } => "Undeclared module",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UnexpectedReturn { .. } => "Unexpected return",
             Self::UnknownModule { .. } => "Unknown module",
@@ -325,6 +332,9 @@ impl AnnotatedError for CompileError {
                     format!("Expected a mutable variable but found `{found}`"),
                     *position,
                 )]
+            }
+            Self::UndeclaredModule { path, position } => {
+                vec![(format!("Module `{path}` is not in scope"), *position)]
             }
             Self::UndeclaredVariable {
                 identifier,
@@ -618,6 +628,12 @@ impl AnnotatedError for CompileError {
             Self::ExpectedMutableVariable { position, .. } => {
                 vec![(
                     "Use a mutable variable here or declare it with `mut`".to_string(),
+                    *position,
+                )]
+            }
+            Self::UndeclaredModule { position, .. } => {
+                vec![(
+                    "Declare the module or ensure it is imported".to_string(),
                     *position,
                 )]
             }

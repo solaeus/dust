@@ -27,7 +27,7 @@ mod path;
 mod type_checks;
 
 pub use compile_error::CompileError;
-pub use compile_mode::CompileMode;
+use compile_mode::CompileMode;
 pub use item::Item;
 pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
@@ -42,8 +42,8 @@ use std::{
 };
 
 use crate::{
-    Address, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction, Lexer, Local,
-    NativeFunction, Operation, Scope, Span, Token, TokenKind, Type,
+    Address, BlockScope, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction,
+    Lexer, Local, NativeFunction, Operation, Span, Token, TokenKind, Type,
     chunk::Arguments,
     instruction::{AddressKind, Destination, Jump, LoadFunction, Move},
     r#type::TypeKind,
@@ -65,12 +65,8 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
     let mut dust_crate = Module::new();
-    let mut compiler = Compiler::<DEFAULT_REGISTER_COUNT>::new(
-        lexer,
-        CompileMode::Main { name: None },
-        &mut dust_crate,
-    )
-    .map_err(|error| DustError::compile(error, source))?;
+    let mut compiler = Compiler::<DEFAULT_REGISTER_COUNT>::new_main(lexer, None, &mut dust_crate)
+        .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -86,10 +82,10 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
-pub struct Compiler<'dc, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
+pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
-    mode: CompileMode,
+    mode: CompileMode<'paths>,
 
     /// Used to get tokens for the compiler.
     lexer: Lexer<'src>,
@@ -168,13 +164,11 @@ pub struct Compiler<'dc, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_CO
 
     /// The current block scope of the compiler. This is mutated during compilation to match the
     /// current block and is used to test if a variable is in scope.
-    current_block_scope: Scope,
+    current_block_scope: BlockScope,
 
-    dust_crate: &'dc mut Module,
+    current_item_scope: HashSet<Path<'paths>>,
 
-    /// The currently active paths from which the compiler can resolve symbols. This is mutated
-    /// during compilation to enforce Dust's scope rules.
-    active_namespace: HashMap<DustString, Item>,
+    dust_crate: &'dc mut Module<'paths>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
@@ -189,13 +183,65 @@ pub struct Compiler<'dc, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_CO
     previous_position: Span,
 }
 
-impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT> {
+impl<'dc, 'paths, 'src, const REGISTER_COUNT: usize> Compiler<'dc, 'paths, 'src, REGISTER_COUNT>
+where
+    'src: 'dc + 'paths,
+{
     /// Creates a new compiler.
-    pub fn new(
+    pub fn new_main(
         mut lexer: Lexer<'src>,
-        mode: CompileMode,
-        dust_crate: &'ns mut Module,
+        name: Option<&'paths str>,
+        dust_crate: &'dc mut Module<'paths>,
     ) -> Result<Self, CompileError> {
+        let mode = CompileMode::Main { name };
+        let (current_token, current_position) = lexer.next_token()?;
+        let mut current_item_scope = HashSet::with_capacity(1);
+
+        if let Some(name) = name {
+            current_item_scope.insert(Path::new(name).unwrap());
+        }
+
+        Ok(Compiler {
+            mode,
+            r#type: FunctionType::default(),
+            instructions: Vec::new(),
+            character_constants: Vec::new(),
+            float_constants: Vec::new(),
+            integer_constants: Vec::new(),
+            string_constants: Vec::new(),
+            locals: Vec::new(),
+            prototypes: Vec::new(),
+            arguments: Vec::new(),
+            lexer,
+            minimum_byte_register: 0,
+            minimum_boolean_register: 0,
+            minimum_character_register: 0,
+            minimum_float_register: 0,
+            minimum_integer_register: 0,
+            minimum_string_register: 0,
+            minimum_list_register: 0,
+            minimum_function_register: 0,
+            block_index: 0,
+            current_block_scope: BlockScope::default(),
+            current_item_scope,
+            dust_crate,
+            prototype_index: 0,
+            current_token,
+            current_position,
+            previous_token: Token::Eof,
+            previous_position: Span(0, 0),
+            previous_statement_end: 0,
+            previous_expression_end: 0,
+        })
+    }
+
+    pub fn new_function(
+        mut lexer: Lexer<'src>,
+        name: Option<&'paths str>,
+        item_scope: HashSet<Path<'paths>>,
+        dust_crate: &'dc mut Module<'paths>,
+    ) -> Result<Self, CompileError> {
+        let mode = CompileMode::Function { name };
         let (current_token, current_position) = lexer.next_token()?;
 
         Ok(Compiler {
@@ -219,9 +265,57 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             minimum_list_register: 0,
             minimum_function_register: 0,
             block_index: 0,
-            current_block_scope: Scope::default(),
+            current_block_scope: BlockScope::default(),
+            current_item_scope: item_scope,
             dust_crate,
-            active_namespace: HashMap::new(),
+            prototype_index: 0,
+            current_token,
+            current_position,
+            previous_token: Token::Eof,
+            previous_position: Span(0, 0),
+            previous_statement_end: 0,
+            previous_expression_end: 0,
+        })
+    }
+
+    pub fn new_module(
+        mut lexer: Lexer<'src>,
+        name: &'paths str,
+        dust_crate: &'dc mut Module<'paths>,
+    ) -> Result<Self, CompileError> {
+        let mode = CompileMode::Module {
+            name,
+            module: Module::new(),
+        };
+        let (current_token, current_position) = lexer.next_token()?;
+        let mut current_item_scope = HashSet::with_capacity(1);
+
+        current_item_scope.insert(Path::new(name).unwrap());
+
+        Ok(Compiler {
+            mode,
+            r#type: FunctionType::default(),
+            instructions: Vec::new(),
+            character_constants: Vec::new(),
+            float_constants: Vec::new(),
+            integer_constants: Vec::new(),
+            string_constants: Vec::new(),
+            locals: Vec::new(),
+            prototypes: Vec::new(),
+            arguments: Vec::new(),
+            lexer,
+            minimum_byte_register: 0,
+            minimum_boolean_register: 0,
+            minimum_character_register: 0,
+            minimum_float_register: 0,
+            minimum_integer_register: 0,
+            minimum_string_register: 0,
+            minimum_list_register: 0,
+            minimum_function_register: 0,
+            block_index: 0,
+            current_block_scope: BlockScope::default(),
+            current_item_scope,
+            dust_crate,
             prototype_index: 0,
             current_token,
             current_position,
@@ -280,7 +374,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             .unzip();
 
         Chunk {
-            name: self.mode.into_name(),
+            name: self.mode.into_name().map(DustString::from),
             r#type: self.r#type,
             instructions,
             positions,
@@ -738,7 +832,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         address: Address,
         r#type: Type,
         is_mutable: bool,
-        scope: Scope,
+        scope: BlockScope,
     ) -> (u16, u16) {
         info!("Declaring local {identifier}");
 
@@ -765,17 +859,33 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         })
     }
 
-    fn push_or_get_constant_string(&mut self, string: DustString) -> u16 {
+    fn push_or_get_constant_character(&mut self, character: char) -> u16 {
         if let Some(index) = self
-            .string_constants
+            .character_constants
             .iter()
-            .position(|constant| constant == &string)
+            .position(|constant| constant == &character)
         {
             index as u16
         } else {
-            let index = self.string_constants.len() as u16;
+            let index = self.character_constants.len() as u16;
 
-            self.string_constants.push(string);
+            self.character_constants.push(character);
+
+            index
+        }
+    }
+
+    fn push_or_get_constant_float(&mut self, float: f64) -> u16 {
+        if let Some(index) = self
+            .float_constants
+            .iter()
+            .position(|constant| constant == &float)
+        {
+            index as u16
+        } else {
+            let index = self.float_constants.len() as u16;
+
+            self.float_constants.push(float);
 
             index
         }
@@ -792,6 +902,22 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             let index = self.integer_constants.len() as u16;
 
             self.integer_constants.push(integer);
+
+            index
+        }
+    }
+
+    fn push_or_get_constant_string(&mut self, string: DustString) -> u16 {
+        if let Some(index) = self
+            .string_constants
+            .iter()
+            .position(|constant| constant == &string)
+        {
+            index as u16
+        } else {
+            let index = self.string_constants.len() as u16;
+
+            self.string_constants.push(string);
 
             index
         }
@@ -1600,72 +1726,104 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
                 position: start_position,
             });
         };
-        let local_index = if let Ok(local_index) = self.get_local_index(identifier) {
-            local_index
-        } else if let Some(native_function) = NativeFunction::from_str(identifier) {
-            return self.parse_call_native(native_function, start_position);
-        } else if let CompileMode::Function { name } = &self.mode {
-            if name.as_deref() == Some(identifier) {
-                let destination_index = self.next_function_memory_index();
-                let destination = Destination::memory(destination_index);
-                let load_self = Instruction::load_function(
-                    destination,
-                    Address::new(0, AddressKind::FUNCTION_SELF),
-                    false,
-                );
 
-                self.emit_instruction(load_self, Type::FunctionSelf, start_position);
+        println!("{:#?}", self.current_item_scope);
 
-                return Ok(());
+        let (variable_type, register_index, is_mutable) = {
+            if let Ok(local_index) = self.get_local_index(identifier) {
+                let local = self.get_local(local_index)?;
+                let local_type = local.r#type.clone();
+                let local_register_index = local.address.index;
+
+                if !self.current_block_scope.contains(&local.scope) {
+                    return Err(CompileError::VariableOutOfScope {
+                        identifier: self.get_identifier(local_index).unwrap(),
+                        position: start_position,
+                        variable_scope: local.scope,
+                        access_scope: self.current_block_scope,
+                    });
+                }
+
+                (local_type, local_register_index, local.is_mutable)
+            } else if self
+                .current_item_scope
+                .iter()
+                .any(|path_in_scope| path_in_scope.contains_scope(identifier))
+            {
+                let path = Path::new(identifier).ok_or_else(|| CompileError::InvalidPath {
+                    found: identifier.to_string(),
+                    position: start_position,
+                })?;
+                let item = self.dust_crate.get_item(&path).ok_or_else(|| {
+                    CompileError::UndeclaredVariable {
+                        identifier: identifier.to_string(),
+                        position: start_position,
+                    }
+                })?;
+
+                let item_type = match item {
+                    Item::Constant(value) => value.r#type(),
+                    Item::Function(function) => Type::Function(Box::new(function.r#type.clone())),
+                    _ => unreachable!(
+                        "The item should be a constant or a function, not a module or other type."
+                    ),
+                };
+
+                let local_index = self.bring_item_into_local_scope(path, item.clone())?;
+                let local_register_index = self.get_local(local_index)?.address.index;
+
+                (item_type, local_register_index, false)
+            } else if let Some(native_function) = NativeFunction::from_str(identifier) {
+                return self.parse_call_native(native_function, start_position);
+            } else if let CompileMode::Function { name } = &self.mode {
+                if name.as_deref() == Some(identifier) {
+                    let destination_index = self.next_function_memory_index();
+                    let destination = Destination::memory(destination_index);
+                    let load_self = Instruction::load_function(
+                        destination,
+                        Address::new(0, AddressKind::FUNCTION_SELF),
+                        false,
+                    );
+
+                    self.emit_instruction(load_self, Type::FunctionSelf, start_position);
+
+                    return Ok(());
+                } else {
+                    return Err(CompileError::UndeclaredVariable {
+                        identifier: identifier.to_string(),
+                        position: start_position,
+                    });
+                }
             } else {
                 return Err(CompileError::UndeclaredVariable {
                     identifier: identifier.to_string(),
                     position: start_position,
                 });
             }
-        } else {
-            return Err(CompileError::UndeclaredVariable {
-                identifier: identifier.to_string(),
-                position: start_position,
-            });
         };
 
-        let local = self.get_local(local_index)?;
-        let local_type = local.r#type.clone();
-        let is_mutable = local.is_mutable;
-        let local_register_index = local.address.index;
-
-        if !self.current_block_scope.contains(&local.scope) {
-            return Err(CompileError::VariableOutOfScope {
-                identifier: self.get_identifier(local_index).unwrap(),
-                position: start_position,
-                variable_scope: local.scope,
-                access_scope: self.current_block_scope,
-            });
-        }
-
         if self.allow(Token::Equal)? {
-            if !is_mutable {
+            if is_mutable {
+                self.parse_expression()?;
+
+                if self
+                    .instructions
+                    .last()
+                    .is_some_and(|(instruction, _, _)| instruction.is_math())
+                {
+                    let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
+
+                    math_instruction.set_a_field(register_index);
+                }
+            } else {
                 return Err(CompileError::CannotMutateImmutableVariable {
-                    identifier: self.get_identifier(local_index).unwrap(),
+                    identifier: identifier.to_string(),
                     position: start_position,
                 });
             }
-
-            self.parse_expression()?;
-
-            if self
-                .instructions
-                .last()
-                .is_some_and(|(instruction, _, _)| instruction.is_math())
-            {
-                let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
-
-                math_instruction.set_a_field(local_register_index);
-            }
         }
 
-        let (destination_index, address_kind) = match local_type {
+        let (destination_index, address_kind) = match variable_type {
             Type::Boolean => (
                 self.next_boolean_memory_index(),
                 AddressKind::BOOLEAN_MEMORY,
@@ -1690,10 +1848,10 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         };
         let r#move = Instruction::r#move(
             Destination::memory(destination_index),
-            Address::new(local_register_index, address_kind),
+            Address::new(register_index, address_kind),
         );
 
-        self.emit_instruction(r#move, local_type, self.previous_position);
+        self.emit_instruction(r#move, variable_type, self.previous_position);
 
         Ok(())
     }
@@ -1768,10 +1926,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             }
 
             let handle_closing_addresses =
-                |compiler: &mut Compiler<REGISTER_COUNT>,
-                 start_closing: u16,
-                 next_address: u16,
-                 kind: AddressKind| {
+                |compiler: &mut Self, start_closing: u16, next_address: u16, kind: AddressKind| {
                     let used_addresses = next_address - start_closing;
 
                     if used_addresses > 1 {
@@ -2362,11 +2517,16 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         };
 
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
-            let compile_mode = CompileMode::Function {
-                name: identifier.map(DustString::from),
-            };
+            let mut compiler = Compiler::<REGISTER_COUNT>::new_function(
+                self.lexer,
+                identifier,
+                self.current_item_scope.clone(),
+                self.dust_crate,
+            )?; // This will consume the parenthesis
 
-            Compiler::<REGISTER_COUNT>::new(self.lexer, compile_mode, self.dust_crate)? // This will consume the parenthesis
+            compiler.prototype_index = self.prototypes.len() as u16;
+
+            compiler
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftParenthesis,
@@ -2374,8 +2534,6 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
                 position: self.current_position,
             });
         };
-
-        function_compiler.prototype_index = self.prototypes.len() as u16;
 
         let mut value_parameters = Vec::with_capacity(3);
 
@@ -2721,7 +2879,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         let name = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            DustString::from(text)
+            text
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -2731,14 +2889,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         };
 
         let mut module_compiler = if let Token::LeftBrace = self.current_token {
-            Compiler::<REGISTER_COUNT>::new(
-                self.lexer,
-                CompileMode::Module {
-                    name,
-                    module: Module::new(),
-                },
-                self.dust_crate,
-            )? // This will consume the left brace
+            Compiler::<REGISTER_COUNT>::new_module(self.lexer, name, self.dust_crate)? // This will consume the left brace
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftBrace,
@@ -2762,6 +2913,11 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             name: new_module_name,
         } = module_compiler.mode
         {
+            let new_module_path = Path::new(new_module_name).ok_or(CompileError::InvalidPath {
+                found: new_module_name.to_string(),
+                position: self.previous_position,
+            })?;
+
             if let CompileMode::Module {
                 module: self_module,
                 ..
@@ -2769,12 +2925,14 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             {
                 self_module
                     .items
-                    .insert(new_module_name, Item::Module(new_module));
+                    .insert(new_module_path.clone(), Item::Module(new_module));
             } else {
                 self.dust_crate
                     .items
-                    .insert(new_module_name, Item::Module(new_module));
+                    .insert(new_module_path.clone(), Item::Module(new_module));
             }
+
+            self.current_item_scope.insert(new_module_path);
         }
 
         Ok(())
@@ -2783,10 +2941,13 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
     fn parse_const(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let identifier = if let Token::Identifier(text) = self.current_token {
+        let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            DustString::from(text)
+            Path::new(text).ok_or(CompileError::InvalidPath {
+                found: text.to_string(),
+                position: self.current_position,
+            })?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -2893,11 +3054,9 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
         };
 
         if let CompileMode::Module { module, .. } = &mut self.mode {
-            module.items.insert(identifier, Item::Constant(value));
+            module.items.insert(path, Item::Constant(value));
         } else {
-            self.dust_crate
-                .items
-                .insert(identifier, Item::Constant(value));
+            self.dust_crate.items.insert(path, Item::Constant(value));
         }
 
         self.allow(Token::Semicolon)?;
@@ -2933,7 +3092,7 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
             };
 
             for module_name in item_path.module_names() {
-                if let Some(Item::Module(module)) = active_module.items.get_mut(module_name) {
+                if let Some(Item::Module(module)) = active_module.items.get_mut(&module_name) {
                     active_module = module;
                 } else {
                     return Err(CompileError::UnknownModule {
@@ -2947,16 +3106,26 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
 
             let item = active_module
                 .items
-                .get(item_name)
+                .get(&item_name)
                 .ok_or(CompileError::UnknownItem {
                     item_name: item_name.to_string(),
                     position: self.previous_position,
                 })?;
 
-            (DustString::from(item_name), item.clone())
+            (item_name, item.clone())
         };
 
-        match item {
+        self.bring_item_into_local_scope(item_name, item)?;
+
+        Ok(())
+    }
+
+    fn bring_item_into_local_scope(
+        &mut self,
+        item_name: Path<'paths>,
+        item: Item,
+    ) -> Result<u16, CompileError> {
+        let local_index = match item {
             Item::Constant(value) => {
                 let (instruction, destination_address, r#type) = match value {
                     ConcreteValue::Boolean(boolean) => {
@@ -2991,6 +3160,32 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
                             Type::Byte,
                         )
                     }
+                    ConcreteValue::Character(character) => {
+                        let memory_index = self.next_character_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let constant_index = self.push_or_get_constant_character(character);
+                        let address = Address::new(constant_index, AddressKind::CHARACTER_CONSTANT);
+                        let instruction = Instruction::load_constant(destination, address, false);
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::Character),
+                            Type::Character,
+                        )
+                    }
+                    ConcreteValue::Float(float) => {
+                        let memory_index = self.next_float_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let constant_index = self.push_or_get_constant_float(float);
+                        let address = Address::new(constant_index, AddressKind::FLOAT_CONSTANT);
+                        let instruction = Instruction::load_constant(destination, address, false);
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::Float),
+                            Type::Float,
+                        )
+                    }
                     ConcreteValue::Integer(integer) => {
                         let memory_index = self.next_integer_memory_index();
                         let destination = Destination::memory(memory_index);
@@ -3004,23 +3199,36 @@ impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT>
                             Type::Integer,
                         )
                     }
+                    ConcreteValue::String(string) => {
+                        let memory_index = self.next_string_memory_index();
+                        let destination = Destination::memory(memory_index);
+                        let constant_index = self.push_or_get_constant_string(string);
+                        let address = Address::new(constant_index, AddressKind::STRING_CONSTANT);
+                        let instruction = Instruction::load_constant(destination, address, false);
+
+                        (
+                            instruction,
+                            destination.as_address(TypeKind::String),
+                            Type::String,
+                        )
+                    }
                     _ => todo!("Handle other constant types in use statement"),
                 };
 
                 self.emit_instruction(instruction, Type::None, self.current_position);
-
                 self.declare_local(
-                    &item_name,
+                    item_name.inner(),
                     destination_address,
                     r#type,
                     false,
                     self.current_block_scope,
-                );
+                )
+                .0
             }
             _ => todo!("Handle other item types in use statement"),
-        }
+        };
 
-        Ok(())
+        Ok(local_index)
     }
 
     fn expect_expression(&mut self) -> Result<(), CompileError> {
