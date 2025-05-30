@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use serde::{Deserialize, Serialize, de::VariantAccess};
 
@@ -9,7 +9,7 @@ use super::Module;
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum Item<'a> {
     Constant(ConcreteValue),
-    Function(Box<Chunk>),
+    Function(Arc<Chunk>),
     Module(Module<'a>),
 }
 
@@ -45,7 +45,7 @@ impl<'a, 'de: 'a> serde::de::Visitor<'de> for ItemVisitor<'a> {
 
         match variant {
             "Constant" => Ok(Item::Constant(value.newtype_variant()?)),
-            "Function" => Ok(Item::Function(Box::new(value.newtype_variant()?))),
+            "Function" => Ok(Item::Function(Arc::new(value.newtype_variant()?))),
             "Module" => Ok(Item::Module(value.newtype_variant()?)),
             _ => Err(serde::de::Error::unknown_variant(
                 variant,

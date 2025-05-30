@@ -72,35 +72,13 @@ impl Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut output = Vec::new();
-
-        self.disassembler(&mut output)
-            .style(true)
-            .disassemble()
-            .unwrap();
-
-        let string = String::from_utf8_lossy(&output);
-
-        write!(f, "{string}")
+        write!(f, "{}", self.r#type)
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut output = Vec::new();
-
-        self.disassembler(&mut output)
-            .style(true)
-            .disassemble()
-            .unwrap();
-
-        let string = String::from_utf8_lossy(&output);
-
-        if cfg!(debug_assertions) {
-            writeln!(f)?; // Improves readability in Cargo test output
-        }
-
-        write!(f, "{string}")
+        write!(f, "{}", self.r#type)
     }
 }
 

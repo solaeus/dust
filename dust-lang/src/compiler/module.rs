@@ -18,11 +18,14 @@ impl<'a> Module<'a> {
         }
     }
 
-    pub fn get_item(&self, path: &Path<'a>) -> Option<&(Item<'a>, Span)> {
+    pub fn get_item<'b>(&'b self, path: &'b Path<'a>) -> Option<&'b (Item<'a>, Span)> {
         let mut current_module = self;
 
         for module_name in path.module_names() {
-            if let Some((item, _)) = current_module.items.get(&module_name) {
+            if let Some((item, _)) = current_module
+                .items
+                .get(&Path::new_borrowed(module_name).unwrap())
+            {
                 if let Item::Module(module) = item {
                     current_module = module;
 
@@ -35,7 +38,9 @@ impl<'a> Module<'a> {
             return None; // Module not found
         }
 
-        current_module.items.get(&path.item_name())
+        current_module
+            .items
+            .get(&Path::new_borrowed(path.item_name()).unwrap())
     }
 }
 

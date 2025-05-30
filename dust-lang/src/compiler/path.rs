@@ -1,15 +1,18 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    borrow::Cow,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 
 /// A correctly formatted relative or absolute path to a module or value.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Path<'a> {
-    inner: &'a str,
+    inner: Cow<'a, str>,
 }
 
 impl<'a> Path<'a> {
-    pub fn new(inner: &'a str) -> Option<Self> {
+    pub fn new_owned(inner: String) -> Option<Self> {
         if inner.split("::").any(|module_name| {
             module_name.is_empty()
                 || module_name
@@ -18,33 +21,41 @@ impl<'a> Path<'a> {
         }) {
             None
         } else {
-            Some(Self { inner })
+            Some(Self {
+                inner: Cow::Owned(inner),
+            })
         }
     }
 
-    pub fn inner(&self) -> &str {
-        self.inner
+    pub fn new_borrowed(inner: &'a str) -> Option<Self> {
+        if inner.split("::").any(|module_name| {
+            module_name.is_empty()
+                || module_name
+                    .split('.')
+                    .any(|value_name| value_name.is_empty())
+        }) {
+            None
+        } else {
+            Some(Self {
+                inner: Cow::Borrowed(inner),
+            })
+        }
     }
 
-    pub fn module_names(&self) -> Vec<Path<'a>> {
-        let mut module_names = self
-            .inner
-            .rsplit("::")
-            .skip(1)
-            .map(|inner| Path { inner })
-            .collect::<Vec<_>>();
+    pub fn inner(&self) -> Cow<'a, str> {
+        self.inner.clone()
+    }
+
+    pub fn module_names(&self) -> Vec<&str> {
+        let mut module_names = self.inner.rsplit("::").skip(1).collect::<Vec<_>>();
 
         module_names.reverse();
 
         module_names
     }
 
-    pub fn item_name(&self) -> Path<'a> {
-        self.inner
-            .rsplit("::")
-            .next()
-            .map(|inner| Path { inner })
-            .unwrap()
+    pub fn item_name(&self) -> &str {
+        self.inner.rsplit("::").next().unwrap()
     }
 
     pub fn contains_scope(&self, other: &str) -> bool {
@@ -52,8 +63,8 @@ impl<'a> Path<'a> {
 
         self.module_names()
             .iter()
-            .any(|module_name| module_name.inner == other_root)
-            || self.item_name().inner == other_root
+            .any(|module_name| *module_name == other_root)
+            || self.item_name() == other_root
     }
 }
 
@@ -69,55 +80,49 @@ mod tests {
 
     #[test]
     fn no_module_and_one_value() {
-        let path = Path::new("foo").unwrap();
+        let path = Path::new_borrowed("foo").unwrap();
 
         assert_eq!(path.module_names().len(), 0);
-        assert_eq!(path.item_name(), Path::new("foo").unwrap());
+        assert_eq!(path.item_name(), "foo");
     }
 
     #[test]
     fn no_module_and_two_values() {
-        let path = Path::new("bar.baz").unwrap();
+        let path = Path::new_borrowed("bar.baz").unwrap();
 
         assert_eq!(path.module_names().len(), 0);
-        assert_eq!(path.item_name(), Path::new("bar.baz").unwrap());
+        assert_eq!(path.item_name(), "bar.baz");
     }
 
     #[test]
     fn one_module_and_one_value() {
-        let path = Path::new("foo::bar").unwrap();
+        let path = Path::new_borrowed("foo::bar").unwrap();
 
-        assert_eq!(path.module_names(), vec![Path::new("foo").unwrap()]);
-        assert_eq!(path.item_name(), Path::new("bar").unwrap());
+        assert_eq!(path.module_names(), vec!["foo"]);
+        assert_eq!(path.item_name(), "bar");
     }
 
     #[test]
     fn one_module_and_two_values() {
-        let path = Path::new("foo::bar.baz").unwrap();
+        let path = Path::new_borrowed("foo::bar.baz").unwrap();
 
-        assert_eq!(path.module_names(), vec![Path::new("foo").unwrap()]);
-        assert_eq!(path.item_name(), Path::new("bar.baz").unwrap());
+        assert_eq!(path.module_names(), vec!["foo"]);
+        assert_eq!(path.item_name(), "bar.baz");
     }
 
     #[test]
     fn two_modules_and_one_value() {
-        let path = Path::new("foo::bar::baz").unwrap();
+        let path = Path::new_borrowed("foo::bar::baz").unwrap();
 
-        assert_eq!(
-            path.module_names(),
-            vec![Path::new("foo").unwrap(), Path::new("bar").unwrap()]
-        );
-        assert_eq!(path.item_name(), Path::new("baz").unwrap());
+        assert_eq!(path.module_names(), vec!["foo", "bar"]);
+        assert_eq!(path.item_name(), "baz");
     }
 
     #[test]
     fn two_modules_and_two_values() {
-        let path = Path::new("foo::bar::baz.qux").unwrap();
+        let path = Path::new_borrowed("foo::bar::baz.qux").unwrap();
 
-        assert_eq!(
-            path.module_names(),
-            vec![Path::new("foo").unwrap(), Path::new("bar").unwrap()]
-        );
-        assert_eq!(path.item_name(), Path::new("baz.qux").unwrap());
+        assert_eq!(path.module_names(), vec!["foo", "bar"]);
+        assert_eq!(path.item_name(), "baz.qux");
     }
 }

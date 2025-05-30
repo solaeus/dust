@@ -173,7 +173,7 @@ where
         let mode = CompileMode::Main { name };
         let (current_token, current_position) = lexer.next_token()?;
         let mut current_item_scope = HashSet::with_capacity(1);
-        let path = Path::new("main").unwrap();
+        let path = Path::new_borrowed("main").unwrap();
 
         current_item_scope.insert(path);
 
@@ -266,7 +266,7 @@ where
         let (current_token, current_position) = lexer.next_token()?;
         let mut current_item_scope = HashSet::with_capacity(1);
 
-        current_item_scope.insert(Path::new(name).unwrap());
+        current_item_scope.insert(Path::new_borrowed(name).unwrap());
 
         Ok(Compiler {
             mode,
@@ -1707,12 +1707,16 @@ where
             } else if self
                 .current_item_scope
                 .iter()
-                .any(|path_in_scope| path_in_scope.contains_scope(identifier))
+                .any(|path| path.contains_scope(identifier))
             {
-                let path = Path::new(identifier).ok_or_else(|| CompileError::InvalidPath {
-                    found: identifier.to_string(),
-                    position: start_position,
-                })?;
+                let path =
+                    Path::new_borrowed(identifier).ok_or_else(|| CompileError::InvalidPath {
+                        found: identifier.to_string(),
+                        position: start_position,
+                    })?;
+
+                println!("{path}");
+
                 let (item, item_position) = self.dust_crate.get_item(&path).ok_or_else(|| {
                     CompileError::UndeclaredVariable {
                         identifier: identifier.to_string(),
@@ -1729,7 +1733,7 @@ where
                 };
 
                 let local_index =
-                    self.bring_item_into_local_scope(path, item.clone(), *item_position)?;
+                    self.bring_item_into_local_scope(identifier, item.clone(), *item_position)?;
                 let local_register_index = self.get_local(local_index)?.address.index;
 
                 (item_type, local_register_index, false)
@@ -2852,7 +2856,25 @@ where
         loop {
             match self.current_token {
                 Token::Const => self.parse_const()?,
-                Token::Fn => self.parse_function()?,
+                Token::Fn => {
+                    self.parse_function()?;
+
+                    let (_, _, function_position) = self.instructions.pop().unwrap();
+                    let prototype = self.prototypes.pop().unwrap();
+
+                    if let CompileMode::Module { module, .. } = &mut self.mode {
+                        let function_name = prototype.name.as_ref().unwrap().to_string();
+                        let path =
+                            Path::new_owned(function_name).ok_or(CompileError::InvalidPath {
+                                found: name.to_string(),
+                                position: self.previous_position,
+                            })?;
+
+                        module
+                            .items
+                            .insert(path, (Item::Function(prototype), function_position));
+                    }
+                }
                 Token::Mod => self.parse_mod()?,
                 _ => break,
             }
@@ -2868,10 +2890,11 @@ where
             name: new_module_name,
         } = replace(&mut self.mode, old_mode)
         {
-            let new_module_path = Path::new(new_module_name).ok_or(CompileError::InvalidPath {
-                found: new_module_name.to_string(),
-                position: self.previous_position,
-            })?;
+            let new_module_path =
+                Path::new_borrowed(new_module_name).ok_or(CompileError::InvalidPath {
+                    found: new_module_name.to_string(),
+                    position: self.previous_position,
+                })?;
 
             if let CompileMode::Module {
                 module: self_module,
@@ -2903,7 +2926,7 @@ where
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new(text).ok_or(CompileError::InvalidPath {
+            Path::new_borrowed(text).ok_or(CompileError::InvalidPath {
                 found: text.to_string(),
                 position: self.current_position,
             })?
@@ -3033,7 +3056,7 @@ where
         let item_path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new(text).ok_or(CompileError::InvalidPath {
+            Path::new_borrowed(text).ok_or(CompileError::InvalidPath {
                 found: text.to_string(),
                 position: self.previous_position,
             })?
@@ -3053,8 +3076,13 @@ where
             &*self.dust_crate
         };
 
-        for module_name in item_path.module_names() {
-            if let Some((Item::Module(module), _)) = active_module.items.get(&module_name) {
+        let module_names = item_path.module_names();
+
+        for module_name in module_names {
+            if let Some((Item::Module(module), _)) = active_module
+                .items
+                .get(&Path::new_borrowed(module_name).unwrap())
+            {
                 active_module = module;
             } else {
                 return Err(CompileError::UnknownModule {
@@ -3067,14 +3095,20 @@ where
         let (item_name, item, item_position) = {
             let item_name = item_path.item_name();
 
-            let (item, position) =
-                active_module
-                    .items
-                    .get(&item_name)
-                    .ok_or(CompileError::UnknownItem {
-                        item_name: item_name.to_string(),
-                        position: self.previous_position,
-                    })?;
+            let (item, position) = active_module
+                .items
+                .iter()
+                .find_map(|(path, (item, position))| {
+                    if path.contains_scope(item_name) {
+                        Some((item, position))
+                    } else {
+                        None
+                    }
+                })
+                .ok_or(CompileError::UnknownItem {
+                    item_name: item_name.to_string(),
+                    position: self.previous_position,
+                })?;
 
             (item_name, item.clone(), position)
         };
@@ -3086,7 +3120,7 @@ where
 
     fn bring_item_into_local_scope(
         &mut self,
-        item_name: Path<'paths>,
+        item_name: &str,
         item: Item,
         item_position: Span,
     ) -> Result<u16, CompileError> {
@@ -3182,13 +3216,29 @@ where
 
                 self.emit_instruction(instruction, Type::None, item_position);
                 self.declare_local(
-                    item_name.inner(),
+                    item_name,
                     destination_address,
                     r#type,
                     false,
                     self.current_block_scope,
                 )
                 .0
+            }
+            Item::Function(prototype) => {
+                self.prototypes.push(Arc::clone(&prototype));
+
+                let memory_index = self.next_function_memory_index();
+                let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
+                let load_function = Instruction::load_function(
+                    Destination::memory(memory_index),
+                    Address::new(prototype.prototype_index, AddressKind::FUNCTION_PROTOTYPE),
+                    false,
+                );
+                let r#type = Type::Function(Box::new(prototype.r#type.clone()));
+
+                self.emit_instruction(load_function, r#type.clone(), item_position);
+                self.declare_local(item_name, address, r#type, false, self.current_block_scope)
+                    .0
             }
             _ => todo!("Handle other item types in use statement"),
         };
