@@ -104,6 +104,8 @@ impl Debug for Chunk {
     }
 }
 
+impl Eq for Chunk {}
+
 /// For testing purposes, ignore the "memory_length" fields so that we don't have to write them them
 /// when writing Chunks for tests.
 #[cfg(debug_assertions)]

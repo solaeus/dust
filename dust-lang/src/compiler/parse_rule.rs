@@ -4,18 +4,18 @@ use crate::Token;
 
 use super::{CompileError, Compiler};
 
-pub type Parser<'a, const REGISTER_COUNT: usize> =
-    fn(&mut Compiler<'a, REGISTER_COUNT>) -> Result<(), CompileError>;
+pub type Parser<'ns, 'a, const REGISTER_COUNT: usize> =
+    fn(&mut Compiler<'ns, 'a, REGISTER_COUNT>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'a, const REGISTER_COUNT: usize> {
-    pub prefix: Option<Parser<'a, REGISTER_COUNT>>,
-    pub infix: Option<Parser<'a, REGISTER_COUNT>>,
+pub struct ParseRule<'ns, 'a, const REGISTER_COUNT: usize> {
+    pub prefix: Option<Parser<'ns, 'a, REGISTER_COUNT>>,
+    pub infix: Option<Parser<'ns, 'a, REGISTER_COUNT>>,
     pub precedence: Precedence,
 }
 
-impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, REGISTER_COUNT> {
+impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, '_, REGISTER_COUNT> {
     fn from(token: &Token) -> Self {
         match token {
             Token::ArrowThin => ParseRule {
@@ -50,6 +50,11 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, REGISTER_CO
                 infix: None,
                 precedence: Precedence::None,
             },
+            Token::ByteKeyword => ParseRule {
+                prefix: Some(Compiler::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Character(_) => ParseRule {
                 prefix: Some(Compiler::parse_character),
                 infix: None,
@@ -64,6 +69,11 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, REGISTER_CO
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
+            },
+            Token::Const => ParseRule {
+                prefix: Some(Compiler::parse_const),
+                infix: None,
+                precedence: Precedence::Assignment,
             },
             Token::Dot => ParseRule {
                 prefix: Some(Compiler::expect_expression),
@@ -191,6 +201,11 @@ impl<const REGISTER_COUNT: usize> From<&Token<'_>> for ParseRule<'_, REGISTER_CO
                 prefix: None,
                 infix: Some(Compiler::parse_math_binary),
                 precedence: Precedence::Assignment,
+            },
+            Token::Mod => ParseRule {
+                prefix: Some(Compiler::parse_mod),
+                infix: None,
+                precedence: Precedence::None,
             },
             Token::Mut => ParseRule {
                 prefix: None,

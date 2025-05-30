@@ -42,6 +42,10 @@ pub enum CompileError {
         found: TokenOwned,
         position: Span,
     },
+    InvalidPath {
+        found: String,
+        position: Span,
+    },
     UnexpectedReturn {
         position: Span,
     },
@@ -208,6 +212,7 @@ impl AnnotatedError for CompileError {
             Self::IfMissingElse { .. } => "If statement missing else branch",
             Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
+            Self::InvalidPath { .. } => "Invalid path",
             Self::Lex(error) => error.description(),
             Self::ListItemTypeConflict { .. } => "List item type conflict",
             Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
@@ -275,6 +280,9 @@ impl AnnotatedError for CompileError {
             }
             Self::InvalidAssignmentTarget { found, position } => {
                 vec![(format!("Invalid assignment target `{found}`"), *position)]
+            }
+            Self::InvalidPath { found, position } => {
+                vec![(format!("Invalid path `{found}`"), *position)]
             }
             Self::UnexpectedReturn { position } => {
                 vec![("Unexpected return statement".to_string(), *position)]
@@ -553,6 +561,12 @@ impl AnnotatedError for CompileError {
                 vec![(
                     "Ensure the left-hand side of the assignment is a valid variable or property"
                         .to_string(),
+                    *position,
+                )]
+            }
+            Self::InvalidPath { position, .. } => {
+                vec![(
+                    "Ensure each part of the path is a valid identifier".to_string(),
                     *position,
                 )]
             }

@@ -1,7 +1,11 @@
+use std::fmt::{self, Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
 use crate::DustString;
 
 /// A correctly formatted relative or absolute path to a module or value.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Path {
     inner: DustString,
 }
@@ -40,6 +44,12 @@ impl Path {
 
     pub fn value_names(&self) -> impl Iterator<Item = &str> {
         self.inner.rsplit("::").take(1).next().unwrap().split('.')
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.inner)
     }
 }
 

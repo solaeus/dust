@@ -17,7 +17,7 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, DustString, Lexer, Vm,
+    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, DustString, Lexer, Module, Vm,
     compiler::CompileMode, panic::set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
@@ -202,6 +202,7 @@ fn main() {
             }
         };
         let lexer = Lexer::new(&source);
+        let mut dust_crate = Module::new();
         let chunk = match input {
             Format::Dust => {
                 let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
@@ -209,6 +210,7 @@ fn main() {
                     CompileMode::Main {
                         name: Some(source_name.clone()),
                     },
+                    &mut dust_crate,
                 ) {
                     Ok(compiler) => compiler,
                     Err(error) => {
@@ -318,11 +320,13 @@ fn main() {
             }
         };
         let lexer = Lexer::new(&source);
+        let mut dust_crate = Module::new();
         let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new(
             lexer,
             CompileMode::Main {
                 name: Some(source_name.clone()),
             },
+            &mut dust_crate,
         ) {
             Ok(compiler) => compiler,
             Err(error) => {
@@ -342,6 +346,8 @@ fn main() {
         }
         let chunk = compiler.finish();
         let compile_time = start_time.elapsed();
+
+        println!("{dust_crate:#?}");
 
         match output {
             Format::Dust => {

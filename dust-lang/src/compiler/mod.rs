@@ -20,14 +20,18 @@
 //! runtime error, it is the compiler's fault and the error should be fixed here.
 mod compile_error;
 mod compile_mode;
+mod item;
+mod module;
 mod parse_rule;
 mod path;
 mod type_checks;
 
 pub use compile_error::CompileError;
 pub use compile_mode::CompileMode;
+pub use item::Item;
+pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
-use path::Path;
+pub use path::Path;
 use tracing::{Level, debug, error, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
@@ -60,9 +64,13 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut compiler =
-        Compiler::<DEFAULT_REGISTER_COUNT>::new(lexer, CompileMode::Main { name: None })
-            .map_err(|error| DustError::compile(error, source))?;
+    let mut dust_crate = Module::new();
+    let mut compiler = Compiler::<DEFAULT_REGISTER_COUNT>::new(
+        lexer,
+        CompileMode::Main { name: None },
+        &mut dust_crate,
+    )
+    .map_err(|error| DustError::compile(error, source))?;
 
     compiler
         .compile()
@@ -78,7 +86,7 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
-pub struct Compiler<'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
+pub struct Compiler<'dc, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
     mode: CompileMode,
@@ -162,7 +170,7 @@ pub struct Compiler<'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> 
     /// current block and is used to test if a variable is in scope.
     current_block_scope: Scope,
 
-    main_namespace: HashMap<Path, ConcreteValue>,
+    dust_crate: &'dc mut Module,
 
     /// The currently active paths from which the compiler can resolve symbols. This is mutated
     /// during compilation to enforce Dust's scope rules.
@@ -181,9 +189,13 @@ pub struct Compiler<'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> 
     previous_position: Span,
 }
 
-impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
+impl<'ns, 'src, const REGISTER_COUNT: usize> Compiler<'ns, 'src, REGISTER_COUNT> {
     /// Creates a new compiler.
-    pub fn new(mut lexer: Lexer<'src>, mode: CompileMode) -> Result<Self, CompileError> {
+    pub fn new(
+        mut lexer: Lexer<'src>,
+        mode: CompileMode,
+        dust_crate: &'ns mut Module,
+    ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
         Ok(Compiler {
@@ -208,7 +220,7 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
             minimum_function_register: 0,
             block_index: 0,
             current_block_scope: Scope::default(),
-            main_namespace: HashMap::new(),
+            dust_crate,
             active_namespace: HashSet::new(),
             prototype_index: 0,
             current_token,
@@ -854,7 +866,7 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
         if let Token::Boolean(text) = self.current_token {
             self.advance()?;
 
-            let boolean = text.parse::<bool>().unwrap();
+            let boolean = self.parse_boolean_value(text);
             let destination = Destination::memory(self.next_boolean_memory_index());
             let load_encoded = Instruction::load_encoded(
                 destination,
@@ -875,14 +887,17 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
         }
     }
 
+    fn parse_boolean_value(&mut self, text: &str) -> bool {
+        text.parse::<bool>().unwrap()
+    }
+
     fn parse_byte(&mut self) -> Result<(), CompileError> {
         let position = self.current_position;
 
         if let Token::Byte(text) = self.current_token {
             self.advance()?;
 
-            let byte = u8::from_str_radix(&text[2..], 16)
-                .map_err(|error| CompileError::ParseIntError { error, position })?;
+            let byte = self.parse_byte_value(text)?;
             let destination = Destination::memory(self.next_byte_memory_index());
             let load_encoded = Instruction::load_encoded(
                 destination,
@@ -901,6 +916,13 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
                 position,
             })
         }
+    }
+
+    fn parse_byte_value(&mut self, text: &str) -> Result<u8, CompileError> {
+        u8::from_str_radix(&text[2..], 16).map_err(|error| CompileError::ParseIntError {
+            error,
+            position: self.previous_position,
+        })
     }
 
     fn parse_character(&mut self) -> Result<(), CompileError> {
@@ -947,12 +969,7 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
         if let Token::Float(text) = self.current_token {
             self.advance()?;
 
-            let float = text
-                .parse::<f64>()
-                .map_err(|error| CompileError::ParseFloatError {
-                    error,
-                    position: self.previous_position,
-                })?;
+            let float = self.parse_float_value(text)?;
             let destination = self.next_float_memory_index();
             let constant_index = if let Some(index) = self
                 .float_constants
@@ -983,6 +1000,14 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
                 position,
             })
         }
+    }
+
+    fn parse_float_value(&mut self, text: &str) -> Result<f64, CompileError> {
+        text.parse::<f64>()
+            .map_err(|error| CompileError::ParseFloatError {
+                error,
+                position: self.previous_position,
+            })
     }
 
     fn parse_integer(&mut self) -> Result<(), CompileError> {
@@ -1033,6 +1058,22 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
                 position,
             })
         }
+    }
+
+    fn parse_integer_value(&mut self, text: &str) -> i64 {
+        let mut integer = 0_i64;
+
+        for digit in text.chars() {
+            let digit = if let Some(digit) = digit.to_digit(10) {
+                digit as i64
+            } else {
+                continue;
+            };
+
+            integer = integer * 10 + digit;
+        }
+
+        integer
     }
 
     fn parse_string(&mut self) -> Result<(), CompileError> {
@@ -1644,6 +1685,7 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
     fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, CompileError> {
         match token {
             Token::Bool => Ok(Type::Boolean),
+            Token::ByteKeyword => Ok(Type::Byte),
             Token::FloatKeyword => Ok(Type::Float),
             Token::Int => Ok(Type::Integer),
             Token::Str => Ok(Type::String),
@@ -2308,7 +2350,7 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
                 name: identifier.map(DustString::from),
             };
 
-            Compiler::<REGISTER_COUNT>::new(self.lexer, compile_mode)? // This will consume the parenthesis
+            Compiler::<REGISTER_COUNT>::new(self.lexer, compile_mode, self.dust_crate)? // This will consume the parenthesis
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::LeftParenthesis,
@@ -2657,7 +2699,193 @@ impl<'src, const REGISTER_COUNT: usize> Compiler<'src, REGISTER_COUNT> {
         Ok(())
     }
 
-    fn parse_module(&mut self) -> Result<(), CompileError> {
+    fn parse_mod(&mut self) -> Result<(), CompileError> {
+        self.advance()?;
+
+        let name = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
+
+            DustString::from(text)
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        let mut module_compiler = if let Token::LeftBrace = self.current_token {
+            Compiler::<REGISTER_COUNT>::new(
+                self.lexer,
+                CompileMode::Module {
+                    name,
+                    module: Module::new(),
+                },
+                self.dust_crate,
+            )? // This will consume the left brace
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::LeftBrace,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        module_compiler.compile()?;
+        module_compiler.expect(Token::RightBrace)?;
+
+        self.previous_token = module_compiler.previous_token;
+        self.previous_position = module_compiler.previous_position;
+        self.current_token = module_compiler.current_token;
+        self.current_position = module_compiler.current_position;
+
+        self.lexer.skip_to(self.current_position.1);
+
+        if let CompileMode::Module {
+            module: new_module,
+            name: new_module_name,
+        } = module_compiler.mode
+        {
+            if let CompileMode::Module {
+                module: self_module,
+                ..
+            } = &mut self.mode
+            {
+                self_module
+                    .items
+                    .insert(new_module_name, Item::Module(new_module));
+            } else {
+                self.dust_crate
+                    .items
+                    .insert(new_module_name, Item::Module(new_module));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_const(&mut self) -> Result<(), CompileError> {
+        self.advance()?;
+
+        let identifier = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
+
+            DustString::from(text)
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        self.expect(Token::Colon)?;
+
+        let r#type = self.parse_type_from(self.current_token, self.current_position)?;
+
+        self.advance()?;
+        self.expect(Token::Equal)?;
+
+        let value = match r#type.kind() {
+            TypeKind::Boolean => {
+                let boolean = if let Token::Boolean(text) = self.current_token {
+                    self.advance()?;
+                    self.parse_boolean_value(text)
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::Boolean,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::Boolean(boolean)
+            }
+            TypeKind::Byte => {
+                let byte = if let Token::Byte(text) = self.current_token {
+                    self.advance()?;
+                    self.parse_byte_value(text)?
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::Byte,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::Byte(byte)
+            }
+            TypeKind::Character => {
+                let character = if let Token::Character(character) = self.current_token {
+                    self.advance()?;
+
+                    character
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::Character,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::Character(character)
+            }
+            TypeKind::Float => {
+                let float = if let Token::Float(text) = self.current_token {
+                    self.advance()?;
+                    self.parse_float_value(text)?
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::Float,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::Float(float)
+            }
+            TypeKind::Integer => {
+                let integer = if let Token::Integer(text) = self.current_token {
+                    self.advance()?;
+                    self.parse_integer_value(text)
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::Integer,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::Integer(integer)
+            }
+            TypeKind::String => {
+                let string = if let Token::String(text) = self.current_token {
+                    self.advance()?;
+
+                    DustString::from(text)
+                } else {
+                    return Err(CompileError::ExpectedToken {
+                        expected: TokenKind::String,
+                        found: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+
+                ConcreteValue::String(string)
+            }
+            _ => todo!(),
+        };
+
+        if let CompileMode::Module { module, .. } = &mut self.mode {
+            module.items.insert(identifier, Item::Constant(value));
+        } else {
+            self.dust_crate
+                .items
+                .insert(identifier, Item::Constant(value));
+        }
+
+        self.allow(Token::Semicolon)?;
+
         Ok(())
     }
 
