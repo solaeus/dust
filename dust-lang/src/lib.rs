@@ -44,16 +44,18 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use crate::chunk::{Arguments, BlockScope, Chunk, Disassembler, Local};
-pub use crate::compiler::{CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile};
-pub use crate::dust_error::{AnnotatedError, DustError};
-pub use crate::instruction::{Address, Destination, Instruction, Operation};
-pub use crate::lexer::{LexError, Lexer, lex};
-pub use crate::native_function::NativeFunction;
-pub use crate::panic_vm::{Vm, run};
-pub use crate::token::{Token, TokenKind, TokenOwned};
-pub use crate::r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
-pub use crate::value::{AbstractList, ConcreteList, ConcreteValue, DustString, Value};
+pub use chunk::{Arguments, BlockScope, Chunk, Disassembler, Local};
+pub use compiler::{
+    CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile, generate_standard_library,
+};
+pub use dust_error::{AnnotatedError, DustError};
+pub use instruction::{Address, Destination, Instruction, Operation};
+pub use lexer::{LexError, Lexer, lex};
+pub use native_function::NativeFunction;
+pub use panic_vm::{Vm, run};
+pub use token::{Token, TokenKind, TokenOwned};
+pub use r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
+pub use value::{AbstractList, ConcreteList, ConcreteValue, DustString, Value};
 
 use std::fmt::Display;
 

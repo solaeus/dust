@@ -18,6 +18,12 @@ impl<'a> Module<'a> {
         }
     }
 
+    pub fn with_capacity(capacity: usize) -> Self {
+        Module {
+            items: HashMap::with_capacity(capacity),
+        }
+    }
+
     pub fn get_item<'b>(&'b self, path: &'b Path<'a>) -> Option<&'b (Item<'a>, Span)> {
         let mut current_module = self;
 

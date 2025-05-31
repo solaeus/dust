@@ -16,14 +16,14 @@
 //!     - Type conflicts
 //!
 //! It is a logic error to call [`Compiler::finish`] on a compiler that has emitted an error and
-//! pass that chunk to the VM. Otherwise, if the compiler gives no errors and the VM encounters a
-//! runtime error, it is the compiler's fault and the error should be fixed here.
+//! pass that chunk to the VM.
 mod compile_error;
 mod compile_mode;
 mod item;
 mod module;
 mod parse_rule;
 mod path;
+mod standard_library;
 mod type_checks;
 
 pub use compile_error::CompileError;
@@ -32,6 +32,7 @@ pub use item::Item;
 pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
+pub use standard_library::generate_standard_library;
 use tracing::{Level, debug, error, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
@@ -139,10 +140,12 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     /// when a new block is entered.
     block_index: u8,
 
-    /// The current block scope of the compiler. This is mutated during compilation to match the
-    /// current block and is used to test if a variable is in scope.
+    /// This is mutated during compilation to match the current block and is used to test if a local
+    /// variable is in scope.
     current_block_scope: BlockScope,
 
+    /// This is mutated during compilation as items are brought into scope by `use` statements or
+    /// are invoked by their full path. It is used to test if an item is in scope.
     current_item_scope: HashSet<Path<'paths>>,
 
     dust_crate: &'dc mut Module<'paths>,
@@ -306,8 +309,25 @@ where
     /// [`CompileError`] if any are found. After calling this function, check its return value for
     /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
+        for (top_level_path, (_, _)) in self.dust_crate.items.iter() {
+            self.current_item_scope.insert(top_level_path.clone());
+        }
+
         let logging = span!(Level::INFO, "Compile");
         let _enter = logging.enter();
+
+        if self.mode.is_module() {
+            let loggging = span!(Level::TRACE, "Module");
+            let _span_guard = loggging.enter();
+
+            self.parse_items()?;
+
+            if let CompileMode::Module { module, .. } = &mut self.mode {
+                self.dust_crate.items.extend(module.items.drain());
+            }
+
+            return Ok(());
+        }
 
         info!(
             "Begin chunk with `{}` at {}",
@@ -648,7 +668,7 @@ where
 
     fn next_character_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory_index,
+            self.minimum_character_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Character {
                     if instruction.a_field() >= acc {
@@ -665,7 +685,7 @@ where
 
     fn next_float_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory_index,
+            self.minimum_float_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::Float {
                     if instruction.a_field() >= acc {
@@ -699,7 +719,7 @@ where
 
     fn next_string_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory_index,
+            self.minimum_string_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && r#type == &Type::String {
                     if instruction.a_field() >= acc {
@@ -716,7 +736,7 @@ where
 
     fn next_list_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory_index,
+            self.minimum_list_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::List(_)) {
                     if instruction.a_field() >= acc {
@@ -733,7 +753,7 @@ where
 
     fn next_function_memory_index(&self) -> u16 {
         self.instructions.iter().fold(
-            self.minimum_boolean_memory_index,
+            self.minimum_function_memory_index,
             |acc, (instruction, r#type, _)| {
                 if instruction.yields_value() && matches!(r#type, Type::Function(_)) {
                     if instruction.a_field() >= acc {
@@ -2852,34 +2872,7 @@ where
         );
 
         self.expect(Token::LeftBrace)?;
-
-        loop {
-            match self.current_token {
-                Token::Const => self.parse_const()?,
-                Token::Fn => {
-                    self.parse_function()?;
-
-                    let (_, _, function_position) = self.instructions.pop().unwrap();
-                    let prototype = self.prototypes.pop().unwrap();
-
-                    if let CompileMode::Module { module, .. } = &mut self.mode {
-                        let function_name = prototype.name.as_ref().unwrap().to_string();
-                        let path =
-                            Path::new_owned(function_name).ok_or(CompileError::InvalidPath {
-                                found: name.to_string(),
-                                position: self.previous_position,
-                            })?;
-
-                        module
-                            .items
-                            .insert(path, (Item::Function(prototype), function_position));
-                    }
-                }
-                Token::Mod => self.parse_mod()?,
-                _ => break,
-            }
-        }
-
+        self.parse_items()?;
         self.expect(Token::RightBrace)?;
 
         let end = self.previous_position.1;
@@ -2896,26 +2889,45 @@ where
                     position: self.previous_position,
                 })?;
 
-            if let CompileMode::Module {
-                module: self_module,
-                ..
-            } = &mut self.mode
-            {
-                self_module.items.insert(
-                    new_module_path.clone(),
-                    (Item::Module(new_module), position),
-                );
-            } else {
-                self.dust_crate.items.insert(
-                    new_module_path.clone(),
-                    (Item::Module(new_module), position),
-                );
-            }
+            self.dust_crate.items.insert(
+                new_module_path.clone(),
+                (Item::Module(new_module), position),
+            );
 
             self.current_item_scope.insert(new_module_path);
         }
 
         Ok(())
+    }
+
+    fn parse_items(&mut self) -> Result<(), CompileError> {
+        loop {
+            match self.current_token {
+                Token::Const => self.parse_const()?,
+                Token::Fn => {
+                    self.parse_function()?;
+
+                    let (_, _, function_position) = self.instructions.pop().unwrap();
+                    let prototype = self.prototypes.pop().unwrap();
+
+                    if let CompileMode::Module { module, .. } = &mut self.mode {
+                        let function_name = prototype.name.as_ref().unwrap();
+                        let path = Path::new_owned(function_name.to_string()).ok_or_else(|| {
+                            CompileError::InvalidPath {
+                                found: function_name.to_string(),
+                                position: self.previous_position,
+                            }
+                        })?;
+
+                        module
+                            .items
+                            .insert(path, (Item::Function(prototype), function_position));
+                    }
+                }
+                Token::Mod => self.parse_mod()?,
+                _ => break Ok(()),
+            }
+        }
     }
 
     fn parse_const(&mut self) -> Result<(), CompileError> {

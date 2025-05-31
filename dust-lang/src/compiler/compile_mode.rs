@@ -21,4 +21,8 @@ impl<'a> CompileMode<'a> {
             Self::Module { name, .. } => Some(name),
         }
     }
+
+    pub fn is_module(&self) -> bool {
+        matches!(self, Self::Module { .. })
+    }
 }

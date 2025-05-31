@@ -18,7 +18,7 @@ use clap::{
 use colored::{Color, Colorize};
 use dust_lang::{
     CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, Lexer, Module, Vm,
-    panic::set_dust_panic_hook,
+    generate_standard_library, panic::set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
@@ -307,6 +307,9 @@ fn main() {
         };
         let lexer = Lexer::new(&source);
         let mut dust_crate = Module::new();
+
+        generate_standard_library(&mut dust_crate).expect("Failed to generate standard library");
+
         let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(
             lexer,
             Some(&source_name),
