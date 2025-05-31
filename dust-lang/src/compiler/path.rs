@@ -61,10 +61,7 @@ impl<'a> Path<'a> {
     pub fn contains_scope(&self, other: &str) -> bool {
         let other_root = other.split("::").next().unwrap_or("");
 
-        self.module_names()
-            .iter()
-            .any(|module_name| *module_name == other_root)
-            || self.item_name() == other_root
+        self.module_names().contains(&other_root) || self.item_name() == other_root
     }
 }
 
