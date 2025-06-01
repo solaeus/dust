@@ -1716,11 +1716,9 @@ where
             });
         };
 
-        let (variable_type, register_index, is_mutable) = {
+        let (variable_address, variable_type, is_mutable) = {
             if let Ok(local_index) = self.get_local_index(identifier) {
                 let local = self.get_local(local_index)?;
-                let local_type = local.r#type.clone();
-                let local_register_index = local.address.index;
 
                 if !self.current_block_scope.contains(&local.scope) {
                     return Err(CompileError::VariableOutOfScope {
@@ -1731,7 +1729,7 @@ where
                     });
                 }
 
-                (local_type, local_register_index, local.is_mutable)
+                (local.address, local.r#type.clone(), local.is_mutable)
             } else if self
                 .current_item_scope
                 .iter()
@@ -1742,8 +1740,6 @@ where
                         found: identifier.to_string(),
                         position: start_position,
                     })?;
-
-                println!("{path}");
 
                 let (item, item_position) = self.dust_crate.get_item(&path).ok_or_else(|| {
                     CompileError::UndeclaredVariable {
@@ -1760,11 +1756,10 @@ where
                     ),
                 };
 
-                let local_index =
+                let local_address =
                     self.bring_item_into_local_scope(identifier, item.clone(), *item_position)?;
-                let local_register_index = self.get_local(local_index)?.address.index;
 
-                (item_type, local_register_index, false)
+                (local_address, item_type, false)
             } else if let CompileMode::Function { name } = &self.mode {
                 if name.as_deref() == Some(identifier) {
                     let destination_index = self.next_function_memory_index();
@@ -1813,7 +1808,7 @@ where
                 {
                     let (math_instruction, _, _) = self.instructions.last_mut().unwrap();
 
-                    math_instruction.set_a_field(register_index);
+                    math_instruction.set_a_field(variable_address.index);
                 }
             } else {
                 return Err(CompileError::CannotMutateImmutableVariable {
@@ -1823,33 +1818,18 @@ where
             }
         }
 
-        let (destination_index, address_kind) = match variable_type {
-            Type::Boolean => (
-                self.next_boolean_memory_index(),
-                AddressKind::BOOLEAN_MEMORY,
-            ),
-            Type::Byte => (self.next_byte_memory_index(), AddressKind::BYTE_MEMORY),
-            Type::Character => (
-                self.next_character_memory_index(),
-                AddressKind::CHARACTER_MEMORY,
-            ),
-            Type::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
-            Type::Integer => (
-                self.next_integer_memory_index(),
-                AddressKind::INTEGER_MEMORY,
-            ),
-            Type::String => (self.next_string_memory_index(), AddressKind::STRING_MEMORY),
-            Type::List(_) => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
-            Type::Function(_) => (
-                self.next_function_memory_index(),
-                AddressKind::FUNCTION_MEMORY,
-            ),
+        let destination_index = match variable_address.r#type() {
+            TypeKind::Boolean => self.next_boolean_memory_index(),
+            TypeKind::Byte => self.next_byte_memory_index(),
+            TypeKind::Character => self.next_character_memory_index(),
+            TypeKind::Float => self.next_float_memory_index(),
+            TypeKind::Integer => self.next_integer_memory_index(),
+            TypeKind::String => self.next_string_memory_index(),
+            TypeKind::List => self.next_list_memory_index(),
+            TypeKind::Function => self.next_function_memory_index(),
             _ => todo!(),
         };
-        let r#move = Instruction::r#move(
-            Destination::memory(destination_index),
-            Address::new(register_index, address_kind),
-        );
+        let r#move = Instruction::r#move(Destination::memory(destination_index), variable_address);
 
         self.emit_instruction(r#move, variable_type, self.previous_position);
 
@@ -2658,20 +2638,18 @@ where
     }
 
     fn parse_call(&mut self) -> Result<(), CompileError> {
-        let start = self.current_position.0;
+        let start = self.previous_position.0;
 
         self.advance()?;
 
         let (last_instruction, last_instruction_type, _) =
             self.instructions
-                .last()
+                .pop()
                 .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let b_field = last_instruction.b_field();
-
-        let function_return_type = match last_instruction_type {
+        let function_return_type = match &last_instruction_type {
             Type::Function(function_type) => function_type.return_type.clone(),
             Type::FunctionSelf => self.r#type.return_type.clone(),
             _ => {
@@ -2682,23 +2660,7 @@ where
                 });
             }
         };
-        let last_operation = last_instruction.operation();
-        let function_register = if last_operation == Operation::LOAD_FUNCTION {
-            last_instruction.a_field()
-        } else if last_instruction.operation() == Operation::MOVE {
-            self.instructions.pop();
-
-            b_field
-        } else {
-            return Err(CompileError::ExpectedFunction {
-                found: self.previous_token.to_owned(),
-                actual_type: last_instruction_type.clone(),
-                position: self.previous_position,
-            });
-        };
-
         let type_argument_list = Vec::new();
-
         let mut value_argument_list = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
@@ -2763,7 +2725,7 @@ where
         };
         let call = Instruction::call(
             Destination::memory(destination_index),
-            Address::new(function_register, AddressKind::FUNCTION_MEMORY),
+            last_instruction.b_address(),
             argument_list_index,
             return_type_as_address_kind,
         );
@@ -3155,8 +3117,8 @@ where
         item_name: &str,
         item: Item,
         item_position: Span,
-    ) -> Result<u16, CompileError> {
-        let constant_index = match item {
+    ) -> Result<Address, CompileError> {
+        let address = match item {
             Item::Constant(value) => {
                 let (instruction, destination_address, r#type) = match value {
                     ConcreteValue::Boolean(boolean) => {
@@ -3253,31 +3215,26 @@ where
                     r#type,
                     false,
                     self.current_block_scope,
-                )
-                .0
+                );
+
+                destination_address
             }
             Item::Function(prototype) => {
                 let prototype_index = self.prototypes.len() as u16;
 
                 self.prototypes.push(Arc::clone(&prototype));
 
-                let memory_index = self.next_function_memory_index();
-                let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
-                let load_function = Instruction::load_function(
-                    Destination::memory(memory_index),
-                    Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
-                    false,
-                );
+                let address = Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE);
                 let r#type = Type::Function(Box::new(prototype.r#type.clone()));
 
-                self.emit_instruction(load_function, r#type.clone(), item_position);
-                self.declare_local(item_name, address, r#type, false, self.current_block_scope)
-                    .0
+                self.declare_local(item_name, address, r#type, false, self.current_block_scope);
+
+                address
             }
-            _ => todo!("Handle other item types in use statement"),
+            _ => todo!("Handle other item types"),
         };
 
-        Ok(constant_index)
+        Ok(address)
     }
 
     fn expect_expression(&mut self) -> Result<(), CompileError> {

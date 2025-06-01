@@ -26,6 +26,8 @@ impl Address {
                 | AddressKind::FLOAT_CONSTANT
                 | AddressKind::INTEGER_CONSTANT
                 | AddressKind::STRING_CONSTANT
+                | AddressKind::FUNCTION_PROTOTYPE
+                | AddressKind::FUNCTION_SELF
         )
     }
 
