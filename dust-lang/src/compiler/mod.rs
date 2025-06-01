@@ -1368,11 +1368,13 @@ where
                     position: self.previous_position,
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
+
         let left_is_mutable_local = if left_instruction.operation() == Operation::MOVE {
             let Move { operand: from, .. } = Move::from(&left_instruction);
 
             self.locals
-                .get(from.index as usize)
+                .iter()
+                .find(|local| local.address == from)
                 .map(|local| local.is_mutable)
                 .unwrap_or(false)
         } else {

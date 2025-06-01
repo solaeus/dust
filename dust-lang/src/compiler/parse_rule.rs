@@ -32,7 +32,11 @@ where
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Async => todo!(),
+            Token::Async => ParseRule {
+                prefix: Some(Compiler::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Bang => ParseRule {
                 prefix: Some(Compiler::parse_unary),
                 infix: None,
@@ -296,7 +300,11 @@ where
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Struct => todo!(),
+            Token::Struct => ParseRule {
+                prefix: Some(Compiler::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Use => ParseRule {
                 prefix: Some(Compiler::parse_use),
                 infix: None,

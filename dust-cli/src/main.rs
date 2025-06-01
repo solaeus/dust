@@ -337,8 +337,6 @@ fn main() {
         let chunk = compiler.finish();
         let compile_time = start_time.elapsed();
 
-        println!("{dust_crate:#?}");
-
         match output {
             Format::Dust => {
                 let mut stdout = stdout().lock();
