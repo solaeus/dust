@@ -255,6 +255,16 @@ impl Instruction {
         match self.operation() {
             Operation::NO_OP | Operation::CLOSE => TypeKind::None,
             Operation::LOAD_LIST => TypeKind::List,
+            Operation::CALL_NATIVE => {
+                let function = NativeFunction::from(self.b_field());
+
+                function.r#type().return_type.kind()
+            }
+            Operation::CALL => {
+                let Call { return_type, .. } = Call::from(self);
+
+                return_type.r#type()
+            }
             _ => self.b_kind().r#type(),
         }
     }

@@ -40,6 +40,7 @@ define_tokens! {
     String(&'src str),
 
     // Keywords
+    Any,
     Async,
     Bool,
     Break,
@@ -108,6 +109,7 @@ impl Token<'_> {
             Token::Identifier(text) => text.len(),
             Token::Integer(text) => text.len(),
             Token::String(text) => text.len() + 2,
+            Token::Any => 3,
             Token::Async => 5,
             Token::ArrowThin => 2,
             Token::Bool => 4,
@@ -174,6 +176,7 @@ impl Token<'_> {
             Token::Identifier(text) => text,
             Token::Integer(text) => text,
             Token::String(text) => text,
+            Token::Any => "any",
             Token::Async => "async",
             Token::ArrowThin => "->",
             Token::Bool => "bool",
@@ -230,6 +233,7 @@ impl Token<'_> {
 
     pub fn to_owned(&self) -> TokenOwned {
         match self {
+            Token::Any => TokenOwned::Any,
             Token::ArrowThin => TokenOwned::ArrowThin,
             Token::Async => TokenOwned::Async,
             Token::BangEqual => TokenOwned::BangEqual,
@@ -295,6 +299,7 @@ impl Token<'_> {
 
     pub fn kind(&self) -> TokenKind {
         match self {
+            Token::Any => TokenKind::Any,
             Token::ArrowThin => TokenKind::ArrowThin,
             Token::Async => TokenKind::Async,
             Token::BangEqual => TokenKind::BangEqual,
@@ -404,6 +409,7 @@ impl Token<'_> {
 impl Display for Token<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Token::Any => write!(f, "any"),
             Token::ArrowThin => write!(f, "->"),
             Token::Async => write!(f, "async"),
             Token::BangEqual => write!(f, "!="),
@@ -471,6 +477,7 @@ impl Display for Token<'_> {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            TokenKind::Any => write!(f, "any"),
             TokenKind::ArrowThin => write!(f, "->"),
             TokenKind::Async => write!(f, "async"),
             TokenKind::BangEqual => write!(f, "!="),
@@ -553,6 +560,7 @@ pub enum TokenOwned {
     String(String),
 
     // Keywords
+    Any,
     Async,
     Bool,
     Break,
@@ -612,6 +620,7 @@ pub enum TokenOwned {
 impl Display for TokenOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenOwned::Any => Token::Any.fmt(f),
             TokenOwned::ArrowThin => Token::ArrowThin.fmt(f),
             TokenOwned::Async => Token::Async.fmt(f),
             TokenOwned::Bang => Token::Bang.fmt(f),

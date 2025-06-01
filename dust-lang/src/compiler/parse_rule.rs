@@ -22,6 +22,11 @@ where
 {
     fn from(token: &Token) -> Self {
         match token {
+            Token::Any => ParseRule {
+                prefix: Some(Compiler::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::ArrowThin => ParseRule {
                 prefix: Some(Compiler::expect_expression),
                 infix: None,

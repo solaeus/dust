@@ -43,17 +43,15 @@ impl<const REGISTER_COUNT: usize> Vm<REGISTER_COUNT> {
             .map(|name| name.to_string())
             .unwrap_or_else(|| "anonymous".to_string());
         let (tx, rx) = bounded(1);
-
-        Builder::new()
+        let _thread_result = Builder::new()
             .name(thread_name)
             .spawn(move || {
                 let mut main_thread = Thread::<REGISTER_COUNT>::new(Arc::clone(&self.main_chunk));
                 let return_value = main_thread.run();
                 let _ = tx.send(return_value);
             })
-            .unwrap()
-            .join()
-            .unwrap();
+            .expect("Failed to create the main thread.")
+            .join();
 
         rx.recv().unwrap_or(None)
     }

@@ -139,7 +139,7 @@ define_native_function! {
     (
         ToString,
         8,
-        "to_string",
+        "_to_string",
         FunctionType::new([], [Type::Any], Type::String),
         string::to_string
     ),
@@ -196,7 +196,7 @@ define_native_function! {
     (
         ReadLine,
         50,
-        "read_line",
+        "_read_line",
         FunctionType::new([], [], Type::String),
         io::read_line
     ),
@@ -216,7 +216,7 @@ define_native_function! {
     (
         WriteLine,
         57,
-        "write_line",
+        "_write_line",
         FunctionType::new([], [Type::String], Type::None),
         io::write_line
     )

@@ -161,6 +161,8 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     current_position: Span,
     previous_token: Token<'src>,
     previous_position: Span,
+
+    allow_native_functions: bool,
 }
 
 impl<'dc, 'paths, 'src, const REGISTER_COUNT: usize> Compiler<'dc, 'paths, 'src, REGISTER_COUNT>
@@ -211,6 +213,7 @@ where
             previous_position: Span(0, 0),
             previous_statement_end: 0,
             previous_expression_end: 0,
+            allow_native_functions: false,
         })
     }
 
@@ -254,6 +257,7 @@ where
             previous_position: Span(0, 0),
             previous_statement_end: 0,
             previous_expression_end: 0,
+            allow_native_functions: false,
         })
     }
 
@@ -302,6 +306,7 @@ where
             previous_position: Span(0, 0),
             previous_statement_end: 0,
             previous_expression_end: 0,
+            allow_native_functions: false,
         })
     }
 
@@ -436,7 +441,7 @@ where
                     *rank = rank.saturating_add(increment);
                 }
                 Err(index) => {
-                    address_rankings.insert(index, (increment - 1, address));
+                    address_rankings.insert(index, (increment, address));
                 }
             }
         };
@@ -465,7 +470,10 @@ where
                         disqualify(address);
                     }
                 }
-                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT | Operation::LOAD_FUNCTION => {
+                Operation::LOAD_ENCODED
+                | Operation::LOAD_CONSTANT
+                | Operation::LOAD_FUNCTION
+                | Operation::CALL_NATIVE => {
                     increment_rank(destination_address, 1);
                 }
                 Operation::LOAD_LIST => {
@@ -500,6 +508,12 @@ where
                 _ => {}
             }
         }
+
+        // for Arguments { values, .. } in &self.arguments {
+        //     for address in values {
+        //         increment_rank(*address, 1);
+        //     }
+        // }
 
         // A map in which the keys are addresses that need to be replaced and the values are their
         // intended replacements.
@@ -552,7 +566,7 @@ where
             let c_address = instruction.c_address();
 
             match instruction.operation() {
-                Operation::MOVE => {
+                Operation::MOVE | Operation::CALL => {
                     if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
@@ -564,7 +578,8 @@ where
                 Operation::LOAD_ENCODED
                 | Operation::LOAD_CONSTANT
                 | Operation::LOAD_LIST
-                | Operation::LOAD_FUNCTION => {
+                | Operation::LOAD_FUNCTION
+                | Operation::CALL_NATIVE => {
                     if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
@@ -596,15 +611,6 @@ where
                     }
                 }
                 Operation::TEST | Operation::RETURN => {
-                    if let Some(replacement) = replacements.get(&b_address) {
-                        instruction.set_b_address(*replacement);
-                    }
-                }
-                Operation::CALL => {
-                    if let Some(replacement) = replacements.get(&destination_address) {
-                        instruction.set_destination(*replacement);
-                    }
-
                     if let Some(replacement) = replacements.get(&b_address) {
                         instruction.set_b_address(*replacement);
                     }
@@ -1757,8 +1763,6 @@ where
                 let local_register_index = self.get_local(local_index)?.address.index;
 
                 (item_type, local_register_index, false)
-            } else if let Some(native_function) = NativeFunction::from_str(identifier) {
-                return self.parse_call_native(native_function, start_position);
             } else if let CompileMode::Function { name } = &self.mode {
                 if name.as_deref() == Some(identifier) {
                     let destination_index = self.next_function_memory_index();
@@ -1772,13 +1776,23 @@ where
                     self.emit_instruction(load_self, Type::FunctionSelf, start_position);
 
                     return Ok(());
-                } else {
-                    return Err(CompileError::UndeclaredVariable {
-                        identifier: identifier.to_string(),
-                        position: start_position,
-                    });
+                } else if self.allow_native_functions {
+                    if let Some(native_function) = NativeFunction::from_str(identifier) {
+                        return self.parse_call_native(native_function, start_position);
+                    }
                 }
+
+                return Err(CompileError::UndeclaredVariable {
+                    identifier: identifier.to_string(),
+                    position: start_position,
+                });
             } else {
+                if self.allow_native_functions {
+                    if let Some(native_function) = NativeFunction::from_str(identifier) {
+                        return self.parse_call_native(native_function, start_position);
+                    }
+                }
+
                 return Err(CompileError::UndeclaredVariable {
                     identifier: identifier.to_string(),
                     position: start_position,
@@ -1842,6 +1856,7 @@ where
 
     fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, CompileError> {
         match token {
+            Token::Any => Ok(Type::Any),
             Token::Bool => Ok(Type::Boolean),
             Token::ByteKeyword => Ok(Type::Byte),
             Token::FloatKeyword => Ok(Type::Float),
@@ -1849,7 +1864,9 @@ where
             Token::Str => Ok(Type::String),
             _ => Err(CompileError::ExpectedTokenMultiple {
                 expected: &[
+                    TokenKind::Any,
                     TokenKind::Bool,
+                    TokenKind::ByteKeyword,
                     TokenKind::FloatKeyword,
                     TokenKind::Int,
                     TokenKind::Str,
@@ -2509,6 +2526,7 @@ where
             )?; // This will consume the parenthesis
 
             compiler.prototype_index = self.prototypes.len() as u16;
+            compiler.allow_native_functions = self.allow_native_functions;
 
             compiler
         } else {
@@ -3237,13 +3255,15 @@ where
                 .0
             }
             Item::Function(prototype) => {
+                let prototype_index = self.prototypes.len() as u16;
+
                 self.prototypes.push(Arc::clone(&prototype));
 
                 let memory_index = self.next_function_memory_index();
                 let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
                 let load_function = Instruction::load_function(
                     Destination::memory(memory_index),
-                    Address::new(prototype.prototype_index, AddressKind::FUNCTION_PROTOTYPE),
+                    Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
                     false,
                 );
                 let r#type = Type::Function(Box::new(prototype.r#type.clone()));

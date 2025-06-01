@@ -197,6 +197,9 @@ fn main() {
         };
         let lexer = Lexer::new(&source);
         let mut dust_crate = Module::new();
+
+        generate_standard_library(&mut dust_crate).expect("Failed to generate standard library");
+
         let chunk = match input {
             Format::Dust => {
                 let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(

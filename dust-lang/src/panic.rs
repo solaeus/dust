@@ -4,8 +4,7 @@ const PANIC_HEADER: &str = r#"
                                   Dust Panic!
 
 Something went wrong while compiling or running your code. The program was
-forced to exit. This is unintended behavior, please report it to the Dust team
-with this entire message included.
+forced to exit. This is unintended behavior.
 "#;
 
 pub fn set_dust_panic_hook() {
@@ -16,7 +15,7 @@ pub fn set_dust_panic_hook() {
             println!("\nThe error occured at {location}.");
         }
 
-        if let Some(message) = info.payload().downcast_ref::<&str>() {
+        if let Some(message) = info.payload_as_str() {
             println!("\nExtra info: {message}");
         }
     }));

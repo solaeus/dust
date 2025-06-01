@@ -2406,7 +2406,36 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                     _ => unreachable!(),
                                 }
                             }
-                            _ => unreachable!(),
+                            AddressKind::STRING_REGISTER => {
+                                let string =
+                                    memory.registers.strings[argument.index as usize].clone();
+
+                                match parameter.kind {
+                                    AddressKind::STRING_REGISTER => {
+                                        new_memory.registers.strings[parameter.index as usize] =
+                                            string;
+                                    }
+                                    AddressKind::STRING_MEMORY => {
+                                        new_memory.strings[parameter.index as usize] = string;
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                            AddressKind::STRING_MEMORY => {
+                                let string = memory.strings[argument.index as usize].clone();
+
+                                match parameter.kind {
+                                    AddressKind::STRING_REGISTER => {
+                                        new_memory.registers.strings[parameter.index as usize] =
+                                            string;
+                                    }
+                                    AddressKind::STRING_MEMORY => {
+                                        new_memory.strings[parameter.index as usize] = string;
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                            _ => todo!(),
                         }
                     }
 

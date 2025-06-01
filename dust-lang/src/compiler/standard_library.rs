@@ -2,12 +2,23 @@ use crate::{Lexer, Span};
 
 use super::{CompileError, Compiler, DEFAULT_REGISTER_COUNT, Item, Module, Path};
 
-const STD: &str = "
+const STD: &str = r"
 mod io {
+    fn read_line() -> str {
+        _read_line()
+    }
+
     fn write_line(message: str) {
-        write_line(message)
+        _write_line(message)
     }
 }
+
+mod convert {
+    fn int_to_string(value: int) -> str {
+        _to_string(value)
+    }
+}
+
 ";
 
 pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileError> {
@@ -15,6 +26,9 @@ pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileE
     let lexer = Lexer::new(STD);
     let mut compiler =
         Compiler::<DEFAULT_REGISTER_COUNT>::new_module(lexer, "std", &mut std_crate)?;
+
+    compiler.allow_native_functions = true;
+
     let start = compiler.current_position.0;
 
     compiler.compile()?;

@@ -27,7 +27,7 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(new_range_api)]
+#![feature(new_range_api, panic_payload_as_str)]
 
 pub mod chunk;
 pub mod compiler;

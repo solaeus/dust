@@ -263,6 +263,7 @@ impl<'src> Lexer<'src> {
         let token = match string {
             "Infinity" => Token::Float("Infinity"),
             "NaN" => Token::Float("NaN"),
+            "any" => Token::Any,
             "async" => Token::Async,
             "bool" => Token::Bool,
             "break" => Token::Break,
@@ -636,6 +637,9 @@ impl From<&char> for LexRule<'_> {
                 lex_action: Lexer::lex_numeric,
             },
             char if char.is_alphabetic() => LexRule {
+                lex_action: Lexer::lex_keyword_or_identifier,
+            },
+            '_' => LexRule {
                 lex_action: Lexer::lex_keyword_or_identifier,
             },
             '"' => LexRule {
