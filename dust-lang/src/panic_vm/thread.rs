@@ -2647,8 +2647,10 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let mut new_memory = memory_stack.pop().unwrap();
 
                             match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
+                                AddressKind::STRING_MEMORY => {
+                                    new_memory.strings[call.return_address.index as usize] = string;
+                                }
+                                AddressKind::STRING_REGISTER => {
                                     new_memory.registers.strings
                                         [call.return_address.index as usize] = string;
                                 }
