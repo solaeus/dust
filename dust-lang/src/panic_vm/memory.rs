@@ -6,18 +6,18 @@ use crate::{AbstractList, Address, Chunk, ConcreteList, DustString, Type, r#type
 
 #[derive(Debug)]
 pub struct Memory<const REGISTER_COUNT: usize> {
-    pub booleans: Vec<bool>,
-    pub bytes: Vec<u8>,
-    pub characters: Vec<char>,
-    pub floats: Vec<f64>,
-    pub integers: Vec<i64>,
-    pub strings: Vec<DustString>,
-    pub lists: Vec<AbstractList>,
-    pub functions: Vec<Arc<Chunk>>,
+    booleans: Vec<bool>,
+    bytes: Vec<u8>,
+    characters: Vec<char>,
+    floats: Vec<f64>,
+    integers: Vec<i64>,
+    strings: Vec<DustString>,
+    lists: Vec<AbstractList>,
+    functions: Vec<Arc<Chunk>>,
 
     pub closed: HashSet<Address>,
 
-    pub registers: RegisterTable<REGISTER_COUNT>,
+    registers: RegisterTable<REGISTER_COUNT>,
 }
 
 impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
@@ -34,6 +34,134 @@ impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
             functions: vec![Arc::new(Chunk::default()); chunk.function_memory_length as usize],
             closed: HashSet::new(),
             registers: RegisterTable::new(),
+        }
+    }
+
+    pub fn get_boolean(&self, is_register: bool, index: u16) -> bool {
+        if is_register {
+            self.registers.booleans[index as usize]
+        } else {
+            self.booleans[index as usize]
+        }
+    }
+
+    pub fn set_boolean(&mut self, is_register: bool, index: u16, value: bool) {
+        if is_register {
+            self.registers.booleans[index as usize] = value;
+        } else {
+            self.booleans[index as usize] = value;
+        }
+    }
+
+    pub fn get_byte(&self, is_register: bool, index: u16) -> u8 {
+        if is_register {
+            self.registers.bytes[index as usize]
+        } else {
+            self.bytes[index as usize]
+        }
+    }
+
+    pub fn set_byte(&mut self, is_register: bool, index: u16, value: u8) {
+        if is_register {
+            self.registers.bytes[index as usize] = value;
+        } else {
+            self.bytes[index as usize] = value;
+        }
+    }
+
+    pub fn get_character(&self, is_register: bool, index: u16) -> char {
+        if is_register {
+            self.registers.characters[index as usize]
+        } else {
+            self.characters[index as usize]
+        }
+    }
+
+    pub fn set_character(&mut self, is_register: bool, index: u16, value: char) {
+        if is_register {
+            self.registers.characters[index as usize] = value;
+        } else {
+            self.characters[index as usize] = value;
+        }
+    }
+
+    pub fn get_float(&self, is_register: bool, index: u16) -> f64 {
+        if is_register {
+            self.registers.floats[index as usize]
+        } else {
+            self.floats[index as usize]
+        }
+    }
+
+    pub fn set_float(&mut self, is_register: bool, index: u16, value: f64) {
+        if is_register {
+            self.registers.floats[index as usize] = value;
+        } else {
+            self.floats[index as usize] = value;
+        }
+    }
+
+    pub fn get_integer(&self, is_register: bool, index: u16) -> i64 {
+        if is_register {
+            self.registers.integers[index as usize]
+        } else {
+            self.integers[index as usize]
+        }
+    }
+
+    pub fn set_integer(&mut self, is_register: bool, index: u16, value: i64) {
+        if is_register {
+            self.registers.integers[index as usize] = value;
+        } else {
+            self.integers[index as usize] = value;
+        }
+    }
+
+    pub fn get_string(&self, is_register: bool, index: u16) -> &DustString {
+        if is_register {
+            &self.registers.strings[index as usize]
+        } else {
+            &self.strings[index as usize]
+        }
+    }
+
+    pub fn set_string(&mut self, is_register: bool, index: u16, value: DustString) {
+        if is_register {
+            self.registers.strings[index as usize] = value;
+        } else {
+            self.strings[index as usize] = value;
+        }
+    }
+
+    pub fn get_list(&self, is_register: bool, index: u16) -> &AbstractList {
+        if is_register {
+            &self.registers.lists[index as usize]
+        } else {
+            &self.lists[index as usize]
+        }
+    }
+
+    pub fn set_list(&mut self, is_register: bool, index: u16, value: AbstractList) {
+        if is_register {
+            self.registers.lists[index as usize] = value;
+        } else {
+            self.lists[index as usize] = value;
+        }
+    }
+
+    pub fn get_function(&self, is_register: bool, index: u16) -> &Arc<Chunk> {
+        if is_register {
+            &self.registers.functions[index as usize]
+        } else {
+            &self.functions[index as usize]
+        }
+    }
+
+    pub fn set_function(&mut self, is_register: bool, index: u16, value: Arc<Chunk>) {
+        if is_register {
+            self.registers.functions[index as usize] = value;
+        } else {
+            self.functions[index as usize] = value;
         }
     }
 
@@ -124,14 +252,14 @@ impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
 
 #[derive(Debug)]
 pub struct RegisterTable<const LENGTH: usize> {
-    pub booleans: [bool; LENGTH],
-    pub bytes: [u8; LENGTH],
-    pub characters: [char; LENGTH],
-    pub floats: [f64; LENGTH],
-    pub integers: [i64; LENGTH],
-    pub strings: [DustString; LENGTH],
-    pub lists: [AbstractList; LENGTH],
-    pub functions: [Arc<Chunk>; LENGTH],
+    booleans: [bool; LENGTH],
+    bytes: [u8; LENGTH],
+    characters: [char; LENGTH],
+    floats: [f64; LENGTH],
+    integers: [i64; LENGTH],
+    strings: [DustString; LENGTH],
+    lists: [AbstractList; LENGTH],
+    functions: [Arc<Chunk>; LENGTH],
 }
 
 impl<const LENGTH: usize> RegisterTable<LENGTH> {

@@ -1,8 +1,8 @@
 use crate::{
-    DustString,
     chunk::Arguments,
-    instruction::{AddressKind, Destination},
+    instruction::Destination,
     panic_vm::{CallFrame, Memory},
+    r#type::TypeKind,
 };
 
 pub fn to_string<const REGISTER_COUNT: usize>(
@@ -12,83 +12,71 @@ pub fn to_string<const REGISTER_COUNT: usize>(
     memory: &mut Memory<REGISTER_COUNT>,
 ) {
     let argument = &arguments.values[0];
-    let stringified = match argument.kind {
-        AddressKind::BOOLEAN_MEMORY => {
-            let boolean = memory.booleans[argument.index as usize];
+    let stringified = match argument.kind.r#type() {
+        TypeKind::Boolean => memory
+            .get_boolean(argument.is_register(), argument.index)
+            .to_string()
+            .into(),
+        TypeKind::Byte => memory
+            .get_byte(argument.is_register(), argument.index)
+            .to_string()
+            .into(),
+        TypeKind::Character => {
+            if argument.is_constant() {
+                call.chunk.character_constants[argument.index as usize]
+                    .to_string()
+                    .into()
+            } else {
+                memory
+                    .get_character(argument.is_register(), argument.index)
+                    .to_string()
+                    .into()
+            }
+        }
+        TypeKind::Float => {
+            if argument.is_constant() {
+                call.chunk.float_constants[argument.index as usize]
+                    .to_string()
+                    .into()
+            } else {
+                memory
+                    .get_float(argument.is_register(), argument.index)
+                    .to_string()
+                    .into()
+            }
+        }
+        TypeKind::Integer => {
+            if argument.is_constant() {
+                call.chunk.integer_constants[argument.index as usize]
+                    .to_string()
+                    .into()
+            } else {
+                memory
+                    .get_integer(argument.is_register(), argument.index)
+                    .to_string()
+                    .into()
+            }
+        }
+        TypeKind::String => {
+            if argument.is_constant() {
+                call.chunk.string_constants[argument.index as usize].clone()
+            } else {
+                memory
+                    .get_string(argument.is_register(), argument.index)
+                    .clone()
+            }
+        }
+        TypeKind::List => {
+            let list = memory.get_list(argument.is_register(), argument.index);
+            memory.make_list_concrete(list).to_string().into()
+        }
+        TypeKind::Function => {
+            let function = memory.get_function(argument.is_register(), argument.index);
+            function.to_string().into()
+        }
 
-            DustString::from(boolean.to_string())
-        }
-        AddressKind::BOOLEAN_REGISTER => {
-            let boolean = memory.registers.booleans[argument.index as usize];
-
-            DustString::from(boolean.to_string())
-        }
-        AddressKind::BYTE_MEMORY => {
-            let byte = memory.bytes[argument.index as usize];
-
-            DustString::from(byte.to_string())
-        }
-        AddressKind::BYTE_REGISTER => {
-            let byte = memory.registers.bytes[argument.index as usize];
-
-            DustString::from(byte.to_string())
-        }
-        AddressKind::CHARACTER_CONSTANT => {
-            let character = call.chunk.character_constants[argument.index as usize];
-
-            DustString::from(character.to_string())
-        }
-        AddressKind::CHARACTER_MEMORY => {
-            let character = memory.characters[argument.index as usize];
-
-            DustString::from(character.to_string())
-        }
-        AddressKind::CHARACTER_REGISTER => {
-            let character = memory.registers.characters[argument.index as usize];
-
-            DustString::from(character.to_string())
-        }
-        AddressKind::FLOAT_CONSTANT => {
-            let float = call.chunk.float_constants[argument.index as usize];
-
-            DustString::from(float.to_string())
-        }
-        AddressKind::FLOAT_MEMORY => {
-            let float = memory.floats[argument.index as usize];
-
-            DustString::from(float.to_string())
-        }
-        AddressKind::FLOAT_REGISTER => {
-            let float = memory.registers.floats[argument.index as usize];
-
-            DustString::from(float.to_string())
-        }
-        AddressKind::INTEGER_CONSTANT => {
-            let integer = call.chunk.integer_constants[argument.index as usize];
-
-            DustString::from(integer.to_string())
-        }
-        AddressKind::INTEGER_MEMORY => {
-            let integer = memory.integers[argument.index as usize];
-
-            DustString::from(integer.to_string())
-        }
-        AddressKind::INTEGER_REGISTER => {
-            let integer = memory.registers.integers[argument.index as usize];
-
-            DustString::from(integer.to_string())
-        }
-        AddressKind::STRING_CONSTANT => {
-            call.chunk.string_constants[argument.index as usize].clone()
-        }
-        AddressKind::STRING_MEMORY => memory.strings[argument.index as usize].clone(),
-        AddressKind::STRING_REGISTER => memory.registers.strings[argument.index as usize].clone(),
         _ => todo!(),
     };
 
-    if destination.is_register {
-        memory.registers.strings[destination.index as usize] = stringified;
-    } else {
-        memory.strings[destination.index as usize] = stringified;
-    }
+    memory.set_string(destination.is_register, destination.index, stringified);
 }

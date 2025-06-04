@@ -9,6 +9,7 @@ use crate::{
         LoadConstant, LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Return,
         Subtract, Test,
     },
+    r#type::TypeKind,
 };
 
 use super::{CallFrame, Memory};
@@ -68,151 +69,67 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         operand: from,
                     } = Move::from(&instruction);
 
-                    match from.kind {
-                        AddressKind::BOOLEAN_MEMORY => {
-                            let boolean = memory.booleans[from.index as usize];
+                    match from.kind.r#type() {
+                        TypeKind::Boolean => {
+                            let boolean = memory.get_boolean(from.is_register(), from.index);
 
-                            if to.is_register {
-                                memory.registers.booleans[to.index as usize] = boolean;
-                            } else {
-                                memory.booleans[to.index as usize] = boolean;
-                            }
+                            memory.set_boolean(to.is_register, to.index, boolean);
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let boolean = memory.registers.booleans[from.index as usize];
+                        TypeKind::Byte => {
+                            let byte = memory.get_byte(from.is_register(), from.index);
 
-                            if to.is_register {
-                                memory.registers.booleans[to.index as usize] = boolean;
-                            } else {
-                                memory.booleans[to.index as usize] = boolean;
-                            }
+                            memory.set_byte(to.is_register, to.index, byte);
                         }
-                        AddressKind::BYTE_MEMORY => {
-                            let byte = memory.bytes[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.bytes[to.index as usize] = byte;
+                        TypeKind::Character => {
+                            let character = if from.is_constant() {
+                                call.chunk.character_constants[from.index as usize]
                             } else {
-                                memory.bytes[to.index as usize] = byte;
-                            }
+                                memory.get_character(from.is_register(), from.index)
+                            };
+
+                            memory.set_character(to.is_register, to.index, character);
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let byte = memory.registers.bytes[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.bytes[to.index as usize] = byte;
+                        TypeKind::Float => {
+                            let float = if from.is_constant() {
+                                call.chunk.float_constants[from.index as usize]
                             } else {
-                                memory.bytes[to.index as usize] = byte;
-                            }
+                                memory.get_float(from.is_register(), from.index)
+                            };
+
+                            memory.set_float(to.is_register, to.index, float);
                         }
-                        AddressKind::CHARACTER_MEMORY => {
-                            let character = memory.characters[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.characters[to.index as usize] = character;
+                        TypeKind::Integer => {
+                            let integer = if from.is_constant() {
+                                call.chunk.integer_constants[from.index as usize]
                             } else {
-                                memory.characters[to.index as usize] = character;
-                            }
+                                memory.get_integer(from.is_register(), from.index)
+                            };
+
+                            memory.set_integer(to.is_register, to.index, integer);
                         }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let character = memory.registers.characters[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.characters[to.index as usize] = character;
+                        TypeKind::String => {
+                            let string = if from.is_constant() {
+                                call.chunk.string_constants[from.index as usize].clone()
                             } else {
-                                memory.characters[to.index as usize] = character;
-                            }
+                                memory.get_string(from.is_register(), from.index).clone()
+                            };
+
+                            memory.set_string(to.is_register, to.index, string);
                         }
-                        AddressKind::FLOAT_MEMORY => {
-                            let float = memory.floats[from.index as usize];
+                        TypeKind::List => {
+                            let abstract_list =
+                                memory.get_list(from.is_register(), from.index).clone();
 
-                            if to.is_register {
-                                memory.registers.floats[to.index as usize] = float;
-                            } else {
-                                memory.floats[to.index as usize] = float;
-                            }
+                            memory.set_list(to.is_register, to.index, abstract_list);
                         }
-                        AddressKind::FLOAT_REGISTER => {
-                            let float = memory.registers.floats[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.floats[to.index as usize] = float;
+                        TypeKind::Function => {
+                            let function = if from.is_constant() {
+                                Arc::clone(&call.chunk.prototypes[from.index as usize])
                             } else {
-                                memory.floats[to.index as usize] = float;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let integer = memory.integers[from.index as usize];
+                                Arc::clone(memory.get_function(from.is_register(), from.index))
+                            };
 
-                            if to.is_register {
-                                memory.registers.integers[to.index as usize] = integer;
-                            } else {
-                                memory.integers[to.index as usize] = integer;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let integer = memory.registers.integers[from.index as usize];
-
-                            if to.is_register {
-                                memory.registers.integers[to.index as usize] = integer;
-                            } else {
-                                memory.integers[to.index as usize] = integer;
-                            }
-                        }
-                        AddressKind::STRING_MEMORY => {
-                            let string = memory.strings[from.index as usize].clone();
-
-                            if to.is_register {
-                                memory.registers.strings[to.index as usize] = string;
-                            } else {
-                                memory.strings[to.index as usize] = string;
-                            }
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let string = memory.registers.strings[from.index as usize].clone();
-
-                            if to.is_register {
-                                memory.registers.strings[to.index as usize] = string;
-                            } else {
-                                memory.strings[to.index as usize] = string;
-                            }
-                        }
-                        AddressKind::LIST_MEMORY => {
-                            let list = memory.lists[from.index as usize].clone();
-
-                            if to.is_register {
-                                memory.registers.lists[to.index as usize] = list;
-                            } else {
-                                memory.lists[to.index as usize] = list;
-                            }
-                        }
-                        AddressKind::LIST_REGISTER => {
-                            let list = memory.registers.lists[from.index as usize].clone();
-
-                            if to.is_register {
-                                memory.registers.lists[to.index as usize] = list;
-                            } else {
-                                memory.lists[to.index as usize] = list;
-                            }
-                        }
-                        AddressKind::FUNCTION_MEMORY => {
-                            let function = Arc::clone(&memory.functions[from.index as usize]);
-
-                            if to.is_register {
-                                memory.registers.functions[to.index as usize] = function;
-                            } else {
-                                memory.functions[to.index as usize] = function;
-                            }
-                        }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let function =
-                                Arc::clone(&memory.registers.functions[from.index as usize]);
-
-                            if to.is_register {
-                                memory.registers.functions[to.index as usize] = function;
-                            } else {
-                                memory.functions[to.index as usize] = function;
-                            }
+                            memory.set_function(to.is_register, to.index, function);
                         }
                         _ => unreachable!(),
                     }
@@ -237,19 +154,13 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     match r#type {
                         AddressKind::BOOLEAN_MEMORY => {
                             let boolean = value != 0;
-                            if destination.is_register {
-                                memory.registers.booleans[destination.index as usize] = boolean;
-                            } else {
-                                memory.booleans[destination.index as usize] = boolean;
-                            }
+
+                            memory.set_boolean(destination.is_register, destination.index, boolean);
                         }
                         AddressKind::BYTE_MEMORY => {
                             let byte = value as u8;
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = byte;
-                            } else {
-                                memory.bytes[destination.index as usize] = byte;
-                            }
+
+                            memory.set_byte(destination.is_register, destination.index, byte);
                         }
                         _ => unreachable!(),
                     }
@@ -270,46 +181,22 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         AddressKind::CHARACTER_CONSTANT => {
                             let value = call.chunk.character_constants[constant_index];
 
-                            if destination.is_register {
-                                memory.registers.characters[destination.index as usize] = value;
-                            } else {
-                                let destination_index = destination.index as usize;
-
-                                memory.characters[destination_index] = value;
-                            }
+                            memory.set_character(destination.is_register, destination.index, value);
                         }
                         AddressKind::FLOAT_CONSTANT => {
                             let value = call.chunk.float_constants[constant_index];
 
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = value;
-                            } else {
-                                let destination_index = destination.index as usize;
-
-                                memory.floats[destination_index] = value;
-                            }
+                            memory.set_float(destination.is_register, destination.index, value);
                         }
                         AddressKind::INTEGER_CONSTANT => {
                             let value = call.chunk.integer_constants[constant_index];
 
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = value;
-                            } else {
-                                let destination_index = destination.index as usize;
-
-                                memory.integers[destination_index] = value;
-                            }
+                            memory.set_integer(destination.is_register, destination.index, value);
                         }
                         AddressKind::STRING_CONSTANT => {
                             let value = call.chunk.string_constants[constant_index].clone();
 
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = value;
-                            } else {
-                                let destination_index = destination.index as usize;
-
-                                memory.strings[destination_index] = value;
-                            }
+                            memory.set_string(destination.is_register, destination.index, value);
                         }
                         _ => unreachable!(),
                     };
@@ -335,9 +222,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         _ => unreachable!(),
                     };
 
-                    if destination.is_register {
-                        memory.registers.functions[destination.index as usize] = function;
-                    }
+                    memory.set_function(destination.is_register, destination.index, function);
 
                     if jump_next {
                         call.ip += 1;
@@ -365,11 +250,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         abstract_list.indices.push(i);
                     }
 
-                    if destination.is_register {
-                        memory.registers.lists[destination.index as usize] = abstract_list;
-                    } else {
-                        memory.lists[destination.index as usize] = abstract_list;
-                    }
+                    memory.set_list(destination.is_register, destination.index, abstract_list);
 
                     if jump_next {
                         call.ip += 1;
@@ -383,312 +264,79 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = Add::from(&instruction);
                     let left_index = left.index as usize;
 
-                    match left.kind {
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                    match (left.kind.r#type(), right.kind.r#type()) {
+                        (TypeKind::Byte, TypeKind::Byte) => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
                             let sum = left_value + right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = sum;
-                            } else {
-                                memory.bytes[destination.index as usize] = sum;
-                            }
+                            memory.set_byte(destination.is_register, destination.index, sum);
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        (TypeKind::Character, TypeKind::Character) => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.character_constants[left_index]
+                            } else {
+                                memory.get_character(left.is_register(), left.index)
                             };
-                            let sum = left_value + right_value;
-
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = sum;
+                            let right_value = if right.is_constant() {
+                                call.chunk.character_constants[right.index as usize]
                             } else {
-                                memory.bytes[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = call.chunk.character_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                                memory.get_character(right.is_register(), right.index)
                             };
                             let mut sum = DustString::new();
 
                             sum.push(left_value);
                             sum.push(right_value);
 
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
-                            } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
+                            memory.set_string(destination.is_register, destination.index, sum);
                         }
-                        AddressKind::CHARACTER_MEMORY => {
-                            let left_value = memory.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        (TypeKind::Float, TypeKind::Float) => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left_index]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
                             };
-                            let mut sum = DustString::new();
-
-                            sum.push(left_value);
-                            sum.push(right_value);
-
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
                             } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let left_value = memory.registers.characters[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right_index]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let mut sum = DustString::new();
-
-                            sum.push(left_value);
-                            sum.push(right_value);
-
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
-                            } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                                memory.get_float(right.is_register(), right.index)
                             };
                             let sum = left_value + right_value;
 
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = sum;
-                            } else {
-                                memory.floats[destination.index as usize] = sum;
-                            }
+                            memory.set_float(destination.is_register, destination.index, sum);
                         }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        (TypeKind::Integer, TypeKind::Integer) => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left_index]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
                             let sum = left_value + right_value;
 
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = sum;
-                            } else {
-                                memory.floats[destination.index as usize] = sum;
-                            }
+                            memory.set_integer(destination.is_register, destination.index, sum);
                         }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right_index]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        (TypeKind::String, TypeKind::String) => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.string_constants[left_index]
+                            } else {
+                                memory.get_string(left.is_register(), left.index)
                             };
-                            let sum = left_value + right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = sum;
+                            let right_value = if right.is_constant() {
+                                &call.chunk.string_constants[right.index as usize]
                             } else {
-                                memory.floats[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let sum = left_value + right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = sum;
-                            } else {
-                                memory.integers[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let sum = left_value + right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = sum;
-                            } else {
-                                memory.integers[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let sum = left_value + right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = sum;
-                            } else {
-                                memory.integers[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::STRING_CONSTANT => {
-                            let left_value = &call.chunk.string_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                                memory.get_string(right.is_register(), right.index)
                             };
                             let mut sum = DustString::new();
 
                             sum.push_str(left_value);
                             sum.push_str(right_value);
 
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
-                            } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::STRING_MEMORY => {
-                            let left_value = &memory.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let mut sum = DustString::new();
-
-                            sum.push_str(left_value);
-                            sum.push_str(right_value);
-
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
-                            } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let left_value = &memory.registers.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let mut sum = DustString::new();
-
-                            sum.push_str(left_value);
-                            sum.push_str(right_value);
-
-                            if destination.is_register {
-                                memory.registers.strings[destination.index as usize] = sum;
-                            } else {
-                                memory.strings[destination.index as usize] = sum;
-                            }
+                            memory.set_string(destination.is_register, destination.index, sum);
                         }
                         _ => todo!(),
                     }
@@ -701,170 +349,53 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = Subtract::from(&instruction);
                     let left_index = left.index as usize;
 
-                    match left.kind {
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                    match left.kind.r#type() {
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
+                            let difference = left_value - right_value;
+
+                            memory.set_byte(destination.is_register, destination.index, difference);
+                        }
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left_index]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
                             let difference = left_value - right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = difference;
-                            } else {
-                                memory.bytes[destination.index as usize] = difference;
-                            }
+                            memory.set_float(
+                                destination.is_register,
+                                destination.index,
+                                difference,
+                            );
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left_index]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
                             let difference = left_value - right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = difference;
-                            } else {
-                                memory.bytes[destination.index as usize] = difference;
-                            }
+                            memory.set_integer(
+                                destination.is_register,
+                                destination.index,
+                                difference,
+                            );
                         }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = difference;
-                            } else {
-                                memory.floats[destination.index as usize] = difference;
-                            }
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = difference;
-                            } else {
-                                memory.floats[destination.index as usize] = difference;
-                            }
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right_index]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = difference;
-                            } else {
-                                memory.floats[destination.index as usize] = difference;
-                            }
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = difference;
-                            } else {
-                                memory.integers[destination.index as usize] = difference;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = difference;
-                            } else {
-                                memory.integers[destination.index as usize] = difference;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let difference = left_value - right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = difference;
-                            } else {
-                                memory.integers[destination.index as usize] = difference;
-                            }
-                        }
-                        _ => todo!(),
+                        _ => unreachable!(),
                     }
                 }
                 Operation::MULTIPLY => {
@@ -875,170 +406,45 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = Multiply::from(&instruction);
                     let left_index = left.index as usize;
 
-                    match left.kind {
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                    match left.kind.r#type() {
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
+                            let product = left_value * right_value;
+
+                            memory.set_byte(destination.is_register, destination.index, product);
+                        }
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left_index]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
                             let product = left_value * right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = product;
-                            } else {
-                                memory.bytes[destination.index as usize] = product;
-                            }
+                            memory.set_float(destination.is_register, destination.index, product);
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left_index]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
                             let product = left_value * right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = product;
-                            } else {
-                                memory.bytes[destination.index as usize] = product;
-                            }
+                            memory.set_integer(destination.is_register, destination.index, product);
                         }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = product;
-                            } else {
-                                memory.floats[destination.index as usize] = product;
-                            }
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = product;
-                            } else {
-                                memory.floats[destination.index as usize] = product;
-                            }
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right_index]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = product;
-                            } else {
-                                memory.floats[destination.index as usize] = product;
-                            }
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = product;
-                            } else {
-                                memory.integers[destination.index as usize] = product;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = product;
-                            } else {
-                                memory.integers[destination.index as usize] = product;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let product = left_value * right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = product;
-                            } else {
-                                memory.integers[destination.index as usize] = product;
-                            }
-                        }
-                        _ => todo!(),
+                        _ => unreachable!(),
                     }
                 }
                 Operation::DIVIDE => {
@@ -1049,168 +455,47 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = Divide::from(&instruction);
                     let left_index = left.index as usize;
 
-                    match left.kind {
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                    match left.kind.r#type() {
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
                             let quotient = left_value / right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = quotient;
-                            } else {
-                                memory.bytes[destination.index as usize] = quotient;
-                            }
+                            memory.set_byte(destination.is_register, destination.index, quotient);
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left_index]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
                             let quotient = left_value / right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = quotient;
-                            } else {
-                                memory.bytes[destination.index as usize] = quotient;
-                            }
+                            memory.set_float(destination.is_register, destination.index, quotient);
                         }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left_index]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
                             let quotient = left_value / right_value;
 
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = quotient;
-                            } else {
-                                memory.floats[destination.index as usize] = quotient;
-                            }
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let quotient = left_value / right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = quotient;
-                            } else {
-                                memory.floats[destination.index as usize] = quotient;
-                            }
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right_index]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let quotient = left_value / right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = quotient;
-                            } else {
-                                memory.floats[destination.index as usize] = quotient;
-                            }
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let quotient = left_value / right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = quotient;
-                            } else {
-                                memory.integers[destination.index as usize] = quotient;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let quotient = left_value / right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = quotient;
-                            } else {
-                                memory.integers[destination.index as usize] = quotient;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let quotient = left_value / right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = quotient;
-                            } else {
-                                memory.integers[destination.index as usize] = quotient;
-                            }
+                            memory.set_integer(
+                                destination.is_register,
+                                destination.index,
+                                quotient,
+                            );
                         }
                         _ => unreachable!(),
                     }
@@ -1223,168 +508,47 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = Modulo::from(&instruction);
                     let left_index = left.index as usize;
 
-                    match left.kind {
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                    match left.kind.r#type() {
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
                             let remainder = left_value % right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = remainder;
-                            } else {
-                                memory.bytes[destination.index as usize] = remainder;
-                            }
+                            memory.set_byte(destination.is_register, destination.index, remainder);
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left_index]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
                             let remainder = left_value % right_value;
 
-                            if destination.is_register {
-                                memory.registers.bytes[destination.index as usize] = remainder;
-                            } else {
-                                memory.bytes[destination.index as usize] = remainder;
-                            }
+                            memory.set_float(destination.is_register, destination.index, remainder);
                         }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left_index]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
                             let remainder = left_value % right_value;
 
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = remainder;
-                            } else {
-                                memory.floats[destination.index as usize] = remainder;
-                            }
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let remainder = left_value % right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = remainder;
-                            } else {
-                                memory.floats[destination.index as usize] = remainder;
-                            }
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right_index]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let remainder = left_value % right_value;
-
-                            if destination.is_register {
-                                memory.registers.floats[destination.index as usize] = remainder;
-                            } else {
-                                memory.floats[destination.index as usize] = remainder;
-                            }
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let remainder = left_value % right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = remainder;
-                            } else {
-                                memory.integers[destination.index as usize] = remainder;
-                            }
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let remainder = left_value % right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = remainder;
-                            } else {
-                                memory.integers[destination.index as usize] = remainder;
-                            }
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-                            let remainder = left_value % right_value;
-
-                            if destination.is_register {
-                                memory.registers.integers[destination.index as usize] = remainder;
-                            } else {
-                                memory.integers[destination.index as usize] = remainder;
-                            }
+                            memory.set_integer(
+                                destination.is_register,
+                                destination.index,
+                                remainder,
+                            );
                         }
                         _ => unreachable!(),
                     }
@@ -1396,295 +560,91 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         right,
                     } = Equal::from(&instruction);
 
-                    let left_index = left.index as usize;
-                    let is_equal = match left.kind {
-                        AddressKind::BOOLEAN_MEMORY => {
-                            let left_value = memory.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                    let is_equal = match left.kind.r#type() {
+                        TypeKind::Boolean => {
+                            let left_value = memory.get_boolean(left.is_register(), left.index);
+                            let right_value = memory.get_boolean(right.is_register(), right.index);
+
+                            left_value == right_value
+                        }
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
+
+                            left_value == right_value
+                        }
+                        TypeKind::Character => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.character_constants[left.index as usize]
+                            } else {
+                                memory.get_character(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.character_constants[right.index as usize]
+                            } else {
+                                memory.get_character(right.is_register(), right.index)
                             };
 
                             left_value == right_value
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let left_value = memory.registers.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left.index as usize]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
 
                             left_value == right_value
                         }
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left.index as usize]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
 
                             left_value == right_value
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::String => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.string_constants[left.index as usize]
+                            } else {
+                                memory.get_string(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                &call.chunk.string_constants[right.index as usize]
+                            } else {
+                                memory.get_string(right.is_register(), right.index)
                             };
 
                             left_value == right_value
                         }
-                        AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = call.chunk.character_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                        TypeKind::List => {
+                            let left_value = memory.get_list(left.is_register(), left.index);
+                            let right_value = memory.get_list(right.is_register(), right.index);
 
                             left_value == right_value
                         }
-                        AddressKind::CHARACTER_MEMORY => {
-                            let left_value = memory.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Function => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.prototypes[left.index as usize]
+                            } else {
+                                memory.get_function(left.is_register(), left.index)
                             };
-
-                            left_value == right_value
-                        }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let left_value = memory.registers.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::STRING_CONSTANT => {
-                            let left_value = &call.chunk.string_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::STRING_MEMORY => {
-                            let left_value = &memory.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let left_value = &memory.registers.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::LIST_MEMORY => {
-                            let left_value = &memory.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::LIST_REGISTER => {
-                            let left_value = &memory.registers.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value == right_value
-                        }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                            let right_value = if right.is_constant() {
+                                &call.chunk.prototypes[right.index as usize]
+                            } else {
+                                memory.get_function(right.is_register(), right.index)
                             };
 
                             left_value == right_value
@@ -1703,296 +663,92 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         right,
                     } = Less::from(&instruction);
 
-                    let left_index = left.index as usize;
                     #[expect(clippy::bool_comparison)]
-                    let is_less_than = match left.kind {
-                        AddressKind::BOOLEAN_MEMORY => {
-                            let left_value = memory.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                    let is_less_than = match left.kind.r#type() {
+                        TypeKind::Boolean => {
+                            let left_value = memory.get_boolean(left.is_register(), left.index);
+                            let right_value = memory.get_boolean(right.is_register(), right.index);
+
+                            left_value < right_value
+                        }
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
+
+                            left_value < right_value
+                        }
+                        TypeKind::Character => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.character_constants[left.index as usize]
+                            } else {
+                                memory.get_character(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.character_constants[right.index as usize]
+                            } else {
+                                memory.get_character(right.is_register(), right.index)
                             };
 
                             left_value < right_value
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let left_value = memory.registers.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left.index as usize]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
 
                             left_value < right_value
                         }
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left.index as usize]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
 
                             left_value < right_value
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::String => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.string_constants[left.index as usize]
+                            } else {
+                                memory.get_string(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                &call.chunk.string_constants[right.index as usize]
+                            } else {
+                                memory.get_string(right.is_register(), right.index)
                             };
 
                             left_value < right_value
                         }
-                        AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = call.chunk.character_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                        TypeKind::List => {
+                            let left_value = memory.get_list(left.is_register(), left.index);
+                            let right_value = memory.get_list(right.is_register(), right.index);
 
                             left_value < right_value
                         }
-                        AddressKind::CHARACTER_MEMORY => {
-                            let left_value = memory.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Function => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.prototypes[left.index as usize]
+                            } else {
+                                memory.get_function(left.is_register(), left.index)
                             };
-
-                            left_value < right_value
-                        }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let left_value = memory.registers.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::STRING_CONSTANT => {
-                            let left_value = &call.chunk.string_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::STRING_MEMORY => {
-                            let left_value = &memory.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let left_value = &memory.registers.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::LIST_MEMORY => {
-                            let left_value = &memory.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::LIST_REGISTER => {
-                            let left_value = &memory.registers.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value < right_value
-                        }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                            let right_value = if right.is_constant() {
+                                &call.chunk.prototypes[right.index as usize]
+                            } else {
+                                memory.get_function(right.is_register(), right.index)
                             };
 
                             left_value < right_value
@@ -2011,295 +767,91 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         right,
                     } = LessEqual::from(&instruction);
 
-                    let left_index = left.index as usize;
-                    let is_less_than_or_equal = match left.kind {
-                        AddressKind::BOOLEAN_MEMORY => {
-                            let left_value = memory.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                    let is_less_than_or_equal = match left.kind.r#type() {
+                        TypeKind::Boolean => {
+                            let left_value = memory.get_boolean(left.is_register(), left.index);
+                            let right_value = memory.get_boolean(right.is_register(), right.index);
+
+                            left_value <= right_value
+                        }
+                        TypeKind::Byte => {
+                            let left_value = memory.get_byte(left.is_register(), left.index);
+                            let right_value = memory.get_byte(right.is_register(), right.index);
+
+                            left_value <= right_value
+                        }
+                        TypeKind::Character => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.character_constants[left.index as usize]
+                            } else {
+                                memory.get_character(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.character_constants[right.index as usize]
+                            } else {
+                                memory.get_character(right.is_register(), right.index)
                             };
 
                             left_value <= right_value
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let left_value = memory.registers.booleans[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BOOLEAN_MEMORY => {
-                                    memory.booleans[right.index as usize]
-                                }
-                                AddressKind::BOOLEAN_REGISTER => {
-                                    memory.registers.booleans[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Float => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.float_constants[left.index as usize]
+                            } else {
+                                memory.get_float(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.float_constants[right.index as usize]
+                            } else {
+                                memory.get_float(right.is_register(), right.index)
                             };
 
                             left_value <= right_value
                         }
-                        AddressKind::BYTE_MEMORY => {
-                            let left_value = memory.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Integer => {
+                            let left_value = if left.is_constant() {
+                                call.chunk.integer_constants[left.index as usize]
+                            } else {
+                                memory.get_integer(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                call.chunk.integer_constants[right.index as usize]
+                            } else {
+                                memory.get_integer(right.is_register(), right.index)
                             };
 
                             left_value <= right_value
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let left_value = memory.registers.bytes[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::BYTE_MEMORY => memory.bytes[right.index as usize],
-                                AddressKind::BYTE_REGISTER => {
-                                    memory.registers.bytes[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::String => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.string_constants[left.index as usize]
+                            } else {
+                                memory.get_string(left.is_register(), left.index)
+                            };
+                            let right_value = if right.is_constant() {
+                                &call.chunk.string_constants[right.index as usize]
+                            } else {
+                                memory.get_string(right.is_register(), right.index)
                             };
 
                             left_value <= right_value
                         }
-                        AddressKind::CHARACTER_CONSTANT => {
-                            let left_value = call.chunk.character_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_CONSTANT => {
-                                    call.chunk.character_constants[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
+                        TypeKind::List => {
+                            let left_value = memory.get_list(left.is_register(), left.index);
+                            let right_value = memory.get_list(right.is_register(), right.index);
 
                             left_value <= right_value
                         }
-                        AddressKind::CHARACTER_MEMORY => {
-                            let left_value = memory.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                        TypeKind::Function => {
+                            let left_value = if left.is_constant() {
+                                &call.chunk.prototypes[left.index as usize]
+                            } else {
+                                memory.get_function(left.is_register(), left.index)
                             };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let left_value = memory.registers.characters[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::CHARACTER_MEMORY => {
-                                    memory.characters[right.index as usize]
-                                }
-                                AddressKind::CHARACTER_REGISTER => {
-                                    memory.registers.characters[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::FLOAT_CONSTANT => {
-                            let left_value = call.chunk.float_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::FLOAT_MEMORY => {
-                            let left_value = memory.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::FLOAT_REGISTER => {
-                            let left_value = memory.registers.floats[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FLOAT_CONSTANT => {
-                                    call.chunk.float_constants[right.index as usize]
-                                }
-                                AddressKind::FLOAT_MEMORY => memory.floats[right.index as usize],
-                                AddressKind::FLOAT_REGISTER => {
-                                    memory.registers.floats[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::INTEGER_CONSTANT => {
-                            let left_value = call.chunk.integer_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::INTEGER_MEMORY => {
-                            let left_value = memory.integers[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right.index as usize]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::INTEGER_REGISTER => {
-                            let left_value = memory.registers.integers[left_index];
-                            let right_index = right.index as usize;
-                            let right_value = match right.kind {
-                                AddressKind::INTEGER_CONSTANT => {
-                                    call.chunk.integer_constants[right_index]
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    memory.integers[right.index as usize]
-                                }
-                                AddressKind::INTEGER_REGISTER => {
-                                    memory.registers.integers[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::STRING_CONSTANT => {
-                            let left_value = &call.chunk.string_constants[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::STRING_MEMORY => {
-                            let left_value = &memory.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let left_value = &memory.registers.strings[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::STRING_CONSTANT => {
-                                    &call.chunk.string_constants[right.index as usize]
-                                }
-                                AddressKind::STRING_MEMORY => &memory.strings[right.index as usize],
-                                AddressKind::STRING_REGISTER => {
-                                    &memory.registers.strings[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::LIST_MEMORY => {
-                            let left_value = &memory.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::LIST_REGISTER => {
-                            let left_value = &memory.registers.lists[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::LIST_MEMORY => &memory.lists[right.index as usize],
-                                AddressKind::LIST_REGISTER => {
-                                    &memory.registers.lists[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
-                            };
-
-                            left_value <= right_value
-                        }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left_index];
-                            let right_value = match right.kind {
-                                AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
-                                }
-                                AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
-                                }
-                                _ => unreachable!(),
+                            let right_value = if right.is_constant() {
+                                &call.chunk.prototypes[right.index as usize]
+                            } else {
+                                memory.get_function(right.is_register(), right.index)
                             };
 
                             left_value <= right_value
@@ -2319,12 +871,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         operand,
                     } = Test::from(&instruction);
 
-                    let operand_index = operand.index as usize;
-                    let is_true = match operand.kind {
-                        AddressKind::BOOLEAN_MEMORY => memory.booleans[operand_index],
-                        AddressKind::BOOLEAN_REGISTER => memory.registers.booleans[operand_index],
-                        _ => unreachable!(),
-                    };
+                    let is_true = memory.get_boolean(operand.is_register(), operand.index);
 
                     if is_true == comparator {
                         call.ip += 1;
@@ -2354,14 +901,11 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             Arc::clone(&call.chunk.prototypes[function_address.index as usize])
                         }
                         AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
-                        AddressKind::FUNCTION_REGISTER => {
-                            let function =
-                                &memory.registers.functions[function_address.index as usize];
-
-                            Arc::clone(function)
-                        }
-                        AddressKind::FUNCTION_MEMORY => {
-                            let function = &memory.functions[function_address.index as usize];
+                        AddressKind::FUNCTION_REGISTER | AddressKind::FUNCTION_MEMORY => {
+                            let function = memory.get_function(
+                                function_address.is_register(),
+                                function_address.index,
+                            );
 
                             Arc::clone(function)
                         }
@@ -2377,63 +921,92 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     let mut new_memory = Memory::new(&function);
 
                     for (argument, parameter) in arguments_list.values.iter().zip(parameters_list) {
-                        match argument.kind {
-                            AddressKind::INTEGER_REGISTER => {
-                                let integer = memory.registers.integers[argument.index as usize];
+                        match argument.kind.r#type() {
+                            TypeKind::Boolean => {
+                                let boolean =
+                                    memory.get_boolean(argument.is_register(), argument.index);
 
-                                match parameter.kind {
-                                    AddressKind::INTEGER_REGISTER => {
-                                        new_memory.registers.integers[parameter.index as usize] =
-                                            integer;
-                                    }
-                                    AddressKind::INTEGER_MEMORY => {
-                                        new_memory.integers[parameter.index as usize] = integer;
-                                    }
-                                    _ => unreachable!(),
-                                }
+                                new_memory.set_boolean(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    boolean,
+                                );
                             }
-                            AddressKind::INTEGER_MEMORY => {
-                                let integer = memory.integers[argument.index as usize];
+                            TypeKind::Byte => {
+                                let byte = memory.get_byte(argument.is_register(), argument.index);
 
-                                match parameter.kind {
-                                    AddressKind::INTEGER_REGISTER => {
-                                        new_memory.registers.integers[parameter.index as usize] =
-                                            integer;
-                                    }
-                                    AddressKind::INTEGER_MEMORY => {
-                                        new_memory.integers[parameter.index as usize] = integer;
-                                    }
-                                    _ => unreachable!(),
-                                }
+                                new_memory.set_byte(parameter.is_register(), parameter.index, byte);
                             }
-                            AddressKind::STRING_REGISTER => {
-                                let string =
-                                    memory.registers.strings[argument.index as usize].clone();
+                            TypeKind::Float => {
+                                let float = if argument.is_constant() {
+                                    call.chunk.float_constants[argument.index as usize]
+                                } else {
+                                    memory.get_float(argument.is_register(), argument.index)
+                                };
 
-                                match parameter.kind {
-                                    AddressKind::STRING_REGISTER => {
-                                        new_memory.registers.strings[parameter.index as usize] =
-                                            string;
-                                    }
-                                    AddressKind::STRING_MEMORY => {
-                                        new_memory.strings[parameter.index as usize] = string;
-                                    }
-                                    _ => unreachable!(),
-                                }
+                                new_memory.set_float(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    float,
+                                );
                             }
-                            AddressKind::STRING_MEMORY => {
-                                let string = memory.strings[argument.index as usize].clone();
+                            TypeKind::Integer => {
+                                let integer = if argument.is_constant() {
+                                    call.chunk.integer_constants[argument.index as usize]
+                                } else {
+                                    memory.get_integer(argument.is_register(), argument.index)
+                                };
 
-                                match parameter.kind {
-                                    AddressKind::STRING_REGISTER => {
-                                        new_memory.registers.strings[parameter.index as usize] =
-                                            string;
+                                new_memory.set_integer(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    integer,
+                                );
+                            }
+                            TypeKind::String => {
+                                let string = if argument.is_constant() {
+                                    call.chunk.string_constants[argument.index as usize].clone()
+                                } else {
+                                    memory
+                                        .get_string(argument.is_register(), argument.index)
+                                        .clone()
+                                };
+
+                                new_memory.set_string(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    string,
+                                );
+                            }
+                            TypeKind::List => {
+                                let abstract_list = memory
+                                    .get_list(argument.is_register(), argument.index)
+                                    .clone();
+
+                                new_memory.set_list(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    abstract_list,
+                                );
+                            }
+                            TypeKind::Function => {
+                                let function = match argument.kind {
+                                    AddressKind::FUNCTION_REGISTER
+                                    | AddressKind::FUNCTION_MEMORY => Arc::clone(
+                                        memory.get_function(argument.is_register(), argument.index),
+                                    ),
+                                    AddressKind::FUNCTION_PROTOTYPE => {
+                                        Arc::clone(&call.chunk.prototypes[argument.index as usize])
                                     }
-                                    AddressKind::STRING_MEMORY => {
-                                        new_memory.strings[parameter.index as usize] = string;
-                                    }
+                                    AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
                                     _ => unreachable!(),
-                                }
+                                };
+
+                                new_memory.set_function(
+                                    parameter.is_register(),
+                                    parameter.index,
+                                    function,
+                                );
                             }
                             _ => todo!(),
                         }
@@ -2460,17 +1033,19 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         return_value_address,
                     } = Return::from(&instruction);
 
-                    let (new_call, new_memory) = match return_value_address.kind {
-                        AddressKind::NONE => {
+                    let (new_call, new_memory) = match return_value_address.kind.r#type() {
+                        TypeKind::None => {
                             if call_stack.is_empty() {
                                 return None;
                             }
 
                             (call_stack.pop().unwrap(), memory_stack.pop().unwrap())
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let boolean =
-                                memory.registers.booleans[return_value_address.index as usize];
+                        TypeKind::Boolean => {
+                            let boolean = memory.get_boolean(
+                                return_value_address.is_register(),
+                                return_value_address.index,
+                            );
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2483,19 +1058,19 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.booleans
-                                        [call.return_address.index as usize] = boolean;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_boolean(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                boolean,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::BYTE_REGISTER => {
-                            let byte = memory.registers.bytes[return_value_address.index as usize];
+                        TypeKind::Byte => {
+                            let byte = memory.get_byte(
+                                return_value_address.is_register(),
+                                return_value_address.index,
+                            );
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2508,20 +1083,23 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.bytes
-                                        [call.return_address.index as usize] = byte;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_byte(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                byte,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::CHARACTER_REGISTER => {
-                            let character =
-                                memory.registers.characters[return_value_address.index as usize];
+                        TypeKind::Character => {
+                            let character = if return_value_address.is_constant() {
+                                call.chunk.character_constants[return_value_address.index as usize]
+                            } else {
+                                memory.get_character(
+                                    return_value_address.is_register(),
+                                    return_value_address.index,
+                                )
+                            };
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2534,20 +1112,23 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.characters
-                                        [call.return_address.index as usize] = character;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_character(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                character,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::FLOAT_REGISTER => {
-                            let float =
-                                memory.registers.floats[return_value_address.index as usize];
+                        TypeKind::Float => {
+                            let float = if return_value_address.is_constant() {
+                                call.chunk.float_constants[return_value_address.index as usize]
+                            } else {
+                                memory.get_float(
+                                    return_value_address.is_register(),
+                                    return_value_address.index,
+                                )
+                            };
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2560,20 +1141,23 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.floats
-                                        [call.return_address.index as usize] = float;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_float(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                float,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::INTEGER_REGISTER => {
-                            let integer =
-                                memory.registers.integers[return_value_address.index as usize];
+                        TypeKind::Integer => {
+                            let integer = if return_value_address.is_constant() {
+                                call.chunk.integer_constants[return_value_address.index as usize]
+                            } else {
+                                memory.get_integer(
+                                    return_value_address.is_register(),
+                                    return_value_address.index,
+                                )
+                            };
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2586,54 +1170,26 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.integers
-                                        [call.return_address.index as usize] = integer;
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    new_memory.integers[call.return_address.index as usize] =
-                                        integer;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_integer(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                integer,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::INTEGER_MEMORY => {
-                            let integer = memory.integers[return_value_address.index as usize];
-
-                            if call_stack.is_empty() {
-                                if should_return_value {
-                                    return Some(ConcreteValue::Integer(integer));
-                                } else {
-                                    return None;
-                                }
-                            }
-
-                            let new_call = call_stack.pop().unwrap();
-                            let mut new_memory = memory_stack.pop().unwrap();
-
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.integers
-                                        [call.return_address.index as usize] = integer;
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    new_memory.integers[call.return_address.index as usize] =
-                                        integer;
-                                }
-                                _ => unreachable!(),
-                            }
-
-                            (new_call, new_memory)
-                        }
-                        AddressKind::STRING_REGISTER => {
-                            let string = memory.registers.strings
-                                [return_value_address.index as usize]
-                                .clone();
+                        TypeKind::String => {
+                            let string = if return_value_address.is_constant() {
+                                call.chunk.string_constants[return_value_address.index as usize]
+                                    .clone()
+                            } else {
+                                memory
+                                    .get_string(
+                                        return_value_address.is_register(),
+                                        return_value_address.index,
+                                    )
+                                    .clone()
+                            };
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2646,27 +1202,25 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::STRING_MEMORY => {
-                                    new_memory.strings[call.return_address.index as usize] = string;
-                                }
-                                AddressKind::STRING_REGISTER => {
-                                    new_memory.registers.strings
-                                        [call.return_address.index as usize] = string;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_string(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                string,
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::LIST_REGISTER => {
-                            let abstract_list =
-                                memory.registers.lists[return_value_address.index as usize].clone();
-                            let concrete_list = memory.make_list_concrete(&abstract_list);
+                        TypeKind::List => {
+                            let list = memory.get_list(
+                                return_value_address.is_register(),
+                                return_value_address.index,
+                            );
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::List(concrete_list));
+                                    return Some(ConcreteValue::List(
+                                        memory.make_list_concrete(list),
+                                    ));
                                 } else {
                                     return None;
                                 }
@@ -2675,21 +1229,28 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.lists
-                                        [call.return_address.index as usize] = abstract_list;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_list(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                list.clone(),
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let function = Arc::clone(
-                                &memory.registers.functions[return_value_address.index as usize],
-                            );
+                        TypeKind::Function => {
+                            let function = match return_value_address.kind {
+                                AddressKind::FUNCTION_REGISTER | AddressKind::FUNCTION_MEMORY => {
+                                    Arc::clone(memory.get_function(
+                                        return_value_address.is_register(),
+                                        return_value_address.index,
+                                    ))
+                                }
+                                AddressKind::FUNCTION_PROTOTYPE => Arc::clone(
+                                    &call.chunk.prototypes[return_value_address.index as usize],
+                                ),
+                                AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
+                                _ => unreachable!(),
+                            };
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2702,14 +1263,11 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.functions
-                                        [call.return_address.index as usize] = function;
-                                }
-                                _ => unreachable!(),
-                            }
+                            new_memory.set_function(
+                                call.return_address.is_register(),
+                                call.return_address.index,
+                                function,
+                            );
 
                             (new_call, new_memory)
                         }
