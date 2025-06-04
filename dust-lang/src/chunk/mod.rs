@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::instruction::AddressKind;
 use crate::value::AbstractFunction;
-use crate::{Address, DustString, FunctionType, Instruction, Span, Type};
+use crate::{Address, DustString, FunctionType, Instruction, Span};
 
 /// Representation of a Dust program or function.
 ///
@@ -41,7 +41,7 @@ pub struct Chunk {
     pub(crate) string_constants: Vec<DustString>,
     pub(crate) locals: Vec<Local>,
     pub(crate) prototypes: Vec<Arc<Chunk>>,
-    pub(crate) arguments: Vec<Arguments>,
+    pub(crate) arguments: Vec<Vec<Address>>,
 
     pub(crate) boolean_memory_length: u16,
     pub(crate) byte_memory_length: u16,
@@ -128,11 +128,4 @@ impl PartialEq for Chunk {
             && self.function_memory_length == other.function_memory_length
             && self.prototype_index == other.prototype_index
     }
-}
-
-/// Represents the value and type arguments passed to a function when called.
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct Arguments {
-    pub values: Vec<Address>,
-    pub types: Vec<Type>,
 }

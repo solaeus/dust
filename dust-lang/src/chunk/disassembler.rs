@@ -43,8 +43,6 @@ use colored::{ColoredString, Colorize};
 
 use crate::{Chunk, Local, Type};
 
-use super::Arguments;
-
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -460,19 +458,14 @@ impl<'a, W: Write> Disassembler<'a, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        for (index, Arguments { values, types }) in self.chunk.arguments.iter().enumerate() {
+        for (index, arguments) in self.chunk.arguments.iter().enumerate() {
             let argument_list_display = format!(
-                "│{index:^5}│{:^21}│{:^21}│",
-                values
+                "│{index:^5}│{:^21}│",
+                arguments
                     .iter()
                     .map(|address| address.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
-                types
-                    .iter()
-                    .map(|r#type| r#type.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
             );
 
             self.write_center_border(&argument_list_display)?;

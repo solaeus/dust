@@ -44,7 +44,7 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use chunk::{Arguments, BlockScope, Chunk, Disassembler, Local};
+pub use chunk::{BlockScope, Chunk, Disassembler, Local};
 pub use compiler::{
     CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile, generate_standard_library,
 };

@@ -10,7 +10,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Arguments, FunctionType, Type,
+    Address, FunctionType, Type,
     instruction::Destination,
     panic_vm::{CallFrame, Memory},
 };
@@ -31,7 +31,7 @@ macro_rules! define_native_function {
             pub fn call<const REGISTER_COUNT: usize>(
                 &self,
                 destination: Destination,
-                arguments: &Arguments,
+                arguments: &[Address],
                 call: &mut CallFrame,
                 memory: &mut Memory<REGISTER_COUNT>,
             ) {

@@ -45,7 +45,6 @@ use std::{
 use crate::{
     Address, BlockScope, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction,
     Lexer, Local, NativeFunction, Operation, Span, Token, TokenKind, Type,
-    chunk::Arguments,
     instruction::{AddressKind, Destination, Jump, LoadFunction, Move},
     r#type::TypeKind,
 };
@@ -125,7 +124,7 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     locals: Vec<Local>,
 
     /// Arguments for each function call.
-    arguments: Vec<Arguments>,
+    arguments: Vec<(Vec<Address>, Vec<Type>)>,
 
     minimum_boolean_memory_index: u16,
     minimum_byte_memory_index: u16,
@@ -384,7 +383,11 @@ where
             string_constants: self.string_constants,
             locals: self.locals,
             prototypes: self.prototypes,
-            arguments: self.arguments,
+            arguments: self
+                .arguments
+                .into_iter()
+                .map(|(values, _)| values)
+                .collect(),
             boolean_memory_length,
             byte_memory_length,
             character_memory_length,
@@ -626,7 +629,7 @@ where
         }
 
         for arguments in &mut self.arguments {
-            for address in &mut arguments.values {
+            for address in &mut arguments.0 {
                 if let Some(replacement) = replacements.get(address) {
                     *address = *replacement;
                 }
@@ -2698,10 +2701,8 @@ where
 
         let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments.push(Arguments {
-            values: value_argument_list,
-            types: type_argument_list,
-        });
+        self.arguments
+            .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
         let (destination_index, return_type_as_address_kind) = match function_return_type {
@@ -2792,10 +2793,8 @@ where
 
         let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments.push(Arguments {
-            values: value_argument_list,
-            types: type_argument_list,
-        });
+        self.arguments
+            .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();

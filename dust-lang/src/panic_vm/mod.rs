@@ -1,7 +1,6 @@
-//! An experimental Dust virtual machine that uses `unsafe` code. This VM never emits errors.
-//! Instead, errors are handled as panics in debug mode but, in release mode, the use of `unsafe`
-//! will cause undefined behavior.
+//! This VM never emits errors. Instead, errors are handled as panics.
 mod call_frame;
+pub mod macros;
 mod memory;
 mod thread;
 

@@ -1,10 +1,12 @@
 use std::fmt::{self, Formatter};
 
+use serde::{Deserialize, Serialize};
+
 use crate::r#type::TypeKind;
 
 use super::{Address, AddressKind};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Destination {
     pub index: u16,
     pub is_register: bool,

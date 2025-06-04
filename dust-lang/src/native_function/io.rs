@@ -1,14 +1,14 @@
 use std::io::{Write, stdin, stdout};
 
 use crate::{
-    Arguments, Destination, DustString,
+    Address, Destination, DustString,
     instruction::AddressKind,
     panic_vm::{CallFrame, Memory},
 };
 
 pub fn read_line<const REGISTER_COUNT: usize>(
     destination: Destination,
-    _: &Arguments,
+    _: &[Address],
     _: &mut CallFrame,
     memory: &mut Memory<REGISTER_COUNT>,
 ) {
@@ -26,13 +26,13 @@ pub fn read_line<const REGISTER_COUNT: usize>(
 
 pub fn write_line<const REGISTER_COUNT: usize>(
     _: Destination,
-    arguments: &Arguments,
+    arguments: &[Address],
     _: &mut CallFrame,
     memory: &mut Memory<REGISTER_COUNT>,
 ) {
     let mut stdout = stdout();
 
-    for address in &arguments.values {
+    for address in arguments {
         match address.kind {
             AddressKind::STRING_REGISTER => {
                 let string = &memory.registers.strings[address.index as usize];
