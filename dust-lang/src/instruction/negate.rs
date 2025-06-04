@@ -7,8 +7,8 @@ pub struct Negate {
     pub operand: Address,
 }
 
-impl From<Instruction> for Negate {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Negate {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let operand = instruction.b_address();
 

@@ -6,8 +6,8 @@ use crate::{
     AbstractList, Address, Chunk, ConcreteValue, DustString, Operation,
     instruction::{
         Add, AddressKind, Call, CallNative, Close, Divide, Equal, Jump, Less, LessEqual,
-        LoadConstant, LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Return,
-        Subtract, Test,
+        LoadConstant, LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Negate, Not,
+        Return, Subtract, Test,
     },
 };
 
@@ -2135,8 +2135,60 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         call.ip += 1;
                     }
                 }
-                Operation::NEGATE => todo!(),
-                Operation::NOT => todo!(),
+                Operation::NEGATE => {
+                    let Negate {
+                        destination,
+                        operand,
+                    } = Negate::from(&instruction);
+
+                    match operand.kind {
+                        AddressKind::FLOAT_CONSTANT => {
+                            let float = get_constant!(call.chunk, float_constants, operand);
+
+                            set!(memory, floats, destination, -(*float));
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let float = get_memory!(memory, floats, operand);
+
+                            set!(memory, floats, destination, -(*float));
+                        }
+                        AddressKind::FLOAT_REGISTER => {
+                            let float = get_register!(memory, floats, operand);
+
+                            set!(memory, floats, destination, -(*float));
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let integer = get_constant!(call.chunk, integer_constants, operand);
+
+                            set!(memory, integers, destination, -(*integer));
+                        }
+                        AddressKind::INTEGER_MEMORY => {
+                            let integer = get_memory!(memory, integers, operand);
+
+                            set!(memory, integers, destination, -(*integer));
+                        }
+                        AddressKind::INTEGER_REGISTER => {
+                            let integer = get_register!(memory, integers, operand);
+
+                            set!(memory, integers, destination, -(*integer));
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                Operation::NOT => {
+                    let Not {
+                        destination,
+                        operand,
+                    } = Not::from(&instruction);
+
+                    let boolean = match operand.kind {
+                        AddressKind::BOOLEAN_MEMORY => get_memory!(memory, booleans, operand),
+                        AddressKind::BOOLEAN_REGISTER => get_register!(memory, booleans, operand),
+                        _ => unreachable!(),
+                    };
+
+                    set!(memory, booleans, destination, !(*boolean));
+                }
                 Operation::TEST => {
                     let Test {
                         comparator,

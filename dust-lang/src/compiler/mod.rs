@@ -504,7 +504,7 @@ where
                 Operation::TEST | Operation::RETURN => {
                     increment_rank(b_address, 2);
                 }
-                Operation::CALL => {
+                Operation::NEGATE | Operation::NOT | Operation::CALL => {
                     increment_rank(destination_address, 2);
                     increment_rank(b_address, 2);
                 }
@@ -569,7 +569,7 @@ where
             let c_address = instruction.c_address();
 
             match instruction.operation() {
-                Operation::MOVE | Operation::CALL => {
+                Operation::MOVE | Operation::NEGATE | Operation::NOT | Operation::CALL => {
                     if let Some(replacement) = replacements.get(&destination_address) {
                         instruction.set_destination(*replacement);
                     }
@@ -1174,18 +1174,7 @@ where
         if let Token::Integer(text) = self.current_token {
             self.advance()?;
 
-            let mut integer = 0_i64;
-
-            for digit in text.chars() {
-                let digit = if let Some(digit) = digit.to_digit(10) {
-                    digit as i64
-                } else {
-                    continue;
-                };
-
-                integer = integer * 10 + digit;
-            }
-
+            let integer = self.parse_integer_value(text);
             let constant_index = if let Some(index) = self
                 .integer_constants
                 .iter()
@@ -1220,8 +1209,17 @@ where
 
     fn parse_integer_value(&mut self, text: &str) -> i64 {
         let mut integer = 0_i64;
+        let mut chars = text.chars().peekable();
 
-        for digit in text.chars() {
+        let is_positive = if chars.peek() == Some(&'-') {
+            self.advance().unwrap();
+
+            false
+        } else {
+            true
+        };
+
+        for digit in chars {
             let digit = if let Some(digit) = digit.to_digit(10) {
                 digit as i64
             } else {
@@ -1231,7 +1229,7 @@ where
             integer = integer * 10 + digit;
         }
 
-        integer
+        if is_positive { integer } else { -integer }
     }
 
     fn parse_string(&mut self) -> Result<(), CompileError> {

@@ -392,7 +392,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 let mut value_string = value.to_string();
 
                 if value_string.len() > 26 {
-                    value_string = format!("{value_string:.23}...");
+                    value_string = format!("{value_string:23}...");
                 }
 
                 value_string

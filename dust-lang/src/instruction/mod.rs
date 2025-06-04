@@ -370,7 +370,7 @@ impl Instruction {
                 destination.as_address(left.r#type())
             }
             Operation::NOT => {
-                let Not { destination, .. } = Not::from(*self);
+                let Not { destination, .. } = Not::from(self);
 
                 destination.as_address(TypeKind::Boolean)
             }
@@ -645,8 +645,8 @@ impl Instruction {
             Operation::MULTIPLY => Multiply::from(self).to_string(),
             Operation::DIVIDE => Divide::from(self).to_string(),
             Operation::MODULO => Modulo::from(self).to_string(),
-            Operation::NEGATE => Negate::from(*self).to_string(),
-            Operation::NOT => Not::from(*self).to_string(),
+            Operation::NEGATE => Negate::from(self).to_string(),
+            Operation::NOT => Not::from(self).to_string(),
             Operation::EQUAL => Equal::from(self).to_string(),
             Operation::LESS => Less::from(self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(self).to_string(),
