@@ -3,7 +3,7 @@ use std::{mem::replace, sync::Arc, thread::JoinHandle};
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    AbstractList, Address, Chunk, ConcreteValue, DustString, Operation,
+    AbstractList, Address, Chunk, ConcreteValue, Destination, DustString, Operation,
     instruction::{
         Add, AddressKind, Call, CallNative, Close, Divide, Equal, Jump, Less, LessEqual,
         LoadConstant, LoadEncoded, LoadFunction, LoadList, Modulo, Move, Multiply, Negate, Not,
@@ -42,10 +42,10 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                 .unwrap_or_default()
         );
 
-        let mut call_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
-        let mut memory_stack = Vec::with_capacity(self.chunk.prototypes.len() + 1);
+        let mut call_stack = Vec::new();
+        let mut memory_stack = Vec::new();
 
-        let mut call = CallFrame::new(Arc::clone(&self.chunk), Address::default());
+        let mut call = CallFrame::new(Arc::clone(&self.chunk), Destination::memory(0));
         let mut memory = Memory::<REGISTER_COUNT>::new(&call.chunk);
 
         loop {
@@ -1383,17 +1383,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value == right_value
                         }
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            let left_value = &call.chunk.prototypes[left.index as usize];
+                            let left_value = get_constant!(call.chunk, prototypes, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1404,14 +1404,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = &call.chunk;
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1419,17 +1419,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value == right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left.index as usize];
+                            let left_value = get_register!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1437,17 +1437,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value == right_value
                         }
                         AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left.index as usize];
+                            let left_value = get_memory!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1534,7 +1534,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = get_memory!(memory, characters, left);
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    &call.chunk.character_constants[right.index as usize]
+                                    get_constant!(call.chunk, character_constants, right)
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     get_memory!(memory, characters, right)
@@ -1551,7 +1551,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = get_register!(memory, characters, left);
                             let right_value = match right.kind {
                                 AddressKind::CHARACTER_CONSTANT => {
-                                    &call.chunk.character_constants[right.index as usize]
+                                    get_constant!(call.chunk, character_constants, right)
                                 }
                                 AddressKind::CHARACTER_MEMORY => {
                                     get_memory!(memory, characters, right)
@@ -1581,7 +1581,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = get_memory!(memory, floats, left);
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    &call.chunk.float_constants[right.index as usize]
+                                    get_constant!(call.chunk, float_constants, right)
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
@@ -1594,7 +1594,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = get_register!(memory, floats, left);
                             let right_value = match right.kind {
                                 AddressKind::FLOAT_CONSTANT => {
-                                    &call.chunk.float_constants[right.index as usize]
+                                    get_constant!(call.chunk, float_constants, right)
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
@@ -1720,17 +1720,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value < right_value
                         }
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            let left_value = &call.chunk.prototypes[left.index as usize];
+                            let left_value = get_constant!(call.chunk, prototypes, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1741,14 +1741,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let left_value = &call.chunk;
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1756,17 +1756,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value < right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left.index as usize];
+                            let left_value = get_register!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -1774,17 +1774,17 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value < right_value
                         }
                         AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left.index as usize];
+                            let left_value = get_memory!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
@@ -2057,76 +2057,76 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             left_value <= right_value
                         }
                         AddressKind::FUNCTION_PROTOTYPE => {
-                            let left_value = &call.chunk.prototypes[left.index as usize];
+                            let left_value = get_constant!(call.chunk, prototypes, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
 
-                            left_value <= right_value
+                            left_value < right_value
                         }
                         AddressKind::FUNCTION_SELF => {
                             let left_value = &call.chunk;
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
 
-                            left_value <= right_value
+                            left_value < right_value
                         }
                         AddressKind::FUNCTION_REGISTER => {
-                            let left_value = &memory.registers.functions[left.index as usize];
+                            let left_value = get_register!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
 
-                            left_value <= right_value
+                            left_value < right_value
                         }
                         AddressKind::FUNCTION_MEMORY => {
-                            let left_value = &memory.functions[left.index as usize];
+                            let left_value = get_memory!(memory, functions, left);
                             let right_value = match right.kind {
                                 AddressKind::FUNCTION_PROTOTYPE => {
-                                    &call.chunk.prototypes[right.index as usize]
+                                    get_constant!(call.chunk, prototypes, right)
                                 }
                                 AddressKind::FUNCTION_SELF => &call.chunk,
                                 AddressKind::FUNCTION_REGISTER => {
-                                    &memory.registers.functions[right.index as usize]
+                                    get_register!(memory, functions, right)
                                 }
                                 AddressKind::FUNCTION_MEMORY => {
-                                    &memory.functions[right.index as usize]
+                                    get_memory!(memory, functions, right)
                                 }
                                 _ => unreachable!(),
                             };
 
-                            left_value <= right_value
+                            left_value < right_value
                         }
                         _ => unreachable!(),
                     };
@@ -2220,35 +2220,27 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                         destination,
                         function: function_address,
                         argument_list_index,
-                        return_type,
+                        return_type: _,
                     } = Call::from(&instruction);
 
                     let function = match function_address.kind {
-                        AddressKind::FUNCTION_PROTOTYPE => {
-                            Arc::clone(&call.chunk.prototypes[function_address.index as usize])
-                        }
-                        AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
                         AddressKind::FUNCTION_REGISTER => {
-                            let function =
-                                &memory.registers.functions[function_address.index as usize];
-
-                            Arc::clone(function)
+                            get_register!(memory, functions, function_address)
                         }
                         AddressKind::FUNCTION_MEMORY => {
-                            let function = &memory.functions[function_address.index as usize];
-
-                            Arc::clone(function)
+                            get_memory!(memory, functions, function_address)
                         }
+                        AddressKind::FUNCTION_PROTOTYPE => {
+                            get_constant!(call.chunk, prototypes, function_address)
+                        }
+                        AddressKind::FUNCTION_SELF => &call.chunk,
                         _ => unreachable!(),
                     };
 
                     let arguments_list = &call.chunk.arguments[argument_list_index as usize];
                     let parameters_list = function.locals.iter().map(|local| local.address);
-                    let new_call = CallFrame::new(
-                        Arc::clone(&function),
-                        destination.as_address(return_type.r#type()),
-                    );
-                    let mut new_memory = Memory::new(&function);
+                    let new_call = CallFrame::new(Arc::clone(function), destination);
+                    let mut new_memory = Memory::new(function);
 
                     for (argument, parameter) in arguments_list.iter().zip(parameters_list) {
                         match argument.kind {
@@ -2505,7 +2497,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             }
                             AddressKind::STRING_CONSTANT => {
                                 let string =
-                                    call.chunk.string_constants[argument.index as usize].clone();
+                                    get_constant!(call.chunk, string_constants, argument).clone();
 
                                 match parameter.kind {
                                     AddressKind::STRING_REGISTER => {
@@ -2518,7 +2510,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                 }
                             }
                             AddressKind::STRING_MEMORY => {
-                                let string = memory.strings[argument.index as usize].clone();
+                                let string = get_memory!(memory, strings, argument).clone();
 
                                 match parameter.kind {
                                     AddressKind::STRING_REGISTER => {
@@ -2531,8 +2523,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                 }
                             }
                             AddressKind::STRING_REGISTER => {
-                                let string =
-                                    memory.registers.strings[argument.index as usize].clone();
+                                let string = get_register!(memory, strings, argument).clone();
 
                                 match parameter.kind {
                                     AddressKind::STRING_REGISTER => {
@@ -2545,7 +2536,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                 }
                             }
                             AddressKind::LIST_MEMORY => {
-                                let abstract_list = memory.lists[argument.index as usize].clone();
+                                let abstract_list = get_memory!(memory, lists, argument).clone();
 
                                 match parameter.kind {
                                     AddressKind::LIST_REGISTER => {
@@ -2568,8 +2559,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                 }
                             }
                             AddressKind::LIST_REGISTER => {
-                                let abstract_list =
-                                    memory.registers.lists[argument.index as usize].clone();
+                                let abstract_list = get_register!(memory, lists, argument).clone();
 
                                 match parameter.kind {
                                     AddressKind::LIST_REGISTER => {
@@ -2592,9 +2582,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                 }
                             }
                             AddressKind::FUNCTION_REGISTER => {
-                                let function = Arc::clone(
-                                    &memory.registers.functions[argument.index as usize],
-                                );
+                                let function = get_register!(memory, functions, argument);
 
                                 match parameter.kind {
                                     AddressKind::FUNCTION_REGISTER => {
@@ -2602,7 +2590,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     AddressKind::FUNCTION_MEMORY => {
@@ -2610,15 +2598,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     _ => unreachable!(),
                                 }
                             }
                             AddressKind::FUNCTION_MEMORY => {
-                                let function =
-                                    Arc::clone(&memory.functions[argument.index as usize]);
+                                let function = get_memory!(memory, functions, argument);
 
                                 match parameter.kind {
                                     AddressKind::FUNCTION_REGISTER => {
@@ -2626,7 +2613,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     AddressKind::FUNCTION_MEMORY => {
@@ -2634,15 +2621,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     _ => unreachable!(),
                                 }
                             }
                             AddressKind::FUNCTION_PROTOTYPE => {
-                                let function =
-                                    Arc::clone(&call.chunk.prototypes[argument.index as usize]);
+                                let function = get_constant!(call.chunk, prototypes, argument);
 
                                 match parameter.kind {
                                     AddressKind::FUNCTION_REGISTER => {
@@ -2650,7 +2636,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     AddressKind::FUNCTION_MEMORY => {
@@ -2658,14 +2644,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     _ => unreachable!(),
                                 }
                             }
                             AddressKind::FUNCTION_SELF => {
-                                let function = Arc::clone(&call.chunk);
+                                let function = &call.chunk;
 
                                 match parameter.kind {
                                     AddressKind::FUNCTION_REGISTER => {
@@ -2673,7 +2659,7 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     AddressKind::FUNCTION_MEMORY => {
@@ -2681,13 +2667,13 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                                             new_memory,
                                             functions,
                                             parameter.index,
-                                            function
+                                            Arc::clone(function)
                                         );
                                     }
                                     _ => unreachable!(),
                                 }
                             }
-                            _ => todo!(),
+                            _ => unreachable!(),
                         }
                     }
 
@@ -2720,13 +2706,12 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
 
                             (call_stack.pop().unwrap(), memory_stack.pop().unwrap())
                         }
-                        AddressKind::BOOLEAN_REGISTER => {
-                            let boolean =
-                                memory.registers.booleans[return_value_address.index as usize];
+                        AddressKind::BOOLEAN_MEMORY => {
+                            let boolean = get_memory!(memory, booleans, return_value_address);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Boolean(boolean));
+                                    return Some(ConcreteValue::Boolean(*boolean));
                                 } else {
                                     return None;
                                 }
@@ -2735,14 +2720,43 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.booleans
-                                        [call.return_address.index as usize] = boolean;
+                            set!(new_memory, booleans, call.return_address, *boolean);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::BOOLEAN_REGISTER => {
+                            let boolean = get_register!(memory, booleans, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Boolean(*boolean));
+                                } else {
+                                    return None;
                                 }
-                                _ => unreachable!(),
                             }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, booleans, call.return_address, *boolean);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::BYTE_MEMORY => {
+                            let byte = memory.bytes[return_value_address.index as usize];
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Byte(byte));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, bytes, call.return_address, byte);
 
                             (new_call, new_memory)
                         }
@@ -2760,24 +2774,56 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.bytes
-                                        [call.return_address.index as usize] = byte;
+                            set!(new_memory, bytes, call.return_address, byte);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::CHARACTER_CONSTANT => {
+                            let character = get_constant!(
+                                call.chunk,
+                                character_constants,
+                                return_value_address
+                            );
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Character(*character));
+                                } else {
+                                    return None;
                                 }
-                                _ => unreachable!(),
                             }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, characters, call.return_address, *character);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::CHARACTER_MEMORY => {
+                            let character = get_memory!(memory, characters, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Character(*character));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, characters, call.return_address, *character);
 
                             (new_call, new_memory)
                         }
                         AddressKind::CHARACTER_REGISTER => {
-                            let character =
-                                memory.registers.characters[return_value_address.index as usize];
+                            let character = get_register!(memory, characters, return_value_address);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Character(character));
+                                    return Some(ConcreteValue::Character(*character));
                                 } else {
                                     return None;
                                 }
@@ -2786,24 +2832,53 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.characters
-                                        [call.return_address.index as usize] = character;
+                            set!(new_memory, characters, call.return_address, *character);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FLOAT_CONSTANT => {
+                            let float =
+                                get_constant!(call.chunk, float_constants, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Float(*float));
+                                } else {
+                                    return None;
                                 }
-                                _ => unreachable!(),
                             }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, floats, call.return_address, *float);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FLOAT_MEMORY => {
+                            let float = get_memory!(memory, floats, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Float(*float));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, floats, call.return_address, *float);
 
                             (new_call, new_memory)
                         }
                         AddressKind::FLOAT_REGISTER => {
-                            let float =
-                                memory.registers.floats[return_value_address.index as usize];
+                            let float = get_register!(memory, floats, return_value_address);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Float(float));
+                                    return Some(ConcreteValue::Float(*float));
                                 } else {
                                     return None;
                                 }
@@ -2812,24 +2887,35 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.floats
-                                        [call.return_address.index as usize] = float;
+                            set!(new_memory, floats, call.return_address, *float);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::INTEGER_CONSTANT => {
+                            let integer =
+                                get_constant!(call.chunk, integer_constants, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Integer(*integer));
+                                } else {
+                                    return None;
                                 }
-                                _ => unreachable!(),
                             }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, integers, call.return_address, *integer);
 
                             (new_call, new_memory)
                         }
                         AddressKind::INTEGER_REGISTER => {
-                            let integer =
-                                memory.registers.integers[return_value_address.index as usize];
+                            let integer = get_register!(memory, integers, return_value_address);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Integer(integer));
+                                    return Some(ConcreteValue::Integer(*integer));
                                 } else {
                                     return None;
                                 }
@@ -2838,27 +2924,16 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.integers
-                                        [call.return_address.index as usize] = integer;
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    new_memory.integers[call.return_address.index as usize] =
-                                        integer;
-                                }
-                                _ => unreachable!(),
-                            }
+                            set!(new_memory, integers, call.return_address, *integer);
 
                             (new_call, new_memory)
                         }
                         AddressKind::INTEGER_MEMORY => {
-                            let integer = memory.integers[return_value_address.index as usize];
+                            let integer = get_memory!(memory, integers, return_value_address);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Integer(integer));
+                                    return Some(ConcreteValue::Integer(*integer));
                                 } else {
                                     return None;
                                 }
@@ -2867,25 +2942,14 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.integers
-                                        [call.return_address.index as usize] = integer;
-                                }
-                                AddressKind::INTEGER_MEMORY => {
-                                    new_memory.integers[call.return_address.index as usize] =
-                                        integer;
-                                }
-                                _ => unreachable!(),
-                            }
+                            set!(new_memory, integers, call.return_address, *integer);
 
                             (new_call, new_memory)
                         }
-                        AddressKind::STRING_REGISTER => {
-                            let string = memory.registers.strings
-                                [return_value_address.index as usize]
-                                .clone();
+                        AddressKind::STRING_CONSTANT => {
+                            let string =
+                                get_constant!(call.chunk, string_constants, return_value_address)
+                                    .clone();
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2898,23 +2962,50 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::STRING_MEMORY => {
-                                    new_memory.strings[call.return_address.index as usize] = string;
-                                }
-                                AddressKind::STRING_REGISTER => {
-                                    new_memory.registers.strings
-                                        [call.return_address.index as usize] = string;
-                                }
-                                _ => unreachable!(),
-                            }
+                            set!(new_memory, strings, call.return_address, string);
 
                             (new_call, new_memory)
                         }
-                        AddressKind::LIST_REGISTER => {
-                            let abstract_list =
-                                memory.registers.lists[return_value_address.index as usize].clone();
-                            let concrete_list = memory.make_list_concrete(&abstract_list);
+                        AddressKind::STRING_MEMORY => {
+                            let string = get_memory!(memory, strings, return_value_address).clone();
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::String(string));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, strings, call.return_address, string);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::STRING_REGISTER => {
+                            let string =
+                                get_register!(memory, strings, return_value_address).clone();
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::String(string));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(new_memory, strings, call.return_address, string);
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::LIST_MEMORY => {
+                            let abstract_list = get_memory!(memory, lists, return_value_address);
+                            let concrete_list = memory.make_list_concrete(abstract_list);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
@@ -2927,25 +3018,22 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.lists
-                                        [call.return_address.index as usize] = abstract_list;
-                                }
-                                _ => unreachable!(),
-                            }
+                            set!(
+                                new_memory,
+                                lists,
+                                call.return_address,
+                                abstract_list.clone()
+                            );
 
                             (new_call, new_memory)
                         }
-                        AddressKind::FUNCTION_REGISTER => {
-                            let function = Arc::clone(
-                                &memory.registers.functions[return_value_address.index as usize],
-                            );
+                        AddressKind::LIST_REGISTER => {
+                            let abstract_list = get_register!(memory, lists, return_value_address);
+                            let concrete_list = memory.make_list_concrete(abstract_list);
 
                             if call_stack.is_empty() {
                                 if should_return_value {
-                                    return Some(ConcreteValue::Function(function));
+                                    return Some(ConcreteValue::List(concrete_list));
                                 } else {
                                     return None;
                                 }
@@ -2954,18 +3042,109 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                             let new_call = call_stack.pop().unwrap();
                             let mut new_memory = memory_stack.pop().unwrap();
 
-                            match call.return_address.kind {
-                                AddressKind::NONE => {}
-                                AddressKind::INTEGER_REGISTER => {
-                                    new_memory.registers.functions
-                                        [call.return_address.index as usize] = function;
-                                }
-                                _ => unreachable!(),
-                            }
+                            set!(
+                                new_memory,
+                                lists,
+                                call.return_address,
+                                abstract_list.clone()
+                            );
 
                             (new_call, new_memory)
                         }
-                        _ => todo!(),
+                        AddressKind::FUNCTION_REGISTER => {
+                            let function = get_register!(memory, functions, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Function(Arc::clone(function)));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(
+                                new_memory,
+                                functions,
+                                call.return_address,
+                                Arc::clone(function)
+                            );
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let function = get_memory!(memory, functions, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Function(Arc::clone(function)));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(
+                                new_memory,
+                                functions,
+                                call.return_address,
+                                Arc::clone(function)
+                            );
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FUNCTION_PROTOTYPE => {
+                            let function =
+                                get_constant!(call.chunk, prototypes, return_value_address);
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Function(Arc::clone(function)));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(
+                                new_memory,
+                                functions,
+                                call.return_address,
+                                Arc::clone(function)
+                            );
+
+                            (new_call, new_memory)
+                        }
+                        AddressKind::FUNCTION_SELF => {
+                            let function = &call.chunk;
+
+                            if call_stack.is_empty() {
+                                if should_return_value {
+                                    return Some(ConcreteValue::Function(Arc::clone(function)));
+                                } else {
+                                    return None;
+                                }
+                            }
+
+                            let new_call = call_stack.pop().unwrap();
+                            let mut new_memory = memory_stack.pop().unwrap();
+
+                            set!(
+                                new_memory,
+                                functions,
+                                call.return_address,
+                                Arc::clone(function)
+                            );
+
+                            (new_call, new_memory)
+                        }
+                        _ => unreachable!(),
                     };
 
                     call = new_call;
