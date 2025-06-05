@@ -1,4 +1,8 @@
-use std::{mem::replace, sync::Arc, thread::JoinHandle};
+use std::{
+    mem::replace,
+    sync::{Arc, Mutex},
+    thread::{Builder, JoinHandle},
+};
 
 use tracing::{Level, info, span, warn};
 
@@ -16,20 +20,39 @@ use super::{
 };
 
 pub struct Thread<const REGISTER_COUNT: usize> {
-    chunk: Arc<Chunk>,
-
-    _spawned_threads: Vec<JoinHandle<()>>,
+    pub handle: JoinHandle<Option<ConcreteValue>>,
 }
 
 impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
-    pub fn new(chunk: Arc<Chunk>) -> Self {
-        Thread {
-            chunk,
-            _spawned_threads: Vec::new(),
-        }
-    }
+    pub fn new(chunk: Arc<Chunk>, threads: Arc<Mutex<Vec<Thread<REGISTER_COUNT>>>>) -> Self {
+        let mut runner = ThreadRunner {
+            chunk: Arc::clone(&chunk),
+            threads,
+        };
 
-    pub fn run(&mut self) -> Option<ConcreteValue> {
+        let handle = Builder::new()
+            .name(
+                chunk
+                    .name
+                    .as_ref()
+                    .map(|name| name.to_string())
+                    .unwrap_or_else(|| "anonymous".to_string()),
+            )
+            .spawn(move || runner.run())
+            .expect("Failed to spawn thread");
+
+        Thread { handle }
+    }
+}
+
+#[derive(Clone)]
+struct ThreadRunner<const REGISTER_COUNT: usize> {
+    chunk: Arc<Chunk>,
+    threads: Arc<Mutex<Vec<Thread<REGISTER_COUNT>>>>,
+}
+
+impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
+    fn run(&mut self) -> Option<ConcreteValue> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
@@ -2213,7 +2236,13 @@ impl<const REGISTER_COUNT: usize> Thread<REGISTER_COUNT> {
                     } = CallNative::from(&instruction);
                     let arguments = &call.chunk.arguments[argument_list_index as usize].clone();
 
-                    function.call(destination, arguments, &mut call, &mut memory);
+                    function.call(
+                        destination,
+                        arguments,
+                        &mut call,
+                        &mut memory,
+                        &self.threads,
+                    );
                 }
                 Operation::CALL => {
                     let Call {

@@ -1,7 +1,7 @@
 use crate::{
     Address, DustString,
     instruction::{AddressKind, Destination},
-    panic_vm::{CallFrame, Memory, macros::*},
+    panic_vm::{CallFrame, Memory, ThreadPool, macros::*},
 };
 
 pub fn to_string<const REGISTER_COUNT: usize>(
@@ -9,6 +9,7 @@ pub fn to_string<const REGISTER_COUNT: usize>(
     arguments: &[Address],
     call: &mut CallFrame,
     memory: &mut Memory<REGISTER_COUNT>,
+    _: &ThreadPool<REGISTER_COUNT>,
 ) {
     let stringified = match arguments[0].kind {
         AddressKind::BOOLEAN_MEMORY => get_memory!(memory, booleans, arguments[0]).to_string(),

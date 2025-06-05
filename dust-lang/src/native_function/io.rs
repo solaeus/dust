@@ -3,7 +3,7 @@ use std::io::{Write, stdin, stdout};
 use crate::{
     Address, Destination, DustString,
     instruction::AddressKind,
-    panic_vm::{CallFrame, Memory},
+    panic_vm::{CallFrame, Memory, ThreadPool},
 };
 
 pub fn read_line<const REGISTER_COUNT: usize>(
@@ -11,6 +11,7 @@ pub fn read_line<const REGISTER_COUNT: usize>(
     _: &[Address],
     _: &mut CallFrame,
     memory: &mut Memory<REGISTER_COUNT>,
+    _: &ThreadPool<REGISTER_COUNT>,
 ) {
     let mut buffer = String::new();
     let _ = stdin().read_line(&mut buffer);
@@ -29,6 +30,7 @@ pub fn write_line<const REGISTER_COUNT: usize>(
     arguments: &[Address],
     _: &mut CallFrame,
     memory: &mut Memory<REGISTER_COUNT>,
+    _: &ThreadPool<REGISTER_COUNT>,
 ) {
     let mut stdout = stdout();
 

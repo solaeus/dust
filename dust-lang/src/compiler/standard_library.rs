@@ -19,6 +19,11 @@ mod convert {
     }
 }
 
+mod thread {
+    fn spawn(function: fn()) {
+        _spawn(function)
+    }
+}
 ";
 
 pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileError> {

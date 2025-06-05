@@ -4,6 +4,7 @@
 //! itself or that are more efficient to implement in Rust.
 mod io;
 mod string;
+mod thread;
 
 use std::fmt::{self, Display, Formatter};
 
@@ -12,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Address, FunctionType, Type,
     instruction::Destination,
-    panic_vm::{CallFrame, Memory},
+    panic_vm::{CallFrame, Memory, ThreadPool},
 };
 
 macro_rules! define_native_function {
@@ -34,10 +35,11 @@ macro_rules! define_native_function {
                 arguments: &[Address],
                 call: &mut CallFrame,
                 memory: &mut Memory<REGISTER_COUNT>,
+                threads: &ThreadPool<REGISTER_COUNT>,
             ) {
                 match self {
                     $(
-                        NativeFunction::$name => $function(destination, arguments, call, memory),
+                        NativeFunction::$name => $function(destination, arguments, call, memory, threads),
                     )*
                 }
             }
@@ -219,7 +221,7 @@ define_native_function! {
         "_write_line",
         FunctionType::new([], [Type::String], Type::None),
         io::write_line
-    )
+    ),
 
     // // Random
     // (
@@ -231,11 +233,11 @@ define_native_function! {
     // ),
 
     // Thread
-    // (
-    //     Spawn,
-    //     60,
-    //     "spawn",
-    //     FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
-    //     spawn
-    // )
+    (
+        Spawn,
+        60,
+        "spawn",
+        FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
+        thread::spawn
+    )
 }
