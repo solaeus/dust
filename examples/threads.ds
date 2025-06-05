@@ -1,0 +1,10 @@
+use std::io::write_line;
+use std::thread::spawn;
+
+spawn(fn one() {
+    write_line("Will this thread finish first?");
+});
+
+spawn(fn two() {
+    write_line("Or will this one?");
+});

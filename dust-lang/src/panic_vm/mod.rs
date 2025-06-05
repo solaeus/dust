@@ -18,41 +18,42 @@ pub type ThreadPool<const REGISTER_COUNT: usize> = Arc<Mutex<Vec<Thread<REGISTER
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
-    let mut vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
+    let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
 
     Ok(vm.run().map(Value::Concrete))
 }
 
 pub struct Vm<const REGISTER_COUNT: usize> {
-    main_chunk: Arc<Chunk>,
+    main_thread: Thread<REGISTER_COUNT>,
     threads: ThreadPool<REGISTER_COUNT>,
 }
 
 impl<const REGISTER_COUNT: usize> Vm<REGISTER_COUNT> {
     pub fn new(main_chunk: Arc<Chunk>) -> Self {
+        let threads = Arc::new(Mutex::new(Vec::new()));
+        let main_thread = Thread::<REGISTER_COUNT>::new(main_chunk, Arc::clone(&threads));
+
         Self {
-            main_chunk,
-            threads: Arc::new(Mutex::new(Vec::new())),
+            main_thread,
+            threads,
         }
     }
 
-    pub fn run(&mut self) -> Option<ConcreteValue> {
+    pub fn run(self) -> Option<ConcreteValue> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 
+        let return_result = self
+            .main_thread
+            .handle
+            .join()
+            .expect("Main thread panicked");
         let mut threads = self.threads.lock().expect("Failed to lock threads");
 
-        let main_thread =
-            Thread::<REGISTER_COUNT>::new(Arc::clone(&self.main_chunk), Arc::clone(&self.threads));
-
-        threads.push(main_thread);
-
-        let mut return_value = None;
-
         for thread in threads.drain(..) {
-            return_value = thread.handle.join().expect("Thread panicked");
+            thread.handle.join().expect("Thread panicked");
         }
 
-        return_value
+        return_result
     }
 }

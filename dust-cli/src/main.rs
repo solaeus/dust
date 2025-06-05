@@ -240,7 +240,7 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let mut vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
+        let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 

@@ -1837,27 +1837,80 @@ where
         Ok(())
     }
 
-    fn parse_type_from(&mut self, token: Token, position: Span) -> Result<Type, CompileError> {
-        match token {
-            Token::Any => Ok(Type::Any),
-            Token::Bool => Ok(Type::Boolean),
-            Token::ByteKeyword => Ok(Type::Byte),
-            Token::FloatKeyword => Ok(Type::Float),
-            Token::Int => Ok(Type::Integer),
-            Token::Str => Ok(Type::String),
+    fn parse_type(&mut self) -> Result<Type, CompileError> {
+        match self.current_token {
+            Token::Any => {
+                self.advance()?;
+
+                Ok(Type::Any)
+            }
+            Token::Bool => {
+                self.advance()?;
+
+                Ok(Type::Boolean)
+            }
+            Token::ByteKeyword => {
+                self.advance()?;
+
+                Ok(Type::Byte)
+            }
+            Token::FloatKeyword => {
+                self.advance()?;
+
+                Ok(Type::Float)
+            }
+            Token::Fn => self.parse_function_type(),
+            Token::Int => {
+                self.advance()?;
+
+                Ok(Type::Integer)
+            }
+            Token::Str => {
+                self.advance()?;
+
+                Ok(Type::String)
+            }
             _ => Err(CompileError::ExpectedTokenMultiple {
                 expected: &[
                     TokenKind::Any,
                     TokenKind::Bool,
                     TokenKind::ByteKeyword,
                     TokenKind::FloatKeyword,
+                    TokenKind::Fn,
                     TokenKind::Int,
                     TokenKind::Str,
                 ],
                 found: self.current_token.to_owned(),
-                position,
+                position: self.current_position,
             }),
         }
+    }
+
+    fn parse_function_type(&mut self) -> Result<Type, CompileError> {
+        self.advance()?;
+
+        let mut parameters = Vec::new();
+        let mut return_type = Type::None;
+
+        if self.allow(Token::LeftParenthesis)? {
+            while !self.allow(Token::RightParenthesis)? {
+                let parameter_type = self.parse_type()?;
+
+                parameters.push(parameter_type);
+
+                self.allow(Token::Comma)?;
+            }
+        }
+
+        if self.allow(Token::ArrowThin)? {
+            return_type = self.parse_type()?;
+        }
+
+        Ok(Type::Function(Box::new(FunctionType::new(
+            Vec::new(),
+            parameters,
+            return_type,
+        ))))
     }
 
     fn parse_block(&mut self) -> Result<(), CompileError> {
@@ -2429,9 +2482,7 @@ where
             });
         };
         let explicit_type = if self.allow(Token::Colon)? {
-            self.advance()?;
-
-            let r#type = self.parse_type_from(self.current_token, self.current_position)?;
+            let r#type = self.parse_type()?;
 
             Some(r#type)
         } else {
@@ -2538,12 +2589,7 @@ where
 
             function_compiler.expect(Token::Colon)?;
 
-            let r#type = function_compiler.parse_type_from(
-                function_compiler.current_token,
-                function_compiler.current_position,
-            )?;
-
-            function_compiler.advance()?;
+            let r#type = function_compiler.parse_type()?;
 
             let (local_memory_index, address_kind) = match r#type {
                 Type::Boolean => (
@@ -2570,6 +2616,14 @@ where
                     function_compiler.next_string_memory_index(),
                     AddressKind::STRING_MEMORY,
                 ),
+                Type::List(_) => (
+                    function_compiler.next_list_memory_index(),
+                    AddressKind::LIST_MEMORY,
+                ),
+                Type::Function(_) | Type::FunctionSelf => (
+                    function_compiler.next_function_memory_index(),
+                    AddressKind::FUNCTION_MEMORY,
+                ),
                 _ => todo!(),
             };
             let address = Address::new(local_memory_index, address_kind);
@@ -2586,14 +2640,7 @@ where
         }
 
         let return_type = if function_compiler.allow(Token::ArrowThin)? {
-            let r#type = function_compiler.parse_type_from(
-                function_compiler.current_token,
-                function_compiler.current_position,
-            )?;
-
-            function_compiler.advance()?;
-
-            r#type
+            function_compiler.parse_type()?
         } else {
             Type::None
         };
@@ -2690,6 +2737,11 @@ where
                     self.next_string_memory_index() - 1,
                     AddressKind::STRING_MEMORY,
                 ),
+                Type::List(_) => (self.next_list_memory_index() - 1, AddressKind::LIST_MEMORY),
+                Type::Function(_) | Type::FunctionSelf => (
+                    self.next_function_memory_index() - 1,
+                    AddressKind::FUNCTION_MEMORY,
+                ),
                 _ => todo!(),
             };
             let address = Address::new(argument_index, address_kind);
@@ -2720,6 +2772,11 @@ where
                 AddressKind::INTEGER_MEMORY,
             ),
             Type::String => (self.next_string_memory_index(), AddressKind::STRING_MEMORY),
+            Type::List(_) => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
+            Type::Function(_) | Type::FunctionSelf => (
+                self.next_function_memory_index(),
+                AddressKind::FUNCTION_MEMORY,
+            ),
             _ => todo!(),
         };
         let call = Instruction::call(
@@ -2743,10 +2800,9 @@ where
 
         if self.allow(Token::Less)? {
             while !self.allow(Token::Greater)? {
-                let r#type = self.parse_type_from(self.current_token, self.current_position)?;
+                let r#type = self.parse_type()?;
 
                 type_argument_list.push(r#type);
-                self.advance()?;
 
                 self.allow(Token::Comma)?;
             }
@@ -2781,6 +2837,11 @@ where
                 Type::String => (
                     self.next_string_memory_index() - 1,
                     AddressKind::STRING_MEMORY,
+                ),
+                Type::List(_) => (self.next_list_memory_index() - 1, AddressKind::LIST_MEMORY),
+                Type::Function(_) | Type::FunctionSelf => (
+                    self.next_function_memory_index() - 1,
+                    AddressKind::FUNCTION_MEMORY,
                 ),
                 _ => todo!(),
             };
@@ -2931,9 +2992,8 @@ where
 
         self.expect(Token::Colon)?;
 
-        let r#type = self.parse_type_from(self.current_token, self.current_position)?;
+        let r#type = self.parse_type()?;
 
-        self.advance()?;
         self.expect(Token::Equal)?;
 
         let value = match r#type.kind() {

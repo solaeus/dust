@@ -236,7 +236,7 @@ define_native_function! {
     (
         Spawn,
         60,
-        "spawn",
+        "_spawn",
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
         thread::spawn
     )

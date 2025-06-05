@@ -154,6 +154,34 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
 
                             set!(memory, strings, to, string.clone());
                         }
+                        AddressKind::LIST_MEMORY => {
+                            let abstract_list = get_memory!(memory, lists, from);
+
+                            set!(memory, lists, to, abstract_list.clone());
+                        }
+                        AddressKind::LIST_REGISTER => {
+                            let abstract_list = get_register!(memory, lists, from);
+
+                            set!(memory, lists, to, abstract_list.clone());
+                        }
+                        AddressKind::FUNCTION_PROTOTYPE => {
+                            let function = get_constant!(call.chunk, prototypes, from);
+
+                            set!(memory, functions, to, Arc::clone(function));
+                        }
+                        AddressKind::FUNCTION_SELF => {
+                            set!(memory, functions, to, Arc::clone(&call.chunk));
+                        }
+                        AddressKind::FUNCTION_REGISTER => {
+                            let function = get_register!(memory, functions, from);
+
+                            set!(memory, functions, to, Arc::clone(function));
+                        }
+                        AddressKind::FUNCTION_MEMORY => {
+                            let function = get_memory!(memory, functions, from);
+
+                            set!(memory, functions, to, Arc::clone(function));
+                        }
 
                         _ => unreachable!(),
                     }
