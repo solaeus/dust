@@ -65,11 +65,11 @@ const LOCAL_BORDERS: [&str; 3] = [
     "╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯",
 ];
 
-const ARGUMENT_LIST_COLUMNS: [(&str, usize); 3] = [("i", 5), ("REGISTERS", 21), ("TYPES", 21)];
+const ARGUMENT_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 42)];
 const ARGUMENT_LIST_BORDERS: [&str; 3] = [
-    "╭─────┬─────────────────────┬─────────────────────╮",
-    "├─────┼─────────────────────┼─────────────────────┤",
-    "╰─────┴─────────────────────┴─────────────────────╯",
+    "╭─────┬──────────────────────────────────────────╮",
+    "├─────┼──────────────────────────────────────────┤",
+    "╰─────┴──────────────────────────────────────────╯",
 ];
 
 const CONSTANT_COLUMNS: [(&str, usize); 3] = [("ADDRESS", 9), ("TYPE", 26), ("VALUE", 26)];
@@ -460,7 +460,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
         for (index, arguments) in self.chunk.arguments.iter().enumerate() {
             let argument_list_display = format!(
-                "│{index:^5}│{:^21}│",
+                "│{index:^5}│{:^42}│",
                 arguments
                     .iter()
                     .map(|address| address.to_string())

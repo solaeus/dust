@@ -1716,6 +1716,11 @@ where
                 position: start_position,
             });
         };
+        let variable_path =
+            Path::new_borrowed(identifier).ok_or_else(|| CompileError::InvalidPath {
+                found: identifier.to_string(),
+                position: start_position,
+            })?;
 
         let (variable_address, variable_type, is_mutable) = {
             if let Ok(local_index) = self.get_local_index(identifier) {
@@ -1731,24 +1736,7 @@ where
                 }
 
                 (local.address, local.r#type.clone(), local.is_mutable)
-            } else if self
-                .current_item_scope
-                .iter()
-                .any(|path| path.contains_scope(identifier))
-            {
-                let path =
-                    Path::new_borrowed(identifier).ok_or_else(|| CompileError::InvalidPath {
-                        found: identifier.to_string(),
-                        position: start_position,
-                    })?;
-
-                let (item, item_position) = self.dust_crate.get_item(&path).ok_or_else(|| {
-                    CompileError::UndeclaredVariable {
-                        identifier: identifier.to_string(),
-                        position: start_position,
-                    }
-                })?;
-
+            } else if let Some((item, item_position)) = self.dust_crate.get_item(&variable_path) {
                 let item_type = match item {
                     Item::Constant(value) => value.r#type(),
                     Item::Function(function) => Type::Function(Box::new(function.r#type.clone())),
@@ -3145,12 +3133,16 @@ where
 
         let (item_name, item, item_position) = {
             let item_name = item_path.item_name();
+            let item_path = Path::new_borrowed(item_name).ok_or(CompileError::InvalidPath {
+                found: item_name.to_string(),
+                position: self.previous_position,
+            })?;
 
             let (item, position) = active_module
                 .items
                 .iter()
                 .find_map(|(path, (item, position))| {
-                    if path.contains_scope(item_name) {
+                    if path.contains_scope(&item_path) {
                         Some((item, position))
                     } else {
                         None

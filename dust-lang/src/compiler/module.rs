@@ -25,28 +25,23 @@ impl<'a> Module<'a> {
     }
 
     pub fn get_item<'b>(&'b self, path: &'b Path<'a>) -> Option<&'b (Item<'a>, Span)> {
-        let mut current_module = self;
-
-        for module_name in path.module_names() {
-            if let Some((item, _)) = current_module
-                .items
-                .get(&Path::new_borrowed(module_name).unwrap())
-            {
-                if let Item::Module(module) = item {
-                    current_module = module;
-
-                    continue;
-                } else {
-                    return None; // Path points to a non-module item
-                }
-            }
-
-            return None; // Module not found
+        if let Some(found) = self.items.get(path) {
+            return Some(found);
         }
 
-        current_module
-            .items
-            .get(&Path::new_borrowed(path.item_name()).unwrap())
+        for module in self.items.iter().filter_map(|(_, (item, _))| {
+            if let Item::Module(module) = item {
+                Some(module)
+            } else {
+                None
+            }
+        }) {
+            if let Some(found) = module.get_item(path) {
+                return Some(found);
+            }
+        }
+
+        None
     }
 }
 
