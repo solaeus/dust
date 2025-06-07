@@ -154,6 +154,11 @@ pub enum CompileError {
     IfMissingElse {
         position: Span,
     },
+    LetStatementTypeConflict {
+        conflict: TypeConflict,
+        expected_position: Span,
+        actual_position: Span,
+    },
     ListItemTypeConflict {
         conflict: TypeConflict,
         position: Span,
@@ -227,6 +232,7 @@ impl AnnotatedError for CompileError {
             Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::InvalidPath { .. } => "Invalid path",
+            Self::LetStatementTypeConflict { .. } => "Let statement type conflict",
             Self::Lex(error) => error.description(),
             Self::ListItemTypeConflict { .. } => "List item type conflict",
             Self::LocalIndexOutOfBounds { .. } => "Local index out of bounds",
@@ -497,6 +503,25 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
+            Self::LetStatementTypeConflict {
+                conflict,
+                expected_position,
+                actual_position,
+            } => {
+                vec![
+                    (
+                        format!(
+                            "Let statement expected type `{}` but found `{}`",
+                            conflict.expected, conflict.actual
+                        ),
+                        *expected_position,
+                    ),
+                    (
+                        format!("Actual type found at `{}`", conflict.actual),
+                        *actual_position,
+                    ),
+                ]
+            }
             Self::ListItemTypeConflict { conflict, position } => {
                 vec![(
                     format!(
@@ -747,6 +772,22 @@ impl AnnotatedError for CompileError {
                     "Add an else branch to handle all possible cases".to_string(),
                     *position,
                 )]
+            }
+            Self::LetStatementTypeConflict {
+                expected_position,
+                actual_position,
+                ..
+            } => {
+                vec![
+                    (
+                        "Ensure the type of the value matches the expected type".to_string(),
+                        *expected_position,
+                    ),
+                    (
+                        "Check the actual type of the value being assigned".to_string(),
+                        *actual_position,
+                    ),
+                ]
             }
             Self::ListItemTypeConflict { position, .. } => {
                 vec![(
