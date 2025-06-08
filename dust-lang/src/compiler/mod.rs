@@ -696,12 +696,11 @@ where
         self.instructions.iter().fold(
             self.minimum_boolean_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::Boolean {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::Boolean
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -724,12 +723,11 @@ where
         self.instructions.iter().fold(
             self.minimum_byte_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::Byte {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::Byte
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -752,12 +750,11 @@ where
         self.instructions.iter().fold(
             self.minimum_character_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::Character {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::Character
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -780,12 +777,11 @@ where
         self.instructions.iter().fold(
             self.minimum_float_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::Float {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::Float
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -808,12 +804,11 @@ where
         self.instructions.iter().fold(
             self.minimum_integer_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::Integer {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::Integer
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -836,12 +831,11 @@ where
         self.instructions.iter().fold(
             self.minimum_string_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && r#type == &Type::String {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && r#type == &Type::String
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -864,12 +858,11 @@ where
         self.instructions.iter().fold(
             self.minimum_list_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && matches!(r#type, Type::List(_)) {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && matches!(r#type, Type::List(_))
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
@@ -892,12 +885,11 @@ where
         self.instructions.iter().fold(
             self.minimum_function_memory_index,
             |acc, (instruction, r#type, _)| {
-                if instruction.yields_value() && matches!(r#type, Type::Function(_)) {
-                    if instruction.a_field() >= acc {
-                        instruction.a_field() + 1
-                    } else {
-                        acc
-                    }
+                if instruction.yields_value()
+                    && matches!(r#type, Type::Function(_))
+                    && instruction.a_field() >= acc
+                {
+                    instruction.a_field() + 1
                 } else {
                     acc
                 }
