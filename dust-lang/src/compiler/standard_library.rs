@@ -1,3 +1,5 @@
+use tracing::{Level, span};
+
 use crate::{Lexer, Span};
 
 use super::{CompileError, Compiler, DEFAULT_REGISTER_COUNT, Item, Module, Path};
@@ -14,7 +16,7 @@ mod io {
 }
 
 mod convert {
-    fn int_to_string(value: int) -> str {
+    fn int_to_str(value: int) -> str {
         _to_string(value)
     }
 }
@@ -27,6 +29,9 @@ mod thread {
 ";
 
 pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileError> {
+    let logging = span!(Level::INFO, "Standard Library");
+    let _span_guard = logging.enter();
+
     let mut std_crate = Module::new();
     let lexer = Lexer::new(STD);
     let mut compiler =

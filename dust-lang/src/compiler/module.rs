@@ -84,3 +84,27 @@ impl<'a, 'de: 'a> Deserialize<'de> for Module<'a> {
         )
     }
 }
+
+#[macro_export]
+macro_rules! find_item {
+    ($variable_path: expr, $dust_crate: expr) => {{
+        let module_names = $variable_path.module_names();
+        let mut current = ($dust_crate, Span::default());
+
+        for module_name in module_names {
+            let module_path = Path::new_borrowed(module_name).unwrap();
+
+            if let Some(next) = current.0.get_item(&module_path) {
+                if let Item::Module(module) = &next.0 {
+                    current = (module, next.1);
+                }
+            }
+        }
+
+        let item_name = Path::new_borrowed($variable_path.item_name()).unwrap();
+
+        current.0.get_item(&item_name).cloned()
+    }};
+}
+
+pub use find_item;

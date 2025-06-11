@@ -291,7 +291,7 @@ where
                 precedence: Precedence::Assignment,
             },
             Token::Str => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(Compiler::parse_str),
                 infix: None,
                 precedence: Precedence::None,
             },

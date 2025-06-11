@@ -398,6 +398,7 @@ fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
     } else {
         tracing_subscriber::fmt()
             .with_max_level(level)
+            .without_time()
             .with_writer(io::stdout)
             .init();
     }

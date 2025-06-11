@@ -16,6 +16,8 @@
 //!
 //! It is a logic error to call [`Compiler::finish`] on a compiler that has emitted an error and
 //! pass that chunk to the VM.
+#![macro_use]
+
 mod compile_error;
 mod compile_mode;
 mod item;
@@ -28,7 +30,7 @@ mod type_checks;
 pub use compile_error::CompileError;
 use compile_mode::CompileMode;
 pub use item::Item;
-pub use module::Module;
+pub use module::{Module, find_item};
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
 pub use standard_library::generate_standard_library;
@@ -1841,24 +1843,6 @@ where
                 found: identifier.to_string(),
                 position: start_position,
             })?;
-        let find_item = || -> Option<(Item, Span)> {
-            let module_names = variable_path.module_names();
-            let mut current = (&*self.dust_crate, Span::default());
-
-            for module_name in module_names {
-                let module_path = Path::new_borrowed(module_name).unwrap();
-
-                if let Some(next) = current.0.get_item(&module_path) {
-                    if let Item::Module(module) = &next.0 {
-                        current = (module, next.1);
-                    }
-                }
-            }
-
-            let item_name = Path::new_borrowed(variable_path.item_name()).unwrap();
-
-            current.0.get_item(&item_name).cloned()
-        };
 
         let (variable_address, variable_type, is_mutable) = {
             if let Ok(local_index) = self.get_local_index(identifier) {
@@ -1874,7 +1858,8 @@ where
                 }
 
                 (local.address, local.r#type.clone(), local.is_mutable)
-            } else if let Some((item, item_position)) = find_item() {
+            } else if let Some((item, item_position)) = find_item!(variable_path, &*self.dust_crate)
+            {
                 let item_type = match item {
                     Item::Constant(ref value) => value.r#type(),
                     Item::Function(ref function) => {
@@ -2925,16 +2910,23 @@ where
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (last_instruction, _, _) =
-                self.instructions
-                    .pop()
-                    .ok_or_else(|| CompileError::ExpectedExpression {
+            let argument_address = match self.get_last_operation() {
+                Some(
+                    Operation::MOVE
+                    | Operation::LOAD_ENCODED
+                    | Operation::LOAD_CONSTANT
+                    | Operation::LOAD_FUNCTION,
+                ) => self.instructions.pop().unwrap().0.b_address(),
+                None => {
+                    return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
-                    })?;
-            let address = last_instruction.b_address();
+                    });
+                }
+                _ => self.instructions.last().unwrap().0.destination_as_address(),
+            };
 
-            value_argument_list.push(address);
+            value_argument_list.push(argument_address);
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -3004,16 +2996,23 @@ where
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (last_instruction, _, _) =
-                self.instructions
-                    .pop()
-                    .ok_or_else(|| CompileError::ExpectedExpression {
+            let argument_address = match self.get_last_operation() {
+                Some(
+                    Operation::MOVE
+                    | Operation::LOAD_ENCODED
+                    | Operation::LOAD_CONSTANT
+                    | Operation::LOAD_FUNCTION,
+                ) => self.instructions.pop().unwrap().0.b_address(),
+                None => {
+                    return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
-                    })?;
-            let address = last_instruction.b_address();
+                    });
+                }
+                _ => self.instructions.last().unwrap().0.destination_as_address(),
+            };
 
-            value_argument_list.push(address);
+            value_argument_list.push(argument_address);
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -3309,32 +3308,20 @@ where
             }
         }
 
-        let (item_name, item, item_position) = {
-            let item_name = item_path.item_name();
-            let item_path = Path::new_borrowed(item_name).ok_or(CompileError::InvalidPath {
-                found: item_name.to_string(),
-                position: self.previous_position,
-            })?;
-
-            let (item, position) = active_module
-                .items
-                .iter()
-                .find_map(|(path, (item, position))| {
-                    if path.contains_scope(&item_path) {
-                        Some((item, position))
-                    } else {
-                        None
-                    }
-                })
-                .ok_or(CompileError::UnknownItem {
-                    item_name: item_name.to_string(),
+        let (item, item_position) = {
+            let (item, position) = if let Some(found) = find_item!(item_path, &*self.dust_crate) {
+                found
+            } else {
+                return Err(CompileError::UnknownItem {
+                    item_name: item_path.item_name().to_string(),
                     position: self.previous_position,
-                })?;
+                });
+            };
 
-            (item_name, item.clone(), position)
+            (item, position)
         };
 
-        self.bring_item_into_local_scope(item_name, item, *item_position)?;
+        self.bring_item_into_local_scope(item_path.item_name(), item, item_position)?;
 
         Ok(())
     }
@@ -3462,6 +3449,62 @@ where
         };
 
         Ok(address)
+    }
+
+    fn parse_str(&mut self) -> Result<(), CompileError> {
+        self.advance()?;
+        self.expect(Token::Dot)?;
+
+        let identifier = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
+
+            text
+        } else {
+            return Err(CompileError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        match identifier {
+            "from_int" => {
+                let aliased_path = Path::new_borrowed("std::convert::int_to_str").unwrap();
+                let (item, item_position) = find_item!(aliased_path, &*self.dust_crate)
+                    .ok_or_else(|| CompileError::UnknownItem {
+                        item_name: aliased_path.to_string(),
+                        position: self.previous_position,
+                    })?;
+                let item_type = Type::function(vec![], vec![Type::Integer], Type::String);
+
+                let variable_address =
+                    self.bring_item_into_local_scope(identifier, item, item_position)?;
+                let destination_index = match variable_address.r#type() {
+                    TypeKind::Boolean => self.next_boolean_memory_index(),
+                    TypeKind::Byte => self.next_byte_memory_index(),
+                    TypeKind::Character => self.next_character_memory_index(),
+                    TypeKind::Float => self.next_float_memory_index(),
+                    TypeKind::Integer => self.next_integer_memory_index(),
+                    TypeKind::String => self.next_string_memory_index(),
+                    TypeKind::List => self.next_list_memory_index(),
+                    TypeKind::Function => self.next_function_memory_index(),
+                    _ => todo!(),
+                };
+                let r#move =
+                    Instruction::r#move(Destination::memory(destination_index), variable_address);
+
+                self.emit_instruction(r#move, item_type, self.previous_position);
+                self.parse_call()?;
+            }
+            _ => {
+                return Err(CompileError::UnknownItem {
+                    item_name: identifier.to_string(),
+                    position: self.previous_position,
+                });
+            }
+        }
+
+        Ok(())
     }
 
     fn expect_expression(&mut self) -> Result<(), CompileError> {

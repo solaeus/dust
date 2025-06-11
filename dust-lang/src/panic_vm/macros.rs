@@ -89,3 +89,11 @@ macro_rules! set {
 }
 
 pub(crate) use set;
+
+macro_rules! malformed_instruction {
+    ($instruction:expr) => {{
+        panic!("Malformed {} instruction", $instruction.operation(),);
+    }};
+}
+
+pub(crate) use malformed_instruction;
