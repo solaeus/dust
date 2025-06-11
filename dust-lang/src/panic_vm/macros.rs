@@ -91,8 +91,12 @@ macro_rules! set {
 pub(crate) use set;
 
 macro_rules! malformed_instruction {
-    ($instruction:expr) => {{
-        panic!("Malformed {} instruction", $instruction.operation(),);
+    ($instruction: expr, $ip: expr) => {{
+        panic!(
+            "Malformed {} instruction at IP {}",
+            $instruction.operation(),
+            $ip
+        );
     }};
 }
 

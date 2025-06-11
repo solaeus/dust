@@ -181,7 +181,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             set!(memory, functions, to, Arc::clone(function));
                         }
 
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::CLOSE => {
@@ -218,7 +218,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 memory.bytes[destination.index as usize] = byte;
                             }
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
 
                     if jump_next {
@@ -278,7 +278,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 memory.strings[destination_index] = value;
                             }
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if jump_next {
@@ -299,7 +299,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             Arc::clone(chunk)
                         }
                         AddressKind::FUNCTION_SELF => Arc::clone(&call.chunk),
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if destination.is_register {
@@ -355,7 +355,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -366,7 +366,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -384,7 +384,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -405,7 +405,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -426,7 +426,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -447,7 +447,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -465,7 +465,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -483,7 +483,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -501,7 +501,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -519,7 +519,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -537,7 +537,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let sum = left_value + right_value;
 
@@ -555,7 +555,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -576,7 +576,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -597,7 +597,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let mut sum = DustString::new();
 
@@ -606,7 +606,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
 
                             set!(memory, strings, destination, sum);
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::SUBTRACT => {
@@ -622,7 +622,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -633,7 +633,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -651,7 +651,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -669,7 +669,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -687,7 +687,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -705,7 +705,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -723,7 +723,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -741,7 +741,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let difference = left_value - right_value;
 
@@ -763,7 +763,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -774,7 +774,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -792,7 +792,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -810,7 +810,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -828,7 +828,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -846,7 +846,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -864,7 +864,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
@@ -882,13 +882,13 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let product = left_value * right_value;
 
                             set!(memory, integers, destination, product);
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::DIVIDE => {
@@ -904,7 +904,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -915,7 +915,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -933,7 +933,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -951,7 +951,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -969,7 +969,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -987,7 +987,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -1005,7 +1005,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
@@ -1023,13 +1023,13 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let quotient = left_value / right_value;
 
                             set!(memory, integers, destination, quotient);
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::MODULO => {
@@ -1045,7 +1045,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1056,7 +1056,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1074,7 +1074,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1092,7 +1092,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1110,7 +1110,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FLOAT_REGISTER => {
                                     get_register!(memory, floats, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1128,7 +1128,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1146,7 +1146,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
@@ -1164,13 +1164,13 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
                             let remainder = left_value % right_value;
 
                             set!(memory, integers, destination, remainder);
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::EQUAL => {
@@ -1188,7 +1188,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1200,7 +1200,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1210,7 +1210,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1220,7 +1220,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1237,7 +1237,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1254,7 +1254,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1271,7 +1271,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1284,7 +1284,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1297,7 +1297,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1310,7 +1310,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1325,7 +1325,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1340,7 +1340,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1355,7 +1355,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1372,7 +1372,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1389,7 +1389,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1406,7 +1406,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1416,7 +1416,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1426,7 +1426,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1444,7 +1444,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1462,7 +1462,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1480,7 +1480,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
@@ -1498,12 +1498,12 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value == right_value
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if is_equal == comparator {
@@ -1525,7 +1525,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1537,7 +1537,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1547,7 +1547,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1557,7 +1557,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1574,7 +1574,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1591,7 +1591,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1608,7 +1608,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1621,7 +1621,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1634,7 +1634,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1647,7 +1647,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1662,7 +1662,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1677,7 +1677,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1692,7 +1692,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1709,7 +1709,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1726,7 +1726,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1743,7 +1743,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1753,7 +1753,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1763,7 +1763,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1781,7 +1781,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1799,7 +1799,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1817,7 +1817,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -1835,12 +1835,12 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if is_less_than == comparator {
@@ -1862,7 +1862,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1874,7 +1874,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::BOOLEAN_REGISTER => {
                                     get_register!(memory, booleans, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1884,7 +1884,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1894,7 +1894,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::BYTE_MEMORY => get_memory!(memory, bytes, right),
                                 AddressKind::BYTE_REGISTER => get_register!(memory, bytes, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1911,7 +1911,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1928,7 +1928,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1945,7 +1945,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::CHARACTER_REGISTER => {
                                     get_register!(memory, characters, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1958,7 +1958,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1971,7 +1971,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1984,7 +1984,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 }
                                 AddressKind::FLOAT_MEMORY => get_memory!(memory, floats, right),
                                 AddressKind::FLOAT_REGISTER => get_register!(memory, floats, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -1999,7 +1999,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2014,7 +2014,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2029,7 +2029,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::INTEGER_REGISTER => {
                                     get_register!(memory, integers, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2046,7 +2046,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2063,7 +2063,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2080,7 +2080,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::STRING_REGISTER => {
                                     get_register!(memory, strings, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2090,7 +2090,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2100,7 +2100,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             let right_value = match right.kind {
                                 AddressKind::LIST_MEMORY => get_memory!(memory, lists, right),
                                 AddressKind::LIST_REGISTER => get_register!(memory, lists, right),
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value <= right_value
@@ -2118,7 +2118,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -2136,7 +2136,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -2154,7 +2154,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
@@ -2172,12 +2172,12 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                 AddressKind::FUNCTION_MEMORY => {
                                     get_memory!(memory, functions, right)
                                 }
-                                _ => malformed_instruction!(instruction),
+                                _ => malformed_instruction!(instruction, ip),
                             };
 
                             left_value < right_value
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if is_less_than_or_equal == comparator {
@@ -2221,7 +2221,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
 
                             set!(memory, integers, destination, -(*integer));
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     }
                 }
                 Operation::NOT => {
@@ -2233,7 +2233,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                     let boolean = match operand.kind {
                         AddressKind::BOOLEAN_MEMORY => get_memory!(memory, booleans, operand),
                         AddressKind::BOOLEAN_REGISTER => get_register!(memory, booleans, operand),
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     set!(memory, booleans, destination, !(*boolean));
@@ -2246,7 +2246,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                     let is_true = match operand.kind {
                         AddressKind::BOOLEAN_MEMORY => get_memory!(memory, booleans, operand),
                         AddressKind::BOOLEAN_REGISTER => get_register!(memory, booleans, operand),
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     if *is_true == comparator {
@@ -2289,7 +2289,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                             get_constant!(call.chunk, prototypes, function_address)
                         }
                         AddressKind::FUNCTION_SELF => &call.chunk,
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     let arguments_list = &call.chunk.arguments[argument_list_index as usize];
@@ -2319,7 +2319,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *boolean
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::BOOLEAN_REGISTER => {
@@ -2342,7 +2342,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *boolean
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::BYTE_MEMORY => {
@@ -2355,7 +2355,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::BYTE_MEMORY => {
                                         set_memory!(new_memory, bytes, parameter.index, *byte);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::BYTE_REGISTER => {
@@ -2368,7 +2368,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::BYTE_MEMORY => {
                                         set_memory!(new_memory, bytes, parameter.index, *byte);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::CHARACTER_CONSTANT => {
@@ -2392,7 +2392,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *character
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::CHARACTER_MEMORY => {
@@ -2415,7 +2415,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *character
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::CHARACTER_REGISTER => {
@@ -2438,7 +2438,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *character
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FLOAT_CONSTANT => {
@@ -2451,7 +2451,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::FLOAT_MEMORY => {
                                         set_memory!(new_memory, floats, parameter.index, *float);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FLOAT_MEMORY => {
@@ -2464,7 +2464,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::FLOAT_MEMORY => {
                                         set_memory!(new_memory, floats, parameter.index, *float);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FLOAT_REGISTER => {
@@ -2477,7 +2477,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::FLOAT_MEMORY => {
                                         set_memory!(new_memory, floats, parameter.index, *float);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::INTEGER_CONSTANT => {
@@ -2501,7 +2501,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *integer
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::INTEGER_REGISTER => {
@@ -2524,7 +2524,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *integer
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::INTEGER_MEMORY => {
@@ -2547,7 +2547,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             *integer
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::STRING_CONSTANT => {
@@ -2561,7 +2561,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::STRING_MEMORY => {
                                         set_memory!(new_memory, strings, parameter.index, string);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::STRING_MEMORY => {
@@ -2574,7 +2574,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::STRING_MEMORY => {
                                         set_memory!(new_memory, strings, parameter.index, string);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::STRING_REGISTER => {
@@ -2587,7 +2587,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                     AddressKind::STRING_MEMORY => {
                                         set_memory!(new_memory, strings, parameter.index, string);
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::LIST_MEMORY => {
@@ -2610,7 +2610,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             abstract_list
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::LIST_REGISTER => {
@@ -2633,7 +2633,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             abstract_list
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FUNCTION_REGISTER => {
@@ -2656,7 +2656,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             Arc::clone(function)
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FUNCTION_MEMORY => {
@@ -2679,7 +2679,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             Arc::clone(function)
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FUNCTION_PROTOTYPE => {
@@ -2702,7 +2702,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             Arc::clone(function)
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
                             AddressKind::FUNCTION_SELF => {
@@ -2725,10 +2725,10 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                                             Arc::clone(function)
                                         );
                                     }
-                                    _ => malformed_instruction!(instruction),
+                                    _ => malformed_instruction!(instruction, ip),
                                 }
                             }
-                            _ => malformed_instruction!(instruction),
+                            _ => malformed_instruction!(instruction, ip),
                         }
                     }
 
@@ -3199,13 +3199,13 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
 
                             (new_call, new_memory)
                         }
-                        _ => malformed_instruction!(instruction),
+                        _ => malformed_instruction!(instruction, ip),
                     };
 
                     call = new_call;
                     memory = new_memory;
                 }
-                _ => malformed_instruction!(instruction),
+                _ => malformed_instruction!(instruction, ip),
             }
         }
     }
