@@ -1841,6 +1841,24 @@ where
                 found: identifier.to_string(),
                 position: start_position,
             })?;
+        let find_item = || -> Option<(Item, Span)> {
+            let module_names = variable_path.module_names();
+            let mut current = (&*self.dust_crate, Span::default());
+
+            for module_name in module_names {
+                let module_path = Path::new_borrowed(module_name).unwrap();
+
+                if let Some(next) = current.0.get_item(&module_path) {
+                    if let Item::Module(module) = &next.0 {
+                        current = (module, next.1);
+                    }
+                }
+            }
+
+            let item_name = Path::new_borrowed(variable_path.item_name()).unwrap();
+
+            current.0.get_item(&item_name).cloned()
+        };
 
         let (variable_address, variable_type, is_mutable) = {
             if let Ok(local_index) = self.get_local_index(identifier) {
@@ -1856,17 +1874,19 @@ where
                 }
 
                 (local.address, local.r#type.clone(), local.is_mutable)
-            } else if let Some((item, item_position)) = self.dust_crate.get_item(&variable_path) {
+            } else if let Some((item, item_position)) = find_item() {
                 let item_type = match item {
-                    Item::Constant(value) => value.r#type(),
-                    Item::Function(function) => Type::Function(Box::new(function.r#type.clone())),
+                    Item::Constant(ref value) => value.r#type(),
+                    Item::Function(ref function) => {
+                        Type::Function(Box::new(function.r#type.clone()))
+                    }
                     _ => unreachable!(
                         "The item should be a constant or a function, not a module or other type."
                     ),
                 };
 
                 let local_address =
-                    self.bring_item_into_local_scope(identifier, item.clone(), *item_position)?;
+                    self.bring_item_into_local_scope(identifier, item, item_position)?;
 
                 (local_address, item_type, false)
             } else if let CompileMode::Function { name } = &self.mode {

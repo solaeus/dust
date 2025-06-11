@@ -24,7 +24,7 @@ impl<'a> Module<'a> {
         }
     }
 
-    pub fn get_item<'b>(&'b self, path: &'b Path<'a>) -> Option<&'b (Item<'a>, Span)> {
+    pub fn get_item(&self, path: &Path<'a>) -> Option<&(Item<'a>, Span)> {
         if let Some(found) = self.items.get(path) {
             return Some(found);
         }
