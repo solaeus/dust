@@ -2701,7 +2701,7 @@ where
 
         let (last_instruction, last_instruction_type, last_instruction_position) = self
             .instructions
-            .last()
+            .last_mut()
             .ok_or_else(|| CompileError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
@@ -2721,6 +2721,7 @@ where
             last_instruction_type.clone()
         };
         let address = last_instruction.destination_as_address();
+        *last_instruction_type = Type::None;
 
         self.declare_local(
             identifier,
