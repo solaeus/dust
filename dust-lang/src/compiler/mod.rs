@@ -552,11 +552,11 @@ where
             }
         }
 
-        // for Arguments { values, .. } in &self.arguments {
-        //     for address in values {
-        //         increment_rank(*address, 1);
-        //     }
-        // }
+        for (values, _) in &self.arguments {
+            for address in values {
+                increment_rank(*address, 1);
+            }
+        }
 
         // A map in which the keys are addresses that need to be replaced and the values are their
         // intended replacements.
@@ -2927,12 +2927,12 @@ where
 
             let (last_instruction, _, _) =
                 self.instructions
-                    .last()
+                    .pop()
                     .ok_or_else(|| CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     })?;
-            let address = last_instruction.destination_as_address();
+            let address = last_instruction.b_address();
 
             value_argument_list.push(address);
         }
@@ -3004,36 +3004,14 @@ where
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (argument_index, address_kind) = match self.get_last_instruction_type() {
-                Type::Boolean => (
-                    self.next_boolean_memory_index() - 1,
-                    AddressKind::BOOLEAN_MEMORY,
-                ),
-                Type::Byte => (self.next_byte_memory_index() - 1, AddressKind::BYTE_MEMORY),
-                Type::Character => (
-                    self.next_character_memory_index() - 1,
-                    AddressKind::CHARACTER_MEMORY,
-                ),
-                Type::Float => (
-                    self.next_float_memory_index() - 1,
-                    AddressKind::FLOAT_MEMORY,
-                ),
-                Type::Integer => (
-                    self.next_integer_memory_index() - 1,
-                    AddressKind::INTEGER_MEMORY,
-                ),
-                Type::String => (
-                    self.next_string_memory_index() - 1,
-                    AddressKind::STRING_MEMORY,
-                ),
-                Type::List(_) => (self.next_list_memory_index() - 1, AddressKind::LIST_MEMORY),
-                Type::Function(_) | Type::FunctionSelf => (
-                    self.next_function_memory_index() - 1,
-                    AddressKind::FUNCTION_MEMORY,
-                ),
-                _ => todo!(),
-            };
-            let address = Address::new(argument_index, address_kind);
+            let (last_instruction, _, _) =
+                self.instructions
+                    .pop()
+                    .ok_or_else(|| CompileError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    })?;
+            let address = last_instruction.b_address();
 
             value_argument_list.push(address);
         }
