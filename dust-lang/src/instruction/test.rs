@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
+use crate::{Instruction, Operation, r#type::TypeKind};
 
 use super::{Address, InstructionFields};
 
@@ -26,14 +26,14 @@ impl From<Test> for Instruction {
         let a_field = test.comparator as u16;
         let Address {
             index: b_field,
-            kind: b_kind,
+            memory: b_memory_kind,
         } = test.operand;
 
         InstructionFields {
             operation: Operation::TEST,
             a_field,
             b_field,
-            b_kind,
+            b_memory_kind,
             ..Default::default()
         }
         .build()
@@ -48,6 +48,8 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}{operand} {{ JUMP +1 }}")
+        write!(f, "if {bang}")?;
+        operand.display(f, TypeKind::Boolean)?;
+        write!(f, " {{ JUMP +1 }}")
     }
 }

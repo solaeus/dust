@@ -14,7 +14,7 @@ fn load_boolean_true() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -37,7 +37,7 @@ fn load_boolean_false() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -60,7 +60,7 @@ fn load_byte() {
         r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 42,
                 AddressKind::BYTE_MEMORY,
                 false,
@@ -83,7 +83,7 @@ fn load_character() {
         r#type: FunctionType::new([], [], Type::Character),
         instructions: vec![
             Instruction::load_constant(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 false,
             ),
@@ -106,7 +106,7 @@ fn load_float() {
         r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
             Instruction::load_constant(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 false,
             ),
@@ -129,7 +129,7 @@ fn load_integer() {
         r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
             Instruction::load_constant(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
@@ -152,7 +152,7 @@ fn load_string() {
         r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::load_constant(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 false,
             ),
@@ -175,19 +175,19 @@ fn load_boolean_list() {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::Boolean))),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::memory(0),
+                Destination::heap(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
             Instruction::load_encoded(
-                Destination::memory(1),
+                Destination::heap(1),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::BOOLEAN_MEMORY),
                 1,
                 false,
@@ -209,10 +209,10 @@ fn load_byte_list() {
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::Byte))),
         instructions: vec![
-            Instruction::load_encoded(Destination::memory(0), 42, AddressKind::BYTE_MEMORY, false),
-            Instruction::load_encoded(Destination::memory(1), 66, AddressKind::BYTE_MEMORY, false),
+            Instruction::load_encoded(Destination::heap(0), 42, AddressKind::BYTE_MEMORY, false),
+            Instruction::load_encoded(Destination::heap(1), 66, AddressKind::BYTE_MEMORY, false),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::BYTE_MEMORY),
                 1,
                 false,
@@ -235,17 +235,17 @@ fn load_character_list() {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::Character))),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::CHARACTER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::CHARACTER_MEMORY),
                 1,
                 false,
@@ -269,17 +269,17 @@ fn load_float_list() {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::Float))),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FLOAT_MEMORY),
                 1,
                 false,
@@ -303,22 +303,22 @@ fn load_integer_list() {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::Integer))),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(2, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_MEMORY),
                 2,
                 false,
@@ -342,17 +342,17 @@ fn load_string_list() {
         r#type: FunctionType::new([], [], Type::List(Box::new(Type::String))),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::STRING_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::STRING_MEMORY),
                 1,
                 false,
@@ -383,39 +383,39 @@ fn load_nested_list() {
         ),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_MEMORY),
                 1,
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(2, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(3),
+                Destination::heap(3),
                 Address::new(3, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(2, AddressKind::INTEGER_MEMORY),
                 3,
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::LIST_MEMORY),
                 1,
                 false,
@@ -460,39 +460,39 @@ fn load_deeply_nested_list() {
         ),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_MEMORY),
                 1,
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(2, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(3),
+                Destination::heap(3),
                 Address::new(3, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(2, AddressKind::INTEGER_MEMORY),
                 3,
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(0, AddressKind::LIST_MEMORY),
                 1,
                 false,
@@ -502,39 +502,39 @@ fn load_deeply_nested_list() {
                 Address::new(1, AddressKind::LIST_MEMORY),
             ),
             Instruction::load_constant(
-                Destination::memory(4),
+                Destination::heap(4),
                 Address::new(4, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(5),
+                Destination::heap(5),
                 Address::new(5, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(3),
+                Destination::heap(3),
                 Address::new(4, AddressKind::INTEGER_MEMORY),
                 5,
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(6),
+                Destination::heap(6),
                 Address::new(6, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(7),
+                Destination::heap(7),
                 Address::new(7, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(4),
+                Destination::heap(4),
                 Address::new(6, AddressKind::INTEGER_MEMORY),
                 7,
                 false,
             ),
             Instruction::load_list(
-                Destination::memory(5),
+                Destination::heap(5),
                 Address::new(3, AddressKind::LIST_MEMORY),
                 4,
                 false,
@@ -544,7 +544,7 @@ fn load_deeply_nested_list() {
                 Address::new(4, AddressKind::LIST_MEMORY),
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(2, AddressKind::LIST_MEMORY),
                 5,
                 false,
@@ -600,7 +600,7 @@ fn load_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -635,7 +635,7 @@ fn load_boolean_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -646,7 +646,7 @@ fn load_boolean_in_function() {
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load_encoded(
-                    Destination::register(0),
+                    Destination::stack(0),
                     true as u16,
                     AddressKind::BOOLEAN_MEMORY,
                     false,
@@ -675,7 +675,7 @@ fn load_integer_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -686,7 +686,7 @@ fn load_integer_in_function() {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
@@ -715,7 +715,7 @@ fn load_string_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -726,7 +726,7 @@ fn load_string_in_function() {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::STRING_CONSTANT),
                     false,
                 ),
@@ -759,7 +759,7 @@ fn load_list_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -770,22 +770,22 @@ fn load_list_in_function() {
             r#type: FunctionType::new([], [], Type::List(Box::new(Type::Integer))),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::memory(0),
+                    Destination::heap(0),
                     Address::new(0, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(1),
+                    Destination::heap(1),
                     Address::new(1, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(2),
+                    Destination::heap(2),
                     Address::new(2, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::INTEGER_MEMORY),
                     2,
                     false,
@@ -821,7 +821,7 @@ fn load_byte_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -832,7 +832,7 @@ fn load_byte_in_function() {
             r#type: FunctionType::new(vec![], vec![], Type::Byte),
             instructions: vec![
                 Instruction::load_encoded(
-                    Destination::register(0),
+                    Destination::stack(0),
                     42,
                     AddressKind::BYTE_MEMORY,
                     false,
@@ -861,7 +861,7 @@ fn load_character_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -872,7 +872,7 @@ fn load_character_in_function() {
             r#type: FunctionType::new(vec![], vec![], Type::Character),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::CHARACTER_CONSTANT),
                     false,
                 ),
@@ -901,7 +901,7 @@ fn load_float_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -912,7 +912,7 @@ fn load_float_in_function() {
             r#type: FunctionType::new(vec![], vec![], Type::Float),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::FLOAT_CONSTANT),
                     false,
                 ),
@@ -945,7 +945,7 @@ fn load_nested_list_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -960,39 +960,39 @@ fn load_nested_list_in_function() {
             ),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::memory(0),
+                    Destination::heap(0),
                     Address::new(0, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(1),
+                    Destination::heap(1),
                     Address::new(1, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(0),
+                    Destination::heap(0),
                     Address::new(0, AddressKind::INTEGER_MEMORY),
                     1,
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(2),
+                    Destination::heap(2),
                     Address::new(2, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(3),
+                    Destination::heap(3),
                     Address::new(3, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(1),
+                    Destination::heap(1),
                     Address::new(2, AddressKind::INTEGER_MEMORY),
                     3,
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::LIST_MEMORY),
                     1,
                     false,
@@ -1037,7 +1037,7 @@ fn load_deeply_nested_list_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -1054,39 +1054,39 @@ fn load_deeply_nested_list_in_function() {
             ),
             instructions: vec![
                 Instruction::load_constant(
-                    Destination::memory(0),
+                    Destination::heap(0),
                     Address::new(0, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(1),
+                    Destination::heap(1),
                     Address::new(1, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(0),
+                    Destination::heap(0),
                     Address::new(0, AddressKind::INTEGER_MEMORY),
                     1,
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(2),
+                    Destination::heap(2),
                     Address::new(2, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(3),
+                    Destination::heap(3),
                     Address::new(3, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(1),
+                    Destination::heap(1),
                     Address::new(2, AddressKind::INTEGER_MEMORY),
                     3,
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(2),
+                    Destination::heap(2),
                     Address::new(0, AddressKind::LIST_MEMORY),
                     1,
                     false,
@@ -1096,39 +1096,39 @@ fn load_deeply_nested_list_in_function() {
                     Address::new(1, AddressKind::LIST_MEMORY),
                 ),
                 Instruction::load_constant(
-                    Destination::memory(4),
+                    Destination::heap(4),
                     Address::new(4, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(5),
+                    Destination::heap(5),
                     Address::new(5, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(3),
+                    Destination::heap(3),
                     Address::new(4, AddressKind::INTEGER_MEMORY),
                     5,
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(6),
+                    Destination::heap(6),
                     Address::new(6, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_constant(
-                    Destination::memory(7),
+                    Destination::heap(7),
                     Address::new(7, AddressKind::INTEGER_CONSTANT),
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(4),
+                    Destination::heap(4),
                     Address::new(6, AddressKind::INTEGER_MEMORY),
                     7,
                     false,
                 ),
                 Instruction::load_list(
-                    Destination::memory(5),
+                    Destination::heap(5),
                     Address::new(3, AddressKind::LIST_MEMORY),
                     4,
                     false,
@@ -1138,7 +1138,7 @@ fn load_deeply_nested_list_in_function() {
                     Address::new(4, AddressKind::LIST_MEMORY),
                 ),
                 Instruction::load_list(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(2, AddressKind::LIST_MEMORY),
                     5,
                     false,
@@ -1191,7 +1191,7 @@ fn load_function_in_function() {
         ),
         instructions: vec![
             Instruction::load_function(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                 false,
             ),
@@ -1206,7 +1206,7 @@ fn load_function_in_function() {
             ),
             instructions: vec![
                 Instruction::load_function(
-                    Destination::register(0),
+                    Destination::stack(0),
                     Address::new(0, AddressKind::FUNCTION_PROTOTYPE),
                     false,
                 ),
@@ -1217,7 +1217,7 @@ fn load_function_in_function() {
                 r#type: FunctionType::new(vec![], vec![], Type::Integer),
                 instructions: vec![
                     Instruction::load_constant(
-                        Destination::register(0),
+                        Destination::stack(0),
                         Address::new(0, AddressKind::INTEGER_CONSTANT),
                         false,
                     ),

@@ -1,17 +1,17 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Address, Instruction, Operation, r#type::TypeKind};
+use crate::r#type::TypeKind;
 
-use super::{Destination, InstructionFields};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct TestSet {
-    pub destination: Destination,
+    pub destination: Address,
     pub comparator: bool,
     pub operand: Address,
 }
 
-impl From<Instruction> for TestSet {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for TestSet {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let comparator = instruction.b_field() != 0;
         let operand = instruction.c_address();
@@ -27,23 +27,23 @@ impl From<Instruction> for TestSet {
 impl From<TestSet> for Instruction {
     fn from(test_set: TestSet) -> Self {
         let operation = Operation::TEST;
-        let Destination {
+        let Address {
             index: a_field,
-            is_register: a_is_register,
+            memory: a_memory_kind,
         } = test_set.destination;
         let b_field = test_set.comparator as u16;
         let Address {
             index: c_field,
-            kind: c_kind,
+            memory: c_memory_kind,
         } = test_set.operand;
 
         InstructionFields {
             operation,
             a_field,
-            a_is_register,
+            a_memory_kind,
             b_field,
             c_field,
-            c_kind,
+            c_memory_kind,
             ..Default::default()
         }
         .build()
@@ -59,8 +59,11 @@ impl Display for TestSet {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}{operand} {{ JUMP +1 }} else {{")?;
+        write!(f, "if {bang}")?;
+        operand.display(f, TypeKind::Boolean)?;
+        write!(f, " {{ JUMP +1 }} else {{")?;
         destination.display(f, TypeKind::Boolean)?;
-        write!(f, " = {operand} }}")
+        write!(f, " = ")?;
+        operand.display(f, TypeKind::Boolean)
     }
 }

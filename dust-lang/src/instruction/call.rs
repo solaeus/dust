@@ -1,24 +1,22 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
+use crate::r#type::TypeKind;
 
-use super::{Address, Destination, InstructionFields, address::AddressKind};
+use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Call {
-    pub destination: Destination,
+    pub destination: Address,
     pub function: Address,
     pub argument_list_index: u16,
-    pub return_type: AddressKind,
+    pub return_type: OperandType,
 }
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function_register = instruction.b_address();
-        let Address {
-            index: argument_list_index,
-            kind: return_type,
-        } = instruction.c_address();
+        let argument_list_index = instruction.c_field();
+        let return_type = instruction.operand_type();
 
         Call {
             destination,
@@ -32,25 +30,26 @@ impl From<&Instruction> for Call {
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
         let operation = Operation::CALL;
-        let Destination {
+        let Address {
             index: a_field,
-            is_register: a_is_register,
+            memory: a_memory_kind,
         } = call.destination;
         let Address {
             index: b_field,
-            kind: b_kind,
+            memory: b_memory_kind,
         } = call.function;
         let c_field = call.argument_list_index;
-        let c_kind = call.return_type;
+        let operand_type = call.return_type;
 
         InstructionFields {
             operation,
             a_field,
-            a_is_register,
+            a_memory_kind,
             b_field,
-            b_kind,
+            b_memory_kind,
             c_field,
-            c_kind,
+            operand_type,
+            ..Default::default()
         }
         .build()
     }
@@ -64,12 +63,36 @@ impl Display for Call {
             argument_list_index,
             return_type,
         } = self;
+        let (function_type, destination_type) = match *return_type {
+            OperandType::FUNCTION_RETURNS_NONE => (TypeKind::Function, TypeKind::None),
+            OperandType::SELF_RETURNS_NONE => (TypeKind::Function, TypeKind::None),
+            OperandType::FUNCTION_RETURNS_BOOLEAN => (TypeKind::Function, TypeKind::Boolean),
+            OperandType::SELF_RETURNS_BOOLEAN => (TypeKind::Function, TypeKind::Boolean),
+            OperandType::FUNCTION_RETURNS_BYTE => (TypeKind::Function, TypeKind::Byte),
+            OperandType::SELF_RETURNS_BYTE => (TypeKind::Function, TypeKind::Byte),
+            OperandType::FUNCTION_RETURNS_CHARACTER => (TypeKind::Function, TypeKind::Character),
+            OperandType::SELF_RETURNS_CHARACTER => (TypeKind::Function, TypeKind::Character),
+            OperandType::FUNCTION_RETURNS_FLOAT => (TypeKind::Function, TypeKind::Float),
+            OperandType::SELF_RETURNS_FLOAT => (TypeKind::Function, TypeKind::Float),
+            OperandType::FUNCTION_RETURNS_INTEGER => (TypeKind::Function, TypeKind::Integer),
+            OperandType::SELF_RETURNS_INTEGER => (TypeKind::Function, TypeKind::Integer),
+            OperandType::FUNCTION_RETURNS_STRING => (TypeKind::Function, TypeKind::String),
+            OperandType::SELF_RETURNS_STRING => (TypeKind::Function, TypeKind::String),
+            OperandType::FUNCTION_RETURNS_LIST => (TypeKind::Function, TypeKind::List),
+            OperandType::SELF_RETURNS_LIST => (TypeKind::Function, TypeKind::List),
+            OperandType::FUNCTION_RETURNS_FUNCTION => (TypeKind::Function, TypeKind::Function),
+            OperandType::SELF_RETURNS_FUNCTION => (TypeKind::FunctionSelf, TypeKind::Function),
+            OperandType::FUNCTION_RETURNS_SELF => (TypeKind::Function, TypeKind::FunctionSelf),
+            OperandType::SELF_RETURNS_SELF => (TypeKind::FunctionSelf, TypeKind::FunctionSelf),
+            _ => return write!(f, "INVALID_CALL_INSTRUCTION"),
+        };
 
-        if return_type != &AddressKind::NONE {
-            destination.display(f, return_type.r#type())?;
+        if destination_type != TypeKind::None {
+            destination.display(f, destination_type)?;
             write!(f, " = ")?;
         }
 
-        write!(f, "{function}(ARGS_{argument_list_index})")
+        function.display(f, function_type)?;
+        write!(f, "(ARGS_{argument_list_index})")
     }
 }

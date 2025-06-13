@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use tracing::{Level, span};
 
 use crate::{Lexer, Span};
 
-use super::{CompileError, Compiler, DEFAULT_REGISTER_COUNT, Item, Module, Path};
+use super::{ChunkCompiler, CompileError, DEFAULT_REGISTER_COUNT, Item, Module, Path};
 
 const STD: &str = r"
 mod io {
@@ -32,10 +34,15 @@ pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileE
     let logging = span!(Level::INFO, "Standard Library");
     let _span_guard = logging.enter();
 
-    let mut std_crate = Module::new();
+    let mut std_module = Module::new();
+    let mut globals = HashMap::new();
     let lexer = Lexer::new(STD);
-    let mut compiler =
-        Compiler::<DEFAULT_REGISTER_COUNT>::new_module(lexer, "std", &mut std_crate)?;
+    let mut compiler = ChunkCompiler::<DEFAULT_REGISTER_COUNT>::new_module(
+        lexer,
+        "std",
+        &mut std_module,
+        &mut globals,
+    )?;
 
     compiler.allow_native_functions = true;
 
@@ -47,7 +54,7 @@ pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileE
 
     dust_crate.items.insert(
         Path::new_borrowed("std").unwrap(),
-        (Item::Module(std_crate), Span(start, end)),
+        (Item::Module(std_module), Span(start, end)),
     );
 
     Ok(())

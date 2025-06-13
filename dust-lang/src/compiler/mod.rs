@@ -20,6 +20,7 @@
 
 mod compile_error;
 mod compile_mode;
+mod global;
 mod item;
 mod module;
 mod parse_rule;
@@ -29,16 +30,18 @@ mod type_checks;
 
 pub use compile_error::CompileError;
 use compile_mode::CompileMode;
+use global::Global;
 pub use item::Item;
 pub use module::{Module, find_item};
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
 pub use standard_library::generate_standard_library;
-use tracing::{Level, debug, error, info, span, trace};
+use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
 use std::{
     collections::{HashMap, HashSet},
+    iter::repeat,
     mem::replace,
     sync::Arc,
 };
@@ -46,7 +49,8 @@ use std::{
 use crate::{
     Address, BlockScope, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction,
     Lexer, Local, NativeFunction, Operation, Span, Token, TokenKind, Type,
-    instruction::{AddressKind, Destination, Jump, LoadFunction, Move},
+    dust_crate::DustCrate,
+    instruction::{Jump, Load, MemoryKind, OperandType},
     r#type::TypeKind,
 };
 
@@ -64,18 +68,12 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
-    let lexer = Lexer::new(source);
-    let mut dust_crate = Module::new();
-    let mut compiler = Compiler::<DEFAULT_REGISTER_COUNT>::new_main(lexer, None, &mut dust_crate)
-        .map_err(|error| DustError::compile(error, source))?;
-
-    compiler
+    let compiler = Compiler::new(source, "main");
+    let dust_crate = compiler
         .compile()
         .map_err(|error| DustError::compile(error, source))?;
 
-    let chunk = compiler.finish();
-
-    Ok(chunk)
+    Ok(dust_crate.main_chunk)
 }
 
 /// The Dust compiler assembles a [`Chunk`] for the Dust VM. Any unrecognized symbols, disallowed
@@ -83,7 +81,51 @@ pub fn compile(source: &str) -> Result<Chunk, DustError> {
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
-pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
+pub struct Compiler<'a> {
+    main_module: Module<'a>,
+    globals: HashMap<DustString, Global>,
+    source: &'a str,
+    program_name: &'a str,
+}
+
+impl<'a> Compiler<'a> {
+    pub fn new(source: &'a str, program_name: &'a str) -> Self {
+        let dust_crate = Module::new();
+        let globals = HashMap::new();
+
+        Self {
+            main_module: dust_crate,
+            globals,
+            source,
+            program_name,
+        }
+    }
+
+    pub fn compile(mut self) -> Result<DustCrate<'a>, CompileError> {
+        generate_standard_library(&mut self.main_module)?;
+
+        let lexer = Lexer::new(self.source);
+        let mut main_chunk_compiler = ChunkCompiler::<DEFAULT_REGISTER_COUNT>::new_main(
+            lexer,
+            Some(self.program_name),
+            &mut self.main_module,
+            &mut self.globals,
+        )?;
+
+        main_chunk_compiler.compile()?;
+
+        let main_chunk = main_chunk_compiler.finish();
+
+        Ok(DustCrate {
+            main_chunk,
+            main_module: self.main_module,
+            cell_count: self.globals.len(),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct ChunkCompiler<'a, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
     mode: CompileMode<'paths>,
@@ -124,8 +166,10 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     /// [`Compiler::finish`] is called. The types are discarded after compilation.
     locals: Vec<Local>,
 
+    globals: &'a mut HashMap<DustString, Global>,
+
     /// Arguments for each function call.
-    arguments: Vec<(Vec<Address>, Vec<Type>)>,
+    arguments: Vec<(Vec<(Address, TypeKind)>, Vec<Type>)>,
 
     minimum_boolean_memory_index: u16,
     minimum_byte_memory_index: u16,
@@ -136,7 +180,7 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     minimum_list_memory_index: u16,
     minimum_function_memory_index: u16,
 
-    reclaimable_memory: Vec<Address>,
+    reclaimable_memory: Vec<(Address, TypeKind)>,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -150,7 +194,7 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     /// are invoked by their full path. It is used to test if an item is in scope.
     current_item_scope: HashSet<Path<'paths>>,
 
-    dust_crate: &'dc mut Module<'paths>,
+    main_module: &'a mut Module<'paths>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
@@ -167,15 +211,16 @@ pub struct Compiler<'dc, 'paths, 'src, const REGISTER_COUNT: usize = DEFAULT_REG
     allow_native_functions: bool,
 }
 
-impl<'dc, 'paths, 'src, const REGISTER_COUNT: usize> Compiler<'dc, 'paths, 'src, REGISTER_COUNT>
+impl<'a, 'paths, 'src, const REGISTER_COUNT: usize> ChunkCompiler<'a, 'paths, 'src, REGISTER_COUNT>
 where
-    'src: 'dc + 'paths,
+    'src: 'a + 'paths,
 {
     /// Creates a new compiler.
     pub fn new_main(
         mut lexer: Lexer<'src>,
         name: Option<&'paths str>,
-        dust_crate: &'dc mut Module<'paths>,
+        main_module: &'a mut Module<'paths>,
+        globals: &'a mut HashMap<DustString, Global>,
     ) -> Result<Self, CompileError> {
         let mode = CompileMode::Main { name };
         let (current_token, current_position) = lexer.next_token()?;
@@ -184,7 +229,7 @@ where
 
         current_item_scope.insert(path);
 
-        Ok(Compiler {
+        Ok(ChunkCompiler {
             mode,
             r#type: FunctionType::default(),
             instructions: Vec::new(),
@@ -193,6 +238,7 @@ where
             integer_constants: Vec::new(),
             string_constants: Vec::new(),
             locals: Vec::new(),
+            globals,
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
@@ -208,7 +254,7 @@ where
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
-            dust_crate,
+            main_module,
             prototype_index: 0,
             current_token,
             current_position,
@@ -224,12 +270,13 @@ where
         mut lexer: Lexer<'src>,
         name: Option<&'paths str>,
         item_scope: HashSet<Path<'paths>>,
-        dust_crate: &'dc mut Module<'paths>,
+        main_module: &'a mut Module<'paths>,
+        globals: &'a mut HashMap<DustString, Global>,
     ) -> Result<Self, CompileError> {
         let mode = CompileMode::Function { name };
         let (current_token, current_position) = lexer.next_token()?;
 
-        Ok(Compiler {
+        Ok(ChunkCompiler {
             mode,
             r#type: FunctionType::default(),
             instructions: Vec::new(),
@@ -238,6 +285,7 @@ where
             integer_constants: Vec::new(),
             string_constants: Vec::new(),
             locals: Vec::new(),
+            globals,
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
@@ -253,7 +301,7 @@ where
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope: item_scope,
-            dust_crate,
+            main_module,
             prototype_index: 0,
             current_token,
             current_position,
@@ -268,7 +316,8 @@ where
     pub fn new_module(
         mut lexer: Lexer<'src>,
         name: &'paths str,
-        dust_crate: &'dc mut Module<'paths>,
+        main_module: &'a mut Module<'paths>,
+        globals: &'a mut HashMap<DustString, Global>,
     ) -> Result<Self, CompileError> {
         let mode = CompileMode::Module {
             name,
@@ -279,7 +328,7 @@ where
 
         current_item_scope.insert(Path::new_borrowed(name).unwrap());
 
-        Ok(Compiler {
+        Ok(ChunkCompiler {
             mode,
             r#type: FunctionType::default(),
             instructions: Vec::new(),
@@ -288,6 +337,7 @@ where
             integer_constants: Vec::new(),
             string_constants: Vec::new(),
             locals: Vec::new(),
+            globals,
             prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
@@ -303,7 +353,7 @@ where
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope,
-            dust_crate,
+            main_module,
             prototype_index: 0,
             current_token,
             current_position,
@@ -319,7 +369,7 @@ where
     /// [`CompileError`] if any are found. After calling this function, check its return value for
     /// an error, then call [`Compiler::finish`] to get the compiled chunk.
     pub fn compile(&mut self) -> Result<(), CompileError> {
-        for (top_level_path, (_, _)) in self.dust_crate.items.iter() {
+        for (top_level_path, (_, _)) in self.main_module.items.iter() {
             self.current_item_scope.insert(top_level_path.clone());
         }
 
@@ -333,7 +383,7 @@ where
             self.parse_items()?;
 
             if let CompileMode::Module { module, .. } = &mut self.mode {
-                self.dust_crate.items.extend(module.items.drain());
+                self.main_module.items.extend(module.items.drain());
             }
 
             return Ok(());
@@ -352,7 +402,7 @@ where
         self.optimize_instructions();
 
         if self.instructions.is_empty() {
-            let r#return = Instruction::r#return(false, Address::default());
+            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
@@ -458,26 +508,23 @@ where
 
         // Increases the rank of the given address by 1 to indicate that it was used. If the
         // address has no existing rank, it is inserted in sorted order with a rank of 0.
-        let mut increment_rank = |address: Address, increment: usize| {
-            if address.is_constant() {
+        let mut increment_rank = |address: Address, r#type: OperandType, increment: usize| {
+            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) {
                 return;
             }
 
-            let address_rankings = match address.r#type() {
-                TypeKind::Boolean => &mut boolean_address_rankings,
-                TypeKind::Byte => &mut byte_address_rankings,
-                TypeKind::Character => &mut character_address_rankings,
-                TypeKind::Float => &mut float_address_rankings,
-                TypeKind::Integer => &mut integer_address_rankings,
-                TypeKind::String => &mut string_address_rankings,
-                TypeKind::List => &mut list_address_rankings,
-                TypeKind::Function => &mut function_address_rankings,
-                TypeKind::None => return,
-                invalid => {
-                    error!("Malformed instruction is using type {invalid:?}");
-
-                    return;
-                }
+            let address_rankings = match r#type {
+                OperandType::BOOLEAN => &mut boolean_address_rankings,
+                OperandType::BYTE => &mut byte_address_rankings,
+                OperandType::CHARACTER => &mut character_address_rankings,
+                OperandType::FLOAT => &mut float_address_rankings,
+                OperandType::INTEGER => &mut integer_address_rankings,
+                OperandType::STRING
+                | OperandType::CHARACTER_STRING
+                | OperandType::STRING_CHARACTER => &mut string_address_rankings,
+                OperandType::LIST => &mut list_address_rankings,
+                OperandType::FUNCTION => &mut function_address_rankings,
+                _ => unreachable!(),
             };
 
             match address_rankings.binary_search_by_key(&address, |(_, address)| *address) {
@@ -491,7 +538,7 @@ where
             }
         };
         let mut disqualify = |address: Address| {
-            if address.is_constant() {
+            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) {
                 return;
             }
 
@@ -499,103 +546,135 @@ where
         };
 
         for (instruction, _, _) in &self.instructions {
-            let destination_address = instruction.destination_as_address();
+            let destination_address = instruction.destination();
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
+            let r#type = instruction.operand_type();
 
             match instruction.operation() {
-                Operation::MOVE => {
-                    increment_rank(destination_address, 1);
-                    increment_rank(b_address, 1);
-                }
                 Operation::CLOSE => {
                     for index in b_address.index..=c_address.index {
-                        let address = Address::new(index, b_address.kind);
+                        let address = Address::new(index, b_address.memory);
 
                         disqualify(address);
                     }
                 }
-                Operation::LOAD_ENCODED
-                | Operation::LOAD_CONSTANT
-                | Operation::LOAD_FUNCTION
-                | Operation::CALL_NATIVE => {
-                    increment_rank(destination_address, 1);
+                Operation::LOAD => {
+                    increment_rank(destination_address, r#type, 1);
+                    increment_rank(b_address, r#type, 1);
                 }
-                Operation::LOAD_LIST => {
-                    increment_rank(destination_address, 1);
-
-                    for index in b_address.index..=c_address.index {
-                        let address = Address::new(index, b_address.kind);
-
-                        disqualify(address);
-                    }
+                Operation::CALL_NATIVE => {
+                    increment_rank(destination_address, r#type, 2);
                 }
                 Operation::ADD
                 | Operation::SUBTRACT
                 | Operation::MULTIPLY
                 | Operation::DIVIDE
                 | Operation::MODULO => {
-                    increment_rank(destination_address, 2);
-                    increment_rank(b_address, 2);
-                    increment_rank(c_address, 2);
+                    increment_rank(destination_address, r#type, 2);
+                    increment_rank(b_address, r#type, 2);
+                    increment_rank(c_address, r#type, 2);
                 }
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
-                    increment_rank(b_address, 2);
-                    increment_rank(c_address, 2);
+                    increment_rank(b_address, r#type, 2);
+                    increment_rank(c_address, r#type, 2);
                 }
                 Operation::TEST | Operation::RETURN => {
-                    increment_rank(b_address, 2);
+                    increment_rank(b_address, r#type, 2);
                 }
-                Operation::NEGATE | Operation::NOT | Operation::CALL => {
-                    increment_rank(destination_address, 2);
-                    increment_rank(b_address, 2);
+                Operation::NEGATE | Operation::CALL => {
+                    increment_rank(destination_address, r#type, 2);
+                    increment_rank(b_address, r#type, 2);
                 }
                 _ => {}
             }
         }
 
         for (values, _) in &self.arguments {
-            for address in values {
-                increment_rank(*address, 1);
+            for (address, r#type) in values {
+                let operand_type = match r#type {
+                    TypeKind::Boolean => OperandType::BOOLEAN,
+                    TypeKind::Byte => OperandType::BYTE,
+                    TypeKind::Character => OperandType::CHARACTER,
+                    TypeKind::Float => OperandType::FLOAT,
+                    TypeKind::Integer => OperandType::INTEGER,
+                    TypeKind::String => OperandType::STRING,
+                    TypeKind::List => OperandType::LIST,
+                    TypeKind::Function => OperandType::FUNCTION,
+                    _ => continue,
+                };
+
+                increment_rank(*address, operand_type, 2);
             }
         }
 
         // A map in which the keys are addresses that need to be replaced and the values are their
         // intended replacements.
         let mut replacements = HashMap::new();
-        let get_top_ranks_with_registers = |address_rankings: Vec<(usize, Address)>| {
-            address_rankings
-                .into_iter()
-                .filter(|(_, address)| !disqualified.contains(address))
-                .take(REGISTER_COUNT)
-                .zip(0..)
-        };
+        let get_top_ranks_with_registers =
+            |address_rankings: Vec<(usize, Address)>, r#type: TypeKind| {
+                address_rankings
+                    .into_iter()
+                    .zip(repeat(r#type))
+                    .filter_map(|((rank, address), r#type)| {
+                        if !disqualified.contains(&address) {
+                            Some((rank, address, r#type.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .take(REGISTER_COUNT)
+                    .zip(0..)
+            };
 
-        for ((rank, old_address), register_index) in
-            get_top_ranks_with_registers(boolean_address_rankings)
-                .chain(get_top_ranks_with_registers(byte_address_rankings))
-                .chain(get_top_ranks_with_registers(character_address_rankings))
-                .chain(get_top_ranks_with_registers(float_address_rankings))
-                .chain(get_top_ranks_with_registers(integer_address_rankings))
-                .chain(get_top_ranks_with_registers(string_address_rankings))
-                .chain(get_top_ranks_with_registers(list_address_rankings))
-                .chain(get_top_ranks_with_registers(function_address_rankings))
+        for ((rank, old_address, r#type), register_index) in
+            get_top_ranks_with_registers(boolean_address_rankings, TypeKind::Boolean)
+                .chain(get_top_ranks_with_registers(
+                    byte_address_rankings,
+                    TypeKind::Byte,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    character_address_rankings,
+                    TypeKind::Character,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    float_address_rankings,
+                    TypeKind::Float,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    integer_address_rankings,
+                    TypeKind::Integer,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    string_address_rankings,
+                    TypeKind::String,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    list_address_rankings,
+                    TypeKind::List,
+                ))
+                .chain(get_top_ranks_with_registers(
+                    function_address_rankings,
+                    TypeKind::Function,
+                ))
         {
-            let new_address = match old_address.r#type() {
-                TypeKind::Boolean => Address::new(register_index, AddressKind::BOOLEAN_REGISTER),
-                TypeKind::Byte => Address::new(register_index, AddressKind::BYTE_REGISTER),
-                TypeKind::Character => {
-                    Address::new(old_address.index, AddressKind::CHARACTER_REGISTER)
-                }
-                TypeKind::Float => Address::new(register_index, AddressKind::FLOAT_REGISTER),
-                TypeKind::Integer => Address::new(register_index, AddressKind::INTEGER_REGISTER),
-                TypeKind::String => Address::new(register_index, AddressKind::STRING_REGISTER),
-                TypeKind::List => Address::new(register_index, AddressKind::LIST_REGISTER),
-                TypeKind::Function => Address::new(register_index, AddressKind::FUNCTION_REGISTER),
+            let new_address = match r#type {
+                TypeKind::Boolean => Address::stack(register_index),
+                TypeKind::Byte => Address::stack(register_index),
+                TypeKind::Character => Address::stack(old_address.index),
+                TypeKind::Float => Address::stack(register_index),
+                TypeKind::Integer => Address::stack(register_index),
+                TypeKind::String => Address::stack(register_index),
+                TypeKind::List => Address::stack(register_index),
+                TypeKind::Function => Address::stack(register_index),
                 _ => todo!(),
             };
 
-            trace!("{old_address} -> {new_address} Usage Rank: {rank}");
+            trace!(
+                "{old_address} -> {new_address} Usage Rank: {rank}",
+                old_address = old_address.to_string(r#type),
+                new_address = new_address.to_string(r#type),
+            );
 
             replacements.insert(old_address, new_address);
         }
@@ -606,13 +685,13 @@ where
         );
 
         for (instruction, _, _) in &mut self.instructions {
-            let destination_address = instruction.destination_as_address();
+            let destination = instruction.destination();
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
 
             match instruction.operation() {
-                Operation::MOVE | Operation::NEGATE | Operation::NOT | Operation::CALL => {
-                    if let Some(replacement) = replacements.get(&destination_address) {
+                Operation::NEGATE | Operation::CALL => {
+                    if let Some(replacement) = replacements.get(&destination) {
                         instruction.set_destination(*replacement);
                     }
 
@@ -620,12 +699,8 @@ where
                         instruction.set_b_address(*replacement);
                     }
                 }
-                Operation::LOAD_ENCODED
-                | Operation::LOAD_CONSTANT
-                | Operation::LOAD_LIST
-                | Operation::LOAD_FUNCTION
-                | Operation::CALL_NATIVE => {
-                    if let Some(replacement) = replacements.get(&destination_address) {
+                Operation::LOAD | Operation::CALL_NATIVE => {
+                    if let Some(replacement) = replacements.get(&destination) {
                         instruction.set_destination(*replacement);
                     }
                 }
@@ -634,7 +709,7 @@ where
                 | Operation::MULTIPLY
                 | Operation::DIVIDE
                 | Operation::MODULO => {
-                    if let Some(replacement) = replacements.get(&destination_address) {
+                    if let Some(replacement) = replacements.get(&destination) {
                         instruction.set_destination(*replacement);
                     }
 
@@ -671,7 +746,7 @@ where
         }
 
         for arguments in &mut self.arguments {
-            for address in &mut arguments.0 {
+            for (address, _) in &mut arguments.0 {
                 if let Some(replacement) = replacements.get(address) {
                     *address = *replacement;
                 }
@@ -683,16 +758,18 @@ where
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_boolean_memory_index(&mut self) -> u16 {
+    fn next_boolean_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::BOOLEAN_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Boolean);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming boolean memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -710,16 +787,18 @@ where
         )
     }
 
-    fn next_byte_memory_index(&mut self) -> u16 {
+    fn next_byte_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::BYTE_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Byte);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming byte memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -741,12 +820,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::CHARACTER_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Character);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming character memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -768,12 +849,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::FLOAT_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Float);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming float memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -795,12 +878,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::INTEGER_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Integer);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming integer memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -822,12 +907,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::STRING_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::String);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming string memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -849,12 +936,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::LIST_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::List);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming list memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -876,12 +965,14 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|address| address.kind == AddressKind::FUNCTION_MEMORY);
+            .position(|(_, r#type)| *r#type == TypeKind::Function);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming function memory at index {index}");
 
-            return self.reclaimable_memory.remove(index).index;
+            let (address, _) = self.reclaimable_memory.remove(index);
+
+            return address.index;
         }
 
         self.instructions.iter().fold(
@@ -919,35 +1010,13 @@ where
         Ok(())
     }
 
-    /// Returns the local with the given index.
-    fn get_local(&self, index: u16) -> Result<&Local, CompileError> {
-        self.locals
-            .get(index as usize)
-            .ok_or(CompileError::UndeclaredVariable {
-                identifier: format!("#{index}"),
-                position: self.current_position,
-            })
-    }
-
-    /// Returns the index of the local with the given identifier.
-    fn get_local_index(&self, identifier_text: &str) -> Result<u16, CompileError> {
-        self.locals
-            .iter()
-            .enumerate()
-            .rev()
-            .find_map(|(index, local)| {
-                let identifier = self.string_constants.get(local.identifier_index as usize)?;
-
-                if identifier == identifier_text {
-                    Some(index as u16)
-                } else {
-                    None
-                }
-            })
-            .ok_or(CompileError::UndeclaredVariable {
-                identifier: identifier_text.to_string(),
-                position: self.current_position,
-            })
+    /// Returns the local with the given identifier.
+    fn get_local(&self, identifier: &str) -> Option<&Local> {
+        self.locals.iter().find(|local| {
+            self.string_constants
+                .get(local.identifier_index as usize)
+                .is_some_and(|string| string == identifier)
+        })
     }
 
     /// Adds a new local to `self.locals` and returns a tuple holding the index of the new local and
@@ -989,12 +1058,16 @@ where
         (local_index, identifier_index)
     }
 
-    fn get_identifier(&self, local_index: u16) -> Option<String> {
-        self.locals.get(local_index as usize).and_then(|local| {
-            self.string_constants
-                .get(local.identifier_index as usize)
-                .map(|value| value.to_string())
-        })
+    fn declare_global(&mut self, identifier: &str, r#type: Type, is_mutable: bool) -> u16 {
+        info!("Declaring global {identifier}");
+
+        let identifier = DustString::from(identifier);
+        let cell_index = self.globals.len() as u16;
+
+        self.globals
+            .insert(identifier, Global::new(cell_index, r#type, is_mutable));
+
+        cell_index
     }
 
     fn push_or_get_constant_character(&mut self, character: char) -> u16 {
@@ -1147,15 +1220,11 @@ where
             self.advance()?;
 
             let boolean = self.parse_boolean_value(text);
-            let destination = Destination::memory(self.next_boolean_memory_index());
-            let load_encoded = Instruction::load_encoded(
-                destination,
-                boolean as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            );
+            let destination = Address::heap(self.next_boolean_heap_index());
+            let operand = Address::new(boolean as u16, MemoryKind::default());
+            let load = Instruction::load(destination, operand, OperandType::BOOLEAN, false);
 
-            self.emit_instruction(load_encoded, Type::Boolean, position);
+            self.emit_instruction(load, Type::Boolean, position);
 
             Ok(())
         } else {
@@ -1178,13 +1247,9 @@ where
             self.advance()?;
 
             let byte = self.parse_byte_value(text)?;
-            let destination = Destination::memory(self.next_byte_memory_index());
-            let load_encoded = Instruction::load_encoded(
-                destination,
-                byte as u16,
-                AddressKind::BYTE_MEMORY,
-                false,
-            );
+            let destination = Address::heap(self.next_byte_heap_index());
+            let operand = Address::new(byte as u16, MemoryKind::default());
+            let load_encoded = Instruction::load(destination, operand, OperandType::BYTE, false);
 
             self.emit_instruction(load_encoded, Type::Byte, position);
 
@@ -1225,9 +1290,10 @@ where
 
                 index
             };
-            let load_constant = Instruction::load_constant(
-                Destination::memory(destination),
-                Address::new(constant_index, AddressKind::CHARACTER_CONSTANT),
+            let load_constant = Instruction::load(
+                Address::heap(destination),
+                Address::constant(constant_index),
+                OperandType::CHARACTER,
                 false,
             );
 
@@ -1264,9 +1330,10 @@ where
 
                 index
             };
-            let load_constant = Instruction::load_constant(
-                Destination::memory(destination),
-                Address::new(constant_index, AddressKind::FLOAT_CONSTANT),
+            let load_constant = Instruction::load(
+                Address::heap(destination),
+                Address::constant(constant_index),
+                OperandType::FLOAT,
                 false,
             );
 
@@ -1311,9 +1378,10 @@ where
                 index
             };
             let destination = self.next_integer_memory_index();
-            let load_constant = Instruction::load_constant(
-                Destination::memory(destination),
-                Address::new(constant_index, AddressKind::INTEGER_CONSTANT),
+            let load_constant = Instruction::load(
+                Address::heap(destination),
+                Address::constant(constant_index),
+                OperandType::INTEGER,
                 false,
             );
 
@@ -1375,9 +1443,10 @@ where
                 index
             };
             let destination = self.next_string_memory_index();
-            let load_constant = Instruction::load_constant(
-                Destination::memory(destination),
-                Address::new(constant_index, AddressKind::STRING_CONSTANT),
+            let load_constant = Instruction::load(
+                Address::heap(destination),
+                Address::constant(constant_index),
+                OperandType::STRING,
                 false,
             );
 
@@ -1421,7 +1490,7 @@ where
         }
 
         let destination_index = match previous_type {
-            Type::Boolean => self.next_boolean_memory_index(),
+            Type::Boolean => self.next_boolean_heap_index(),
             Type::Float => self.next_float_memory_index(),
             Type::Integer => self.next_integer_memory_index(),
             _ => match operator {
@@ -1446,10 +1515,19 @@ where
                 }
             },
         };
-        let destination = Destination::memory(destination_index);
+        let destination = Address::heap(destination_index);
         let instruction = match operator {
-            Token::Bang => Instruction::not(destination, address),
-            Token::Minus => Instruction::negate(destination, address),
+            Token::Bang => Instruction::negate(destination, address, OperandType::BOOLEAN),
+            Token::Minus => {
+                let operand_type = match previous_type {
+                    Type::Byte => OperandType::BYTE,
+                    Type::Float => OperandType::FLOAT,
+                    Type::Integer => OperandType::INTEGER,
+                    _ => todo!("Emit type error"),
+                };
+
+                Instruction::negate(destination, address, operand_type)
+            }
             _ => unreachable!(
                 "If used correctly, the pratt parsing algorithm should make this impossible."
             ),
@@ -1464,10 +1542,9 @@ where
     /// boolean indicating whether the instruction should be pushed back onto the instruction list.
     /// If `false`, the address makes the instruction irrelevant.
     fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Address, bool) {
-        let address = instruction.as_address();
+        let address = instruction.destination();
         let push_back = match instruction.operation() {
-            Operation::LOAD_ENCODED
-            | Operation::LOAD_LIST
+            Operation::LOAD
             | Operation::CALL
             | Operation::CALL_NATIVE
             | Operation::ADD
@@ -1475,7 +1552,7 @@ where
             | Operation::MULTIPLY
             | Operation::DIVIDE
             | Operation::MODULO
-            | Operation::NOT => true,
+            | Operation::NEGATE => true,
             _ => !instruction.yields_value(),
         };
 
@@ -1492,16 +1569,42 @@ where
                 })?;
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
 
-        let left_is_mutable_local = if left_instruction.operation() == Operation::MOVE {
-            let Move { operand: from, .. } = Move::from(&left_instruction);
+        let left_is_mutable_variable = match left_instruction.operation() {
+            Operation::LOAD => {
+                let Load {
+                    destination,
+                    operand,
+                    r#type,
+                    ..
+                } = Load::from(&left_instruction);
 
-            self.locals
-                .iter()
-                .find(|local| local.address == from)
-                .map(|local| local.is_mutable)
-                .unwrap_or(false)
-        } else {
-            false
+                if operand.memory == MemoryKind::HEAP {
+                    self.locals
+                        .iter()
+                        .find_map(|local| {
+                            if local.address == operand {
+                                Some(local.is_mutable)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(false)
+                } else if operand.memory == MemoryKind::CELL {
+                    self.globals
+                        .values()
+                        .find_map(|global| {
+                            if global.cell_index == operand.index {
+                                Some(global.is_mutable)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            }
+            _ => false,
         };
 
         if push_back_left {
@@ -1523,7 +1626,7 @@ where
 
         check_math_type(&left_type, operator, &left_position)?;
 
-        if is_assignment && !left_is_mutable_local {
+        if is_assignment && !left_is_mutable_variable {
             return Err(CompileError::ExpectedMutableVariable {
                 found: self.previous_token.to_owned(),
                 position: left_position,
@@ -1565,8 +1668,7 @@ where
             left.index
         } else {
             match left_type {
-                Type::Boolean => self.next_boolean_memory_index(),
-                Type::Byte => self.next_byte_memory_index(),
+                Type::Byte => self.next_byte_heap_index(),
                 Type::Character => self.next_string_memory_index(),
                 Type::Float => self.next_float_memory_index(),
                 Type::Integer => self.next_integer_memory_index(),
@@ -1574,13 +1676,39 @@ where
                 _ => unreachable!(),
             }
         };
-        let destination = Destination::memory(destination_index);
+        let destination = Address::heap(destination_index);
+        let operand_type = match left_type {
+            Type::Byte => OperandType::BYTE,
+            Type::Character => match right_type {
+                Type::Character => OperandType::CHARACTER,
+                Type::String => OperandType::CHARACTER_STRING,
+                _ => unreachable!(),
+            },
+            Type::Float => OperandType::FLOAT,
+            Type::Integer => OperandType::INTEGER,
+            Type::String => match right_type {
+                Type::Character => OperandType::CHARACTER_STRING,
+                Type::String => OperandType::STRING,
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        };
         let instruction = match operator {
-            Token::Plus | Token::PlusEqual => Instruction::add(destination, left, right),
-            Token::Minus | Token::MinusEqual => Instruction::subtract(destination, left, right),
-            Token::Star | Token::StarEqual => Instruction::multiply(destination, left, right),
-            Token::Slash | Token::SlashEqual => Instruction::divide(destination, left, right),
-            Token::Percent | Token::PercentEqual => Instruction::modulo(destination, left, right),
+            Token::Plus | Token::PlusEqual => {
+                Instruction::add(destination, left, right, operand_type)
+            }
+            Token::Minus | Token::MinusEqual => {
+                Instruction::subtract(destination, left, right, operand_type)
+            }
+            Token::Star | Token::StarEqual => {
+                Instruction::multiply(destination, left, right, operand_type)
+            }
+            Token::Slash | Token::SlashEqual => {
+                Instruction::divide(destination, left, right, operand_type)
+            }
+            Token::Percent | Token::PercentEqual => {
+                Instruction::modulo(destination, left, right, operand_type)
+            }
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1695,8 +1823,8 @@ where
             }
         };
         let jump = Instruction::jump(1, true);
-        let destination_index = self.next_boolean_memory_index();
-        let destination = Destination::memory(destination_index);
+        let destination_index = self.next_boolean_heap_index();
+        let destination = Address::heap(destination_index);
         let load_true =
             Instruction::load_encoded(destination, true as u16, AddressKind::BOOLEAN_MEMORY, true);
         let load_false = Instruction::load_encoded(
@@ -1845,12 +1973,10 @@ where
             })?;
 
         let (variable_address, variable_type, is_mutable) = {
-            if let Ok(local_index) = self.get_local_index(identifier) {
-                let local = self.get_local(local_index)?;
-
+            if let Some(local) = self.get_local(identifier) {
                 if !self.current_block_scope.contains(&local.scope) {
                     return Err(CompileError::VariableOutOfScope {
-                        identifier: self.get_identifier(local_index).unwrap(),
+                        identifier: identifier.to_string(),
                         position: start_position,
                         variable_scope: local.scope,
                         access_scope: self.current_block_scope,
@@ -1858,7 +1984,45 @@ where
                 }
 
                 (local.address, local.r#type.clone(), local.is_mutable)
-            } else if let Some((item, item_position)) = find_item!(variable_path, &*self.dust_crate)
+            } else if let Some(global) = self.globals.get(identifier).cloned() {
+                let Global {
+                    cell_index,
+                    r#type,
+                    is_mutable,
+                } = global;
+                let (destination_index, type_as_address_kind) = match r#type.kind() {
+                    TypeKind::Boolean => {
+                        (self.next_boolean_heap_index(), AddressKind::BOOLEAN_MEMORY)
+                    }
+                    TypeKind::Byte => (self.next_byte_heap_index(), AddressKind::BYTE_MEMORY),
+                    TypeKind::Character => (
+                        self.next_character_memory_index(),
+                        AddressKind::CHARACTER_MEMORY,
+                    ),
+                    TypeKind::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
+                    TypeKind::Integer => (
+                        self.next_integer_memory_index(),
+                        AddressKind::INTEGER_MEMORY,
+                    ),
+                    TypeKind::String => {
+                        (self.next_string_memory_index(), AddressKind::STRING_MEMORY)
+                    }
+                    TypeKind::List => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
+                    TypeKind::Function => (
+                        self.next_function_memory_index(),
+                        AddressKind::FUNCTION_MEMORY,
+                    ),
+                    _ => todo!(),
+                };
+                let destination = Address::heap(destination_index);
+                let load_cell =
+                    Instruction::load_cell(destination, cell_index, type_as_address_kind, false);
+
+                self.emit_instruction(load_cell, r#type, start_position);
+
+                return Ok(());
+            } else if let Some((item, item_position)) =
+                find_item!(variable_path, &*self.main_module)
             {
                 let item_type = match item {
                     Item::Constant(ref value) => value.r#type(),
@@ -1877,7 +2041,7 @@ where
             } else if let CompileMode::Function { name } = &self.mode {
                 if name.as_deref() == Some(identifier) {
                     let destination_index = self.next_function_memory_index();
-                    let destination = Destination::memory(destination_index);
+                    let destination = Address::heap(destination_index);
                     let load_self = Instruction::load_function(
                         destination,
                         Address::new(0, AddressKind::FUNCTION_SELF),
@@ -1933,8 +2097,8 @@ where
         }
 
         let destination_index = match variable_address.r#type() {
-            TypeKind::Boolean => self.next_boolean_memory_index(),
-            TypeKind::Byte => self.next_byte_memory_index(),
+            TypeKind::Boolean => self.next_boolean_heap_index(),
+            TypeKind::Byte => self.next_byte_heap_index(),
             TypeKind::Character => self.next_character_memory_index(),
             TypeKind::Float => self.next_float_memory_index(),
             TypeKind::Integer => self.next_integer_memory_index(),
@@ -1943,7 +2107,7 @@ where
             TypeKind::Function => self.next_function_memory_index(),
             _ => todo!(),
         };
-        let r#move = Instruction::r#move(Destination::memory(destination_index), variable_address);
+        let r#move = Instruction::r#move(Address::heap(destination_index), variable_address);
 
         self.emit_instruction(r#move, variable_type, self.previous_position);
 
@@ -2031,8 +2195,8 @@ where
 
         let starting_scope = self.current_block_scope;
         let starting_block = self.current_block_scope.block_index;
-        let start_boolean_memory_index = self.next_boolean_memory_index();
-        let start_byte_memory_index = self.next_byte_memory_index();
+        let start_boolean_memory_index = self.next_boolean_heap_index();
+        let start_byte_memory_index = self.next_byte_heap_index();
         let start_character_memory_index = self.next_character_memory_index();
         let start_float_memory_index = self.next_float_memory_index();
         let start_integer_memory_index = self.next_integer_memory_index();
@@ -2047,8 +2211,8 @@ where
             self.parse(Precedence::None)?;
         }
 
-        let end_boolean_memory_index = self.next_boolean_memory_index();
-        let end_byte_memory_index = self.next_byte_memory_index();
+        let end_boolean_memory_index = self.next_boolean_heap_index();
+        let end_byte_memory_index = self.next_byte_heap_index();
         let end_character_memory_index = self.next_character_memory_index();
         let end_float_memory_index = self.next_float_memory_index();
         let end_integer_memory_index = self.next_integer_memory_index();
@@ -2125,8 +2289,8 @@ where
         let mut start_register = None;
 
         while !self.allow(Token::RightBracket)? {
-            let start_boolean_address = self.next_boolean_memory_index();
-            let start_byte_address = self.next_byte_memory_index();
+            let start_boolean_address = self.next_boolean_heap_index();
+            let start_byte_address = self.next_byte_heap_index();
             let start_character_address = self.next_character_memory_index();
             let start_float_address = self.next_float_memory_index();
             let start_integer_address = self.next_integer_memory_index();
@@ -2149,8 +2313,8 @@ where
                 start_register = Some(first_index);
             }
 
-            let end_boolean_address = self.next_boolean_memory_index();
-            let end_byte_address = self.next_byte_memory_index();
+            let end_boolean_address = self.next_boolean_heap_index();
+            let end_byte_address = self.next_byte_heap_index();
             let end_character_address = self.next_character_memory_index();
             let end_float_address = self.next_float_memory_index();
             let end_integer_address = self.next_integer_memory_index();
@@ -2228,11 +2392,11 @@ where
         let end = self.previous_position.1;
         let (end_register, address_kind) = match item_type {
             Type::Boolean => (
-                self.next_boolean_memory_index().saturating_sub(1),
+                self.next_boolean_heap_index().saturating_sub(1),
                 AddressKind::BOOLEAN_MEMORY,
             ),
             Type::Byte => (
-                self.next_byte_memory_index().saturating_sub(1),
+                self.next_byte_heap_index().saturating_sub(1),
                 AddressKind::BYTE_MEMORY,
             ),
             Type::Character => (
@@ -2259,7 +2423,7 @@ where
         };
         let destination_index = self.next_list_memory_index();
         let load_list = Instruction::load_list(
-            Destination::memory(destination_index),
+            Address::heap(destination_index),
             Address::new(start_register.unwrap_or(0), address_kind),
             end_register,
             false,
@@ -2299,7 +2463,7 @@ where
             self.instructions.pop();
         } else {
             let address_index = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_memory_index() - 1,
+                Type::Boolean => self.next_boolean_heap_index() - 1,
                 _ => {
                     return Err(CompileError::ExpectedBoolean {
                         found: self.previous_token.to_owned(),
@@ -2443,8 +2607,8 @@ where
             self.instructions.pop();
         } else {
             let address_index = match self.get_last_instruction_type() {
-                Type::Boolean => self.next_boolean_memory_index() - 1,
-                Type::Byte => self.next_byte_memory_index() - 1,
+                Type::Boolean => self.next_boolean_heap_index() - 1,
+                Type::Byte => self.next_byte_heap_index() - 1,
                 Type::Character => self.next_character_memory_index() - 1,
                 Type::Float => self.next_float_memory_index() - 1,
                 Type::Integer => self.next_integer_memory_index() - 1,
@@ -2532,13 +2696,10 @@ where
                 let expression_type = self.get_last_instruction_type();
                 let (return_register, address_kind) = match expression_type {
                     Type::Boolean => (
-                        self.next_boolean_memory_index() - 1,
+                        self.next_boolean_heap_index() - 1,
                         AddressKind::BOOLEAN_MEMORY,
                     ),
-                    Type::Byte => (
-                        self.next_byte_memory_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
+                    Type::Byte => (self.next_byte_heap_index() - 1, AddressKind::BOOLEAN_MEMORY),
                     Type::Character => (
                         self.next_character_memory_index() - 1,
                         AddressKind::BOOLEAN_MEMORY,
@@ -2670,7 +2831,7 @@ where
         self.advance()?;
 
         let is_mutable = self.allow(Token::Mut)?;
-        let position = self.current_position;
+        let is_cell = self.allow(Token::Cell)?;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
@@ -2679,7 +2840,7 @@ where
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: self.current_token.to_owned(),
-                position,
+                position: self.current_position,
             });
         };
         let explicit_type_and_position = if self.allow(Token::Colon)? {
@@ -2723,13 +2884,17 @@ where
         let address = last_instruction.destination_as_address();
         *last_instruction_type = Type::None;
 
-        self.declare_local(
-            identifier,
-            address,
-            r#type,
-            is_mutable,
-            self.current_block_scope,
-        );
+        if is_cell {
+            self.declare_global(identifier, r#type, is_mutable);
+        } else {
+            self.declare_local(
+                identifier,
+                address,
+                r#type,
+                is_mutable,
+                self.current_block_scope,
+            );
+        }
 
         Ok(())
     }
@@ -2748,11 +2913,12 @@ where
         };
 
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
-            let mut compiler = Compiler::<REGISTER_COUNT>::new_function(
+            let mut compiler = ChunkCompiler::<REGISTER_COUNT>::new_function(
                 self.lexer,
                 identifier,
                 self.current_item_scope.clone(),
-                self.dust_crate,
+                self.main_module,
+                self.globals,
             )?; // This will consume the parenthesis
 
             compiler.prototype_index = self.prototypes.len() as u16;
@@ -2789,11 +2955,11 @@ where
 
             let (local_memory_index, address_kind) = match r#type {
                 Type::Boolean => (
-                    function_compiler.next_boolean_memory_index(),
+                    function_compiler.next_boolean_heap_index(),
                     AddressKind::BOOLEAN_MEMORY,
                 ),
                 Type::Byte => (
-                    function_compiler.next_byte_memory_index(),
+                    function_compiler.next_byte_heap_index(),
                     AddressKind::BYTE_MEMORY,
                 ),
                 Type::Character => (
@@ -2859,7 +3025,7 @@ where
         let memory_index = self.next_function_memory_index();
         let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
         let load_function = Instruction::load_function(
-            Destination::memory(memory_index),
+            Address::heap(memory_index),
             Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
             false,
         );
@@ -2938,11 +3104,8 @@ where
         let end = self.current_position.1;
         let (destination_index, return_type_as_address_kind) = match function_return_type {
             Type::None => (0, AddressKind::NONE),
-            Type::Boolean => (
-                self.next_boolean_memory_index(),
-                AddressKind::BOOLEAN_MEMORY,
-            ),
-            Type::Byte => (self.next_byte_memory_index(), AddressKind::BYTE_MEMORY),
+            Type::Boolean => (self.next_boolean_heap_index(), AddressKind::BOOLEAN_MEMORY),
+            Type::Byte => (self.next_byte_heap_index(), AddressKind::BYTE_MEMORY),
             Type::Character => (
                 self.next_character_memory_index(),
                 AddressKind::CHARACTER_MEMORY,
@@ -2961,7 +3124,7 @@ where
             _ => todo!(),
         };
         let call = Instruction::call(
-            Destination::memory(destination_index),
+            Address::heap(destination_index),
             last_instruction.b_address(),
             argument_list_index,
             return_type_as_address_kind,
@@ -3025,8 +3188,8 @@ where
         let return_type = function.r#type().return_type.clone();
         let destination_index = match return_type {
             Type::None => 0,
-            Type::Boolean => self.next_boolean_memory_index(),
-            Type::Byte => self.next_byte_memory_index(),
+            Type::Boolean => self.next_boolean_heap_index(),
+            Type::Byte => self.next_byte_heap_index(),
             Type::Character => self.next_character_memory_index(),
             Type::Float => self.next_float_memory_index(),
             Type::Integer => self.next_integer_memory_index(),
@@ -3034,7 +3197,7 @@ where
             _ => todo!(),
         };
         let call_native = Instruction::call_native(
-            Destination::memory(destination_index),
+            Address::heap(destination_index),
             function,
             argument_list_index,
         );
@@ -3095,7 +3258,7 @@ where
                     position: self.previous_position,
                 })?;
 
-            self.dust_crate.items.insert(
+            self.main_module.items.insert(
                 new_module_path.clone(),
                 (Item::Module(new_module), position),
             );
@@ -3257,7 +3420,7 @@ where
         if let CompileMode::Module { module, .. } = &mut self.mode {
             module.items.insert(path, (Item::Constant(value), position));
         } else {
-            self.dust_crate
+            self.main_module
                 .items
                 .insert(path, (Item::Constant(value), position));
         }
@@ -3290,7 +3453,7 @@ where
         let mut active_module = if let CompileMode::Module { module, .. } = &self.mode {
             module
         } else {
-            &*self.dust_crate
+            &*self.main_module
         };
 
         let module_names = item_path.module_names();
@@ -3310,7 +3473,7 @@ where
         }
 
         let (item, item_position) = {
-            let (item, position) = if let Some(found) = find_item!(item_path, &*self.dust_crate) {
+            let (item, position) = if let Some(found) = find_item!(item_path, &*self.main_module) {
                 found
             } else {
                 return Err(CompileError::UnknownItem {
@@ -3337,8 +3500,8 @@ where
             Item::Constant(value) => {
                 let (instruction, destination_address, r#type) = match value {
                     ConcreteValue::Boolean(boolean) => {
-                        let memory_index = self.next_boolean_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let memory_index = self.next_boolean_heap_index();
+                        let destination = Address::heap(memory_index);
                         let instruction = Instruction::load_encoded(
                             destination,
                             boolean as u16,
@@ -3353,8 +3516,8 @@ where
                         )
                     }
                     ConcreteValue::Byte(byte) => {
-                        let memory_index = self.next_byte_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let memory_index = self.next_byte_heap_index();
+                        let destination = Address::heap(memory_index);
                         let instruction = Instruction::load_encoded(
                             destination,
                             byte as u16,
@@ -3370,7 +3533,7 @@ where
                     }
                     ConcreteValue::Character(character) => {
                         let memory_index = self.next_character_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_character(character);
                         let address = Address::new(constant_index, AddressKind::CHARACTER_CONSTANT);
                         let instruction = Instruction::load_constant(destination, address, false);
@@ -3383,7 +3546,7 @@ where
                     }
                     ConcreteValue::Float(float) => {
                         let memory_index = self.next_float_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_float(float);
                         let address = Address::new(constant_index, AddressKind::FLOAT_CONSTANT);
                         let instruction = Instruction::load_constant(destination, address, false);
@@ -3396,7 +3559,7 @@ where
                     }
                     ConcreteValue::Integer(integer) => {
                         let memory_index = self.next_integer_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_integer(integer);
                         let address = Address::new(constant_index, AddressKind::INTEGER_CONSTANT);
                         let instruction = Instruction::load_constant(destination, address, false);
@@ -3409,7 +3572,7 @@ where
                     }
                     ConcreteValue::String(string) => {
                         let memory_index = self.next_string_memory_index();
-                        let destination = Destination::memory(memory_index);
+                        let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_string(string);
                         let address = Address::new(constant_index, AddressKind::STRING_CONSTANT);
                         let instruction = Instruction::load_constant(destination, address, false);
@@ -3471,7 +3634,7 @@ where
         match identifier {
             "from_int" => {
                 let aliased_path = Path::new_borrowed("std::convert::int_to_str").unwrap();
-                let (item, item_position) = find_item!(aliased_path, &*self.dust_crate)
+                let (item, item_position) = find_item!(aliased_path, &*self.main_module)
                     .ok_or_else(|| CompileError::UnknownItem {
                         item_name: aliased_path.to_string(),
                         position: self.previous_position,
@@ -3481,8 +3644,8 @@ where
                 let variable_address =
                     self.bring_item_into_local_scope(identifier, item, item_position)?;
                 let destination_index = match variable_address.r#type() {
-                    TypeKind::Boolean => self.next_boolean_memory_index(),
-                    TypeKind::Byte => self.next_byte_memory_index(),
+                    TypeKind::Boolean => self.next_boolean_heap_index(),
+                    TypeKind::Byte => self.next_byte_heap_index(),
                     TypeKind::Character => self.next_character_memory_index(),
                     TypeKind::Float => self.next_float_memory_index(),
                     TypeKind::Integer => self.next_integer_memory_index(),
@@ -3492,7 +3655,7 @@ where
                     _ => todo!(),
                 };
                 let r#move =
-                    Instruction::r#move(Destination::memory(destination_index), variable_address);
+                    Instruction::r#move(Address::heap(destination_index), variable_address);
 
                 self.emit_instruction(r#move, item_type, self.previous_position);
                 self.parse_call()?;

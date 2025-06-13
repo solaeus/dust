@@ -11,14 +11,14 @@ fn add_bytes() {
         r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 40,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
-            Instruction::load_encoded(Destination::register(1), 2, AddressKind::BYTE_MEMORY, false),
+            Instruction::load_encoded(Destination::stack(1), 2, AddressKind::BYTE_MEMORY, false),
             Instruction::add(
-                Destination::register(2),
+                Destination::stack(2),
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
@@ -40,7 +40,7 @@ fn add_characters() {
         r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::add(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 Address::new(1, AddressKind::CHARACTER_CONSTANT),
             ),
@@ -63,7 +63,7 @@ fn add_floats() {
         r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
             Instruction::add(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
@@ -86,7 +86,7 @@ fn add_integers() {
         r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
             Instruction::add(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
@@ -109,7 +109,7 @@ fn add_strings() {
         r#type: FunctionType::new([], [], Type::String),
         instructions: vec![
             Instruction::add(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 Address::new(1, AddressKind::STRING_CONSTANT),
             ),

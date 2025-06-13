@@ -5,21 +5,21 @@ use crate::{
 };
 
 #[test]
-fn true_and_true_and_true() {
-    let source = "true && true && true";
+fn true_or_true_and_true() {
+    let source = "true || true && true";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
-            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(2, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -27,7 +27,7 @@ fn true_and_true_and_true() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -47,27 +47,26 @@ fn true_and_true_and_true() {
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(true));
-
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn true_and_true_and_false() {
-    let source = "true && true && false";
+fn true_or_true_and_false() {
+    let source = "true || true && false";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
-            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(2, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -75,7 +74,7 @@ fn true_and_true_and_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -94,28 +93,27 @@ fn true_and_true_and_false() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
-
+    let return_value = Some(Value::boolean(true));
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn false_and_true_and_true() {
-    let source = "false && true && true";
+fn false_or_true_and_true() {
+    let source = "false || true && true";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
-            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(2, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -123,7 +121,7 @@ fn false_and_true_and_true() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -142,28 +140,27 @@ fn false_and_true_and_true() {
         ],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(false));
-
+    let return_value = Some(Value::boolean(true));
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn false_and_false_and_false() {
-    let source = "false && false && false";
+fn false_or_false_and_false() {
+    let source = "false || false && false";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
-            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(2, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -171,7 +168,7 @@ fn false_and_false_and_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -191,7 +188,6 @@ fn false_and_false_and_false() {
         ..Chunk::default()
     };
     let return_value = Some(Value::boolean(false));
-
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }

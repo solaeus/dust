@@ -17,8 +17,7 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, Lexer, Module, Vm,
-    generate_standard_library, panic::set_dust_panic_hook,
+    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, Vm, set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
@@ -195,36 +194,19 @@ fn main() {
                 (source, name.unwrap_or("Dust CLI Input".to_string()))
             }
         };
-        let lexer = Lexer::new(&source);
-        let mut dust_crate = Module::new();
 
-        generate_standard_library(&mut dust_crate).expect("Failed to generate standard library");
-
-        let chunk = match input {
+        let dust_crate = match input {
             Format::Dust => {
-                let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(
-                    lexer,
-                    Some(&source_name),
-                    &mut dust_crate,
-                ) {
-                    Ok(compiler) => compiler,
-                    Err(error) => {
-                        handle_compile_error(error, &source);
-
-                        return;
-                    }
-                };
+                let compiler = Compiler::new(&source, &source_name);
 
                 match compiler.compile() {
-                    Ok(()) => {}
+                    Ok(chunk) => chunk,
                     Err(error) => {
                         handle_compile_error(error, &source);
 
                         return;
                     }
                 }
-
-                compiler.finish()
             }
             Format::Json => {
                 serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
@@ -240,7 +222,7 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
+        let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(dust_crate.main_chunk));
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 
@@ -308,40 +290,24 @@ fn main() {
                 (source, name.unwrap_or("Dust CLI Input".to_string()))
             }
         };
-        let lexer = Lexer::new(&source);
-        let mut dust_crate = Module::new();
 
-        generate_standard_library(&mut dust_crate).expect("Failed to generate standard library");
-
-        let mut compiler = match Compiler::<DEFAULT_REGISTER_COUNT>::new_main(
-            lexer,
-            Some(&source_name),
-            &mut dust_crate,
-        ) {
-            Ok(compiler) => compiler,
+        let compiler = Compiler::new(&source, &source_name);
+        let dust_crate = match compiler.compile() {
+            Ok(dust_crate) => dust_crate,
             Err(error) => {
                 handle_compile_error(error, &source);
 
                 return;
             }
         };
-
-        match compiler.compile() {
-            Ok(()) => {}
-            Err(error) => {
-                handle_compile_error(error, &source);
-
-                return;
-            }
-        }
-        let chunk = compiler.finish();
         let compile_time = start_time.elapsed();
 
         match output {
             Format::Dust => {
                 let mut stdout = stdout().lock();
 
-                chunk
+                dust_crate
+                    .main_chunk
                     .disassembler(&mut stdout)
                     .width(65)
                     .style(style)
@@ -350,28 +316,28 @@ fn main() {
                     .expect("Failed to write disassembly to stdout");
             }
             Format::Json => {
-                let json = serde_json::to_string_pretty(&chunk)
+                let json = serde_json::to_string_pretty(&dust_crate)
                     .expect("Failed to serialize chunk to JSON");
 
                 println!("{json}");
             }
             Format::Postcard => {
                 let mut buffer = Vec::new();
-                let postcard = postcard::to_slice_cobs(&chunk, &mut buffer)
+                let postcard = postcard::to_slice_cobs(&dust_crate, &mut buffer)
                     .expect("Failed to serialize chunk to Postcard");
 
                 println!("{postcard:?}");
             }
             Format::Ron => {
                 let ron =
-                    ron::ser::to_string_pretty(&chunk, PrettyConfig::new().struct_names(true))
+                    ron::ser::to_string_pretty(&dust_crate, PrettyConfig::new().struct_names(true))
                         .expect("Failed to serialize chunk to RON");
 
                 println!("{ron}");
             }
             Format::Yaml => {
                 let yaml =
-                    serde_yaml::to_string(&chunk).expect("Failed to serialize chunk to YAML");
+                    serde_yaml::to_string(&dust_crate).expect("Failed to serialize chunk to YAML");
 
                 println!("{yaml}");
             }

@@ -2,27 +2,27 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::r#type::TypeKind;
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation};
+use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Add {
-    pub destination: Destination,
+    pub destination: Address,
     pub left: Address,
     pub right: Address,
+    pub r#type: OperandType,
 }
 
 impl From<&Instruction> for Add {
     fn from(instruction: &Instruction) -> Self {
-        let destination = Destination {
-            index: instruction.a_field(),
-            is_register: instruction.a_is_register(),
-        };
+        let destination = instruction.destination();
         let left = instruction.b_address();
         let right = instruction.c_address();
+        let r#type = instruction.operand_type();
 
         Add {
             destination,
             left,
             right,
+            r#type,
         }
     }
 }
@@ -30,27 +30,28 @@ impl From<&Instruction> for Add {
 impl From<Add> for Instruction {
     fn from(add: Add) -> Self {
         let operation = Operation::ADD;
-        let Destination {
+        let Address {
             index: a_field,
-            is_register: a_is_register,
+            memory: a_memory_kind,
         } = add.destination;
         let Address {
             index: b_field,
-            kind: b_kind,
+            memory: b_memory_kind,
         } = add.left;
         let Address {
             index: c_field,
-            kind: c_kind,
+            memory: c_memory_kind,
         } = add.right;
 
         InstructionFields {
             operation,
             a_field,
-            a_is_register,
+            a_memory_kind,
             b_field,
-            b_kind,
+            b_memory_kind,
             c_field,
-            c_kind,
+            c_memory_kind,
+            ..InstructionFields::default()
         }
         .build()
     }
@@ -62,14 +63,62 @@ impl Display for Add {
             destination,
             left,
             right,
+            r#type,
         } = self;
-        let left_type = left.r#type();
-        let return_type = match left_type {
-            TypeKind::Character => TypeKind::String,
-            _ => left_type,
+
+        match *r#type {
+            OperandType::BYTE => {
+                destination.display(f, TypeKind::Byte)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::Byte)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::Byte)?;
+            }
+            OperandType::CHARACTER => {
+                destination.display(f, TypeKind::Character)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::Character)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::Character)?;
+            }
+            OperandType::FUNCTION => {
+                destination.display(f, TypeKind::Function)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::Function)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::Function)?;
+            }
+            OperandType::INTEGER => {
+                destination.display(f, TypeKind::Integer)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::Integer)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::Integer)?;
+            }
+            OperandType::STRING => {
+                destination.display(f, TypeKind::String)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::String)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::String)?;
+            }
+            OperandType::CHARACTER_STRING => {
+                destination.display(f, TypeKind::String)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::Character)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::String)?;
+            }
+            OperandType::STRING_CHARACTER => {
+                destination.display(f, TypeKind::String)?;
+                write!(f, " = ")?;
+                left.display(f, TypeKind::String)?;
+                write!(f, " + ")?;
+                right.display(f, TypeKind::Character)?;
+            }
+            _ => unreachable!(),
         };
 
-        destination.display(f, return_type)?;
-        write!(f, " = {left} + {right}")
+        Ok(())
     }
 }

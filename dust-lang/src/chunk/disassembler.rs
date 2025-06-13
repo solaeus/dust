@@ -341,7 +341,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 })
                 .unwrap_or_else(|| "unknown".to_string());
             let type_display = r#type.to_string();
-            let address_display = address.to_string();
+            let address_display = address.to_string(r#type.kind());
             let scope = scope.to_string();
             let row = format!(
                 "│{index:^5}│{identifier_display:^16}│{type_display:^26}│{address_display:^12}│{scope:^7}│{is_mutable:^7}│"
@@ -463,7 +463,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 "│{index:^5}│{:^42}│",
                 arguments
                     .iter()
-                    .map(|address| address.to_string())
+                    .map(|(address, r#type)| address.to_string(*r#type))
                     .collect::<Vec<String>>()
                     .join(", "),
             );

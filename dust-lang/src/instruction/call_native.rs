@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-use crate::{Instruction, NativeFunction, Operation, r#type::TypeKind};
+use crate::{NativeFunction, r#type::TypeKind};
 
-use super::{Destination, InstructionFields};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct CallNative {
-    pub destination: Destination,
+    pub destination: Address,
     pub function: NativeFunction,
     pub argument_list_index: u16,
 }
@@ -27,9 +27,9 @@ impl From<&Instruction> for CallNative {
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
         let operation = Operation::CALL_NATIVE;
-        let Destination {
+        let Address {
             index: a_field,
-            is_register: a_is_register,
+            memory: a_memory_kind,
         } = call_native.destination;
         let b_field = call_native.function as u16;
         let c_field = call_native.argument_list_index;
@@ -37,7 +37,7 @@ impl From<CallNative> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_is_register,
+            a_memory_kind,
             b_field,
             c_field,
             ..Default::default()

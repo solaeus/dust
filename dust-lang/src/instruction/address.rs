@@ -1,155 +1,102 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{Formatter, FormattingOptions};
 
 use serde::{Deserialize, Serialize};
 
 use crate::r#type::TypeKind;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+use super::MemoryKind;
+
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct Address {
     pub index: u16,
-    pub kind: AddressKind,
+    pub memory: MemoryKind,
 }
 
 impl Address {
-    pub fn new(index: u16, kind: AddressKind) -> Self {
-        Address { index, kind }
+    pub fn new(index: u16, memory: MemoryKind) -> Self {
+        Self { index, memory }
     }
 
-    pub fn r#type(&self) -> TypeKind {
-        self.kind.r#type()
-    }
-
-    pub fn is_constant(&self) -> bool {
-        matches!(
-            self.kind,
-            AddressKind::CHARACTER_CONSTANT
-                | AddressKind::FLOAT_CONSTANT
-                | AddressKind::INTEGER_CONSTANT
-                | AddressKind::STRING_CONSTANT
-                | AddressKind::FUNCTION_PROTOTYPE
-                | AddressKind::FUNCTION_SELF
-        )
-    }
-
-    pub fn is_register(&self) -> bool {
-        matches!(
-            self.kind,
-            AddressKind::BOOLEAN_REGISTER
-                | AddressKind::BYTE_REGISTER
-                | AddressKind::CHARACTER_REGISTER
-                | AddressKind::FLOAT_REGISTER
-                | AddressKind::INTEGER_REGISTER
-                | AddressKind::STRING_REGISTER
-                | AddressKind::LIST_REGISTER
-                | AddressKind::FUNCTION_REGISTER
-        )
-    }
-}
-
-impl Default for Address {
-    fn default() -> Self {
+    pub fn cell(index: u16) -> Self {
         Address {
-            index: 0,
-            kind: AddressKind(0),
+            index,
+            memory: MemoryKind::CELL,
         }
     }
-}
 
-impl Display for Address {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    pub fn constant(index: u16) -> Self {
+        Address {
+            index,
+            memory: MemoryKind::CONSTANT,
+        }
+    }
+
+    pub fn heap(index: u16) -> Self {
+        Address {
+            index,
+            memory: MemoryKind::HEAP,
+        }
+    }
+
+    pub fn stack(index: u16) -> Self {
+        Address {
+            index,
+            memory: MemoryKind::STACK,
+        }
+    }
+
+    pub fn display(&self, f: &mut Formatter, type_kind: TypeKind) -> std::fmt::Result {
         let index = self.index;
 
-        match self.kind {
-            AddressKind::BOOLEAN_MEMORY => write!(f, "M_BOOL_{index}"),
-            AddressKind::BOOLEAN_REGISTER => write!(f, "R_BOOL_{index}"),
-            AddressKind::BYTE_MEMORY => write!(f, "M_BYTE_{index}"),
-            AddressKind::BYTE_REGISTER => write!(f, "R_BYTE_{index}"),
-            AddressKind::CHARACTER_CONSTANT => write!(f, "C_CHAR_{index}"),
-            AddressKind::CHARACTER_MEMORY => write!(f, "M_CHAR_{index}"),
-            AddressKind::CHARACTER_REGISTER => write!(f, "R_CHAR_{index}"),
-            AddressKind::FLOAT_CONSTANT => write!(f, "C_FLOAT_{index}"),
-            AddressKind::FLOAT_MEMORY => write!(f, "M_FLOAT_{index}"),
-            AddressKind::FLOAT_REGISTER => write!(f, "R_FLOAT_{index}"),
-            AddressKind::INTEGER_CONSTANT => write!(f, "C_INT_{index}"),
-            AddressKind::INTEGER_MEMORY => write!(f, "M_INT_{index}"),
-            AddressKind::INTEGER_REGISTER => write!(f, "R_INT_{index}"),
-            AddressKind::STRING_CONSTANT => write!(f, "C_STR_{index}"),
-            AddressKind::STRING_MEMORY => write!(f, "M_STR_{index}"),
-            AddressKind::STRING_REGISTER => write!(f, "R_STR_{index}"),
-            AddressKind::LIST_MEMORY => write!(f, "M_LIST_{index}"),
-            AddressKind::LIST_REGISTER => write!(f, "R_LIST_{index}"),
-            AddressKind::FUNCTION_MEMORY => write!(f, "M_FN_{index}"),
-            AddressKind::FUNCTION_PROTOTYPE => write!(f, "P_{index}"),
-            AddressKind::FUNCTION_REGISTER => write!(f, "R_FN_{index}"),
-            AddressKind::FUNCTION_SELF => write!(f, "SELF"),
-            _ => write!(f, "INVALID_{index}"),
+        match (type_kind, self.memory) {
+            (TypeKind::Boolean, MemoryKind::CELL) => write!(f, "BOOL_CELL_{index}"),
+            (TypeKind::Boolean, MemoryKind::CONSTANT) => write!(f, "BOOL_CONST_{index}"),
+            (TypeKind::Boolean, MemoryKind::HEAP) => write!(f, "BOOL_HEAP_{index}"),
+            (TypeKind::Boolean, MemoryKind::STACK) => write!(f, "BOOL_STACK_{index}"),
+            (TypeKind::Byte, MemoryKind::CELL) => write!(f, "BYTE_CELL_{index}"),
+            (TypeKind::Byte, MemoryKind::CONSTANT) => write!(f, "BYTE_CONST_{index}"),
+            (TypeKind::Byte, MemoryKind::HEAP) => write!(f, "BYTE_HEAP_{index}"),
+            (TypeKind::Byte, MemoryKind::STACK) => write!(f, "BYTE_STACK_{index}"),
+            (TypeKind::Character, MemoryKind::CELL) => write!(f, "CHAR_CELL_{index}"),
+            (TypeKind::Character, MemoryKind::CONSTANT) => write!(f, "CHAR_CONST_{index}"),
+            (TypeKind::Character, MemoryKind::HEAP) => write!(f, "CHAR_HEAP_{index}"),
+            (TypeKind::Character, MemoryKind::STACK) => write!(f, "CHAR_STACK_{index}"),
+            (TypeKind::Float, MemoryKind::CELL) => write!(f, "FLOAT_CELL_{index}"),
+            (TypeKind::Float, MemoryKind::CONSTANT) => write!(f, "FLOAT_CONST_{index}"),
+            (TypeKind::Float, MemoryKind::HEAP) => write!(f, "FLOAT_HEAP_{index}"),
+            (TypeKind::Float, MemoryKind::STACK) => write!(f, "FLOAT_STACK_{index}"),
+            (TypeKind::Integer, MemoryKind::CELL) => write!(f, "INT_CELL_{index}"),
+            (TypeKind::Integer, MemoryKind::CONSTANT) => write!(f, "INT_CONST_{index}"),
+            (TypeKind::Integer, MemoryKind::HEAP) => write!(f, "INT_HEAP_{index}"),
+            (TypeKind::Integer, MemoryKind::STACK) => write!(f, "INT_STACK_{index}"),
+            (TypeKind::String, MemoryKind::CELL) => write!(f, "STRING_CELL_{index}"),
+            (TypeKind::String, MemoryKind::CONSTANT) => write!(f, "STRING_CONST_{index}"),
+            (TypeKind::String, MemoryKind::HEAP) => write!(f, "STRING_HEAP_{index}"),
+            (TypeKind::String, MemoryKind::STACK) => write!(f, "STRING_STACK_{index}"),
+            (TypeKind::List, MemoryKind::CELL) => write!(f, "LIST_CELL_{index}"),
+            (TypeKind::List, MemoryKind::CONSTANT) => write!(f, "LIST_CONST_{index}"),
+            (TypeKind::List, MemoryKind::HEAP) => write!(f, "LIST_HEAP_{index}"),
+            (TypeKind::List, MemoryKind::STACK) => write!(f, "LIST_STACK_{index}"),
+            (TypeKind::Function, MemoryKind::CELL) => write!(f, "FN_CELL_{index}"),
+            (TypeKind::Function, MemoryKind::CONSTANT) => write!(f, "FN_CONST_{index}"),
+            (TypeKind::Function, MemoryKind::HEAP) => write!(f, "FN_HEAP_{index}"),
+            (TypeKind::Function, MemoryKind::STACK) => write!(f, "FN_STACK_{index}"),
+            (TypeKind::FunctionSelf, _) => write!(f, "FN_SELF"),
+            _ => write!(f, "INVALID_ADDRESS_{index}"),
         }
     }
-}
 
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-pub struct AddressKind(pub u8);
+    pub fn to_string(&self, type_kind: TypeKind) -> String {
+        let mut buffer = String::new();
 
-impl AddressKind {
-    pub const NONE: AddressKind = AddressKind(0);
+        self.display(
+            &mut Formatter::new(&mut buffer, FormattingOptions::new()),
+            type_kind,
+        )
+        .unwrap();
 
-    pub const BOOLEAN_MEMORY: AddressKind = AddressKind(1);
-    pub const BOOLEAN_REGISTER: AddressKind = AddressKind(2);
-
-    pub const BYTE_MEMORY: AddressKind = AddressKind(3);
-    pub const BYTE_REGISTER: AddressKind = AddressKind(4);
-
-    pub const CHARACTER_CONSTANT: AddressKind = AddressKind(5);
-    pub const CHARACTER_MEMORY: AddressKind = AddressKind(6);
-    pub const CHARACTER_REGISTER: AddressKind = AddressKind(7);
-
-    pub const FLOAT_CONSTANT: AddressKind = AddressKind(8);
-    pub const FLOAT_MEMORY: AddressKind = AddressKind(9);
-    pub const FLOAT_REGISTER: AddressKind = AddressKind(10);
-
-    pub const INTEGER_CONSTANT: AddressKind = AddressKind(11);
-    pub const INTEGER_MEMORY: AddressKind = AddressKind(12);
-    pub const INTEGER_REGISTER: AddressKind = AddressKind(13);
-
-    pub const STRING_CONSTANT: AddressKind = AddressKind(14);
-    pub const STRING_MEMORY: AddressKind = AddressKind(15);
-    pub const STRING_REGISTER: AddressKind = AddressKind(16);
-
-    pub const LIST_MEMORY: AddressKind = AddressKind(17);
-    pub const LIST_REGISTER: AddressKind = AddressKind(18);
-
-    pub const FUNCTION_MEMORY: AddressKind = AddressKind(19);
-    pub const FUNCTION_PROTOTYPE: AddressKind = AddressKind(20);
-    pub const FUNCTION_REGISTER: AddressKind = AddressKind(21);
-    pub const FUNCTION_SELF: AddressKind = AddressKind(22);
-}
-
-impl AddressKind {
-    pub fn r#type(&self) -> TypeKind {
-        match *self {
-            AddressKind::NONE => TypeKind::None,
-            AddressKind::BOOLEAN_MEMORY | AddressKind::BOOLEAN_REGISTER => TypeKind::Boolean,
-            AddressKind::BYTE_MEMORY | AddressKind::BYTE_REGISTER => TypeKind::Byte,
-            AddressKind::CHARACTER_CONSTANT
-            | AddressKind::CHARACTER_MEMORY
-            | AddressKind::CHARACTER_REGISTER => TypeKind::Character,
-            AddressKind::FLOAT_CONSTANT
-            | AddressKind::FLOAT_MEMORY
-            | AddressKind::FLOAT_REGISTER => TypeKind::Float,
-            AddressKind::INTEGER_CONSTANT
-            | AddressKind::INTEGER_MEMORY
-            | AddressKind::INTEGER_REGISTER => TypeKind::Integer,
-            AddressKind::STRING_CONSTANT
-            | AddressKind::STRING_MEMORY
-            | AddressKind::STRING_REGISTER => TypeKind::String,
-            AddressKind::LIST_MEMORY | AddressKind::LIST_REGISTER => TypeKind::List,
-            AddressKind::FUNCTION_MEMORY
-            | AddressKind::FUNCTION_PROTOTYPE
-            | AddressKind::FUNCTION_REGISTER
-            | AddressKind::FUNCTION_SELF => TypeKind::Function,
-            _ => unreachable!(),
-        }
+        buffer
     }
 }

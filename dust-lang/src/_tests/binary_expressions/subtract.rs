@@ -11,14 +11,14 @@ fn subtract_bytes() {
         r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 40,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
-            Instruction::load_encoded(Destination::register(1), 2, AddressKind::BYTE_MEMORY, false),
+            Instruction::load_encoded(Destination::stack(1), 2, AddressKind::BYTE_MEMORY, false),
             Instruction::subtract(
-                Destination::register(2),
+                Destination::stack(2),
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
@@ -40,7 +40,7 @@ fn subtract_floats() {
         r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
             Instruction::subtract(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
@@ -63,7 +63,7 @@ fn subtract_integers() {
         r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
             Instruction::subtract(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),

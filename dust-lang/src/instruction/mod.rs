@@ -7,9 +7,10 @@
 //! Bits  | Description
 //! ----- | -----------
 //! 0-4   | Operation
-//! 5     | Flag indicating whether the A field is a register or memory index
-//! 6-10  | Operand address kind (for the B field)
-//! 11-15 | Operand address kind (for the C field)
+//! 5-6   | Memory kind (for the A field)
+//! 7-8   | Memory kind (for the B field)
+//! 9-10  | Memory kind (for the C field)
+//! 11-15 | Operand types (B, and C fields)
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
 //! 32-47 | B field (unsigned 16-bit integer), usually an operand index
 //! 48-63 | C field (unsigned 16-bit integer), usually an operand index
@@ -24,20 +25,20 @@
 //! Both produce the same result, but the first is usually more concise. The structs are more useful
 //! when reading instructions, as shown below.
 //!
-//! Use the [`Destination`][], [`Address`][] and [`AddressKind`][] types when creating instructions.
+//! Use the [`Address`][], [`Address`][] and [`AddressKind`][] types when creating instructions.
 //! In addition to being easy to read and write, this ensures that the instruction has the correct
 //! flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Address, Instruction};
 //! // Add the integers at M_INT_4 and M_INT_6 then store the result in M_INT_42.
 //! let add_1 = Instruction::add(
-//!     Destination::memory(42),
+//!     Address::memory(42),
 //!     Address::new(4, AddressKind::INTEGER_MEMORY),
 //!     Address::new(6, AddressKind::INTEGER_MEMORY),
 //! );
 //! let add_2 = Instruction::from(Add {
-//!     destination: Destination {
+//!     destination: Address {
 //!         index: 42,
 //!         is_register: false,
 //!     },
@@ -61,9 +62,9 @@
 //! removes the burden of dealing with the instruction bit fields directly.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Destination, Instruction, Operation};
+//! # use dust_lang::instruction::{Add, Address, AddressKind, Address, Instruction, Operation};
 //! # let mystery_instruction = Instruction::add(
-//! #     Destination::memory(0),
+//! #     Address::memory(0),
 //! #     Address::new(0, AddressKind::INTEGER_MEMORY),
 //! #     Address::new(1, AddressKind::INTEGER_CONSTANT),
 //! # );
@@ -86,21 +87,17 @@ mod address;
 mod call;
 mod call_native;
 mod close;
-mod destination;
 mod divide;
 mod equal;
 mod jump;
 mod less;
 mod less_equal;
-mod load_constant;
-mod load_encoded;
-mod load_function;
-mod load_list;
+mod load;
+mod memory_kind;
 mod modulo;
-mod r#move;
 mod multiply;
 mod negate;
-mod not;
+mod operand_type;
 mod operation;
 mod r#return;
 mod subtract;
@@ -108,25 +105,21 @@ mod test;
 mod test_set;
 
 pub use add::Add;
-pub use address::{Address, AddressKind};
+pub use address::Address;
 pub use call::Call;
 pub use call_native::CallNative;
 pub use close::Close;
-pub use destination::Destination;
 pub use divide::Divide;
 pub use equal::Equal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use load_constant::LoadConstant;
-pub use load_encoded::LoadEncoded;
-pub use load_function::LoadFunction;
-pub use load_list::LoadList;
+pub use load::Load;
+pub use memory_kind::MemoryKind;
 pub use modulo::Modulo;
-pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
-pub use not::Not;
+pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use r#return::Return;
 pub use subtract::Subtract;
@@ -145,28 +138,72 @@ use crate::{NativeFunction, r#type::TypeKind};
 pub struct Instruction(u64);
 
 impl Instruction {
-    pub fn destination(&self) -> Destination {
-        Destination {
+    pub fn destination(&self) -> Address {
+        Address {
             index: self.a_field(),
-            is_register: self.a_is_register(),
+            memory: self.a_memory_kind(),
         }
-    }
-
-    pub fn destination_as_address(&self) -> Address {
-        self.destination().as_address(self.operand_type())
     }
 
     pub fn b_address(&self) -> Address {
         Address {
             index: self.b_field(),
-            kind: self.b_kind(),
+            memory: self.b_memory_kind(),
         }
     }
 
     pub fn c_address(&self) -> Address {
         Address {
             index: self.c_field(),
-            kind: self.c_kind(),
+            memory: self.c_memory_kind(),
+        }
+    }
+
+    pub fn destination_type(&self) -> TypeKind {
+        match self.operand_type() {
+            OperandType::BOOLEAN => TypeKind::Boolean,
+            OperandType::BYTE => TypeKind::Byte,
+            OperandType::CHARACTER => TypeKind::Character,
+            OperandType::INTEGER => TypeKind::Integer,
+            OperandType::FLOAT => TypeKind::Float,
+            OperandType::STRING => TypeKind::String,
+            OperandType::LIST => TypeKind::List,
+            OperandType::FUNCTION => TypeKind::Function,
+            OperandType::CHARACTER_STRING => TypeKind::String,
+            OperandType::STRING_CHARACTER => TypeKind::String,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn b_type(&self) -> TypeKind {
+        match self.operand_type() {
+            OperandType::BOOLEAN => TypeKind::Boolean,
+            OperandType::BYTE => TypeKind::Byte,
+            OperandType::CHARACTER => TypeKind::Character,
+            OperandType::INTEGER => TypeKind::Integer,
+            OperandType::FLOAT => TypeKind::Float,
+            OperandType::STRING => TypeKind::String,
+            OperandType::LIST => TypeKind::List,
+            OperandType::FUNCTION => TypeKind::Function,
+            OperandType::CHARACTER_STRING => TypeKind::Character,
+            OperandType::STRING_CHARACTER => TypeKind::String,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn c_type(&self) -> TypeKind {
+        match self.operand_type() {
+            OperandType::BOOLEAN => TypeKind::Boolean,
+            OperandType::BYTE => TypeKind::Byte,
+            OperandType::CHARACTER => TypeKind::Character,
+            OperandType::INTEGER => TypeKind::Integer,
+            OperandType::FLOAT => TypeKind::Float,
+            OperandType::STRING => TypeKind::String,
+            OperandType::LIST => TypeKind::List,
+            OperandType::FUNCTION => TypeKind::Function,
+            OperandType::CHARACTER_STRING => TypeKind::String,
+            OperandType::STRING_CHARACTER => TypeKind::Character,
+            _ => unreachable!(),
         }
     }
 
@@ -176,22 +213,28 @@ impl Instruction {
         Operation(bits_0_to_4)
     }
 
-    pub fn a_is_register(&self) -> bool {
-        let bit_5 = self.0 & (1 << 5);
+    pub fn a_memory_kind(&self) -> MemoryKind {
+        let bits_5_to_6 = (self.0 >> 5) & 0x3;
 
-        bit_5 != 0
+        MemoryKind(bits_5_to_6 as u8)
     }
 
-    pub fn b_kind(&self) -> AddressKind {
-        let bits_6_to_10 = (self.0 >> 6) & 0x1F;
+    pub fn b_memory_kind(&self) -> MemoryKind {
+        let bits_7_to_8 = (self.0 >> 7) & 0x3;
 
-        AddressKind(bits_6_to_10 as u8)
+        MemoryKind(bits_7_to_8 as u8)
     }
 
-    pub fn c_kind(&self) -> AddressKind {
+    pub fn c_memory_kind(&self) -> MemoryKind {
+        let bits_9_to_10 = (self.0 >> 9) & 0x3;
+
+        MemoryKind(bits_9_to_10 as u8)
+    }
+
+    pub fn operand_type(&self) -> OperandType {
         let bits_11_to_15 = (self.0 >> 11) & 0x1F;
 
-        AddressKind(bits_11_to_15 as u8)
+        OperandType(bits_11_to_15 as u8)
     }
 
     pub fn a_field(&self) -> u16 {
@@ -233,304 +276,155 @@ impl Instruction {
     pub fn set_destination(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = address.index;
-        fields.a_is_register = address.is_register();
+        fields.a_memory_kind = address.memory;
         *self = fields.build();
     }
 
     pub fn set_b_address(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.b_field = address.index;
-        fields.b_kind = address.kind;
+        fields.b_memory_kind = address.memory;
         *self = fields.build();
     }
 
     pub fn set_c_address(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.c_field = address.index;
-        fields.c_kind = address.kind;
+        fields.c_memory_kind = address.memory;
         *self = fields.build();
     }
 
-    pub fn operand_type(&self) -> TypeKind {
-        match self.operation() {
-            Operation::NO_OP | Operation::CLOSE => TypeKind::None,
-            Operation::LOAD_LIST => TypeKind::List,
-            Operation::CALL_NATIVE => {
-                let function = NativeFunction::from(self.b_field());
-
-                function.r#type().return_type.kind()
-            }
-            Operation::CALL => {
-                let Call { return_type, .. } = Call::from(self);
-
-                return_type.r#type()
-            }
-            _ => self.b_kind().r#type(),
-        }
-    }
-
-    pub fn as_address(&self) -> Address {
-        match self.operation() {
-            Operation::MOVE => {
-                let Move { operand, .. } = Move::from(self);
-
-                operand
-            }
-            Operation::LOAD_ENCODED => {
-                let LoadEncoded {
-                    destination,
-                    r#type,
-                    ..
-                } = LoadEncoded::from(self);
-
-                let kind = if destination.is_register {
-                    match r#type {
-                        AddressKind::BOOLEAN_MEMORY => AddressKind::BOOLEAN_REGISTER,
-                        AddressKind::BYTE_MEMORY => AddressKind::BYTE_REGISTER,
-                        _ => unreachable!(),
-                    }
-                } else {
-                    r#type
-                };
-
-                Address {
-                    index: destination.index,
-                    kind,
-                }
-            }
-            Operation::LOAD_CONSTANT => {
-                let LoadConstant { constant, .. } = LoadConstant::from(self);
-
-                constant
-            }
-            Operation::LOAD_LIST => {
-                let LoadList { destination, .. } = LoadList::from(self);
-                let kind = if destination.is_register {
-                    AddressKind::LIST_REGISTER
-                } else {
-                    AddressKind::LIST_MEMORY
-                };
-
-                Address {
-                    index: destination.index,
-                    kind,
-                }
-            }
-            Operation::LOAD_FUNCTION => {
-                let LoadFunction { destination, .. } = LoadFunction::from(self);
-                let kind = if destination.is_register {
-                    AddressKind::FUNCTION_REGISTER
-                } else {
-                    AddressKind::FUNCTION_MEMORY
-                };
-
-                Address {
-                    index: destination.index,
-                    kind,
-                }
-            }
-            Operation::ADD => {
-                let Add {
-                    destination, left, ..
-                } = Add::from(self);
-                let left_type = left.r#type();
-                let destination_type = match left_type {
-                    TypeKind::Character => TypeKind::String,
-                    _ => left_type,
-                };
-
-                destination.as_address(destination_type)
-            }
-            Operation::SUBTRACT => {
-                let Subtract {
-                    destination, left, ..
-                } = Subtract::from(self);
-
-                destination.as_address(left.r#type())
-            }
-            Operation::MULTIPLY => {
-                let Multiply {
-                    destination, left, ..
-                } = Multiply::from(self);
-
-                destination.as_address(left.r#type())
-            }
-            Operation::DIVIDE => {
-                let Divide {
-                    destination, left, ..
-                } = Divide::from(self);
-
-                destination.as_address(left.r#type())
-            }
-            Operation::MODULO => {
-                let Modulo {
-                    destination, left, ..
-                } = Modulo::from(self);
-
-                destination.as_address(left.r#type())
-            }
-            Operation::NOT => {
-                let Not { destination, .. } = Not::from(self);
-
-                destination.as_address(TypeKind::Boolean)
-            }
-            Operation::CALL => {
-                let Call {
-                    destination,
-                    return_type,
-                    ..
-                } = Call::from(self);
-                let return_type = return_type.r#type();
-
-                destination.as_address(return_type)
-            }
-            Operation::NO_OP => Address::default(),
-            unsupported => todo!("Support {unsupported}"),
-        }
-    }
-
     pub fn no_op() -> Instruction {
-        Instruction(Operation::NO_OP.0 as u64)
+        Instruction(0)
     }
 
-    pub fn r#move(destination: Destination, to: Address) -> Instruction {
-        Instruction::from(Move {
-            destination,
-            operand: to,
-        })
+    pub fn close(from: Address, to: Address, r#type: OperandType) -> Instruction {
+        Instruction::from(Close { from, to, r#type })
     }
 
-    pub fn close(from: Address, to: Address) -> Instruction {
-        Instruction::from(Close { from, to })
-    }
-
-    pub fn load_encoded(
-        destination: Destination,
-        value: u16,
-        r#type: AddressKind,
+    pub fn load(
+        destination: Address,
+        operand: Address,
+        r#type: OperandType,
         jump_next: bool,
     ) -> Instruction {
-        Instruction::from(LoadEncoded {
+        Instruction::from(Load {
             destination,
-            value,
+            operand,
             r#type,
             jump_next,
         })
     }
 
-    pub fn load_constant(
-        destination: Destination,
-        constant: Address,
-        jump_next: bool,
+    pub fn add(
+        destination: Address,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
     ) -> Instruction {
-        Instruction::from(LoadConstant {
-            destination,
-            constant,
-            jump_next,
-        })
-    }
-
-    pub fn load_function(
-        destination: Destination,
-        prototype: Address,
-        jump_next: bool,
-    ) -> Instruction {
-        Instruction::from(LoadFunction {
-            destination,
-            prototype,
-            jump_next,
-        })
-    }
-
-    pub fn load_list(
-        destination: Destination,
-        start: Address,
-        end: u16,
-        jump_next: bool,
-    ) -> Instruction {
-        Instruction::from(LoadList {
-            destination,
-            start,
-            end,
-            jump_next,
-        })
-    }
-
-    pub fn add(destination: Destination, left: Address, right: Address) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn subtract(destination: Destination, left: Address, right: Address) -> Instruction {
+    pub fn subtract(
+        destination: Address,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn multiply(destination: Destination, left: Address, right: Address) -> Instruction {
+    pub fn multiply(
+        destination: Address,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn divide(destination: Destination, left: Address, right: Address) -> Instruction {
+    pub fn divide(
+        destination: Address,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn modulo(destination: Destination, left: Address, right: Address) -> Instruction {
+    pub fn modulo(
+        destination: Address,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn equal(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn equal(
+        comparator: bool,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Equal {
             comparator,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn less(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn less(
+        comparator: bool,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Less {
             comparator,
             left,
             right,
+            r#type,
         })
     }
 
-    pub fn less_equal(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn less_equal(
+        comparator: bool,
+        left: Address,
+        right: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
             left,
             right,
-        })
-    }
-
-    pub fn negate(destination: Destination, operand: Address) -> Instruction {
-        Instruction::from(Negate {
-            destination,
-            operand,
-        })
-    }
-
-    pub fn not(destination: Destination, operand: Address) -> Instruction {
-        Instruction::from(Not {
-            destination,
-            operand,
+            r#type,
         })
     }
 
@@ -541,11 +435,19 @@ impl Instruction {
         })
     }
 
-    pub fn test_set(destination: Destination, operand: Address, value: bool) -> Instruction {
+    pub fn test_set(destination: Address, operand: Address, value: bool) -> Instruction {
         Instruction::from(TestSet {
             destination,
             operand,
             comparator: value,
+        })
+    }
+
+    pub fn negate(destination: Address, operand: Address, r#type: OperandType) -> Instruction {
+        Instruction::from(Negate {
+            destination,
+            operand,
+            r#type,
         })
     }
 
@@ -557,10 +459,10 @@ impl Instruction {
     }
 
     pub fn call(
-        destination: Destination,
+        destination: Address,
         function: Address,
         argument_list_index: u16,
-        return_type: AddressKind,
+        return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
@@ -571,7 +473,7 @@ impl Instruction {
     }
 
     pub fn call_native(
-        destination: Destination,
+        destination: Address,
         function: NativeFunction,
         argument_list_index: u16,
     ) -> Instruction {
@@ -582,10 +484,15 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(should_return_value: bool, return_address: Address) -> Instruction {
+    pub fn r#return(
+        should_return_value: bool,
+        return_address: Address,
+        r#type: OperandType,
+    ) -> Instruction {
         Instruction::from(Return {
             should_return_value,
             return_value_address: return_address,
+            r#type,
         })
     }
 
@@ -599,18 +506,13 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::MOVE
-            | Operation::LOAD_ENCODED
-            | Operation::LOAD_CONSTANT
-            | Operation::LOAD_FUNCTION
-            | Operation::LOAD_LIST
+            Operation::LOAD
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
             | Operation::DIVIDE
             | Operation::MODULO
             | Operation::NEGATE
-            | Operation::NOT
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from(self.b_field());
@@ -634,24 +536,19 @@ impl Instruction {
         let operation = self.operation();
 
         match operation {
-            Operation::MOVE => Move::from(self).to_string(),
             Operation::CLOSE => Close::from(self).to_string(),
-            Operation::LOAD_ENCODED => LoadEncoded::from(self).to_string(),
-            Operation::LOAD_CONSTANT => LoadConstant::from(self).to_string(),
-            Operation::LOAD_FUNCTION => LoadFunction::from(self).to_string(),
-            Operation::LOAD_LIST => LoadList::from(self).to_string(),
+            Operation::LOAD => Load::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),
             Operation::DIVIDE => Divide::from(self).to_string(),
             Operation::MODULO => Modulo::from(self).to_string(),
             Operation::NEGATE => Negate::from(self).to_string(),
-            Operation::NOT => Not::from(self).to_string(),
             Operation::EQUAL => Equal::from(self).to_string(),
             Operation::LESS => Less::from(self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(self).to_string(),
             Operation::TEST => Test::from(self).to_string(),
-            Operation::TEST_SET => TestSet::from(*self).to_string(),
+            Operation::TEST_SET => TestSet::from(self).to_string(),
             Operation::CALL => Call::from(self).to_string(),
             Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
@@ -674,15 +571,16 @@ impl Display for Instruction {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InstructionFields {
     pub operation: Operation,
+    pub a_memory_kind: MemoryKind,
+    pub b_memory_kind: MemoryKind,
+    pub c_memory_kind: MemoryKind,
+    pub operand_type: OperandType,
     pub a_field: u16,
     pub b_field: u16,
     pub c_field: u16,
-    pub a_is_register: bool,
-    pub b_kind: AddressKind,
-    pub c_kind: AddressKind,
 }
 
 impl InstructionFields {
@@ -690,9 +588,10 @@ impl InstructionFields {
         let mut bits = 0_u64;
 
         bits |= self.operation.0 as u64;
-        bits |= (self.a_is_register as u64) << 5;
-        bits |= (self.b_kind.0 as u64) << 6;
-        bits |= (self.c_kind.0 as u64) << 11;
+        bits |= (self.a_memory_kind.0 as u64) << 5;
+        bits |= (self.b_memory_kind.0 as u64) << 7;
+        bits |= (self.c_memory_kind.0 as u64) << 9;
+        bits |= (self.operand_type.0 as u64) << 11;
         bits |= (self.a_field as u64) << 16;
         bits |= (self.b_field as u64) << 32;
         bits |= (self.c_field as u64) << 48;
@@ -705,26 +604,13 @@ impl From<&Instruction> for InstructionFields {
     fn from(instruction: &Instruction) -> Self {
         InstructionFields {
             operation: instruction.operation(),
+            a_memory_kind: instruction.a_memory_kind(),
+            b_memory_kind: instruction.b_memory_kind(),
+            c_memory_kind: instruction.c_memory_kind(),
+            operand_type: instruction.operand_type(),
             a_field: instruction.a_field(),
             b_field: instruction.b_field(),
             c_field: instruction.c_field(),
-            a_is_register: instruction.a_is_register(),
-            b_kind: instruction.b_kind(),
-            c_kind: instruction.c_kind(),
-        }
-    }
-}
-
-impl Default for InstructionFields {
-    fn default() -> Self {
-        InstructionFields {
-            operation: Operation::NO_OP,
-            a_field: 0,
-            b_field: 0,
-            c_field: 0,
-            a_is_register: false,
-            b_kind: AddressKind(0),
-            c_kind: AddressKind(0),
         }
     }
 }
@@ -733,122 +619,68 @@ impl Default for InstructionFields {
 mod tests {
     use super::*;
 
+    fn create_instruction() -> Instruction {
+        Instruction::add(
+            Address::heap(42),
+            Address::stack(1),
+            Address::cell(2),
+            OperandType::INTEGER,
+        )
+    }
+
     #[test]
     fn decode_operation() {
-        let instruction = Instruction::add(
-            Destination::memory(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+        let instruction = create_instruction();
 
-        assert_eq!(Operation::ADD, instruction.operation());
+        assert_eq!(instruction.operation(), Operation::ADD);
     }
 
     #[test]
-    fn decode_a_is_register() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+    fn decode_a_memory() {
+        let instruction = create_instruction();
 
-        assert!(instruction.a_is_register());
+        assert_eq!(instruction.a_memory_kind(), MemoryKind::HEAP);
     }
 
     #[test]
-    fn decode_b_kind() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+    fn decode_b_memory() {
+        let instruction = create_instruction();
 
-        assert_eq!(AddressKind::CHARACTER_MEMORY, instruction.b_kind());
+        assert_eq!(instruction.b_memory_kind(), MemoryKind::HEAP);
     }
 
     #[test]
-    fn decode_c_kind() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::STRING_MEMORY,
-            },
-        );
+    fn decode_c_memory() {
+        let instruction = create_instruction();
 
-        assert_eq!(AddressKind::STRING_MEMORY, instruction.c_kind());
+        assert_eq!(instruction.c_memory_kind(), MemoryKind::CELL);
+    }
+
+    #[test]
+    fn decode_operand_type() {
+        let instruction = create_instruction();
+
+        assert_eq!(instruction.operand_type(), OperandType::INTEGER);
     }
 
     #[test]
     fn decode_a_field() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+        let instruction = create_instruction();
 
-        assert_eq!(42, instruction.a_field());
+        assert_eq!(instruction.a_field(), 42);
     }
 
     #[test]
     fn decode_b_field() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+        let instruction = create_instruction();
 
-        assert_eq!(1, instruction.b_field());
+        assert_eq!(instruction.b_field(), 1);
     }
 
     #[test]
     fn decode_c_field() {
-        let instruction = Instruction::add(
-            Destination::register(42),
-            Address {
-                index: 1,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-            Address {
-                index: 2,
-                kind: AddressKind::CHARACTER_MEMORY,
-            },
-        );
+        let instruction = create_instruction();
 
-        assert_eq!(2, instruction.c_field());
+        assert_eq!(instruction.c_field(), 2);
     }
 }

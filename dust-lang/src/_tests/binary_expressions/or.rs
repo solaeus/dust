@@ -11,7 +11,7 @@ fn true_or_true() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -19,7 +19,7 @@ fn true_or_true() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -48,7 +48,7 @@ fn true_or_false() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -56,7 +56,7 @@ fn true_or_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -85,7 +85,7 @@ fn false_or_true() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -93,7 +93,7 @@ fn false_or_true() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -122,7 +122,7 @@ fn false_or_false() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -130,7 +130,7 @@ fn false_or_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), false),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,

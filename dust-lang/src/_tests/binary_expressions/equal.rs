@@ -1,96 +1,41 @@
 use crate::{
-    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile,
-    instruction::{AddressKind, Destination},
-    run,
+    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile, run,
 };
 
+use crate::instruction::{AddressKind, Destination};
+
 #[test]
-fn less_equal_booleans() {
-    let source = "true <= false";
+fn equal_bytes() {
+    let source = "0x0A == 0x03";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::load_encoded(
-                Destination::register(1),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::less_equal(
-                true,
-                Address::new(0, AddressKind::BOOLEAN_REGISTER),
-                Address::new(1, AddressKind::BOOLEAN_REGISTER),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::register(2),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::register(2),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(2, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(0, 4),
-            Span(8, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(0, 13),
-            Span(13, 13),
-        ],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
-
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
-}
-
-#[test]
-fn less_equal_bytes() {
-    let source = "0x0A <= 0x03";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 0x0A,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
             Instruction::load_encoded(
-                Destination::register(1),
+                Destination::stack(1),
                 0x03,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -115,25 +60,25 @@ fn less_equal_bytes() {
 }
 
 #[test]
-fn less_equal_characters() {
-    let source = "'a' <= 'b'";
+fn equal_characters() {
+    let source = "'a' == 'b'";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::CHARACTER_CONSTANT),
                 Address::new(1, AddressKind::CHARACTER_CONSTANT),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -150,32 +95,32 @@ fn less_equal_characters() {
         character_constants: vec!['a', 'b'],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_equal_floats() {
-    let source = "10.0 <= 3.0";
+fn equal_floats() {
+    let source = "10.0 == 3.0";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -199,25 +144,25 @@ fn less_equal_floats() {
 }
 
 #[test]
-fn less_equal_integers() {
-    let source = "10 <= 3";
+fn equal_integers() {
+    let source = "10 == 3";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -235,25 +180,25 @@ fn less_equal_integers() {
 }
 
 #[test]
-fn less_equal_strings() {
-    let source = "\"abc\" <= \"def\"";
+fn equal_strings() {
+    let source = "\"abc\" == \"def\"";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::STRING_CONSTANT),
                 Address::new(1, AddressKind::STRING_CONSTANT),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -270,74 +215,74 @@ fn less_equal_strings() {
         string_constants: vec![DustString::from("abc"), DustString::from("def")],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn less_equal_lists() {
-    let source = "[1, 2, 3] <= [4, 5, 6]";
+fn equal_lists() {
+    let source = "[1, 2, 3] == [4, 5, 6]";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(2, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_MEMORY),
                 2,
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(3),
+                Destination::heap(3),
                 Address::new(3, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(4),
+                Destination::heap(4),
                 Address::new(4, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(5),
+                Destination::heap(5),
                 Address::new(5, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(1),
+                Destination::stack(1),
                 Address::new(3, AddressKind::INTEGER_MEMORY),
                 5,
                 false,
             ),
-            Instruction::less_equal(
+            Instruction::equal(
                 true,
                 Address::new(0, AddressKind::LIST_REGISTER),
                 Address::new(1, AddressKind::LIST_REGISTER),
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -362,7 +307,7 @@ fn less_equal_lists() {
         integer_constants: vec![1, 2, 3, 4, 5, 6],
         ..Chunk::default()
     };
-    let return_value = Some(Value::boolean(true));
+    let return_value = Some(Value::boolean(false));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

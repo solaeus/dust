@@ -38,7 +38,7 @@ impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
     }
 
     pub fn make_list_concrete(&self, abstract_list: &AbstractList) -> ConcreteList {
-        let item_type = abstract_list.pointer_kind.r#type();
+        let item_type = abstract_list.item_type.type_kind();
 
         match item_type {
             TypeKind::Boolean => {

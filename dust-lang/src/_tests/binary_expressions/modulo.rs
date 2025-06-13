@@ -5,20 +5,20 @@ use crate::{
 };
 
 #[test]
-fn divide_bytes() {
-    let source = "0x28 / 0x02";
+fn modulo_bytes() {
+    let source = "0x28 % 0x05";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Byte),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 40,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
-            Instruction::load_encoded(Destination::register(1), 2, AddressKind::BYTE_MEMORY, false),
-            Instruction::divide(
-                Destination::register(2),
+            Instruction::load_encoded(Destination::stack(1), 5, AddressKind::BYTE_MEMORY, false),
+            Instruction::modulo(
+                Destination::stack(2),
                 Address::new(0, AddressKind::BYTE_REGISTER),
                 Address::new(1, AddressKind::BYTE_REGISTER),
             ),
@@ -27,53 +27,53 @@ fn divide_bytes() {
         positions: vec![Span(0, 4), Span(7, 11), Span(0, 11), Span(11, 11)],
         ..Chunk::default()
     };
-    let return_value = Some(Value::byte(20));
+    let return_value = Some(Value::byte(40 % 5));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn divide_floats() {
-    let source = "0.5 / 0.25";
+fn modulo_floats() {
+    let source = "5.5 % 2.0";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Float),
         instructions: vec![
-            Instruction::divide(
-                Destination::register(0),
+            Instruction::modulo(
+                Destination::stack(0),
                 Address::new(0, AddressKind::FLOAT_CONSTANT),
                 Address::new(1, AddressKind::FLOAT_CONSTANT),
             ),
             Instruction::r#return(true, Address::new(0, AddressKind::FLOAT_REGISTER)),
         ],
-        positions: vec![Span(0, 10), Span(10, 10)],
-        float_constants: vec![0.5, 0.25],
+        positions: vec![Span(0, 9), Span(9, 9)],
+        float_constants: vec![5.5, 2.0],
         ..Chunk::default()
     };
-    let return_value = Some(Value::float(2.0));
+    let return_value = Some(Value::float(5.5 % 2.0));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());
 }
 
 #[test]
-fn divide_integers() {
-    let source = "10 / 5";
+fn modulo_integers() {
+    let source = "10 % 3";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Integer),
         instructions: vec![
-            Instruction::divide(
-                Destination::register(0),
+            Instruction::modulo(
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
             ),
             Instruction::r#return(true, Address::new(0, AddressKind::INTEGER_REGISTER)),
         ],
         positions: vec![Span(0, 6), Span(6, 6)],
-        integer_constants: vec![10, 5],
+        integer_constants: vec![10, 3],
         ..Chunk::default()
     };
-    let return_value = Some(Value::integer(2));
+    let return_value = Some(Value::integer(10 % 3));
 
     assert_eq!(chunk, compile(source).unwrap());
     assert_eq!(return_value, run(source).unwrap());

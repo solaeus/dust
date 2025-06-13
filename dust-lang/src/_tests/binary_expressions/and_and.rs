@@ -5,13 +5,21 @@ use crate::{
 };
 
 #[test]
-fn true_and_true() {
-    let source = "true && true";
+fn true_and_true_and_true() {
+    let source = "true && true && true";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::jump(2, true),
+            Instruction::load_encoded(
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -19,7 +27,7 @@ fn true_and_true() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -31,7 +39,10 @@ fn true_and_true() {
             Span(5, 7),
             Span(5, 7),
             Span(8, 12),
-            Span(12, 12),
+            Span(13, 15),
+            Span(13, 15),
+            Span(16, 20),
+            Span(20, 20),
         ],
         ..Chunk::default()
     };
@@ -42,13 +53,21 @@ fn true_and_true() {
 }
 
 #[test]
-fn true_and_false() {
-    let source = "true && false";
+fn true_and_true_and_false() {
+    let source = "true && true && false";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
+                true as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::jump(2, true),
+            Instruction::load_encoded(
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -56,7 +75,7 @@ fn true_and_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -67,8 +86,11 @@ fn true_and_false() {
             Span(0, 4),
             Span(5, 7),
             Span(5, 7),
-            Span(8, 13),
-            Span(13, 13),
+            Span(8, 12),
+            Span(13, 15),
+            Span(13, 15),
+            Span(16, 21),
+            Span(21, 21),
         ],
         ..Chunk::default()
     };
@@ -79,21 +101,29 @@ fn true_and_false() {
 }
 
 #[test]
-fn false_and_true() {
-    let source = "false && true";
+fn false_and_true_and_true() {
+    let source = "false && true && true";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::jump(2, true),
+            Instruction::load_encoded(
+                Destination::stack(0),
+                true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -105,7 +135,10 @@ fn false_and_true() {
             Span(6, 8),
             Span(6, 8),
             Span(9, 13),
-            Span(13, 13),
+            Span(14, 16),
+            Span(14, 16),
+            Span(17, 21),
+            Span(21, 21),
         ],
         ..Chunk::default()
     };
@@ -116,13 +149,21 @@ fn false_and_true() {
 }
 
 #[test]
-fn false_and_false() {
-    let source = "false && false";
+fn false_and_false_and_false() {
+    let source = "false && false && false";
     let chunk = Chunk {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
+                false as u16,
+                AddressKind::BOOLEAN_MEMORY,
+                false,
+            ),
+            Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
+            Instruction::jump(2, true),
+            Instruction::load_encoded(
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -130,7 +171,7 @@ fn false_and_false() {
             Instruction::test(Address::new(0, AddressKind::BOOLEAN_REGISTER), true),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -142,7 +183,10 @@ fn false_and_false() {
             Span(6, 8),
             Span(6, 8),
             Span(9, 14),
-            Span(14, 14),
+            Span(15, 17),
+            Span(15, 17),
+            Span(18, 23),
+            Span(23, 23),
         ],
         ..Chunk::default()
     };

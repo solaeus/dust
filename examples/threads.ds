@@ -1,10 +1,12 @@
 use std::io::write_line;
 use std::thread::spawn;
 
-spawn(fn one() {
-    write_line("Will this thread finish first?");
-});
+let mut cell i = 0;
 
-spawn(fn two() {
-    write_line("Or will this one?");
-});
+while i < 1000 {
+    spawn(fn () {
+        write_line("Hello from thread #" + str.from_int(i));
+
+        i += 1;
+    });
+}

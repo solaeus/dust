@@ -21,7 +21,8 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::AddressKind;
+use crate::instruction::MemoryKind;
+use crate::r#type::TypeKind;
 use crate::value::AbstractFunction;
 use crate::{Address, DustString, FunctionType, Instruction, Span};
 
@@ -41,7 +42,7 @@ pub struct Chunk {
     pub(crate) string_constants: Vec<DustString>,
     pub(crate) locals: Vec<Local>,
     pub(crate) prototypes: Vec<Arc<Chunk>>,
-    pub(crate) arguments: Vec<Vec<Address>>,
+    pub(crate) arguments: Vec<Vec<(Address, TypeKind)>>,
 
     pub(crate) boolean_memory_length: u16,
     pub(crate) byte_memory_length: u16,
@@ -57,7 +58,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn as_function(&self) -> AbstractFunction {
         AbstractFunction {
-            prototype_address: Address::new(self.prototype_index, AddressKind::FUNCTION_PROTOTYPE),
+            prototype_address: Address::new(self.prototype_index, MemoryKind::CONSTANT),
         }
     }
 

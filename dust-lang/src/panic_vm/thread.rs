@@ -66,7 +66,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
         let mut call_stack = Vec::new();
         let mut memory_stack = Vec::new();
 
-        let mut call = CallFrame::new(Arc::clone(&self.chunk), Destination::memory(0));
+        let mut call = CallFrame::new(Arc::clone(&self.chunk), Destination::heap(0));
         let mut memory = Memory::<REGISTER_COUNT>::new(&call.chunk);
 
         loop {
@@ -318,7 +318,7 @@ impl<const REGISTER_COUNT: usize> ThreadRunner<REGISTER_COUNT> {
                         jump_next,
                     } = LoadList::from(&instruction);
                     let mut abstract_list = AbstractList {
-                        pointer_kind: start.kind,
+                        item_type: start.kind,
                         indices: Vec::with_capacity((end - start.index + 1) as usize),
                     };
 

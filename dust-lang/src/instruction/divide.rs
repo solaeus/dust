@@ -1,11 +1,14 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Destination, Instruction, InstructionFields, Operation};
+use crate::r#type::TypeKind;
+
+use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Divide {
-    pub destination: Destination,
+    pub destination: Address,
     pub left: Address,
     pub right: Address,
+    pub r#type: OperandType,
 }
 
 impl From<&Instruction> for Divide {
@@ -13,11 +16,13 @@ impl From<&Instruction> for Divide {
         let destination = instruction.destination();
         let left = instruction.b_address();
         let right = instruction.c_address();
+        let r#type = instruction.operand_type();
 
         Divide {
             destination,
             left,
             right,
+            r#type,
         }
     }
 }
@@ -25,27 +30,29 @@ impl From<&Instruction> for Divide {
 impl From<Divide> for Instruction {
     fn from(divide: Divide) -> Self {
         let operation = Operation::DIVIDE;
-        let Destination {
+        let Address {
             index: a_field,
-            is_register: a_is_register,
+            memory: a_memory_kind,
         } = divide.destination;
         let Address {
             index: b_field,
-            kind: b_kind,
+            memory: b_memory_kind,
         } = divide.left;
         let Address {
             index: c_field,
-            kind: c_kind,
+            memory: c_memory_kind,
         } = divide.right;
+        let operand_type = divide.r#type;
 
         InstructionFields {
             operation,
             a_field,
-            a_is_register,
+            a_memory_kind,
             b_field,
-            b_kind,
+            b_memory_kind,
             c_field,
-            c_kind,
+            c_memory_kind,
+            operand_type,
         }
         .build()
     }
@@ -57,9 +64,19 @@ impl Display for Divide {
             destination,
             left,
             right,
+            r#type,
         } = self;
+        let type_kind = match *r#type {
+            OperandType::BYTE => TypeKind::Byte,
+            OperandType::FLOAT => TypeKind::Float,
+            OperandType::INTEGER => TypeKind::Integer,
+            _ => return write!(f, "INVALID_DIVIDE_INSTRUCTION"),
+        };
 
-        destination.display(f, left.r#type())?;
-        write!(f, " = {left} ÷ {right}")
+        destination.display(f, type_kind)?;
+        write!(f, " = ")?;
+        left.display(f, type_kind)?;
+        write!(f, " ÷ ")?;
+        right.display(f, type_kind)
     }
 }

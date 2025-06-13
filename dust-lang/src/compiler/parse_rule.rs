@@ -2,10 +2,10 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::Token;
 
-use super::{CompileError, Compiler};
+use super::{ChunkCompiler, CompileError};
 
 pub type Parser<'dc, 'paths, 'src, const REGISTER_COUNT: usize> =
-    fn(&mut Compiler<'dc, 'paths, 'src, REGISTER_COUNT>) -> Result<(), CompileError>;
+    fn(&mut ChunkCompiler<'dc, 'paths, 'src, REGISTER_COUNT>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
@@ -23,58 +23,63 @@ where
     fn from(token: &Token) -> Self {
         match token {
             Token::Any => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::ArrowThin => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Async => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Bang => ParseRule {
-                prefix: Some(Compiler::parse_unary),
+                prefix: Some(ChunkCompiler::parse_unary),
                 infix: None,
                 precedence: Precedence::Unary,
             },
             Token::BangEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::Bool => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Boolean(_) => ParseRule {
-                prefix: Some(Compiler::parse_boolean),
+                prefix: Some(ChunkCompiler::parse_boolean),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Break => todo!(),
             Token::Byte(_) => ParseRule {
-                prefix: Some(Compiler::parse_byte),
+                prefix: Some(ChunkCompiler::parse_byte),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::ByteKeyword => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::Cell => ParseRule {
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Character(_) => ParseRule {
-                prefix: Some(Compiler::parse_character),
+                prefix: Some(ChunkCompiler::parse_character),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Colon => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -84,32 +89,32 @@ where
                 precedence: Precedence::None,
             },
             Token::Const => ParseRule {
-                prefix: Some(Compiler::parse_const),
+                prefix: Some(ChunkCompiler::parse_const),
                 infix: None,
                 precedence: Precedence::Assignment,
             },
             Token::Dot => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::DoubleAmpersand => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_logical_binary),
+                infix: Some(ChunkCompiler::parse_logical_binary),
                 precedence: Precedence::Logic,
             },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::DoublePipe => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_logical_binary),
+                infix: Some(ChunkCompiler::parse_logical_binary),
                 precedence: Precedence::Logic,
             },
             Token::DoubleDot => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -129,94 +134,94 @@ where
                 precedence: Precedence::None,
             },
             Token::Float(_) => ParseRule {
-                prefix: Some(Compiler::parse_float),
+                prefix: Some(ChunkCompiler::parse_float),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::FloatKeyword => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Fn => ParseRule {
-                prefix: Some(Compiler::parse_function),
+                prefix: Some(ChunkCompiler::parse_function),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Greater => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::GreaterEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::Identifier(_) => ParseRule {
-                prefix: Some(Compiler::parse_variable),
+                prefix: Some(ChunkCompiler::parse_variable),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::If => ParseRule {
-                prefix: Some(Compiler::parse_if),
+                prefix: Some(ChunkCompiler::parse_if),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Int => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Integer(_) => ParseRule {
-                prefix: Some(Compiler::parse_integer),
+                prefix: Some(ChunkCompiler::parse_integer),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::LeftBrace => ParseRule {
-                prefix: Some(Compiler::parse_block),
+                prefix: Some(ChunkCompiler::parse_block),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::LeftParenthesis => ParseRule {
-                prefix: Some(Compiler::parse_grouped),
-                infix: Some(Compiler::parse_call),
+                prefix: Some(ChunkCompiler::parse_grouped),
+                infix: Some(ChunkCompiler::parse_call),
                 precedence: Precedence::Call,
             },
             Token::LeftBracket => ParseRule {
-                prefix: Some(Compiler::parse_list),
+                prefix: Some(ChunkCompiler::parse_list),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Less => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::LessEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_comparison_binary),
+                infix: Some(ChunkCompiler::parse_comparison_binary),
                 precedence: Precedence::Comparison,
             },
             Token::Let => ParseRule {
-                prefix: Some(Compiler::parse_let),
+                prefix: Some(ChunkCompiler::parse_let),
                 infix: None,
                 precedence: Precedence::Assignment,
             },
             Token::Loop => todo!(),
             Token::Map => todo!(),
             Token::Minus => ParseRule {
-                prefix: Some(Compiler::parse_unary),
-                infix: Some(Compiler::parse_math_binary),
+                prefix: Some(ChunkCompiler::parse_unary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Term,
             },
             Token::MinusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Mod => ParseRule {
-                prefix: Some(Compiler::parse_mod),
+                prefix: Some(ChunkCompiler::parse_mod),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -227,31 +232,31 @@ where
             },
             Token::Percent => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::PercentEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Plus => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Term,
             },
             Token::PlusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Return => ParseRule {
-                prefix: Some(Compiler::parse_return),
+                prefix: Some(ChunkCompiler::parse_return),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::RightBrace => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -266,52 +271,52 @@ where
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Compiler::parse_semicolon),
+                prefix: Some(ChunkCompiler::parse_semicolon),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Slash => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::SlashEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Star => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Factor,
             },
             Token::StarEqual => ParseRule {
                 prefix: None,
-                infix: Some(Compiler::parse_math_binary),
+                infix: Some(ChunkCompiler::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
             Token::Str => ParseRule {
-                prefix: Some(Compiler::parse_str),
+                prefix: Some(ChunkCompiler::parse_str),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::String(_) => ParseRule {
-                prefix: Some(Compiler::parse_string),
+                prefix: Some(ChunkCompiler::parse_string),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Struct => ParseRule {
-                prefix: Some(Compiler::expect_expression),
+                prefix: Some(ChunkCompiler::expect_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Use => ParseRule {
-                prefix: Some(Compiler::parse_use),
+                prefix: Some(ChunkCompiler::parse_use),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::While => ParseRule {
-                prefix: Some(Compiler::parse_while),
+                prefix: Some(ChunkCompiler::parse_while),
                 infix: None,
                 precedence: Precedence::None,
             },

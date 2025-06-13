@@ -11,13 +11,13 @@ fn greater_booleans() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
             ),
             Instruction::load_encoded(
-                Destination::register(1),
+                Destination::stack(1),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -29,13 +29,13 @@ fn greater_booleans() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(2),
+                Destination::stack(2),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(2),
+                Destination::stack(2),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -66,13 +66,13 @@ fn greater_bytes() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 0x0A,
                 AddressKind::BYTE_MEMORY,
                 false,
             ),
             Instruction::load_encoded(
-                Destination::register(1),
+                Destination::stack(1),
                 0x03,
                 AddressKind::BYTE_MEMORY,
                 false,
@@ -84,13 +84,13 @@ fn greater_bytes() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -127,13 +127,13 @@ fn greater_characters() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -163,13 +163,13 @@ fn greater_floats() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -205,13 +205,13 @@ fn greater_integers() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -241,13 +241,13 @@ fn greater_strings() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,
@@ -277,43 +277,43 @@ fn greater_lists() {
         r#type: FunctionType::new([], [], Type::Boolean),
         instructions: vec![
             Instruction::load_constant(
-                Destination::memory(0),
+                Destination::heap(0),
                 Address::new(0, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(1),
+                Destination::heap(1),
                 Address::new(1, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(2),
+                Destination::heap(2),
                 Address::new(2, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(0),
+                Destination::stack(0),
                 Address::new(0, AddressKind::INTEGER_MEMORY),
                 2,
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(3),
+                Destination::heap(3),
                 Address::new(3, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(4),
+                Destination::heap(4),
                 Address::new(4, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_constant(
-                Destination::memory(5),
+                Destination::heap(5),
                 Address::new(5, AddressKind::INTEGER_CONSTANT),
                 false,
             ),
             Instruction::load_list(
-                Destination::register(1),
+                Destination::stack(1),
                 Address::new(3, AddressKind::INTEGER_MEMORY),
                 5,
                 false,
@@ -325,13 +325,13 @@ fn greater_lists() {
             ),
             Instruction::jump(1, true),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 true as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 true,
             ),
             Instruction::load_encoded(
-                Destination::register(0),
+                Destination::stack(0),
                 false as u16,
                 AddressKind::BOOLEAN_MEMORY,
                 false,

@@ -27,10 +27,11 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(new_range_api, panic_payload_as_str)]
+#![feature(new_range_api, panic_payload_as_str, formatting_options)]
 
 pub mod chunk;
 pub mod compiler;
+pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
 pub mod lexer;
@@ -52,6 +53,7 @@ pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{Address, Destination, Instruction, Operation};
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
+pub use panic::set_dust_panic_hook;
 pub use panic_vm::{Vm, run};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};

@@ -267,6 +267,7 @@ impl<'src> Lexer<'src> {
             "async" => Token::Async,
             "bool" => Token::Bool,
             "break" => Token::Break,
+            "cell" => Token::Cell,
             "const" => Token::Const,
             "else" => Token::Else,
             "false" => Token::Boolean("false"),
