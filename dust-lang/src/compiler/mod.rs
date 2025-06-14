@@ -49,7 +49,7 @@ use std::{
 use crate::{
     Address, BlockScope, Chunk, ConcreteValue, DustError, DustString, FunctionType, Instruction,
     Lexer, Local, NativeFunction, Operation, Span, Token, TokenKind, Type,
-    dust_crate::DustCrate,
+    dust_crate::{DustCrate, Program},
     instruction::{Jump, Load, MemoryKind, OperandType},
     r#type::TypeKind,
 };
@@ -69,11 +69,11 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 /// ```
 pub fn compile(source: &str) -> Result<Chunk, DustError> {
     let compiler = Compiler::new(source, "main");
-    let dust_crate = compiler
-        .compile()
+    let Program { main_chunk, .. } = compiler
+        .compile_program()
         .map_err(|error| DustError::compile(error, source))?;
 
-    Ok(dust_crate.main_chunk)
+    Ok(main_chunk)
 }
 
 /// The Dust compiler assembles a [`Chunk`] for the Dust VM. Any unrecognized symbols, disallowed
@@ -85,11 +85,11 @@ pub struct Compiler<'a> {
     main_module: Module<'a>,
     globals: HashMap<DustString, Global>,
     source: &'a str,
-    program_name: &'a str,
+    crate_name: &'a str,
 }
 
 impl<'a> Compiler<'a> {
-    pub fn new(source: &'a str, program_name: &'a str) -> Self {
+    pub fn new(source: &'a str, crate_name: &'a str) -> Self {
         let dust_crate = Module::new();
         let globals = HashMap::new();
 
@@ -97,30 +97,43 @@ impl<'a> Compiler<'a> {
             main_module: dust_crate,
             globals,
             source,
-            program_name,
+            crate_name,
         }
     }
 
-    pub fn compile(mut self) -> Result<DustCrate<'a>, CompileError> {
+    pub fn compile_library(mut self) -> Result<DustCrate<'a>, CompileError> {
+        self.compile()?;
+
+        Ok(DustCrate::Library(self.main_module))
+    }
+
+    pub fn compile_program(mut self) -> Result<Program<'a>, CompileError> {
+        let main_chunk = self.compile()?;
+
+        Ok(Program {
+            main_chunk,
+            main_module: replace(&mut self.main_module, Module::new()),
+            cell_count: DEFAULT_REGISTER_COUNT as u16,
+        })
+    }
+
+    fn compile(&mut self) -> Result<Chunk, CompileError> {
+        let logging = span!(Level::INFO, "Compile");
+        let _enter = logging.enter();
+
         generate_standard_library(&mut self.main_module)?;
 
         let lexer = Lexer::new(self.source);
-        let mut main_chunk_compiler = ChunkCompiler::<DEFAULT_REGISTER_COUNT>::new_main(
+        let mut compiler = ChunkCompiler::<DEFAULT_REGISTER_COUNT>::new_main(
             lexer,
-            Some(self.program_name),
+            Some(self.crate_name),
             &mut self.main_module,
             &mut self.globals,
         )?;
 
-        main_chunk_compiler.compile()?;
+        compiler.compile()?;
 
-        let main_chunk = main_chunk_compiler.finish();
-
-        Ok(DustCrate {
-            main_chunk,
-            main_module: self.main_module,
-            cell_count: self.globals.len(),
-        })
+        Ok(compiler.finish())
     }
 }
 
@@ -523,8 +536,8 @@ where
                 | OperandType::CHARACTER_STRING
                 | OperandType::STRING_CHARACTER => &mut string_address_rankings,
                 OperandType::LIST => &mut list_address_rankings,
-                OperandType::FUNCTION => &mut function_address_rankings,
-                _ => unreachable!(),
+                OperandType::FUNCTION if address.is_heap() => &mut function_address_rankings,
+                _ => return,
             };
 
             match address_rankings.binary_search_by_key(&address, |(_, address)| *address) {
@@ -816,7 +829,7 @@ where
         )
     }
 
-    fn next_character_memory_index(&mut self) -> u16 {
+    fn next_character_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -845,7 +858,7 @@ where
         )
     }
 
-    fn next_float_memory_index(&mut self) -> u16 {
+    fn next_float_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -874,7 +887,7 @@ where
         )
     }
 
-    fn next_integer_memory_index(&mut self) -> u16 {
+    fn next_integer_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -903,7 +916,7 @@ where
         )
     }
 
-    fn next_string_memory_index(&mut self) -> u16 {
+    fn next_string_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -932,7 +945,7 @@ where
         )
     }
 
-    fn next_list_memory_index(&mut self) -> u16 {
+    fn next_list_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -961,7 +974,7 @@ where
         )
     }
 
-    fn next_function_memory_index(&mut self) -> u16 {
+    fn next_function_heap_index(&mut self) -> u16 {
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
@@ -1276,7 +1289,7 @@ where
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let destination = self.next_character_memory_index();
+            let destination = self.next_character_heap_index();
             let constant_index = if let Some(index) = self
                 .character_constants
                 .iter()
@@ -1316,7 +1329,7 @@ where
             self.advance()?;
 
             let float = self.parse_float_value(text)?;
-            let destination = self.next_float_memory_index();
+            let destination = self.next_float_heap_index();
             let constant_index = if let Some(index) = self
                 .float_constants
                 .iter()
@@ -1377,7 +1390,7 @@ where
 
                 index
             };
-            let destination = self.next_integer_memory_index();
+            let destination = self.next_integer_heap_index();
             let load_constant = Instruction::load(
                 Address::heap(destination),
                 Address::constant(constant_index),
@@ -1442,7 +1455,7 @@ where
 
                 index
             };
-            let destination = self.next_string_memory_index();
+            let destination = self.next_string_heap_index();
             let load_constant = Instruction::load(
                 Address::heap(destination),
                 Address::constant(constant_index),
@@ -1491,8 +1504,8 @@ where
 
         let destination_index = match previous_type {
             Type::Boolean => self.next_boolean_heap_index(),
-            Type::Float => self.next_float_memory_index(),
-            Type::Integer => self.next_integer_memory_index(),
+            Type::Float => self.next_float_heap_index(),
+            Type::Integer => self.next_integer_heap_index(),
             _ => match operator {
                 Token::Minus => {
                     return Err(CompileError::CannotNegateType {
@@ -1571,12 +1584,7 @@ where
 
         let left_is_mutable_variable = match left_instruction.operation() {
             Operation::LOAD => {
-                let Load {
-                    destination,
-                    operand,
-                    r#type,
-                    ..
-                } = Load::from(&left_instruction);
+                let Load { operand, .. } = Load::from(&left_instruction);
 
                 if operand.memory == MemoryKind::HEAP {
                     self.locals
@@ -1651,6 +1659,7 @@ where
             &right_type,
             &right_position,
         )?;
+        let right_type_kind = right_type.kind();
 
         if push_back_right {
             self.instructions
@@ -1669,26 +1678,26 @@ where
         } else {
             match left_type {
                 Type::Byte => self.next_byte_heap_index(),
-                Type::Character => self.next_string_memory_index(),
-                Type::Float => self.next_float_memory_index(),
-                Type::Integer => self.next_integer_memory_index(),
-                Type::String => self.next_string_memory_index(),
+                Type::Character => self.next_string_heap_index(),
+                Type::Float => self.next_float_heap_index(),
+                Type::Integer => self.next_integer_heap_index(),
+                Type::String => self.next_string_heap_index(),
                 _ => unreachable!(),
             }
         };
         let destination = Address::heap(destination_index);
         let operand_type = match left_type {
             Type::Byte => OperandType::BYTE,
-            Type::Character => match right_type {
-                Type::Character => OperandType::CHARACTER,
-                Type::String => OperandType::CHARACTER_STRING,
+            Type::Character => match right_type_kind {
+                TypeKind::Character => OperandType::CHARACTER,
+                TypeKind::String => OperandType::CHARACTER_STRING,
                 _ => unreachable!(),
             },
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
-            Type::String => match right_type {
-                Type::Character => OperandType::CHARACTER_STRING,
-                Type::String => OperandType::STRING,
+            Type::String => match right_type_kind {
+                TypeKind::Character => OperandType::CHARACTER_STRING,
+                TypeKind::String => OperandType::STRING,
                 _ => unreachable!(),
             },
             _ => unreachable!(),
@@ -1792,6 +1801,7 @@ where
         // TODO: Check if the right type is a valid type for comparison
 
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
+        let right_type_kind = right_type.kind();
 
         if push_back_right {
             self.instructions
@@ -1800,13 +1810,24 @@ where
 
         // TODO: Check if the left and right types are compatible
 
+        let operand_type = match right_type_kind {
+            TypeKind::Boolean => OperandType::BOOLEAN,
+            TypeKind::Byte => OperandType::BYTE,
+            TypeKind::Character => OperandType::CHARACTER,
+            TypeKind::Float => OperandType::FLOAT,
+            TypeKind::Integer => OperandType::INTEGER,
+            TypeKind::String => OperandType::STRING,
+            TypeKind::List => OperandType::LIST,
+            TypeKind::Function => OperandType::FUNCTION,
+            _ => todo!(),
+        };
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left, right),
-            Token::BangEqual => Instruction::equal(false, left, right),
-            Token::Less => Instruction::less(true, left, right),
-            Token::LessEqual => Instruction::less_equal(true, left, right),
-            Token::Greater => Instruction::less_equal(false, left, right),
-            Token::GreaterEqual => Instruction::less(false, left, right),
+            Token::DoubleEqual => Instruction::equal(true, left, right, operand_type),
+            Token::BangEqual => Instruction::equal(false, left, right, operand_type),
+            Token::Less => Instruction::less(true, left, right, operand_type),
+            Token::LessEqual => Instruction::less_equal(true, left, right, operand_type),
+            Token::Greater => Instruction::less_equal(false, left, right, operand_type),
+            Token::GreaterEqual => Instruction::less(false, left, right, operand_type),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1825,14 +1846,11 @@ where
         let jump = Instruction::jump(1, true);
         let destination_index = self.next_boolean_heap_index();
         let destination = Address::heap(destination_index);
-        let load_true =
-            Instruction::load_encoded(destination, true as u16, AddressKind::BOOLEAN_MEMORY, true);
-        let load_false = Instruction::load_encoded(
-            destination,
-            false as u16,
-            AddressKind::BOOLEAN_MEMORY,
-            false,
-        );
+        let true_as_address = Address::new(true as u16, MemoryKind::default());
+        let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
+        let false_as_address = Address::new(false as u16, MemoryKind::default());
+        let load_false =
+            Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
         let comparison_position = Span(left_position.0, right_position.1);
 
         self.emit_instruction(comparison, Type::Boolean, comparison_position);
@@ -1906,21 +1924,21 @@ where
         let instruction_count = self.instructions.len();
 
         if instruction_count == jump_index + 1 {
-            self.instructions
-                .last_mut()
-                .unwrap()
-                .0
-                .set_a_field(left.index);
+            let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
+
+            if last_instruction.yields_value() {
+                last_instruction.set_a_field(left.index);
+            }
         } else if matches!(
             self.get_last_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
-                Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT,
+                Operation::LOAD,
+                Operation::LOAD,
             ])
         ) {
-            let loaders = if cfg!(debug_assertions) {
+            let load_instructions = if cfg!(debug_assertions) {
                 self.instructions
                     .get_disjoint_mut([instruction_count - 1, instruction_count - 2])
                     .unwrap() // Safe because the indices in bounds and do not overlap
@@ -1931,8 +1949,23 @@ where
                 }
             };
 
-            loaders[0].0.set_a_field(left.index);
-            loaders[1].0.set_a_field(left.index);
+            let Load {
+                operand,
+                r#type,
+                jump_next,
+                ..
+            } = Load::from(&load_instructions[0].0);
+            load_instructions[0].0 =
+                Instruction::load(Address::heap(left.index), operand, r#type, jump_next);
+
+            let Load {
+                operand,
+                r#type,
+                jump_next,
+                ..
+            } = Load::from(&load_instructions[1].0);
+            load_instructions[1].0 =
+                Instruction::load(Address::heap(left.index), operand, r#type, jump_next);
         }
 
         let instructions_length = self.instructions.len();
@@ -1990,61 +2023,23 @@ where
                     r#type,
                     is_mutable,
                 } = global;
-                let (destination_index, type_as_address_kind) = match r#type.kind() {
-                    TypeKind::Boolean => {
-                        (self.next_boolean_heap_index(), AddressKind::BOOLEAN_MEMORY)
-                    }
-                    TypeKind::Byte => (self.next_byte_heap_index(), AddressKind::BYTE_MEMORY),
-                    TypeKind::Character => (
-                        self.next_character_memory_index(),
-                        AddressKind::CHARACTER_MEMORY,
-                    ),
-                    TypeKind::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
-                    TypeKind::Integer => (
-                        self.next_integer_memory_index(),
-                        AddressKind::INTEGER_MEMORY,
-                    ),
-                    TypeKind::String => {
-                        (self.next_string_memory_index(), AddressKind::STRING_MEMORY)
-                    }
-                    TypeKind::List => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
-                    TypeKind::Function => (
-                        self.next_function_memory_index(),
-                        AddressKind::FUNCTION_MEMORY,
-                    ),
-                    _ => todo!(),
-                };
-                let destination = Address::heap(destination_index);
-                let load_cell =
-                    Instruction::load_cell(destination, cell_index, type_as_address_kind, false);
 
-                self.emit_instruction(load_cell, r#type, start_position);
-
-                return Ok(());
+                (Address::cell(cell_index), r#type, is_mutable)
             } else if let Some((item, item_position)) =
                 find_item!(variable_path, &*self.main_module)
             {
-                let item_type = match item {
-                    Item::Constant(ref value) => value.r#type(),
-                    Item::Function(ref function) => {
-                        Type::Function(Box::new(function.r#type.clone()))
-                    }
-                    _ => unreachable!(
-                        "The item should be a constant or a function, not a module or other type."
-                    ),
-                };
-
-                let local_address =
-                    self.bring_item_into_local_scope(identifier, item, item_position)?;
+                let (local_address, item_type) =
+                    self.bring_item_into_local_scope(identifier, item, item_position);
 
                 (local_address, item_type, false)
             } else if let CompileMode::Function { name } = &self.mode {
                 if name.as_deref() == Some(identifier) {
-                    let destination_index = self.next_function_memory_index();
+                    let destination_index = self.next_function_heap_index();
                     let destination = Address::heap(destination_index);
-                    let load_self = Instruction::load_function(
+                    let load_self = Instruction::load(
                         destination,
-                        Address::new(0, AddressKind::FUNCTION_SELF),
+                        Address::default(),
+                        OperandType::FUNCTION_SELF,
                         false,
                     );
 
@@ -2096,20 +2091,22 @@ where
             }
         }
 
-        let destination_index = match variable_address.r#type() {
-            TypeKind::Boolean => self.next_boolean_heap_index(),
-            TypeKind::Byte => self.next_byte_heap_index(),
-            TypeKind::Character => self.next_character_memory_index(),
-            TypeKind::Float => self.next_float_memory_index(),
-            TypeKind::Integer => self.next_integer_memory_index(),
-            TypeKind::String => self.next_string_memory_index(),
-            TypeKind::List => self.next_list_memory_index(),
-            TypeKind::Function => self.next_function_memory_index(),
+        let (destination_index, operand_type) = match variable_type {
+            Type::Boolean => (self.next_boolean_heap_index(), OperandType::BOOLEAN),
+            Type::Byte => (self.next_byte_heap_index(), OperandType::BYTE),
+            Type::Character => (self.next_character_heap_index(), OperandType::CHARACTER),
+            Type::Float => (self.next_float_heap_index(), OperandType::FLOAT),
+            Type::Integer => (self.next_integer_heap_index(), OperandType::INTEGER),
+            Type::String => (self.next_string_heap_index(), OperandType::STRING),
+            Type::List(_) => (self.next_list_heap_index(), OperandType::LIST),
+            Type::Function(_) => (self.next_function_heap_index(), OperandType::FUNCTION),
+            Type::FunctionSelf => (self.next_function_heap_index(), OperandType::FUNCTION_SELF),
             _ => todo!(),
         };
-        let r#move = Instruction::r#move(Address::heap(destination_index), variable_address);
+        let destination = Address::heap(destination_index);
+        let load = Instruction::load(destination, variable_address, operand_type, false);
 
-        self.emit_instruction(r#move, variable_type, self.previous_position);
+        self.emit_instruction(load, variable_type, self.previous_position);
 
         Ok(())
     }
@@ -2197,12 +2194,12 @@ where
         let starting_block = self.current_block_scope.block_index;
         let start_boolean_memory_index = self.next_boolean_heap_index();
         let start_byte_memory_index = self.next_byte_heap_index();
-        let start_character_memory_index = self.next_character_memory_index();
-        let start_float_memory_index = self.next_float_memory_index();
-        let start_integer_memory_index = self.next_integer_memory_index();
-        let start_string_memory_index = self.next_string_memory_index();
-        let start_list_memory_index = self.next_list_memory_index();
-        let start_function_memory_index = self.next_function_memory_index();
+        let start_character_memory_index = self.next_character_heap_index();
+        let start_float_memory_index = self.next_float_heap_index();
+        let start_integer_memory_index = self.next_integer_heap_index();
+        let start_string_memory_index = self.next_string_heap_index();
+        let start_list_memory_index = self.next_list_heap_index();
+        let start_function_memory_index = self.next_function_heap_index();
 
         self.block_index += 1;
         self.current_block_scope.begin(self.block_index);
@@ -2213,64 +2210,64 @@ where
 
         let end_boolean_memory_index = self.next_boolean_heap_index();
         let end_byte_memory_index = self.next_byte_heap_index();
-        let end_character_memory_index = self.next_character_memory_index();
-        let end_float_memory_index = self.next_float_memory_index();
-        let end_integer_memory_index = self.next_integer_memory_index();
-        let end_string_memory_index = self.next_string_memory_index();
-        let end_list_memory_index = self.next_list_memory_index();
-        let end_function_memory_index = self.next_function_memory_index();
+        let end_character_memory_index = self.next_character_heap_index();
+        let end_float_memory_index = self.next_float_heap_index();
+        let end_integer_memory_index = self.next_integer_heap_index();
+        let end_string_memory_index = self.next_string_heap_index();
+        let end_list_memory_index = self.next_list_heap_index();
+        let end_function_memory_index = self.next_function_heap_index();
 
-        for (start, end, kind) in [
+        for (start, end, r#type) in [
             (
                 start_boolean_memory_index,
                 end_boolean_memory_index,
-                AddressKind::BOOLEAN_MEMORY,
+                TypeKind::Boolean,
             ),
             (
                 start_byte_memory_index,
                 end_byte_memory_index,
-                AddressKind::BYTE_MEMORY,
+                TypeKind::Byte,
             ),
             (
                 start_character_memory_index,
                 end_character_memory_index,
-                AddressKind::CHARACTER_MEMORY,
+                TypeKind::Character,
             ),
             (
                 start_float_memory_index,
                 end_float_memory_index,
-                AddressKind::FLOAT_MEMORY,
+                TypeKind::Float,
             ),
             (
                 start_integer_memory_index,
                 end_integer_memory_index,
-                AddressKind::INTEGER_MEMORY,
+                TypeKind::Integer,
             ),
             (
                 start_string_memory_index,
                 end_string_memory_index,
-                AddressKind::STRING_MEMORY,
+                TypeKind::String,
             ),
             (
                 start_list_memory_index,
                 end_list_memory_index,
-                AddressKind::LIST_MEMORY,
+                TypeKind::List,
             ),
             (
                 start_function_memory_index,
                 end_function_memory_index,
-                AddressKind::FUNCTION_MEMORY,
+                TypeKind::Function,
             ),
         ] {
             for i in start..end {
-                let address = Address::new(i, kind);
+                let address = Address::heap(i);
 
                 if !self
                     .locals
                     .iter()
                     .any(|local| local.address == address && local.scope == starting_scope)
                 {
-                    self.reclaimable_memory.push(address);
+                    self.reclaimable_memory.push((address, r#type));
                 }
             }
         }
@@ -2291,12 +2288,12 @@ where
         while !self.allow(Token::RightBracket)? {
             let start_boolean_address = self.next_boolean_heap_index();
             let start_byte_address = self.next_byte_heap_index();
-            let start_character_address = self.next_character_memory_index();
-            let start_float_address = self.next_float_memory_index();
-            let start_integer_address = self.next_integer_memory_index();
-            let start_string_address = self.next_string_memory_index();
-            let start_list_address = self.next_list_memory_index();
-            let start_function_address = self.next_function_memory_index();
+            let start_character_address = self.next_character_heap_index();
+            let start_float_address = self.next_float_heap_index();
+            let start_integer_address = self.next_integer_heap_index();
+            let start_string_address = self.next_string_heap_index();
+            let start_list_address = self.next_list_heap_index();
+            let start_function_address = self.next_function_heap_index();
 
             self.parse_expression()?;
             self.allow(Token::Comma)?;
@@ -2315,118 +2312,100 @@ where
 
             let end_boolean_address = self.next_boolean_heap_index();
             let end_byte_address = self.next_byte_heap_index();
-            let end_character_address = self.next_character_memory_index();
-            let end_float_address = self.next_float_memory_index();
-            let end_integer_address = self.next_integer_memory_index();
-            let end_string_address = self.next_string_memory_index();
-            let end_list_address = self.next_list_memory_index();
-            let end_function_address = self.next_function_memory_index();
-            let handle_closing_addresses =
-                |compiler: &mut Self, start_closing: u16, next_address: u16, kind: AddressKind| {
-                    let used_addresses = next_address - start_closing;
+            let end_character_address = self.next_character_heap_index();
+            let end_float_address = self.next_float_heap_index();
+            let end_integer_address = self.next_integer_heap_index();
+            let end_string_address = self.next_string_heap_index();
+            let end_list_address = self.next_list_heap_index();
+            let end_function_address = self.next_function_heap_index();
 
-                    if used_addresses > 1 {
-                        let end_closing = next_address - 2;
-                        let close = Instruction::close(
-                            Address::new(start_closing, kind),
-                            Address::new(end_closing, kind),
-                        );
-
-                        compiler.emit_instruction(close, Type::None, compiler.current_position);
-                    }
-                };
-
-            match self.get_last_instruction_type() {
-                Type::Boolean => handle_closing_addresses(
-                    self,
+            for (start, end, r#type) in [
+                (
                     start_boolean_address,
                     end_boolean_address,
-                    AddressKind::BOOLEAN_MEMORY,
+                    OperandType::BOOLEAN,
                 ),
-                Type::Byte => handle_closing_addresses(
-                    self,
-                    start_byte_address,
-                    end_byte_address,
-                    AddressKind::BYTE_MEMORY,
-                ),
-                Type::Character => handle_closing_addresses(
-                    self,
+                (start_byte_address, end_byte_address, OperandType::BYTE),
+                (
                     start_character_address,
                     end_character_address,
-                    AddressKind::CHARACTER_MEMORY,
+                    OperandType::CHARACTER,
                 ),
-                Type::Float => handle_closing_addresses(
-                    self,
-                    start_float_address,
-                    end_float_address,
-                    AddressKind::FLOAT_MEMORY,
-                ),
-                Type::Integer => handle_closing_addresses(
-                    self,
+                (start_float_address, end_float_address, OperandType::FLOAT),
+                (
                     start_integer_address,
                     end_integer_address,
-                    AddressKind::INTEGER_MEMORY,
+                    OperandType::INTEGER,
                 ),
-                Type::String => handle_closing_addresses(
-                    self,
+                (
                     start_string_address,
                     end_string_address,
-                    AddressKind::STRING_MEMORY,
+                    OperandType::STRING,
                 ),
-                Type::List { .. } => handle_closing_addresses(
-                    self,
-                    start_list_address,
-                    end_list_address,
-                    AddressKind::LIST_MEMORY,
-                ),
-                Type::Function(_) | Type::FunctionSelf => handle_closing_addresses(
-                    self,
+                (start_list_address, end_list_address, OperandType::LIST),
+                (
                     start_function_address,
                     end_function_address,
-                    AddressKind::FUNCTION_MEMORY,
+                    OperandType::FUNCTION,
                 ),
-                _ => unimplemented!(),
-            };
+            ] {
+                let used_addresses = end - start;
+
+                if used_addresses > 1 {
+                    let end_closing = end - 2;
+                    let close = Instruction::close(
+                        Address::heap(start),
+                        Address::heap(end_closing),
+                        r#type,
+                    );
+
+                    self.emit_instruction(close, Type::None, self.previous_position);
+                }
+            }
         }
 
         let end = self.previous_position.1;
-        let (end_register, address_kind) = match item_type {
+        let (end_register, operand_type) = match item_type {
             Type::Boolean => (
                 self.next_boolean_heap_index().saturating_sub(1),
-                AddressKind::BOOLEAN_MEMORY,
+                OperandType::BOOLEAN,
             ),
             Type::Byte => (
                 self.next_byte_heap_index().saturating_sub(1),
-                AddressKind::BYTE_MEMORY,
+                OperandType::BYTE,
             ),
             Type::Character => (
-                self.next_character_memory_index().saturating_sub(1),
-                AddressKind::CHARACTER_MEMORY,
+                self.next_character_heap_index().saturating_sub(1),
+                OperandType::CHARACTER,
             ),
             Type::Float => (
-                self.next_float_memory_index().saturating_sub(1),
-                AddressKind::FLOAT_MEMORY,
+                self.next_float_heap_index().saturating_sub(1),
+                OperandType::FLOAT,
             ),
             Type::Integer => (
-                self.next_integer_memory_index().saturating_sub(1),
-                AddressKind::INTEGER_MEMORY,
+                self.next_integer_heap_index().saturating_sub(1),
+                OperandType::INTEGER,
             ),
             Type::String => (
-                self.next_string_memory_index().saturating_sub(1),
-                AddressKind::STRING_MEMORY,
+                self.next_string_heap_index().saturating_sub(1),
+                OperandType::STRING,
             ),
             Type::List { .. } => (
-                self.next_list_memory_index().saturating_sub(1),
-                AddressKind::LIST_MEMORY,
+                self.next_list_heap_index().saturating_sub(1),
+                OperandType::LIST,
+            ),
+            Type::Function(_) => (
+                self.next_function_heap_index().saturating_sub(1),
+                OperandType::FUNCTION,
             ),
             _ => todo!(),
         };
-        let destination_index = self.next_list_memory_index();
-        let load_list = Instruction::load_list(
+        let destination_index = self.next_list_heap_index();
+        let list = Instruction::list(
             Address::heap(destination_index),
-            Address::new(start_register.unwrap_or(0), address_kind),
-            end_register,
-            false,
+            Address::heap(start_register.unwrap_or(0)),
+            Address::heap(end_register),
+            operand_type,
         );
         let list_length = end_register - start_register.unwrap_or(0) + 1;
 
@@ -2434,7 +2413,7 @@ where
             self.instructions.pop();
         }
 
-        self.emit_instruction(load_list, Type::List(Box::new(item_type)), Span(start, end));
+        self.emit_instruction(list, Type::List(Box::new(item_type)), Span(start, end));
 
         Ok(())
     }
@@ -2454,8 +2433,8 @@ where
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_ENCODED,
-                Operation::LOAD_ENCODED
+                Operation::LOAD,
+                Operation::LOAD
             ]),
         ) {
             self.instructions.pop();
@@ -2471,10 +2450,7 @@ where
                     });
                 }
             };
-            let test = Instruction::test(
-                Address::new(address_index, AddressKind::BOOLEAN_MEMORY),
-                true,
-            );
+            let test = Instruction::test(Address::heap(address_index), true);
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -2548,13 +2524,16 @@ where
         match jump_distance {
             0 => {}
             1 => {
-                if let Some([Operation::LOAD_ENCODED | Operation::LOAD_CONSTANT, _]) =
-                    self.get_last_operations()
-                {
-                    let loader_index = self.instructions.len() - 2;
-                    let (loader, _, _) = self.instructions.get_mut(loader_index).unwrap();
+                if let Some([Operation::LOAD, _]) = self.get_last_operations() {
+                    let load_index = self.instructions.len() - 2;
+                    let (load, _, _) = self.instructions.get_mut(load_index).unwrap();
 
-                    loader.set_c_field(true as u16);
+                    *load = Instruction::load(
+                        load.destination(),
+                        load.b_address(),
+                        load.operand_type(),
+                        true,
+                    );
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
@@ -2598,8 +2577,8 @@ where
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
-                Operation::LOAD_ENCODED,
-                Operation::LOAD_ENCODED
+                Operation::LOAD,
+                Operation::LOAD
             ]),
         ) {
             self.instructions.pop();
@@ -2609,16 +2588,13 @@ where
             let address_index = match self.get_last_instruction_type() {
                 Type::Boolean => self.next_boolean_heap_index() - 1,
                 Type::Byte => self.next_byte_heap_index() - 1,
-                Type::Character => self.next_character_memory_index() - 1,
-                Type::Float => self.next_float_memory_index() - 1,
-                Type::Integer => self.next_integer_memory_index() - 1,
-                Type::String => self.next_string_memory_index() - 1,
+                Type::Character => self.next_character_heap_index() - 1,
+                Type::Float => self.next_float_heap_index() - 1,
+                Type::Integer => self.next_integer_heap_index() - 1,
+                Type::String => self.next_string_heap_index() - 1,
                 _ => todo!(),
             };
-            let test = Instruction::test(
-                Address::new(address_index, AddressKind::BOOLEAN_MEMORY),
-                true,
-            );
+            let test = Instruction::test(Address::heap(address_index), true);
 
             self.emit_instruction(test, Type::None, self.current_position);
         }
@@ -2685,37 +2661,28 @@ where
 
         self.advance()?;
 
-        let (should_return_value, return_register, address_kind) =
+        let (should_return_value, return_register, operand_type) =
             if matches!(self.current_token, Token::Semicolon | Token::RightBrace) {
                 self.update_return_type(Type::None)?;
 
-                (false, 0, AddressKind(0))
+                (false, 0, OperandType::default())
             } else {
                 self.parse_expression()?;
 
                 let expression_type = self.get_last_instruction_type();
                 let (return_register, address_kind) = match expression_type {
-                    Type::Boolean => (
-                        self.next_boolean_heap_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
-                    Type::Byte => (self.next_byte_heap_index() - 1, AddressKind::BOOLEAN_MEMORY),
-                    Type::Character => (
-                        self.next_character_memory_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
-                    Type::Float => (
-                        self.next_float_memory_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
-                    Type::Integer => (
-                        self.next_integer_memory_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
-                    Type::String => (
-                        self.next_string_memory_index() - 1,
-                        AddressKind::BOOLEAN_MEMORY,
-                    ),
+                    Type::Boolean => (self.next_boolean_heap_index() - 1, OperandType::BOOLEAN),
+                    Type::Byte => (self.next_byte_heap_index() - 1, OperandType::BYTE),
+                    Type::Character => {
+                        (self.next_character_heap_index() - 1, OperandType::CHARACTER)
+                    }
+                    Type::Float => (self.next_float_heap_index() - 1, OperandType::FLOAT),
+                    Type::Integer => (self.next_integer_heap_index() - 1, OperandType::INTEGER),
+                    Type::String => (self.next_string_heap_index() - 1, OperandType::STRING),
+                    Type::List(_) => (self.next_list_heap_index() - 1, OperandType::LIST),
+                    Type::Function(_) | Type::FunctionSelf => {
+                        (self.next_function_heap_index() - 1, OperandType::FUNCTION)
+                    }
                     _ => todo!(),
                 };
 
@@ -2726,7 +2693,8 @@ where
         let end = self.current_position.1;
         let r#return = Instruction::r#return(
             should_return_value,
-            Address::new(return_register, address_kind),
+            Address::heap(return_register),
+            operand_type,
         );
 
         self.emit_instruction(r#return, Type::None, Span(start, end));
@@ -2751,23 +2719,24 @@ where
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if matches!(self.get_last_operation(), Some(Operation::MOVE)) {
-            let last_instruction = self.instructions.last().unwrap().0;
-            let Move { operand: from, .. } = Move::from(&last_instruction);
-
-            let (r#move, r#type, position) = self.instructions.pop().unwrap();
-            let (should_return, target_register) = if r#type == Type::None {
+        if matches!(self.get_last_operation(), Some(Operation::LOAD)) {
+            let (load_instruction, instruction_type, position) = self.instructions.pop().unwrap();
+            let Load {
+                operand, r#type, ..
+            } = Load::from(&load_instruction);
+            let (should_return, return_address) = if r#type == OperandType::NONE {
                 (false, Address::default())
             } else {
-                (true, from)
+                (true, operand)
             };
-            let r#return = Instruction::r#return(should_return, target_register);
+            let r#return = Instruction::r#return(should_return, return_address, r#type);
 
             if !should_return {
-                self.instructions.push((r#move, r#type.clone(), position));
+                self.instructions
+                    .push((load_instruction, instruction_type.clone(), position));
             }
 
-            self.emit_instruction(r#return, r#type, self.current_position);
+            self.emit_instruction(r#return, instruction_type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
             || matches!(
                 self.get_last_operations(),
@@ -2776,51 +2745,28 @@ where
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, Address::default());
+            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
-        } else if let Some((mut previous_expression_type, previous_destination_register)) =
-            self.instructions.last().map(|(instruction, r#type, _)| {
-                if r#type == &Type::None {
-                    (Type::None, 0)
-                } else if instruction.yields_value() {
-                    (r#type.clone(), instruction.a_field())
-                } else {
-                    (Type::None, 0)
-                }
-            })
+        } else if let Some((last_instruction, last_instruction_type, _)) = self.instructions.last()
         {
-            if let Type::Function(_) = previous_expression_type {
-                if let Some((instruction, _, _)) = self.instructions.last() {
-                    let LoadFunction { prototype, .. } = LoadFunction::from(instruction);
-
-                    let function_type = self
-                        .prototypes
-                        .get(prototype.index as usize)
-                        .map(|prototype| Type::Function(Box::new(prototype.r#type.clone())))
-                        .unwrap_or(Type::None);
-
-                    previous_expression_type = function_type;
-                }
-            }
-
-            let should_return_value = previous_expression_type != Type::None;
-            let address_kind = match &previous_expression_type {
-                Type::Boolean => AddressKind::BOOLEAN_MEMORY,
-                Type::Byte => AddressKind::BYTE_MEMORY,
-                Type::Character => AddressKind::CHARACTER_MEMORY,
-                Type::Float => AddressKind::FLOAT_MEMORY,
-                Type::Integer => AddressKind::INTEGER_MEMORY,
-                Type::String => AddressKind::STRING_MEMORY,
-                Type::List(_) => AddressKind::LIST_MEMORY,
-                Type::Function(_) | Type::FunctionSelf => AddressKind::FUNCTION_MEMORY,
-                Type::None => AddressKind::NONE,
-                _ => unimplemented!(),
+            let should_return_value = last_instruction_type != &Type::None;
+            let operand_type = match last_instruction_type {
+                Type::Boolean => OperandType::BOOLEAN,
+                Type::Byte => OperandType::BYTE,
+                Type::Character => OperandType::CHARACTER,
+                Type::Float => OperandType::FLOAT,
+                Type::Integer => OperandType::INTEGER,
+                Type::String => OperandType::STRING,
+                Type::List(_) => OperandType::LIST,
+                Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
+                Type::None => OperandType::NONE,
+                _ => todo!(),
             };
-            let return_value = Address::new(previous_destination_register, address_kind);
-            let r#return = Instruction::r#return(should_return_value, return_value);
+            let return_address = last_instruction.destination();
+            let r#return = Instruction::r#return(should_return_value, return_address, operand_type);
 
-            self.update_return_type(previous_expression_type)?;
+            self.update_return_type(last_instruction_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
 
@@ -2881,7 +2827,7 @@ where
         } else {
             last_instruction_type.clone()
         };
-        let address = last_instruction.destination_as_address();
+        let address = last_instruction.destination();
         *last_instruction_type = Type::None;
 
         if is_cell {
@@ -2953,42 +2899,20 @@ where
 
             let r#type = function_compiler.parse_type()?;
 
-            let (local_memory_index, address_kind) = match r#type {
-                Type::Boolean => (
-                    function_compiler.next_boolean_heap_index(),
-                    AddressKind::BOOLEAN_MEMORY,
-                ),
-                Type::Byte => (
-                    function_compiler.next_byte_heap_index(),
-                    AddressKind::BYTE_MEMORY,
-                ),
-                Type::Character => (
-                    function_compiler.next_character_memory_index(),
-                    AddressKind::CHARACTER_MEMORY,
-                ),
-                Type::Float => (
-                    function_compiler.next_float_memory_index(),
-                    AddressKind::FLOAT_MEMORY,
-                ),
-                Type::Integer => (
-                    function_compiler.next_integer_memory_index(),
-                    AddressKind::INTEGER_MEMORY,
-                ),
-                Type::String => (
-                    function_compiler.next_string_memory_index(),
-                    AddressKind::STRING_MEMORY,
-                ),
-                Type::List(_) => (
-                    function_compiler.next_list_memory_index(),
-                    AddressKind::LIST_MEMORY,
-                ),
-                Type::Function(_) | Type::FunctionSelf => (
-                    function_compiler.next_function_memory_index(),
-                    AddressKind::FUNCTION_MEMORY,
-                ),
+            let local_memory_index = match r#type {
+                Type::Boolean => function_compiler.next_boolean_heap_index(),
+                Type::Byte => function_compiler.next_byte_heap_index(),
+                Type::Character => function_compiler.next_character_heap_index(),
+                Type::Float => function_compiler.next_float_heap_index(),
+                Type::Integer => function_compiler.next_integer_heap_index(),
+                Type::String => function_compiler.next_string_heap_index(),
+                Type::List(_) => function_compiler.next_list_heap_index(),
+                Type::Function(_) | Type::FunctionSelf => {
+                    function_compiler.next_function_heap_index()
+                }
                 _ => todo!(),
             };
-            let address = Address::new(local_memory_index, address_kind);
+            let address = Address::heap(local_memory_index);
 
             function_compiler.declare_local(
                 parameter,
@@ -3022,11 +2946,12 @@ where
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
         let chunk = function_compiler.finish();
-        let memory_index = self.next_function_memory_index();
-        let address = Address::new(memory_index, AddressKind::FUNCTION_MEMORY);
-        let load_function = Instruction::load_function(
+        let memory_index = self.next_function_heap_index();
+        let address = Address::heap(memory_index);
+        let load_function = Instruction::load(
             Address::heap(memory_index),
-            Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE),
+            Address::constant(prototype_index),
+            OperandType::FUNCTION,
             false,
         );
         let r#type = Type::Function(Box::new(chunk.r#type.clone()));
@@ -3077,23 +3002,26 @@ where
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_address = match self.get_last_operation() {
-                Some(
-                    Operation::MOVE
-                    | Operation::LOAD_ENCODED
-                    | Operation::LOAD_CONSTANT
-                    | Operation::LOAD_FUNCTION,
-                ) => self.instructions.pop().unwrap().0.b_address(),
+            let (argument_address, r#type) = match self.get_last_operation() {
+                Some(Operation::LOAD) => {
+                    let (instruction, instruction_type, _) = self.instructions.pop().unwrap();
+
+                    (instruction.b_address(), instruction_type)
+                }
                 None => {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     });
                 }
-                _ => self.instructions.last().unwrap().0.destination_as_address(),
+                _ => {
+                    let (instruction, instruction_type, _) = self.instructions.last().unwrap();
+
+                    (instruction.destination(), instruction_type.clone())
+                }
             };
 
-            value_argument_list.push(argument_address);
+            value_argument_list.push((argument_address, r#type.kind()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -3102,32 +3030,48 @@ where
             .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
-        let (destination_index, return_type_as_address_kind) = match function_return_type {
-            Type::None => (0, AddressKind::NONE),
-            Type::Boolean => (self.next_boolean_heap_index(), AddressKind::BOOLEAN_MEMORY),
-            Type::Byte => (self.next_byte_heap_index(), AddressKind::BYTE_MEMORY),
+        let (destination, return_operand_type) = match function_return_type {
+            Type::None => (Address::default(), OperandType::NONE),
+            Type::Boolean => (
+                Address::heap(self.next_boolean_heap_index()),
+                OperandType::BOOLEAN,
+            ),
+            Type::Byte => (
+                Address::heap(self.next_byte_heap_index()),
+                OperandType::BYTE,
+            ),
             Type::Character => (
-                self.next_character_memory_index(),
-                AddressKind::CHARACTER_MEMORY,
+                Address::heap(self.next_character_heap_index()),
+                OperandType::CHARACTER,
             ),
-            Type::Float => (self.next_float_memory_index(), AddressKind::FLOAT_MEMORY),
+            Type::Float => (
+                Address::heap(self.next_float_heap_index()),
+                OperandType::FLOAT,
+            ),
             Type::Integer => (
-                self.next_integer_memory_index(),
-                AddressKind::INTEGER_MEMORY,
+                Address::heap(self.next_integer_heap_index()),
+                OperandType::INTEGER,
             ),
-            Type::String => (self.next_string_memory_index(), AddressKind::STRING_MEMORY),
-            Type::List(_) => (self.next_list_memory_index(), AddressKind::LIST_MEMORY),
-            Type::Function(_) | Type::FunctionSelf => (
-                self.next_function_memory_index(),
-                AddressKind::FUNCTION_MEMORY,
+            Type::String => (
+                Address::heap(self.next_string_heap_index()),
+                OperandType::STRING,
             ),
+            Type::List(_) => (
+                Address::heap(self.next_list_heap_index()),
+                OperandType::LIST,
+            ),
+            Type::Function(_) => (
+                Address::heap(self.next_function_heap_index()),
+                OperandType::FUNCTION,
+            ),
+            Type::FunctionSelf => (Address::function_self(), OperandType::FUNCTION_SELF),
             _ => todo!(),
         };
         let call = Instruction::call(
-            Address::heap(destination_index),
+            destination,
             last_instruction.b_address(),
             argument_list_index,
-            return_type_as_address_kind,
+            return_operand_type,
         );
 
         self.emit_instruction(call, function_return_type, Span(start, end));
@@ -3160,23 +3104,26 @@ where
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_address = match self.get_last_operation() {
-                Some(
-                    Operation::MOVE
-                    | Operation::LOAD_ENCODED
-                    | Operation::LOAD_CONSTANT
-                    | Operation::LOAD_FUNCTION,
-                ) => self.instructions.pop().unwrap().0.b_address(),
+            let (argument_address, r#type) = match self.get_last_operation() {
+                Some(Operation::LOAD) => {
+                    let (instruction, instruction_type, _) = self.instructions.pop().unwrap();
+
+                    (instruction.b_address(), instruction_type)
+                }
                 None => {
                     return Err(CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     });
                 }
-                _ => self.instructions.last().unwrap().0.destination_as_address(),
+                _ => {
+                    let (instruction, instruction_type, _) = self.instructions.last().unwrap();
+
+                    (instruction.destination(), instruction_type.clone())
+                }
             };
 
-            value_argument_list.push(argument_address);
+            value_argument_list.push((argument_address, r#type.kind()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -3190,10 +3137,10 @@ where
             Type::None => 0,
             Type::Boolean => self.next_boolean_heap_index(),
             Type::Byte => self.next_byte_heap_index(),
-            Type::Character => self.next_character_memory_index(),
-            Type::Float => self.next_float_memory_index(),
-            Type::Integer => self.next_integer_memory_index(),
-            Type::String => self.next_string_memory_index(),
+            Type::Character => self.next_character_heap_index(),
+            Type::Float => self.next_float_heap_index(),
+            Type::Integer => self.next_integer_heap_index(),
+            Type::String => self.next_string_heap_index(),
             _ => todo!(),
         };
         let call_native = Instruction::call_native(
@@ -3485,7 +3432,7 @@ where
             (item, position)
         };
 
-        self.bring_item_into_local_scope(item_path.item_name(), item, item_position)?;
+        self.bring_item_into_local_scope(item_path.item_name(), item, item_position);
 
         Ok(())
     }
@@ -3495,93 +3442,67 @@ where
         item_name: &str,
         item: Item,
         item_position: Span,
-    ) -> Result<Address, CompileError> {
-        let address = match item {
+    ) -> (Address, Type) {
+        match item {
             Item::Constant(value) => {
                 let (instruction, destination_address, r#type) = match value {
                     ConcreteValue::Boolean(boolean) => {
                         let memory_index = self.next_boolean_heap_index();
                         let destination = Address::heap(memory_index);
-                        let instruction = Instruction::load_encoded(
-                            destination,
-                            boolean as u16,
-                            AddressKind::BOOLEAN_MEMORY,
-                            false,
-                        );
+                        let operand = Address::new(boolean as u16, MemoryKind::default());
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::BOOLEAN, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::Boolean),
-                            Type::Boolean,
-                        )
+                        (instruction, destination, Type::Boolean)
                     }
                     ConcreteValue::Byte(byte) => {
                         let memory_index = self.next_byte_heap_index();
                         let destination = Address::heap(memory_index);
-                        let instruction = Instruction::load_encoded(
-                            destination,
-                            byte as u16,
-                            AddressKind::BYTE_MEMORY,
-                            false,
-                        );
+                        let operand = Address::new(byte as u16, MemoryKind::default());
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::BYTE, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::Byte),
-                            Type::Byte,
-                        )
+                        (instruction, destination, Type::Byte)
                     }
                     ConcreteValue::Character(character) => {
-                        let memory_index = self.next_character_memory_index();
+                        let memory_index = self.next_character_heap_index();
                         let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_character(character);
-                        let address = Address::new(constant_index, AddressKind::CHARACTER_CONSTANT);
-                        let instruction = Instruction::load_constant(destination, address, false);
+                        let operand = Address::constant(constant_index);
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::CHARACTER, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::Character),
-                            Type::Character,
-                        )
+                        (instruction, destination, Type::Character)
                     }
                     ConcreteValue::Float(float) => {
-                        let memory_index = self.next_float_memory_index();
+                        let memory_index = self.next_float_heap_index();
                         let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_float(float);
-                        let address = Address::new(constant_index, AddressKind::FLOAT_CONSTANT);
-                        let instruction = Instruction::load_constant(destination, address, false);
+                        let operand = Address::constant(constant_index);
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::FLOAT, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::Float),
-                            Type::Float,
-                        )
+                        (instruction, destination, Type::Float)
                     }
                     ConcreteValue::Integer(integer) => {
-                        let memory_index = self.next_integer_memory_index();
+                        let memory_index = self.next_integer_heap_index();
                         let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_integer(integer);
-                        let address = Address::new(constant_index, AddressKind::INTEGER_CONSTANT);
-                        let instruction = Instruction::load_constant(destination, address, false);
+                        let operand = Address::constant(constant_index);
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::INTEGER, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::Integer),
-                            Type::Integer,
-                        )
+                        (instruction, destination, Type::Integer)
                     }
                     ConcreteValue::String(string) => {
-                        let memory_index = self.next_string_memory_index();
+                        let memory_index = self.next_string_heap_index();
                         let destination = Address::heap(memory_index);
                         let constant_index = self.push_or_get_constant_string(string);
-                        let address = Address::new(constant_index, AddressKind::STRING_CONSTANT);
-                        let instruction = Instruction::load_constant(destination, address, false);
+                        let operand = Address::constant(constant_index);
+                        let instruction =
+                            Instruction::load(destination, operand, OperandType::STRING, false);
 
-                        (
-                            instruction,
-                            destination.as_address(TypeKind::String),
-                            Type::String,
-                        )
+                        (instruction, destination, Type::String)
                     }
                     _ => todo!("Handle other constant types in use statement"),
                 };
@@ -3590,29 +3511,33 @@ where
                 self.declare_local(
                     item_name,
                     destination_address,
-                    r#type,
+                    r#type.clone(),
                     false,
                     self.current_block_scope,
                 );
 
-                destination_address
+                (destination_address, r#type)
             }
             Item::Function(prototype) => {
                 let prototype_index = self.prototypes.len() as u16;
 
                 self.prototypes.push(Arc::clone(&prototype));
 
-                let address = Address::new(prototype_index, AddressKind::FUNCTION_PROTOTYPE);
+                let address = Address::constant(prototype_index);
                 let r#type = Type::Function(Box::new(prototype.r#type.clone()));
 
-                self.declare_local(item_name, address, r#type, false, self.current_block_scope);
+                self.declare_local(
+                    item_name,
+                    address,
+                    r#type.clone(),
+                    false,
+                    self.current_block_scope,
+                );
 
-                address
+                (address, r#type)
             }
             _ => todo!("Handle other item types"),
-        };
-
-        Ok(address)
+        }
     }
 
     fn parse_str(&mut self) -> Result<(), CompileError> {
@@ -3639,25 +3564,13 @@ where
                         item_name: aliased_path.to_string(),
                         position: self.previous_position,
                     })?;
-                let item_type = Type::function(vec![], vec![Type::Integer], Type::String);
+                let (variable_address, item_type) =
+                    self.bring_item_into_local_scope(identifier, item, item_position);
+                let destination = Address::heap(self.next_function_heap_index());
+                let load =
+                    Instruction::load(destination, variable_address, OperandType::FUNCTION, false);
 
-                let variable_address =
-                    self.bring_item_into_local_scope(identifier, item, item_position)?;
-                let destination_index = match variable_address.r#type() {
-                    TypeKind::Boolean => self.next_boolean_heap_index(),
-                    TypeKind::Byte => self.next_byte_heap_index(),
-                    TypeKind::Character => self.next_character_memory_index(),
-                    TypeKind::Float => self.next_float_memory_index(),
-                    TypeKind::Integer => self.next_integer_memory_index(),
-                    TypeKind::String => self.next_string_memory_index(),
-                    TypeKind::List => self.next_list_memory_index(),
-                    TypeKind::Function => self.next_function_memory_index(),
-                    _ => todo!(),
-                };
-                let r#move =
-                    Instruction::r#move(Address::heap(destination_index), variable_address);
-
-                self.emit_instruction(r#move, item_type, self.previous_position);
+                self.emit_instruction(load, item_type, self.previous_position);
                 self.parse_call()?;
             }
             _ => {

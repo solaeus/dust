@@ -1,54 +1,28 @@
 use std::io::{Write, stdin, stdout};
 
 use crate::{
-    Address, Destination, DustString,
-    instruction::AddressKind,
+    Address, DustString,
+    instruction::MemoryKind,
     panic_vm::{CallFrame, Memory, ThreadPool},
+    r#type::TypeKind,
 };
 
-pub fn read_line<const REGISTER_COUNT: usize>(
-    destination: Destination,
-    _: &[Address],
+pub fn read_line(
+    destination: Address,
+    _: &[(Address, TypeKind)],
     _: &mut CallFrame,
-    memory: &mut Memory<REGISTER_COUNT>,
-    _: &ThreadPool<REGISTER_COUNT>,
+    memory: &mut Memory,
+    _: &ThreadPool,
 ) {
-    let mut buffer = String::new();
-    let _ = stdin().read_line(&mut buffer);
-
-    if destination.is_register {
-        memory.registers.strings[destination.index as usize] =
-            DustString::from(buffer.trim_end_matches('\n'));
-    } else {
-        memory.strings[destination.index as usize] =
-            DustString::from(buffer.trim_end_matches('\n'));
-    }
+    todo!()
 }
 
-pub fn write_line<const REGISTER_COUNT: usize>(
-    _: Destination,
-    arguments: &[Address],
+pub fn write_line(
+    _: Address,
+    arguments: &[(Address, TypeKind)],
     _: &mut CallFrame,
-    memory: &mut Memory<REGISTER_COUNT>,
-    _: &ThreadPool<REGISTER_COUNT>,
+    memory: &mut Memory,
+    _: &ThreadPool,
 ) {
-    let mut stdout = stdout();
-
-    for address in arguments {
-        match address.kind {
-            AddressKind::STRING_REGISTER => {
-                let string = &memory.registers.strings[address.index as usize];
-
-                stdout.write_all(string.as_bytes()).unwrap();
-            }
-            AddressKind::STRING_MEMORY => {
-                let string = &memory.strings[address.index as usize];
-
-                stdout.write_all(string.as_bytes()).unwrap();
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    let _ = stdout.write_all(b"\n");
+    todo!()
 }

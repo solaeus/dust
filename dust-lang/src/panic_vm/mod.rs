@@ -8,30 +8,30 @@ pub use call_frame::CallFrame;
 pub use memory::{Memory, RegisterTable};
 pub use thread::Thread;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{Chunk, ConcreteValue, DustError, Value, compile, compiler::DEFAULT_REGISTER_COUNT};
+use crate::{Chunk, ConcreteValue, DustError, Value, compile};
 
-pub type ThreadPool<const REGISTER_COUNT: usize> = Arc<Mutex<Vec<Thread<REGISTER_COUNT>>>>;
+pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let chunk = compile(source)?;
-    let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(chunk));
+    let vm = Vm::new(Arc::new(chunk));
 
     Ok(vm.run().map(Value::Concrete))
 }
 
-pub struct Vm<const REGISTER_COUNT: usize> {
-    main_thread: Thread<REGISTER_COUNT>,
-    threads: ThreadPool<REGISTER_COUNT>,
+pub struct Vm {
+    main_thread: Thread,
+    threads: ThreadPool,
 }
 
-impl<const REGISTER_COUNT: usize> Vm<REGISTER_COUNT> {
+impl Vm {
     pub fn new(main_chunk: Arc<Chunk>) -> Self {
-        let threads = Arc::new(Mutex::new(Vec::new()));
-        let main_thread = Thread::<REGISTER_COUNT>::new(main_chunk, Arc::clone(&threads));
+        let threads = Arc::new(RwLock::new(Vec::new()));
+        let main_thread = Thread::new(main_chunk, Arc::clone(&threads));
 
         Self {
             main_thread,
@@ -48,7 +48,7 @@ impl<const REGISTER_COUNT: usize> Vm<REGISTER_COUNT> {
             .handle
             .join()
             .expect("Main thread panicked");
-        let mut threads = self.threads.lock().expect("Failed to lock threads");
+        let mut threads = self.threads.write().expect("Failed to lock threads");
 
         for thread in threads.drain(..) {
             thread.handle.join().expect("Thread panicked");

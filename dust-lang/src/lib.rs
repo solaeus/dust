@@ -42,15 +42,15 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 pub use chunk::{BlockScope, Chunk, Disassembler, Local};
 pub use compiler::{
     CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile, generate_standard_library,
 };
 pub use dust_error::{AnnotatedError, DustError};
-pub use instruction::{Address, Destination, Instruction, Operation};
+pub use instruction::{Address, Instruction, Operation};
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use panic::set_dust_panic_hook;

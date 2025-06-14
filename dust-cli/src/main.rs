@@ -199,7 +199,7 @@ fn main() {
             Format::Dust => {
                 let compiler = Compiler::new(&source, &source_name);
 
-                match compiler.compile() {
+                match compiler.compile_program() {
                     Ok(chunk) => chunk,
                     Err(error) => {
                         handle_compile_error(error, &source);
@@ -222,7 +222,7 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::<DEFAULT_REGISTER_COUNT>::new(Arc::new(dust_crate.main_chunk));
+        let vm = Vm::new(Arc::new(dust_crate.main_chunk));
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 
@@ -292,7 +292,7 @@ fn main() {
         };
 
         let compiler = Compiler::new(&source, &source_name);
-        let dust_crate = match compiler.compile() {
+        let dust_crate = match compiler.compile_program() {
             Ok(dust_crate) => dust_crate,
             Err(error) => {
                 handle_compile_error(error, &source);

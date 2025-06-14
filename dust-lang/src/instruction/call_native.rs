@@ -13,7 +13,7 @@ pub struct CallNative {
 impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
-        let function = NativeFunction::from(instruction.b_field());
+        let function = NativeFunction::from_index(instruction.b_field());
         let argument_list_index = instruction.c_field();
 
         CallNative {

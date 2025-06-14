@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    u16,
+};
 
 use crate::r#type::TypeKind;
 
@@ -63,36 +66,32 @@ impl Display for Call {
             argument_list_index,
             return_type,
         } = self;
-        let (function_type, destination_type) = match *return_type {
-            OperandType::FUNCTION_RETURNS_NONE => (TypeKind::Function, TypeKind::None),
-            OperandType::SELF_RETURNS_NONE => (TypeKind::Function, TypeKind::None),
-            OperandType::FUNCTION_RETURNS_BOOLEAN => (TypeKind::Function, TypeKind::Boolean),
-            OperandType::SELF_RETURNS_BOOLEAN => (TypeKind::Function, TypeKind::Boolean),
-            OperandType::FUNCTION_RETURNS_BYTE => (TypeKind::Function, TypeKind::Byte),
-            OperandType::SELF_RETURNS_BYTE => (TypeKind::Function, TypeKind::Byte),
-            OperandType::FUNCTION_RETURNS_CHARACTER => (TypeKind::Function, TypeKind::Character),
-            OperandType::SELF_RETURNS_CHARACTER => (TypeKind::Function, TypeKind::Character),
-            OperandType::FUNCTION_RETURNS_FLOAT => (TypeKind::Function, TypeKind::Float),
-            OperandType::SELF_RETURNS_FLOAT => (TypeKind::Function, TypeKind::Float),
-            OperandType::FUNCTION_RETURNS_INTEGER => (TypeKind::Function, TypeKind::Integer),
-            OperandType::SELF_RETURNS_INTEGER => (TypeKind::Function, TypeKind::Integer),
-            OperandType::FUNCTION_RETURNS_STRING => (TypeKind::Function, TypeKind::String),
-            OperandType::SELF_RETURNS_STRING => (TypeKind::Function, TypeKind::String),
-            OperandType::FUNCTION_RETURNS_LIST => (TypeKind::Function, TypeKind::List),
-            OperandType::SELF_RETURNS_LIST => (TypeKind::Function, TypeKind::List),
-            OperandType::FUNCTION_RETURNS_FUNCTION => (TypeKind::Function, TypeKind::Function),
-            OperandType::SELF_RETURNS_FUNCTION => (TypeKind::FunctionSelf, TypeKind::Function),
-            OperandType::FUNCTION_RETURNS_SELF => (TypeKind::Function, TypeKind::FunctionSelf),
-            OperandType::SELF_RETURNS_SELF => (TypeKind::FunctionSelf, TypeKind::FunctionSelf),
+        let destination_type = match *return_type {
+            OperandType::BOOLEAN => TypeKind::Boolean,
+            OperandType::BYTE => TypeKind::Byte,
+            OperandType::CHARACTER => TypeKind::Character,
+            OperandType::FLOAT => TypeKind::Float,
+            OperandType::INTEGER => TypeKind::Integer,
+            OperandType::STRING => TypeKind::String,
+            OperandType::LIST => TypeKind::List,
+            OperandType::FUNCTION => TypeKind::Function,
+            OperandType::FUNCTION_SELF => TypeKind::FunctionSelf,
+            OperandType::NONE => TypeKind::None,
             _ => return write!(f, "INVALID_CALL_INSTRUCTION"),
         };
+        let is_recursive = *function == Address::stack(u16::MAX);
 
         if destination_type != TypeKind::None {
             destination.display(f, destination_type)?;
             write!(f, " = ")?;
         }
 
-        function.display(f, function_type)?;
+        if is_recursive {
+            function.display(f, TypeKind::FunctionSelf)?;
+        } else {
+            function.display(f, TypeKind::Function)?;
+        }
+
         write!(f, "(ARGS_{argument_list_index})")
     }
 }

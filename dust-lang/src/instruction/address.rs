@@ -40,11 +40,22 @@ impl Address {
         }
     }
 
+    pub fn function_self() -> Self {
+        Address {
+            index: u16::MAX,
+            memory: MemoryKind::STACK,
+        }
+    }
+
     pub fn stack(index: u16) -> Self {
         Address {
             index,
             memory: MemoryKind::STACK,
         }
+    }
+
+    pub fn is_heap(&self) -> bool {
+        self.memory == MemoryKind::HEAP
     }
 
     pub fn display(&self, f: &mut Formatter, type_kind: TypeKind) -> std::fmt::Result {

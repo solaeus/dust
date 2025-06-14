@@ -10,7 +10,7 @@
 //! 5-6   | Memory kind (for the A field)
 //! 7-8   | Memory kind (for the B field)
 //! 9-10  | Memory kind (for the C field)
-//! 11-15 | Operand types (B, and C fields)
+//! 11-15 | Operand type info
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
 //! 32-47 | B field (unsigned 16-bit integer), usually an operand index
 //! 48-63 | C field (unsigned 16-bit integer), usually an operand index
@@ -92,6 +92,7 @@ mod equal;
 mod jump;
 mod less;
 mod less_equal;
+mod list;
 mod load;
 mod memory_kind;
 mod modulo;
@@ -114,6 +115,7 @@ pub use equal::Equal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
+pub use list::List;
 pub use load::Load;
 pub use memory_kind::MemoryKind;
 pub use modulo::Modulo;
@@ -261,18 +263,6 @@ impl Instruction {
         *self = fields.build();
     }
 
-    pub fn set_b_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.b_field = bits;
-        *self = fields.build();
-    }
-
-    pub fn set_c_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.c_field = bits;
-        *self = fields.build();
-    }
-
     pub fn set_destination(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = address.index;
@@ -313,6 +303,20 @@ impl Instruction {
             operand,
             r#type,
             jump_next,
+        })
+    }
+
+    pub fn list(
+        destination: Address,
+        start: Address,
+        end: Address,
+        item_type: OperandType,
+    ) -> Instruction {
+        Instruction::from(List {
+            destination,
+            start,
+            end,
+            item_type,
         })
     }
 
@@ -515,7 +519,7 @@ impl Instruction {
             | Operation::NEGATE
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
-                let function = NativeFunction::from(self.b_field());
+                let function = NativeFunction::from_index(self.b_field());
 
                 function.returns_value()
             }

@@ -2,10 +2,13 @@ use std::{array, sync::Arc};
 
 use hashbrown::HashSet;
 
-use crate::{AbstractList, Address, Chunk, ConcreteList, DustString, Type, r#type::TypeKind};
+use crate::{
+    AbstractList, Address, Chunk, ConcreteList, DEFAULT_REGISTER_COUNT, DustString, Type,
+    instruction::OperandType,
+};
 
 #[derive(Debug)]
-pub struct Memory<const REGISTER_COUNT: usize> {
+pub struct Memory {
     pub booleans: Vec<bool>,
     pub bytes: Vec<u8>,
     pub characters: Vec<char>,
@@ -17,10 +20,10 @@ pub struct Memory<const REGISTER_COUNT: usize> {
 
     pub closed: HashSet<Address>,
 
-    pub registers: RegisterTable<REGISTER_COUNT>,
+    pub registers: RegisterTable<DEFAULT_REGISTER_COUNT>,
 }
 
-impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
+impl Memory {
     #[expect(clippy::rc_clone_in_vec_init)]
     pub fn new(chunk: &Chunk) -> Self {
         Memory {
@@ -38,64 +41,64 @@ impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
     }
 
     pub fn make_list_concrete(&self, abstract_list: &AbstractList) -> ConcreteList {
-        let item_type = abstract_list.item_type.type_kind();
+        let item_type = abstract_list.item_type;
 
         match item_type {
-            TypeKind::Boolean => {
+            OperandType::BOOLEAN => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.booleans.get(*index as usize).copied())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<bool>>();
 
                 ConcreteList::Boolean(list)
             }
-            TypeKind::Byte => {
+            OperandType::BYTE => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.bytes.get(*index as usize).copied())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<u8>>();
 
                 ConcreteList::Byte(list)
             }
-            TypeKind::Character => {
+            OperandType::CHARACTER => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.characters.get(*index as usize).copied())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<char>>();
 
                 ConcreteList::Character(list)
             }
-            TypeKind::Float => {
+            OperandType::FLOAT => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.floats.get(*index as usize).copied())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<f64>>();
 
                 ConcreteList::Float(list)
             }
-            TypeKind::Integer => {
+            OperandType::INTEGER => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.integers.get(*index as usize).copied())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<i64>>();
 
                 ConcreteList::Integer(list)
             }
-            TypeKind::String => {
+            OperandType::STRING => {
                 let list = abstract_list
                     .indices
                     .iter()
                     .filter_map(|index| self.strings.get(*index as usize).cloned())
-                    .collect::<Vec<_>>();
+                    .collect::<Vec<DustString>>();
 
                 ConcreteList::String(list)
             }
-            TypeKind::List => {
+            OperandType::LIST => {
                 let list = abstract_list
                     .indices
                     .iter()
@@ -113,7 +116,7 @@ impl<const REGISTER_COUNT: usize> Memory<REGISTER_COUNT> {
                     list_items: list,
                 }
             }
-            TypeKind::None => ConcreteList::List {
+            OperandType::NONE => ConcreteList::List {
                 list_item_type: Type::None,
                 list_items: Vec::with_capacity(0),
             },

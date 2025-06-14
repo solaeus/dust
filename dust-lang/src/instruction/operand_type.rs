@@ -1,8 +1,10 @@
+use std::fmt::{Debug, Display};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+use super::Operation;
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub u8);
 
 impl OperandType {
@@ -23,26 +25,36 @@ impl OperandType {
     // Two operands of different types
     pub const CHARACTER_STRING: OperandType = OperandType(10);
     pub const STRING_CHARACTER: OperandType = OperandType(11);
+}
 
-    // Function return types
-    pub const FUNCTION_RETURNS_NONE: OperandType = OperandType(12);
-    pub const SELF_RETURNS_NONE: OperandType = OperandType(13);
-    pub const FUNCTION_RETURNS_BOOLEAN: OperandType = OperandType(14);
-    pub const SELF_RETURNS_BOOLEAN: OperandType = OperandType(15);
-    pub const FUNCTION_RETURNS_BYTE: OperandType = OperandType(16);
-    pub const SELF_RETURNS_BYTE: OperandType = OperandType(17);
-    pub const FUNCTION_RETURNS_CHARACTER: OperandType = OperandType(18);
-    pub const SELF_RETURNS_CHARACTER: OperandType = OperandType(19);
-    pub const FUNCTION_RETURNS_FLOAT: OperandType = OperandType(20);
-    pub const SELF_RETURNS_FLOAT: OperandType = OperandType(21);
-    pub const FUNCTION_RETURNS_INTEGER: OperandType = OperandType(22);
-    pub const SELF_RETURNS_INTEGER: OperandType = OperandType(23);
-    pub const FUNCTION_RETURNS_STRING: OperandType = OperandType(24);
-    pub const SELF_RETURNS_STRING: OperandType = OperandType(25);
-    pub const FUNCTION_RETURNS_LIST: OperandType = OperandType(26);
-    pub const SELF_RETURNS_LIST: OperandType = OperandType(27);
-    pub const FUNCTION_RETURNS_FUNCTION: OperandType = OperandType(28);
-    pub const SELF_RETURNS_FUNCTION: OperandType = OperandType(29);
-    pub const FUNCTION_RETURNS_SELF: OperandType = OperandType(30);
-    pub const SELF_RETURNS_SELF: OperandType = OperandType(31);
+impl Debug for OperandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl Display for OperandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::NONE => write!(f, "NONE"),
+            Self::BOOLEAN => write!(f, "BOOLEAN"),
+            Self::BYTE => write!(f, "BYTE"),
+            Self::CHARACTER => write!(f, "CHARACTER"),
+            Self::FLOAT => write!(f, "FLOAT"),
+            Self::INTEGER => write!(f, "INTEGER"),
+            Self::STRING => write!(f, "STRING"),
+            Self::LIST => write!(f, "LIST"),
+            Self::FUNCTION => write!(f, "FUNCTION"),
+            Self::FUNCTION_SELF => write!(f, "FUNCTION_SELF"),
+            Self::CHARACTER_STRING => write!(f, "CHARACTER_STRING"),
+            Self::STRING_CHARACTER => write!(f, "STRING_CHARACTER"),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl OperandType {
+    pub fn invalid_panic(&self, operation: Operation) -> ! {
+        panic!("Operand type {self} for {operation} instruction is invalid");
+    }
 }

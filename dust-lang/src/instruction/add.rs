@@ -81,13 +81,6 @@ impl Display for Add {
                 write!(f, " + ")?;
                 right.display(f, TypeKind::Character)?;
             }
-            OperandType::FUNCTION => {
-                destination.display(f, TypeKind::Function)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::Function)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::Function)?;
-            }
             OperandType::INTEGER => {
                 destination.display(f, TypeKind::Integer)?;
                 write!(f, " = ")?;
@@ -116,7 +109,7 @@ impl Display for Add {
                 write!(f, " + ")?;
                 right.display(f, TypeKind::Character)?;
             }
-            _ => unreachable!(),
+            invalid => invalid.invalid_panic(Operation::ADD),
         };
 
         Ok(())
