@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{NativeFunction, r#type::TypeKind};
+use crate::{NativeFunction, OperandType};
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
@@ -53,9 +53,9 @@ impl<C> Display for CallNative<C> {
             function,
             argument_list_index,
         } = self;
-        let return_type = function.r#type().return_type.kind();
+        let return_type = function.r#type().return_type.as_operand_type();
 
-        if return_type != TypeKind::None {
+        if return_type != OperandType::NONE {
             destination.display(f, return_type)?;
             write!(f, " = ")?;
         }

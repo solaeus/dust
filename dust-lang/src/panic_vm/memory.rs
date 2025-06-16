@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use hashbrown::HashSet;
 
-use crate::{Address, Chunk, DEFAULT_REGISTER_COUNT, DustString, FullChunk, List};
+use crate::{Address, Chunk, DEFAULT_REGISTER_COUNT, DustString, List, instruction::OperandType};
 
 #[derive(Debug)]
 pub struct Memory<C> {
     pub heap: Heap<C>,
 
-    pub closed: HashSet<Address>,
+    pub closed: HashSet<(Address, OperandType)>,
 
     pub stack: Stack<DEFAULT_REGISTER_COUNT>,
 }
@@ -25,33 +25,36 @@ impl<C: Chunk> Memory<C> {
 
 #[derive(Debug)]
 pub struct Heap<C> {
-    pub booleans: Vec<bool>,
-    pub bytes: Vec<u8>,
-    pub characters: Vec<char>,
-    pub floats: Vec<f64>,
-    pub integers: Vec<i64>,
-    pub strings: Vec<DustString>,
-    pub lists: Vec<List<C>>,
-    pub functions: Vec<Arc<FullChunk>>,
+    pub booleans: Vec<HeapSlot<bool>>,
+    pub bytes: Vec<HeapSlot<u8>>,
+    pub characters: Vec<HeapSlot<char>>,
+    pub floats: Vec<HeapSlot<f64>>,
+    pub integers: Vec<HeapSlot<i64>>,
+    pub strings: Vec<HeapSlot<DustString>>,
+    pub lists: Vec<HeapSlot<List<C>>>,
+    pub functions: Vec<HeapSlot<Arc<C>>>,
 }
 
 impl<C: Chunk> Heap<C> {
-    #[expect(clippy::rc_clone_in_vec_init)]
     pub fn new(chunk: &C) -> Self {
         Self {
-            booleans: vec![false; chunk.boolean_memory_length() as usize],
-            bytes: vec![0; chunk.byte_memory_length() as usize],
-            characters: vec![char::default(); chunk.character_memory_length() as usize],
-            floats: vec![0.0; chunk.float_memory_length() as usize],
-            integers: vec![0; chunk.integer_memory_length() as usize],
-            strings: vec![DustString::new(); chunk.string_memory_length() as usize],
-            lists: vec![List::boolean([]); chunk.list_memory_length() as usize],
-            functions: vec![
-                Arc::new(FullChunk::default());
-                chunk.function_memory_length() as usize
-            ],
+            booleans: vec![HeapSlot::Closed; chunk.boolean_memory_length() as usize],
+            bytes: vec![HeapSlot::Closed; chunk.byte_memory_length() as usize],
+            characters: vec![HeapSlot::Closed; chunk.character_memory_length() as usize],
+            floats: vec![HeapSlot::Closed; chunk.float_memory_length() as usize],
+            integers: vec![HeapSlot::Closed; chunk.integer_memory_length() as usize],
+            strings: vec![HeapSlot::Closed; chunk.string_memory_length() as usize],
+            lists: vec![HeapSlot::Closed; chunk.list_memory_length() as usize],
+            functions: vec![HeapSlot::Closed; chunk.function_memory_length() as usize],
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum HeapSlot<T> {
+    #[default]
+    Closed,
+    Open(T),
 }
 
 #[derive(Debug)]

@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Return {
@@ -55,16 +53,7 @@ impl Display for Return {
         } = self;
 
         if *should_return_value {
-            let type_kind = match *r#type {
-                OperandType::BOOLEAN => TypeKind::Boolean,
-                OperandType::BYTE => TypeKind::Byte,
-                OperandType::CHARACTER => TypeKind::Character,
-                OperandType::FLOAT => TypeKind::Float,
-                OperandType::INTEGER => TypeKind::Integer,
-                OperandType::STRING => TypeKind::String,
-                OperandType::LIST => TypeKind::List,
-                _ => return write!(f, "INVALID_RETURN_INSTRUCTION"),
-            };
+            let type_kind = r#type.destination_type();
 
             write!(f, "RETURN ")?;
             return_value_address.display(f, type_kind)?;

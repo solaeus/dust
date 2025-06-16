@@ -6,13 +6,13 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, DustString, FullChunk, FunctionType, Instruction, Local, Span,
-    compiler::ChunkCompiler, r#type::TypeKind,
+    Address, DustString, FullChunk, FunctionType, Instruction, Local, OperandType, Span,
+    compiler::ChunkCompiler,
 };
 
 use super::{Chunk, Disassemble, Disassembler};
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct StrippedChunk {
     pub(crate) name: Option<DustString>,
     pub(crate) r#type: FunctionType,
@@ -24,7 +24,7 @@ pub struct StrippedChunk {
     pub(crate) integer_constants: Vec<i64>,
     pub(crate) string_constants: Vec<DustString>,
     pub(crate) prototypes: Vec<Arc<StrippedChunk>>,
-    pub(crate) arguments: Vec<Vec<(Address, TypeKind)>>,
+    pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) boolean_memory_length: u16,
     pub(crate) byte_memory_length: u16,
@@ -83,7 +83,7 @@ impl Chunk for StrippedChunk {
         &self.r#type
     }
 
-    fn as_function(self) -> Arc<Self> {
+    fn into_function(self) -> Arc<Self> {
         Arc::new(self)
     }
 
@@ -115,7 +115,7 @@ impl Chunk for StrippedChunk {
         &self.prototypes
     }
 
-    fn arguments(&self) -> &[Vec<(Address, TypeKind)>] {
+    fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
         &self.arguments
     }
 

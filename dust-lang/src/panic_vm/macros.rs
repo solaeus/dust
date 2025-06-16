@@ -64,7 +64,6 @@ macro_rules! get_string {
             MemoryKind::CELL => get_from_cell!($address.index, $cells, String),
             MemoryKind::CONSTANT => get_constant!($address.index, $chunk, string_constants),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, strings),
-            MemoryKind::STACK => get_from_stack!($address.index, $memory, strings),
             _ => unreachable!(),
         }
     }};
@@ -75,7 +74,6 @@ macro_rules! get_list {
         match $address.memory {
             MemoryKind::CELL => get_from_cell!($address.index, $cells, List),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, lists),
-            MemoryKind::STACK => get_from_stack!($address.index, $memory, lists),
             _ => unreachable!(),
         }
     }};
@@ -87,13 +85,7 @@ macro_rules! get_function {
             MemoryKind::CELL => get_from_cell!($address.index, $cells, Function),
             MemoryKind::CONSTANT => get_constant!($address.index, $chunk, prototypes),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, functions),
-            MemoryKind::STACK => {
-                if $address.index == u16::MAX {
-                    Arc::clone($chunk)
-                } else {
-                    get_from_stack!($address.index, $memory, functions)
-                }
-            }
+            MemoryKind::STACK => Arc::clone($chunk),
             _ => unreachable!(),
         }
     }};
@@ -159,7 +151,6 @@ macro_rules! set_string {
         match $address.memory {
             MemoryKind::CELL => set_cell!($address.index, $cells, String, $string),
             MemoryKind::HEAP => set_to_heap!($address.index, $memory, strings, $string),
-            MemoryKind::STACK => set_to_stack!($address.index, $memory, strings, $string),
             _ => unreachable!(),
         }
     }};
@@ -170,7 +161,6 @@ macro_rules! set_list {
         match $address.memory {
             MemoryKind::CELL => set_cell!($address.index, $cells, List, $list),
             MemoryKind::HEAP => set_to_heap!($address.index, $memory, lists, $list),
-            MemoryKind::STACK => set_to_stack!($address.index, $memory, lists, $list),
             _ => unreachable!(),
         }
     }};
@@ -181,7 +171,6 @@ macro_rules! set_function {
         match $address.memory {
             MemoryKind::CELL => set_cell!($address.index, $cells, Function, $function),
             MemoryKind::HEAP => set_to_heap!($address.index, $memory, functions, $function),
-            MemoryKind::STACK => set_to_stack!($address.index, $memory, functions, $function),
             _ => unreachable!(),
         }
     }};
@@ -209,7 +198,7 @@ macro_rules! set_to_heap {
             "Heap index out of bounds"
         );
 
-        $memory.heap.$field[index] = $value;
+        $memory.heap.$field[index] = HeapSlot::Open($value);
     }};
 }
 
@@ -250,14 +239,40 @@ macro_rules! get_from_cell {
 macro_rules! get_constant {
     ($index: expr, $chunk: expr, $field: ident) => {{
         let index = $index as usize;
+        let constants = $chunk.$field();
 
-        assert!(index < $chunk.$field.len(), "Constant index out of bounds");
+        assert!(index < constants.len(), "Constant index out of bounds");
 
-        $chunk.$field[index].clone()
+        constants[index].clone()
     }};
 }
 
 macro_rules! get_from_heap {
+    ($index: expr, $memory: expr, $field: ident) => {{
+        if let HeapSlot::Open(value) = get_heap_slot!($index, $memory, $field) {
+            value.clone()
+        } else {
+            panic!("Closed heap slot at index {}", $index);
+        }
+    }};
+}
+
+macro_rules! take_heap_slot {
+    ($index:expr, $memory:expr, $field:ident) => {{
+        use std::mem::take;
+
+        let index = $index as usize;
+
+        assert!(
+            index < $memory.heap.$field.len(),
+            "Heap index out of bounds"
+        );
+
+        take(&mut $memory.heap.$field[index])
+    }};
+}
+
+macro_rules! get_heap_slot {
     ($index: expr, $memory: expr, $field: ident) => {{
         let index = $index as usize;
 
@@ -266,7 +281,20 @@ macro_rules! get_from_heap {
             "Heap index out of bounds"
         );
 
-        $memory.heap.$field[index].clone()
+        &$memory.heap.$field[index]
+    }};
+}
+
+macro_rules! close_heap_slot {
+    ($index: expr, $memory: expr, $field: ident) => {{
+        let index = $index as usize;
+
+        assert!(
+            index < $memory.heap.$field.len(),
+            "Heap index out of bounds"
+        );
+
+        $memory.heap.$field[index] = HeapSlot::Closed;
     }};
 }
 

@@ -41,7 +41,7 @@ pub fn expect_addable_type(argument_type: &Type, position: &Span) -> Result<(), 
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotAddType {
+        Err(CompileError::AdditionTypeInvalid {
             argument_type: argument_type.clone(),
             position: *position,
         })
@@ -66,7 +66,7 @@ pub fn expect_addable_types(
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotAddArguments {
+        Err(CompileError::AdditionTypeConflict {
             left_type: left.clone(),
             left_position: *left_position,
             right_type: right.clone(),
@@ -79,7 +79,7 @@ pub fn expect_dividable_type(argument_type: &Type, position: &Span) -> Result<()
     if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
         Ok(())
     } else {
-        Err(CompileError::CannotDivideType {
+        Err(CompileError::DivisionTypeInvalid {
             argument_type: argument_type.clone(),
             position: *position,
         })
@@ -98,7 +98,7 @@ pub fn expect_dividable_types(
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotDivideArguments {
+        Err(CompileError::DivisionTypeConflict {
             left_type: left.clone(),
             right_type: right.clone(),
             position: Span(left_position.0, right_position.1),
@@ -110,7 +110,7 @@ pub fn expect_modulable_type(argument_type: &Type, position: &Span) -> Result<()
     if matches!(argument_type, Type::Byte | Type::Integer | Type::Float) {
         Ok(())
     } else {
-        Err(CompileError::CannotModuloType {
+        Err(CompileError::ModuloTypeInvalid {
             argument_type: argument_type.clone(),
             position: *position,
         })
@@ -129,7 +129,7 @@ pub fn expect_modulable_types(
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotModuloArguments {
+        Err(CompileError::ModuloTypeConflict {
             left_type: left.clone(),
             right_type: right.clone(),
             position: Span(left_position.0, right_position.1),
@@ -141,7 +141,7 @@ pub fn expect_multipliable_type(argument_type: &Type, position: &Span) -> Result
     if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
         Ok(())
     } else {
-        Err(CompileError::CannotMultiplyType {
+        Err(CompileError::MultiplicationTypeInvalid {
             argument_type: argument_type.clone(),
             position: *position,
         })
@@ -160,7 +160,7 @@ pub fn expect_multipliable_types(
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotMultiplyArguments {
+        Err(CompileError::MultiplicationTypeConflict {
             left_type: left.clone(),
             right_type: right.clone(),
             position: Span(left_position.0, right_position.1),
@@ -172,7 +172,7 @@ pub fn expect_subtractable_type(argument_type: &Type, position: &Span) -> Result
     if matches!(argument_type, Type::Byte | Type::Float | Type::Integer) {
         Ok(())
     } else {
-        Err(CompileError::CannotSubtractType {
+        Err(CompileError::SubtractionTypeInvalid {
             argument_type: argument_type.clone(),
             position: *position,
         })
@@ -191,7 +191,7 @@ pub fn expect_subtractable_types(
     ) {
         Ok(())
     } else {
-        Err(CompileError::CannotSubtractArguments {
+        Err(CompileError::SubtractionTypeConflict {
             left_type: left.clone(),
             right_type: right.clone(),
             position: Span(left_position.0, right_position.1),

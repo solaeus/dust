@@ -1,12 +1,11 @@
 use crate::{
-    Address,
+    Address, OperandType,
     panic_vm::{CallFrame, Memory, ThreadPool},
-    r#type::TypeKind,
 };
 
 pub fn spawn<C>(
     _: Address,
-    arguments: &[(Address, TypeKind)],
+    arguments: &[(Address, OperandType)],
     call: &mut CallFrame<C>,
     memory: &mut Memory<C>,
     threads: &ThreadPool<C>,

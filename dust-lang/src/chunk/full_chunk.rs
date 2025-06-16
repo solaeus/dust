@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt::{self, Debug, Display, Formatter},
     sync::Arc,
 };
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Address, Disassembler, DustString, FunctionType, Instruction, Local, Span, chunk::Disassemble,
-    compiler::ChunkCompiler, r#type::TypeKind,
+    compiler::ChunkCompiler, instruction::OperandType,
 };
 
 use super::{Chunk, StrippedChunk};
@@ -29,7 +30,7 @@ pub struct FullChunk {
     pub(crate) integer_constants: Vec<i64>,
     pub(crate) string_constants: Vec<DustString>,
     pub(crate) prototypes: Vec<Arc<FullChunk>>,
-    pub(crate) arguments: Vec<Vec<(Address, TypeKind)>>,
+    pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) locals: IndexMap<DustString, Local>,
 
@@ -67,7 +68,7 @@ impl Chunk for FullChunk {
         &self.r#type
     }
 
-    fn as_function(self) -> Arc<Self> {
+    fn into_function(self) -> Arc<Self> {
         Arc::new(self)
     }
 
@@ -99,7 +100,7 @@ impl Chunk for FullChunk {
         &self.prototypes
     }
 
-    fn arguments(&self) -> &[Vec<(Address, TypeKind)>] {
+    fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
         &self.arguments
     }
 
@@ -210,5 +211,59 @@ impl PartialEq for FullChunk {
             && self.list_memory_length == other.list_memory_length
             && self.function_memory_length == other.function_memory_length
             && self.prototype_index == other.prototype_index
+    }
+}
+
+impl PartialOrd for FullChunk {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FullChunk {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name
+            .cmp(&other.name)
+            .then_with(|| self.r#type.cmp(&other.r#type))
+            .then_with(|| self.instructions.cmp(&other.instructions))
+            .then_with(|| self.positions.cmp(&other.positions))
+            .then_with(|| self.character_constants.cmp(&other.character_constants))
+            .then_with(|| {
+                for (left, right) in self.float_constants.iter().zip(&other.float_constants) {
+                    if left != right {
+                        return left.partial_cmp(right).unwrap_or(Ordering::Equal);
+                    }
+                }
+
+                Ordering::Equal
+            })
+            .then_with(|| self.integer_constants.cmp(&other.integer_constants))
+            .then_with(|| self.string_constants.cmp(&other.string_constants))
+            .then_with(|| {
+                for ((left_name, left_local), (right_name, right_local)) in
+                    self.locals.iter().zip(&other.locals)
+                {
+                    if left_name != right_name {
+                        return left_name.cmp(right_name);
+                    }
+
+                    if left_local != right_local {
+                        return left_local.cmp(right_local);
+                    }
+                }
+
+                Ordering::Equal
+            })
+            .then_with(|| {
+                for (left, right) in self.prototypes.iter().zip(&other.prototypes) {
+                    if left != right {
+                        return left.cmp(right);
+                    }
+                }
+
+                Ordering::Equal
+            })
+            .then_with(|| self.arguments.cmp(&other.arguments))
+            .then_with(|| self.prototype_index.cmp(&other.prototype_index))
     }
 }

@@ -28,8 +28,6 @@ impl<'a, C> Module<'a, C> {
         let mut current_module = self;
 
         for module_name in variable_path.module_names() {
-            println!("{module_name}");
-
             if let Some((Item::Module(module), _)) = current_module.items.get(&module_name) {
                 current_module = module;
             } else {

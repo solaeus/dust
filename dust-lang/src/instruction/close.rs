@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Close {
@@ -50,20 +48,8 @@ impl Display for Close {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Close { from, to, r#type } = self;
 
-        let type_kind = match *r#type {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            _ => return write!(f, "INVALID_CLOSE_INSTRUCTION"),
-        };
-
-        from.display(f, type_kind)?;
+        from.display(f, *r#type)?;
         write!(f, "..")?;
-        to.display(f, type_kind)
+        to.display(f, *r#type)
     }
 }

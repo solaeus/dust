@@ -1,6 +1,6 @@
 //! The Dust instruction set.
 //!
-//! Each instruction is 64 bits and uses up to seven distinct fields.
+//! Each instruction is 64 bits and uses up to eight distinct fields.
 //!
 //! # Layout
 //!
@@ -30,26 +30,28 @@
 //! flags to represent the operands.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Address, Instruction};
-//! // Add the integers at M_INT_4 and M_INT_6 then store the result in M_INT_42.
+//! # use dust_lang::instruction::{Add, Address, Instruction, MemoryKind, OperandType};
+//! // Add the integers at INT_H_4 and INT_H_6 then store the result in INT_H_42.
 //! let add_1 = Instruction::add(
-//!     Address::memory(42),
-//!     Address::new(4, AddressKind::INTEGER_MEMORY),
-//!     Address::new(6, AddressKind::INTEGER_MEMORY),
+//!     Address::heap(42),
+//!     Address::heap(4),
+//!     Address::heap(6),
+//!     OperandType::INTEGER,
 //! );
 //! let add_2 = Instruction::from(Add {
 //!     destination: Address {
 //!         index: 42,
-//!         is_register: false,
+//!         memory: MemoryKind::HEAP,
 //!     },
 //!     left: Address {
 //!         index: 4,
-//!         kind: AddressKind::INTEGER_MEMORY,
+//!         memory: MemoryKind::HEAP,
 //!     },
 //!     right: Address {
 //!         index: 6,
-//!         kind: AddressKind::INTEGER_MEMORY,
+//!         memory: MemoryKind::HEAP,
 //!     },
+//!     r#type: OperandType::INTEGER,
 //! });
 //!
 //! assert_eq!(add_1, add_2);
@@ -62,25 +64,27 @@
 //! removes the burden of dealing with the instruction bit fields directly.
 //!
 //! ```
-//! # use dust_lang::instruction::{Add, Address, AddressKind, Address, Instruction, Operation};
+//! # use dust_lang::instruction::{Add, Address, Instruction, MemoryKind, OperandType, Operation};
 //! # let mystery_instruction = Instruction::add(
-//! #     Address::memory(0),
-//! #     Address::new(0, AddressKind::INTEGER_MEMORY),
-//! #     Address::new(1, AddressKind::INTEGER_CONSTANT),
+//! #     Address::heap(0),
+//! #     Address::heap(0),
+//! #     Address::heap(1),
+//! #     OperandType::INTEGER,
 //! # );
-//! // Let's read an instruction and see if it performs addition-assignment,
-//! // like in one of the following examples:
+//! // Let's read an instruction and see if it performs addition-assignment on integers, like in one
+//! // of the following examples:
 //! //   - `a += 2`
 //! //   - `a = a + 2`
 //! //   - `a = 2 + a`
 //! let operation = mystery_instruction.operation();
-//! let is_add_assign = operation == Operation::ADD && {
-//!     let Add { destination, left, right } = Add::from(&mystery_instruction);
+//! let is_add_assign_integers = operation == Operation::ADD && {
+//!     let Add { destination, left, right, r#type } = Add::from(&mystery_instruction);
 //!
-//!     destination.index == left.index || destination.index == right.index
+//!     r#type == OperandType::INTEGER
+//!         && (destination == left || destination == right)
 //! };
 //!
-//! assert!(is_add_assign);
+//! assert!(is_add_assign_integers);
 //! ```
 mod add;
 mod address;
@@ -131,7 +135,7 @@ pub use test_set::TestSet;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{NativeFunction, StrippedChunk, r#type::TypeKind};
+use crate::{NativeFunction, StrippedChunk};
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -158,54 +162,6 @@ impl Instruction {
         Address {
             index: self.c_field(),
             memory: self.c_memory_kind(),
-        }
-    }
-
-    pub fn destination_type(&self) -> TypeKind {
-        match self.operand_type() {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            OperandType::CHARACTER_STRING => TypeKind::String,
-            OperandType::STRING_CHARACTER => TypeKind::String,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn b_type(&self) -> TypeKind {
-        match self.operand_type() {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            OperandType::CHARACTER_STRING => TypeKind::Character,
-            OperandType::STRING_CHARACTER => TypeKind::String,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn c_type(&self) -> TypeKind {
-        match self.operand_type() {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            OperandType::CHARACTER_STRING => TypeKind::String,
-            OperandType::STRING_CHARACTER => TypeKind::Character,
-            _ => unreachable!(),
         }
     }
 
@@ -310,13 +266,13 @@ impl Instruction {
         destination: Address,
         start: Address,
         end: Address,
-        item_type: OperandType,
+        r#type: OperandType,
     ) -> Instruction {
         Instruction::from(List {
             destination,
             start,
             end,
-            item_type,
+            r#type,
         })
     }
 
@@ -652,7 +608,7 @@ mod tests {
     fn decode_b_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_memory_kind(), MemoryKind::HEAP);
+        assert_eq!(instruction.b_memory_kind(), MemoryKind::STACK);
     }
 
     #[test]

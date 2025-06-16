@@ -42,7 +42,7 @@ impl<C> Cell<C> {
         *self.value.write().expect("Failed to write cell") = CellValue::List(list);
     }
 
-    pub fn set_function(&self, function: Arc<FullChunk>) {
+    pub fn set_function(&self, function: Arc<C>) {
         *self.value.write().expect("Failed to write cell") = CellValue::Function(function);
     }
 }
@@ -57,5 +57,5 @@ pub enum CellValue<C> {
     Integer(i64),
     String(DustString),
     List(List<C>),
-    Function(Arc<FullChunk>),
+    Function(Arc<C>),
 }

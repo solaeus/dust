@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Negate {
@@ -58,23 +56,18 @@ impl Display for Negate {
             r#type,
         } = self;
 
+        destination.display(f, *r#type)?;
+
         match *r#type {
             OperandType::BOOLEAN => {
-                destination.display(f, TypeKind::Boolean)?;
                 write!(f, " = !")?;
-                operand.display(f, TypeKind::Boolean)
             }
-            OperandType::FLOAT => {
-                destination.display(f, TypeKind::Float)?;
+            OperandType::FLOAT | OperandType::INTEGER => {
                 write!(f, " = -")?;
-                operand.display(f, TypeKind::Float)
             }
-            OperandType::INTEGER => {
-                destination.display(f, TypeKind::Integer)?;
-                write!(f, " = -")?;
-                operand.display(f, TypeKind::Integer)
-            }
-            _ => write!(f, "INVALID_NEGATE_INSTRUCTION"),
+            _ => return write!(f, "INVALID_NEGATE_INSTRUCTION"),
         }
+
+        operand.display(f, *r#type)
     }
 }

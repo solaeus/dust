@@ -57,7 +57,7 @@ use crate::{
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
     instruction::{Jump, Load, MemoryKind, OperandType},
-    r#type::TypeKind,
+    r#type::ConcreteType,
 };
 
 pub const DEFAULT_REGISTER_COUNT: usize = 4;
@@ -67,9 +67,9 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 /// # Example
 ///
 /// ```
-/// # use dust_lang::compile;
+/// # use dust_lang::{compile, Chunk, FullChunk};
 /// let source = "40 + 2 == 42";
-/// let chunk = compile(source).unwrap();
+/// let chunk = compile::<FullChunk>(source).unwrap();
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
@@ -162,8 +162,6 @@ impl<'a, C: 'a + Chunk> Compiler<C> {
             apply_standard_library(&mut *main_module.borrow_mut())?;
         }
 
-        println!("{main_module:#?}");
-
         let mut chunk_compiler = ChunkCompiler::<C, DEFAULT_REGISTER_COUNT>::new(
             lexer,
             mode,
@@ -233,7 +231,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     locals: IndexMap<Path<'a>, Local>,
 
     /// Arguments for each function call.
-    arguments: Vec<(Vec<(Address, TypeKind)>, Vec<Type>)>,
+    arguments: Vec<(Vec<(Address, OperandType)>, Vec<Type>)>,
 
     minimum_boolean_memory_index: u16,
     minimum_byte_memory_index: u16,
@@ -244,7 +242,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     minimum_list_memory_index: u16,
     minimum_function_memory_index: u16,
 
-    reclaimable_memory: Vec<(Address, TypeKind)>,
+    reclaimable_memory: Vec<(Address, ConcreteType)>,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -370,15 +368,13 @@ where
         let mut character_address_rankings = Vec::<(usize, Address)>::new();
         let mut float_address_rankings = Vec::<(usize, Address)>::new();
         let mut integer_address_rankings = Vec::<(usize, Address)>::new();
-        let mut string_address_rankings = Vec::<(usize, Address)>::new();
-        let mut list_address_rankings = Vec::<(usize, Address)>::new();
-        let mut function_address_rankings = Vec::<(usize, Address)>::new();
-        let mut disqualified = HashSet::<Address>::new();
+        let mut disqualified = HashSet::<(Address, OperandType)>::new();
 
         // Increases the rank of the given address by 1 to indicate that it was used. If the
         // address has no existing rank, it is inserted in sorted order with a rank of 0.
         let mut increment_rank = |address: Address, r#type: OperandType, increment: usize| {
-            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) {
+            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) || r#type.is_list()
+            {
                 return;
             }
 
@@ -388,11 +384,6 @@ where
                 OperandType::CHARACTER => &mut character_address_rankings,
                 OperandType::FLOAT => &mut float_address_rankings,
                 OperandType::INTEGER => &mut integer_address_rankings,
-                OperandType::STRING
-                | OperandType::CHARACTER_STRING
-                | OperandType::STRING_CHARACTER => &mut string_address_rankings,
-                OperandType::LIST => &mut list_address_rankings,
-                OperandType::FUNCTION if address.is_heap() => &mut function_address_rankings,
                 _ => return,
             };
 
@@ -406,12 +397,13 @@ where
                 }
             }
         };
-        let mut disqualify = |address: Address| {
-            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) {
+        let mut disqualify = |address: Address, r#type: OperandType| {
+            if matches!(address.memory, MemoryKind::CELL | MemoryKind::CONSTANT) || r#type.is_list()
+            {
                 return;
             }
 
-            disqualified.insert(address);
+            disqualified.insert((address, r#type));
         };
 
         for (instruction, _, _) in &self.instructions {
@@ -429,14 +421,16 @@ where
                     for index in b_address.index..=c_address.index {
                         let address = Address::new(index, b_address.memory);
 
-                        disqualify(address);
+                        if let Some(item_type) = r#type.list_item_type() {
+                            disqualify(address, item_type);
+                        }
                     }
                 }
                 Operation::CLOSE => {
                     for index in b_address.index..=c_address.index {
                         let address = Address::new(index, b_address.memory);
 
-                        disqualify(address);
+                        disqualify(address, r#type);
                     }
                 }
                 Operation::CALL_NATIVE => {
@@ -467,20 +461,8 @@ where
         }
 
         for (values, _) in &self.arguments {
-            for (address, r#type) in values {
-                let operand_type = match r#type {
-                    TypeKind::Boolean => OperandType::BOOLEAN,
-                    TypeKind::Byte => OperandType::BYTE,
-                    TypeKind::Character => OperandType::CHARACTER,
-                    TypeKind::Float => OperandType::FLOAT,
-                    TypeKind::Integer => OperandType::INTEGER,
-                    TypeKind::String => OperandType::STRING,
-                    TypeKind::List => OperandType::LIST,
-                    TypeKind::Function => OperandType::FUNCTION,
-                    _ => continue,
-                };
-
-                increment_rank(*address, operand_type, 2);
+            for (address, operand_type) in values {
+                increment_rank(*address, *operand_type, 2);
             }
         }
 
@@ -488,12 +470,12 @@ where
         // intended replacements.
         let mut replacements = HashMap::new();
         let get_top_ranks_with_registers =
-            |address_rankings: Vec<(usize, Address)>, r#type: TypeKind| {
+            |address_rankings: Vec<(usize, Address)>, r#type: OperandType| {
                 address_rankings
                     .into_iter()
                     .zip(repeat(r#type))
                     .filter_map(|((rank, address), r#type)| {
-                        if !disqualified.contains(&address) {
+                        if !disqualified.contains(&(address, r#type)) {
                             Some((rank, address, r#type))
                         } else {
                             None
@@ -504,47 +486,25 @@ where
             };
 
         for ((rank, old_address, r#type), register_index) in
-            get_top_ranks_with_registers(boolean_address_rankings, TypeKind::Boolean)
+            get_top_ranks_with_registers(boolean_address_rankings, OperandType::BOOLEAN)
                 .chain(get_top_ranks_with_registers(
                     byte_address_rankings,
-                    TypeKind::Byte,
+                    OperandType::BYTE,
                 ))
                 .chain(get_top_ranks_with_registers(
                     character_address_rankings,
-                    TypeKind::Character,
+                    OperandType::CHARACTER,
                 ))
                 .chain(get_top_ranks_with_registers(
                     float_address_rankings,
-                    TypeKind::Float,
+                    OperandType::FLOAT,
                 ))
                 .chain(get_top_ranks_with_registers(
                     integer_address_rankings,
-                    TypeKind::Integer,
-                ))
-                .chain(get_top_ranks_with_registers(
-                    string_address_rankings,
-                    TypeKind::String,
-                ))
-                .chain(get_top_ranks_with_registers(
-                    list_address_rankings,
-                    TypeKind::List,
-                ))
-                .chain(get_top_ranks_with_registers(
-                    function_address_rankings,
-                    TypeKind::Function,
+                    OperandType::INTEGER,
                 ))
         {
-            let new_address = match r#type {
-                TypeKind::Boolean => Address::stack(register_index),
-                TypeKind::Byte => Address::stack(register_index),
-                TypeKind::Character => Address::stack(old_address.index),
-                TypeKind::Float => Address::stack(register_index),
-                TypeKind::Integer => Address::stack(register_index),
-                TypeKind::String => Address::stack(register_index),
-                TypeKind::List => Address::stack(register_index),
-                TypeKind::Function => Address::stack(register_index),
-                _ => todo!(),
-            };
+            let new_address = Address::stack(register_index);
 
             trace!(
                 "{old_address} -> {new_address} Usage Rank: {rank}",
@@ -552,7 +512,7 @@ where
                 new_address = new_address.to_string(r#type),
             );
 
-            replacements.insert(old_address, new_address);
+            replacements.insert((old_address, r#type), new_address);
         }
 
         trace!(
@@ -564,19 +524,20 @@ where
             let destination = instruction.destination();
             let b_address = instruction.b_address();
             let c_address = instruction.c_address();
+            let r#type = instruction.operand_type();
 
             match instruction.operation() {
-                Operation::NEGATE | Operation::CALL => {
-                    if let Some(replacement) = replacements.get(&destination) {
+                Operation::LOAD | Operation::NEGATE | Operation::CALL => {
+                    if let Some(replacement) = replacements.get(&(destination, r#type)) {
                         instruction.set_destination(*replacement);
                     }
 
-                    if let Some(replacement) = replacements.get(&b_address) {
+                    if let Some(replacement) = replacements.get(&(b_address, r#type)) {
                         instruction.set_b_address(*replacement);
                     }
                 }
-                Operation::LOAD | Operation::CALL_NATIVE => {
-                    if let Some(replacement) = replacements.get(&destination) {
+                Operation::CALL_NATIVE => {
+                    if let Some(replacement) = replacements.get(&(destination, r#type)) {
                         instruction.set_destination(*replacement);
                     }
                 }
@@ -585,29 +546,29 @@ where
                 | Operation::MULTIPLY
                 | Operation::DIVIDE
                 | Operation::MODULO => {
-                    if let Some(replacement) = replacements.get(&destination) {
+                    if let Some(replacement) = replacements.get(&(destination, r#type)) {
                         instruction.set_destination(*replacement);
                     }
 
-                    if let Some(replacement) = replacements.get(&b_address) {
+                    if let Some(replacement) = replacements.get(&(b_address, r#type)) {
                         instruction.set_b_address(*replacement);
                     }
 
-                    if let Some(replacement) = replacements.get(&c_address) {
+                    if let Some(replacement) = replacements.get(&(c_address, r#type)) {
                         instruction.set_c_address(*replacement);
                     }
                 }
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
-                    if let Some(replacement) = replacements.get(&b_address) {
+                    if let Some(replacement) = replacements.get(&(b_address, r#type)) {
                         instruction.set_b_address(*replacement);
                     }
 
-                    if let Some(replacement) = replacements.get(&c_address) {
+                    if let Some(replacement) = replacements.get(&(c_address, r#type)) {
                         instruction.set_c_address(*replacement);
                     }
                 }
                 Operation::TEST | Operation::RETURN => {
-                    if let Some(replacement) = replacements.get(&b_address) {
+                    if let Some(replacement) = replacements.get(&(b_address, r#type)) {
                         instruction.set_b_address(*replacement);
                     }
                 }
@@ -616,14 +577,16 @@ where
         }
 
         for local in &mut self.locals.values_mut() {
-            if let Some(replacement) = replacements.get(&local.address) {
+            let r#type = local.r#type.as_operand_type();
+
+            if let Some(replacement) = replacements.get(&(local.address, r#type)) {
                 local.address = *replacement;
             }
         }
 
         for arguments in &mut self.arguments {
-            for (address, _) in &mut arguments.0 {
-                if let Some(replacement) = replacements.get(address) {
+            for (address, r#type) in &mut arguments.0 {
+                if let Some(replacement) = replacements.get(&(*address, *r#type)) {
                     *address = *replacement;
                 }
             }
@@ -638,7 +601,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Boolean);
+            .position(|(_, r#type)| *r#type == ConcreteType::Boolean);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming boolean memory at index {index}");
@@ -667,7 +630,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Byte);
+            .position(|(_, r#type)| *r#type == ConcreteType::Byte);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming byte memory at index {index}");
@@ -696,7 +659,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Character);
+            .position(|(_, r#type)| *r#type == ConcreteType::Character);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming character memory at index {index}");
@@ -725,7 +688,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Float);
+            .position(|(_, r#type)| *r#type == ConcreteType::Float);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming float memory at index {index}");
@@ -754,7 +717,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Integer);
+            .position(|(_, r#type)| *r#type == ConcreteType::Integer);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming integer memory at index {index}");
@@ -783,7 +746,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::String);
+            .position(|(_, r#type)| *r#type == ConcreteType::String);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming string memory at index {index}");
@@ -812,7 +775,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::List);
+            .position(|(_, r#type)| *r#type == ConcreteType::List);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming list memory at index {index}");
@@ -841,7 +804,7 @@ where
         let reclaimable_index = self
             .reclaimable_memory
             .iter()
-            .position(|(_, r#type)| *r#type == TypeKind::Function);
+            .position(|(_, r#type)| *r#type == ConcreteType::Function);
 
         if let Some(index) = reclaimable_index {
             trace!("Reclaiming function memory at index {index}");
@@ -864,6 +827,28 @@ where
                 }
             },
         )
+    }
+
+    fn next_heap_index(&mut self, r#type: OperandType) -> u16 {
+        match r#type.destination_type() {
+            OperandType::BOOLEAN => self.next_boolean_heap_index(),
+            OperandType::BYTE => self.next_byte_heap_index(),
+            OperandType::CHARACTER => self.next_character_heap_index(),
+            OperandType::FLOAT => self.next_float_heap_index(),
+            OperandType::INTEGER => self.next_integer_heap_index(),
+            OperandType::STRING => self.next_string_heap_index(),
+            OperandType::LIST
+            | OperandType::LIST_BOOLEAN
+            | OperandType::LIST_BYTE
+            | OperandType::LIST_CHARACTER
+            | OperandType::LIST_FLOAT
+            | OperandType::LIST_INTEGER
+            | OperandType::LIST_STRING
+            | OperandType::LIST_LIST
+            | OperandType::LIST_FUNCTION => self.next_list_heap_index(),
+            OperandType::FUNCTION => self.next_function_heap_index(),
+            invalid => unreachable!("Type::destination_type() should never return {invalid:?}"),
+        }
     }
 
     /// Advances to the next token emitted by the lexer.
@@ -903,15 +888,15 @@ where
     ) {
         info!("Declaring local {identifier}");
 
-        match r#type.kind() {
-            TypeKind::Boolean => self.minimum_boolean_memory_index += 1,
-            TypeKind::Byte => self.minimum_byte_memory_index += 1,
-            TypeKind::Character => self.minimum_character_memory_index += 1,
-            TypeKind::Float => self.minimum_float_memory_index += 1,
-            TypeKind::Integer => self.minimum_integer_memory_index += 1,
-            TypeKind::String => self.minimum_string_memory_index += 1,
-            TypeKind::List => self.minimum_list_memory_index += 1,
-            TypeKind::Function => self.minimum_function_memory_index += 1,
+        match r#type.as_concrete_type() {
+            ConcreteType::Boolean => self.minimum_boolean_memory_index += 1,
+            ConcreteType::Byte => self.minimum_byte_memory_index += 1,
+            ConcreteType::Character => self.minimum_character_memory_index += 1,
+            ConcreteType::Float => self.minimum_float_memory_index += 1,
+            ConcreteType::Integer => self.minimum_integer_memory_index += 1,
+            ConcreteType::String => self.minimum_string_memory_index += 1,
+            ConcreteType::List => self.minimum_list_memory_index += 1,
+            ConcreteType::Function => self.minimum_function_memory_index += 1,
             _ => todo!(),
         }
 
@@ -1369,27 +1354,12 @@ where
             Type::Boolean => self.next_boolean_heap_index(),
             Type::Float => self.next_float_heap_index(),
             Type::Integer => self.next_integer_heap_index(),
-            _ => match operator {
-                Token::Minus => {
-                    return Err(CompileError::CannotNegateType {
-                        argument_type: previous_type,
-                        position: previous_position,
-                    });
-                }
-                Token::Bang => {
-                    return Err(CompileError::CannotNotType {
-                        argument_type: previous_type,
-                        position: previous_position,
-                    });
-                }
-                _ => {
-                    return Err(CompileError::ExpectedTokenMultiple {
-                        expected: &[TokenKind::Bang, TokenKind::Minus],
-                        found: operator.to_owned(),
-                        position: operator_position,
-                    });
-                }
-            },
+            _ => {
+                return Err(CompileError::NegationTypeInvalid {
+                    argument_type: previous_type,
+                    position: previous_position,
+                });
+            }
         };
         let destination = Address::heap(destination_index);
         let instruction = match operator {
@@ -1525,7 +1495,7 @@ where
             &right_type,
             &right_position,
         )?;
-        let right_type_kind = right_type.kind();
+        let right_type_kind = right_type.as_concrete_type();
 
         if push_back_right {
             self.instructions
@@ -1556,15 +1526,15 @@ where
         let operand_type = match left_type {
             Type::Byte => OperandType::BYTE,
             Type::Character => match right_type_kind {
-                TypeKind::Character => OperandType::CHARACTER,
-                TypeKind::String => OperandType::CHARACTER_STRING,
+                ConcreteType::Character => OperandType::CHARACTER,
+                ConcreteType::String => OperandType::CHARACTER_STRING,
                 _ => unreachable!(),
             },
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
             Type::String => match right_type_kind {
-                TypeKind::Character => OperandType::CHARACTER_STRING,
-                TypeKind::String => OperandType::STRING,
+                ConcreteType::Character => OperandType::CHARACTER_STRING,
+                ConcreteType::String => OperandType::STRING,
                 _ => unreachable!(),
             },
             _ => unreachable!(),
@@ -1641,13 +1611,11 @@ where
                     position: self.previous_position,
                 })?;
 
-        // TODO: Check if the left type is a valid type for comparison
-
         let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
 
         if push_back_left {
             self.instructions
-                .push((left_instruction, left_type, left_position));
+                .push((left_instruction, left_type.clone(), left_position));
         }
 
         let operator = self.current_token;
@@ -1665,29 +1633,23 @@ where
                     position: self.previous_position,
                 })?;
 
-        // TODO: Check if the right type is a valid type for comparison
-
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
-        let right_type_kind = right_type.kind();
+
+        if left_type != right_type {
+            return Err(CompileError::ComparisonTypeConflict {
+                left_type,
+                left_position,
+                right_type,
+                right_position,
+            });
+        }
 
         if push_back_right {
             self.instructions
                 .push((right_instruction, right_type, right_position));
         }
 
-        // TODO: Check if the left and right types are compatible
-
-        let operand_type = match right_type_kind {
-            TypeKind::Boolean => OperandType::BOOLEAN,
-            TypeKind::Byte => OperandType::BYTE,
-            TypeKind::Character => OperandType::CHARACTER,
-            TypeKind::Float => OperandType::FLOAT,
-            TypeKind::Integer => OperandType::INTEGER,
-            TypeKind::String => OperandType::STRING,
-            TypeKind::List => OperandType::LIST,
-            TypeKind::Function => OperandType::FUNCTION,
-            _ => todo!(),
-        };
+        let operand_type = left_type.as_operand_type();
         let comparison = match operator {
             Token::DoubleEqual => Instruction::equal(true, left, right, operand_type),
             Token::BangEqual => Instruction::equal(false, left, right, operand_type),
@@ -1959,18 +1921,8 @@ where
             }
         }
 
-        let (destination_index, operand_type) = match variable_type {
-            Type::Boolean => (self.next_boolean_heap_index(), OperandType::BOOLEAN),
-            Type::Byte => (self.next_byte_heap_index(), OperandType::BYTE),
-            Type::Character => (self.next_character_heap_index(), OperandType::CHARACTER),
-            Type::Float => (self.next_float_heap_index(), OperandType::FLOAT),
-            Type::Integer => (self.next_integer_heap_index(), OperandType::INTEGER),
-            Type::String => (self.next_string_heap_index(), OperandType::STRING),
-            Type::List(_) => (self.next_list_heap_index(), OperandType::LIST),
-            Type::Function(_) => (self.next_function_heap_index(), OperandType::FUNCTION),
-            Type::FunctionSelf => (self.next_function_heap_index(), OperandType::FUNCTION),
-            _ => todo!(),
-        };
+        let operand_type = variable_type.as_operand_type();
+        let destination_index = self.next_heap_index(operand_type);
         let destination = Address::heap(destination_index);
         let load = Instruction::load(destination, variable_address, operand_type, false);
 
@@ -1981,11 +1933,6 @@ where
 
     fn parse_type(&mut self) -> Result<Type, CompileError> {
         match self.current_token {
-            Token::Any => {
-                self.advance()?;
-
-                Ok(Type::Any)
-            }
             Token::Bool => {
                 self.advance()?;
 
@@ -2014,7 +1961,6 @@ where
             }
             _ => Err(CompileError::ExpectedTokenMultiple {
                 expected: &[
-                    TokenKind::Any,
                     TokenKind::Bool,
                     TokenKind::ByteKeyword,
                     TokenKind::FloatKeyword,
@@ -2089,42 +2035,42 @@ where
             (
                 start_boolean_memory_index,
                 end_boolean_memory_index,
-                TypeKind::Boolean,
+                ConcreteType::Boolean,
             ),
             (
                 start_byte_memory_index,
                 end_byte_memory_index,
-                TypeKind::Byte,
+                ConcreteType::Byte,
             ),
             (
                 start_character_memory_index,
                 end_character_memory_index,
-                TypeKind::Character,
+                ConcreteType::Character,
             ),
             (
                 start_float_memory_index,
                 end_float_memory_index,
-                TypeKind::Float,
+                ConcreteType::Float,
             ),
             (
                 start_integer_memory_index,
                 end_integer_memory_index,
-                TypeKind::Integer,
+                ConcreteType::Integer,
             ),
             (
                 start_string_memory_index,
                 end_string_memory_index,
-                TypeKind::String,
+                ConcreteType::String,
             ),
             (
                 start_list_memory_index,
                 end_list_memory_index,
-                TypeKind::List,
+                ConcreteType::List,
             ),
             (
                 start_function_memory_index,
                 end_function_memory_index,
-                TypeKind::Function,
+                ConcreteType::Function,
             ),
         ] {
             for i in start..end {
@@ -2210,7 +2156,13 @@ where
                     end_string_address,
                     OperandType::STRING,
                 ),
-                (start_list_address, end_list_address, OperandType::LIST),
+                // Any list type will do here because they use the same memory addresses, regardless
+                // of the item type
+                (
+                    start_list_address,
+                    end_list_address,
+                    OperandType::LIST_BOOLEAN,
+                ),
                 (
                     start_function_address,
                     end_function_address,
@@ -2236,35 +2188,35 @@ where
         let (end_register, operand_type) = match item_type {
             Type::Boolean => (
                 self.next_boolean_heap_index().saturating_sub(1),
-                OperandType::BOOLEAN,
+                OperandType::LIST_BOOLEAN,
             ),
             Type::Byte => (
                 self.next_byte_heap_index().saturating_sub(1),
-                OperandType::BYTE,
+                OperandType::LIST_BYTE,
             ),
             Type::Character => (
                 self.next_character_heap_index().saturating_sub(1),
-                OperandType::CHARACTER,
+                OperandType::LIST_CHARACTER,
             ),
             Type::Float => (
                 self.next_float_heap_index().saturating_sub(1),
-                OperandType::FLOAT,
+                OperandType::LIST_FLOAT,
             ),
             Type::Integer => (
                 self.next_integer_heap_index().saturating_sub(1),
-                OperandType::INTEGER,
+                OperandType::LIST_INTEGER,
             ),
             Type::String => (
                 self.next_string_heap_index().saturating_sub(1),
-                OperandType::STRING,
+                OperandType::LIST_STRING,
             ),
             Type::List { .. } => (
                 self.next_list_heap_index().saturating_sub(1),
-                OperandType::LIST,
+                OperandType::LIST_LIST,
             ),
             Type::Function(_) => (
                 self.next_function_heap_index().saturating_sub(1),
-                OperandType::FUNCTION,
+                OperandType::LIST_FUNCTION,
             ),
             _ => todo!(),
         };
@@ -2538,25 +2490,12 @@ where
                 self.parse_expression()?;
 
                 let expression_type = self.get_last_instruction_type();
-                let (return_register, address_kind) = match expression_type {
-                    Type::Boolean => (self.next_boolean_heap_index() - 1, OperandType::BOOLEAN),
-                    Type::Byte => (self.next_byte_heap_index() - 1, OperandType::BYTE),
-                    Type::Character => {
-                        (self.next_character_heap_index() - 1, OperandType::CHARACTER)
-                    }
-                    Type::Float => (self.next_float_heap_index() - 1, OperandType::FLOAT),
-                    Type::Integer => (self.next_integer_heap_index() - 1, OperandType::INTEGER),
-                    Type::String => (self.next_string_heap_index() - 1, OperandType::STRING),
-                    Type::List(_) => (self.next_list_heap_index() - 1, OperandType::LIST),
-                    Type::Function(_) | Type::FunctionSelf => {
-                        (self.next_function_heap_index() - 1, OperandType::FUNCTION)
-                    }
-                    _ => todo!(),
-                };
+                let operand_type = expression_type.as_operand_type();
+                let return_register = self.next_heap_index(operand_type);
 
                 self.update_return_type(expression_type)?;
 
-                (true, return_register, address_kind)
+                (true, return_register, operand_type)
             };
         let end = self.current_position.1;
         let r#return = Instruction::r#return(
@@ -2620,14 +2559,8 @@ where
         {
             let should_return_value = last_instruction_type != &Type::None;
             let return_address = last_instruction.destination();
-            let operand_type = if last_instruction.operation() == Operation::LIST {
-                OperandType::LIST
-            } else {
-                last_instruction.operand_type()
-            };
+            let operand_type = last_instruction.operand_type();
             let r#return = Instruction::r#return(should_return_value, return_address, operand_type);
-
-            println!("{operand_type}");
 
             self.update_return_type(last_instruction_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -2899,7 +2832,7 @@ where
                 }
             };
 
-            value_argument_list.push((argument_address, r#type.kind()));
+            value_argument_list.push((argument_address, r#type.as_operand_type()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -2908,45 +2841,10 @@ where
             .push((value_argument_list, type_argument_list));
 
         let end = self.current_position.1;
-        let (destination, return_operand_type) = match function_return_type {
-            Type::None => (Address::default(), OperandType::NONE),
-            Type::Boolean => (
-                Address::heap(self.next_boolean_heap_index()),
-                OperandType::BOOLEAN,
-            ),
-            Type::Byte => (
-                Address::heap(self.next_byte_heap_index()),
-                OperandType::BYTE,
-            ),
-            Type::Character => (
-                Address::heap(self.next_character_heap_index()),
-                OperandType::CHARACTER,
-            ),
-            Type::Float => (
-                Address::heap(self.next_float_heap_index()),
-                OperandType::FLOAT,
-            ),
-            Type::Integer => (
-                Address::heap(self.next_integer_heap_index()),
-                OperandType::INTEGER,
-            ),
-            Type::String => (
-                Address::heap(self.next_string_heap_index()),
-                OperandType::STRING,
-            ),
-            Type::List(_) => (
-                Address::heap(self.next_list_heap_index()),
-                OperandType::LIST,
-            ),
-            Type::Function(_) => (
-                Address::heap(self.next_function_heap_index()),
-                OperandType::FUNCTION,
-            ),
-            Type::FunctionSelf => (Address::function_self(), OperandType::FUNCTION),
-            _ => todo!(),
-        };
+        let return_operand_type = function_return_type.as_operand_type();
+        let destination_index = self.next_heap_index(return_operand_type);
         let call = Instruction::call(
-            destination,
+            Address::heap(destination_index),
             last_instruction.b_address(),
             argument_list_index,
             return_operand_type,
@@ -3002,7 +2900,7 @@ where
                 }
             };
 
-            value_argument_list.push((argument_address, r#type.kind()));
+            value_argument_list.push((argument_address, r#type.as_operand_type()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
@@ -3154,8 +3052,8 @@ where
 
         self.expect(Token::Equal)?;
 
-        let value = match r#type.kind() {
-            TypeKind::Boolean => {
+        let value = match r#type.as_concrete_type() {
+            ConcreteType::Boolean => {
                 let boolean = if let Token::Boolean(text) = self.current_token {
                     self.advance()?;
                     self.parse_boolean_value(text)
@@ -3169,7 +3067,7 @@ where
 
                 Value::boolean(boolean)
             }
-            TypeKind::Byte => {
+            ConcreteType::Byte => {
                 let byte = if let Token::Byte(text) = self.current_token {
                     self.advance()?;
                     self.parse_byte_value(text)?
@@ -3183,7 +3081,7 @@ where
 
                 Value::byte(byte)
             }
-            TypeKind::Character => {
+            ConcreteType::Character => {
                 let character = if let Token::Character(character) = self.current_token {
                     self.advance()?;
 
@@ -3198,7 +3096,7 @@ where
 
                 Value::character(character)
             }
-            TypeKind::Float => {
+            ConcreteType::Float => {
                 let float = if let Token::Float(text) = self.current_token {
                     self.advance()?;
                     self.parse_float_value(text)?
@@ -3212,7 +3110,7 @@ where
 
                 Value::float(float)
             }
-            TypeKind::Integer => {
+            ConcreteType::Integer => {
                 let integer = if let Token::Integer(text) = self.current_token {
                     self.advance()?;
                     self.parse_integer_value(text)
@@ -3226,7 +3124,7 @@ where
 
                 Value::integer(integer)
             }
-            TypeKind::String => {
+            ConcreteType::String => {
                 let string = if let Token::String(text) = self.current_token {
                     self.advance()?;
 

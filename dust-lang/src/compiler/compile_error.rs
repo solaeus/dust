@@ -88,67 +88,65 @@ pub enum CompileError {
     },
 
     // Type errors
-    CannotAddType {
+    AdditionTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotAddArguments {
+    AdditionTypeConflict {
         left_type: Type,
         left_position: Span,
         right_type: Type,
         right_position: Span,
     },
-    CannotDivideType {
+    DivisionTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotDivideArguments {
+    DivisionTypeConflict {
         left_type: Type,
         right_type: Type,
         position: Span,
     },
-    CannotModuloType {
+    ModuloTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotModuloArguments {
+    ModuloTypeConflict {
         left_type: Type,
         right_type: Type,
         position: Span,
     },
-    CannotMultiplyType {
+    MultiplicationTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotMultiplyArguments {
+    MultiplicationTypeConflict {
         left_type: Type,
         right_type: Type,
         position: Span,
     },
-    CannotNegateType {
+    NegationTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotNotType {
+    SubtractionTypeInvalid {
         argument_type: Type,
         position: Span,
     },
-    CannotSubtractType {
-        argument_type: Type,
-        position: Span,
-    },
-    CannotSubtractArguments {
+    SubtractionTypeConflict {
         left_type: Type,
         right_type: Type,
-        position: Span,
-    },
-    CannotResolveRegisterType {
-        register_index: usize,
         position: Span,
     },
     CannotResolveVariableType {
         identifier: String,
         position: Span,
+    },
+    ComparisonTypeConflict {
+        left_type: Type,
+        left_position: Span,
+        right_type: Type,
+        right_position: Span,
     },
     IfElseBranchMismatch {
         conflict: TypeConflict,
@@ -206,25 +204,24 @@ impl AnnotatedError for CompileError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::ComparisonTypeConflict { .. } => "Cannot compare values of different types",
             Self::AnonymousFunctionItem { .. } => {
                 "Anonymous functions are not allowed as top-level items"
             }
-            Self::CannotAddArguments { .. } => "Cannot add these types",
-            Self::CannotAddType { .. } => "Cannot add this type",
+            Self::AdditionTypeConflict { .. } => "Cannot add these types",
+            Self::AdditionTypeInvalid { .. } => "Cannot add this type",
             Self::ComparisonChain { .. } => "Cannot chain comparison operations",
-            Self::CannotDivideArguments { .. } => "Cannot divide these types",
-            Self::CannotDivideType { .. } => "Cannot divide this type",
-            Self::CannotModuloArguments { .. } => "Cannot modulo these types",
-            Self::CannotModuloType { .. } => "Cannot modulo this type",
+            Self::DivisionTypeConflict { .. } => "Cannot divide these types",
+            Self::DivisionTypeInvalid { .. } => "Cannot divide this type",
+            Self::ModuloTypeConflict { .. } => "Cannot modulo these types",
+            Self::ModuloTypeInvalid { .. } => "Cannot modulo this type",
             Self::CannotMutateImmutableVariable { .. } => "Cannot mutate immutable variable",
-            Self::CannotMultiplyArguments { .. } => "Cannot multiply these types",
-            Self::CannotMultiplyType { .. } => "Cannot multiply this type",
-            Self::CannotNegateType { .. } => "Cannot negate this type",
-            Self::CannotNotType { .. } => "Cannot apply \"not\" operation to this type",
-            Self::CannotResolveRegisterType { .. } => "Cannot resolve register type",
+            Self::MultiplicationTypeConflict { .. } => "Cannot multiply these types",
+            Self::MultiplicationTypeInvalid { .. } => "Cannot multiply this type",
+            Self::NegationTypeInvalid { .. } => "Cannot negate this type",
             Self::CannotResolveVariableType { .. } => "Cannot resolve type",
-            Self::CannotSubtractType { .. } => "Cannot subtract from this type",
-            Self::CannotSubtractArguments { .. } => "Cannot subtract these types",
+            Self::SubtractionTypeInvalid { .. } => "Cannot subtract from this type",
+            Self::SubtractionTypeConflict { .. } => "Cannot subtract these types",
             Self::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             Self::ExpectedBoolean { .. } => "Expected a boolean",
             Self::ExpectedExpression { .. } => "Expected an expression",
@@ -378,13 +375,13 @@ impl AnnotatedError for CompileError {
             }
 
             // Type errors
-            Self::CannotAddType {
+            Self::AdditionTypeInvalid {
                 argument_type,
                 position,
             } => {
                 vec![(format!("Cannot add type `{argument_type}`"), *position)]
             }
-            Self::CannotAddArguments {
+            Self::AdditionTypeConflict {
                 left_type,
                 left_position,
                 right_type,
@@ -398,13 +395,13 @@ impl AnnotatedError for CompileError {
                     ),
                 ]
             }
-            Self::CannotDivideType {
+            Self::DivisionTypeInvalid {
                 argument_type,
                 position,
             } => {
                 vec![(format!("Cannot divide type `{argument_type}`"), *position)]
             }
-            Self::CannotDivideArguments {
+            Self::DivisionTypeConflict {
                 left_type,
                 right_type,
                 position,
@@ -414,7 +411,7 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
-            Self::CannotModuloType {
+            Self::ModuloTypeInvalid {
                 argument_type,
                 position,
             } => {
@@ -423,7 +420,7 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
-            Self::CannotModuloArguments {
+            Self::ModuloTypeConflict {
                 left_type,
                 right_type,
                 position,
@@ -435,13 +432,13 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
-            Self::CannotMultiplyType {
+            Self::MultiplicationTypeInvalid {
                 argument_type,
                 position,
             } => {
                 vec![(format!("Cannot multiply type `{argument_type}`"), *position)]
             }
-            Self::CannotMultiplyArguments {
+            Self::MultiplicationTypeConflict {
                 left_type,
                 right_type,
                 position,
@@ -451,43 +448,25 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
-            Self::CannotNegateType {
+            Self::NegationTypeInvalid {
                 argument_type,
                 position,
             } => {
                 vec![(format!("Cannot negate type `{argument_type}`"), *position)]
             }
-            Self::CannotNotType {
-                argument_type,
-                position,
-            } => {
-                vec![(
-                    format!("Cannot apply `not` operation to type `{argument_type}`"),
-                    *position,
-                )]
-            }
-            Self::CannotSubtractType {
+            Self::SubtractionTypeInvalid {
                 argument_type,
                 position,
             } => {
                 vec![(format!("Cannot subtract type `{argument_type}`"), *position)]
             }
-            Self::CannotSubtractArguments {
+            Self::SubtractionTypeConflict {
                 left_type,
                 right_type,
                 position,
             } => {
                 vec![(
                     format!("Cannot subtract type `{left_type}` from type `{right_type}`"),
-                    *position,
-                )]
-            }
-            Self::CannotResolveRegisterType {
-                register_index,
-                position,
-            } => {
-                vec![(
-                    format!("Cannot resolve type for register `{register_index}`"),
                     *position,
                 )]
             }
@@ -499,6 +478,20 @@ impl AnnotatedError for CompileError {
                     format!("Cannot resolve type for variable `{identifier}`"),
                     *position,
                 )]
+            }
+            Self::ComparisonTypeConflict {
+                left_type,
+                left_position,
+                right_type,
+                right_position,
+            } => {
+                vec![
+                    (format!("`{left_type}` value was used here"), *left_position),
+                    (
+                        format!("`{right_type}` value was used here"),
+                        *right_position,
+                    ),
+                ]
             }
             Self::IfElseBranchMismatch { conflict, position } => {
                 vec![(
@@ -692,7 +685,7 @@ impl AnnotatedError for CompileError {
             }
 
             // Type errors
-            Self::CannotAddArguments {
+            Self::AdditionTypeConflict {
                 left_position,
                 right_position,
                 ..
@@ -702,70 +695,58 @@ impl AnnotatedError for CompileError {
                     Span(left_position.0, right_position.1),
                 )]
             }
-            Self::CannotAddType { position, .. } => {
+            Self::AdditionTypeInvalid { position, .. } => {
                 vec![("Ensure the type supports addition".to_string(), *position)]
             }
-            Self::CannotDivideArguments { position, .. } => {
+            Self::DivisionTypeConflict { position, .. } => {
                 vec![(
                     "Ensure both arguments are of compatible types for division".to_string(),
                     *position,
                 )]
             }
-            Self::CannotDivideType { position, .. } => {
+            Self::DivisionTypeInvalid { position, .. } => {
                 vec![("Ensure the type supports division".to_string(), *position)]
             }
-            Self::CannotModuloArguments { position, .. } => {
+            Self::ModuloTypeConflict { position, .. } => {
                 vec![(
                     "Ensure both arguments are of compatible types for modulo operation"
                         .to_string(),
                     *position,
                 )]
             }
-            Self::CannotModuloType { position, .. } => {
+            Self::ModuloTypeInvalid { position, .. } => {
                 vec![(
                     "Ensure the type supports modulo operation".to_string(),
                     *position,
                 )]
             }
-            Self::CannotMultiplyArguments { position, .. } => {
+            Self::MultiplicationTypeConflict { position, .. } => {
                 vec![(
                     "Ensure both arguments are of compatible types for multiplication".to_string(),
                     *position,
                 )]
             }
-            Self::CannotMultiplyType { position, .. } => {
+            Self::MultiplicationTypeInvalid { position, .. } => {
                 vec![(
                     "Ensure the type supports multiplication".to_string(),
                     *position,
                 )]
             }
-            Self::CannotNegateType { position, .. } => {
+            Self::NegationTypeInvalid { position, .. } => {
                 vec![(
                     "Ensure the type supports negation (e.g., numeric types)".to_string(),
                     *position,
                 )]
             }
-            Self::CannotNotType { position, .. } => {
-                vec![(
-                    "Ensure the type supports logical negation (e.g., boolean types)".to_string(),
-                    *position,
-                )]
-            }
-            Self::CannotSubtractArguments { position, .. } => {
+            Self::SubtractionTypeConflict { position, .. } => {
                 vec![(
                     "Ensure both arguments are of compatible types for subtraction".to_string(),
                     *position,
                 )]
             }
-            Self::CannotSubtractType { position, .. } => {
+            Self::SubtractionTypeInvalid { position, .. } => {
                 vec![(
                     "Ensure the type supports subtraction".to_string(),
-                    *position,
-                )]
-            }
-            Self::CannotResolveRegisterType { position, .. } => {
-                vec![(
-                    "Ensure the register is initialized with a valid type".to_string(),
                     *position,
                 )]
             }
@@ -773,6 +754,16 @@ impl AnnotatedError for CompileError {
                 vec![(
                     "Ensure the variable is declared with a valid type".to_string(),
                     *position,
+                )]
+            }
+            Self::ComparisonTypeConflict {
+                left_position,
+                right_position,
+                ..
+            } => {
+                vec![(
+                    "Convert one of the values to match the type of the other".to_string(),
+                    Span(left_position.0, right_position.1),
                 )]
             }
             Self::IfElseBranchMismatch { position, .. } => {

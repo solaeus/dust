@@ -1,14 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct List {
     pub destination: Address,
     pub start: Address,
     pub end: Address,
-    pub item_type: OperandType,
+    pub r#type: OperandType,
 }
 
 impl From<&Instruction> for List {
@@ -16,13 +14,13 @@ impl From<&Instruction> for List {
         let destination = instruction.destination();
         let start = instruction.b_address();
         let end = instruction.c_address();
-        let item_type = instruction.operand_type();
+        let r#type = instruction.operand_type();
 
         List {
             destination,
             start,
             end,
-            item_type,
+            r#type,
         }
     }
 }
@@ -42,7 +40,7 @@ impl From<List> for Instruction {
             index: c_field,
             memory: c_memory_kind,
         } = list.end;
-        let operand_type = list.item_type;
+        let operand_type = list.r#type;
 
         InstructionFields {
             operation,
@@ -64,26 +62,19 @@ impl Display for List {
             destination,
             start,
             end,
-            item_type,
+            r#type,
         } = self;
-        let type_kind = match *item_type {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            OperandType::NONE => TypeKind::None,
-            _ => return write!(f, "INVALID_LIST_INSTRUCTION"),
+        let item_type = if let Some(item_type) = r#type.list_item_type() {
+            item_type
+        } else {
+            return write!(f, "INVALID_LIST_INSTRUCTION");
         };
 
-        destination.display(f, TypeKind::List)?;
+        destination.display(f, *r#type)?;
         write!(f, " = [")?;
-        start.display(f, type_kind)?;
+        start.display(f, item_type)?;
         write!(f, "..=")?;
-        end.display(f, type_kind)?;
+        end.display(f, item_type)?;
         write!(f, "]")
     }
 }

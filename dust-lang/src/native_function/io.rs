@@ -1,14 +1,11 @@
-use std::io::{Write, stdin, stdout};
-
 use crate::{
-    Address,
+    Address, OperandType,
     panic_vm::{CallFrame, Memory, ThreadPool},
-    r#type::TypeKind,
 };
 
 pub fn read_line<C>(
     destination: Address,
-    _: &[(Address, TypeKind)],
+    _: &[(Address, OperandType)],
     _: &mut CallFrame<C>,
     memory: &mut Memory<C>,
     _: &ThreadPool<C>,
@@ -18,7 +15,7 @@ pub fn read_line<C>(
 
 pub fn write_line<C>(
     _: Address,
-    arguments: &[(Address, TypeKind)],
+    arguments: &[(Address, OperandType)],
     _: &mut CallFrame<C>,
     memory: &mut Memory<C>,
     _: &ThreadPool<C>,

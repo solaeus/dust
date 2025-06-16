@@ -45,19 +45,18 @@ pub mod value;
 // #[cfg(test)]
 // mod tests;
 
-pub(crate) use chunk::Chunk;
-pub use chunk::{Disassemble, Disassembler, FullChunk, StrippedChunk};
+pub use chunk::{Chunk, Disassemble, Disassembler, FullChunk, StrippedChunk};
 pub use compiler::{
     BlockScope, CompileError, Compiler, DEFAULT_REGISTER_COUNT, Global, Local, Module, compile,
 };
 pub use dust_error::{AnnotatedError, DustError};
-pub use instruction::{Address, Instruction, Operation};
+pub use instruction::{Address, Instruction, InstructionFields, OperandType, Operation};
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use panic::set_dust_panic_hook;
 pub use panic_vm::{Vm, run};
 pub use token::{Token, TokenKind, TokenOwned};
-pub use r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
+pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{DustString, List, Value};
 
 use std::fmt::Display;

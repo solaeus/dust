@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Add {
@@ -67,52 +65,14 @@ impl Display for Add {
             r#type,
         } = self;
 
-        match *r#type {
-            OperandType::BYTE => {
-                destination.display(f, TypeKind::Byte)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::Byte)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::Byte)?;
-            }
-            OperandType::CHARACTER => {
-                destination.display(f, TypeKind::Character)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::Character)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::Character)?;
-            }
-            OperandType::INTEGER => {
-                destination.display(f, TypeKind::Integer)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::Integer)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::Integer)?;
-            }
-            OperandType::STRING => {
-                destination.display(f, TypeKind::String)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::String)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::String)?;
-            }
-            OperandType::CHARACTER_STRING => {
-                destination.display(f, TypeKind::String)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::Character)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::String)?;
-            }
-            OperandType::STRING_CHARACTER => {
-                destination.display(f, TypeKind::String)?;
-                write!(f, " = ")?;
-                left.display(f, TypeKind::String)?;
-                write!(f, " + ")?;
-                right.display(f, TypeKind::Character)?;
-            }
-            invalid => invalid.invalid_panic(Operation::ADD),
-        };
+        let destination_type = r#type.destination_type();
+        let left_type = r#type.b_type();
+        let right_type = r#type.c_type();
 
-        Ok(())
+        destination.display(f, destination_type)?;
+        write!(f, " = ")?;
+        left.display(f, left_type)?;
+        write!(f, " + ")?;
+        right.display(f, right_type)
     }
 }

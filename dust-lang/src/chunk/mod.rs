@@ -19,11 +19,11 @@ use std::sync::Arc;
 use std::{fmt::Debug, io::Write};
 
 use crate::{
-    Address, DustString, FunctionType, Instruction, Local, Span, compiler::ChunkCompiler,
-    r#type::TypeKind,
+    Address, DustString, FunctionType, Instruction, Local, OperandType, Span,
+    compiler::ChunkCompiler,
 };
 
-pub trait Chunk: Sized + Clone + Debug + Disassemble {
+pub trait Chunk: Sized + Clone + Debug + Default + Disassemble + PartialEq + PartialOrd {
     fn from_chunk_compiler<'a>(compiler: ChunkCompiler<'a, Self>) -> Self;
 
     fn chunk_type_name() -> &'static str;
@@ -32,7 +32,7 @@ pub trait Chunk: Sized + Clone + Debug + Disassemble {
 
     fn r#type(&self) -> &FunctionType;
 
-    fn as_function(self) -> Arc<Self>;
+    fn into_function(self) -> Arc<Self>;
 
     fn instructions(&self) -> &[Instruction];
 
@@ -48,7 +48,7 @@ pub trait Chunk: Sized + Clone + Debug + Disassemble {
 
     fn prototypes(&self) -> &[Arc<Self>];
 
-    fn arguments(&self) -> &[Vec<(Address, TypeKind)>];
+    fn arguments(&self) -> &[Vec<(Address, OperandType)>];
 
     fn locals(&self) -> Option<impl Iterator<Item = (&DustString, &Local)>>;
 

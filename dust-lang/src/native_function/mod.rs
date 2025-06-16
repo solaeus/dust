@@ -2,8 +2,8 @@
 //!
 //! Native functions are used to implement features that are not possible to implement in Dust
 //! itself or that are more efficient to implement in Rust.
+mod convert;
 mod io;
-mod string;
 mod thread;
 
 use std::{
@@ -16,14 +16,13 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    Address, FunctionType,
+    Address, FunctionType, OperandType, Type,
     panic_vm::{CallFrame, Memory, ThreadPool},
-    r#type::{Type, TypeKind},
 };
 
 pub type NativeFunctionLogic<C> = fn(
     destination: Address,
-    arguments: &[(Address, TypeKind)],
+    arguments: &[(Address, OperandType)],
     call: &mut CallFrame<C>,
     memory: &mut Memory<C>,
     threads: &ThreadPool<C>,
@@ -57,7 +56,7 @@ macro_rules! define_native_function {
             pub fn call(
                 &self,
                 destination: Address,
-                arguments: &[(Address, TypeKind)],
+                arguments: &[(Address, OperandType)],
                 call: &mut CallFrame<C>,
                 memory: &mut Memory<C>,
                 threads: &ThreadPool<C>,
@@ -124,7 +123,7 @@ macro_rules! define_native_function {
 
 fn no_op<C>(
     _destination: Address,
-    _arguments: &[(Address, TypeKind)],
+    _arguments: &[(Address, OperandType)],
     _call: &mut CallFrame<C>,
     _memory: &mut Memory<C>,
     _threads: &ThreadPool<C>,
@@ -141,9 +140,9 @@ define_native_function! {
     ),
     (
         1,
-        "_to_string",
-        FunctionType::new([], [Type::Any], Type::String),
-        string::to_string
+        "_int_to_string",
+        FunctionType::new([], [Type::Integer], Type::String),
+        convert::int_to_string
     ),
     (
         2,

@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Call {
@@ -63,30 +61,13 @@ impl Display for Call {
             argument_list_index,
             return_type,
         } = self;
-        let destination_type = match *return_type {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::FUNCTION => TypeKind::Function,
-            OperandType::NONE => TypeKind::None,
-            _ => return write!(f, "INVALID_CALL_INSTRUCTION"),
-        };
-        let is_recursive = *function == Address::stack(u16::MAX);
 
-        if destination_type != TypeKind::None {
-            destination.display(f, destination_type)?;
+        if *return_type != OperandType::NONE {
+            destination.display(f, *return_type)?;
             write!(f, " = ")?;
         }
 
-        if is_recursive {
-            function.display(f, TypeKind::FunctionSelf)?;
-        } else {
-            function.display(f, TypeKind::Function)?;
-        }
+        function.display(f, OperandType::FUNCTION)?;
 
         write!(f, "(ARGS_{argument_list_index})")
     }

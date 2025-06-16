@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::r#type::TypeKind;
-
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Modulo {
@@ -66,17 +64,11 @@ impl Display for Modulo {
             right,
             r#type,
         } = self;
-        let type_kind = match *r#type {
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::INTEGER => TypeKind::Integer,
-            _ => return write!(f, "INVALID_MODULO_INSTRUCTION"),
-        };
 
-        destination.display(f, type_kind)?;
+        destination.display(f, *r#type)?;
         write!(f, " = ")?;
-        left.display(f, type_kind)?;
+        left.display(f, *r#type)?;
         write!(f, " % ")?;
-        right.display(f, type_kind)
+        right.display(f, *r#type)
     }
 }
