@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 
@@ -7,11 +7,11 @@ use crate::Span;
 use super::{Item, Path};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
-pub struct Module<'a> {
-    pub items: HashMap<Path<'a>, (Item<'a>, Span)>,
+pub struct Module<'a, C> {
+    pub items: HashMap<Path<'a>, (Item<'a, C>, Span)>,
 }
 
-impl<'a> Module<'a> {
+impl<'a, C> Module<'a, C> {
     pub fn new() -> Self {
         Module {
             items: HashMap::new(),
@@ -24,50 +24,53 @@ impl<'a> Module<'a> {
         }
     }
 
-    pub fn get_item(&self, path: &Path<'a>) -> Option<&(Item<'a>, Span)> {
-        if let Some(found) = self.items.get(path) {
-            return Some(found);
-        }
+    pub fn find_item<'b>(&'b self, variable_path: &'b Path<'a>) -> Option<&'b (Item<'a, C>, Span)> {
+        let mut current_module = self;
 
-        for module in self.items.iter().filter_map(|(_, (item, _))| {
-            if let Item::Module(module) = item {
-                Some(module)
+        for module_name in variable_path.module_names() {
+            println!("{module_name}");
+
+            if let Some((Item::Module(module), _)) = current_module.items.get(&module_name) {
+                current_module = module;
             } else {
-                None
-            }
-        }) {
-            if let Some(found) = module.get_item(path) {
-                return Some(found);
+                return None;
             }
         }
 
-        None
+        let item_name = variable_path.item_name();
+
+        current_module.items.get(&item_name)
     }
 }
 
-impl<'a, 'de: 'a> Deserialize<'de> for Module<'a> {
+impl<'de, C> Deserialize<'de> for Module<'de, C>
+where
+    C: 'de + Deserialize<'de>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct ModuleVisitor<'a> {
-            marker: std::marker::PhantomData<&'a ()>,
+        struct ModuleVisitor<'a, C> {
+            marker: PhantomData<&'a C>,
         }
 
-        impl<'a> serde::de::Visitor<'a> for ModuleVisitor<'a> {
-            type Value = Module<'a>;
+        impl<'de, C: Deserialize<'de>> serde::de::Visitor<'de> for ModuleVisitor<'de, C> {
+            type Value = Module<'de, C>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a module with items")
+                formatter.write_str("a Module struct")
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
             where
-                M: serde::de::MapAccess<'a>,
+                M: serde::de::MapAccess<'de>,
             {
                 let mut items = HashMap::new();
 
-                while let Some((key, value)) = map.next_entry::<Path<'a>, (Item<'a>, Span)>()? {
+                while let Some((key, value)) =
+                    map.next_entry::<Path<'de>, (Item<'de, C>, Span)>()?
+                {
                     items.insert(key, value);
                 }
 
@@ -79,32 +82,8 @@ impl<'a, 'de: 'a> Deserialize<'de> for Module<'a> {
             "Module",
             &["items"],
             ModuleVisitor {
-                marker: std::marker::PhantomData,
+                marker: PhantomData,
             },
         )
     }
 }
-
-#[macro_export]
-macro_rules! find_item {
-    ($variable_path: expr, $dust_crate: expr) => {{
-        let module_names = $variable_path.module_names();
-        let mut current = ($dust_crate, Span::default());
-
-        for module_name in module_names {
-            let module_path = Path::new_borrowed(module_name).unwrap();
-
-            if let Some(next) = current.0.get_item(&module_path) {
-                if let Item::Module(module) = &next.0 {
-                    current = (module, next.1);
-                }
-            }
-        }
-
-        let item_name = Path::new_borrowed($variable_path.item_name()).unwrap();
-
-        current.0.get_item(&item_name).cloned()
-    }};
-}
-
-pub use find_item;

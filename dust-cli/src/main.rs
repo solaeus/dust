@@ -17,7 +17,8 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, DEFAULT_REGISTER_COUNT, DustError, Vm, set_dust_panic_hook,
+    CompileError, Compiler, Disassemble, DustError, FullChunk, StrippedChunk, Vm,
+    set_dust_panic_hook,
 };
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
@@ -161,45 +162,14 @@ fn main() {
             start_logging(log_level, pretty_log, start_time);
         }
 
-        let (source, source_name) = {
-            if let Some(path) = &file {
-                let file_name = path
-                    .file_stem()
-                    .expect("The path `{path}` contains invalid UTF-8");
-                let mut file = OpenOptions::new()
-                    .create(false)
-                    .read(true)
-                    .write(false)
-                    .open(path)
-                    .expect("Failed to open {path}");
-                let mut file_contents = String::new();
-
-                file.read_to_string(&mut file_contents)
-                    .expect("The file at `{path}` contains invalid UTF-8");
-
-                (file_contents, file_name.to_string_lossy().to_string())
-            } else {
-                let source = if stdin {
-                    let mut source = String::new();
-
-                    io::stdin()
-                        .read_to_string(&mut source)
-                        .expect("The input from stdin contained invalid UTF-8");
-
-                    source
-                } else {
-                    eval.expect("No source code provided")
-                };
-
-                (source, name.unwrap_or("Dust CLI Input".to_string()))
-            }
-        };
+        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_name = source_name.as_deref();
 
         let dust_crate = match input {
             Format::Dust => {
-                let compiler = Compiler::new(&source, &source_name);
+                let compiler = Compiler::<StrippedChunk>::new();
 
-                match compiler.compile_program() {
+                match compiler.compile_program(source_name, &source) {
                     Ok(chunk) => chunk,
                     Err(error) => {
                         handle_compile_error(error, &source);
@@ -233,7 +203,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(&source_name, compile_time, Some(run_time))]);
+            print_times(&[(source_name, compile_time, Some(run_time))]);
         }
 
         return;
@@ -257,42 +227,12 @@ fn main() {
             start_logging(log_level, pretty_log, start_time);
         }
 
-        let (source, source_name) = {
-            if let Some(path) = file {
-                let file_name = path
-                    .file_stem()
-                    .expect("The path `{path}` contains invalid UTF-8");
-                let mut file = OpenOptions::new()
-                    .create(false)
-                    .read(true)
-                    .write(false)
-                    .open(&path)
-                    .expect("Failed to open {path}");
-                let mut file_contents = String::new();
+        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_name = source_name.as_deref();
 
-                file.read_to_string(&mut file_contents)
-                    .expect("The file at `{path}` contains invalid UTF-8");
+        let compiler = Compiler::<FullChunk>::new();
 
-                (file_contents, file_name.to_string_lossy().to_string())
-            } else {
-                let source = if stdin {
-                    let mut source = String::new();
-
-                    io::stdin()
-                        .read_to_string(&mut source)
-                        .expect("The input from stdin contained invalid UTF-8");
-
-                    source
-                } else {
-                    eval.expect("No source code provided")
-                };
-
-                (source, name.unwrap_or("Dust CLI Input".to_string()))
-            }
-        };
-
-        let compiler = Compiler::new(&source, &source_name);
-        let dust_crate = match compiler.compile_program() {
+        let dust_crate = match compiler.compile_program(source_name, &source) {
             Ok(dust_crate) => dust_crate,
             Err(error) => {
                 handle_compile_error(error, &source);
@@ -344,7 +284,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(&source_name, compile_time, None)]);
+            print_times(&[(source_name, compile_time, None)]);
         }
 
         return;
@@ -352,6 +292,47 @@ fn main() {
 
     if let Mode::Tokenize = mode {
         todo!()
+    }
+}
+
+fn get_source_and_name(
+    path: Option<PathBuf>,
+    name: Option<String>,
+    stdin: bool,
+    eval: Option<String>,
+) -> (String, Option<String>) {
+    if let Some(path) = &path {
+        let file_name = path
+            .file_stem()
+            .expect("The path `{path}` contains invalid UTF-8")
+            .to_string_lossy()
+            .to_string();
+        let mut file = OpenOptions::new()
+            .create(false)
+            .read(true)
+            .write(false)
+            .open(path)
+            .expect("Failed to open {path}");
+        let mut file_contents = String::new();
+
+        file.read_to_string(&mut file_contents)
+            .expect("The file at `{path}` contains invalid UTF-8");
+
+        (file_contents, Some(file_name))
+    } else {
+        let source = if stdin {
+            let mut source = String::new();
+
+            io::stdin()
+                .read_to_string(&mut source)
+                .expect("The input from stdin contained invalid UTF-8");
+
+            source
+        } else {
+            eval.expect("No source code provided")
+        };
+
+        (source, name)
     }
 }
 
@@ -461,8 +442,9 @@ where
     }
 }
 
-fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
+fn print_times(times: &[(Option<&str>, Duration, Option<Duration>)]) {
     for (source_name, compile_time, run_time) in times {
+        let name = source_name.unwrap_or("anonymous");
         let total_time = run_time
             .map(|run_time| run_time + *compile_time)
             .unwrap_or(*compile_time);
@@ -473,7 +455,7 @@ fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
         let total_time_display = format!("{}ms", total_time.as_millis_f64());
 
         println!(
-            "{source_name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
+            "{name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
         );
     }
 }

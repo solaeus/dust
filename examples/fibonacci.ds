@@ -1,5 +1,4 @@
 use std::io::write_line;
-use std::convert::int_to_string;
 
 fn fib (n: int) -> int {
     if n <= 0 {
@@ -11,4 +10,4 @@ fn fib (n: int) -> int {
     }
 }
 
-write_line(int_to_string(fib(25)))
+write_line(str.from_int(fib(25)))

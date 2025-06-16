@@ -32,12 +32,14 @@ impl From<Return> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = r#return.return_value_address;
+        let operand_type = r#return.r#type;
 
         InstructionFields {
             operation,
             a_field,
             b_field,
             b_memory_kind,
+            operand_type,
             ..Default::default()
         }
         .build()
@@ -51,23 +53,23 @@ impl Display for Return {
             return_value_address,
             r#type,
         } = self;
-        let type_kind = match *r#type {
-            OperandType::BOOLEAN => TypeKind::Boolean,
-            OperandType::BYTE => TypeKind::Byte,
-            OperandType::CHARACTER => TypeKind::Character,
-            OperandType::FLOAT => TypeKind::Float,
-            OperandType::INTEGER => TypeKind::Integer,
-            OperandType::STRING => TypeKind::String,
-            OperandType::LIST => TypeKind::List,
-            OperandType::NONE => TypeKind::None,
-            _ => return write!(f, "INVALID_RETURN_INSTRUCTION"),
-        };
-
-        write!(f, "RETURN")?;
 
         if *should_return_value {
-            write!(f, " ")?;
+            let type_kind = match *r#type {
+                OperandType::BOOLEAN => TypeKind::Boolean,
+                OperandType::BYTE => TypeKind::Byte,
+                OperandType::CHARACTER => TypeKind::Character,
+                OperandType::FLOAT => TypeKind::Float,
+                OperandType::INTEGER => TypeKind::Integer,
+                OperandType::STRING => TypeKind::String,
+                OperandType::LIST => TypeKind::List,
+                _ => return write!(f, "INVALID_RETURN_INSTRUCTION"),
+            };
+
+            write!(f, "RETURN ")?;
             return_value_address.display(f, type_kind)?;
+        } else {
+            write!(f, "RETURN")?;
         }
 
         Ok(())

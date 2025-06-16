@@ -1,682 +1,309 @@
 #![macro_use]
 
 macro_rules! get_boolean {
-    ($memory:expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::BOOLEAN_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_boolean`: {}",
-                    $address
-                );
-
-                read_cells[index]
-                    .value
-                    .read()
-                    .expect("Expected boolean cell")
-                    .expect_boolean()
-            }
-            AddressKind::BOOLEAN_REGISTER => {
-                assert!(
-                    index < $memory.registers.booleans.len(),
-                    "Register access out of bounds in `get_boolean`: {}",
-                    $address
-                );
-
-                &$memory.registers.booleans[index]
-            }
-            AddressKind::BOOLEAN_MEMORY => {
-                assert!(
-                    index < $memory.booleans.len(),
-                    "Memory access out of bounds in `get_boolean`: {}",
-                    $address
-                );
-
-                &$memory.booleans[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Boolean),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, booleans),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, booleans),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_boolean;
 
 macro_rules! get_byte {
-    ($memory:expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::BYTE_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_byte`: {}",
-                    $address
-                );
-
-                read_cells[index].read_byte().expect("Expected byte cell")
-            }
-            AddressKind::BYTE_REGISTER => {
-                assert!(
-                    index < $memory.registers.bytes.len(),
-                    "Register access out of bounds in `get_byte`: {}",
-                    $address
-                );
-
-                $memory.registers.bytes[index]
-            }
-            AddressKind::BYTE_MEMORY => {
-                assert!(
-                    index < $memory.bytes.len(),
-                    "Memory access out of bounds in `get_byte`: {}",
-                    $address
-                );
-
-                $memory.bytes[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Byte),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, bytes),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, bytes),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_byte;
 
 macro_rules! get_character {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::CHARACTER_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_character`: {}",
-                    $address
-                );
-
-                &read_cells[index]
-                    .read_character()
-                    .expect("Expected character cell")
-            }
-            AddressKind::CHARACTER_CONSTANT => {
-                assert!(
-                    index < $chunk.character_constants.len(),
-                    "Constant access out of bounds in `get_character`: {}",
-                    $address
-                );
-
-                &$chunk.character_constants[index]
-            }
-            AddressKind::CHARACTER_REGISTER => {
-                assert!(
-                    index < $memory.registers.characters.len(),
-                    "Register access out of bounds in `get_character`: {}",
-                    $address
-                );
-
-                &$memory.registers.characters[index]
-            }
-            AddressKind::CHARACTER_MEMORY => {
-                assert!(
-                    index < $memory.characters.len(),
-                    "Memory access out of bounds in `get_character`: {}",
-                    $address
-                );
-
-                &$memory.characters[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Character),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, character_constants),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, characters),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, characters),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_character;
 
 macro_rules! get_float {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::FLOAT_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_float`: {}",
-                    $address
-                );
-
-                read_cells[index].read_float().expect("Expected float cell")
-            }
-            AddressKind::FLOAT_CONSTANT => {
-                assert!(
-                    index < $chunk.float_constants.len(),
-                    "Constant access out of bounds in `get_float`: {}",
-                    $address
-                );
-
-                $chunk.float_constants[index]
-            }
-            AddressKind::FLOAT_REGISTER => {
-                assert!(
-                    index < $memory.registers.floats.len(),
-                    "Register access out of bounds in `get_float`: {}",
-                    $address
-                );
-
-                $memory.registers.floats[index]
-            }
-            AddressKind::FLOAT_MEMORY => {
-                assert!(
-                    index < $memory.floats.len(),
-                    "Memory access out of bounds in `get_float`: {}",
-                    $address
-                );
-
-                $memory.floats[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Float),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, float_constants),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, floats),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, floats),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_float;
 
 macro_rules! get_integer {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::INTEGER_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_integer`: {}",
-                    $address
-                );
-
-                read_cells[index]
-                    .read_integer()
-                    .expect("Expected integer cell")
-            }
-            AddressKind::INTEGER_CONSTANT => {
-                assert!(
-                    index < $chunk.integer_constants.len(),
-                    "Constant access out of bounds in `get_integer`: {}",
-                    $address
-                );
-
-                $chunk.integer_constants[index]
-            }
-            AddressKind::INTEGER_REGISTER => {
-                assert!(
-                    index < $memory.registers.integers.len(),
-                    "Register access out of bounds in `get_integer`: {}",
-                    $address
-                );
-
-                $memory.registers.integers[index]
-            }
-            AddressKind::INTEGER_MEMORY => {
-                assert!(
-                    index < $memory.integers.len(),
-                    "Memory access out of bounds in `get_integer`: {}",
-                    $address
-                );
-
-                $memory.integers[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Integer),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, integer_constants),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, integers),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, integers),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_integer;
 
 macro_rules! get_string {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::STRING_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_string`: {}",
-                    $address
-                );
-
-                &read_cells[index]
-                    .read_string()
-                    .expect("Expected string cell")
-            }
-            AddressKind::STRING_CONSTANT => {
-                assert!(
-                    index < $chunk.string_constants.len(),
-                    "Constant access out of bounds in `get_string`: {}",
-                    $address
-                );
-
-                &$chunk.string_constants[index]
-            }
-            AddressKind::STRING_REGISTER => {
-                assert!(
-                    index < $memory.registers.strings.len(),
-                    "Register access out of bounds in `get_string`: {}",
-                    $address
-                );
-
-                &$memory.registers.strings[index]
-            }
-            AddressKind::STRING_MEMORY => {
-                assert!(
-                    index < $memory.strings.len(),
-                    "Memory access out of bounds in `get_string`: {}",
-                    $address
-                );
-
-                &$memory.strings[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, String),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, string_constants),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, strings),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, strings),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_string;
 
 macro_rules! get_list {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::LIST_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_list`: {}",
-                    $address
-                );
-
-                &read_cells[index].read_list().expect("Expected list cell")
-            }
-            AddressKind::LIST_REGISTER => {
-                assert!(
-                    index < $memory.registers.lists.len(),
-                    "Register access out of bounds in `get_list`: {}",
-                    $address
-                );
-
-                &$memory.registers.lists[index]
-            }
-            AddressKind::LIST_MEMORY => {
-                assert!(
-                    index < $memory.lists.len(),
-                    "Memory access out of bounds in `get_list`: {}",
-                    $address
-                );
-
-                &$memory.lists[index]
-            }
-            _ => unexpected_address!($address),
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, List),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, lists),
+            MemoryKind::STACK => get_from_stack!($address.index, $memory, lists),
+            _ => unreachable!(),
         }
     }};
 }
-
-pub(crate) use get_list;
 
 macro_rules! get_function {
-    ($memory:expr, $chunk: expr, $address:expr) => {{
-        let index = $address.index as usize;
-
-        match $address.kind {
-            AddressKind::FUNCTION_CELL => {
-                let read_cells = $memory
-                    .cells
-                    .read()
-                    .expect("Failed to acquire read lock on cells");
-
-                assert!(
-                    index < read_cells.len(),
-                    "Cell access out of bounds in `get_function`: {}",
-                    $address
-                );
-
-                read_cells[index]
-                    .read_function()
-                    .expect("Expected function cell")
+    ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => get_from_cell!($address.index, $cells, Function),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, prototypes),
+            MemoryKind::HEAP => get_from_heap!($address.index, $memory, functions),
+            MemoryKind::STACK => {
+                if $address.index == u16::MAX {
+                    Arc::clone($chunk)
+                } else {
+                    get_from_stack!($address.index, $memory, functions)
+                }
             }
-            AddressKind::FUNCTION_PROTOTYPE => {
-                assert!(
-                    index < $chunk.prototypes.len(),
-                    "Constant access out of bounds in `get_function`: {}",
-                    $address
-                );
-
-                $chunk.prototypes[index]
-            }
-            AddressKind::FUNCTION_REGISTER => {
-                assert!(
-                    index < $memory.registers.functions.len(),
-                    "Register access out of bounds in `get_function`: {}",
-                    $address
-                );
-
-                $memory.registers.functions[index]
-            }
-            AddressKind::FUNCTION_MEMORY => {
-                assert!(
-                    index < $memory.functions.len(),
-                    "Memory access out of bounds in `get_function`: {}",
-                    $address
-                );
-
-                $memory.functions[index]
-            }
-            _ => unexpected_address!($address),
+            _ => unreachable!(),
         }
     }};
 }
 
-pub(crate) use get_function;
-
-macro_rules! get_memory {
-    ($memory:expr, $field:ident, $address:expr) => {{
-        let index = $address.index as usize;
-
-        assert!(
-            index < $memory.$field.len(),
-            "Memory access out of bounds in `get_memory`: {}",
-            $address
-        );
-
-        &$memory.$field[index]
+macro_rules! set_boolean {
+    ($address: expr, $memory: expr, $cells: expr, $boolean: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Boolean, $boolean),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, booleans, $boolean),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, booleans, $boolean),
+            _ => unreachable!(),
+        }
     }};
 }
 
-pub(crate) use get_memory;
-
-macro_rules! get_register {
-    ($memory:expr, $field:ident, $address:expr) => {{
-        let index = $address.index as usize;
-
-        assert!(
-            index < $memory.registers.$field.len(),
-            "Register access out of bounds in `get_register`: {}",
-            $address
-        );
-
-        &$memory.registers.$field[index]
+macro_rules! set_byte {
+    ($address: expr, $memory: expr, $cells: expr, $byte: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Byte, $byte),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, bytes, $byte),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, bytes, $byte),
+            _ => unreachable!(),
+        }
     }};
 }
 
-pub(crate) use get_register;
+macro_rules! set_character {
+    ($address: expr, $memory: expr, $cells: expr, $character: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Character, $character),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, characters, $character),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, characters, $character),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_float {
+    ($address: expr, $memory: expr, $cells: expr, $float: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Float, $float),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, floats, $float),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, floats, $float),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_integer {
+    ($address: expr, $memory: expr, $cells: expr, $integer: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Integer, $integer),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, integers, $integer),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, integers, $integer),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_string {
+    ($address: expr, $memory: expr, $cells: expr, $string: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, String, $string),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, strings, $string),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, strings, $string),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_list {
+    ($address: expr, $memory: expr, $cells: expr, $list: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, List, $list),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, lists, $list),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, lists, $list),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_function {
+    ($address: expr, $memory: expr, $cells: expr, $function: expr) => {{
+        match $address.memory {
+            MemoryKind::CELL => set_cell!($address.index, $cells, Function, $function),
+            MemoryKind::HEAP => set_to_heap!($address.index, $memory, functions, $function),
+            MemoryKind::STACK => set_to_stack!($address.index, $memory, functions, $function),
+            _ => unreachable!(),
+        }
+    }};
+}
+
+macro_rules! set_cell {
+    ($index: expr, $cells: expr, $cell_value_variant: ident, $value: expr) => {{
+        let index = $index as usize;
+        let cells = read_lock_cells!($cells);
+
+        assert!(index < cells.len(), "Cell index out of bounds");
+
+        let mut cell_value = cells[index].value.write().expect("Failed to write cell");
+
+        *cell_value = CellValue::$cell_value_variant($value);
+    }};
+}
+
+macro_rules! set_to_heap {
+    ($index: expr, $memory: expr, $field: ident, $value: expr) => {{
+        let index = $index as usize;
+
+        assert!(
+            index < $memory.heap.$field.len(),
+            "Heap index out of bounds"
+        );
+
+        $memory.heap.$field[index] = $value;
+    }};
+}
+
+macro_rules! set_to_stack {
+    ($index: expr, $memory: expr, $field: ident, $value: expr) => {{
+        let index = $index as usize;
+
+        assert!(
+            index < $memory.stack.$field.len(),
+            "Stack index out of bounds"
+        );
+
+        $memory.stack.$field[index] = $value;
+    }};
+}
+
+macro_rules! read_lock_cells {
+    ($cells: expr) => {{ $cells.read().expect("Failed to read cells") }};
+}
+
+macro_rules! get_from_cell {
+    ($index: expr, $cells: expr, $cell_value_variant: ident) => {{
+        let index = $index as usize;
+        let cells = read_lock_cells!($cells);
+
+        assert!(index < cells.len(), "Cell index out of bounds");
+
+        let cell_value = cells[index].value.read().expect("Failed to read cell");
+
+        if let CellValue::$cell_value_variant(value) = &*cell_value {
+            value.clone()
+        } else {
+            panic!("Expected a boolean cell at index {}", index);
+        }
+    }};
+}
 
 macro_rules! get_constant {
-    ($chunk:expr, $field:ident, $address:expr) => {{
-        let index = $address.index as usize;
-
-        assert!(
-            index < $chunk.$field.len(),
-            "Constant access out of bounds in `get_constant`: {}",
-            $address
-        );
-
-        &$chunk.$field[index]
-    }};
-}
-
-pub(crate) use get_constant;
-
-macro_rules! get_boolean_from_cells {
-    ($memory:expr, $index:expr) => {{
+    ($index: expr, $chunk: expr, $field: ident) => {{
         let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
 
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
+        assert!(index < $chunk.$field.len(), "Constant index out of bounds");
 
-        read_cells[index]
-            .read_boolean()
-            .expect("Expected boolean cell")
+        $chunk.$field[index].clone()
     }};
 }
 
-pub(crate) use get_boolean_from_cells;
-
-macro_rules! get_byte_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index].read_byte().expect("Expected byte cell")
-    }};
-}
-
-pub(crate) use get_byte_from_cells;
-
-macro_rules! get_character_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index]
-            .read_character()
-            .expect("Expected character cell")
-    }};
-}
-
-pub(crate) use get_character_from_cells;
-
-macro_rules! get_float_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index].read_float().expect("Expected float cell")
-    }};
-}
-
-pub(crate) use get_float_from_cells;
-
-macro_rules! get_integer_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index]
-            .read_integer()
-            .expect("Expected integer cell")
-    }};
-}
-
-pub(crate) use get_integer_from_cells;
-
-macro_rules! get_string_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index]
-            .read_string()
-            .expect("Expected string cell")
-    }};
-}
-
-pub(crate) use get_string_from_cells;
-
-macro_rules! get_list_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index].read_list().expect("Expected list cell")
-    }};
-}
-
-pub(crate) use get_list_from_cells;
-
-macro_rules! get_function_from_cells {
-    ($memory:expr, $index:expr) => {{
-        let index = $index as usize;
-        let read_cells = $memory
-            .cells
-            .read()
-            .expect("Failed to acquire read lock on cells");
-
-        assert!(
-            index < read_cells.len(),
-            "Cell access out of bounds in `get_cell`: {index}",
-        );
-
-        read_cells[index]
-            .read_function()
-            .expect("Expected function cell")
-    }};
-}
-
-pub(crate) use get_function_from_cells;
-
-macro_rules! set_memory {
-    ($memory:expr, $memory_field:ident, $index:expr, $value:expr) => {{
+macro_rules! get_from_heap {
+    ($index: expr, $memory: expr, $field: ident) => {{
         let index = $index as usize;
 
         assert!(
-            index < $memory.$memory_field.len(),
-            "Memory access out of bounds in `set_memory`: {index}",
+            index < $memory.heap.$field.len(),
+            "Heap index out of bounds"
         );
 
-        $memory.$memory_field[index] = $value;
+        $memory.heap.$field[index].clone()
     }};
 }
 
-pub(crate) use set_memory;
-
-macro_rules! set_register {
-    ($memory:expr, $memory_field:ident, $index:expr, $value:expr) => {{
+macro_rules! get_from_stack {
+    ($index: expr, $memory: expr, $field: ident) => {{
         let index = $index as usize;
 
         assert!(
-            index < $memory.registers.$memory_field.len(),
-            "Register access out of bounds in `set_register`: {index}",
+            index < $memory.stack.$field.len(),
+            "Stack index out of bounds"
         );
 
-        $memory.registers.$memory_field[index] = $value;
+        $memory.stack.$field[index].clone()
     }};
 }
 
-pub(crate) use set_register;
-
-macro_rules! set {
-    ($memory:expr, $memory_field:ident, $destination:expr, $value:expr) => {{
-        if $destination.is_register {
-            set_register!($memory, $memory_field, $destination.index, $value);
-        } else {
-            set_memory!($memory, $memory_field, $destination.index, $value);
-        }
-    }};
-}
-
-pub(crate) use set;
-
-macro_rules! malformed_instruction {
-    ($instruction: expr, $ip: expr) => {{
-        panic!(
-            "Malformed {} instruction at IP {}",
-            $instruction.operation(),
-            $ip
-        );
-    }};
-}
-
-pub(crate) use malformed_instruction;
-
-macro_rules! unexpected_address {
-    ($address: expr) => {
-        panic!("Unexpected address kind in instruction: {}", $address)
-    };
-}
-
-pub(crate) use unexpected_address;
+pub(super) use get_boolean;
+pub(super) use get_byte;
+pub(super) use get_character;
+pub(super) use get_constant;
+pub(super) use get_float;
+pub(super) use get_from_cell;
+pub(super) use get_from_heap;
+pub(super) use get_from_stack;
+pub(super) use get_function;
+pub(super) use get_integer;
+pub(super) use get_list;
+pub(super) use get_string;
+pub(super) use read_lock_cells;
+pub(super) use set_boolean;
+pub(super) use set_byte;
+pub(super) use set_cell;
+pub(super) use set_character;
+pub(super) use set_float;
+pub(super) use set_function;
+pub(super) use set_integer;
+pub(super) use set_list;
+pub(super) use set_string;
+pub(super) use set_to_heap;
+pub(super) use set_to_stack;

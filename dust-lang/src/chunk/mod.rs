@@ -8,125 +8,69 @@
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
 mod disassembler;
-mod local;
-mod scope;
+mod full_chunk;
+mod stripped_chunk;
 
 pub use disassembler::Disassembler;
-pub use local::Local;
-pub use scope::BlockScope;
+pub use full_chunk::FullChunk;
+pub use stripped_chunk::StrippedChunk;
 
-use std::fmt::{self, Debug, Display, Formatter};
-use std::io::Write;
 use std::sync::Arc;
+use std::{fmt::Debug, io::Write};
 
-use serde::{Deserialize, Serialize};
+use crate::{
+    Address, DustString, FunctionType, Instruction, Local, Span, compiler::ChunkCompiler,
+    r#type::TypeKind,
+};
 
-use crate::instruction::MemoryKind;
-use crate::r#type::TypeKind;
-use crate::value::AbstractFunction;
-use crate::{Address, DustString, FunctionType, Instruction, Span};
+pub trait Chunk: Sized + Clone + Debug + Disassemble {
+    fn from_chunk_compiler<'a>(compiler: ChunkCompiler<'a, Self>) -> Self;
 
-/// Representation of a Dust program or function.
-///
-/// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Default, PartialOrd, Serialize, Deserialize)]
-pub struct Chunk {
-    pub(crate) name: Option<DustString>,
-    pub(crate) r#type: FunctionType,
+    fn chunk_type_name() -> &'static str;
 
-    pub(crate) instructions: Vec<Instruction>,
-    pub(crate) positions: Vec<Span>,
-    pub(crate) character_constants: Vec<char>,
-    pub(crate) float_constants: Vec<f64>,
-    pub(crate) integer_constants: Vec<i64>,
-    pub(crate) string_constants: Vec<DustString>,
-    pub(crate) locals: Vec<Local>,
-    pub(crate) prototypes: Vec<Arc<Chunk>>,
-    pub(crate) arguments: Vec<Vec<(Address, TypeKind)>>,
+    fn name(&self) -> Option<&DustString>;
 
-    pub(crate) boolean_memory_length: u16,
-    pub(crate) byte_memory_length: u16,
-    pub(crate) character_memory_length: u16,
-    pub(crate) float_memory_length: u16,
-    pub(crate) integer_memory_length: u16,
-    pub(crate) string_memory_length: u16,
-    pub(crate) list_memory_length: u16,
-    pub(crate) function_memory_length: u16,
-    pub(crate) prototype_index: u16,
+    fn r#type(&self) -> &FunctionType;
+
+    fn as_function(self) -> Arc<Self>;
+
+    fn instructions(&self) -> &[Instruction];
+
+    fn positions(&self) -> Option<&[Span]>;
+
+    fn character_constants(&self) -> &[char];
+
+    fn float_constants(&self) -> &[f64];
+
+    fn integer_constants(&self) -> &[i64];
+
+    fn string_constants(&self) -> &[DustString];
+
+    fn prototypes(&self) -> &[Arc<Self>];
+
+    fn arguments(&self) -> &[Vec<(Address, TypeKind)>];
+
+    fn locals(&self) -> Option<impl Iterator<Item = (&DustString, &Local)>>;
+
+    fn boolean_memory_length(&self) -> u16;
+
+    fn byte_memory_length(&self) -> u16;
+
+    fn character_memory_length(&self) -> u16;
+
+    fn float_memory_length(&self) -> u16;
+
+    fn integer_memory_length(&self) -> u16;
+
+    fn string_memory_length(&self) -> u16;
+
+    fn list_memory_length(&self) -> u16;
+
+    fn function_memory_length(&self) -> u16;
+
+    fn prototype_index(&self) -> u16;
 }
 
-impl Chunk {
-    pub fn as_function(&self) -> AbstractFunction {
-        AbstractFunction {
-            prototype_address: Address::new(self.prototype_index, MemoryKind::CONSTANT),
-        }
-    }
-
-    pub fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, W> {
-        Disassembler::new(self, writer)
-    }
-
-    pub fn instructions(&self) -> &[Instruction] {
-        &self.instructions
-    }
-}
-
-impl Display for Chunk {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.r#type)
-    }
-}
-
-impl Debug for Chunk {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.r#type)
-    }
-}
-
-impl Eq for Chunk {}
-
-/// For testing purposes, ignore the "memory_length" fields so that we don't have to write them them
-/// when writing Chunks for tests.
-#[cfg(debug_assertions)]
-impl PartialEq for Chunk {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.r#type == other.r#type
-            && self.instructions == other.instructions
-            && self.positions == other.positions
-            && self.character_constants == other.character_constants
-            && self.float_constants == other.float_constants
-            && self.integer_constants == other.integer_constants
-            && self.string_constants == other.string_constants
-            && self.locals == other.locals
-            && self.prototypes == other.prototypes
-            && self.arguments == other.arguments
-            && self.prototype_index == other.prototype_index
-    }
-}
-
-#[cfg(not(debug_assertions))]
-impl PartialEq for Chunk {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.r#type == other.r#type
-            && self.instructions == other.instructions
-            && self.positions == other.positions
-            && self.character_constants == other.character_constants
-            && self.float_constants == other.float_constants
-            && self.integer_constants == other.integer_constants
-            && self.string_constants == other.string_constants
-            && self.locals == other.locals
-            && self.prototypes == other.prototypes
-            && self.arguments == other.arguments
-            && self.boolean_memory_length == other.boolean_memory_length
-            && self.byte_memory_length == other.byte_memory_length
-            && self.character_memory_length == other.character_memory_length
-            && self.float_memory_length == other.float_memory_length
-            && self.integer_memory_length == other.integer_memory_length
-            && self.string_memory_length == other.string_memory_length
-            && self.list_memory_length == other.list_memory_length
-            && self.function_memory_length == other.function_memory_length
-            && self.prototype_index == other.prototype_index
-    }
+pub trait Disassemble: Sized {
+    fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, Self, W>;
 }

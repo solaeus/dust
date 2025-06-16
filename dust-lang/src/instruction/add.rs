@@ -42,6 +42,7 @@ impl From<Add> for Instruction {
             index: c_field,
             memory: c_memory_kind,
         } = add.right;
+        let operand_type = add.r#type;
 
         InstructionFields {
             operation,
@@ -51,7 +52,7 @@ impl From<Add> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            ..InstructionFields::default()
+            operand_type,
         }
         .build()
     }

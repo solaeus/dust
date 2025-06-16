@@ -131,7 +131,7 @@ pub use test_set::TestSet;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{NativeFunction, r#type::TypeKind};
+use crate::{NativeFunction, StrippedChunk, r#type::TypeKind};
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -476,9 +476,9 @@ impl Instruction {
         })
     }
 
-    pub fn call_native(
+    pub fn call_native<C>(
         destination: Address,
-        function: NativeFunction,
+        function: NativeFunction<C>,
         argument_list_index: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
@@ -511,6 +511,7 @@ impl Instruction {
     pub fn yields_value(&self) -> bool {
         match self.operation() {
             Operation::LOAD
+            | Operation::LIST
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -519,7 +520,7 @@ impl Instruction {
             | Operation::NEGATE
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
-                let function = NativeFunction::from_index(self.b_field());
+                let function = NativeFunction::<StrippedChunk>::from_index(self.b_field());
 
                 function.returns_value()
             }
@@ -540,8 +541,9 @@ impl Instruction {
         let operation = self.operation();
 
         match operation {
-            Operation::CLOSE => Close::from(self).to_string(),
             Operation::LOAD => Load::from(self).to_string(),
+            Operation::LIST => List::from(self).to_string(),
+            Operation::CLOSE => Close::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),
@@ -554,7 +556,7 @@ impl Instruction {
             Operation::TEST => Test::from(self).to_string(),
             Operation::TEST_SET => TestSet::from(self).to_string(),
             Operation::CALL => Call::from(self).to_string(),
-            Operation::CALL_NATIVE => CallNative::from(self).to_string(),
+            Operation::CALL_NATIVE => CallNative::<StrippedChunk>::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
             Operation::NO_OP => String::new(),

@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use tracing::{Level, span};
 
-use crate::{Lexer, Span};
+use crate::{Chunk, Compiler, Span};
 
-use super::{ChunkCompiler, CompileError, DEFAULT_REGISTER_COUNT, Item, Module, Path};
+use super::{CompileError, Item, Module, Path};
 
 const STD: &str = r"
 mod io {
@@ -30,31 +28,34 @@ mod thread {
 }
 ";
 
-pub fn generate_standard_library(dust_crate: &mut Module) -> Result<(), CompileError> {
+pub const STD_LENGTH: usize = {
+    debug_assert!(STD.is_ascii(), "Standard library must be ASCII");
+
+    STD.len()
+};
+
+pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Result<Module<'a, C>, CompileError>
+{
     let logging = span!(Level::INFO, "Standard Library");
     let _span_guard = logging.enter();
 
-    let mut std_module = Module::new();
-    let mut globals = HashMap::new();
-    let lexer = Lexer::new(STD);
-    let mut compiler = ChunkCompiler::<DEFAULT_REGISTER_COUNT>::new_module(
-        lexer,
-        "std",
-        &mut std_module,
-        &mut globals,
-    )?;
-
+    let mut compiler = Compiler::new();
     compiler.allow_native_functions = true;
 
-    let start = compiler.current_position.0;
+    let std_crate = compiler.compile_library("std", STD)?;
 
-    compiler.compile()?;
+    Ok(std_crate)
+}
 
-    let end = compiler.current_position.1;
+pub fn apply_standard_library<'a, C: 'a + Chunk>(
+    module: &mut Module<'a, C>,
+) -> Result<(), CompileError> {
+    let std_crate = generate_standard_library::<C>()?;
+    let std_position = Span(0, STD_LENGTH);
 
-    dust_crate.items.insert(
+    module.items.insert(
         Path::new_borrowed("std").unwrap(),
-        (Item::Module(std_module), Span(start, end)),
+        (Item::Module(std_crate), std_position),
     );
 
     Ok(())

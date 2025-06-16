@@ -1,24 +1,22 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::Token;
+use crate::{Chunk, Token};
 
 use super::{ChunkCompiler, CompileError};
 
-pub type Parser<'dc, 'paths, 'src, const REGISTER_COUNT: usize> =
-    fn(&mut ChunkCompiler<'dc, 'paths, 'src, REGISTER_COUNT>) -> Result<(), CompileError>;
+pub type Parser<'a, C, const REGISTER_COUNT: usize> =
+    fn(&mut ChunkCompiler<'a, C, REGISTER_COUNT>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'dc, 'paths, 'src, const REGISTER_COUNT: usize> {
-    pub prefix: Option<Parser<'dc, 'paths, 'src, REGISTER_COUNT>>,
-    pub infix: Option<Parser<'dc, 'paths, 'src, REGISTER_COUNT>>,
+pub struct ParseRule<'a, C, const REGISTER_COUNT: usize> {
+    pub prefix: Option<Parser<'a, C, REGISTER_COUNT>>,
+    pub infix: Option<Parser<'a, C, REGISTER_COUNT>>,
     pub precedence: Precedence,
 }
 
-impl<'dc, 'paths, 'src, const REGISTER_COUNT: usize> From<&Token<'_>>
-    for ParseRule<'dc, 'paths, 'src, REGISTER_COUNT>
-where
-    'src: 'dc + 'paths,
+impl<'a, C: 'a + Chunk, const REGISTER_COUNT: usize> From<&Token<'_>>
+    for ParseRule<'a, C, REGISTER_COUNT>
 {
     fn from(token: &Token) -> Self {
         match token {

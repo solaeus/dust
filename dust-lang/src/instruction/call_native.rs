@@ -4,13 +4,13 @@ use crate::{NativeFunction, r#type::TypeKind};
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
-pub struct CallNative {
+pub struct CallNative<C> {
     pub destination: Address,
-    pub function: NativeFunction,
+    pub function: NativeFunction<C>,
     pub argument_list_index: u16,
 }
 
-impl From<&Instruction> for CallNative {
+impl<C> From<&Instruction> for CallNative<C> {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from_index(instruction.b_field());
@@ -24,14 +24,14 @@ impl From<&Instruction> for CallNative {
     }
 }
 
-impl From<CallNative> for Instruction {
-    fn from(call_native: CallNative) -> Self {
+impl<C> From<CallNative<C>> for Instruction {
+    fn from(call_native: CallNative<C>) -> Self {
         let operation = Operation::CALL_NATIVE;
         let Address {
             index: a_field,
             memory: a_memory_kind,
         } = call_native.destination;
-        let b_field = call_native.function as u16;
+        let b_field = call_native.function.index;
         let c_field = call_native.argument_list_index;
 
         InstructionFields {
@@ -46,7 +46,7 @@ impl From<CallNative> for Instruction {
     }
 }
 
-impl Display for CallNative {
+impl<C> Display for CallNative<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let CallNative {
             destination,

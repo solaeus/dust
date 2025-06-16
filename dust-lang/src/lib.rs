@@ -45,9 +45,10 @@ pub mod value;
 // #[cfg(test)]
 // mod tests;
 
-pub use chunk::{BlockScope, Chunk, Disassembler, Local};
+pub(crate) use chunk::Chunk;
+pub use chunk::{Disassemble, Disassembler, FullChunk, StrippedChunk};
 pub use compiler::{
-    CompileError, Compiler, DEFAULT_REGISTER_COUNT, Module, compile, generate_standard_library,
+    BlockScope, CompileError, Compiler, DEFAULT_REGISTER_COUNT, Global, Local, Module, compile,
 };
 pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{Address, Instruction, Operation};
@@ -57,7 +58,7 @@ pub use panic::set_dust_panic_hook;
 pub use panic_vm::{Vm, run};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{EnumType, FunctionType, StructType, Type, TypeConflict};
-pub use value::{AbstractList, ConcreteList, ConcreteValue, DustString, Value};
+pub use value::{DustString, List, Value};
 
 use std::fmt::Display;
 

@@ -1,131 +1,90 @@
-//! Runtime values used by the VM.
-mod abstract_value;
-mod concrete_value;
+mod dust_range;
+mod list;
 
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
-pub use abstract_value::{AbstractFunction, AbstractList, AbstractValue};
-pub use concrete_value::{ConcreteList, ConcreteValue};
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 
-use crate::Chunk;
+pub use list::List;
+
+use crate::{
+    Type,
+    chunk::{Chunk, StrippedChunk},
+};
 
 pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum Value {
-    #[serde(skip)]
-    Abstract(AbstractValue),
-    Concrete(ConcreteValue),
+pub enum Value<C = StrippedChunk> {
+    Boolean(bool),
+    Byte(u8),
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String(DustString),
+    List(List<C>),
+    Function(Arc<C>),
 }
 
-impl Value {
+impl<C: Chunk> Value<C> {
     pub fn boolean(boolean: bool) -> Self {
-        Value::Concrete(ConcreteValue::Boolean(boolean))
+        Value::Boolean(boolean)
     }
 
     pub fn byte(byte: u8) -> Self {
-        Value::Concrete(ConcreteValue::Byte(byte))
+        Value::Byte(byte)
     }
 
     pub fn character(character: char) -> Self {
-        Value::Concrete(ConcreteValue::Character(character))
+        Value::Character(character)
     }
 
     pub fn float(float: f64) -> Self {
-        Value::Concrete(ConcreteValue::Float(float))
+        Value::Float(float)
     }
 
     pub fn integer(integer: i64) -> Self {
-        Value::Concrete(ConcreteValue::Integer(integer))
+        Value::Integer(integer)
     }
 
-    pub fn string(string: impl Into<DustString>) -> Self {
-        Value::Concrete(ConcreteValue::String(string.into()))
+    pub fn string<T: Into<DustString>>(value: T) -> Self {
+        Value::String(value.into())
     }
 
-    pub fn list(list: ConcreteList) -> Self {
-        Value::Concrete(ConcreteValue::List(list))
+    pub fn list<T: Into<List<C>>>(list: T) -> Self {
+        Value::List(list.into())
     }
 
-    pub fn function(function: Arc<Chunk>) -> Self {
-        Value::Concrete(ConcreteValue::Function(function))
+    pub fn function(function: Arc<C>) -> Self {
+        Value::Function(function)
     }
 
-    pub fn as_concrete(&self) -> Option<&ConcreteValue> {
-        if let Value::Concrete(concrete_value) = self {
-            Some(concrete_value)
-        } else {
-            None
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::Boolean(_) => Type::Boolean,
+            Value::Byte(_) => Type::Byte,
+            Value::Character(_) => Type::Character,
+            Value::Float(_) => Type::Float,
+            Value::Integer(_) => Type::Integer,
+            Value::String(_) => Type::String,
+            Value::List(list) => list.r#type(),
+            Value::Function(function) => Type::Function(Box::new(function.r#type().clone())),
         }
     }
+}
 
-    pub fn as_boolean(&self) -> Option<bool> {
-        if let Value::Concrete(ConcreteValue::Boolean(boolean)) = self {
-            Some(*boolean)
-        } else {
-            None
+impl<C: Chunk> Display for Value<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Boolean(boolean) => write!(f, "{boolean}"),
+            Value::Byte(byte) => write!(f, "{byte}"),
+            Value::Character(character) => write!(f, "{character}"),
+            Value::Float(float) => write!(f, "{float}"),
+            Value::Integer(integer) => write!(f, "{integer}"),
+            Value::String(string) => write!(f, "{string}"),
+            Value::List(list) => write!(f, "{list}"),
+            Value::Function(function) => write!(f, "{}", function.r#type()),
         }
-    }
-
-    pub fn as_byte(&self) -> Option<u8> {
-        if let Value::Concrete(ConcreteValue::Byte(byte)) = self {
-            Some(*byte)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_character(&self) -> Option<char> {
-        if let Value::Concrete(ConcreteValue::Character(character)) = self {
-            Some(*character)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_float(&self) -> Option<f64> {
-        if let Value::Concrete(ConcreteValue::Float(float)) = self {
-            Some(*float)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_concrete_function(&self) -> Option<&Chunk> {
-        if let Value::Concrete(ConcreteValue::Function(chunk)) = self {
-            Some(chunk)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_integer(&self) -> Option<i64> {
-        if let Value::Concrete(ConcreteValue::Integer(integer)) = self {
-            Some(*integer)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_string(&self) -> Option<&DustString> {
-        if let Value::Concrete(ConcreteValue::String(value)) = self {
-            Some(value)
-        } else {
-            None
-        }
-    }
-
-    pub fn is_string(&self) -> bool {
-        matches!(self, Value::Concrete(ConcreteValue::String(_)))
-    }
-
-    pub fn is_function(&self) -> bool {
-        matches!(
-            self,
-            Value::Concrete(ConcreteValue::Function(_))
-                | Value::Abstract(AbstractValue::Function(_))
-        )
     }
 }

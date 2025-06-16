@@ -1,37 +1,40 @@
 //! This VM never emits errors. Instead, errors are handled as panics.
 mod call_frame;
+mod cell;
 pub mod macros;
 mod memory;
 mod thread;
 
 pub use call_frame::CallFrame;
-pub use memory::{Memory, RegisterTable};
+use cell::{Cell, CellValue};
+pub use memory::{Memory, Stack};
 pub use thread::Thread;
 
 use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{Chunk, ConcreteValue, DustError, Value, compile};
+use crate::{Chunk, DustError, StrippedChunk, Value, compile};
 
-pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
+pub type ThreadPool<C> = Arc<RwLock<Vec<Thread<C>>>>;
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
-    let chunk = compile(source)?;
+    let chunk = compile::<StrippedChunk>(source)?;
     let vm = Vm::new(Arc::new(chunk));
 
-    Ok(vm.run().map(Value::Concrete))
+    Ok(vm.run())
 }
 
-pub struct Vm {
-    main_thread: Thread,
-    threads: ThreadPool,
+pub struct Vm<C> {
+    main_thread: Thread<C>,
+    threads: ThreadPool<C>,
 }
 
-impl Vm {
-    pub fn new(main_chunk: Arc<Chunk>) -> Self {
+impl<C: 'static + Chunk + Send + Sync> Vm<C> {
+    pub fn new(main_chunk: Arc<C>) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
-        let main_thread = Thread::new(main_chunk, Arc::clone(&threads));
+        let cells = Arc::new(RwLock::new(Vec::<Cell<C>>::new()));
+        let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
 
         Self {
             main_thread,
@@ -39,7 +42,7 @@ impl Vm {
         }
     }
 
-    pub fn run(self) -> Option<ConcreteValue> {
+    pub fn run(self) -> Option<Value<C>> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 

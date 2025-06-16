@@ -71,7 +71,6 @@ impl Display for Load {
             OperandType::STRING => TypeKind::String,
             OperandType::LIST => TypeKind::List,
             OperandType::FUNCTION => TypeKind::Function,
-            OperandType::FUNCTION_SELF => TypeKind::FunctionSelf,
             _ => return write!(f, "INVALID_LOAD_INSTRUCTION"),
         };
 

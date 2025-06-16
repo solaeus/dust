@@ -1,36 +1,45 @@
+use std::marker::PhantomData;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Module};
+use crate::Module;
 
 #[derive(Debug, Clone, Serialize)]
-pub enum DustCrate<'a> {
-    Library(Module<'a>),
-    Program(Program<'a>),
+pub enum DustCrate<'a, C> {
+    Library(Module<'a, C>),
+    Program(Box<Program<C>>),
 }
 
-impl<'a> DustCrate<'a> {
-    pub fn library(module: Module<'a>) -> Self {
+impl<'a, C> DustCrate<'a, C> {
+    pub fn library(module: Module<'a, C>) -> Self {
         Self::Library(module)
     }
 
-    pub fn program(main_chunk: Chunk, main_module: Module<'a>, cell_count: u16) -> Self {
-        Self::Program(Program {
+    pub fn program(main_chunk: C, cell_count: u16) -> Self {
+        Self::Program(Box::new(Program {
             main_chunk,
-            main_module,
             cell_count,
-        })
+        }))
     }
 }
 
-impl<'a, 'de: 'a> Deserialize<'de> for DustCrate<'a> {
+impl<'de, C> Deserialize<'de> for DustCrate<'de, C>
+where
+    C: 'de + Deserialize<'de>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct DustCrateVisitor;
+        struct DustCrateVisitor<C> {
+            _marker: PhantomData<C>,
+        }
 
-        impl<'de> serde::de::Visitor<'de> for DustCrateVisitor {
-            type Value = DustCrate<'de>;
+        impl<'de, C> serde::de::Visitor<'de> for DustCrateVisitor<C>
+        where
+            C: 'de + Deserialize<'de>,
+        {
+            type Value = DustCrate<'de, C>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a DustCrate enum")
@@ -50,28 +59,18 @@ impl<'a, 'de: 'a> Deserialize<'de> for DustCrate<'a> {
             }
         }
 
-        deserializer.deserialize_enum("DustCrate", &["Library", "Program"], DustCrateVisitor)
+        deserializer.deserialize_enum(
+            "DustCrate",
+            &["Library", "Program"],
+            DustCrateVisitor {
+                _marker: PhantomData,
+            },
+        )
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Program<'a> {
-    pub main_chunk: Chunk,
-    pub main_module: Module<'a>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Program<C> {
+    pub main_chunk: C,
     pub cell_count: u16,
-}
-
-impl<'a, 'de: 'a> Deserialize<'de> for Program<'a> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let (main_chunk, main_module, cell_count) = Deserialize::deserialize(deserializer)?;
-
-        Ok(Program {
-            main_chunk,
-            main_module,
-            cell_count,
-        })
-    }
 }

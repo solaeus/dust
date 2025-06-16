@@ -20,11 +20,10 @@ impl OperandType {
     pub const STRING: OperandType = OperandType(6);
     pub const LIST: OperandType = OperandType(7);
     pub const FUNCTION: OperandType = OperandType(8);
-    pub const FUNCTION_SELF: OperandType = OperandType(9);
 
     // Two operands of different types
-    pub const CHARACTER_STRING: OperandType = OperandType(10);
-    pub const STRING_CHARACTER: OperandType = OperandType(11);
+    pub const CHARACTER_STRING: OperandType = OperandType(9);
+    pub const STRING_CHARACTER: OperandType = OperandType(10);
 }
 
 impl Debug for OperandType {
@@ -45,7 +44,6 @@ impl Display for OperandType {
             Self::STRING => write!(f, "STRING"),
             Self::LIST => write!(f, "LIST"),
             Self::FUNCTION => write!(f, "FUNCTION"),
-            Self::FUNCTION_SELF => write!(f, "FUNCTION_SELF"),
             Self::CHARACTER_STRING => write!(f, "CHARACTER_STRING"),
             Self::STRING_CHARACTER => write!(f, "STRING_CHARACTER"),
             _ => unreachable!(),

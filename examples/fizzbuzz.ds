@@ -1,5 +1,5 @@
 use std::io::write_line;
-use std::convert::int_to_string;
+use std::convert::int_to_str;
 
 let mut count = 1;
 
@@ -11,7 +11,7 @@ while count <= 15 {
 	} else if count % 5 == 0 {
 		write_line("buzz")
 	} else {
-	    write_line(int_to_string(count))
+	    write_line(int_to_str(count))
 	}
 
 	count += 1

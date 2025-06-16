@@ -79,7 +79,7 @@ impl Display for List {
             _ => return write!(f, "INVALID_LIST_INSTRUCTION"),
         };
 
-        destination.display(f, type_kind)?;
+        destination.display(f, TypeKind::List)?;
         write!(f, " = [")?;
         start.display(f, type_kind)?;
         write!(f, "..=")?;

@@ -4,12 +4,12 @@ use crate::{
     r#type::TypeKind,
 };
 
-pub fn spawn(
+pub fn spawn<C>(
     _: Address,
     arguments: &[(Address, TypeKind)],
-    call: &mut CallFrame,
-    memory: &mut Memory,
-    threads: &ThreadPool,
+    call: &mut CallFrame<C>,
+    memory: &mut Memory<C>,
+    threads: &ThreadPool<C>,
 ) {
     todo!();
 }

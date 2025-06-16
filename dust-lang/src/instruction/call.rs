@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    u16,
-};
+use std::fmt::{self, Display, Formatter};
 
 use crate::r#type::TypeKind;
 
@@ -75,7 +72,6 @@ impl Display for Call {
             OperandType::STRING => TypeKind::String,
             OperandType::LIST => TypeKind::List,
             OperandType::FUNCTION => TypeKind::Function,
-            OperandType::FUNCTION_SELF => TypeKind::FunctionSelf,
             OperandType::NONE => TypeKind::None,
             _ => return write!(f, "INVALID_CALL_INSTRUCTION"),
         };

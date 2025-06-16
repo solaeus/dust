@@ -12,9 +12,9 @@ impl Operation {
     pub const NO_OP: Operation = Operation(0);
 
     // Memory manipulation
-    pub const CLOSE: Operation = Operation(1);
-    pub const LOAD: Operation = Operation(2);
-    pub const LIST: Operation = Operation(3);
+    pub const LOAD: Operation = Operation(1);
+    pub const LIST: Operation = Operation(2);
+    pub const CLOSE: Operation = Operation(3);
 
     // Arithmetic binary operations
     pub const ADD: Operation = Operation(4);
@@ -28,11 +28,11 @@ impl Operation {
     pub const LESS: Operation = Operation(10);
     pub const LESS_EQUAL: Operation = Operation(11);
 
-    // Logical operations
+    // Logical AND/OR operations
     pub const TEST: Operation = Operation(12);
     pub const TEST_SET: Operation = Operation(13);
 
-    // Unary numeric negation and NOT operation
+    // Unary numeric negation and logical NOT
     pub const NEGATE: Operation = Operation(14);
 
     // Function calls

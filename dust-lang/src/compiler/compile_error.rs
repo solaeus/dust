@@ -20,6 +20,9 @@ pub enum CompileError {
     },
 
     // Parsing errors
+    AnonymousFunctionItem {
+        position: Span,
+    },
     ComparisonChain {
         position: Span,
     },
@@ -203,6 +206,9 @@ impl AnnotatedError for CompileError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::AnonymousFunctionItem { .. } => {
+                "Anonymous functions are not allowed as top-level items"
+            }
             Self::CannotAddArguments { .. } => "Cannot add these types",
             Self::CannotAddType { .. } => "Cannot add this type",
             Self::ComparisonChain { .. } => "Cannot chain comparison operations",
@@ -273,6 +279,12 @@ impl AnnotatedError for CompileError {
             }
 
             // Parsing errors
+            Self::AnonymousFunctionItem { position } => {
+                vec![(
+                    "Anonymous functions are only allowed as expressions".to_string(),
+                    *position,
+                )]
+            }
             Self::ComparisonChain { position } => {
                 vec![("Cannot chain comparison operations".to_string(), *position)]
             }
@@ -590,6 +602,9 @@ impl AnnotatedError for CompileError {
             }
 
             // Parsing errors
+            Self::AnonymousFunctionItem { position } => {
+                vec![("Give the function a name".to_string(), *position)]
+            }
             Self::ComparisonChain { position } => {
                 vec![(
                     "Break the comparison chain into separate comparisons".to_string(),

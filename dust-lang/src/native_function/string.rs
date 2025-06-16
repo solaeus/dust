@@ -4,12 +4,12 @@ use crate::{
     r#type::TypeKind,
 };
 
-pub fn to_string(
+pub fn to_string<C>(
     destination: Address,
     arguments: &[(Address, TypeKind)],
-    call: &mut CallFrame,
-    memory: &mut Memory,
-    _: &ThreadPool,
+    call: &mut CallFrame<C>,
+    memory: &mut Memory<C>,
+    _: &ThreadPool<C>,
 ) {
     todo!()
 }

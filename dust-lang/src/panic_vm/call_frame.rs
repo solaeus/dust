@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use crate::{Address, Chunk};
+use crate::Address;
 
 #[derive(Debug)]
-pub struct CallFrame {
-    pub chunk: Arc<Chunk>,
+pub struct CallFrame<C> {
+    pub chunk: Arc<C>,
     pub ip: usize,
     pub return_address: Address,
 }
 
-impl CallFrame {
-    pub fn new(chunk: Arc<Chunk>, return_address: Address) -> Self {
+impl<C> CallFrame<C> {
+    pub fn new(chunk: Arc<C>, return_address: Address) -> Self {
         CallFrame {
             chunk,
             ip: 0,

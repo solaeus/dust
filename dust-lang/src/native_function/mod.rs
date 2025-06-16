@@ -6,11 +6,14 @@ mod io;
 mod string;
 mod thread;
 
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    marker::PhantomData,
+};
 
 use serde::{Deserialize, Serialize};
 
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::{
     Address, FunctionType,
@@ -18,52 +21,36 @@ use crate::{
     r#type::{Type, TypeKind},
 };
 
-const LOOKUP_TABLE: [NativeFunctionLogic; 5] = [
-    no_op,
-    string::to_string,
-    io::read_line,
-    io::write_line,
-    thread::spawn,
-];
-
-pub type NativeFunctionLogic = fn(
+pub type NativeFunctionLogic<C> = fn(
     destination: Address,
     arguments: &[(Address, TypeKind)],
-    call: &mut CallFrame,
-    memory: &mut Memory,
-    threads: &ThreadPool,
+    call: &mut CallFrame<C>,
+    memory: &mut Memory<C>,
+    threads: &ThreadPool<C>,
 );
 
 macro_rules! define_native_function {
-    ($(($index: literal, $name:ident, $str:expr, $type:expr, $logic:expr)),*) => {
-
-        /// A dust-native function.
+    ($(($index: literal, $name:expr, $type:expr, $logic:expr)),*) => {
+        /// A Dust-native function.
         ///
         /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-        pub enum NativeFunction {
-            $(
-                $name,
-            )*
+        pub struct NativeFunction<C> {
+            pub index: u16,
+            _marker: PhantomData<C>,
         }
 
-        impl NativeFunction {
-            const LOOKUP_TABLE: [NativeFunctionLogic; 5] = [
+        impl<C> NativeFunction<C> {
+            const LOOKUP_TABLE: [NativeFunctionLogic<C>; 5] = [
                 $(
                     $logic,
                 )*
             ];
 
             pub fn from_index(index: u16) -> Self {
-                match index as usize {
-                    $(
-                        $index => NativeFunction::$name,
-                    )*
-                    _ => {
-                        error!("Unknown native function index: {index}");
-
-                        NativeFunction::NoOp
-                    }
+                NativeFunction {
+                    index,
+                    _marker: PhantomData,
                 }
             }
 
@@ -71,12 +58,12 @@ macro_rules! define_native_function {
                 &self,
                 destination: Address,
                 arguments: &[(Address, TypeKind)],
-                call: &mut CallFrame,
-                memory: &mut Memory,
-                threads: &ThreadPool,
+                call: &mut CallFrame<C>,
+                memory: &mut Memory<C>,
+                threads: &ThreadPool<C>,
             ) {
                 $(
-                    LOOKUP_TABLE[$index](
+                    Self::LOOKUP_TABLE[$index](
                         destination,
                         arguments,
                         call,
@@ -86,10 +73,10 @@ macro_rules! define_native_function {
                 )*
             }
 
-            pub fn as_str(&self) -> &'static str {
-                match *self {
+            pub fn name(&self) -> &'static str {
+                match self.index {
                     $(
-                        NativeFunction::$name => $str,
+                        $index => $name,
                     )*
                     _ => unreachable!(),
                 }
@@ -99,45 +86,48 @@ macro_rules! define_native_function {
             pub fn from_str(string: &str) -> Option<Self> {
                 match string {
                     $(
-                        $str => Some(NativeFunction::$name),
+                        $name => Some(NativeFunction {
+                            index: $index,
+                            _marker: PhantomData,
+                        }),
                     )*
                     _ => None,
                 }
             }
 
             pub fn r#type(&self) -> FunctionType {
-                match *self {
+                match self.index {
                     $(
-                        NativeFunction::$name => $type,
+                        $index => $type,
                     )*
                     _ => unreachable!(),
                 }
             }
 
             pub fn returns_value(&self) -> bool {
-                match *self {
+                match self.index {
                     $(
-                        NativeFunction::$name => $type.return_type != Type::None,
+                        $index => $type.return_type != Type::None,
                     )*
                     _ => unreachable!(),
                 }
             }
         }
 
-        impl Display for NativeFunction {
+        impl<C> Display for NativeFunction<C> {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                write!(f, "{}", self.as_str())
+                write!(f, "{}", self.name())
             }
         }
     }
 }
 
-fn no_op(
+fn no_op<C>(
     _destination: Address,
     _arguments: &[(Address, TypeKind)],
-    _call: &mut CallFrame,
-    _memory: &mut Memory,
-    _threads: &ThreadPool,
+    _call: &mut CallFrame<C>,
+    _memory: &mut Memory<C>,
+    _threads: &ThreadPool<C>,
 ) {
     warn!("Running NO_OP native function")
 }
@@ -145,35 +135,30 @@ fn no_op(
 define_native_function! {
     (
         0,
-        NoOp,
         "_no_op",
         FunctionType::new([], [], Type::None),
         no_op
     ),
     (
         1,
-        ToString,
         "_to_string",
         FunctionType::new([], [Type::Any], Type::String),
         string::to_string
     ),
     (
         2,
-        ReadLine,
         "_read_line",
         FunctionType::new([], [], Type::String),
         io::read_line
     ),
     (
         3,
-        WriteLine,
         "_write_line",
         FunctionType::new([], [Type::String], Type::None),
         io::write_line
     ),
     (
         4,
-        Spawn,
         "_spawn",
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None),
         thread::spawn
