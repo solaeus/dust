@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{DustString, FullChunk, List};
+use crate::{DustString, List};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Cell<C> {
     pub value: Arc<RwLock<CellValue<C>>>,
 }
@@ -47,9 +47,11 @@ impl<C> Cell<C> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum CellValue<C> {
+    #[default]
     Empty,
+
     Boolean(bool),
     Byte(u8),
     Character(char),

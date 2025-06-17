@@ -26,6 +26,9 @@ pub enum CompileError {
     ComparisonChain {
         position: Span,
     },
+    DivisionByZero {
+        position: Span,
+    },
     ExpectedBoolean {
         found: TokenOwned,
         position: Span,
@@ -46,6 +49,9 @@ pub enum CompileError {
     InvalidAssignmentTarget {
         found: TokenOwned,
         position: Span,
+    },
+    InvalidLibraryPath {
+        found: String,
     },
     InvalidPath {
         found: String,
@@ -211,6 +217,7 @@ impl AnnotatedError for CompileError {
             Self::AdditionTypeConflict { .. } => "Cannot add these types",
             Self::AdditionTypeInvalid { .. } => "Cannot add this type",
             Self::ComparisonChain { .. } => "Cannot chain comparison operations",
+            Self::DivisionByZero { .. } => "Division by zero",
             Self::DivisionTypeConflict { .. } => "Cannot divide these types",
             Self::DivisionTypeInvalid { .. } => "Cannot divide this type",
             Self::ModuloTypeConflict { .. } => "Cannot modulo these types",
@@ -234,6 +241,7 @@ impl AnnotatedError for CompileError {
             Self::IfMissingElse { .. } => "If statement missing else branch",
             Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
+            Self::InvalidLibraryPath { .. } => "Invalid library path",
             Self::InvalidPath { .. } => "Invalid path",
             Self::LetStatementTypeConflict { .. } => "Let statement type conflict",
             Self::Lex(error) => error.description(),
@@ -285,6 +293,9 @@ impl AnnotatedError for CompileError {
             Self::ComparisonChain { position } => {
                 vec![("Cannot chain comparison operations".to_string(), *position)]
             }
+            Self::DivisionByZero { position } => {
+                vec![("Cannot divide by zero".to_string(), *position)]
+            }
             Self::ExpectedBoolean { found, position } => {
                 vec![(format!("Expected a boolean but found `{found}`"), *position)]
             }
@@ -313,6 +324,7 @@ impl AnnotatedError for CompileError {
             Self::InvalidAssignmentTarget { found, position } => {
                 vec![(format!("Invalid assignment target `{found}`"), *position)]
             }
+            Self::InvalidLibraryPath { .. } => vec![],
             Self::InvalidPath { found, position } => {
                 vec![(format!("Invalid path `{found}`"), *position)]
             }
@@ -604,6 +616,9 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
+            Self::DivisionByZero { position } => {
+                vec![("Ensure the divisor is not zero".to_string(), *position)]
+            }
             Self::ExpectedBoolean { position, .. } => {
                 vec![(
                     "Provide a boolean value (e.g., `true` or `false`) here".to_string(),
@@ -628,6 +643,9 @@ impl AnnotatedError for CompileError {
                         .to_string(),
                     *position,
                 )]
+            }
+            Self::InvalidLibraryPath { .. } => {
+                vec![]
             }
             Self::InvalidPath { position, .. } => {
                 vec![(

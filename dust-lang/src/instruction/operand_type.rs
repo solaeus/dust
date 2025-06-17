@@ -60,7 +60,7 @@ impl OperandType {
             Self::LIST_FLOAT => Some(Self::FLOAT),
             Self::LIST_INTEGER => Some(Self::INTEGER),
             Self::LIST_STRING => Some(Self::STRING),
-            Self::LIST_LIST => Some(Self::LIST_LIST),
+            Self::LIST_LIST => Some(Self::LIST),
             Self::LIST_MAP => Some(Self::MAP),
             Self::LIST_FUNCTION => Some(Self::FUNCTION),
             _ => None,
@@ -70,6 +70,15 @@ impl OperandType {
     pub fn destination_type(&self) -> Self {
         match *self {
             Self::CHARACTER_STRING | Self::STRING_CHARACTER => OperandType::STRING,
+            Self::LIST_BOOLEAN
+            | Self::LIST_BYTE
+            | Self::LIST_CHARACTER
+            | Self::LIST_FLOAT
+            | Self::LIST_INTEGER
+            | Self::LIST_STRING
+            | Self::LIST_LIST
+            | Self::LIST_MAP
+            | Self::LIST_FUNCTION => OperandType::LIST,
             _ => *self,
         }
     }
@@ -107,10 +116,6 @@ impl OperandType {
             _ => *self,
         }
     }
-
-    pub fn invalid_panic(&self) -> ! {
-        panic!("Operand type {self} is invalid. This is a bug in the compiler.");
-    }
 }
 
 impl Debug for OperandType {
@@ -129,6 +134,8 @@ impl Display for OperandType {
             Self::FLOAT => write!(f, "FLOAT"),
             Self::INTEGER => write!(f, "INTEGER"),
             Self::STRING => write!(f, "STRING"),
+            Self::LIST => write!(f, "LIST"),
+            Self::MAP => write!(f, "MAP"),
             Self::FUNCTION => write!(f, "FUNCTION"),
             Self::CHARACTER_STRING => write!(f, "CHARACTER_STRING"),
             Self::STRING_CHARACTER => write!(f, "STRING_CHARACTER"),
@@ -143,6 +150,16 @@ impl Display for OperandType {
             invalid => write!(f, "INVALID_OPERAND_TYPE({})", invalid.0),
         }
     }
+}
+
+#[macro_export]
+macro_rules! invalid_operand_type_panic {
+    ($invalid: expr, $operation: expr) => {
+        panic!(
+            "Operand type {} is invalid for {} instruction. This is a bug in the compiler or VM.",
+            $invalid, $operation,
+        )
+    };
 }
 
 #[cfg(test)]

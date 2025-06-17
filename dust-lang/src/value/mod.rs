@@ -1,7 +1,7 @@
 mod dust_range;
 mod list;
 
-use std::{fmt::Display, sync::Arc};
+use std::{borrow::Borrow, fmt::Display, str::pattern::Pattern, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
@@ -12,8 +12,6 @@ use crate::{
     Type,
     chunk::{Chunk, StrippedChunk},
 };
-
-pub type DustString = SmartString<LazyCompact>;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Value<C = StrippedChunk> {
@@ -27,7 +25,7 @@ pub enum Value<C = StrippedChunk> {
     Function(Arc<C>),
 }
 
-impl<C: Chunk> Value<C> {
+impl<'a, C: Chunk<'a>> Value<C> {
     pub fn boolean(boolean: bool) -> Self {
         Value::Boolean(boolean)
     }
@@ -74,11 +72,11 @@ impl<C: Chunk> Value<C> {
     }
 }
 
-impl<C: Chunk> Display for Value<C> {
+impl<'a, C: Chunk<'a>> Display for Value<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
-            Value::Byte(byte) => write!(f, "{byte}"),
+            Value::Byte(byte) => write!(f, "{byte:#04X}"),
             Value::Character(character) => write!(f, "{character}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
@@ -86,5 +84,48 @@ impl<C: Chunk> Display for Value<C> {
             Value::List(list) => write!(f, "{list}"),
             Value::Function(function) => write!(f, "{}", function.r#type()),
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct DustString(SmartString<LazyCompact>);
+
+impl DustString {
+    pub fn new() -> Self {
+        DustString(SmartString::new())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn push(&mut self, character: char) {
+        self.0.push(character);
+    }
+
+    pub fn push_str(&mut self, string: &str) {
+        self.0.push_str(string);
+    }
+
+    pub fn split<P: Pattern>(&self, pattern: P) -> impl Iterator<Item = &str> {
+        self.0.split(pattern)
+    }
+}
+
+impl<T: Into<SmartString<LazyCompact>>> From<T> for DustString {
+    fn from(value: T) -> Self {
+        DustString(value.into())
+    }
+}
+
+impl Display for DustString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Borrow<str> for DustString {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }

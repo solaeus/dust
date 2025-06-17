@@ -38,7 +38,7 @@ pub use local::{BlockScope, Local};
 pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
-use tracing::{Level, debug, info, span, trace};
+use tracing::{Level, debug, error, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
 use std::{
@@ -73,7 +73,7 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
-pub fn compile<C: Chunk>(source: &str) -> Result<C, DustError> {
+pub fn compile<'a, C: 'a + Chunk<'a>>(source: &'a str) -> Result<C, DustError<'a>> {
     let compiler = Compiler::<C>::new();
     let Program { main_chunk, .. } = compiler
         .compile_program(None, source)
@@ -92,7 +92,7 @@ pub struct Compiler<C> {
     _marker: PhantomData<C>,
 }
 
-impl<'a, C: 'a + Chunk> Compiler<C> {
+impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
     pub fn new() -> Self {
         Self {
             allow_native_functions: false,
@@ -108,9 +108,14 @@ impl<'a, C: 'a + Chunk> Compiler<C> {
         let logging = span!(Level::INFO, "Compile Library");
         let _enter = logging.enter();
 
+        let name =
+            Path::new_borrowed(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
+                found: library_name.to_string(),
+            })?;
+
         let lexer = Lexer::new(source);
         let mode = CompileMode::Module {
-            name: library_name,
+            name,
             module: Module::new(),
         };
         let item_scope = HashSet::new();
@@ -174,7 +179,7 @@ impl<'a, C: 'a + Chunk> Compiler<C> {
         chunk_compiler.compile()?;
 
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
-        let main_chunk = C::from_chunk_compiler(chunk_compiler);
+        let main_chunk = C::from(chunk_compiler);
 
         Ok(Program {
             main_chunk,
@@ -183,7 +188,7 @@ impl<'a, C: 'a + Chunk> Compiler<C> {
     }
 }
 
-impl<C: Chunk> Default for Compiler<C> {
+impl<'a, C: 'a + Chunk<'a>> Default for Compiler<C> {
     fn default() -> Self {
         Self::new()
     }
@@ -227,7 +232,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     /// is called.
     prototypes: Vec<Arc<C>>,
 
-    /// Block-local variables and their types.
+    /// Block-local variables.
     locals: IndexMap<Path<'a>, Local>,
 
     /// Arguments for each function call.
@@ -277,7 +282,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
 
 impl<'a, C, const REGISTER_COUNT: usize> ChunkCompiler<'a, C, REGISTER_COUNT>
 where
-    C: 'a + Chunk,
+    C: 'a + Chunk<'a>,
 {
     fn new(
         mut lexer: Lexer<'a>,
@@ -449,7 +454,10 @@ where
                     increment_rank(b_address, r#type, 2);
                     increment_rank(c_address, r#type, 2);
                 }
-                Operation::TEST | Operation::RETURN => {
+                Operation::TEST => {
+                    increment_rank(b_address, OperandType::BOOLEAN, 2);
+                }
+                Operation::RETURN => {
                     increment_rank(b_address, r#type, 2);
                 }
                 Operation::NEGATE | Operation::CALL => {
@@ -567,7 +575,13 @@ where
                         instruction.set_c_address(*replacement);
                     }
                 }
-                Operation::TEST | Operation::RETURN => {
+                Operation::TEST => {
+                    if let Some(replacement) = replacements.get(&(b_address, OperandType::BOOLEAN))
+                    {
+                        instruction.set_b_address(*replacement);
+                    }
+                }
+                Operation::RETURN => {
                     if let Some(replacement) = replacements.get(&(b_address, r#type)) {
                         instruction.set_b_address(*replacement);
                     }
@@ -847,7 +861,11 @@ where
             | OperandType::LIST_LIST
             | OperandType::LIST_FUNCTION => self.next_list_heap_index(),
             OperandType::FUNCTION => self.next_function_heap_index(),
-            invalid => unreachable!("Type::destination_type() should never return {invalid:?}"),
+            invalid => {
+                error!("Operand type {type} has destination type {invalid}, which is invalid.");
+
+                0
+            }
         }
     }
 
@@ -1082,7 +1100,7 @@ where
 
             let boolean = self.parse_boolean_value(text);
             let destination = Address::heap(self.next_boolean_heap_index());
-            let operand = Address::new(boolean as u16, MemoryKind::default());
+            let operand = Address::constant(boolean as u16);
             let load = Instruction::load(destination, operand, OperandType::BOOLEAN, false);
 
             self.emit_instruction(load, Type::Boolean, position);
@@ -1109,7 +1127,7 @@ where
 
             let byte = self.parse_byte_value(text)?;
             let destination = Address::heap(self.next_byte_heap_index());
-            let operand = Address::new(byte as u16, MemoryKind::default());
+            let operand = Address::constant(byte as u16);
             let load_encoded = Instruction::load(destination, operand, OperandType::BYTE, false);
 
             self.emit_instruction(load_encoded, Type::Byte, position);
@@ -1486,6 +1504,22 @@ where
 
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
         let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
+        let right_is_constant_zero = right_instruction.operation() == Operation::LOAD
+            && right.memory == MemoryKind::CONSTANT
+            && {
+                match right_type {
+                    Type::Byte => right.index == 0,
+                    Type::Float => self.float_constants.get(right.index as usize) == Some(&0.0),
+                    Type::Integer => self.integer_constants.get(right.index as usize) == Some(&0),
+                    _ => false,
+                }
+            };
+
+        if right_is_constant_zero && operator == Token::Slash {
+            return Err(CompileError::DivisionByZero {
+                position: right_position,
+            });
+        }
 
         check_math_type(&right_type, operator, &right_position)?;
         check_math_types(
@@ -1533,7 +1567,7 @@ where
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
             Type::String => match right_type_kind {
-                ConcreteType::Character => OperandType::CHARACTER_STRING,
+                ConcreteType::Character => OperandType::STRING_CHARACTER,
                 ConcreteType::String => OperandType::STRING,
                 _ => unreachable!(),
             },
@@ -1603,6 +1637,7 @@ where
                 position: self.current_position,
             });
         }
+
         let (left_instruction, left_type, left_position) =
             self.instructions
                 .pop()
@@ -1675,9 +1710,9 @@ where
         let jump = Instruction::jump(1, true);
         let destination_index = self.next_boolean_heap_index();
         let destination = Address::heap(destination_index);
-        let true_as_address = Address::new(true as u16, MemoryKind::default());
+        let true_as_address = Address::constant(true as u16);
         let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
-        let false_as_address = Address::new(false as u16, MemoryKind::default());
+        let false_as_address = Address::constant(false as u16);
         let load_false =
             Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
         let comparison_position = Span(left_position.0, right_position.1);
@@ -1695,26 +1730,21 @@ where
             self.previous_token,
             Token::DoubleAmpersand | Token::DoublePipe | Token::Bang
         );
-        let (left_instruction, left_type, left_position) =
-            self.instructions
-                .pop()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
+        let (left_instruction, left_type, left_position) = self
+            .instructions
+            .last()
+            .cloned()
+            .ok_or_else(|| CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            })?;
+        let left = left_instruction.destination();
 
         if left_type != Type::Boolean {
             return Err(CompileError::ExpectedBoolean {
                 found: self.previous_token.to_owned(),
                 position: left_position,
             });
-        }
-
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
-
-        if push_back_left {
-            self.instructions
-                .push((left_instruction, left_type.clone(), left_position));
         }
 
         let operator = self.current_token;
@@ -1756,7 +1786,7 @@ where
             let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
 
             if last_instruction.yields_value() {
-                last_instruction.set_a_field(left.index);
+                last_instruction.set_destination(left);
             }
         } else if matches!(
             self.get_last_operations(),
@@ -1816,6 +1846,7 @@ where
     }
 
     fn parse_variable(&mut self) -> Result<(), CompileError> {
+        let variable_position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
@@ -1824,13 +1855,13 @@ where
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: self.current_token.to_owned(),
-                position: self.previous_position,
+                position: variable_position,
             });
         };
         let variable_path =
             Path::new_borrowed(identifier).ok_or_else(|| CompileError::InvalidPath {
                 found: identifier.to_string(),
-                position: self.previous_position,
+                position: variable_position,
             })?;
 
         let (variable_address, variable_type, is_mutable) = {
@@ -1838,7 +1869,7 @@ where
                 if !self.current_block_scope.contains(&local.scope) {
                     return Err(CompileError::VariableOutOfScope {
                         identifier: identifier.to_string(),
-                        position: self.previous_position,
+                        position: variable_position,
                         variable_scope: local.scope,
                         access_scope: self.current_block_scope,
                     });
@@ -1860,7 +1891,7 @@ where
 
                 (local_address, item_type, false)
             } else if let CompileMode::Function { name, .. } = &self.mode {
-                if name.as_deref() == Some(identifier) {
+                if *name == Some(variable_path) {
                     let destination_index = self.next_function_heap_index();
                     let destination = Address::heap(destination_index);
                     let load_self = Instruction::load(
@@ -1870,32 +1901,29 @@ where
                         false,
                     );
 
-                    self.emit_instruction(load_self, Type::FunctionSelf, self.previous_position);
+                    self.emit_instruction(load_self, Type::FunctionSelf, variable_position);
 
                     return Ok(());
-                } else if self.allow_native_functions {
-                    if let Some(native_function) = NativeFunction::from_str(identifier) {
-                        return self.parse_call_native(native_function, self.previous_position);
-                    }
+                } else if self.allow_native_functions
+                    && let Some(native_function) = NativeFunction::from_str(identifier)
+                {
+                    return self.parse_call_native(native_function, variable_position);
                 }
 
                 return Err(CompileError::UndeclaredVariable {
                     identifier: identifier.to_string(),
-                    position: self.previous_position,
+                    position: variable_position,
                 });
             } else {
-                if self.allow_native_functions {
-                    if let Some(native_function) = NativeFunction::from_str(identifier) {
-                        return self.parse_call_native(native_function, self.previous_position);
-                    }
+                if self.allow_native_functions
+                    && let Some(native_function) = NativeFunction::from_str(identifier)
+                {
+                    return self.parse_call_native(native_function, variable_position);
                 }
 
                 return Err(CompileError::UndeclaredVariable {
                     identifier: identifier.to_string(),
-                    position: Span(
-                        self.previous_position.1,
-                        self.previous_position.1 + identifier.len(),
-                    ),
+                    position: variable_position,
                 });
             }
         };
@@ -2491,7 +2519,11 @@ where
 
                 let expression_type = self.get_last_instruction_type();
                 let operand_type = expression_type.as_operand_type();
-                let return_register = self.next_heap_index(operand_type);
+                let return_register = if let OperandType::NONE = operand_type {
+                    0
+                } else {
+                    self.next_heap_index(operand_type)
+                };
 
                 self.update_return_type(expression_type)?;
 
@@ -2527,21 +2559,48 @@ where
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
         if matches!(self.get_last_operation(), Some(Operation::LOAD)) {
+            let previous_is_comparison = matches!(
+                self.get_last_operations(),
+                Some([
+                    Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
+                    Operation::JUMP,
+                    Operation::LOAD,
+                    Operation::LOAD,
+                ])
+            );
+            let previous_is_logic = matches!(
+                self.get_last_operations(),
+                Some([
+                    Operation::LOAD,
+                    Operation::TEST,
+                    Operation::JUMP,
+                    Operation::LOAD,
+                ])
+            );
+
             let (load_instruction, instruction_type, position) = self.instructions.pop().unwrap();
             let Load {
-                operand, r#type, ..
+                destination,
+                operand,
+                r#type,
+                ..
             } = Load::from(&load_instruction);
-            let (should_return, return_address) = if r#type == OperandType::NONE {
-                (false, Address::default())
-            } else {
-                (true, operand)
-            };
-            let r#return = Instruction::r#return(should_return, return_address, r#type);
-
-            if !should_return {
+            let should_return = r#type != OperandType::NONE;
+            let return_address = if !should_return {
                 self.instructions
                     .push((load_instruction, instruction_type.clone(), position));
-            }
+
+                Address::default()
+            } else if previous_is_comparison || previous_is_logic {
+                self.instructions
+                    .push((load_instruction, instruction_type.clone(), position));
+
+                destination
+            } else {
+                operand
+            };
+
+            let r#return = Instruction::r#return(should_return, return_address, r#type);
 
             self.emit_instruction(r#return, instruction_type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
@@ -2664,11 +2723,7 @@ where
         };
         let memory_index = self.next_function_heap_index();
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
-            let mode = CompileMode::Function {
-                name: path
-                    .as_ref()
-                    .map(|path| DustString::from(path.inner().as_ref())),
-            };
+            let mode = CompileMode::Function { name: path.clone() };
             let mut compiler = ChunkCompiler::<C>::new(
                 self.lexer,
                 mode,
@@ -2757,7 +2812,7 @@ where
 
         let function_end = function_compiler.previous_position.1;
         let prototype_index = function_compiler.prototype_index;
-        let chunk = C::from_chunk_compiler(function_compiler);
+        let chunk = C::from(function_compiler);
         let address = Address::heap(memory_index);
         let load_function = Instruction::load(
             Address::heap(memory_index),
@@ -2943,7 +2998,10 @@ where
         let name = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            text
+            Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
+                found: text.to_string(),
+                position: self.current_position,
+            })?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -2968,16 +3026,10 @@ where
         let position = Span(start, end);
 
         if let CompileMode::Module {
-            name: new_module_name,
+            name: new_module_path,
             module: new_module,
         } = replace(&mut self.mode, old_mode)
         {
-            let new_module_path =
-                Path::new_borrowed(new_module_name).ok_or(CompileError::InvalidPath {
-                    found: new_module_name.to_string(),
-                    position: self.previous_position,
-                })?;
-
             self.main_module.borrow_mut().items.insert(
                 new_module_path.clone(),
                 (Item::Module(new_module), position),
@@ -3432,8 +3484,10 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUN
 
         let name = match self.mode {
             CompileMode::Main { name, .. } => name.map(DustString::from),
-            CompileMode::Function { name, .. } => name,
-            CompileMode::Module { name, .. } => Some(DustString::from(name)),
+            CompileMode::Module { name, .. } => Some(DustString::from(name.inner().as_ref())),
+            CompileMode::Function { name } => {
+                name.map(|name| DustString::from(name.inner().as_ref()))
+            }
         };
 
         FullChunk {
@@ -3523,8 +3577,10 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, StrippedChunk, REGISTER_
 
         let name = match self.mode {
             CompileMode::Main { name, .. } => name.map(DustString::from),
-            CompileMode::Function { name, .. } => name,
-            CompileMode::Module { name, .. } => Some(DustString::from(name)),
+            CompileMode::Module { name, .. } => Some(DustString::from(name.inner().as_ref())),
+            CompileMode::Function { name } => {
+                name.map(|name| DustString::from(name.inner().as_ref()))
+            }
         };
 
         StrippedChunk {

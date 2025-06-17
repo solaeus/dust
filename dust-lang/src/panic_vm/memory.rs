@@ -13,7 +13,7 @@ pub struct Memory<C> {
     pub stack: Stack<DEFAULT_REGISTER_COUNT>,
 }
 
-impl<C: Chunk> Memory<C> {
+impl<'a, C: Chunk<'a>> Memory<C> {
     pub fn new(chunk: &C) -> Self {
         Memory {
             heap: Heap::new(chunk),
@@ -35,7 +35,7 @@ pub struct Heap<C> {
     pub functions: Vec<HeapSlot<Arc<C>>>,
 }
 
-impl<C: Chunk> Heap<C> {
+impl<'a, C: Chunk<'a>> Heap<C> {
     pub fn new(chunk: &C) -> Self {
         Self {
             booleans: vec![HeapSlot::Closed; chunk.boolean_memory_length() as usize],

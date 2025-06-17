@@ -19,7 +19,7 @@ pub enum List<C> {
     List(Vec<List<C>>),
 }
 
-impl<C: Chunk> List<C> {
+impl<'a, C: Chunk<'a>> List<C> {
     pub fn boolean<T: Into<Vec<bool>>>(booleans: T) -> Self {
         List::Boolean(booleans.into())
     }
@@ -44,6 +44,7 @@ impl<C: Chunk> List<C> {
         List::String(strings.into())
     }
 
+    #[expect(clippy::self_named_constructors)]
     pub fn list<T: Into<Vec<List<C>>>>(lists: T) -> Self {
         List::List(lists.into())
     }
@@ -76,7 +77,7 @@ impl<C: Chunk> List<C> {
     }
 }
 
-impl<C: Chunk> Display for List<C> {
+impl<'a, C: Chunk<'a>> Display for List<C> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 

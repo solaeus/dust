@@ -18,14 +18,19 @@ pub use stripped_chunk::StrippedChunk;
 use std::sync::Arc;
 use std::{fmt::Debug, io::Write};
 
-use crate::{
-    Address, DustString, FunctionType, Instruction, Local, OperandType, Span,
-    compiler::ChunkCompiler,
-};
+use crate::compiler::ChunkCompiler;
+use crate::{Address, DustString, FunctionType, Instruction, Local, OperandType, Span};
 
-pub trait Chunk: Sized + Clone + Debug + Default + Disassemble + PartialEq + PartialOrd {
-    fn from_chunk_compiler<'a>(compiler: ChunkCompiler<'a, Self>) -> Self;
-
+pub trait Chunk<'a>:
+    From<ChunkCompiler<'a, Self>>
+    + Sized
+    + Clone
+    + Debug
+    + Default
+    + PartialEq
+    + PartialOrd
+    + Disassemble
+{
     fn chunk_type_name() -> &'static str;
 
     fn name(&self) -> Option<&DustString>;
@@ -72,5 +77,6 @@ pub trait Chunk: Sized + Clone + Debug + Default + Disassemble + PartialEq + Par
 }
 
 pub trait Disassemble: Sized {
-    fn disassembler<'a, W: Write>(&'a self, writer: &'a mut W) -> Disassembler<'a, Self, W>;
+    fn disassembler<'a, 'w, W: Write>(&'a self, writer: &'w mut W)
+    -> Disassembler<'a, 'w, Self, W>;
 }

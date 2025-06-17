@@ -66,11 +66,7 @@ impl From<FullChunk> for StrippedChunk {
     }
 }
 
-impl Chunk for StrippedChunk {
-    fn from_chunk_compiler<'a>(compiler: ChunkCompiler<'a, Self>) -> Self {
-        compiler.finish()
-    }
-
+impl<'a> Chunk<'a> for StrippedChunk {
     fn chunk_type_name() -> &'static str {
         "Stripped Chunk"
     }
@@ -160,11 +156,17 @@ impl Chunk for StrippedChunk {
     }
 }
 
+impl<'a> From<ChunkCompiler<'a, Self>> for StrippedChunk {
+    fn from(compiler: ChunkCompiler<'a, Self>) -> Self {
+        compiler.finish()
+    }
+}
+
 impl Disassemble for StrippedChunk {
-    fn disassembler<'a, W: std::io::Write>(
+    fn disassembler<'a, 'w, W: std::io::Write>(
         &'a self,
-        writer: &'a mut W,
-    ) -> Disassembler<'a, Self, W> {
+        writer: &'w mut W,
+    ) -> Disassembler<'a, 'w, Self, W> {
         Disassembler::new(self, writer)
     }
 }

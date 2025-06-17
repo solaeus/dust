@@ -7,11 +7,12 @@ use std::{
 use tracing::{Level, error, info, span, warn};
 
 use crate::{
-    Address, Chunk, DustString, FullChunk, Operation, Value,
+    Address, Chunk, DustString, Operation, Value,
     instruction::{
         Add, Call, CallNative, Close, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
+    invalid_operand_type_panic,
     value::List as ListValue,
 };
 
@@ -21,7 +22,7 @@ pub struct Thread<C> {
     pub handle: JoinHandle<Option<Value<C>>>,
 }
 
-impl<C: 'static + Chunk + Send + Sync> Thread<C> {
+impl<'a, C: 'static + Chunk<'a> + Send + Sync> Thread<C> {
     pub fn new(
         chunk: Arc<C>,
         cells: Arc<RwLock<Vec<Cell<C>>>>,
@@ -53,7 +54,7 @@ struct ThreadRunner<C> {
     cells: Arc<RwLock<Vec<Cell<C>>>>,
 }
 
-impl<C: Chunk> ThreadRunner<C> {
+impl<'a, C: Chunk<'a>> ThreadRunner<C> {
     fn run(mut self) -> Option<Value<C>> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
@@ -86,9 +87,12 @@ impl<C: Chunk> ThreadRunner<C> {
             info!("IP = {ip} Run {operation}");
 
             match operation {
+                // NO_OP
                 Operation::NO_OP => {
                     warn!("Running NO_OP instruction");
                 }
+
+                // LOAD
                 Operation::LOAD => {
                     let Load {
                         destination,
@@ -152,6 +156,8 @@ impl<C: Chunk> ThreadRunner<C> {
                         call.ip += 1;
                     }
                 }
+
+                // LIST
                 Operation::LIST => {
                     let List {
                         destination,
@@ -245,6 +251,20 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             ListValue::String(strings)
                         }
+                        Some(OperandType::LIST) => {
+                            let mut lists = Vec::new();
+
+                            for index in start.index..=end.index {
+                                let heap_slot = take_heap_slot!(index, memory, lists);
+
+                                match heap_slot {
+                                    HeapSlot::Closed => continue,
+                                    HeapSlot::Open(value) => lists.push(value),
+                                }
+                            }
+
+                            ListValue::List(lists)
+                        }
                         Some(OperandType::FUNCTION) => {
                             let mut functions = Vec::new();
 
@@ -259,12 +279,14 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             ListValue::Function(functions)
                         }
-                        Some(invalid) => invalid.invalid_panic(),
+                        Some(invalid) => invalid_operand_type_panic!(invalid, operation),
                         None => unreachable!(),
                     };
 
                     set_list!(destination, memory, self.cells, list);
                 }
+
+                // CLOSE
                 Operation::CLOSE => {
                     let Close { from, to, r#type } = Close::from(&instruction);
 
@@ -316,107 +338,11 @@ impl<C: Chunk> ThreadRunner<C> {
                                 close_heap_slot!(index, memory, functions)
                             }
                         }
-                        invalid => invalid.invalid_panic(),
+                        invalid => invalid_operand_type_panic!(invalid, operation),
                     }
                 }
-                Operation::RETURN => {
-                    let Return {
-                        should_return_value,
-                        return_value_address,
-                        r#type,
-                    } = Return::from(&instruction);
 
-                    if call_stack.is_empty() {
-                        if should_return_value {
-                            let return_value = match r#type {
-                                OperandType::BOOLEAN => {
-                                    let value = get_boolean!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Boolean(value)
-                                }
-                                OperandType::BYTE => {
-                                    let value = get_byte!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Byte(value)
-                                }
-                                OperandType::CHARACTER => {
-                                    let value = get_character!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Character(value)
-                                }
-                                OperandType::FLOAT => {
-                                    let value = get_float!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Float(value)
-                                }
-                                OperandType::INTEGER => {
-                                    let value = get_integer!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Integer(value)
-                                }
-                                OperandType::STRING => {
-                                    let value = get_string!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::String(value)
-                                }
-                                OperandType::LIST_BOOLEAN
-                                | OperandType::LIST_BYTE
-                                | OperandType::LIST_CHARACTER
-                                | OperandType::LIST_FLOAT
-                                | OperandType::LIST_INTEGER
-                                | OperandType::LIST_STRING
-                                | OperandType::LIST_LIST
-                                | OperandType::LIST_FUNCTION => {
-                                    let value = get_list!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::List(value)
-                                }
-                                OperandType::FUNCTION => {
-                                    let value = get_function!(
-                                        return_value_address,
-                                        memory,
-                                        &call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Function(value)
-                                }
-                                invalid => invalid.invalid_panic(),
-                            };
-
-                            return Some(return_value);
-                        } else {
-                            return None;
-                        }
-                    }
-                }
+                // ADD
                 Operation::ADD => {
                     let Add {
                         destination,
@@ -457,10 +383,520 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             set_integer!(destination, memory, self.cells, sum);
                         }
-                        invalid => invalid.invalid_panic(),
+                        OperandType::STRING => {
+                            let left = get_string!(left, memory, call.chunk, self.cells);
+                            let right = get_string!(right, memory, call.chunk, self.cells);
+                            let mut sum = DustString::new();
+
+                            sum.push_str(left.as_str());
+                            sum.push_str(right.as_str());
+
+                            set_string!(destination, memory, self.cells, sum);
+                        }
+                        OperandType::CHARACTER_STRING => {
+                            let left = get_character!(left, memory, call.chunk, self.cells);
+                            let right = get_string!(right, memory, call.chunk, self.cells);
+                            let mut sum = DustString::new();
+
+                            sum.push(left);
+                            sum.push_str(right.as_str());
+
+                            set_string!(destination, memory, self.cells, sum);
+                        }
+                        OperandType::STRING_CHARACTER => {
+                            let left = get_string!(left, memory, call.chunk, self.cells);
+                            let right = get_character!(right, memory, call.chunk, self.cells);
+                            let mut sum = DustString::new();
+
+                            sum.push_str(left.as_str());
+                            sum.push(right);
+
+                            set_string!(destination, memory, self.cells, sum);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
                     }
                 }
-                _ => panic!("Handle operation: {operation}"),
+
+                // SUBTRACT
+                Operation::SUBTRACT => {
+                    let Subtract {
+                        destination,
+                        left,
+                        right,
+                        r#type,
+                    } = Subtract::from(&instruction);
+
+                    match r#type {
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+                            let difference = left.saturating_sub(right);
+
+                            set_byte!(destination, memory, self.cells, difference);
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+                            let difference = left - right;
+
+                            set_float!(destination, memory, self.cells, difference);
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+                            let difference = left.saturating_sub(right);
+
+                            set_integer!(destination, memory, self.cells, difference);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    }
+                }
+
+                // MULTIPLY
+                Operation::MULTIPLY => {
+                    let Multiply {
+                        destination,
+                        left,
+                        right,
+                        r#type,
+                    } = Multiply::from(&instruction);
+
+                    match r#type {
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+                            let product = left.saturating_mul(right);
+
+                            set_byte!(destination, memory, self.cells, product);
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+                            let product = left * right;
+
+                            set_float!(destination, memory, self.cells, product);
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+                            let product = left.saturating_mul(right);
+
+                            set_integer!(destination, memory, self.cells, product);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    }
+                }
+
+                // DIVIDE
+                Operation::DIVIDE => {
+                    let Divide {
+                        destination,
+                        left,
+                        right,
+                        r#type,
+                    } = Divide::from(&instruction);
+
+                    match r#type {
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+                            let quotient = left.saturating_div(right);
+
+                            set_byte!(destination, memory, self.cells, quotient);
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+                            let quotient = left / right;
+
+                            set_float!(destination, memory, self.cells, quotient);
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+                            let quotient = left.saturating_div(right);
+
+                            set_integer!(destination, memory, self.cells, quotient);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    }
+                }
+
+                // EQUAL
+                Operation::EQUAL => {
+                    let Equal {
+                        comparator,
+                        left,
+                        right,
+                        r#type,
+                    } = Equal::from(&instruction);
+
+                    let is_equal = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left = get_boolean!(left, memory, call.chunk, self.cells);
+                            let right = get_boolean!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::CHARACTER => {
+                            let left = get_character!(left, memory, call.chunk, self.cells);
+                            let right = get_character!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::STRING => {
+                            let left = get_string!(left, memory, call.chunk, self.cells);
+                            let right = get_string!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::LIST_BOOLEAN
+                        | OperandType::LIST_BYTE
+                        | OperandType::LIST_CHARACTER
+                        | OperandType::LIST_FLOAT
+                        | OperandType::LIST_INTEGER
+                        | OperandType::LIST_STRING
+                        | OperandType::LIST_LIST
+                        | OperandType::LIST_FUNCTION => {
+                            let left = get_list!(left, memory, call.chunk, self.cells);
+                            let right = get_list!(right, memory, call.chunk, self.cells);
+
+                            left == right
+                        }
+                        OperandType::FUNCTION => {
+                            let left = get_function!(left, memory, &call.chunk, self.cells);
+                            let right = get_function!(right, memory, &call.chunk, self.cells);
+
+                            Arc::ptr_eq(&left, &right)
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    };
+
+                    if is_equal == comparator {
+                        call.ip += 1;
+                    }
+                }
+
+                // LESS
+                Operation::LESS => {
+                    let Less {
+                        comparator,
+                        left,
+                        right,
+                        r#type,
+                    } = Less::from(&instruction);
+
+                    let is_less = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left = get_boolean!(left, memory, call.chunk, self.cells);
+                            let right = get_boolean!(right, memory, call.chunk, self.cells);
+
+                            !left && right
+                        }
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::CHARACTER => {
+                            let left = get_character!(left, memory, call.chunk, self.cells);
+                            let right = get_character!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::STRING => {
+                            let left = get_string!(left, memory, call.chunk, self.cells);
+                            let right = get_string!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::LIST_BOOLEAN
+                        | OperandType::LIST_BYTE
+                        | OperandType::LIST_CHARACTER
+                        | OperandType::LIST_FLOAT
+                        | OperandType::LIST_INTEGER
+                        | OperandType::LIST_STRING
+                        | OperandType::LIST_LIST
+                        | OperandType::LIST_FUNCTION => {
+                            let left = get_list!(left, memory, call.chunk, self.cells);
+                            let right = get_list!(right, memory, call.chunk, self.cells);
+
+                            left < right
+                        }
+                        OperandType::FUNCTION => {
+                            let left = get_function!(left, memory, &call.chunk, self.cells);
+                            let right = get_function!(right, memory, &call.chunk, self.cells);
+
+                            Arc::ptr_eq(&left, &right)
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    };
+
+                    if is_less == comparator {
+                        call.ip += 1;
+                    }
+                }
+
+                // LESS_EQUAL
+                Operation::LESS_EQUAL => {
+                    let LessEqual {
+                        comparator,
+                        left,
+                        right,
+                        r#type,
+                    } = LessEqual::from(&instruction);
+
+                    let is_less_equal = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left = get_boolean!(left, memory, call.chunk, self.cells);
+                            let right = get_boolean!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::CHARACTER => {
+                            let left = get_character!(left, memory, call.chunk, self.cells);
+                            let right = get_character!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::STRING => {
+                            let left = get_string!(left, memory, call.chunk, self.cells);
+                            let right = get_string!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::LIST_BOOLEAN
+                        | OperandType::LIST_BYTE
+                        | OperandType::LIST_CHARACTER
+                        | OperandType::LIST_FLOAT
+                        | OperandType::LIST_INTEGER
+                        | OperandType::LIST_STRING
+                        | OperandType::LIST_LIST
+                        | OperandType::LIST_FUNCTION => {
+                            let left = get_list!(left, memory, call.chunk, self.cells);
+                            let right = get_list!(right, memory, call.chunk, self.cells);
+
+                            left <= right
+                        }
+                        OperandType::FUNCTION => {
+                            let left = get_function!(left, memory, &call.chunk, self.cells);
+                            let right = get_function!(right, memory, &call.chunk, self.cells);
+
+                            Arc::ptr_eq(&left, &right)
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    };
+
+                    if is_less_equal == comparator {
+                        call.ip += 1;
+                    }
+                }
+
+                // TEST
+                Operation::TEST => {
+                    let Test {
+                        comparator,
+                        operand,
+                    } = Test::from(&instruction);
+
+                    let boolean = get_boolean!(operand, memory, call.chunk, self.cells);
+
+                    if boolean == comparator {
+                        call.ip += 1;
+                    }
+                }
+
+                // JUMP
+                Operation::JUMP => {
+                    let Jump {
+                        offset,
+                        is_positive,
+                    } = Jump::from(&instruction);
+
+                    if is_positive {
+                        call.ip += offset as usize;
+                    } else {
+                        call.ip -= offset as usize + 1;
+                    }
+                }
+
+                // CALL_NATIVE
+                Operation::CALL_NATIVE => {
+                    let CallNative {
+                        destination,
+                        function,
+                        argument_list_index,
+                    } = CallNative::<C>::from(&instruction);
+
+                    let chunk = Arc::clone(&call.chunk);
+                    let arguments_list = chunk.arguments();
+                    let index = argument_list_index as usize;
+
+                    assert!(
+                        index < arguments_list.len(),
+                        "Argument list index out of bounds"
+                    );
+
+                    let arguments = &arguments_list[index];
+
+                    function.call(
+                        destination,
+                        arguments,
+                        &mut call,
+                        &mut memory,
+                        &self.threads,
+                    );
+                }
+
+                // RETURN
+                Operation::RETURN => {
+                    let Return {
+                        should_return_value,
+                        return_value_address,
+                        r#type,
+                    } = Return::from(&instruction);
+
+                    if call_stack.is_empty() {
+                        if should_return_value {
+                            let return_value = match r#type {
+                                OperandType::BOOLEAN => {
+                                    let value = take_or_decode_boolean!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Boolean(value)
+                                }
+                                OperandType::BYTE => {
+                                    let value = take_or_decode_byte!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Byte(value)
+                                }
+                                OperandType::CHARACTER => {
+                                    let value = take_or_get_character!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Character(value)
+                                }
+                                OperandType::FLOAT => {
+                                    let value = take_or_get_float!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Float(value)
+                                }
+                                OperandType::INTEGER => {
+                                    let value = take_or_get_integer!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Integer(value)
+                                }
+                                OperandType::STRING => {
+                                    let value = take_or_get_string!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::String(value)
+                                }
+                                OperandType::LIST_BOOLEAN
+                                | OperandType::LIST_BYTE
+                                | OperandType::LIST_CHARACTER
+                                | OperandType::LIST_FLOAT
+                                | OperandType::LIST_INTEGER
+                                | OperandType::LIST_STRING
+                                | OperandType::LIST_LIST
+                                | OperandType::LIST_FUNCTION => {
+                                    let value = take_or_get_list!(
+                                        return_value_address,
+                                        memory,
+                                        call.chunk,
+                                        self.cells
+                                    );
+                                    Value::List(value)
+                                }
+                                OperandType::FUNCTION => {
+                                    let value = take_or_get_function!(
+                                        return_value_address,
+                                        memory,
+                                        &call.chunk,
+                                        self.cells
+                                    );
+                                    Value::Function(value)
+                                }
+                                invalid => invalid_operand_type_panic!(invalid, operation),
+                            };
+
+                            return Some(return_value);
+                        } else {
+                            return None;
+                        }
+                    }
+                }
+                _ => todo!("Handle operation: {operation}"),
             }
         }
     }

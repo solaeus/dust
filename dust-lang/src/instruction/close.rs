@@ -49,7 +49,7 @@ impl Display for Close {
         let Close { from, to, r#type } = self;
 
         from.display(f, *r#type)?;
-        write!(f, "..")?;
+        write!(f, "..=")?;
         to.display(f, *r#type)
     }
 }

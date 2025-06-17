@@ -55,7 +55,7 @@ impl Type {
     }
 
     pub fn as_operand_type(&self) -> OperandType {
-        let operand_type = match self {
+        match self {
             Type::None => OperandType::NONE,
             Type::Boolean => OperandType::BOOLEAN,
             Type::Byte => OperandType::BYTE,
@@ -86,9 +86,7 @@ impl Type {
                 }
             },
             Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
-        };
-
-        operand_type
+        }
     }
 
     /// Checks that the type is compatible with another type.

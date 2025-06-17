@@ -91,9 +91,9 @@ const BOTTOM_BORDER: [char; 3] = ['╰', '─', '╯'];
 /// Builder that constructs a human-readable representation of a chunk.
 ///
 /// See the [module-level documentation](index.html) for more information.
-pub struct Disassembler<'a, C, W> {
+pub struct Disassembler<'a, 'w, C, W> {
     chunk: &'a C,
-    writer: &'a mut W,
+    writer: &'w mut W,
     source: Option<&'a str>,
 
     // Options
@@ -104,8 +104,8 @@ pub struct Disassembler<'a, C, W> {
     show_chunk_type_name: bool,
 }
 
-impl<'a, C: Chunk, W: Write> Disassembler<'a, C, W> {
-    pub fn new(chunk: &'a C, writer: &'a mut W) -> Self {
+impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
+    pub fn new(chunk: &'a C, writer: &'w mut W) -> Self {
         Self {
             chunk,
             writer,
@@ -118,37 +118,37 @@ impl<'a, C: Chunk, W: Write> Disassembler<'a, C, W> {
         }
     }
 
-    fn indent(mut self, indent: usize) -> Self {
+    fn indent(&mut self, indent: usize) -> &mut Self {
         self.indent = indent;
 
         self
     }
 
-    pub fn source(mut self, source: &'a str) -> Self {
+    pub fn source(&mut self, source: &'a str) -> &mut Self {
         self.source = Some(source);
 
         self
     }
 
-    pub fn style(mut self, styled: bool) -> Self {
+    pub fn style(&mut self, styled: bool) -> &mut Self {
         self.style = styled;
 
         self
     }
 
-    pub fn show_type(mut self, show_type: bool) -> Self {
+    pub fn show_type(&mut self, show_type: bool) -> &mut Self {
         self.show_type = show_type;
 
         self
     }
 
-    pub fn show_chunk_type_name(mut self, show_chunk_type_name: bool) -> Self {
+    pub fn show_chunk_type_name(&mut self, show_chunk_type_name: bool) -> &mut Self {
         self.show_chunk_type_name = show_chunk_type_name;
 
         self
     }
 
-    pub fn width(mut self, width: usize) -> Self {
+    pub fn width(&mut self, width: usize) -> &mut Self {
         self.width = width.max(Self::content_length());
 
         self
@@ -362,13 +362,13 @@ impl<'a, C: Chunk, W: Write> Disassembler<'a, C, W> {
     }
 
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
-        fn write_constants<'a, C, W, T>(
-            disassembler: &mut Disassembler<'a, C, W>,
+        fn write_constants<'a, 'w, C, W, T>(
+            disassembler: &mut Disassembler<'a, 'w, C, W>,
             constants: &[T],
             r#type: Type,
         ) -> Result<(), io::Error>
         where
-            C: Chunk,
+            C: Chunk<'a>,
             W: Write,
             T: Display,
         {
@@ -469,8 +469,8 @@ impl<'a, C: Chunk, W: Write> Disassembler<'a, C, W> {
 
         let name = self.chunk.name();
 
-        if let Some(name) = &name {
-            self.write_center_border_bold(name)?;
+        if let Some(name) = name {
+            self.write_center_border_bold(name.as_str())?;
         }
 
         if self.show_type {

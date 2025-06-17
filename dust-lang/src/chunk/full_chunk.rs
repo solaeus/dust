@@ -51,11 +51,7 @@ impl FullChunk {
     }
 }
 
-impl Chunk for FullChunk {
-    fn from_chunk_compiler<'a>(compiler: ChunkCompiler<'a, Self>) -> Self {
-        compiler.finish()
-    }
-
+impl<'a> Chunk<'a> for FullChunk {
     fn chunk_type_name() -> &'static str {
         "Full Chunk"
     }
@@ -145,11 +141,17 @@ impl Chunk for FullChunk {
     }
 }
 
+impl<'a> From<ChunkCompiler<'a, Self>> for FullChunk {
+    fn from(compiler: ChunkCompiler<'a, Self>) -> Self {
+        compiler.finish()
+    }
+}
+
 impl Disassemble for FullChunk {
-    fn disassembler<'a, W: std::io::Write>(
+    fn disassembler<'a, 'w, W: std::io::Write>(
         &'a self,
-        writer: &'a mut W,
-    ) -> Disassembler<'a, Self, W> {
+        writer: &'w mut W,
+    ) -> Disassembler<'a, 'w, Self, W> {
         Disassembler::new(self, writer)
     }
 }

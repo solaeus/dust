@@ -34,8 +34,8 @@ pub const STD_LENGTH: usize = {
     STD.len()
 };
 
-pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Result<Module<'a, C>, CompileError>
-{
+pub(crate) fn generate_standard_library<'a, C: 'a + Chunk<'a>>()
+-> Result<Module<'a, C>, CompileError> {
     let logging = span!(Level::INFO, "Standard Library");
     let _span_guard = logging.enter();
 
@@ -47,7 +47,7 @@ pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Result<Module<'a
     Ok(std_crate)
 }
 
-pub fn apply_standard_library<'a, C: 'a + Chunk>(
+pub fn apply_standard_library<'a, C: 'a + Chunk<'a>>(
     module: &mut Module<'a, C>,
 ) -> Result<(), CompileError> {
     let std_crate = generate_standard_library::<C>()?;

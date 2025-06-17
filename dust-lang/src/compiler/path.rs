@@ -74,7 +74,7 @@ impl<'a> Path<'a> {
             })
     }
 
-    pub fn item_name(&self) -> Path {
+    pub fn item_name(&'a self) -> Path<'a> {
         self.inner
             .rsplit("::")
             .next()
