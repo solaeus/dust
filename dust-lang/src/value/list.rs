@@ -1,13 +1,14 @@
 use std::{
+    cmp::Ordering,
     fmt::{self, Display, Formatter},
     sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, Type, chunk::Chunk};
+use crate::{DustString, FullChunk, StrippedChunk, Type, chunk::Chunk};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum List<C> {
     Boolean(Vec<bool>),
     Byte(Vec<u8>),
@@ -15,8 +16,8 @@ pub enum List<C> {
     Float(Vec<f64>),
     Integer(Vec<i64>),
     String(Vec<DustString>),
-    Function(Vec<Arc<C>>),
     List(Vec<List<C>>),
+    Function(Vec<Arc<C>>),
 }
 
 impl<'a, C: Chunk<'a>> List<C> {
@@ -74,6 +75,36 @@ impl<'a, C: Chunk<'a>> List<C> {
 
     pub fn r#type(&self) -> Type {
         Type::List(Box::new(self.item_type()))
+    }
+}
+
+impl List<FullChunk> {
+    pub fn strip(self) -> List<StrippedChunk> {
+        match self {
+            List::Boolean(booleans) => List::Boolean(booleans),
+            List::Byte(bytes) => List::Byte(bytes),
+            List::Character(characters) => List::Character(characters),
+            List::Float(floats) => List::Float(floats),
+            List::Integer(items) => List::Integer(items),
+            List::String(strings) => List::String(strings),
+            List::List(lists) => {
+                let stripped_lists = lists.into_iter().map(|list| list.strip()).collect();
+
+                List::List(stripped_lists)
+            }
+            List::Function(functions) => {
+                let stripped_functions = functions
+                    .into_iter()
+                    .map(|function| {
+                        let function = Arc::unwrap_or_clone(function);
+
+                        Arc::new(function.strip())
+                    })
+                    .collect::<Vec<_>>();
+
+                List::Function(stripped_functions)
+            }
+        }
     }
 }
 
@@ -157,5 +188,73 @@ impl<'a, C: Chunk<'a>> Display for List<C> {
         }
 
         write!(f, "]")
+    }
+}
+
+impl<C: PartialEq> Eq for List<C> {}
+
+impl<C: PartialEq> PartialEq for List<C> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (List::Boolean(left), List::Boolean(right)) => left == right,
+            (List::Byte(left), List::Byte(right)) => left == right,
+            (List::Character(left), List::Character(right)) => left == right,
+            (List::Float(left), List::Float(right)) => {
+                for (left, right) in left.iter().zip(right.iter()) {
+                    if left.to_bits() != right.to_bits() {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            (List::Integer(left), List::Integer(right)) => left == right,
+            (List::String(left), List::String(right)) => left == right,
+            (List::List(left), List::List(right)) => left == right,
+            (List::Function(left), List::Function(right)) => left == right,
+            _ => false,
+        }
+    }
+}
+
+impl<C: Ord> PartialOrd for List<C> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<C: Ord> Ord for List<C> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (List::Boolean(left), List::Boolean(right)) => left.cmp(right),
+            (List::Byte(left), List::Byte(right)) => left.cmp(right),
+            (List::Character(left), List::Character(right)) => left.cmp(right),
+            (List::Float(left), List::Float(right)) => {
+                for (left, right) in left.iter().zip(right.iter()) {
+                    let cmp = left.to_bits().cmp(&right.to_bits());
+
+                    if cmp != Ordering::Equal {
+                        return cmp;
+                    }
+                }
+
+                Ordering::Equal
+            }
+            (List::Integer(left), List::Integer(right)) => left.cmp(right),
+            (List::String(left), List::String(right)) => left.cmp(right),
+            (List::List(left), List::List(right)) => left.cmp(right),
+            (List::Function(left), List::Function(right)) => {
+                for (left, right) in left.iter().zip(right.iter()) {
+                    let cmp = Arc::as_ptr(left).cmp(&Arc::as_ptr(right));
+
+                    if cmp != Ordering::Equal {
+                        return cmp;
+                    }
+                }
+
+                Ordering::Equal
+            }
+            _ => Ordering::Equal,
+        }
     }
 }

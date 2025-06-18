@@ -51,8 +51,8 @@ macro_rules! take_or_decode_byte {
 macro_rules! get_character {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_character_or_panic(),
             MemoryKind::CELL => get_from_cell!($address.index, $cells, Character),
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, character_constants),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, characters),
             MemoryKind::STACK => get_from_stack!($address.index, $memory, characters),
             _ => unreachable!(),
@@ -63,7 +63,7 @@ macro_rules! get_character {
 macro_rules! take_or_get_character {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, character_constants),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_character_or_panic(),
             MemoryKind::CELL => take_from_cell!($address.index, $cells, Character),
             MemoryKind::HEAP => take_from_heap!($address.index, $memory, characters),
             MemoryKind::STACK => take_from_stack!($address.index, $memory, characters),
@@ -75,8 +75,8 @@ macro_rules! take_or_get_character {
 macro_rules! get_float {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_float_or_panic(),
             MemoryKind::CELL => get_from_cell!($address.index, $cells, Float),
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, float_constants),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, floats),
             MemoryKind::STACK => get_from_stack!($address.index, $memory, floats),
             _ => unreachable!(),
@@ -87,7 +87,7 @@ macro_rules! get_float {
 macro_rules! take_or_get_float {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, float_constants),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_float_or_panic(),
             MemoryKind::CELL => take_from_cell!($address.index, $cells, Float),
             MemoryKind::HEAP => take_from_heap!($address.index, $memory, floats),
             MemoryKind::STACK => take_from_stack!($address.index, $memory, floats),
@@ -99,8 +99,8 @@ macro_rules! take_or_get_float {
 macro_rules! get_integer {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_integer_or_panic(),
             MemoryKind::CELL => get_from_cell!($address.index, $cells, Integer),
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, integer_constants),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, integers),
             MemoryKind::STACK => get_from_stack!($address.index, $memory, integers),
             _ => unreachable!(),
@@ -111,7 +111,7 @@ macro_rules! get_integer {
 macro_rules! take_or_get_integer {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, integer_constants),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk).as_integer_or_panic(),
             MemoryKind::CELL => take_from_cell!($address.index, $cells, Integer),
             MemoryKind::HEAP => take_from_heap!($address.index, $memory, integers),
             MemoryKind::STACK => take_from_stack!($address.index, $memory, integers),
@@ -123,8 +123,10 @@ macro_rules! take_or_get_integer {
 macro_rules! get_string {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk)
+                .as_string_or_panic()
+                .clone(),
             MemoryKind::CELL => get_from_cell!($address.index, $cells, String),
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, string_constants),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, strings),
             _ => unreachable!(),
         }
@@ -134,7 +136,9 @@ macro_rules! get_string {
 macro_rules! take_or_get_string {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, string_constants),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk)
+                .as_string_or_panic()
+                .clone(),
             MemoryKind::CELL => take_from_cell!($address.index, $cells, String),
             MemoryKind::HEAP => take_from_heap!($address.index, $memory, strings),
             _ => unreachable!(),
@@ -165,8 +169,10 @@ macro_rules! take_or_get_list {
 macro_rules! get_function {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk)
+                .as_function_or_panic()
+                .clone(),
             MemoryKind::CELL => get_from_cell!($address.index, $cells, Function),
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, prototypes),
             MemoryKind::HEAP => get_from_heap!($address.index, $memory, functions),
             MemoryKind::STACK => Arc::clone($chunk),
             _ => unreachable!(),
@@ -177,7 +183,9 @@ macro_rules! get_function {
 macro_rules! take_or_get_function {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
         match $address.memory {
-            MemoryKind::CONSTANT => get_constant!($address.index, $chunk, prototypes),
+            MemoryKind::CONSTANT => get_constant!($address.index, $chunk)
+                .as_function_or_panic()
+                .clone(),
             MemoryKind::CELL => take_from_cell!($address.index, $cells, Function),
             MemoryKind::HEAP => take_from_heap!($address.index, $memory, functions),
             MemoryKind::STACK => Arc::clone($chunk),
@@ -332,9 +340,9 @@ macro_rules! get_from_cell {
 }
 
 macro_rules! get_constant {
-    ($index: expr, $chunk: expr, $field: ident) => {{
+    ($index: expr, $chunk: expr) => {{
         let index = $index as usize;
-        let constants = $chunk.$field();
+        let constants = &$chunk.constants();
 
         assert!(index < constants.len(), "Constant index out of bounds");
 

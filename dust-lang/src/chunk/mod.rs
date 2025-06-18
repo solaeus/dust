@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::{fmt::Debug, io::Write};
 
 use crate::compiler::ChunkCompiler;
-use crate::{Address, DustString, FunctionType, Instruction, Local, OperandType, Span};
+use crate::{Address, DustString, FunctionType, Instruction, Local, OperandType, Span, Value};
 
 pub trait Chunk<'a>:
     From<ChunkCompiler<'a, Self>>
@@ -27,8 +27,10 @@ pub trait Chunk<'a>:
     + Clone
     + Debug
     + Default
+    + Eq
     + PartialEq
     + PartialOrd
+    + Ord
     + Disassemble
 {
     fn chunk_type_name() -> &'static str;
@@ -43,15 +45,7 @@ pub trait Chunk<'a>:
 
     fn positions(&self) -> Option<&[Span]>;
 
-    fn character_constants(&self) -> &[char];
-
-    fn float_constants(&self) -> &[f64];
-
-    fn integer_constants(&self) -> &[i64];
-
-    fn string_constants(&self) -> &[DustString];
-
-    fn prototypes(&self) -> &[Arc<Self>];
+    fn constants(&self) -> &[Value<Self>];
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>];
 

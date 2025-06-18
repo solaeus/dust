@@ -48,11 +48,10 @@ use std::{
     marker::PhantomData,
     mem::replace,
     rc::Rc,
-    sync::Arc,
 };
 
 use crate::{
-    Address, Chunk, DustError, DustString, FullChunk, FunctionType, Instruction, Lexer,
+    Address, Chunk, DustError, DustString, FullChunk, FunctionType, Instruction, Lexer, List,
     NativeFunction, Operation, Span, StrippedChunk, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
@@ -212,25 +211,9 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     /// The types are discarded after compilation.
     instructions: Vec<(Instruction, Type, Span)>,
 
-    /// Character constants that have been compiled. These are assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    character_constants: Vec<char>,
-
-    /// Float constants that have been compiled. These are assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    float_constants: Vec<f64>,
-
-    /// Integer constants that have been compiled. These are assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    integer_constants: Vec<i64>,
-
-    /// String constants that have been compiled. These are assigned to the chunk when
-    /// [`Compiler::finish`] is called.
-    string_constants: Vec<DustString>,
-
-    /// Functions that have been compiled. These are assigned to the chunk when [`Compiler::finish`]
-    /// is called.
-    prototypes: Vec<Arc<C>>,
+    /// Constant values that have been compiled, including function prototypes. These are assigned to
+    /// the chunk when [`Compiler::finish`] is called.
+    constants: Vec<Value<C>>,
 
     /// Block-local variables.
     locals: IndexMap<Path<'a>, Local>,
@@ -282,7 +265,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
 
 impl<'a, C, const REGISTER_COUNT: usize> ChunkCompiler<'a, C, REGISTER_COUNT>
 where
-    C: 'a + Chunk<'a>,
+    C: 'a + Chunk<'a> + Ord,
 {
     fn new(
         mut lexer: Lexer<'a>,
@@ -297,12 +280,8 @@ where
             mode,
             r#type: FunctionType::default(),
             instructions: Vec::new(),
-            character_constants: Vec::new(),
-            float_constants: Vec::new(),
-            integer_constants: Vec::new(),
-            string_constants: Vec::new(),
+            constants: Vec::new(),
             locals: IndexMap::new(),
-            prototypes: Vec::new(),
             arguments: Vec::new(),
             lexer,
             minimum_byte_memory_index: 0,
@@ -949,67 +928,13 @@ where
         })
     }
 
-    fn push_or_get_constant_character(&mut self, character: char) -> u16 {
-        if let Some(index) = self
-            .character_constants
-            .iter()
-            .position(|constant| constant == &character)
-        {
-            index as u16
-        } else {
-            let index = self.character_constants.len() as u16;
-
-            self.character_constants.push(character);
-
-            index
-        }
-    }
-
-    fn push_or_get_constant_float(&mut self, float: f64) -> u16 {
-        if let Some(index) = self
-            .float_constants
-            .iter()
-            .position(|constant| constant == &float)
-        {
-            index as u16
-        } else {
-            let index = self.float_constants.len() as u16;
-
-            self.float_constants.push(float);
-
-            index
-        }
-    }
-
-    fn push_or_get_constant_integer(&mut self, integer: i64) -> u16 {
-        if let Some(index) = self
-            .integer_constants
-            .iter()
-            .position(|constant| constant == &integer)
-        {
-            index as u16
-        } else {
-            let index = self.integer_constants.len() as u16;
-
-            self.integer_constants.push(integer);
-
-            index
-        }
-    }
-
-    fn push_or_get_constant_string(&mut self, string: DustString) -> u16 {
-        if let Some(index) = self
-            .string_constants
-            .iter()
-            .position(|constant| constant == &string)
-        {
-            index as u16
-        } else {
-            let index = self.string_constants.len() as u16;
-
-            self.string_constants.push(string);
-
-            index
+    fn push_constant_or_get_index(&mut self, constant: Value<C>) -> u16 {
+        match self.constants.binary_search(&constant) {
+            Ok(index) => index as u16,
+            Err(index) => {
+                self.constants.insert(index, constant);
+                index as u16
+            }
         }
     }
 
@@ -1156,19 +1081,7 @@ where
             self.advance()?;
 
             let destination = self.next_character_heap_index();
-            let constant_index = if let Some(index) = self
-                .character_constants
-                .iter()
-                .position(|constant| constant == &character)
-            {
-                index as u16
-            } else {
-                let index = self.character_constants.len() as u16;
-
-                self.character_constants.push(character);
-
-                index
-            };
+            let constant_index = self.push_constant_or_get_index(Value::Character(character));
             let load_constant = Instruction::load(
                 Address::heap(destination),
                 Address::constant(constant_index),
@@ -1194,21 +1107,9 @@ where
         if let Token::Float(text) = self.current_token {
             self.advance()?;
 
-            let float = self.parse_float_value(text)?;
+            let float = Value::float(self.parse_float_value(text)?);
             let destination = self.next_float_heap_index();
-            let constant_index = if let Some(index) = self
-                .float_constants
-                .iter()
-                .position(|constant| constant == &float)
-            {
-                index as u16
-            } else {
-                let index = self.float_constants.len() as u16;
-
-                self.float_constants.push(float);
-
-                index
-            };
+            let constant_index = self.push_constant_or_get_index(float);
             let load_constant = Instruction::load(
                 Address::heap(destination),
                 Address::constant(constant_index),
@@ -1242,20 +1143,8 @@ where
         if let Token::Integer(text) = self.current_token {
             self.advance()?;
 
-            let integer = self.parse_integer_value(text);
-            let constant_index = if let Some(index) = self
-                .integer_constants
-                .iter()
-                .position(|constant| constant == &integer)
-            {
-                index as u16
-            } else {
-                let index = self.integer_constants.len() as u16;
-
-                self.integer_constants.push(integer);
-
-                index
-            };
+            let integer = Value::integer(self.parse_integer_value(text));
+            let constant_index = self.push_constant_or_get_index(integer);
             let destination = self.next_integer_heap_index();
             let load_constant = Instruction::load(
                 Address::heap(destination),
@@ -1307,20 +1196,8 @@ where
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let string = DustString::from(text);
-            let constant_index = if let Some(index) = self
-                .string_constants
-                .iter()
-                .position(|constant| constant == &string)
-            {
-                index as u16
-            } else {
-                let index = self.string_constants.len() as u16;
-
-                self.string_constants.push(string);
-
-                index
-            };
+            let string = Value::string(DustString::from(text));
+            let constant_index = self.push_constant_or_get_index(string);
             let destination = self.next_string_heap_index();
             let load_constant = Instruction::load(
                 Address::heap(destination),
@@ -1509,8 +1386,12 @@ where
             && {
                 match right_type {
                     Type::Byte => right.index == 0,
-                    Type::Float => self.float_constants.get(right.index as usize) == Some(&0.0),
-                    Type::Integer => self.integer_constants.get(right.index as usize) == Some(&0),
+                    Type::Float => {
+                        self.constants.get(right.index as usize) == Some(&Value::Float(0.0))
+                    }
+                    Type::Integer => {
+                        self.constants.get(right.index as usize) == Some(&Value::Integer(0))
+                    }
                     _ => false,
                 }
             };
@@ -2732,7 +2613,7 @@ where
                 self.globals.clone(),
             )?; // This will consume the parenthesis
 
-            compiler.prototype_index = self.prototypes.len() as u16;
+            compiler.prototype_index = self.constants.len() as u16;
             compiler.allow_native_functions = self.allow_native_functions;
 
             compiler
@@ -2832,7 +2713,7 @@ where
             );
         }
 
-        self.prototypes.push(Arc::new(chunk));
+        self.constants.push(Value::function(chunk));
         self.emit_instruction(load_function, r#type, Span(function_start, function_end));
 
         Ok(())
@@ -3049,7 +2930,16 @@ where
                     self.parse_function()?;
 
                     let (_, _, function_position) = self.instructions.pop().unwrap();
-                    let prototype = self.prototypes.pop().unwrap();
+                    let last_constant = self.constants.pop().unwrap();
+                    let prototype = if let Value::Function(prototype) = last_constant {
+                        prototype
+                    } else {
+                        return Err(CompileError::ExpectedFunction {
+                            found: self.previous_token.to_owned(),
+                            actual_type: last_constant.r#type(),
+                            position: function_position,
+                        });
+                    };
 
                     let function_name = if let Some(name) = prototype.name() {
                         name
@@ -3195,16 +3085,17 @@ where
         };
         let end = self.current_position.1;
         let position = Span(start, end);
+        let constant = Item::Constant { value, r#type };
 
         match &mut self.mode {
             CompileMode::Module { module, .. } => {
-                module.items.insert(path, (Item::Constant(value), position));
+                module.items.insert(path, (constant, position));
             }
             _ => {
                 self.main_module
                     .borrow_mut()
                     .items
-                    .insert(path, (Item::Constant(value), position));
+                    .insert(path, (constant, position));
             }
         }
 
@@ -3249,68 +3140,127 @@ where
         item_position: Span,
     ) -> (Address, Type) {
         match item {
-            Item::Constant(value) => {
-                let (instruction, destination_address, r#type) = match value {
+            Item::Constant { value, r#type } => {
+                let (heap_index, operand) = match value {
                     Value::Boolean(boolean) => {
                         let memory_index = self.next_boolean_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let operand = Address::new(boolean as u16, MemoryKind::default());
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::BOOLEAN, false);
+                        let operand = Address::constant(boolean as u16);
 
-                        (instruction, destination, Type::Boolean)
+                        (memory_index, operand)
                     }
                     Value::Byte(byte) => {
                         let memory_index = self.next_byte_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let operand = Address::new(byte as u16, MemoryKind::default());
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::BYTE, false);
+                        let operand = Address::constant(byte as u16);
 
-                        (instruction, destination, Type::Byte)
+                        (memory_index, operand)
                     }
                     Value::Character(character) => {
                         let memory_index = self.next_character_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let constant_index = self.push_or_get_constant_character(character);
-                        let operand = Address::constant(constant_index);
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::CHARACTER, false);
+                        let value = Value::character(character);
+                        let constant_index = self.push_constant_or_get_index(value);
+                        let operand = Address::new(constant_index, MemoryKind::CONSTANT);
 
-                        (instruction, destination, Type::Character)
+                        (memory_index, operand)
                     }
                     Value::Float(float) => {
                         let memory_index = self.next_float_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let constant_index = self.push_or_get_constant_float(float);
-                        let operand = Address::constant(constant_index);
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::FLOAT, false);
+                        let value = Value::float(float);
+                        let constant_index = self.push_constant_or_get_index(value);
+                        let operand = Address::new(constant_index, MemoryKind::CONSTANT);
 
-                        (instruction, destination, Type::Float)
+                        (memory_index, operand)
                     }
                     Value::Integer(integer) => {
                         let memory_index = self.next_integer_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let constant_index = self.push_or_get_constant_integer(integer);
-                        let operand = Address::constant(constant_index);
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::INTEGER, false);
+                        let value = Value::integer(integer);
+                        let constant_index = self.push_constant_or_get_index(value);
+                        let operand = Address::new(constant_index, MemoryKind::CONSTANT);
 
-                        (instruction, destination, Type::Integer)
+                        (memory_index, operand)
                     }
                     Value::String(string) => {
                         let memory_index = self.next_string_heap_index();
-                        let destination = Address::heap(memory_index);
-                        let constant_index = self.push_or_get_constant_string(string);
-                        let operand = Address::constant(constant_index);
-                        let instruction =
-                            Instruction::load(destination, operand, OperandType::STRING, false);
+                        let value = Value::string(string);
+                        let constant_index = self.push_constant_or_get_index(value);
+                        let operand = Address::new(constant_index, MemoryKind::CONSTANT);
 
-                        (instruction, destination, Type::String)
+                        (memory_index, operand)
                     }
+                    Value::List(list) => match list {
+                        List::Boolean(booleans) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::boolean_list(booleans);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::Byte(bytes) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::byte_list(bytes);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::Character(characters) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::character_list(characters);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::Float(floats) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::float_list(floats);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::Integer(integers) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::integer_list(integers);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::String(strings) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::string_list(strings);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::List(lists) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::list_list(lists);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                        List::Function(functions) => {
+                            let memory_index = self.next_list_heap_index();
+                            let value = Value::function_list(functions);
+                            let constant_index = self.push_constant_or_get_index(value);
+                            let operand = Address::new(constant_index, MemoryKind::CONSTANT);
+
+                            (memory_index, operand)
+                        }
+                    },
                     _ => todo!("Handle other constant types in use statement"),
                 };
+                let destination_address = Address::heap(heap_index);
+                let instruction = Instruction::load(
+                    destination_address,
+                    operand,
+                    r#type.as_operand_type(),
+                    false,
+                );
 
                 self.emit_instruction(instruction, Type::None, item_position);
                 self.declare_local(
@@ -3324,12 +3274,10 @@ where
                 (destination_address, r#type)
             }
             Item::Function(prototype) => {
-                let prototype_index = self.prototypes.len() as u16;
-
-                self.prototypes.push(Arc::clone(&prototype));
-
-                let address = Address::constant(prototype_index);
                 let r#type = Type::Function(Box::new(prototype.r#type().clone()));
+                let function = Value::Function(prototype);
+                let prototype_index = self.push_constant_or_get_index(function);
+                let address = Address::constant(prototype_index);
 
                 self.declare_local(
                     item_name,
@@ -3495,16 +3443,12 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUN
             r#type: self.r#type,
             instructions,
             positions,
-            character_constants: self.character_constants,
-            float_constants: self.float_constants,
-            integer_constants: self.integer_constants,
-            string_constants: self.string_constants,
+            constants: self.constants,
             locals: self
                 .locals
                 .into_iter()
                 .map(|(name, local)| (DustString::from(name.inner().as_ref()), local))
                 .collect(),
-            prototypes: self.prototypes,
             arguments: self
                 .arguments
                 .into_iter()
@@ -3587,11 +3531,7 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, StrippedChunk, REGISTER_
             name,
             r#type: self.r#type,
             instructions,
-            character_constants: self.character_constants,
-            float_constants: self.float_constants,
-            integer_constants: self.integer_constants,
-            string_constants: self.string_constants,
-            prototypes: self.prototypes,
+            constants: self.constants,
             arguments: self
                 .arguments
                 .into_iter()

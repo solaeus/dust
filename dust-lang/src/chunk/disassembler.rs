@@ -37,14 +37,11 @@
 //! │          ╰─────┴──────────────────────────┴──────────────────────────╯           │
 //! ╰──────────────────────────────────────────────────────────────────────────────────╯
 //! ```
-use std::{
-    fmt::Display,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Address, Local, Type, chunk::Chunk};
+use crate::{Address, Local, Value, chunk::Chunk};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
     [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
@@ -361,59 +358,6 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
         Ok(())
     }
 
-    fn write_constant_section(&mut self) -> Result<(), io::Error> {
-        fn write_constants<'a, 'w, C, W, T>(
-            disassembler: &mut Disassembler<'a, 'w, C, W>,
-            constants: &[T],
-            r#type: Type,
-        ) -> Result<(), io::Error>
-        where
-            C: Chunk<'a>,
-            W: Write,
-            T: Display,
-        {
-            for (index, value) in constants.iter().enumerate() {
-                let type_display = r#type.to_string();
-                let value_display = {
-                    let mut value_string = value.to_string();
-
-                    if value_string.len() > 26 {
-                        value_string = format!("{value_string:.23}...");
-                    }
-
-                    value_string
-                };
-                let register_display =
-                    Address::constant(index as u16).to_string(r#type.as_operand_type());
-                let constant_display =
-                    format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
-
-                disassembler.write_center_border(&constant_display)?;
-            }
-
-            Ok(())
-        }
-
-        let mut column_name_line = String::new();
-
-        for (column_name, width) in CONSTANT_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}"));
-        }
-
-        column_name_line.push('│');
-        self.write_center_border_bold("Constants")?;
-        self.write_center_border(CONSTANT_BORDERS[0])?;
-        self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(CONSTANT_BORDERS[1])?;
-        write_constants(self, self.chunk.character_constants(), Type::Character)?;
-        write_constants(self, self.chunk.float_constants(), Type::Float)?;
-        write_constants(self, self.chunk.integer_constants(), Type::Integer)?;
-        write_constants(self, self.chunk.string_constants(), Type::String)?;
-        self.write_center_border(CONSTANT_BORDERS[2])?;
-
-        Ok(())
-    }
-
     fn write_argument_list_section(&mut self) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
 
@@ -445,21 +389,51 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
         Ok(())
     }
 
-    fn write_prototype_section(&mut self) -> Result<(), io::Error> {
-        self.write_center_border_bold("Prototypes")?;
+    fn write_constant_section(&mut self) -> Result<(), io::Error> {
+        fn write_constants<'a, 'w, C, W>(
+            disassembler: &mut Disassembler<'a, 'w, C, W>,
+            constants: &[Value<C>],
+        ) -> Result<(), io::Error>
+        where
+            C: Chunk<'a>,
+            W: Write,
+        {
+            for (index, value) in constants.iter().enumerate() {
+                let r#type = value.r#type();
+                let operand_type = r#type.as_operand_type();
+                let type_display = r#type.to_string();
+                let value_display = {
+                    let mut value_string = value.to_string();
 
-        for chunk in self.chunk.prototypes() {
-            chunk
-                .disassembler(self.writer)
-                .indent(self.indent + 1)
-                .width(self.width)
-                .style(self.style)
-                .show_type(self.show_type)
-                .show_chunk_type_name(false)
-                .disassemble()?;
+                    if value_string.len() > 26 {
+                        value_string = format!("{value_string:.23}...");
+                    }
 
-            self.write_center_border("")?;
+                    value_string
+                };
+                let register_display = Address::constant(index as u16).to_string(operand_type);
+                let constant_display =
+                    format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
+
+                disassembler.write_center_border(&constant_display)?;
+            }
+
+            Ok(())
         }
+
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in CONSTANT_COLUMNS {
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
+        }
+
+        column_name_line.push('│');
+        self.write_center_border_bold("Constants")?;
+        self.write_center_border(CONSTANT_BORDERS[0])?;
+        self.write_center_border_bold(&column_name_line)?;
+        self.write_center_border(CONSTANT_BORDERS[1])?;
+        write_constants(self, self.chunk.constants())?;
+        self.write_center_border(CONSTANT_BORDERS[2])?;
 
         Ok(())
     }
@@ -493,10 +467,7 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
         let mut info_line = format!(
             "{} instructions, {} constants",
             self.chunk.instructions().len(),
-            self.chunk.string_constants().len()
-                + self.chunk.float_constants().len()
-                + self.chunk.integer_constants().len()
-                + self.chunk.character_constants().len(),
+            self.chunk.constants().len()
         );
 
         if let Some(locals) = self.chunk.locals() {
@@ -520,20 +491,12 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
             self.write_local_section()?;
         }
 
-        if !self.chunk.string_constants().is_empty()
-            || !self.chunk.float_constants().is_empty()
-            || !self.chunk.integer_constants().is_empty()
-            || !self.chunk.string_constants().is_empty()
-        {
-            self.write_constant_section()?;
-        }
-
         if !self.chunk.arguments().is_empty() {
             self.write_argument_list_section()?;
         }
 
-        if !self.chunk.prototypes().is_empty() {
-            self.write_prototype_section()?;
+        if !self.chunk.constants().is_empty() {
+            self.write_constant_section()?;
         }
 
         self.write_page_border(BOTTOM_BORDER)

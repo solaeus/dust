@@ -8,8 +8,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, Disassembler, DustString, FunctionType, Instruction, Local, Span, chunk::Disassemble,
-    compiler::ChunkCompiler, instruction::OperandType,
+    Address, Disassembler, DustString, FunctionType, Instruction, List, Local, Span, Value,
+    chunk::Disassemble, compiler::ChunkCompiler, instruction::OperandType,
 };
 
 use super::{Chunk, StrippedChunk};
@@ -25,11 +25,7 @@ pub struct FullChunk {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) positions: Vec<Span>,
 
-    pub(crate) character_constants: Vec<char>,
-    pub(crate) float_constants: Vec<f64>,
-    pub(crate) integer_constants: Vec<i64>,
-    pub(crate) string_constants: Vec<DustString>,
-    pub(crate) prototypes: Vec<Arc<FullChunk>>,
+    pub(crate) constants: Vec<Value<Self>>,
     pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) locals: IndexMap<DustString, Local>,
@@ -47,7 +43,66 @@ pub struct FullChunk {
 
 impl FullChunk {
     pub fn strip(self) -> StrippedChunk {
-        StrippedChunk::from(self)
+        StrippedChunk {
+            name: self.name,
+            r#type: self.r#type,
+            instructions: self.instructions,
+            constants: self
+                .constants
+                .into_iter()
+                .map(|value| match value {
+                    Value::Boolean(boolean) => Value::boolean(boolean),
+                    Value::Byte(byte) => Value::byte(byte),
+                    Value::Character(character) => Value::character(character),
+                    Value::Float(float) => Value::float(float),
+                    Value::Integer(integer) => Value::integer(integer),
+                    Value::String(string) => Value::string(string),
+                    Value::List(list) => match list {
+                        List::Boolean(booleans) => Value::boolean_list(booleans),
+                        List::Byte(bytes) => Value::byte_list(bytes),
+                        List::Character(characters) => Value::character_list(characters),
+                        List::Float(floats) => Value::float_list(floats),
+                        List::Integer(integers) => Value::integer_list(integers),
+                        List::String(strings) => Value::string_list(strings),
+                        List::List(lists) => {
+                            let stripped_lists = lists
+                                .into_iter()
+                                .map(|list| list.strip())
+                                .collect::<Vec<_>>();
+
+                            Value::list_list(stripped_lists)
+                        }
+                        List::Function(prototypes) => {
+                            let stripped_prototypes = prototypes
+                                .into_iter()
+                                .map(|prototype| {
+                                    let prototype = Arc::unwrap_or_clone(prototype);
+
+                                    Arc::new(prototype.strip())
+                                })
+                                .collect::<Vec<_>>();
+
+                            Value::function_list(stripped_prototypes)
+                        }
+                    },
+                    Value::Function(prototype) => {
+                        let prototype = Arc::unwrap_or_clone(prototype);
+
+                        Value::function(prototype.strip())
+                    }
+                })
+                .collect(),
+            arguments: self.arguments,
+            boolean_memory_length: self.boolean_memory_length,
+            byte_memory_length: self.byte_memory_length,
+            character_memory_length: self.character_memory_length,
+            float_memory_length: self.float_memory_length,
+            integer_memory_length: self.integer_memory_length,
+            string_memory_length: self.string_memory_length,
+            list_memory_length: self.list_memory_length,
+            function_memory_length: self.function_memory_length,
+            prototype_index: self.prototype_index,
+        }
     }
 }
 
@@ -76,24 +131,8 @@ impl<'a> Chunk<'a> for FullChunk {
         Some(&self.positions)
     }
 
-    fn character_constants(&self) -> &[char] {
-        &self.character_constants
-    }
-
-    fn float_constants(&self) -> &[f64] {
-        &self.float_constants
-    }
-
-    fn integer_constants(&self) -> &[i64] {
-        &self.integer_constants
-    }
-
-    fn string_constants(&self) -> &[DustString] {
-        &self.string_constants
-    }
-
-    fn prototypes(&self) -> &[Arc<Self>] {
-        &self.prototypes
+    fn constants(&self) -> &[Value<Self>] {
+        &self.constants
     }
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
@@ -179,12 +218,8 @@ impl PartialEq for FullChunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.character_constants == other.character_constants
-            && self.float_constants == other.float_constants
-            && self.integer_constants == other.integer_constants
-            && self.string_constants == other.string_constants
+            && self.constants == other.constants
             && self.locals == other.locals
-            && self.prototypes == other.prototypes
             && self.arguments == other.arguments
             && self.prototype_index == other.prototype_index
     }
@@ -197,13 +232,10 @@ impl PartialEq for FullChunk {
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.positions == other.positions
-            && self.character_constants == other.character_constants
-            && self.float_constants == other.float_constants
-            && self.integer_constants == other.integer_constants
-            && self.string_constants == other.string_constants
+            && self.constants == other.constants
             && self.locals == other.locals
-            && self.prototypes == other.prototypes
             && self.arguments == other.arguments
+            && self.prototype_index == other.prototype_index
             && self.boolean_memory_length == other.boolean_memory_length
             && self.byte_memory_length == other.byte_memory_length
             && self.character_memory_length == other.character_memory_length
@@ -212,7 +244,6 @@ impl PartialEq for FullChunk {
             && self.string_memory_length == other.string_memory_length
             && self.list_memory_length == other.list_memory_length
             && self.function_memory_length == other.function_memory_length
-            && self.prototype_index == other.prototype_index
     }
 }
 
@@ -225,46 +256,13 @@ impl PartialOrd for FullChunk {
 impl Ord for FullChunk {
     fn cmp(&self, other: &Self) -> Ordering {
         self.name
-            .cmp(&other.name)
+            .as_ref()
+            .cmp(&other.name.as_ref())
             .then_with(|| self.r#type.cmp(&other.r#type))
             .then_with(|| self.instructions.cmp(&other.instructions))
             .then_with(|| self.positions.cmp(&other.positions))
-            .then_with(|| self.character_constants.cmp(&other.character_constants))
-            .then_with(|| {
-                for (left, right) in self.float_constants.iter().zip(&other.float_constants) {
-                    if left != right {
-                        return left.partial_cmp(right).unwrap_or(Ordering::Equal);
-                    }
-                }
-
-                Ordering::Equal
-            })
-            .then_with(|| self.integer_constants.cmp(&other.integer_constants))
-            .then_with(|| self.string_constants.cmp(&other.string_constants))
-            .then_with(|| {
-                for ((left_name, left_local), (right_name, right_local)) in
-                    self.locals.iter().zip(&other.locals)
-                {
-                    if left_name != right_name {
-                        return left_name.cmp(right_name);
-                    }
-
-                    if left_local != right_local {
-                        return left_local.cmp(right_local);
-                    }
-                }
-
-                Ordering::Equal
-            })
-            .then_with(|| {
-                for (left, right) in self.prototypes.iter().zip(&other.prototypes) {
-                    if left != right {
-                        return left.cmp(right);
-                    }
-                }
-
-                Ordering::Equal
-            })
+            .then_with(|| self.constants.cmp(&other.constants))
+            .then_with(|| self.locals.iter().cmp(other.locals.iter()))
             .then_with(|| self.arguments.cmp(&other.arguments))
             .then_with(|| self.prototype_index.cmp(&other.prototype_index))
     }

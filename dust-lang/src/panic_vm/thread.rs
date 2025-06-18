@@ -522,6 +522,41 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
                     }
                 }
 
+                // MODULO
+                Operation::MODULO => {
+                    let Modulo {
+                        destination,
+                        left,
+                        right,
+                        r#type,
+                    } = Modulo::from(&instruction);
+
+                    match r#type {
+                        OperandType::BYTE => {
+                            let left = get_byte!(left, memory, call.chunk, self.cells);
+                            let right = get_byte!(right, memory, call.chunk, self.cells);
+                            let remainder = left % right;
+
+                            set_byte!(destination, memory, self.cells, remainder);
+                        }
+                        OperandType::FLOAT => {
+                            let left = get_float!(left, memory, call.chunk, self.cells);
+                            let right = get_float!(right, memory, call.chunk, self.cells);
+                            let remainder = left % right;
+
+                            set_float!(destination, memory, self.cells, remainder);
+                        }
+                        OperandType::INTEGER => {
+                            let left = get_integer!(left, memory, call.chunk, self.cells);
+                            let right = get_integer!(right, memory, call.chunk, self.cells);
+                            let remainder = left % right;
+
+                            set_integer!(destination, memory, self.cells, remainder);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
+                    }
+                }
+
                 // EQUAL
                 Operation::EQUAL => {
                     let Equal {
@@ -752,6 +787,39 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
 
                     if boolean == comparator {
                         call.ip += 1;
+                    }
+                }
+
+                // NEGATE
+                Operation::NEGATE => {
+                    let Negate {
+                        destination,
+                        operand,
+                        r#type,
+                    } = Negate::from(&instruction);
+
+                    match r#type {
+                        OperandType::BOOLEAN => {
+                            let boolean = get_boolean!(operand, memory, call.chunk, self.cells);
+
+                            set_boolean!(destination, memory, self.cells, !boolean);
+                        }
+                        OperandType::BYTE => {
+                            let byte = get_byte!(operand, memory, call.chunk, self.cells);
+
+                            set_byte!(destination, memory, self.cells, !byte);
+                        }
+                        OperandType::FLOAT => {
+                            let float = get_float!(operand, memory, call.chunk, self.cells);
+
+                            set_float!(destination, memory, self.cells, -float);
+                        }
+                        OperandType::INTEGER => {
+                            let integer = get_integer!(operand, memory, call.chunk, self.cells);
+
+                            set_integer!(destination, memory, self.cells, -integer);
+                        }
+                        invalid => invalid_operand_type_panic!(invalid, operation),
                     }
                 }
 

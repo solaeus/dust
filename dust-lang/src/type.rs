@@ -38,6 +38,10 @@ impl Type {
         }))
     }
 
+    pub fn list(item_type: Type) -> Self {
+        Type::List(Box::new(item_type))
+    }
+
     pub fn as_concrete_type(&self) -> ConcreteType {
         match self {
             Type::Boolean => ConcreteType::Boolean,

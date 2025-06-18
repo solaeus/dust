@@ -25,13 +25,9 @@
 //! Both produce the same result, but the first is usually more concise. The structs are more useful
 //! when reading instructions, as shown below.
 //!
-//! Use the [`Address`][], [`Address`][] and [`AddressKind`][] types when creating instructions.
-//! In addition to being easy to read and write, this ensures that the instruction has the correct
-//! flags to represent the operands.
-//!
 //! ```
 //! # use dust_lang::instruction::{Add, Address, Instruction, MemoryKind, OperandType};
-//! // Add the integers at INT_H_4 and INT_H_6 then store the result in INT_H_42.
+//! // Add the integers at int_h_4 and int_h_6 then store the result in int_h_42.
 //! let add_1 = Instruction::add(
 //!     Address::heap(42),
 //!     Address::heap(4),

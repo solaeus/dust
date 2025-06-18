@@ -6,24 +6,20 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, DustString, FullChunk, FunctionType, Instruction, Local, OperandType, Span,
+    Address, DustString, FunctionType, Instruction, Local, OperandType, Span, Value,
     compiler::ChunkCompiler,
 };
 
 use super::{Chunk, Disassemble, Disassembler};
 
-#[derive(Clone, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StrippedChunk {
     pub(crate) name: Option<DustString>,
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
 
-    pub(crate) character_constants: Vec<char>,
-    pub(crate) float_constants: Vec<f64>,
-    pub(crate) integer_constants: Vec<i64>,
-    pub(crate) string_constants: Vec<DustString>,
-    pub(crate) prototypes: Vec<Arc<StrippedChunk>>,
+    pub(crate) constants: Vec<Value<Self>>,
     pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) boolean_memory_length: u16,
@@ -35,35 +31,6 @@ pub struct StrippedChunk {
     pub(crate) list_memory_length: u16,
     pub(crate) function_memory_length: u16,
     pub(crate) prototype_index: u16,
-}
-
-impl From<FullChunk> for StrippedChunk {
-    fn from(chunk: FullChunk) -> Self {
-        StrippedChunk {
-            name: chunk.name,
-            r#type: chunk.r#type,
-            instructions: chunk.instructions,
-            character_constants: chunk.character_constants,
-            float_constants: chunk.float_constants,
-            integer_constants: chunk.integer_constants,
-            string_constants: chunk.string_constants,
-            prototypes: chunk
-                .prototypes
-                .into_iter()
-                .map(|full_chunk| Arc::new(StrippedChunk::from(Arc::unwrap_or_clone(full_chunk))))
-                .collect(),
-            arguments: chunk.arguments,
-            boolean_memory_length: chunk.boolean_memory_length,
-            byte_memory_length: chunk.byte_memory_length,
-            character_memory_length: chunk.character_memory_length,
-            float_memory_length: chunk.float_memory_length,
-            integer_memory_length: chunk.integer_memory_length,
-            string_memory_length: chunk.string_memory_length,
-            list_memory_length: chunk.list_memory_length,
-            function_memory_length: chunk.function_memory_length,
-            prototype_index: chunk.prototype_index,
-        }
-    }
 }
 
 impl<'a> Chunk<'a> for StrippedChunk {
@@ -91,24 +58,8 @@ impl<'a> Chunk<'a> for StrippedChunk {
         None
     }
 
-    fn character_constants(&self) -> &[char] {
-        &self.character_constants
-    }
-
-    fn float_constants(&self) -> &[f64] {
-        &self.float_constants
-    }
-
-    fn integer_constants(&self) -> &[i64] {
-        &self.integer_constants
-    }
-
-    fn string_constants(&self) -> &[DustString] {
-        &self.string_constants
-    }
-
-    fn prototypes(&self) -> &[Arc<StrippedChunk>] {
-        &self.prototypes
+    fn constants(&self) -> &[Value<Self>] {
+        &self.constants
     }
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
