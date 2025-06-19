@@ -51,8 +51,8 @@ use std::{
 };
 
 use crate::{
-    Address, Chunk, DustError, DustString, FullChunk, FunctionType, Instruction, Lexer, List,
-    NativeFunction, Operation, Span, Token, TokenKind, Type, Value,
+    Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, List, NativeFunction,
+    Operation, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
     instruction::{Jump, Load, MemoryKind, OperandType},
@@ -72,7 +72,7 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
-pub fn compile<C: Chunk>(source: &str) -> Result<C, DustError> {
+pub fn compile<C: Chunk>(source: &'_ str) -> Result<C, DustError<'_>> {
     let compiler = Compiler::<C>::new();
     let Program { main_chunk, .. } = compiler
         .compile_program(None, source)
@@ -192,7 +192,7 @@ impl<C: Chunk> Compiler<C> {
     }
 }
 
-impl<'a, C: 'a + Chunk> Default for Compiler<C> {
+impl<C: Chunk> Default for Compiler<C> {
     fn default() -> Self {
         Self::new()
     }
@@ -205,6 +205,7 @@ pub struct CompiledData<C> {
     pub positions: Vec<Span>,
     pub constants: Vec<Value<C>>,
     pub arguments: Vec<Vec<(Address, OperandType)>>,
+    pub parameters: Vec<Address>,
     pub locals: IndexMap<Path, Local>,
     pub boolean_memory_length: u16,
     pub byte_memory_length: u16,
@@ -220,14 +221,14 @@ pub struct CompiledData<C> {
 impl<C> CompiledData<C> {
     fn new<const REGISTER_COUNT: usize>(chunk_compiler: ChunkCompiler<C, REGISTER_COUNT>) -> Self {
         let name = chunk_compiler.mode.into_name();
-        let mut boolean_memory_length = chunk_compiler.minimum_boolean_memory_index;
-        let mut byte_memory_length = chunk_compiler.minimum_byte_memory_index;
-        let mut character_memory_length = chunk_compiler.minimum_character_memory_index;
-        let mut float_memory_length = chunk_compiler.minimum_float_memory_index;
-        let mut integer_memory_length = chunk_compiler.minimum_integer_memory_index;
-        let mut string_memory_length = chunk_compiler.minimum_string_memory_index;
-        let mut list_memory_length = chunk_compiler.minimum_list_memory_index;
-        let mut function_memory_length = chunk_compiler.minimum_function_memory_index;
+        let mut boolean_memory_length = chunk_compiler.minimum_boolean_memory_index + 1;
+        let mut byte_memory_length = chunk_compiler.minimum_byte_memory_index + 1;
+        let mut character_memory_length = chunk_compiler.minimum_character_memory_index + 1;
+        let mut float_memory_length = chunk_compiler.minimum_float_memory_index + 1;
+        let mut integer_memory_length = chunk_compiler.minimum_integer_memory_index + 1;
+        let mut string_memory_length = chunk_compiler.minimum_string_memory_index + 1;
+        let mut list_memory_length = chunk_compiler.minimum_list_memory_index + 1;
+        let mut function_memory_length = chunk_compiler.minimum_function_memory_index + 1;
         let (instructions, positions) = chunk_compiler
             .instructions
             .into_iter()
@@ -274,7 +275,7 @@ impl<C> CompiledData<C> {
         let value_arguments = chunk_compiler
             .arguments
             .into_iter()
-            .map(|(values, _types)| values)
+            .map(|Arguments { values, .. }| values)
             .collect::<Vec<_>>();
 
         CompiledData {
@@ -284,6 +285,7 @@ impl<C> CompiledData<C> {
             positions,
             constants: chunk_compiler.constants,
             arguments: value_arguments,
+            parameters: chunk_compiler.parameters,
             locals: chunk_compiler.locals,
             boolean_memory_length,
             byte_memory_length,
@@ -296,6 +298,12 @@ impl<C> CompiledData<C> {
             prototype_index: chunk_compiler.prototype_index,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct Arguments {
+    pub values: Vec<(Address, OperandType)>,
+    pub types: Vec<Type>,
 }
 
 #[derive(Debug)]
@@ -324,7 +332,10 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     locals: IndexMap<Path, Local>,
 
     /// Arguments for each function call.
-    arguments: Vec<(Vec<(Address, OperandType)>, Vec<Type>)>,
+    arguments: Vec<Arguments>,
+
+    /// Addresses where arguments should be bound when the compiler's chunk is called as a function.
+    parameters: Vec<Address>,
 
     minimum_boolean_memory_index: u16,
     minimum_byte_memory_index: u16,
@@ -388,6 +399,7 @@ where
             constants: Vec::new(),
             locals: IndexMap::new(),
             arguments: Vec::new(),
+            parameters: Vec::new(),
             lexer,
             minimum_byte_memory_index: 0,
             minimum_boolean_memory_index: 0,
@@ -552,7 +564,7 @@ where
             }
         }
 
-        for (values, _) in &self.arguments {
+        for Arguments { values, .. } in &self.arguments {
             for (address, operand_type) in values {
                 increment_rank(*address, *operand_type, 2);
             }
@@ -682,11 +694,23 @@ where
             }
         }
 
-        for arguments in &mut self.arguments {
-            for (address, r#type) in &mut arguments.0 {
+        for Arguments { values, .. } in &mut self.arguments {
+            for (address, r#type) in values {
                 if let Some(replacement) = replacements.get(&(*address, *r#type)) {
                     *address = *replacement;
                 }
+            }
+        }
+
+        for (parameter, r#type) in self
+            .parameters
+            .iter_mut()
+            .zip(self.r#type.value_parameters.iter())
+        {
+            let r#type = r#type.as_operand_type();
+
+            if let Some(replacement) = replacements.get(&(*parameter, r#type)) {
+                *parameter = *replacement;
             }
         }
     }
@@ -1033,13 +1057,19 @@ where
     }
 
     fn push_constant_or_get_index(&mut self, constant: Value<C>) -> u16 {
-        match self.constants.binary_search(&constant) {
-            Ok(index) => index as u16,
-            Err(index) => {
-                self.constants.insert(index, constant);
+        let found_index = self
+            .constants
+            .iter()
+            .position(|existing| existing == &constant);
 
-                index as u16
-            }
+        if let Some(index) = found_index {
+            index as u16
+        } else {
+            let index = self.constants.len() as u16;
+
+            self.constants.push(constant);
+
+            index
         }
     }
 
@@ -1185,8 +1215,9 @@ where
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
+            let character = Value::character(character);
             let destination = self.next_character_heap_index();
-            let constant_index = self.push_constant_or_get_index(Value::Character(character));
+            let constant_index = self.push_constant_or_get_index(character);
             let load_constant = Instruction::load(
                 Address::heap(destination),
                 Address::constant(constant_index),
@@ -1872,37 +1903,26 @@ where
                     self.bring_item_into_local_scope(variable_path, item, item_position);
 
                 (local_address, item_type, false)
-            } else if let CompileMode::Function { name, .. } = &self.mode {
-                if *name == Some(variable_path) {
-                    let destination_index = self.next_function_heap_index();
-                    let destination = Address::heap(destination_index);
-                    let load_self = Instruction::load(
-                        destination,
-                        Address::function_self(),
-                        OperandType::FUNCTION,
-                        false,
-                    );
+            } else if let CompileMode::Function { name, .. } = &self.mode
+                && *name == Some(variable_path)
+            {
+                let destination_index = self.next_function_heap_index();
+                let destination = Address::heap(destination_index);
+                let load = Instruction::load(
+                    destination,
+                    Address::function_self(),
+                    OperandType::FUNCTION,
+                    false,
+                );
 
-                    self.emit_instruction(load_self, Type::FunctionSelf, variable_position);
+                self.emit_instruction(load, Type::FunctionSelf, variable_position);
 
-                    return Ok(());
-                } else if self.allow_native_functions
-                    && let Some(native_function) = NativeFunction::from_str(identifier)
-                {
-                    return self.parse_call_native(native_function, variable_position);
-                }
-
-                return Err(CompileError::UndeclaredVariable {
-                    identifier: identifier.to_string(),
-                    position: variable_position,
-                });
+                return Ok(());
+            } else if self.allow_native_functions
+                && let Some(native_function) = NativeFunction::from_str(identifier)
+            {
+                return self.parse_call_native(native_function, variable_position);
             } else {
-                if self.allow_native_functions
-                    && let Some(native_function) = NativeFunction::from_str(identifier)
-                {
-                    return self.parse_call_native(native_function, variable_position);
-                }
-
                 return Err(CompileError::UndeclaredVariable {
                     identifier: identifier.to_string(),
                     position: variable_position,
@@ -2598,10 +2618,11 @@ where
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else if let Some((last_instruction, last_instruction_type, _)) = self.instructions.last()
         {
-            let should_return_value = last_instruction_type != &Type::None;
-            let return_address = last_instruction.destination();
-            let operand_type = last_instruction.operand_type();
-            let r#return = Instruction::r#return(should_return_value, return_address, operand_type);
+            let operand_type = last_instruction_type.as_operand_type();
+            let return_value_address = last_instruction.destination();
+            let should_return_value = operand_type != OperandType::NONE;
+            let r#return =
+                Instruction::r#return(should_return_value, return_value_address, operand_type);
 
             self.update_return_type(last_instruction_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -2692,8 +2713,6 @@ where
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            println!("{text}");
-
             let path = Path::new(text).ok_or_else(|| CompileError::InvalidPath {
                 found: text.to_string(),
                 position: self.current_position,
@@ -2749,20 +2768,67 @@ where
             let r#type = function_compiler.parse_type()?;
 
             let local_memory_index = match r#type {
-                Type::Boolean => function_compiler.next_boolean_heap_index(),
-                Type::Byte => function_compiler.next_byte_heap_index(),
-                Type::Character => function_compiler.next_character_heap_index(),
-                Type::Float => function_compiler.next_float_heap_index(),
-                Type::Integer => function_compiler.next_integer_heap_index(),
-                Type::String => function_compiler.next_string_heap_index(),
-                Type::List(_) => function_compiler.next_list_heap_index(),
-                Type::Function(_) | Type::FunctionSelf => {
-                    function_compiler.next_function_heap_index()
+                Type::Boolean => {
+                    let next_boolean_index = function_compiler.next_boolean_heap_index();
+
+                    function_compiler.minimum_boolean_memory_index += 1;
+
+                    next_boolean_index
+                }
+                Type::Byte => {
+                    let next_byte_index = function_compiler.next_byte_heap_index();
+
+                    function_compiler.minimum_byte_memory_index += 1;
+
+                    next_byte_index
+                }
+                Type::Character => {
+                    let next_character_index = function_compiler.next_character_heap_index();
+
+                    function_compiler.minimum_character_memory_index += 1;
+
+                    next_character_index
+                }
+                Type::Float => {
+                    let next_float_index = function_compiler.next_float_heap_index();
+
+                    function_compiler.minimum_float_memory_index += 1;
+
+                    next_float_index
+                }
+                Type::Integer => {
+                    let next_integer_index = function_compiler.next_integer_heap_index();
+
+                    function_compiler.minimum_integer_memory_index += 1;
+
+                    next_integer_index
+                }
+                Type::String => {
+                    let next_string_index = function_compiler.next_string_heap_index();
+
+                    function_compiler.minimum_string_memory_index += 1;
+
+                    next_string_index
+                }
+                Type::List(_) => {
+                    let next_list_index = function_compiler.next_list_heap_index();
+
+                    function_compiler.minimum_list_memory_index += 1;
+
+                    next_list_index
+                }
+                Type::Function(_) => {
+                    let next_function_index = function_compiler.next_function_heap_index();
+
+                    function_compiler.minimum_function_memory_index += 1;
+
+                    next_function_index
                 }
                 _ => todo!(),
             };
             let address = Address::heap(local_memory_index);
 
+            function_compiler.parameters.push(address);
             function_compiler.declare_local(
                 parameter,
                 address,
@@ -2795,9 +2861,9 @@ where
         let function_end = function_compiler.previous_position.1;
         let compiled_data = CompiledData::new(function_compiler);
         let chunk = C::new(compiled_data);
-        let address = Address::heap(memory_index);
+        let destination = Address::heap(memory_index);
         let load_function = Instruction::load(
-            Address::heap(memory_index),
+            destination,
             Address::constant(chunk.prototype_index()),
             OperandType::FUNCTION,
             false,
@@ -2807,7 +2873,7 @@ where
         if let Some(identifier) = path {
             self.declare_local(
                 identifier,
-                address,
+                destination,
                 r#type.clone(),
                 false,
                 self.current_block_scope,
@@ -2843,8 +2909,8 @@ where
                 });
             }
         };
-        let type_argument_list = Vec::new();
-        let mut value_argument_list = Vec::new();
+        let type_arguments = Vec::new();
+        let mut value_arguments = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
@@ -2869,13 +2935,15 @@ where
                 }
             };
 
-            value_argument_list.push((argument_address, r#type.as_operand_type()));
+            value_arguments.push((argument_address, r#type.as_operand_type()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments
-            .push((value_argument_list, type_argument_list));
+        self.arguments.push(Arguments {
+            values: value_arguments,
+            types: type_arguments,
+        });
 
         let end = self.current_position.1;
         let return_operand_type = function_return_type.as_operand_type();
@@ -2897,13 +2965,13 @@ where
         function: NativeFunction<C>,
         start: Span,
     ) -> Result<(), CompileError> {
-        let mut type_argument_list = Vec::new();
+        let mut types_arguments = Vec::new();
 
         if self.allow(Token::Less)? {
             while !self.allow(Token::Greater)? {
                 let r#type = self.parse_type()?;
 
-                type_argument_list.push(r#type);
+                types_arguments.push(r#type);
 
                 self.allow(Token::Comma)?;
             }
@@ -2911,7 +2979,7 @@ where
 
         self.expect(Token::LeftParenthesis)?;
 
-        let mut value_argument_list = Vec::new();
+        let mut value_arguments = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
@@ -2937,13 +3005,15 @@ where
                 }
             };
 
-            value_argument_list.push((argument_address, r#type.as_operand_type()));
+            value_arguments.push((argument_address, r#type.as_operand_type()));
         }
 
         let argument_list_index = self.arguments.len() as u16;
 
-        self.arguments
-            .push((value_argument_list, type_argument_list));
+        self.arguments.push(Arguments {
+            values: value_arguments,
+            types: types_arguments,
+        });
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();
@@ -3452,83 +3522,5 @@ where
         }
 
         Ok(())
-    }
-}
-
-impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUNT> {
-    pub fn finish(self) -> FullChunk {
-        let name = self.mode.into_name();
-        let mut boolean_memory_length = 0;
-        let mut byte_memory_length = 0;
-        let mut character_memory_length = 0;
-        let mut float_memory_length = 0;
-        let mut integer_memory_length = 0;
-        let mut string_memory_length = 0;
-        let mut list_memory_length = 0;
-        let mut function_memory_length = 0;
-        let mut instructions = Vec::with_capacity(self.instructions.len());
-        let mut positions = Vec::with_capacity(self.instructions.len());
-
-        for (instruction, r#type, position) in self.instructions {
-            if instruction.yields_value() {
-                match r#type {
-                    Type::Boolean => {
-                        boolean_memory_length =
-                            boolean_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Byte => {
-                        byte_memory_length = byte_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Character => {
-                        character_memory_length =
-                            character_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Float => {
-                        float_memory_length = float_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Integer => {
-                        integer_memory_length =
-                            integer_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::String => {
-                        string_memory_length = string_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::List(_) => {
-                        list_memory_length = list_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Function(_) => {
-                        function_memory_length =
-                            function_memory_length.max(instruction.a_field() + 1);
-                    }
-                    _ => {}
-                }
-            }
-
-            instructions.push(instruction);
-            positions.push(position);
-        }
-
-        FullChunk {
-            name,
-            r#type: self.r#type,
-            instructions,
-            positions,
-            constants: self.constants,
-            locals: self.locals,
-            arguments: self
-                .arguments
-                .into_iter()
-                .map(|(values, _)| values)
-                .collect(),
-            boolean_memory_length,
-            byte_memory_length,
-            character_memory_length,
-            float_memory_length,
-            integer_memory_length,
-            string_memory_length,
-            list_memory_length,
-            function_memory_length,
-            prototype_index: self.prototype_index,
-        }
     }
 }

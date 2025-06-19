@@ -399,7 +399,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
     }
 
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
-        fn write_non_prototype_constants<'a, 'w, C, W>(
+        fn write_constants<'a, 'w, C, W>(
             disassembler: &mut Disassembler<'a, 'w, C, W>,
             constants: &'a [Value<C>],
         ) -> Result<(), io::Error>
@@ -407,11 +407,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
             C: Chunk,
             W: Write,
         {
-            for (index, value) in constants
-                .iter()
-                .enumerate()
-                .take_while(|(_, value)| !matches!(value, Value::Function(_)))
-            {
+            for (index, value) in constants.iter().enumerate() {
                 let r#type = value.r#type();
                 let operand_type = r#type.as_operand_type();
                 let type_display = r#type.to_string();
@@ -472,7 +468,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
         self.write_center_border(CONSTANT_BORDERS[0])?;
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
-        write_non_prototype_constants(self, self.chunk.constants())?;
+        write_constants(self, self.chunk.constants())?;
         self.write_center_border(CONSTANT_BORDERS[2])?;
         write_prototypes(self, self.chunk.constants())?;
 

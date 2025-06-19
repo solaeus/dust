@@ -4,7 +4,7 @@ use std::{
     thread::{Builder, JoinHandle},
 };
 
-use tracing::{Level, error, info, span, warn};
+use tracing::{Level, info, span, warn};
 
 use crate::{
     Address, Chunk, DustString, Operation, Value,
@@ -55,7 +55,7 @@ struct ThreadRunner<C> {
 }
 
 impl<C: Chunk> ThreadRunner<C> {
-    fn run(mut self) -> Option<Value<C>> {
+    fn run(self) -> Option<Value<C>> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
@@ -71,7 +71,11 @@ impl<C: Chunk> ThreadRunner<C> {
         let mut call_stack = Vec::<CallFrame<C>>::new();
         let mut memory_stack = Vec::<Memory<C>>::new();
 
-        let mut call = CallFrame::new(Arc::clone(&self.chunk), Address::default());
+        let mut call = CallFrame::new(
+            Arc::clone(&self.chunk),
+            Address::default(),
+            OperandType::NONE,
+        );
         let mut memory = Memory::new(&*call.chunk);
 
         loop {
@@ -823,18 +827,108 @@ impl<C: Chunk> ThreadRunner<C> {
                     }
                 }
 
-                // JUMP
-                Operation::JUMP => {
-                    let Jump {
-                        offset,
-                        is_positive,
-                    } = Jump::from(&instruction);
+                // CALL
+                Operation::CALL => {
+                    let Call {
+                        destination,
+                        function,
+                        argument_list_index,
+                        return_type,
+                    } = Call::from(&instruction);
 
-                    if is_positive {
-                        call.ip += offset as usize;
-                    } else {
-                        call.ip -= offset as usize + 1;
+                    let chunk = Arc::clone(&call.chunk);
+                    let arguments_list = chunk.arguments();
+                    let index = argument_list_index as usize;
+
+                    assert!(
+                        index < arguments_list.len(),
+                        "Argument list index out of bounds"
+                    );
+
+                    let arguments = &arguments_list[index];
+                    let function = get_function!(function, memory, &call.chunk, self.cells);
+
+                    let mut new_memory = Memory::new(&*function);
+                    let new_call = CallFrame::new(function, destination, return_type);
+
+                    for ((argument_address, r#type), parameter_address) in
+                        arguments.iter().zip(new_call.chunk.parameters().iter())
+                    {
+                        match *r#type {
+                            OperandType::BOOLEAN => {
+                                let boolean =
+                                    get_boolean!(argument_address, memory, call.chunk, self.cells);
+
+                                set_boolean!(parameter_address, new_memory, self.cells, boolean);
+                            }
+                            OperandType::BYTE => {
+                                let byte =
+                                    get_byte!(argument_address, memory, call.chunk, self.cells);
+
+                                set_byte!(parameter_address, new_memory, self.cells, byte);
+                            }
+                            OperandType::CHARACTER => {
+                                let character = get_character!(
+                                    argument_address,
+                                    memory,
+                                    call.chunk,
+                                    self.cells
+                                );
+
+                                set_character!(
+                                    parameter_address,
+                                    new_memory,
+                                    self.cells,
+                                    character
+                                );
+                            }
+                            OperandType::FLOAT => {
+                                let float =
+                                    get_float!(argument_address, memory, call.chunk, self.cells);
+
+                                set_float!(parameter_address, new_memory, self.cells, float);
+                            }
+                            OperandType::INTEGER => {
+                                let integer =
+                                    get_integer!(argument_address, memory, call.chunk, self.cells);
+
+                                set_integer!(parameter_address, new_memory, self.cells, integer);
+                            }
+                            OperandType::STRING => {
+                                let string =
+                                    get_string!(argument_address, memory, call.chunk, self.cells);
+
+                                set_string!(parameter_address, new_memory, self.cells, string);
+                            }
+                            OperandType::LIST_BOOLEAN
+                            | OperandType::LIST_BYTE
+                            | OperandType::LIST_CHARACTER
+                            | OperandType::LIST_FLOAT
+                            | OperandType::LIST_INTEGER
+                            | OperandType::LIST_STRING
+                            | OperandType::LIST_LIST
+                            | OperandType::LIST_FUNCTION => {
+                                let list =
+                                    get_list!(argument_address, memory, call.chunk, self.cells);
+
+                                set_list!(parameter_address, new_memory, self.cells, list);
+                            }
+                            OperandType::FUNCTION => {
+                                let function = get_function!(
+                                    argument_address,
+                                    memory,
+                                    &call.chunk,
+                                    self.cells
+                                );
+
+                                set_function!(parameter_address, new_memory, self.cells, function);
+                            }
+                            invalid => invalid_operand_type_panic!(invalid, operation),
+                        }
                     }
+
+                    call_stack.push(replace(&mut call, new_call));
+                    memory_stack.push(replace(&mut memory, new_memory));
                 }
 
                 // CALL_NATIVE
@@ -861,8 +955,23 @@ impl<C: Chunk> ThreadRunner<C> {
                         arguments,
                         &mut call,
                         &mut memory,
+                        &self.cells,
                         &self.threads,
                     );
+                }
+
+                // JUMP
+                Operation::JUMP => {
+                    let Jump {
+                        offset,
+                        is_positive,
+                    } = Jump::from(&instruction);
+
+                    if is_positive {
+                        call.ip += offset as usize;
+                    } else {
+                        call.ip -= offset as usize + 1;
+                    }
                 }
 
                 // RETURN
@@ -961,6 +1070,116 @@ impl<C: Chunk> ThreadRunner<C> {
                             return Some(return_value);
                         } else {
                             return None;
+                        }
+                    }
+
+                    let mut old_memory = replace(
+                        &mut memory,
+                        memory_stack.pop().expect("Memory stack underflow"),
+                    );
+                    let old_call =
+                        replace(&mut call, call_stack.pop().expect("Call stack underflow"));
+
+                    if should_return_value {
+                        match r#type {
+                            OperandType::BOOLEAN => {
+                                let boolean = take_or_decode_boolean!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_boolean!(old_call.return_address, memory, self.cells, boolean);
+                            }
+                            OperandType::BYTE => {
+                                let byte = take_or_decode_byte!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_byte!(old_call.return_address, memory, self.cells, byte);
+                            }
+                            OperandType::CHARACTER => {
+                                let character = take_or_get_character!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_character!(
+                                    old_call.return_address,
+                                    memory,
+                                    self.cells,
+                                    character
+                                );
+                            }
+                            OperandType::FLOAT => {
+                                let float = take_or_get_float!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_float!(old_call.return_address, memory, self.cells, float);
+                            }
+                            OperandType::INTEGER => {
+                                let integer = take_or_get_integer!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_integer!(old_call.return_address, memory, self.cells, integer);
+                            }
+                            OperandType::STRING => {
+                                let string = take_or_get_string!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_string!(old_call.return_address, memory, self.cells, string);
+                            }
+                            OperandType::LIST_BOOLEAN
+                            | OperandType::LIST_BYTE
+                            | OperandType::LIST_CHARACTER
+                            | OperandType::LIST_FLOAT
+                            | OperandType::LIST_INTEGER
+                            | OperandType::LIST_STRING
+                            | OperandType::LIST_LIST
+                            | OperandType::LIST_FUNCTION => {
+                                let list = take_or_get_list!(
+                                    return_value_address,
+                                    old_memory,
+                                    old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_list!(old_call.return_address, memory, self.cells, list);
+                            }
+                            OperandType::FUNCTION => {
+                                let function = take_or_get_function!(
+                                    return_value_address,
+                                    old_memory,
+                                    &old_call.chunk,
+                                    self.cells
+                                );
+
+                                set_function!(
+                                    old_call.return_address,
+                                    memory,
+                                    self.cells,
+                                    function
+                                );
+                            }
+                            invalid => invalid_operand_type_panic!(invalid, operation),
                         }
                     }
                 }

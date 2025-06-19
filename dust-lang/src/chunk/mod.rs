@@ -42,6 +42,8 @@ pub trait Chunk:
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>];
 
+    fn parameters(&self) -> &[Address];
+
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>>;
 
     fn boolean_memory_length(&self) -> u16;

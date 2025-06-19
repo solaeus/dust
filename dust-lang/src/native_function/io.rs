@@ -1,6 +1,8 @@
+use std::sync::{Arc, RwLock};
+
 use crate::{
-    Address, OperandType,
-    panic_vm::{CallFrame, Memory, ThreadPool},
+    Address, Chunk, OperandType,
+    panic_vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
 };
 
 pub fn read_line<C>(
@@ -8,17 +10,21 @@ pub fn read_line<C>(
     _: &[(Address, OperandType)],
     _: &mut CallFrame<C>,
     memory: &mut Memory<C>,
+    cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _: &ThreadPool<C>,
 ) {
     todo!()
 }
 
-pub fn write_line<C>(
+pub fn write_line<C: Chunk>(
     _: Address,
     arguments: &[(Address, OperandType)],
-    _: &mut CallFrame<C>,
+    call: &mut CallFrame<C>,
     memory: &mut Memory<C>,
+    cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _: &ThreadPool<C>,
 ) {
-    todo!()
+    let output = get_string!(arguments[0].0, memory, call.chunk, cells);
+
+    println!("{output}");
 }

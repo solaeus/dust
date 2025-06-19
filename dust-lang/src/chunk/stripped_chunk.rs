@@ -1,6 +1,5 @@
 use std::{
     fmt::{Debug, Display},
-    marker::PhantomData,
     sync::Arc,
 };
 
@@ -13,7 +12,7 @@ use crate::{
 
 use super::{Chunk, Disassemble, Disassembler};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StrippedChunk {
     pub(crate) name: Option<Path>,
     pub(crate) r#type: FunctionType,
@@ -22,6 +21,7 @@ pub struct StrippedChunk {
 
     pub(crate) constants: Vec<Value<Self>>,
     pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
+    pub(super) parameters: Vec<Address>,
 
     pub(crate) boolean_memory_length: u16,
     pub(crate) byte_memory_length: u16,
@@ -42,6 +42,7 @@ impl Chunk for StrippedChunk {
             instructions: data.instructions,
             constants: data.constants,
             arguments: data.arguments,
+            parameters: data.parameters,
             boolean_memory_length: data.boolean_memory_length,
             byte_memory_length: data.byte_memory_length,
             character_memory_length: data.character_memory_length,
@@ -84,6 +85,10 @@ impl Chunk for StrippedChunk {
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
         &self.arguments
+    }
+
+    fn parameters(&self) -> &[Address] {
+        &self.parameters
     }
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
@@ -139,152 +144,5 @@ impl Disassemble for StrippedChunk {
 impl Display for StrippedChunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.r#type)
-    }
-}
-
-impl<'de> Deserialize<'de> for StrippedChunk {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct StrippedChunkVisitor<'de> {
-            _marker: std::marker::PhantomData<&'de ()>,
-        }
-
-        impl<'de> serde::de::Visitor<'de> for StrippedChunkVisitor<'de> {
-            type Value = StrippedChunk;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a StrippedChunk struct")
-            }
-
-            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
-            where
-                M: serde::de::MapAccess<'de>,
-            {
-                let mut name = None;
-                let mut r#type = FunctionType::default();
-                let mut instructions = Vec::new();
-                let mut constants = Vec::new();
-                let mut arguments = Vec::new();
-                let mut boolean_memory_length = 0;
-                let mut byte_memory_length = 0;
-                let mut character_memory_length = 0;
-                let mut float_memory_length = 0;
-                let mut integer_memory_length = 0;
-                let mut string_memory_length = 0;
-                let mut list_memory_length = 0;
-                let mut function_memory_length = 0;
-                let mut prototype_index = 0;
-
-                while let Some(key) = access.next_key::<&str>()? {
-                    match key {
-                        "name" => {
-                            name = access.next_value()?;
-                        }
-                        "r#type" => {
-                            r#type = access.next_value()?;
-                        }
-                        "instructions" => {
-                            instructions = access.next_value()?;
-                        }
-                        "constants" => {
-                            constants = access.next_value()?;
-                        }
-                        "arguments" => {
-                            arguments = access.next_value()?;
-                        }
-                        "boolean_memory_length" => {
-                            boolean_memory_length = access.next_value()?;
-                        }
-                        "byte_memory_length" => {
-                            byte_memory_length = access.next_value()?;
-                        }
-                        "character_memory_length" => {
-                            character_memory_length = access.next_value()?;
-                        }
-                        "float_memory_length" => {
-                            float_memory_length = access.next_value()?;
-                        }
-                        "integer_memory_length" => {
-                            integer_memory_length = access.next_value()?;
-                        }
-                        "string_memory_length" => {
-                            string_memory_length = access.next_value()?;
-                        }
-                        "list_memory_length" => {
-                            list_memory_length = access.next_value()?;
-                        }
-                        "function_memory_length" => {
-                            function_memory_length = access.next_value()?;
-                        }
-                        "prototype_index" => {
-                            prototype_index = access.next_value()?;
-                        }
-                        _ => {
-                            return Err(serde::de::Error::unknown_field(
-                                key,
-                                &[
-                                    "name",
-                                    "r#type",
-                                    "instructions",
-                                    "constants",
-                                    "arguments",
-                                    "boolean_memory_length",
-                                    "byte_memory_length",
-                                    "character_memory_length",
-                                    "float_memory_length",
-                                    "integer_memory_length",
-                                    "string_memory_length",
-                                    "list_memory_length",
-                                    "function_memory_length",
-                                    "prototype_index",
-                                ],
-                            ));
-                        }
-                    }
-                }
-
-                Ok(StrippedChunk {
-                    name,
-                    r#type,
-                    instructions,
-                    constants,
-                    arguments,
-                    boolean_memory_length,
-                    byte_memory_length,
-                    character_memory_length,
-                    float_memory_length,
-                    integer_memory_length,
-                    string_memory_length,
-                    list_memory_length,
-                    function_memory_length,
-                    prototype_index,
-                })
-            }
-        }
-
-        deserializer.deserialize_struct(
-            "StrippedChunk",
-            &[
-                "name",
-                "r#type",
-                "instructions",
-                "constants",
-                "arguments",
-                "boolean_memory_length",
-                "byte_memory_length",
-                "character_memory_length",
-                "float_memory_length",
-                "integer_memory_length",
-                "string_memory_length",
-                "list_memory_length",
-                "function_memory_length",
-                "prototype_index",
-            ],
-            StrippedChunkVisitor {
-                _marker: PhantomData,
-            },
-        )
     }
 }

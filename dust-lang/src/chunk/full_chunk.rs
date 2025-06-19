@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Address, Disassembler, FunctionType, Instruction, List, Local, Path, Span, Value,
-    chunk::Disassemble,
-    compiler::{ChunkCompiler, CompiledData},
-    instruction::OperandType,
+    chunk::Disassemble, compiler::CompiledData, instruction::OperandType,
 };
 
 use super::{Chunk, StrippedChunk};
@@ -29,6 +27,7 @@ pub struct FullChunk {
 
     pub(crate) constants: Vec<Value<Self>>,
     pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
+    pub(crate) parameters: Vec<Address>,
     pub(crate) locals: IndexMap<Path, Local>,
 
     pub(crate) boolean_memory_length: u16,
@@ -94,6 +93,7 @@ impl FullChunk {
                 })
                 .collect(),
             arguments: self.arguments,
+            parameters: self.parameters,
             boolean_memory_length: self.boolean_memory_length,
             byte_memory_length: self.byte_memory_length,
             character_memory_length: self.character_memory_length,
@@ -116,6 +116,7 @@ impl Chunk for FullChunk {
             positions: data.positions,
             constants: data.constants,
             arguments: data.arguments,
+            parameters: data.parameters,
             locals: data.locals,
             boolean_memory_length: data.boolean_memory_length,
             byte_memory_length: data.byte_memory_length,
@@ -161,6 +162,10 @@ impl Chunk for FullChunk {
         &self.arguments
     }
 
+    fn parameters(&self) -> &[Address] {
+        &self.parameters
+    }
+
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
         Some(self.locals.iter())
     }
@@ -202,12 +207,6 @@ impl Chunk for FullChunk {
     }
 }
 
-impl<'a> From<ChunkCompiler<'a, Self>> for FullChunk {
-    fn from(compiler: ChunkCompiler<'a, Self>) -> Self {
-        compiler.finish()
-    }
-}
-
 impl Disassemble for FullChunk {
     fn disassembler<'a, 'w, W: std::io::Write>(
         &'a self,
@@ -217,7 +216,7 @@ impl Disassemble for FullChunk {
     }
 }
 
-impl<'a> Display for FullChunk {
+impl Display for FullChunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.r#type)
     }

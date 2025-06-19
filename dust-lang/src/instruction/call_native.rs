@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{NativeFunction, OperandType};
+use crate::{Chunk, NativeFunction, OperandType};
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
@@ -10,7 +10,7 @@ pub struct CallNative<C> {
     pub argument_list_index: u16,
 }
 
-impl<C> From<&Instruction> for CallNative<C> {
+impl<C: Chunk> From<&Instruction> for CallNative<C> {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from_index(instruction.b_field());
@@ -46,7 +46,7 @@ impl<C> From<CallNative<C>> for Instruction {
     }
 }
 
-impl<C> Display for CallNative<C> {
+impl<C: Chunk> Display for CallNative<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let CallNative {
             destination,

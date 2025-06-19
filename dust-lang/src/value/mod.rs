@@ -246,16 +246,23 @@ impl<C: Ord> Ord for Value<C> {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
+            (Value::Boolean(_), _) => Ordering::Less,
             (Value::Byte(left), Value::Byte(right)) => left.cmp(right),
+            (Value::Byte(_), _) => Ordering::Less,
             (Value::Character(left), Value::Character(right)) => left.cmp(right),
+            (Value::Character(_), _) => Ordering::Less,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
+            (Value::Float(_), _) => Ordering::Less,
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
+            (Value::Integer(_), _) => Ordering::Less,
             (Value::String(left), Value::String(right)) => left.cmp(right),
+            (Value::String(_), _) => Ordering::Less,
             (Value::List(left), Value::List(right)) => left.cmp(right),
+            (Value::List(_), _) => Ordering::Less,
             (Value::Function(left), Value::Function(right)) => {
                 Arc::as_ptr(left).cmp(&Arc::as_ptr(right))
             }
-            _ => Ordering::Equal,
+            (Value::Function(_), _) => Ordering::Greater,
         }
     }
 }

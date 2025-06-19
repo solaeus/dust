@@ -9,6 +9,7 @@ mod thread;
 use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
+    sync::{Arc, RwLock},
 };
 
 use serde::{Deserialize, Serialize};
@@ -16,8 +17,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::{
-    Address, FunctionType, OperandType, Type,
-    panic_vm::{CallFrame, Memory, ThreadPool},
+    Address, Chunk, FunctionType, OperandType, Type,
+    panic_vm::{CallFrame, Cell, Memory, ThreadPool},
 };
 
 pub type NativeFunctionLogic<C> = fn(
@@ -25,6 +26,7 @@ pub type NativeFunctionLogic<C> = fn(
     arguments: &[(Address, OperandType)],
     call: &mut CallFrame<C>,
     memory: &mut Memory<C>,
+    cells: &Arc<RwLock<Vec<Cell<C>>>>,
     threads: &ThreadPool<C>,
 );
 
@@ -39,7 +41,7 @@ macro_rules! define_native_function {
             _marker: PhantomData<C>,
         }
 
-        impl<C> NativeFunction<C> {
+        impl<C: Chunk> NativeFunction<C> {
             const LOOKUP_TABLE: [NativeFunctionLogic<C>; 5] = [
                 $(
                     $logic,
@@ -59,17 +61,17 @@ macro_rules! define_native_function {
                 arguments: &[(Address, OperandType)],
                 call: &mut CallFrame<C>,
                 memory: &mut Memory<C>,
+                cells: &Arc<RwLock<Vec<Cell<C>>>>,
                 threads: &ThreadPool<C>,
             ) {
-                $(
-                    Self::LOOKUP_TABLE[$index](
-                        destination,
-                        arguments,
-                        call,
-                        memory,
-                        threads,
-                    );
-                )*
+                Self::LOOKUP_TABLE[self.index as usize](
+                    destination,
+                    arguments,
+                    call,
+                    memory,
+                    cells,
+                    threads,
+                );
             }
 
             pub fn name(&self) -> &'static str {
@@ -115,7 +117,12 @@ macro_rules! define_native_function {
 
         impl<C> Display for NativeFunction<C> {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                write!(f, "{}", self.name())
+                match self.index {
+                    $(
+                        $index => write!(f, "{}", $name),
+                    )*
+                    _ => unreachable!(),
+                }
             }
         }
     }
@@ -126,6 +133,7 @@ fn no_op<C>(
     _arguments: &[(Address, OperandType)],
     _call: &mut CallFrame<C>,
     _memory: &mut Memory<C>,
+    _cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _threads: &ThreadPool<C>,
 ) {
     warn!("Running NO_OP native function")
@@ -140,9 +148,9 @@ define_native_function! {
     ),
     (
         1,
-        "_int_to_string",
+        "_int_to_str",
         FunctionType::new([], [Type::Integer], Type::String),
-        convert::int_to_string
+        convert::int_to_str
     ),
     (
         2,

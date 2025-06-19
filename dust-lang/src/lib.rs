@@ -58,7 +58,9 @@ pub use compiler::{
     compile,
 };
 pub use dust_error::{AnnotatedError, DustError};
-pub use instruction::{Address, Instruction, InstructionFields, OperandType, Operation};
+pub use instruction::{
+    Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
+};
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use panic::set_dust_panic_hook;

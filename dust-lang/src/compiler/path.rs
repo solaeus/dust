@@ -2,7 +2,7 @@ use std::{
     borrow::Borrow,
     fmt::{self, Display, Formatter},
     iter::repeat,
-    sync::{Arc, LazyLock, OnceLock},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use hashbrown::HashSet;
@@ -11,13 +11,10 @@ use smartstring::{LazyCompact, SmartString};
 
 use crate::{CompileError, Span};
 
-static mut PATH_CACHE: LazyLock<HashSet<Path>> = LazyLock::new(HashSet::new);
+static PATH_CACHE: LazyLock<Mutex<HashSet<Path>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 fn cache_path(path: Path) -> Path {
-    #[expect(static_mut_refs)]
-    unsafe {
-        PATH_CACHE.get_or_insert(path).clone()
-    }
+    PATH_CACHE.lock().unwrap().get_or_insert(path).clone()
 }
 
 /// A correctly formatted relative or absolute path to a module or value.
@@ -76,7 +73,7 @@ impl Path {
             })
     }
 
-    pub fn item<'a>(&'a self) -> Path {
+    pub fn item(&self) -> Path {
         self.inner()
             .rsplit("::")
             .next()

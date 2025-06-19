@@ -17,7 +17,7 @@ mod io {
 
 mod convert {
     fn int_to_str(value: int) -> str {
-        _int_to_string(value)
+        _int_to_str(value)
     }
 }
 

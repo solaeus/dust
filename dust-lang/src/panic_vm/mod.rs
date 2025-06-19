@@ -6,7 +6,7 @@ mod memory;
 mod thread;
 
 pub use call_frame::CallFrame;
-use cell::{Cell, CellValue};
+pub use cell::{Cell, CellValue};
 pub use memory::{Heap, HeapSlot, Memory, Stack};
 pub use thread::Thread;
 
@@ -18,7 +18,7 @@ use crate::{Chunk, DustError, StrippedChunk, Value, compile};
 
 pub type ThreadPool<C> = Arc<RwLock<Vec<Thread<C>>>>;
 
-pub fn run(source: &str) -> Result<Option<Value<StrippedChunk>>, DustError> {
+pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
     let chunk = compile::<StrippedChunk>(source)?;
     let vm = Vm::new(Arc::new(chunk));
 
@@ -30,7 +30,7 @@ pub struct Vm<C> {
     threads: ThreadPool<C>,
 }
 
-impl<'a, C> Vm<C>
+impl<C> Vm<C>
 where
     C: 'static + Chunk + Send + Sync,
 {

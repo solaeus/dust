@@ -122,6 +122,8 @@ macro_rules! take_or_get_integer {
 
 macro_rules! get_string {
     ($address: expr, $memory: expr, $chunk: expr, $cells: expr) => {{
+        use crate::instruction::MemoryKind;
+
         match $address.memory {
             MemoryKind::CONSTANT => get_constant!($address.index, $chunk)
                 .as_string_or_panic()
@@ -281,14 +283,15 @@ macro_rules! set_function {
 
 macro_rules! set_cell {
     ($index: expr, $cells: expr, $cell_value_variant: ident, $value: expr) => {{
+        use crate::panic_vm::CellValue;
+
         let index = $index as usize;
         let cells = read_lock_cells!($cells);
 
         assert!(index < cells.len(), "Cell index out of bounds");
 
-        let mut cell_value = cells[index].value.write().expect("Failed to write cell");
-
-        *cell_value = CellValue::$cell_value_variant($value);
+        *cells[index].lock.write().expect("Failed to lock cell") =
+            CellValue::$cell_value_variant($value);
     }};
 }
 
@@ -324,12 +327,14 @@ macro_rules! read_lock_cells {
 
 macro_rules! get_from_cell {
     ($index: expr, $cells: expr, $cell_value_variant: ident) => {{
+        use crate::panic_vm::CellValue;
+
         let index = $index as usize;
         let cells = read_lock_cells!($cells);
 
         assert!(index < cells.len(), "Cell index out of bounds");
 
-        let cell_value = cells[index].value.read().expect("Failed to read cell");
+        let cell_value = cells[index].lock.read().expect("Failed to read cell");
 
         if let CellValue::$cell_value_variant(value) = &*cell_value {
             value.clone()
@@ -342,7 +347,7 @@ macro_rules! get_from_cell {
 macro_rules! get_constant {
     ($index: expr, $chunk: expr) => {{
         let index = $index as usize;
-        let constants = &$chunk.constants();
+        let constants = $chunk.constants();
 
         assert!(index < constants.len(), "Constant index out of bounds");
 
@@ -352,6 +357,8 @@ macro_rules! get_constant {
 
 macro_rules! get_from_heap {
     ($index: expr, $memory: expr, $field: ident) => {{
+        use crate::panic_vm::HeapSlot;
+
         if let HeapSlot::Open(value) = get_heap_slot!($index, $memory, $field) {
             value.clone()
         } else {
@@ -448,7 +455,7 @@ macro_rules! take_from_cell {
 
         assert!(index < cells.len(), "Cell index out of bounds");
 
-        let mut cell_value = cells[index].value.write().expect("Failed to write cell");
+        let mut cell_value = cells[index].lock.write().expect("Failed to write cell");
 
         if let CellValue::$field(value) = take(&mut *cell_value) {
             value
@@ -458,27 +465,28 @@ macro_rules! take_from_cell {
     }};
 }
 
-pub(super) use get_boolean;
-pub(super) use get_byte;
-pub(super) use get_character;
-pub(super) use get_constant;
-pub(super) use get_float;
-pub(super) use get_from_cell;
-pub(super) use get_from_heap;
-pub(super) use get_from_stack;
-pub(super) use get_function;
-pub(super) use get_integer;
-pub(super) use get_list;
-pub(super) use get_string;
-pub(super) use read_lock_cells;
-pub(super) use set_boolean;
-pub(super) use set_byte;
-pub(super) use set_cell;
-pub(super) use set_character;
-pub(super) use set_float;
-pub(super) use set_function;
-pub(super) use set_integer;
-pub(super) use set_list;
-pub(super) use set_string;
-pub(super) use set_to_heap;
-pub(super) use set_to_stack;
+pub(crate) use get_boolean;
+pub(crate) use get_byte;
+pub(crate) use get_character;
+pub(crate) use get_constant;
+pub(crate) use get_float;
+pub(crate) use get_from_cell;
+pub(crate) use get_from_heap;
+pub(crate) use get_from_stack;
+pub(crate) use get_function;
+pub(crate) use get_heap_slot;
+pub(crate) use get_integer;
+pub(crate) use get_list;
+pub(crate) use get_string;
+pub(crate) use read_lock_cells;
+pub(crate) use set_boolean;
+pub(crate) use set_byte;
+pub(crate) use set_cell;
+pub(crate) use set_character;
+pub(crate) use set_float;
+pub(crate) use set_function;
+pub(crate) use set_integer;
+pub(crate) use set_list;
+pub(crate) use set_string;
+pub(crate) use set_to_heap;
+pub(crate) use set_to_stack;
