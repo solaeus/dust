@@ -8,8 +8,10 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, Disassembler, DustString, FunctionType, Instruction, List, Local, Span, Value,
-    chunk::Disassemble, compiler::ChunkCompiler, instruction::OperandType,
+    Address, Disassembler, FunctionType, Instruction, List, Local, Path, Span, Value,
+    chunk::Disassemble,
+    compiler::{ChunkCompiler, CompiledData},
+    instruction::OperandType,
 };
 
 use super::{Chunk, StrippedChunk};
@@ -17,9 +19,9 @@ use super::{Chunk, StrippedChunk};
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FullChunk {
-    pub(crate) name: Option<DustString>,
+    pub(crate) name: Option<Path>,
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -27,8 +29,7 @@ pub struct FullChunk {
 
     pub(crate) constants: Vec<Value<Self>>,
     pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
-
-    pub(crate) locals: IndexMap<DustString, Local>,
+    pub(crate) locals: IndexMap<Path, Local>,
 
     pub(crate) boolean_memory_length: u16,
     pub(crate) byte_memory_length: u16,
@@ -67,7 +68,7 @@ impl FullChunk {
                         List::List(lists) => {
                             let stripped_lists = lists
                                 .into_iter()
-                                .map(|list| list.strip())
+                                .map(|list| list.strip_chunks())
                                 .collect::<Vec<_>>();
 
                             Value::list_list(stripped_lists)
@@ -106,12 +107,33 @@ impl FullChunk {
     }
 }
 
-impl<'a> Chunk<'a> for FullChunk {
+impl Chunk for FullChunk {
+    fn new(data: CompiledData<Self>) -> Self {
+        FullChunk {
+            name: data.name,
+            r#type: data.r#type,
+            instructions: data.instructions,
+            positions: data.positions,
+            constants: data.constants,
+            arguments: data.arguments,
+            locals: data.locals,
+            boolean_memory_length: data.boolean_memory_length,
+            byte_memory_length: data.byte_memory_length,
+            character_memory_length: data.character_memory_length,
+            float_memory_length: data.float_memory_length,
+            integer_memory_length: data.integer_memory_length,
+            string_memory_length: data.string_memory_length,
+            list_memory_length: data.list_memory_length,
+            function_memory_length: data.function_memory_length,
+            prototype_index: data.prototype_index,
+        }
+    }
+
     fn chunk_type_name() -> &'static str {
         "Full Chunk"
     }
 
-    fn name(&self) -> Option<&DustString> {
+    fn name(&self) -> Option<&Path> {
         self.name.as_ref()
     }
 
@@ -139,7 +161,7 @@ impl<'a> Chunk<'a> for FullChunk {
         &self.arguments
     }
 
-    fn locals(&self) -> Option<impl Iterator<Item = (&DustString, &Local)>> {
+    fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
         Some(self.locals.iter())
     }
 
@@ -195,14 +217,8 @@ impl Disassemble for FullChunk {
     }
 }
 
-impl Display for FullChunk {
+impl<'a> Display for FullChunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.r#type)
-    }
-}
-
-impl Debug for FullChunk {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.r#type)
     }
 }
@@ -226,7 +242,7 @@ impl PartialEq for FullChunk {
 }
 
 #[cfg(not(debug_assertions))]
-impl PartialEq for FullChunk {
+impl PartialEq for FullChunk<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.r#type == other.r#type

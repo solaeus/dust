@@ -53,6 +53,9 @@ pub enum CompileError {
     InvalidLibraryPath {
         found: String,
     },
+    InvalidProgramPath {
+        found: String,
+    },
     InvalidPath {
         found: String,
         position: Span,
@@ -242,6 +245,7 @@ impl AnnotatedError for CompileError {
             Self::InstructionIndexOutOfBounds { .. } => "Instruction index out of bounds",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::InvalidLibraryPath { .. } => "Invalid library path",
+            Self::InvalidProgramPath { .. } => "Invalid program path",
             Self::InvalidPath { .. } => "Invalid path",
             Self::LetStatementTypeConflict { .. } => "Let statement type conflict",
             Self::Lex(error) => error.description(),
@@ -325,6 +329,7 @@ impl AnnotatedError for CompileError {
                 vec![(format!("Invalid assignment target `{found}`"), *position)]
             }
             Self::InvalidLibraryPath { .. } => vec![],
+            Self::InvalidProgramPath { .. } => vec![],
             Self::InvalidPath { found, position } => {
                 vec![(format!("Invalid path `{found}`"), *position)]
             }
@@ -645,6 +650,9 @@ impl AnnotatedError for CompileError {
                 )]
             }
             Self::InvalidLibraryPath { .. } => {
+                vec![]
+            }
+            Self::InvalidProgramPath { .. } => {
                 vec![]
             }
             Self::InvalidPath { position, .. } => {

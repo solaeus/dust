@@ -20,7 +20,7 @@ pub enum List<C> {
     Function(Vec<Arc<C>>),
 }
 
-impl<'a, C: Chunk<'a>> List<C> {
+impl<C: Chunk> List<C> {
     pub fn boolean<T: Into<Vec<bool>>>(booleans: T) -> Self {
         List::Boolean(booleans.into())
     }
@@ -79,7 +79,7 @@ impl<'a, C: Chunk<'a>> List<C> {
 }
 
 impl List<FullChunk> {
-    pub fn strip(self) -> List<StrippedChunk> {
+    pub fn strip_chunks(self) -> List<StrippedChunk> {
         match self {
             List::Boolean(booleans) => List::Boolean(booleans),
             List::Byte(bytes) => List::Byte(bytes),
@@ -88,7 +88,7 @@ impl List<FullChunk> {
             List::Integer(items) => List::Integer(items),
             List::String(strings) => List::String(strings),
             List::List(lists) => {
-                let stripped_lists = lists.into_iter().map(|list| list.strip()).collect();
+                let stripped_lists = lists.into_iter().map(|list| list.strip_chunks()).collect();
 
                 List::List(stripped_lists)
             }
@@ -108,7 +108,7 @@ impl List<FullChunk> {
     }
 }
 
-impl<'a, C: Chunk<'a>> Display for List<C> {
+impl<C: Chunk> Display for List<C> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 
@@ -231,7 +231,7 @@ impl<C: Ord> Ord for List<C> {
             (List::Character(left), List::Character(right)) => left.cmp(right),
             (List::Float(left), List::Float(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
-                    let cmp = left.to_bits().cmp(&right.to_bits());
+                    let cmp = left.total_cmp(right);
 
                     if cmp != Ordering::Equal {
                         return cmp;

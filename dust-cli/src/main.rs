@@ -196,10 +196,8 @@ fn main() {
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 
-        if !no_output {
-            if let Some(value) = return_value {
-                println!("{value}")
-            }
+        if !no_output && let Some(return_value) = return_value {
+            println!("{return_value}")
         }
 
         if time && !no_output {
@@ -249,9 +247,10 @@ fn main() {
                 dust_crate
                     .main_chunk
                     .disassembler(&mut stdout)
-                    .width(65)
+                    .width(80)
                     .style(style)
                     .source(&source)
+                    .show_chunk_type_name(true)
                     .disassemble()
                     .expect("Failed to write disassembly to stdout");
             }

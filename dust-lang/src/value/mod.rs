@@ -9,10 +9,7 @@ use serde::{Deserialize, Serialize};
 pub use dust_string::DustString;
 pub use list::List;
 
-use crate::{
-    Type,
-    chunk::{Chunk, StrippedChunk},
-};
+use crate::{Chunk, StrippedChunk, Type};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Value<C = StrippedChunk> {
@@ -26,7 +23,7 @@ pub enum Value<C = StrippedChunk> {
     Function(Arc<C>),
 }
 
-impl<'a, C: Chunk<'a>> Value<C> {
+impl<C: Chunk> Value<C> {
     pub fn boolean(boolean: bool) -> Self {
         Value::Boolean(boolean)
     }
@@ -206,7 +203,7 @@ impl<'a, C: Chunk<'a>> Value<C> {
     }
 }
 
-impl<'a, C: Chunk<'a>> Display for Value<C> {
+impl<C: Chunk> Display for Value<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
@@ -251,7 +248,7 @@ impl<C: Ord> Ord for Value<C> {
             (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
             (Value::Byte(left), Value::Byte(right)) => left.cmp(right),
             (Value::Character(left), Value::Character(right)) => left.cmp(right),
-            (Value::Float(left), Value::Float(right)) => left.to_bits().cmp(&right.to_bits()),
+            (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
             (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::List(left), Value::List(right)) => left.cmp(right),

@@ -18,7 +18,7 @@ use crate::{Chunk, DustError, StrippedChunk, Value, compile};
 
 pub type ThreadPool<C> = Arc<RwLock<Vec<Thread<C>>>>;
 
-pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
+pub fn run(source: &str) -> Result<Option<Value<StrippedChunk>>, DustError> {
     let chunk = compile::<StrippedChunk>(source)?;
     let vm = Vm::new(Arc::new(chunk));
 
@@ -30,7 +30,10 @@ pub struct Vm<C> {
     threads: ThreadPool<C>,
 }
 
-impl<'a, C: 'static + Chunk<'a> + Send + Sync> Vm<C> {
+impl<'a, C> Vm<C>
+where
+    C: 'static + Chunk + Send + Sync,
+{
     pub fn new(main_chunk: Arc<C>) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
         let cells = Arc::new(RwLock::new(Vec::<Cell<C>>::new()));

@@ -101,7 +101,7 @@ pub struct Disassembler<'a, 'w, C, W> {
     show_chunk_type_name: bool,
 }
 
-impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
+impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
     pub fn new(chunk: &'a C, writer: &'w mut W) -> Self {
         Self {
             chunk,
@@ -343,11 +343,20 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
             ),
         ) in locals_iterator.enumerate()
         {
-            let type_display = r#type.to_string();
-            let address_display = address.to_string(r#type.as_operand_type());
+            let identifier = {
+                let mut identifier = identifier.to_string();
+
+                if identifier.len() > 16 {
+                    identifier = format!("...{}", &identifier[identifier.len() - 13..]);
+                }
+
+                identifier
+            };
+            let address = address.to_string(r#type.as_operand_type());
+            let r#type = r#type.to_string();
             let scope = scope.to_string();
             let row = format!(
-                "│{index:^5}│{identifier:^16}│{type_display:^26}│{address_display:^12}│{scope:^7}│{is_mutable:^7}│"
+                "│{index:^5}│{identifier:^16}│{type:^26}│{address:^12}│{scope:^7}│{is_mutable:^7}│"
             );
 
             self.write_center_border(&row)?;
@@ -390,15 +399,19 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
     }
 
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
-        fn write_constants<'a, 'w, C, W>(
+        fn write_non_prototype_constants<'a, 'w, C, W>(
             disassembler: &mut Disassembler<'a, 'w, C, W>,
-            constants: &[Value<C>],
+            constants: &'a [Value<C>],
         ) -> Result<(), io::Error>
         where
-            C: Chunk<'a>,
+            C: Chunk,
             W: Write,
         {
-            for (index, value) in constants.iter().enumerate() {
+            for (index, value) in constants
+                .iter()
+                .enumerate()
+                .take_while(|(_, value)| !matches!(value, Value::Function(_)))
+            {
                 let r#type = value.r#type();
                 let operand_type = r#type.as_operand_type();
                 let type_display = r#type.to_string();
@@ -421,6 +434,33 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
             Ok(())
         }
 
+        fn write_prototypes<'a, 'w, C, W>(
+            disassembler: &mut Disassembler<'a, 'w, C, W>,
+            constants: &'a [Value<C>],
+        ) -> Result<(), io::Error>
+        where
+            C: Chunk,
+            W: Write,
+        {
+            for value in constants
+                .iter()
+                .skip_while(|value| !matches!(value, Value::Function(_)))
+            {
+                if let Value::Function(prototype) = value {
+                    prototype
+                        .disassembler(disassembler.writer)
+                        .indent(disassembler.indent + 1)
+                        .style(disassembler.style)
+                        .show_type(disassembler.show_type)
+                        .show_chunk_type_name(false)
+                        .width(disassembler.width)
+                        .disassemble()?;
+                }
+            }
+
+            Ok(())
+        }
+
         let mut column_name_line = String::new();
 
         for (column_name, width) in CONSTANT_COLUMNS {
@@ -432,8 +472,9 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
         self.write_center_border(CONSTANT_BORDERS[0])?;
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
-        write_constants(self, self.chunk.constants())?;
+        write_non_prototype_constants(self, self.chunk.constants())?;
         self.write_center_border(CONSTANT_BORDERS[2])?;
+        write_prototypes(self, self.chunk.constants())?;
 
         Ok(())
     }
@@ -441,10 +482,17 @@ impl<'a, 'w, C: Chunk<'a>, W: Write> Disassembler<'a, 'w, C, W> {
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.write_page_border(TOP_BORDER)?;
 
+        if self.show_chunk_type_name {
+            let chunk_type_name = C::chunk_type_name();
+
+            self.write_center_border_bold(chunk_type_name)?;
+            self.write_center_border(&"┈".repeat(self.width))?;
+        }
+
         let name = self.chunk.name();
 
         if let Some(name) = name {
-            self.write_center_border_bold(name.as_str())?;
+            self.write_center_border_bold(name.as_ref())?;
         }
 
         if self.show_type {

@@ -15,10 +15,8 @@ pub struct ParseRule<'a, C, const REGISTER_COUNT: usize> {
     pub precedence: Precedence,
 }
 
-impl<'a, C: 'a + Chunk<'a>, const REGISTER_COUNT: usize> From<&Token<'_>>
-    for ParseRule<'a, C, REGISTER_COUNT>
-{
-    fn from(token: &Token) -> Self {
+impl<C: Chunk, const REGISTER_COUNT: usize> From<Token<'_>> for ParseRule<'_, C, REGISTER_COUNT> {
+    fn from(token: Token) -> Self {
         match token {
             Token::Any => ParseRule {
                 prefix: Some(ChunkCompiler::expect_expression),

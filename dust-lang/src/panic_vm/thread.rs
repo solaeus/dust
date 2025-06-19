@@ -22,7 +22,7 @@ pub struct Thread<C> {
     pub handle: JoinHandle<Option<Value<C>>>,
 }
 
-impl<'a, C: 'static + Chunk<'a> + Send + Sync> Thread<C> {
+impl<C: 'static + Chunk + Send + Sync> Thread<C> {
     pub fn new(
         chunk: Arc<C>,
         cells: Arc<RwLock<Vec<Cell<C>>>>,
@@ -54,7 +54,7 @@ struct ThreadRunner<C> {
     cells: Arc<RwLock<Vec<Cell<C>>>>,
 }
 
-impl<'a, C: Chunk<'a>> ThreadRunner<C> {
+impl<C: Chunk> ThreadRunner<C> {
     fn run(mut self) -> Option<Value<C>> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
@@ -64,7 +64,7 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
             self.chunk
                 .name()
                 .as_ref()
-                .map(|name| name.as_str())
+                .map(|name| name.as_ref())
                 .unwrap_or_default()
         );
 
@@ -364,8 +364,8 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
                             let right = get_character!(right, memory, call.chunk, self.cells);
                             let mut sum = DustString::new();
 
-                            sum.push(left);
-                            sum.push(right);
+                            sum.inner.push(left);
+                            sum.inner.push(right);
 
                             set_string!(destination, memory, self.cells, sum);
                         }
@@ -388,8 +388,8 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
                             let right = get_string!(right, memory, call.chunk, self.cells);
                             let mut sum = DustString::new();
 
-                            sum.push_str(left.as_str());
-                            sum.push_str(right.as_str());
+                            sum.inner.push_str(&left);
+                            sum.inner.push_str(&right);
 
                             set_string!(destination, memory, self.cells, sum);
                         }
@@ -398,8 +398,8 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
                             let right = get_string!(right, memory, call.chunk, self.cells);
                             let mut sum = DustString::new();
 
-                            sum.push(left);
-                            sum.push_str(right.as_str());
+                            sum.inner.push(left);
+                            sum.inner.push_str(&right);
 
                             set_string!(destination, memory, self.cells, sum);
                         }
@@ -408,8 +408,8 @@ impl<'a, C: Chunk<'a>> ThreadRunner<C> {
                             let right = get_character!(right, memory, call.chunk, self.cells);
                             let mut sum = DustString::new();
 
-                            sum.push_str(left.as_str());
-                            sum.push(right);
+                            sum.inner.push_str(&left);
+                            sum.inner.push(right);
 
                             set_string!(destination, memory, self.cells, sum);
                         }

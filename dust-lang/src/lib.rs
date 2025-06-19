@@ -27,7 +27,14 @@
 //!
 //! println!("{}", report);
 //! ```
-#![feature(new_range_api, panic_payload_as_str, formatting_options, pattern)]
+#![feature(
+    formatting_options,
+    new_range_api,
+    never_type,
+    once_cell_get_mut,
+    panic_payload_as_str,
+    pattern
+)]
 
 pub mod chunk;
 pub mod compiler;
@@ -47,7 +54,8 @@ pub mod value;
 
 pub use chunk::{Chunk, Disassemble, Disassembler, FullChunk, StrippedChunk};
 pub use compiler::{
-    BlockScope, CompileError, Compiler, DEFAULT_REGISTER_COUNT, Global, Local, Module, compile,
+    BlockScope, CompileError, Compiler, DEFAULT_REGISTER_COUNT, Global, Local, Module, Path,
+    compile,
 };
 pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{Address, Instruction, InstructionFields, OperandType, Operation};

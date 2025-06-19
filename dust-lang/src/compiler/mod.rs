@@ -52,7 +52,7 @@ use std::{
 
 use crate::{
     Address, Chunk, DustError, DustString, FullChunk, FunctionType, Instruction, Lexer, List,
-    NativeFunction, Operation, Span, StrippedChunk, Token, TokenKind, Type, Value,
+    NativeFunction, Operation, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
     instruction::{Jump, Load, MemoryKind, OperandType},
@@ -72,7 +72,7 @@ pub const DEFAULT_REGISTER_COUNT: usize = 4;
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
-pub fn compile<'a, C: 'a + Chunk<'a>>(source: &'a str) -> Result<C, DustError<'a>> {
+pub fn compile<C: Chunk>(source: &str) -> Result<C, DustError> {
     let compiler = Compiler::<C>::new();
     let Program { main_chunk, .. } = compiler
         .compile_program(None, source)
@@ -91,7 +91,7 @@ pub struct Compiler<C> {
     _marker: PhantomData<C>,
 }
 
-impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
+impl<C: Chunk> Compiler<C> {
     pub fn new() -> Self {
         Self {
             allow_native_functions: false,
@@ -101,16 +101,15 @@ impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
 
     pub fn compile_library(
         &mut self,
-        library_name: &'a str,
-        source: &'a str,
-    ) -> Result<Module<'a, C>, CompileError> {
+        library_name: &str,
+        source: &str,
+    ) -> Result<Module<C>, CompileError> {
         let logging = span!(Level::INFO, "Compile Library");
         let _enter = logging.enter();
 
-        let name =
-            Path::new_borrowed(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
-                found: library_name.to_string(),
-            })?;
+        let name = Path::new(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
+            found: library_name.to_string(),
+        })?;
 
         let lexer = Lexer::new(source);
         let mode = CompileMode::Module {
@@ -122,7 +121,7 @@ impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
         let globals = Rc::new(RefCell::new(IndexMap::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut())?;
+            apply_standard_library(&mut *main_module.borrow_mut());
         }
 
         let mut chunk_compiler = ChunkCompiler::<C, DEFAULT_REGISTER_COUNT>::new(
@@ -150,20 +149,25 @@ impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
 
     pub fn compile_program(
         &self,
-        program_name: Option<&'a str>,
-        source: &'a str,
+        program_name: Option<&str>,
+        source: &str,
     ) -> Result<Program<C>, CompileError> {
         let logging = span!(Level::INFO, "Compile Program");
         let _enter = logging.enter();
 
+        let program_name = program_name.unwrap_or("main");
+        let program_path =
+            Path::new(program_name).ok_or_else(|| CompileError::InvalidProgramPath {
+                found: program_name.to_string(),
+            })?;
         let lexer = Lexer::new(source);
-        let mode = CompileMode::Main { name: program_name };
+        let mode = CompileMode::Main { name: program_path };
         let item_scope = HashSet::new();
         let main_module = Rc::new(RefCell::new(Module::new()));
         let globals = Rc::new(RefCell::new(IndexMap::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut())?;
+            apply_standard_library(&mut *main_module.borrow_mut());
         }
 
         let mut chunk_compiler = ChunkCompiler::<C, DEFAULT_REGISTER_COUNT>::new(
@@ -178,7 +182,8 @@ impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
         chunk_compiler.compile()?;
 
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
-        let main_chunk = C::from(chunk_compiler);
+        let compiled_data = CompiledData::new(chunk_compiler);
+        let main_chunk = C::new(compiled_data);
 
         Ok(Program {
             main_chunk,
@@ -187,9 +192,109 @@ impl<'a, C: 'a + Chunk<'a>> Compiler<C> {
     }
 }
 
-impl<'a, C: 'a + Chunk<'a>> Default for Compiler<C> {
+impl<'a, C: 'a + Chunk> Default for Compiler<C> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct CompiledData<C> {
+    pub name: Option<Path>,
+    pub r#type: FunctionType,
+    pub instructions: Vec<Instruction>,
+    pub positions: Vec<Span>,
+    pub constants: Vec<Value<C>>,
+    pub arguments: Vec<Vec<(Address, OperandType)>>,
+    pub locals: IndexMap<Path, Local>,
+    pub boolean_memory_length: u16,
+    pub byte_memory_length: u16,
+    pub character_memory_length: u16,
+    pub float_memory_length: u16,
+    pub integer_memory_length: u16,
+    pub string_memory_length: u16,
+    pub list_memory_length: u16,
+    pub function_memory_length: u16,
+    pub prototype_index: u16,
+}
+
+impl<C> CompiledData<C> {
+    fn new<const REGISTER_COUNT: usize>(chunk_compiler: ChunkCompiler<C, REGISTER_COUNT>) -> Self {
+        let name = chunk_compiler.mode.into_name();
+        let mut boolean_memory_length = chunk_compiler.minimum_boolean_memory_index;
+        let mut byte_memory_length = chunk_compiler.minimum_byte_memory_index;
+        let mut character_memory_length = chunk_compiler.minimum_character_memory_index;
+        let mut float_memory_length = chunk_compiler.minimum_float_memory_index;
+        let mut integer_memory_length = chunk_compiler.minimum_integer_memory_index;
+        let mut string_memory_length = chunk_compiler.minimum_string_memory_index;
+        let mut list_memory_length = chunk_compiler.minimum_list_memory_index;
+        let mut function_memory_length = chunk_compiler.minimum_function_memory_index;
+        let (instructions, positions) = chunk_compiler
+            .instructions
+            .into_iter()
+            .map(|(instruction, r#type, position)| {
+                if instruction.yields_value() {
+                    match r#type {
+                        Type::Boolean => {
+                            boolean_memory_length =
+                                boolean_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::Byte => {
+                            byte_memory_length = byte_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::Character => {
+                            character_memory_length =
+                                character_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::Float => {
+                            float_memory_length =
+                                float_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::Integer => {
+                            integer_memory_length =
+                                integer_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::String => {
+                            string_memory_length =
+                                string_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::List(_) => {
+                            list_memory_length = list_memory_length.max(instruction.a_field() + 1);
+                        }
+                        Type::Function(_) => {
+                            function_memory_length =
+                                function_memory_length.max(instruction.a_field() + 1);
+                        }
+                        _ => {}
+                    }
+                }
+
+                (instruction, position)
+            })
+            .unzip();
+        let value_arguments = chunk_compiler
+            .arguments
+            .into_iter()
+            .map(|(values, _types)| values)
+            .collect::<Vec<_>>();
+
+        CompiledData {
+            name,
+            r#type: chunk_compiler.r#type,
+            instructions,
+            positions,
+            constants: chunk_compiler.constants,
+            arguments: value_arguments,
+            locals: chunk_compiler.locals,
+            boolean_memory_length,
+            byte_memory_length,
+            character_memory_length,
+            float_memory_length,
+            integer_memory_length,
+            string_memory_length,
+            list_memory_length,
+            function_memory_length,
+            prototype_index: chunk_compiler.prototype_index,
+        }
     }
 }
 
@@ -197,7 +302,7 @@ impl<'a, C: 'a + Chunk<'a>> Default for Compiler<C> {
 pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REGISTER_COUNT> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
-    mode: CompileMode<'a, C>,
+    mode: CompileMode<C>,
 
     /// Used to get tokens for the compiler.
     lexer: Lexer<'a>,
@@ -216,7 +321,7 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
     constants: Vec<Value<C>>,
 
     /// Block-local variables.
-    locals: IndexMap<Path<'a>, Local>,
+    locals: IndexMap<Path, Local>,
 
     /// Arguments for each function call.
     arguments: Vec<(Vec<(Address, OperandType)>, Vec<Type>)>,
@@ -242,15 +347,15 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
 
     /// This is mutated during compilation as items are brought into scope by `use` statements or
     /// are invoked by their full path. It is used to test if an item is in scope.
-    current_item_scope: HashSet<Path<'a>>,
+    current_item_scope: HashSet<Path>,
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: u16,
 
-    main_module: Rc<RefCell<Module<'a, C>>>,
+    main_module: Rc<RefCell<Module<C>>>,
 
-    globals: Rc<RefCell<IndexMap<DustString, Global>>>,
+    globals: Rc<RefCell<IndexMap<Path, Global>>>,
 
     previous_statement_end: usize,
     previous_expression_end: usize,
@@ -265,14 +370,14 @@ pub(crate) struct ChunkCompiler<'a, C, const REGISTER_COUNT: usize = DEFAULT_REG
 
 impl<'a, C, const REGISTER_COUNT: usize> ChunkCompiler<'a, C, REGISTER_COUNT>
 where
-    C: 'a + Chunk<'a> + Ord,
+    C: Chunk + Ord,
 {
     fn new(
         mut lexer: Lexer<'a>,
-        mode: CompileMode<'a, C>,
-        item_scope: HashSet<Path<'a>>,
-        main_module: Rc<RefCell<Module<'a, C>>>,
-        globals: Rc<RefCell<IndexMap<DustString, Global>>>,
+        mode: CompileMode<C>,
+        item_scope: HashSet<Path>,
+        main_module: Rc<RefCell<Module<C>>>,
+        globals: Rc<RefCell<IndexMap<Path, Global>>>,
     ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
@@ -869,7 +974,7 @@ where
     }
 
     /// Returns the local with the given identifier.
-    fn get_local(&self, path: &Path<'a>) -> Option<&Local> {
+    fn get_local(&self, path: &Path) -> Option<&Local> {
         self.locals.get_key_value(path).map(|(_, local)| local)
     }
 
@@ -877,7 +982,7 @@ where
     /// the index of its identifier in `self.string_constants`.
     fn declare_local(
         &mut self,
-        identifier: Path<'a>,
+        identifier: Path,
         address: Address,
         r#type: Type,
         is_mutable: bool,
@@ -901,19 +1006,18 @@ where
             .insert(identifier, Local::new(address, r#type, is_mutable, scope));
     }
 
-    fn declare_global(&mut self, identifier: Path<'a>, r#type: Type, is_mutable: bool) -> u16 {
+    fn declare_global(&mut self, identifier: Path, r#type: Type, is_mutable: bool) -> u16 {
         info!("Declaring global {identifier}");
 
         let mut globals = self.globals.borrow_mut();
         let cell_index = globals.len() as u16;
-        let identifier = DustString::from(identifier.inner().as_ref());
 
         globals.insert(identifier, Global::new(r#type, is_mutable));
 
         cell_index
     }
 
-    fn clone_item(&self, item_path: &Path<'a>) -> Result<(Item<'a, C>, Span), CompileError> {
+    fn clone_item(&self, item_path: &Path) -> Result<(Item<C>, Span), CompileError> {
         if let CompileMode::Module { module, .. } = &self.mode {
             if let Some(found) = module.find_item(item_path) {
                 return Ok(found.clone());
@@ -933,6 +1037,7 @@ where
             Ok(index) => index as u16,
             Err(index) => {
                 self.constants.insert(index, constant);
+
                 index as u16
             }
         }
@@ -1353,7 +1458,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C, REGISTER_COUNT>::from(&operator);
+        let rule = ParseRule::<C, REGISTER_COUNT>::from(operator);
         let is_assignment = matches!(
             operator,
             Token::PlusEqual
@@ -1536,7 +1641,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C, REGISTER_COUNT>::from(&operator);
+        let rule = ParseRule::<C, REGISTER_COUNT>::from(operator);
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -1630,7 +1735,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C, REGISTER_COUNT>::from(&operator);
+        let rule = ParseRule::<C, REGISTER_COUNT>::from(operator);
         let test_boolean = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -1739,11 +1844,7 @@ where
                 position: variable_position,
             });
         };
-        let variable_path =
-            Path::new_borrowed(identifier).ok_or_else(|| CompileError::InvalidPath {
-                found: identifier.to_string(),
-                position: variable_position,
-            })?;
+        let variable_path = Path::new_at_position(identifier, variable_position)?;
 
         let (variable_address, variable_type, is_mutable) = {
             if let Some(local) = self.get_local(&variable_path) {
@@ -2517,10 +2618,7 @@ where
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
-                found: text.to_string(),
-                position: self.current_position,
-            })?
+            Path::new_at_position(text, self.previous_position)?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -2586,14 +2684,17 @@ where
     }
 
     fn parse_function(&mut self) -> Result<(), CompileError> {
-        let function_start = self.current_position.0;
+        if let Token::Fn = self.current_token {
+            self.advance()?;
+        }
 
-        self.advance()?;
-
+        let function_start = self.previous_position.0;
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            let path = Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
+            println!("{text}");
+
+            let path = Path::new(text).ok_or_else(|| CompileError::InvalidPath {
                 found: text.to_string(),
                 position: self.current_position,
             })?;
@@ -2631,7 +2732,7 @@ where
             let parameter = if let Token::Identifier(text) = function_compiler.current_token {
                 function_compiler.advance()?;
 
-                Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
+                Path::new(text).ok_or_else(|| CompileError::InvalidPath {
                     found: text.to_string(),
                     position: function_compiler.current_position,
                 })?
@@ -2692,12 +2793,12 @@ where
         self.lexer.skip_to(self.current_position.1);
 
         let function_end = function_compiler.previous_position.1;
-        let prototype_index = function_compiler.prototype_index;
-        let chunk = C::from(function_compiler);
+        let compiled_data = CompiledData::new(function_compiler);
+        let chunk = C::new(compiled_data);
         let address = Address::heap(memory_index);
         let load_function = Instruction::load(
             Address::heap(memory_index),
-            Address::constant(prototype_index),
+            Address::constant(chunk.prototype_index()),
             OperandType::FUNCTION,
             false,
         );
@@ -2879,10 +2980,7 @@ where
         let name = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
-                found: text.to_string(),
-                position: self.current_position,
-            })?
+            Path::new_at_position(text, self.previous_position)?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -2941,25 +3039,12 @@ where
                         });
                     };
 
-                    let function_name = if let Some(name) = prototype.name() {
-                        name
-                    } else {
-                        return Err(CompileError::AnonymousFunctionItem {
-                            position: function_position,
-                        });
-                    };
-
-                    if let CompileMode::Module { module, .. } = &mut self.mode {
-                        let path = Path::new_owned(function_name.to_string()).ok_or_else(|| {
-                            CompileError::InvalidPath {
-                                found: function_name.to_string(),
-                                position: self.previous_position,
-                            }
-                        })?;
-
+                    if let CompileMode::Module { module, .. } = &mut self.mode
+                        && let Some(path) = prototype.name()
+                    {
                         module
                             .items
-                            .insert(path, (Item::Function(prototype), function_position));
+                            .insert(path.clone(), (Item::Function(prototype), function_position));
                     }
                 }
                 Token::Mod => self.parse_mod()?,
@@ -2976,10 +3061,7 @@ where
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new_borrowed(text).ok_or(CompileError::InvalidPath {
-                found: text.to_string(),
-                position: self.current_position,
-            })?
+            Path::new_at_position(text, self.previous_position)?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -3110,10 +3192,7 @@ where
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
-            Path::new_borrowed(text).ok_or_else(|| CompileError::InvalidPath {
-                found: text.to_string(),
-                position: self.current_position,
-            })?
+            Path::new_at_position(text, self.previous_position)?
         } else {
             return Err(CompileError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -3126,17 +3205,15 @@ where
 
         let (item, item_position) = self.clone_item(&path)?;
 
-        let item_path = Path::new_owned(path.item_name().inner().to_string()).unwrap();
-
-        self.bring_item_into_local_scope(item_path, item, item_position);
+        self.bring_item_into_local_scope(path.item(), item, item_position);
 
         Ok(())
     }
 
     fn bring_item_into_local_scope(
         &mut self,
-        item_name: Path<'a>,
-        item: Item<'a, C>,
+        item_name: Path,
+        item: Item<C>,
         item_position: Span,
     ) -> (Address, Type) {
         match item {
@@ -3311,7 +3388,7 @@ where
 
         match identifier {
             "from_int" => {
-                let aliased_path = Path::new_borrowed("std::convert::int_to_str").unwrap();
+                let aliased_path = Path::new("std::convert::int_to_str").unwrap();
                 let (item, item_position) = self.clone_item(&aliased_path)?;
                 let (variable_address, item_type) =
                     self.bring_item_into_local_scope(aliased_path, item, item_position);
@@ -3341,7 +3418,7 @@ where
     }
 
     fn parse(&mut self, precedence: Precedence) -> Result<(), CompileError> {
-        if let Some(prefix_parser) = ParseRule::from(&self.current_token).prefix {
+        if let Some(prefix_parser) = ParseRule::from(self.current_token).prefix {
             debug!(
                 "{} is prefix with precedence {precedence}",
                 self.current_token,
@@ -3350,7 +3427,7 @@ where
             prefix_parser(self)?;
         }
 
-        let mut infix_rule = ParseRule::from(&self.current_token);
+        let mut infix_rule = ParseRule::from(self.current_token);
 
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
@@ -3371,7 +3448,7 @@ where
                 break;
             }
 
-            infix_rule = ParseRule::from(&self.current_token);
+            infix_rule = ParseRule::from(self.current_token);
         }
 
         Ok(())
@@ -3380,6 +3457,7 @@ where
 
 impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUNT> {
     pub fn finish(self) -> FullChunk {
+        let name = self.mode.into_name();
         let mut boolean_memory_length = 0;
         let mut byte_memory_length = 0;
         let mut character_memory_length = 0;
@@ -3429,14 +3507,6 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUN
             instructions.push(instruction);
             positions.push(position);
         }
-
-        let name = match self.mode {
-            CompileMode::Main { name, .. } => name.map(DustString::from),
-            CompileMode::Module { name, .. } => Some(DustString::from(name.inner().as_ref())),
-            CompileMode::Function { name } => {
-                name.map(|name| DustString::from(name.inner().as_ref()))
-            }
-        };
 
         FullChunk {
             name,
@@ -3444,94 +3514,7 @@ impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, FullChunk, REGISTER_COUN
             instructions,
             positions,
             constants: self.constants,
-            locals: self
-                .locals
-                .into_iter()
-                .map(|(name, local)| (DustString::from(name.inner().as_ref()), local))
-                .collect(),
-            arguments: self
-                .arguments
-                .into_iter()
-                .map(|(values, _)| values)
-                .collect(),
-            boolean_memory_length,
-            byte_memory_length,
-            character_memory_length,
-            float_memory_length,
-            integer_memory_length,
-            string_memory_length,
-            list_memory_length,
-            function_memory_length,
-            prototype_index: self.prototype_index,
-        }
-    }
-}
-
-impl<'a, const REGISTER_COUNT: usize> ChunkCompiler<'a, StrippedChunk, REGISTER_COUNT> {
-    pub fn finish(self) -> StrippedChunk {
-        let mut boolean_memory_length = 0;
-        let mut byte_memory_length = 0;
-        let mut character_memory_length = 0;
-        let mut float_memory_length = 0;
-        let mut integer_memory_length = 0;
-        let mut string_memory_length = 0;
-        let mut list_memory_length = 0;
-        let mut function_memory_length = 0;
-        let mut instructions = Vec::with_capacity(self.instructions.len());
-        let mut positions = Vec::with_capacity(self.instructions.len());
-
-        for (instruction, r#type, position) in self.instructions {
-            if instruction.yields_value() {
-                match r#type {
-                    Type::Boolean => {
-                        boolean_memory_length =
-                            boolean_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Byte => {
-                        byte_memory_length = byte_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Character => {
-                        character_memory_length =
-                            character_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Float => {
-                        float_memory_length = float_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Integer => {
-                        integer_memory_length =
-                            integer_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::String => {
-                        string_memory_length = string_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::List(_) => {
-                        list_memory_length = list_memory_length.max(instruction.a_field() + 1);
-                    }
-                    Type::Function(_) => {
-                        function_memory_length =
-                            function_memory_length.max(instruction.a_field() + 1);
-                    }
-                    _ => {}
-                }
-            }
-
-            instructions.push(instruction);
-            positions.push(position);
-        }
-
-        let name = match self.mode {
-            CompileMode::Main { name, .. } => name.map(DustString::from),
-            CompileMode::Module { name, .. } => Some(DustString::from(name.inner().as_ref())),
-            CompileMode::Function { name } => {
-                name.map(|name| DustString::from(name.inner().as_ref()))
-            }
-        };
-
-        StrippedChunk {
-            name,
-            r#type: self.r#type,
-            instructions,
-            constants: self.constants,
+            locals: self.locals,
             arguments: self
                 .arguments
                 .into_iter()

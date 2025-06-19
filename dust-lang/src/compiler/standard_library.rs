@@ -2,7 +2,7 @@ use tracing::{Level, span};
 
 use crate::{Chunk, Compiler, Span};
 
-use super::{CompileError, Item, Module, Path};
+use super::{Item, Module, Path};
 
 const STD: &str = r"
 mod io {
@@ -34,29 +34,24 @@ pub const STD_LENGTH: usize = {
     STD.len()
 };
 
-pub(crate) fn generate_standard_library<'a, C: 'a + Chunk<'a>>()
--> Result<Module<'a, C>, CompileError> {
+pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Module<C> {
     let logging = span!(Level::INFO, "Standard Library");
     let _span_guard = logging.enter();
 
     let mut compiler = Compiler::new();
     compiler.allow_native_functions = true;
 
-    let std_crate = compiler.compile_library("std", STD)?;
-
-    Ok(std_crate)
+    compiler
+        .compile_library("std", STD)
+        .expect("Failed to compile standard library")
 }
 
-pub fn apply_standard_library<'a, C: 'a + Chunk<'a>>(
-    module: &mut Module<'a, C>,
-) -> Result<(), CompileError> {
-    let std_crate = generate_standard_library::<C>()?;
+pub fn apply_standard_library<'a, C: 'a + Chunk>(module: &mut Module<C>) {
+    let std_crate = generate_standard_library::<C>();
     let std_position = Span(0, STD_LENGTH);
 
     module.items.insert(
-        Path::new_borrowed("std").unwrap(),
+        Path::new("std").unwrap(),
         (Item::Module(std_crate), std_position),
     );
-
-    Ok(())
 }

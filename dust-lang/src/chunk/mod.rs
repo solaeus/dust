@@ -18,28 +18,21 @@ pub use stripped_chunk::StrippedChunk;
 use std::sync::Arc;
 use std::{fmt::Debug, io::Write};
 
-use crate::compiler::ChunkCompiler;
-use crate::{Address, DustString, FunctionType, Instruction, Local, OperandType, Span, Value};
+use crate::{
+    Address, FunctionType, Instruction, Local, OperandType, Path, Span, Value,
+    compiler::CompiledData,
+};
 
-pub trait Chunk<'a>:
-    From<ChunkCompiler<'a, Self>>
-    + Sized
-    + Clone
-    + Debug
-    + Default
-    + Eq
-    + PartialEq
-    + PartialOrd
-    + Ord
-    + Disassemble
+pub trait Chunk:
+    Sized + Clone + Debug + Default + Eq + PartialEq + PartialOrd + Ord + Disassemble
 {
+    fn new(data: CompiledData<Self>) -> Self;
+
     fn chunk_type_name() -> &'static str;
 
-    fn name(&self) -> Option<&DustString>;
+    fn name(&self) -> Option<&Path>;
 
     fn r#type(&self) -> &FunctionType;
-
-    fn into_function(self) -> Arc<Self>;
 
     fn instructions(&self) -> &[Instruction];
 
@@ -49,7 +42,7 @@ pub trait Chunk<'a>:
 
     fn arguments(&self) -> &[Vec<(Address, OperandType)>];
 
-    fn locals(&self) -> Option<impl Iterator<Item = (&DustString, &Local)>>;
+    fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>>;
 
     fn boolean_memory_length(&self) -> u16;
 
@@ -68,6 +61,8 @@ pub trait Chunk<'a>:
     fn function_memory_length(&self) -> u16;
 
     fn prototype_index(&self) -> u16;
+
+    fn into_function(self) -> Arc<Self>;
 }
 
 pub trait Disassemble: Sized {

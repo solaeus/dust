@@ -1,91 +1,93 @@
 use std::{
-    borrow::Cow,
+    borrow::Borrow,
     fmt::{self, Display, Formatter},
     iter::repeat,
+    sync::{Arc, LazyLock, OnceLock},
 };
 
+use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
+use smartstring::{LazyCompact, SmartString};
 
-/// A correctly formatted relative or absolute path to a module or value.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Path<'a> {
-    inner: Cow<'a, str>,
+use crate::{CompileError, Span};
+
+static mut PATH_CACHE: LazyLock<HashSet<Path>> = LazyLock::new(HashSet::new);
+
+fn cache_path(path: Path) -> Path {
+    #[expect(static_mut_refs)]
+    unsafe {
+        PATH_CACHE.get_or_insert(path).clone()
+    }
 }
 
-impl<'a> Path<'a> {
-    pub fn new_owned(inner: String) -> Option<Self> {
-        if inner.split("::").any(|module_name| {
-            module_name.is_empty()
-                || module_name
-                    .split('.')
-                    .any(|value_name| value_name.is_empty())
-        }) {
-            None
+/// A correctly formatted relative or absolute path to a module or value.
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize)]
+pub struct Path {
+    inner: Arc<SmartString<LazyCompact>>,
+}
+
+impl Path {
+    pub fn new<T: Into<SmartString<LazyCompact>>>(inner: T) -> Option<Self> {
+        let path = Path {
+            inner: Arc::new(inner.into()),
+        };
+
+        if path.verify() {
+            Some(cache_path(path))
         } else {
-            Some(Self {
-                inner: Cow::Owned(inner),
+            None
+        }
+    }
+
+    pub fn new_at_position<T: Into<SmartString<LazyCompact>> + ToString>(
+        inner: T,
+        position: Span,
+    ) -> Result<Self, CompileError> {
+        let path = Path {
+            inner: Arc::new(inner.into()),
+        };
+
+        if path.verify() {
+            Ok(cache_path(path))
+        } else {
+            Err(CompileError::InvalidPath {
+                found: path.inner().to_string(),
+                position,
             })
         }
     }
 
-    pub fn new_borrowed(inner: &'a str) -> Option<Self> {
-        if inner.split("::").any(|module_name| {
-            module_name.is_empty()
-                || module_name
-                    .split('.')
-                    .any(|value_name| value_name.is_empty())
-        }) {
-            None
-        } else {
-            Some(Self {
-                inner: Cow::Borrowed(inner),
-            })
-        }
+    pub fn inner(&self) -> &Arc<SmartString<LazyCompact>> {
+        &self.inner
     }
 
-    pub fn new_borrowed_item_name(text: &'a str) -> Option<Self> {
-        if text.is_empty() {
-            None
-        } else {
-            text.rsplit("::")
-                .next()
-                .map(|item_name| Path::new_borrowed(item_name).unwrap())
-        }
-    }
+    pub fn modules(&self) -> impl Iterator<Item = Path> {
+        let item_path = self.item();
 
-    pub fn inner(&self) -> Cow<'a, str> {
-        self.inner.clone()
-    }
-
-    pub fn module_names(&'a self) -> impl Iterator<Item = Path<'a>> {
-        let item_name = self.item_name();
-
-        self.inner
+        self.inner()
             .split("::")
-            .zip(repeat(item_name))
-            .map_while(|(next, item_name)| {
-                if next == item_name.inner {
+            .zip(repeat(item_path))
+            .map_while(|(next, item_path)| {
+                if next == item_path.as_ref() {
                     None
                 } else {
-                    let module_path = Path::new_borrowed(next).unwrap();
-
-                    Some(module_path)
+                    Path::new(next)
                 }
             })
     }
 
-    pub fn item_name(&'a self) -> Path<'a> {
-        self.inner
+    pub fn item<'a>(&'a self) -> Path {
+        self.inner()
             .rsplit("::")
             .next()
-            .map(|item_name| Path::new_borrowed(item_name).unwrap())
+            .map(|item_name| Path::new(item_name).unwrap())
             .unwrap()
     }
 
     pub fn contains_scope(&self, other: &Self) -> bool {
         let mut found_module = false;
 
-        for (self_module_name, other_module_name) in self.module_names().zip(other.module_names()) {
+        for (self_module_name, other_module_name) in self.modules().zip(other.modules()) {
             if self_module_name != other_module_name {
                 found_module = true;
             }
@@ -99,85 +101,104 @@ impl<'a> Path<'a> {
             return false;
         }
 
-        self.item_name() == other.item_name()
+        self.item() == other.item()
+    }
+
+    fn verify(&self) -> bool {
+        !self.inner().split("::").any(|module_name| {
+            module_name.is_empty()
+                || module_name
+                    .split('.')
+                    .any(|value_name| value_name.is_empty())
+        })
     }
 }
 
-impl<'a> Display for Path<'a> {
+impl Display for Path {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.inner)
+        write!(f, "{}", self.inner())
+    }
+}
+
+impl AsRef<str> for Path {
+    fn as_ref(&self) -> &str {
+        &self.inner
+    }
+}
+
+impl Borrow<str> for Path {
+    fn borrow(&self) -> &str {
+        &self.inner
+    }
+}
+
+impl<'de> Deserialize<'de> for Path {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(SmartString::<LazyCompact>::deserialize(deserializer)?)
+            .ok_or(serde::de::Error::custom("Not a valid path"))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::iter::once;
+
     use super::*;
 
     #[test]
     fn no_module_and_one_value() {
-        let path = Path::new_borrowed("foo").unwrap();
+        let path = Path::new("foo").unwrap();
 
-        assert_eq!(path.module_names().count(), 0);
-        assert_eq!(path.item_name().inner(), "foo");
+        assert_eq!(path.modules().count(), 0);
+        assert_eq!(path.item().inner().as_str(), "foo");
     }
 
     #[test]
     fn no_module_and_two_values() {
-        let path = Path::new_borrowed("bar.baz").unwrap();
+        let path = Path::new("bar.baz").unwrap();
 
-        assert_eq!(path.module_names().count(), 0);
-        assert_eq!(path.item_name().inner(), "bar.baz");
+        assert_eq!(path.modules().count(), 0);
+        assert_eq!(path.item().inner().as_str(), "bar.baz");
     }
 
     #[test]
     fn one_module_and_one_value() {
-        let path = Path::new_borrowed("foo::bar").unwrap();
+        let path = Path::new("foo::bar").unwrap();
 
-        assert_eq!(
-            path.module_names()
-                .map(|path| path.inner())
-                .collect::<Vec<_>>(),
-            vec!["foo"]
-        );
-        assert_eq!(path.item_name().inner(), "bar");
+        assert!(path.modules().eq(once(Path::new("foo").unwrap())));
+        assert_eq!(path.item().inner().as_str(), "bar");
     }
 
     #[test]
     fn one_module_and_two_values() {
-        let path = Path::new_borrowed("foo::bar.baz").unwrap();
+        let path = Path::new("foo::bar.baz").unwrap();
 
-        assert_eq!(
-            path.module_names()
-                .map(|path| path.inner())
-                .collect::<Vec<_>>(),
-            vec!["foo"]
-        );
-        assert_eq!(path.item_name().inner(), "bar.baz");
+        assert!(path.modules().eq(once(Path::new("foo").unwrap())));
+        assert_eq!(path.item().inner().as_str(), "bar.baz");
     }
 
     #[test]
     fn two_modules_and_one_value() {
-        let path = Path::new_borrowed("foo::bar::baz").unwrap();
+        let path = Path::new("foo::bar::baz").unwrap();
 
-        assert_eq!(
-            path.module_names()
-                .map(|path| path.inner())
-                .collect::<Vec<_>>(),
-            vec!["foo", "bar"]
+        assert!(
+            path.modules()
+                .eq([Path::new("foo").unwrap(), Path::new("bar").unwrap()].into_iter())
         );
-        assert_eq!(path.item_name().inner(), "baz");
+        assert_eq!(path.item().inner().as_str(), "baz");
     }
 
     #[test]
     fn two_modules_and_two_values() {
-        let path = Path::new_borrowed("foo::bar::baz.qux").unwrap();
+        let path = Path::new("foo::bar::baz.qux").unwrap();
 
-        assert_eq!(
-            path.module_names()
-                .map(|path| path.inner())
-                .collect::<Vec<_>>(),
-            vec!["foo", "bar"]
+        assert!(
+            path.modules()
+                .eq([Path::new("foo").unwrap(), Path::new("bar").unwrap()].into_iter())
         );
-        assert_eq!(path.item_name().inner(), "baz.qux");
+        assert_eq!(path.item().inner().as_str(), "baz.qux");
     }
 }

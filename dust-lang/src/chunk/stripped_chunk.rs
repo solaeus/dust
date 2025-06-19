@@ -1,20 +1,21 @@
 use std::{
     fmt::{Debug, Display},
+    marker::PhantomData,
     sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, DustString, FunctionType, Instruction, Local, OperandType, Span, Value,
-    compiler::ChunkCompiler,
+    Address, FunctionType, Instruction, Local, OperandType, Path, Span, Value,
+    compiler::CompiledData,
 };
 
 use super::{Chunk, Disassemble, Disassembler};
 
-#[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize)]
 pub struct StrippedChunk {
-    pub(crate) name: Option<DustString>,
+    pub(crate) name: Option<Path>,
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -33,12 +34,31 @@ pub struct StrippedChunk {
     pub(crate) prototype_index: u16,
 }
 
-impl<'a> Chunk<'a> for StrippedChunk {
+impl Chunk for StrippedChunk {
+    fn new(data: CompiledData<Self>) -> Self {
+        StrippedChunk {
+            name: data.name,
+            r#type: data.r#type,
+            instructions: data.instructions,
+            constants: data.constants,
+            arguments: data.arguments,
+            boolean_memory_length: data.boolean_memory_length,
+            byte_memory_length: data.byte_memory_length,
+            character_memory_length: data.character_memory_length,
+            float_memory_length: data.float_memory_length,
+            integer_memory_length: data.integer_memory_length,
+            string_memory_length: data.string_memory_length,
+            list_memory_length: data.list_memory_length,
+            function_memory_length: data.function_memory_length,
+            prototype_index: data.prototype_index,
+        }
+    }
+
     fn chunk_type_name() -> &'static str {
         "Stripped Chunk"
     }
 
-    fn name(&self) -> Option<&DustString> {
+    fn name(&self) -> Option<&Path> {
         self.name.as_ref()
     }
 
@@ -66,8 +86,8 @@ impl<'a> Chunk<'a> for StrippedChunk {
         &self.arguments
     }
 
-    fn locals(&self) -> Option<impl Iterator<Item = (&DustString, &Local)>> {
-        None::<std::iter::Empty<(&DustString, &Local)>>
+    fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
+        None::<std::iter::Empty<(&Path, &Local)>>
     }
 
     fn boolean_memory_length(&self) -> u16 {
@@ -107,12 +127,6 @@ impl<'a> Chunk<'a> for StrippedChunk {
     }
 }
 
-impl<'a> From<ChunkCompiler<'a, Self>> for StrippedChunk {
-    fn from(compiler: ChunkCompiler<'a, Self>) -> Self {
-        compiler.finish()
-    }
-}
-
 impl Disassemble for StrippedChunk {
     fn disassembler<'a, 'w, W: std::io::Write>(
         &'a self,
@@ -128,8 +142,149 @@ impl Display for StrippedChunk {
     }
 }
 
-impl Debug for StrippedChunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.r#type)
+impl<'de> Deserialize<'de> for StrippedChunk {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StrippedChunkVisitor<'de> {
+            _marker: std::marker::PhantomData<&'de ()>,
+        }
+
+        impl<'de> serde::de::Visitor<'de> for StrippedChunkVisitor<'de> {
+            type Value = StrippedChunk;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a StrippedChunk struct")
+            }
+
+            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+            where
+                M: serde::de::MapAccess<'de>,
+            {
+                let mut name = None;
+                let mut r#type = FunctionType::default();
+                let mut instructions = Vec::new();
+                let mut constants = Vec::new();
+                let mut arguments = Vec::new();
+                let mut boolean_memory_length = 0;
+                let mut byte_memory_length = 0;
+                let mut character_memory_length = 0;
+                let mut float_memory_length = 0;
+                let mut integer_memory_length = 0;
+                let mut string_memory_length = 0;
+                let mut list_memory_length = 0;
+                let mut function_memory_length = 0;
+                let mut prototype_index = 0;
+
+                while let Some(key) = access.next_key::<&str>()? {
+                    match key {
+                        "name" => {
+                            name = access.next_value()?;
+                        }
+                        "r#type" => {
+                            r#type = access.next_value()?;
+                        }
+                        "instructions" => {
+                            instructions = access.next_value()?;
+                        }
+                        "constants" => {
+                            constants = access.next_value()?;
+                        }
+                        "arguments" => {
+                            arguments = access.next_value()?;
+                        }
+                        "boolean_memory_length" => {
+                            boolean_memory_length = access.next_value()?;
+                        }
+                        "byte_memory_length" => {
+                            byte_memory_length = access.next_value()?;
+                        }
+                        "character_memory_length" => {
+                            character_memory_length = access.next_value()?;
+                        }
+                        "float_memory_length" => {
+                            float_memory_length = access.next_value()?;
+                        }
+                        "integer_memory_length" => {
+                            integer_memory_length = access.next_value()?;
+                        }
+                        "string_memory_length" => {
+                            string_memory_length = access.next_value()?;
+                        }
+                        "list_memory_length" => {
+                            list_memory_length = access.next_value()?;
+                        }
+                        "function_memory_length" => {
+                            function_memory_length = access.next_value()?;
+                        }
+                        "prototype_index" => {
+                            prototype_index = access.next_value()?;
+                        }
+                        _ => {
+                            return Err(serde::de::Error::unknown_field(
+                                key,
+                                &[
+                                    "name",
+                                    "r#type",
+                                    "instructions",
+                                    "constants",
+                                    "arguments",
+                                    "boolean_memory_length",
+                                    "byte_memory_length",
+                                    "character_memory_length",
+                                    "float_memory_length",
+                                    "integer_memory_length",
+                                    "string_memory_length",
+                                    "list_memory_length",
+                                    "function_memory_length",
+                                    "prototype_index",
+                                ],
+                            ));
+                        }
+                    }
+                }
+
+                Ok(StrippedChunk {
+                    name,
+                    r#type,
+                    instructions,
+                    constants,
+                    arguments,
+                    boolean_memory_length,
+                    byte_memory_length,
+                    character_memory_length,
+                    float_memory_length,
+                    integer_memory_length,
+                    string_memory_length,
+                    list_memory_length,
+                    function_memory_length,
+                    prototype_index,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "StrippedChunk",
+            &[
+                "name",
+                "r#type",
+                "instructions",
+                "constants",
+                "arguments",
+                "boolean_memory_length",
+                "byte_memory_length",
+                "character_memory_length",
+                "float_memory_length",
+                "integer_memory_length",
+                "string_memory_length",
+                "list_memory_length",
+                "function_memory_length",
+                "prototype_index",
+            ],
+            StrippedChunkVisitor {
+                _marker: PhantomData,
+            },
+        )
     }
 }
