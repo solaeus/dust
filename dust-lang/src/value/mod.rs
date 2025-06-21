@@ -100,105 +100,112 @@ impl<C: Chunk> Value<C> {
     pub fn as_boolean_or_panic(&self) -> bool {
         match self {
             Value::Boolean(boolean) => *boolean,
-            _ => unreachable!("Attempted to use the value `{self}` as a boolean"),
+            _ => panic!("Attempted to use the value `{self}` as a boolean"),
         }
     }
 
     pub fn as_byte_or_panic(&self) -> u8 {
         match self {
             Value::Byte(byte) => *byte,
-            _ => unreachable!("Attempted to use the value `{self}` as a byte"),
+            _ => panic!("Attempted to use the value `{self}` as a byte"),
         }
     }
 
     pub fn as_character_or_panic(&self) -> char {
         match self {
             Value::Character(character) => *character,
-            _ => unreachable!("Attempted to use the value `{self}` as a character"),
+            _ => panic!("Attempted to use the value `{self}` as a character"),
         }
     }
 
     pub fn as_float_or_panic(&self) -> f64 {
         match self {
             Value::Float(float) => *float,
-            _ => unreachable!("Attempted to use the value `{self}` as a float"),
+            _ => panic!("Attempted to use the value `{self}` as a float"),
         }
     }
 
     pub fn as_integer_or_panic(&self) -> i64 {
         match self {
             Value::Integer(integer) => *integer,
-            _ => unreachable!("Attempted to use the value `{self}` as an integer"),
+            _ => panic!("Attempted to use the value `{self}` as an integer"),
+        }
+    }
+
+    pub fn as_integer_ref_or_panic(&self) -> &i64 {
+        match self {
+            Value::Integer(integer) => integer,
+            _ => panic!("Attempted to use the value `{self}` as an integer reference"),
         }
     }
 
     pub fn as_string_or_panic(&self) -> &DustString {
         match self {
             Value::String(string) => string,
-            _ => unreachable!("Attempted to use the value `{self}` as a string"),
+            _ => panic!("Attempted to use the value `{self}` as a string"),
         }
     }
 
     pub fn as_boolean_list_or_panic(&self) -> &Vec<bool> {
         match self {
             Value::List(List::Boolean(booleans)) => booleans,
-            _ => unreachable!("Attempted to use the value `{self}` as a boolean list"),
+            _ => panic!("Attempted to use the value `{self}` as a boolean list"),
         }
     }
 
     pub fn as_byte_list_or_panic(&self) -> &Vec<u8> {
         match self {
             Value::List(List::Byte(bytes)) => bytes,
-            _ => unreachable!("Attempted to use the value `{self}` as a byte list"),
+            _ => panic!("Attempted to use the value `{self}` as a byte list"),
         }
     }
 
     pub fn as_character_list_or_panic(&self) -> &Vec<char> {
         match self {
             Value::List(List::Character(characters)) => characters,
-            _ => unreachable!("Attempted to use the value `{self}` as a character list"),
+            _ => panic!("Attempted to use the value `{self}` as a character list"),
         }
     }
 
     pub fn as_float_list_or_panic(&self) -> &Vec<f64> {
         match self {
             Value::List(List::Float(floats)) => floats,
-            _ => unreachable!("Attempted to use the value `{self}` as a float list"),
+            _ => panic!("Attempted to use the value `{self}` as a float list"),
         }
     }
 
     pub fn as_integer_list_or_panic(&self) -> &Vec<i64> {
         match self {
             Value::List(List::Integer(integers)) => integers,
-            _ => unreachable!("Attempted to use the value `{self}` as an integer list"),
+            _ => panic!("Attempted to use the value `{self}` as an integer list"),
         }
     }
 
     pub fn as_string_list_or_panic(&self) -> &Vec<DustString> {
         match self {
             Value::List(List::String(strings)) => strings,
-            _ => unreachable!("Attempted to use the value `{self}` as a string list"),
+            _ => panic!("Attempted to use the value `{self}` as a string list"),
         }
     }
 
     pub fn as_list_list_or_panic(&self) -> &Vec<List<C>> {
         match self {
             Value::List(List::List(lists)) => lists,
-            _ => unreachable!("Attempted to use the value `{self}` as a list list"),
+            _ => panic!("Attempted to use the value `{self}` as a list list"),
         }
     }
 
     pub fn as_function_list_or_panic(&self) -> &Vec<Arc<C>> {
         match self {
             Value::List(List::Function(functions)) => functions,
-            _ => unreachable!("Attempted to use the value `{self}` as a function list"),
+            _ => panic!("Attempted to use the value `{self}` as a function list"),
         }
     }
 
     pub fn as_function_or_panic(&self) -> &Arc<C> {
         match self {
             Value::Function(function) => function,
-            _ => unreachable!("Attempted to use the value `{self}` as a function"),
+            _ => panic!("Attempted to use the value `{self}` as a function"),
         }
     }
 }

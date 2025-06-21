@@ -68,8 +68,8 @@ impl<C: Chunk> ThreadRunner<C> {
                 .unwrap_or_default()
         );
 
-        let mut call_stack = Vec::<CallFrame<C>>::new();
-        let mut memory_stack = Vec::<Memory<C>>::new();
+        let mut call_stack = Vec::<CallFrame<C>>::with_capacity(10);
+        let mut memory_stack = Vec::<Memory<C>>::with_capacity(10);
 
         let mut call = CallFrame::new(
             Arc::clone(&self.chunk),
@@ -106,54 +106,22 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Load::from(&instruction);
 
                     match r#type {
-                        OperandType::BOOLEAN => {
-                            let boolean = get_boolean!(operand, memory, call.chunk, self.cells);
-
-                            set_boolean!(destination, memory, self.cells, boolean);
-                        }
-                        OperandType::BYTE => {
-                            let byte = get_byte!(operand, memory, call.chunk, self.cells);
-
-                            set_byte!(destination, memory, self.cells, byte);
-                        }
-                        OperandType::CHARACTER => {
-                            let character = get_character!(operand, memory, call.chunk, self.cells);
-
-                            set_character!(destination, memory, self.cells, character);
-                        }
-                        OperandType::FLOAT => {
-                            let float = get_float!(operand, memory, call.chunk, self.cells);
-
-                            set_float!(destination, memory, self.cells, float);
-                        }
                         OperandType::INTEGER => {
-                            let integer = get_integer!(operand, memory, call.chunk, self.cells);
+                            let integer = match operand.memory {
+                                MemoryKind::CONSTANT => {
+                                    copy_constant!(operand.index, call.chunk.constants(), Integer)
+                                }
+                                _ => todo!(),
+                            };
 
-                            set_integer!(destination, memory, self.cells, integer);
+                            match destination.memory {
+                                MemoryKind::STACK => {
+                                    set_to_stack!(integer, destination.index, memory, integers)
+                                }
+                                _ => todo!(),
+                            }
                         }
-                        OperandType::STRING => {
-                            let string = get_string!(operand, memory, call.chunk, self.cells);
-
-                            set_string!(destination, memory, self.cells, string);
-                        }
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => {
-                            let list = get_list!(operand, memory, call.chunk, self.cells);
-
-                            set_list!(destination, memory, self.cells, list);
-                        }
-                        OperandType::FUNCTION => {
-                            let function = get_function!(operand, memory, &call.chunk, self.cells);
-
-                            set_function!(destination, memory, self.cells, function);
-                        }
-                        _ => unreachable!(),
+                        _ => todo!(),
                     }
 
                     if jump_next {
@@ -169,181 +137,11 @@ impl<C: Chunk> ThreadRunner<C> {
                         end,
                         r#type,
                     } = List::from(&instruction);
-
-                    let list = match r#type.list_item_type() {
-                        Some(OperandType::BOOLEAN) => {
-                            let mut booleans = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, booleans);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => booleans.push(value),
-                                }
-                            }
-
-                            ListValue::Boolean(booleans)
-                        }
-                        Some(OperandType::BYTE) => {
-                            let mut bytes = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, bytes);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => bytes.push(value),
-                                }
-                            }
-
-                            ListValue::Byte(bytes)
-                        }
-                        Some(OperandType::CHARACTER) => {
-                            let mut characters = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, characters);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => characters.push(value),
-                                }
-                            }
-
-                            ListValue::Character(characters)
-                        }
-                        Some(OperandType::FLOAT) => {
-                            let mut floats = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, floats);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => floats.push(value),
-                                }
-                            }
-
-                            ListValue::Float(floats)
-                        }
-                        Some(OperandType::INTEGER) => {
-                            let mut integers = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, integers);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => integers.push(value),
-                                }
-                            }
-
-                            ListValue::Integer(integers)
-                        }
-                        Some(OperandType::STRING) => {
-                            let mut strings = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, strings);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => strings.push(value),
-                                }
-                            }
-
-                            ListValue::String(strings)
-                        }
-                        Some(OperandType::LIST) => {
-                            let mut lists = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, lists);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => lists.push(value),
-                                }
-                            }
-
-                            ListValue::List(lists)
-                        }
-                        Some(OperandType::FUNCTION) => {
-                            let mut functions = Vec::new();
-
-                            for index in start.index..=end.index {
-                                let heap_slot = take_heap_slot!(index, memory, functions);
-
-                                match heap_slot {
-                                    HeapSlot::Closed => continue,
-                                    HeapSlot::Open(value) => functions.push(value),
-                                }
-                            }
-
-                            ListValue::Function(functions)
-                        }
-                        Some(invalid) => invalid_operand_type_panic!(invalid, operation),
-                        None => unreachable!(),
-                    };
-
-                    set_list!(destination, memory, self.cells, list);
                 }
 
                 // CLOSE
                 Operation::CLOSE => {
                     let Close { from, to, r#type } = Close::from(&instruction);
-
-                    match r#type {
-                        OperandType::BOOLEAN => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, booleans)
-                            }
-                        }
-                        OperandType::BYTE => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, bytes)
-                            }
-                        }
-                        OperandType::CHARACTER => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, characters)
-                            }
-                        }
-                        OperandType::FLOAT => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, floats)
-                            }
-                        }
-                        OperandType::INTEGER => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, integers)
-                            }
-                        }
-                        OperandType::STRING => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, strings)
-                            }
-                        }
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, lists)
-                            }
-                        }
-                        OperandType::FUNCTION => {
-                            for index in from.index..=to.index {
-                                close_heap_slot!(index, memory, functions)
-                            }
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // ADD
@@ -356,68 +154,89 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Add::from(&instruction);
 
                     match r#type {
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-                            let sum = left.saturating_add(right);
-
-                            set_byte!(destination, memory, self.cells, sum);
-                        }
-                        OperandType::CHARACTER => {
-                            let left = get_character!(left, memory, call.chunk, self.cells);
-                            let right = get_character!(right, memory, call.chunk, self.cells);
-                            let mut sum = DustString::new();
-
-                            sum.inner.push(left);
-                            sum.inner.push(right);
-
-                            set_string!(destination, memory, self.cells, sum);
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-                            let sum = left + right;
-
-                            set_float!(destination, memory, self.cells, sum);
-                        }
                         OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-                            let sum = left.saturating_add(right);
+                            match (destination.memory, left.memory, right.memory) {
+                                (MemoryKind::STACK, MemoryKind::STACK, MemoryKind::STACK) => {
+                                    if left == destination {
+                                        let [left, right] = get_mut_many_from_stack!(
+                                            [left.index as usize, right.index as usize,],
+                                            memory,
+                                            integers
+                                        );
 
-                            set_integer!(destination, memory, self.cells, sum);
+                                        *left = left.saturating_add(*right);
+                                    } else if right == destination {
+                                        let [left, right] = memory
+                                            .stack
+                                            .integers
+                                            .get_disjoint_mut([
+                                                left.index as usize,
+                                                right.index as usize,
+                                            ])
+                                            .unwrap();
+
+                                        *right = left.saturating_add(*right);
+                                    } else {
+                                        let [destination, left, right] = memory
+                                            .stack
+                                            .integers
+                                            .get_disjoint_mut([
+                                                destination.index as usize,
+                                                left.index as usize,
+                                                right.index as usize,
+                                            ])
+                                            .unwrap();
+
+                                        *destination = left.saturating_add(*right);
+                                    }
+                                }
+                                (MemoryKind::STACK, MemoryKind::CONSTANT, MemoryKind::CONSTANT) => {
+                                    let left =
+                                        copy_constant!(left.index, call.chunk.constants(), Integer);
+                                    let right = copy_constant!(
+                                        right.index,
+                                        call.chunk.constants(),
+                                        Integer
+                                    );
+                                    let sum = left.saturating_add(right);
+
+                                    set_to_stack!(sum, destination.index, memory, integers);
+                                }
+                                (MemoryKind::STACK, MemoryKind::STACK, MemoryKind::CONSTANT) => {
+                                    if left == destination {
+                                        let left =
+                                            get_mut_from_stack!(left.index, memory, integers);
+                                        let right = copy_constant!(
+                                            right.index,
+                                            call.chunk.constants(),
+                                            Integer
+                                        );
+                                        let sum = left.saturating_add(right);
+
+                                        *left = sum;
+                                    } else if right == destination {
+                                        let left = copy_from_stack!(left.index, memory, integers);
+                                        let right =
+                                            get_mut_from_stack!(right.index, memory, integers);
+                                        let sum = left.saturating_add(*right);
+
+                                        *right = sum;
+                                    } else {
+                                        let left = copy_from_stack!(left.index, memory, integers);
+                                        let right = copy_constant!(
+                                            right.index,
+                                            call.chunk.constants(),
+                                            Integer
+                                        );
+                                        let sum = left.saturating_add(right);
+
+                                        set_to_stack!(sum, destination.index, memory, integers);
+                                    }
+                                }
+                                _ => todo!(),
+                            }
                         }
-                        OperandType::STRING => {
-                            let left = get_string!(left, memory, call.chunk, self.cells);
-                            let right = get_string!(right, memory, call.chunk, self.cells);
-                            let mut sum = DustString::new();
-
-                            sum.inner.push_str(&left);
-                            sum.inner.push_str(&right);
-
-                            set_string!(destination, memory, self.cells, sum);
-                        }
-                        OperandType::CHARACTER_STRING => {
-                            let left = get_character!(left, memory, call.chunk, self.cells);
-                            let right = get_string!(right, memory, call.chunk, self.cells);
-                            let mut sum = DustString::new();
-
-                            sum.inner.push(left);
-                            sum.inner.push_str(&right);
-
-                            set_string!(destination, memory, self.cells, sum);
-                        }
-                        OperandType::STRING_CHARACTER => {
-                            let left = get_string!(left, memory, call.chunk, self.cells);
-                            let right = get_character!(right, memory, call.chunk, self.cells);
-                            let mut sum = DustString::new();
-
-                            sum.inner.push_str(&left);
-                            sum.inner.push(right);
-
-                            set_string!(destination, memory, self.cells, sum);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
+                        _ => todo!(),
                     }
                 }
 
@@ -429,31 +248,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Subtract::from(&instruction);
-
-                    match r#type {
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-                            let difference = left.saturating_sub(right);
-
-                            set_byte!(destination, memory, self.cells, difference);
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-                            let difference = left - right;
-
-                            set_float!(destination, memory, self.cells, difference);
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-                            let difference = left.saturating_sub(right);
-
-                            set_integer!(destination, memory, self.cells, difference);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // MULTIPLY
@@ -464,31 +258,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Multiply::from(&instruction);
-
-                    match r#type {
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-                            let product = left.saturating_mul(right);
-
-                            set_byte!(destination, memory, self.cells, product);
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-                            let product = left * right;
-
-                            set_float!(destination, memory, self.cells, product);
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-                            let product = left.saturating_mul(right);
-
-                            set_integer!(destination, memory, self.cells, product);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // DIVIDE
@@ -499,31 +268,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Divide::from(&instruction);
-
-                    match r#type {
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-                            let quotient = left.saturating_div(right);
-
-                            set_byte!(destination, memory, self.cells, quotient);
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-                            let quotient = left / right;
-
-                            set_float!(destination, memory, self.cells, quotient);
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-                            let quotient = left.saturating_div(right);
-
-                            set_integer!(destination, memory, self.cells, quotient);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // MODULO
@@ -534,31 +278,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Modulo::from(&instruction);
-
-                    match r#type {
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-                            let remainder = left % right;
-
-                            set_byte!(destination, memory, self.cells, remainder);
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-                            let remainder = left % right;
-
-                            set_float!(destination, memory, self.cells, remainder);
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-                            let remainder = left % right;
-
-                            set_integer!(destination, memory, self.cells, remainder);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // EQUAL
@@ -569,69 +288,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Equal::from(&instruction);
-
-                    let is_equal = match r#type {
-                        OperandType::BOOLEAN => {
-                            let left = get_boolean!(left, memory, call.chunk, self.cells);
-                            let right = get_boolean!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::CHARACTER => {
-                            let left = get_character!(left, memory, call.chunk, self.cells);
-                            let right = get_character!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::STRING => {
-                            let left = get_string!(left, memory, call.chunk, self.cells);
-                            let right = get_string!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => {
-                            let left = get_list!(left, memory, call.chunk, self.cells);
-                            let right = get_list!(right, memory, call.chunk, self.cells);
-
-                            left == right
-                        }
-                        OperandType::FUNCTION => {
-                            let left = get_function!(left, memory, &call.chunk, self.cells);
-                            let right = get_function!(right, memory, &call.chunk, self.cells);
-
-                            Arc::ptr_eq(&left, &right)
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    };
-
-                    if is_equal == comparator {
-                        call.ip += 1;
-                    }
                 }
 
                 // LESS
@@ -644,62 +300,28 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Less::from(&instruction);
 
                     let is_less = match r#type {
-                        OperandType::BOOLEAN => {
-                            let left = get_boolean!(left, memory, call.chunk, self.cells);
-                            let right = get_boolean!(right, memory, call.chunk, self.cells);
-
-                            !left && right
-                        }
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-
-                            left < right
-                        }
-                        OperandType::CHARACTER => {
-                            let left = get_character!(left, memory, call.chunk, self.cells);
-                            let right = get_character!(right, memory, call.chunk, self.cells);
-
-                            left < right
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-
-                            left < right
-                        }
                         OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
+                            let left_value = match left.memory {
+                                MemoryKind::STACK => copy_from_stack!(left.index, memory, integers),
+                                MemoryKind::CONSTANT => {
+                                    copy_constant!(left.index, call.chunk.constants(), Integer)
+                                }
+                                invalid => invalid.invalid_panic(ip, operation),
+                            };
 
-                            left < right
-                        }
-                        OperandType::STRING => {
-                            let left = get_string!(left, memory, call.chunk, self.cells);
-                            let right = get_string!(right, memory, call.chunk, self.cells);
+                            let right_value = match right.memory {
+                                MemoryKind::STACK => {
+                                    copy_from_stack!(right.index, memory, integers)
+                                }
+                                MemoryKind::CONSTANT => {
+                                    copy_constant!(right.index, call.chunk.constants(), Integer)
+                                }
+                                invalid => invalid.invalid_panic(ip, operation),
+                            };
 
-                            left < right
+                            left_value < right_value
                         }
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => {
-                            let left = get_list!(left, memory, call.chunk, self.cells);
-                            let right = get_list!(right, memory, call.chunk, self.cells);
-
-                            left < right
-                        }
-                        OperandType::FUNCTION => {
-                            let left = get_function!(left, memory, &call.chunk, self.cells);
-                            let right = get_function!(right, memory, &call.chunk, self.cells);
-
-                            Arc::ptr_eq(&left, &right)
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
+                        _ => todo!(),
                     };
 
                     if is_less == comparator {
@@ -715,69 +337,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = LessEqual::from(&instruction);
-
-                    let is_less_equal = match r#type {
-                        OperandType::BOOLEAN => {
-                            let left = get_boolean!(left, memory, call.chunk, self.cells);
-                            let right = get_boolean!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::BYTE => {
-                            let left = get_byte!(left, memory, call.chunk, self.cells);
-                            let right = get_byte!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::CHARACTER => {
-                            let left = get_character!(left, memory, call.chunk, self.cells);
-                            let right = get_character!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::FLOAT => {
-                            let left = get_float!(left, memory, call.chunk, self.cells);
-                            let right = get_float!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::INTEGER => {
-                            let left = get_integer!(left, memory, call.chunk, self.cells);
-                            let right = get_integer!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::STRING => {
-                            let left = get_string!(left, memory, call.chunk, self.cells);
-                            let right = get_string!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => {
-                            let left = get_list!(left, memory, call.chunk, self.cells);
-                            let right = get_list!(right, memory, call.chunk, self.cells);
-
-                            left <= right
-                        }
-                        OperandType::FUNCTION => {
-                            let left = get_function!(left, memory, &call.chunk, self.cells);
-                            let right = get_function!(right, memory, &call.chunk, self.cells);
-
-                            Arc::ptr_eq(&left, &right)
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    };
-
-                    if is_less_equal == comparator {
-                        call.ip += 1;
-                    }
                 }
 
                 // TEST
@@ -786,12 +345,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         comparator,
                         operand,
                     } = Test::from(&instruction);
-
-                    let boolean = get_boolean!(operand, memory, call.chunk, self.cells);
-
-                    if boolean == comparator {
-                        call.ip += 1;
-                    }
                 }
 
                 // NEGATE
@@ -801,30 +354,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         operand,
                         r#type,
                     } = Negate::from(&instruction);
-
-                    match r#type {
-                        OperandType::BOOLEAN => {
-                            let boolean = get_boolean!(operand, memory, call.chunk, self.cells);
-
-                            set_boolean!(destination, memory, self.cells, !boolean);
-                        }
-                        OperandType::BYTE => {
-                            let byte = get_byte!(operand, memory, call.chunk, self.cells);
-
-                            set_byte!(destination, memory, self.cells, !byte);
-                        }
-                        OperandType::FLOAT => {
-                            let float = get_float!(operand, memory, call.chunk, self.cells);
-
-                            set_float!(destination, memory, self.cells, -float);
-                        }
-                        OperandType::INTEGER => {
-                            let integer = get_integer!(operand, memory, call.chunk, self.cells);
-
-                            set_integer!(destination, memory, self.cells, -integer);
-                        }
-                        invalid => invalid_operand_type_panic!(invalid, operation),
-                    }
                 }
 
                 // CALL
@@ -835,100 +364,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         argument_list_index,
                         return_type,
                     } = Call::from(&instruction);
-
-                    let chunk = Arc::clone(&call.chunk);
-                    let arguments_list = chunk.arguments();
-                    let index = argument_list_index as usize;
-
-                    assert!(
-                        index < arguments_list.len(),
-                        "Argument list index out of bounds"
-                    );
-
-                    let arguments = &arguments_list[index];
-                    let function = get_function!(function, memory, &call.chunk, self.cells);
-
-                    let mut new_memory = Memory::new(&*function);
-                    let new_call = CallFrame::new(function, destination, return_type);
-
-                    for ((argument_address, r#type), parameter_address) in
-                        arguments.iter().zip(new_call.chunk.parameters().iter())
-                    {
-                        match *r#type {
-                            OperandType::BOOLEAN => {
-                                let boolean =
-                                    get_boolean!(argument_address, memory, call.chunk, self.cells);
-
-                                set_boolean!(parameter_address, new_memory, self.cells, boolean);
-                            }
-                            OperandType::BYTE => {
-                                let byte =
-                                    get_byte!(argument_address, memory, call.chunk, self.cells);
-
-                                set_byte!(parameter_address, new_memory, self.cells, byte);
-                            }
-                            OperandType::CHARACTER => {
-                                let character = get_character!(
-                                    argument_address,
-                                    memory,
-                                    call.chunk,
-                                    self.cells
-                                );
-
-                                set_character!(
-                                    parameter_address,
-                                    new_memory,
-                                    self.cells,
-                                    character
-                                );
-                            }
-                            OperandType::FLOAT => {
-                                let float =
-                                    get_float!(argument_address, memory, call.chunk, self.cells);
-
-                                set_float!(parameter_address, new_memory, self.cells, float);
-                            }
-                            OperandType::INTEGER => {
-                                let integer =
-                                    get_integer!(argument_address, memory, call.chunk, self.cells);
-
-                                set_integer!(parameter_address, new_memory, self.cells, integer);
-                            }
-                            OperandType::STRING => {
-                                let string =
-                                    get_string!(argument_address, memory, call.chunk, self.cells);
-
-                                set_string!(parameter_address, new_memory, self.cells, string);
-                            }
-                            OperandType::LIST_BOOLEAN
-                            | OperandType::LIST_BYTE
-                            | OperandType::LIST_CHARACTER
-                            | OperandType::LIST_FLOAT
-                            | OperandType::LIST_INTEGER
-                            | OperandType::LIST_STRING
-                            | OperandType::LIST_LIST
-                            | OperandType::LIST_FUNCTION => {
-                                let list =
-                                    get_list!(argument_address, memory, call.chunk, self.cells);
-
-                                set_list!(parameter_address, new_memory, self.cells, list);
-                            }
-                            OperandType::FUNCTION => {
-                                let function = get_function!(
-                                    argument_address,
-                                    memory,
-                                    &call.chunk,
-                                    self.cells
-                                );
-
-                                set_function!(parameter_address, new_memory, self.cells, function);
-                            }
-                            invalid => invalid_operand_type_panic!(invalid, operation),
-                        }
-                    }
-
-                    call_stack.push(replace(&mut call, new_call));
-                    memory_stack.push(replace(&mut memory, new_memory));
                 }
 
                 // CALL_NATIVE
@@ -984,90 +419,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     if call_stack.is_empty() {
                         if should_return_value {
-                            let return_value = match r#type {
-                                OperandType::BOOLEAN => {
-                                    let value = take_or_decode_boolean!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Boolean(value)
-                                }
-                                OperandType::BYTE => {
-                                    let value = take_or_decode_byte!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Byte(value)
-                                }
-                                OperandType::CHARACTER => {
-                                    let value = take_or_get_character!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Character(value)
-                                }
-                                OperandType::FLOAT => {
-                                    let value = take_or_get_float!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Float(value)
-                                }
-                                OperandType::INTEGER => {
-                                    let value = take_or_get_integer!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Integer(value)
-                                }
-                                OperandType::STRING => {
-                                    let value = take_or_get_string!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::String(value)
-                                }
-                                OperandType::LIST_BOOLEAN
-                                | OperandType::LIST_BYTE
-                                | OperandType::LIST_CHARACTER
-                                | OperandType::LIST_FLOAT
-                                | OperandType::LIST_INTEGER
-                                | OperandType::LIST_STRING
-                                | OperandType::LIST_LIST
-                                | OperandType::LIST_FUNCTION => {
-                                    let value = take_or_get_list!(
-                                        return_value_address,
-                                        memory,
-                                        call.chunk,
-                                        self.cells
-                                    );
-                                    Value::List(value)
-                                }
-                                OperandType::FUNCTION => {
-                                    let value = take_or_get_function!(
-                                        return_value_address,
-                                        memory,
-                                        &call.chunk,
-                                        self.cells
-                                    );
-                                    Value::Function(value)
-                                }
-                                invalid => invalid_operand_type_panic!(invalid, operation),
-                            };
-
-                            return Some(return_value);
+                            todo!()
                         } else {
                             return None;
                         }
@@ -1081,106 +433,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         replace(&mut call, call_stack.pop().expect("Call stack underflow"));
 
                     if should_return_value {
-                        match r#type {
-                            OperandType::BOOLEAN => {
-                                let boolean = take_or_decode_boolean!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_boolean!(old_call.return_address, memory, self.cells, boolean);
-                            }
-                            OperandType::BYTE => {
-                                let byte = take_or_decode_byte!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_byte!(old_call.return_address, memory, self.cells, byte);
-                            }
-                            OperandType::CHARACTER => {
-                                let character = take_or_get_character!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_character!(
-                                    old_call.return_address,
-                                    memory,
-                                    self.cells,
-                                    character
-                                );
-                            }
-                            OperandType::FLOAT => {
-                                let float = take_or_get_float!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_float!(old_call.return_address, memory, self.cells, float);
-                            }
-                            OperandType::INTEGER => {
-                                let integer = take_or_get_integer!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_integer!(old_call.return_address, memory, self.cells, integer);
-                            }
-                            OperandType::STRING => {
-                                let string = take_or_get_string!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_string!(old_call.return_address, memory, self.cells, string);
-                            }
-                            OperandType::LIST_BOOLEAN
-                            | OperandType::LIST_BYTE
-                            | OperandType::LIST_CHARACTER
-                            | OperandType::LIST_FLOAT
-                            | OperandType::LIST_INTEGER
-                            | OperandType::LIST_STRING
-                            | OperandType::LIST_LIST
-                            | OperandType::LIST_FUNCTION => {
-                                let list = take_or_get_list!(
-                                    return_value_address,
-                                    old_memory,
-                                    old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_list!(old_call.return_address, memory, self.cells, list);
-                            }
-                            OperandType::FUNCTION => {
-                                let function = take_or_get_function!(
-                                    return_value_address,
-                                    old_memory,
-                                    &old_call.chunk,
-                                    self.cells
-                                );
-
-                                set_function!(
-                                    old_call.return_address,
-                                    memory,
-                                    self.cells,
-                                    function
-                                );
-                            }
-                            invalid => invalid_operand_type_panic!(invalid, operation),
-                        }
+                        todo!()
                     }
                 }
                 _ => todo!("Handle operation: {operation}"),

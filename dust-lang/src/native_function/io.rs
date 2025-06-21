@@ -24,7 +24,5 @@ pub fn write_line<C: Chunk>(
     cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _: &ThreadPool<C>,
 ) {
-    let output = get_string!(arguments[0].0, memory, call.chunk, cells);
-
-    println!("{output}");
+    todo!()
 }

@@ -102,7 +102,7 @@ impl Token<'_> {
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
-            Token::Eof => 0,
+            Token::Eof => 3,
             Token::Boolean(text) => text.len(),
             Token::Byte(_) => 3,
             Token::Character(_) => 3,
@@ -169,7 +169,7 @@ impl Token<'_> {
 
     pub fn as_str(&self) -> &str {
         match self {
-            Token::Eof => "",
+            Token::Eof => "EOF",
             Token::Boolean(text) => text,
             Token::Byte(text) => text,
             Token::ByteKeyword => "byte",

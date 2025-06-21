@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use hashbrown::HashSet;
-
-use crate::{Address, Chunk, DEFAULT_REGISTER_COUNT, DustString, List, instruction::OperandType};
+use crate::{Chunk, DEFAULT_REGISTER_COUNT, DustString, List};
 
 #[derive(Debug)]
 pub struct Memory<C> {
     pub heap: Heap<C>,
-
-    pub closed: HashSet<(Address, OperandType)>,
 
     pub stack: Stack<DEFAULT_REGISTER_COUNT>,
 }
@@ -17,7 +13,6 @@ impl<C: Chunk> Memory<C> {
     pub fn new(chunk: &C) -> Self {
         Memory {
             heap: Heap::new(chunk),
-            closed: HashSet::new(),
             stack: Stack::new(),
         }
     }

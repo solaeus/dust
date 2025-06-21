@@ -3035,6 +3035,16 @@ where
     }
 
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
+        let (_, last_expression_type, _) =
+            self.instructions
+                .last_mut()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+
+        *last_expression_type = Type::None;
+
         self.advance()?;
 
         Ok(())

@@ -236,12 +236,13 @@ impl PartialEq for FullChunk {
             && self.constants == other.constants
             && self.locals == other.locals
             && self.arguments == other.arguments
+            && self.parameters == other.parameters
             && self.prototype_index == other.prototype_index
     }
 }
 
 #[cfg(not(debug_assertions))]
-impl PartialEq for FullChunk<'a> {
+impl PartialEq for FullChunk {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.r#type == other.r#type
@@ -250,6 +251,7 @@ impl PartialEq for FullChunk<'a> {
             && self.constants == other.constants
             && self.locals == other.locals
             && self.arguments == other.arguments
+            && self.parameters == other.parameters
             && self.prototype_index == other.prototype_index
             && self.boolean_memory_length == other.boolean_memory_length
             && self.byte_memory_length == other.byte_memory_length
