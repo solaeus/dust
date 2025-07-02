@@ -28,7 +28,7 @@ impl From<&Instruction> for Equal {
 impl From<Equal> for Instruction {
     fn from(equal: Equal) -> Self {
         let operation = Operation::EQUAL;
-        let a_field = equal.comparator as u16;
+        let a_field = equal.comparator as usize;
         let Address {
             index: b_field,
             memory: b_memory_kind,

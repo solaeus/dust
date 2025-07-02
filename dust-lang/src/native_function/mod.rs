@@ -25,7 +25,6 @@ pub type NativeFunctionLogic<C> = fn(
     destination: Address,
     arguments: &[(Address, OperandType)],
     call: &mut CallFrame<C>,
-    memory: &mut Memory<C>,
     cells: &Arc<RwLock<Vec<Cell<C>>>>,
     threads: &ThreadPool<C>,
 );
@@ -37,7 +36,7 @@ macro_rules! define_native_function {
         /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub struct NativeFunction<C> {
-            pub index: u16,
+            pub index: usize,
             _marker: PhantomData<C>,
         }
 
@@ -48,7 +47,7 @@ macro_rules! define_native_function {
                 )*
             ];
 
-            pub fn from_index(index: u16) -> Self {
+            pub fn from_index(index: usize) -> Self {
                 NativeFunction {
                     index,
                     _marker: PhantomData,
@@ -60,7 +59,6 @@ macro_rules! define_native_function {
                 destination: Address,
                 arguments: &[(Address, OperandType)],
                 call: &mut CallFrame<C>,
-                memory: &mut Memory<C>,
                 cells: &Arc<RwLock<Vec<Cell<C>>>>,
                 threads: &ThreadPool<C>,
             ) {
@@ -68,7 +66,6 @@ macro_rules! define_native_function {
                     destination,
                     arguments,
                     call,
-                    memory,
                     cells,
                     threads,
                 );
@@ -132,7 +129,6 @@ fn no_op<C>(
     _destination: Address,
     _arguments: &[(Address, OperandType)],
     _call: &mut CallFrame<C>,
-    _memory: &mut Memory<C>,
     _cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _threads: &ThreadPool<C>,
 ) {

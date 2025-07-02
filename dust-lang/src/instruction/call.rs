@@ -5,7 +5,7 @@ use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 pub struct Call {
     pub destination: Address,
     pub function: Address,
-    pub argument_list_index: u16,
+    pub argument_list_index: usize,
     pub return_type: OperandType,
 }
 

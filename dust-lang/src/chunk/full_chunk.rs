@@ -30,15 +30,8 @@ pub struct FullChunk {
     pub(crate) parameters: Vec<Address>,
     pub(crate) locals: IndexMap<Path, Local>,
 
-    pub(crate) boolean_memory_length: u16,
-    pub(crate) byte_memory_length: u16,
-    pub(crate) character_memory_length: u16,
-    pub(crate) float_memory_length: u16,
-    pub(crate) integer_memory_length: u16,
-    pub(crate) string_memory_length: u16,
-    pub(crate) list_memory_length: u16,
-    pub(crate) function_memory_length: u16,
-    pub(crate) prototype_index: u16,
+    pub(crate) register_count: usize,
+    pub(crate) prototype_index: usize,
 }
 
 impl FullChunk {
@@ -94,14 +87,7 @@ impl FullChunk {
                 .collect(),
             arguments: self.arguments,
             parameters: self.parameters,
-            boolean_memory_length: self.boolean_memory_length,
-            byte_memory_length: self.byte_memory_length,
-            character_memory_length: self.character_memory_length,
-            float_memory_length: self.float_memory_length,
-            integer_memory_length: self.integer_memory_length,
-            string_memory_length: self.string_memory_length,
-            list_memory_length: self.list_memory_length,
-            function_memory_length: self.function_memory_length,
+            register_count: self.register_count,
             prototype_index: self.prototype_index,
         }
     }
@@ -118,14 +104,7 @@ impl Chunk for FullChunk {
             arguments: data.arguments,
             parameters: data.parameters,
             locals: data.locals,
-            boolean_memory_length: data.boolean_memory_length,
-            byte_memory_length: data.byte_memory_length,
-            character_memory_length: data.character_memory_length,
-            float_memory_length: data.float_memory_length,
-            integer_memory_length: data.integer_memory_length,
-            string_memory_length: data.string_memory_length,
-            list_memory_length: data.list_memory_length,
-            function_memory_length: data.function_memory_length,
+            register_count: data.register_count,
             prototype_index: data.prototype_index,
         }
     }
@@ -170,39 +149,11 @@ impl Chunk for FullChunk {
         Some(self.locals.iter())
     }
 
-    fn boolean_memory_length(&self) -> u16 {
-        self.boolean_memory_length
+    fn register_count(&self) -> usize {
+        self.register_count
     }
 
-    fn byte_memory_length(&self) -> u16 {
-        self.byte_memory_length
-    }
-
-    fn character_memory_length(&self) -> u16 {
-        self.character_memory_length
-    }
-
-    fn float_memory_length(&self) -> u16 {
-        self.float_memory_length
-    }
-
-    fn integer_memory_length(&self) -> u16 {
-        self.integer_memory_length
-    }
-
-    fn string_memory_length(&self) -> u16 {
-        self.string_memory_length
-    }
-
-    fn list_memory_length(&self) -> u16 {
-        self.list_memory_length
-    }
-
-    fn function_memory_length(&self) -> u16 {
-        self.function_memory_length
-    }
-
-    fn prototype_index(&self) -> u16 {
+    fn prototype_index(&self) -> usize {
         self.prototype_index
     }
 }

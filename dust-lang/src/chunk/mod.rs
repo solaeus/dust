@@ -46,23 +46,9 @@ pub trait Chunk:
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>>;
 
-    fn boolean_memory_length(&self) -> u16;
+    fn register_count(&self) -> usize;
 
-    fn byte_memory_length(&self) -> u16;
-
-    fn character_memory_length(&self) -> u16;
-
-    fn float_memory_length(&self) -> u16;
-
-    fn integer_memory_length(&self) -> u16;
-
-    fn string_memory_length(&self) -> u16;
-
-    fn list_memory_length(&self) -> u16;
-
-    fn function_memory_length(&self) -> u16;
-
-    fn prototype_index(&self) -> u16;
+    fn prototype_index(&self) -> usize;
 
     fn into_function(self) -> Arc<Self>;
 }

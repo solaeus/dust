@@ -25,7 +25,7 @@ impl From<&Instruction> for Return {
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
         let operation = Operation::RETURN;
-        let a_field = r#return.should_return_value as u16;
+        let a_field = r#return.should_return_value as usize;
         let Address {
             index: b_field,
             memory: b_memory_kind,

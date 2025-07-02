@@ -1,80 +1,98 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-use crate::{Chunk, DEFAULT_REGISTER_COUNT, DustString, List};
+use crate::{Chunk, DustString, List};
 
 #[derive(Debug)]
 pub struct Memory<C> {
-    pub heap: Heap<C>,
-
-    pub stack: Stack<DEFAULT_REGISTER_COUNT>,
+    pub registers: Vec<Register>,
+    pub objects: Vec<Object<C>>,
+    pub currently_borrowed_registers: (usize, usize),
 }
 
 impl<C: Chunk> Memory<C> {
     pub fn new(chunk: &C) -> Self {
         Memory {
-            heap: Heap::new(chunk),
-            stack: Stack::new(),
+            registers: Vec::with_capacity(chunk.register_count()),
+            objects: Vec::with_capacity(0),
+            currently_borrowed_registers: (0, 0),
         }
+    }
+
+    pub fn get_registers(&mut self, count: usize) -> &mut [Register] {
+        if self.registers.len() < count {
+            self.registers.reserve_exact(count);
+            self.registers
+                .resize(self.registers.len() + count, Register(0));
+        }
+
+        let start = self.currently_borrowed_registers.1;
+        let end = start + count;
+
+        self.currently_borrowed_registers = (start, end);
+
+        &mut self.registers[start..end]
     }
 }
 
 #[derive(Debug)]
-pub struct Heap<C> {
-    pub booleans: Vec<HeapSlot<bool>>,
-    pub bytes: Vec<HeapSlot<u8>>,
-    pub characters: Vec<HeapSlot<char>>,
-    pub floats: Vec<HeapSlot<f64>>,
-    pub integers: Vec<HeapSlot<i64>>,
-    pub strings: Vec<HeapSlot<DustString>>,
-    pub lists: Vec<HeapSlot<List<C>>>,
-    pub functions: Vec<HeapSlot<Arc<C>>>,
+pub enum Object<C> {
+    List(List<C>),
+    Function(Arc<C>),
 }
 
-impl<C: Chunk> Heap<C> {
-    pub fn new(chunk: &C) -> Self {
-        Self {
-            booleans: vec![HeapSlot::Closed; chunk.boolean_memory_length() as usize],
-            bytes: vec![HeapSlot::Closed; chunk.byte_memory_length() as usize],
-            characters: vec![HeapSlot::Closed; chunk.character_memory_length() as usize],
-            floats: vec![HeapSlot::Closed; chunk.float_memory_length() as usize],
-            integers: vec![HeapSlot::Closed; chunk.integer_memory_length() as usize],
-            strings: vec![HeapSlot::Closed; chunk.string_memory_length() as usize],
-            lists: vec![HeapSlot::Closed; chunk.list_memory_length() as usize],
-            functions: vec![HeapSlot::Closed; chunk.function_memory_length() as usize],
-        }
+#[derive(Clone, Copy, Debug)]
+pub struct Register(u64);
+
+impl Register {
+    pub fn boolean(boolean: bool) -> Self {
+        Register(boolean as u64)
     }
-}
 
-#[derive(Clone, Copy, Debug, Default)]
-pub enum HeapSlot<T> {
-    #[default]
-    Closed,
-    Open(T),
-}
-
-#[derive(Debug)]
-pub struct Stack<const LENGTH: usize> {
-    pub booleans: [bool; LENGTH],
-    pub bytes: [u8; LENGTH],
-    pub characters: [char; LENGTH],
-    pub floats: [f64; LENGTH],
-    pub integers: [i64; LENGTH],
-}
-
-impl<const LENGTH: usize> Stack<LENGTH> {
-    pub fn new() -> Self {
-        Stack {
-            booleans: [false; LENGTH],
-            bytes: [0; LENGTH],
-            characters: [char::default(); LENGTH],
-            floats: [0.0; LENGTH],
-            integers: [0; LENGTH],
-        }
+    pub fn as_boolean(&self) -> bool {
+        self.0 != 0
     }
-}
 
-impl<const LENGTH: usize> Default for Stack<LENGTH> {
-    fn default() -> Self {
-        Self::new()
+    pub fn byte(byte: u8) -> Self {
+        Register(byte as u64)
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        self.0 as u8
+    }
+
+    pub fn character(character: char) -> Self {
+        Register(character as u64)
+    }
+
+    pub fn as_character(&self) -> char {
+        char::from_u32(self.0 as u32).unwrap_or_default()
+    }
+
+    pub fn float(float: f64) -> Self {
+        Register(float.to_bits())
+    }
+
+    pub fn as_float(&self) -> f64 {
+        f64::from_bits(self.0)
+    }
+
+    pub fn integer(integer: i64) -> Self {
+        let bytes = integer.to_le_bytes();
+
+        Register(u64::from_le_bytes(bytes))
+    }
+
+    pub fn as_integer(&self) -> i64 {
+        let bytes = self.0.to_le_bytes();
+
+        i64::from_le_bytes(bytes)
+    }
+
+    pub fn index(index: usize) -> Self {
+        Register(index as u64)
+    }
+
+    pub fn as_index(&self) -> usize {
+        self.0 as usize
     }
 }

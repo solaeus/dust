@@ -4,18 +4,17 @@ use crate::{Chunk, Token};
 
 use super::{ChunkCompiler, CompileError};
 
-pub type Parser<'a, C, const REGISTER_COUNT: usize> =
-    fn(&mut ChunkCompiler<'a, C, REGISTER_COUNT>) -> Result<(), CompileError>;
+pub type Parser<'a, C> = fn(&mut ChunkCompiler<'a, C>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'a, C, const REGISTER_COUNT: usize> {
-    pub prefix: Option<Parser<'a, C, REGISTER_COUNT>>,
-    pub infix: Option<Parser<'a, C, REGISTER_COUNT>>,
+pub struct ParseRule<'a, C> {
+    pub prefix: Option<Parser<'a, C>>,
+    pub infix: Option<Parser<'a, C>>,
     pub precedence: Precedence,
 }
 
-impl<C: Chunk, const REGISTER_COUNT: usize> From<Token<'_>> for ParseRule<'_, C, REGISTER_COUNT> {
+impl<C: Chunk> From<Token<'_>> for ParseRule<'_, C> {
     fn from(token: Token) -> Self {
         match token {
             Token::Any => ParseRule {

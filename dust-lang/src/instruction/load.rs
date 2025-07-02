@@ -35,7 +35,7 @@ impl From<Load> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = load.operand;
-        let c_field = load.jump_next as u16;
+        let c_field = load.jump_next as usize;
         let operand_type = load.r#type;
 
         InstructionFields {

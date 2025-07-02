@@ -10,47 +10,40 @@ use super::MemoryKind;
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
 pub struct Address {
-    pub index: u16,
+    pub index: usize,
     pub memory: MemoryKind,
 }
 
 impl Address {
-    pub fn new(index: u16, memory: MemoryKind) -> Self {
+    pub fn new(index: usize, memory: MemoryKind) -> Self {
         Self { index, memory }
     }
 
-    pub fn cell(index: u16) -> Self {
+    pub fn cell(index: usize) -> Self {
         Address {
             index,
             memory: MemoryKind::CELL,
         }
     }
 
-    pub fn constant(index: u16) -> Self {
+    pub fn constant(index: usize) -> Self {
         Address {
             index,
             memory: MemoryKind::CONSTANT,
         }
     }
 
-    pub fn heap(index: u16) -> Self {
+    pub fn register(index: usize) -> Self {
         Address {
             index,
-            memory: MemoryKind::HEAP,
+            memory: MemoryKind::REGISTER,
         }
     }
 
     pub fn function_self() -> Self {
         Address {
-            index: u16::MAX,
-            memory: MemoryKind::STACK,
-        }
-    }
-
-    pub fn stack(index: u16) -> Self {
-        Address {
-            index,
-            memory: MemoryKind::STACK,
+            index: usize::MAX,
+            memory: MemoryKind::CONSTANT,
         }
     }
 

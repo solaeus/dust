@@ -53,10 +53,7 @@ pub mod value;
 // mod tests;
 
 pub use chunk::{Chunk, Disassemble, Disassembler, FullChunk, StrippedChunk};
-pub use compiler::{
-    BlockScope, CompileError, Compiler, DEFAULT_REGISTER_COUNT, Global, Local, Module, Path,
-    compile,
-};
+pub use compiler::{BlockScope, CompileError, Compiler, Global, Local, Module, Path, compile};
 pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,

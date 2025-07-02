@@ -23,7 +23,7 @@ impl From<&Instruction> for Test {
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        let a_field = test.comparator as u16;
+        let a_field = test.comparator as usize;
         let Address {
             index: b_field,
             memory: b_memory_kind,

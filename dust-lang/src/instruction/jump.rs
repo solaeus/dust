@@ -5,7 +5,7 @@ use crate::{Instruction, Operation};
 use super::InstructionFields;
 
 pub struct Jump {
-    pub offset: u16,
+    pub offset: usize,
     pub is_positive: bool,
 }
 
@@ -22,7 +22,7 @@ impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
         let operation = Operation::JUMP;
         let b_field = jump.offset;
-        let c_field = jump.is_positive as u16;
+        let c_field = jump.is_positive as usize;
 
         InstructionFields {
             operation,

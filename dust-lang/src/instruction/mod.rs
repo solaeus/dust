@@ -103,7 +103,6 @@ mod operation;
 mod r#return;
 mod subtract;
 mod test;
-mod test_set;
 
 pub use add::Add;
 pub use address::Address;
@@ -126,7 +125,6 @@ pub use operation::Operation;
 pub use r#return::Return;
 pub use subtract::Subtract;
 pub use test::Test;
-pub use test_set::TestSet;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
@@ -191,25 +189,25 @@ impl Instruction {
         OperandType(bits_11_to_15 as u8)
     }
 
-    pub fn a_field(&self) -> u16 {
+    pub fn a_field(&self) -> usize {
         let bits_16_to_31 = (self.0 >> 16) & 0xFFFF;
 
-        bits_16_to_31 as u16
+        bits_16_to_31 as usize
     }
 
-    pub fn b_field(&self) -> u16 {
+    pub fn b_field(&self) -> usize {
         let bits_32_to_47 = (self.0 >> 32) & 0xFFFF;
 
-        bits_32_to_47 as u16
+        bits_32_to_47 as usize
     }
 
-    pub fn c_field(&self) -> u16 {
+    pub fn c_field(&self) -> usize {
         let bits_48_to_63 = (self.0 >> 48) & 0xFFFF;
 
-        bits_48_to_63 as u16
+        bits_48_to_63 as usize
     }
 
-    pub fn set_a_field(&mut self, bits: u16) {
+    pub fn set_a_field(&mut self, bits: usize) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = bits;
         *self = fields.build();
@@ -391,14 +389,6 @@ impl Instruction {
         })
     }
 
-    pub fn test_set(destination: Address, operand: Address, value: bool) -> Instruction {
-        Instruction::from(TestSet {
-            destination,
-            operand,
-            comparator: value,
-        })
-    }
-
     pub fn negate(destination: Address, operand: Address, r#type: OperandType) -> Instruction {
         Instruction::from(Negate {
             destination,
@@ -407,7 +397,7 @@ impl Instruction {
         })
     }
 
-    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
+    pub fn jump(offset: usize, is_positive: bool) -> Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
@@ -417,7 +407,7 @@ impl Instruction {
     pub fn call(
         destination: Address,
         function: Address,
-        argument_list_index: u16,
+        argument_list_index: usize,
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
@@ -431,7 +421,7 @@ impl Instruction {
     pub fn call_native<C>(
         destination: Address,
         function: NativeFunction<C>,
-        argument_list_index: u16,
+        argument_list_index: usize,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
@@ -506,7 +496,6 @@ impl Instruction {
             Operation::LESS => Less::from(self).to_string(),
             Operation::LESS_EQUAL => LessEqual::from(self).to_string(),
             Operation::TEST => Test::from(self).to_string(),
-            Operation::TEST_SET => TestSet::from(self).to_string(),
             Operation::CALL => Call::from(self).to_string(),
             Operation::CALL_NATIVE => CallNative::<StrippedChunk>::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
@@ -536,9 +525,9 @@ pub struct InstructionFields {
     pub b_memory_kind: MemoryKind,
     pub c_memory_kind: MemoryKind,
     pub operand_type: OperandType,
-    pub a_field: u16,
-    pub b_field: u16,
-    pub c_field: u16,
+    pub a_field: usize,
+    pub b_field: usize,
+    pub c_field: usize,
 }
 
 impl InstructionFields {
@@ -579,8 +568,8 @@ mod tests {
 
     fn create_instruction() -> Instruction {
         Instruction::add(
-            Address::heap(42),
-            Address::stack(1),
+            Address::register(42),
+            Address::register(1),
             Address::cell(2),
             OperandType::INTEGER,
         )
@@ -597,14 +586,14 @@ mod tests {
     fn decode_a_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.a_memory_kind(), MemoryKind::HEAP);
+        assert_eq!(instruction.a_memory_kind(), MemoryKind::REGISTER);
     }
 
     #[test]
     fn decode_b_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_memory_kind(), MemoryKind::STACK);
+        assert_eq!(instruction.b_memory_kind(), MemoryKind::REGISTER);
     }
 
     #[test]

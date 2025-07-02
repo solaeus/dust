@@ -9,7 +9,6 @@ pub fn read_line<C>(
     destination: Address,
     _: &[(Address, OperandType)],
     _: &mut CallFrame<C>,
-    memory: &mut Memory<C>,
     cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _: &ThreadPool<C>,
 ) {
@@ -20,7 +19,6 @@ pub fn write_line<C: Chunk>(
     _: Address,
     arguments: &[(Address, OperandType)],
     call: &mut CallFrame<C>,
-    memory: &mut Memory<C>,
     cells: &Arc<RwLock<Vec<Cell<C>>>>,
     _: &ThreadPool<C>,
 ) {

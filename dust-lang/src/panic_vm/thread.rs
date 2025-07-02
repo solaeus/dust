@@ -13,10 +13,11 @@ use crate::{
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
     invalid_operand_type_panic,
+    panic_vm::memory::Register,
     value::List as ListValue,
 };
 
-use super::{CallFrame, Cell, CellValue, HeapSlot, Memory, macros::*};
+use super::{CallFrame, Cell, CellValue, Memory, macros::*};
 
 pub struct Thread<C> {
     pub handle: JoinHandle<Option<Value<C>>>,
@@ -68,18 +69,19 @@ impl<C: Chunk> ThreadRunner<C> {
                 .unwrap_or_default()
         );
 
-        let mut call_stack = Vec::<CallFrame<C>>::with_capacity(10);
-        let mut memory_stack = Vec::<Memory<C>>::with_capacity(10);
+        let mut call_stack = Vec::<CallFrame<C>>::new();
+        let mut memory = Memory::<C>::new(&self.chunk);
 
         let mut call = CallFrame::new(
             Arc::clone(&self.chunk),
             Address::default(),
             OperandType::NONE,
+            memory.get_registers(self.chunk.register_count()),
         );
-        let mut memory = Memory::new(&*call.chunk);
+        let constants = self.chunk.constants();
+        let instructions = self.chunk.instructions();
 
         loop {
-            let instructions = &call.chunk.instructions();
             let ip = call.ip;
             call.ip += 1;
 
@@ -109,14 +111,14 @@ impl<C: Chunk> ThreadRunner<C> {
                         OperandType::INTEGER => {
                             let integer = match operand.memory {
                                 MemoryKind::CONSTANT => {
-                                    copy_constant!(operand.index, call.chunk.constants(), Integer)
+                                    copy_constant!(operand.index, constants, Integer)
                                 }
                                 _ => todo!(),
                             };
 
                             match destination.memory {
-                                MemoryKind::STACK => {
-                                    set_to_stack!(integer, destination.index, memory, integers)
+                                MemoryKind::REGISTER => {
+                                    call.registers[destination.index] = Register::integer(integer);
                                 }
                                 _ => todo!(),
                             }
@@ -152,92 +154,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Add::from(&instruction);
-
-                    match r#type {
-                        OperandType::INTEGER => {
-                            match (destination.memory, left.memory, right.memory) {
-                                (MemoryKind::STACK, MemoryKind::STACK, MemoryKind::STACK) => {
-                                    if left == destination {
-                                        let [left, right] = get_mut_many_from_stack!(
-                                            [left.index as usize, right.index as usize,],
-                                            memory,
-                                            integers
-                                        );
-
-                                        *left = left.saturating_add(*right);
-                                    } else if right == destination {
-                                        let [left, right] = memory
-                                            .stack
-                                            .integers
-                                            .get_disjoint_mut([
-                                                left.index as usize,
-                                                right.index as usize,
-                                            ])
-                                            .unwrap();
-
-                                        *right = left.saturating_add(*right);
-                                    } else {
-                                        let [destination, left, right] = memory
-                                            .stack
-                                            .integers
-                                            .get_disjoint_mut([
-                                                destination.index as usize,
-                                                left.index as usize,
-                                                right.index as usize,
-                                            ])
-                                            .unwrap();
-
-                                        *destination = left.saturating_add(*right);
-                                    }
-                                }
-                                (MemoryKind::STACK, MemoryKind::CONSTANT, MemoryKind::CONSTANT) => {
-                                    let left =
-                                        copy_constant!(left.index, call.chunk.constants(), Integer);
-                                    let right = copy_constant!(
-                                        right.index,
-                                        call.chunk.constants(),
-                                        Integer
-                                    );
-                                    let sum = left.saturating_add(right);
-
-                                    set_to_stack!(sum, destination.index, memory, integers);
-                                }
-                                (MemoryKind::STACK, MemoryKind::STACK, MemoryKind::CONSTANT) => {
-                                    if left == destination {
-                                        let left =
-                                            get_mut_from_stack!(left.index, memory, integers);
-                                        let right = copy_constant!(
-                                            right.index,
-                                            call.chunk.constants(),
-                                            Integer
-                                        );
-                                        let sum = left.saturating_add(right);
-
-                                        *left = sum;
-                                    } else if right == destination {
-                                        let left = copy_from_stack!(left.index, memory, integers);
-                                        let right =
-                                            get_mut_from_stack!(right.index, memory, integers);
-                                        let sum = left.saturating_add(*right);
-
-                                        *right = sum;
-                                    } else {
-                                        let left = copy_from_stack!(left.index, memory, integers);
-                                        let right = copy_constant!(
-                                            right.index,
-                                            call.chunk.constants(),
-                                            Integer
-                                        );
-                                        let sum = left.saturating_add(right);
-
-                                        set_to_stack!(sum, destination.index, memory, integers);
-                                    }
-                                }
-                                _ => todo!(),
-                            }
-                        }
-                        _ => todo!(),
-                    }
                 }
 
                 // SUBTRACT
@@ -298,35 +214,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Less::from(&instruction);
-
-                    let is_less = match r#type {
-                        OperandType::INTEGER => {
-                            let left_value = match left.memory {
-                                MemoryKind::STACK => copy_from_stack!(left.index, memory, integers),
-                                MemoryKind::CONSTANT => {
-                                    copy_constant!(left.index, call.chunk.constants(), Integer)
-                                }
-                                invalid => invalid.invalid_panic(ip, operation),
-                            };
-
-                            let right_value = match right.memory {
-                                MemoryKind::STACK => {
-                                    copy_from_stack!(right.index, memory, integers)
-                                }
-                                MemoryKind::CONSTANT => {
-                                    copy_constant!(right.index, call.chunk.constants(), Integer)
-                                }
-                                invalid => invalid.invalid_panic(ip, operation),
-                            };
-
-                            left_value < right_value
-                        }
-                        _ => todo!(),
-                    };
-
-                    if is_less == comparator {
-                        call.ip += 1;
-                    }
                 }
 
                 // LESS_EQUAL
@@ -389,7 +276,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         destination,
                         arguments,
                         &mut call,
-                        &mut memory,
                         &self.cells,
                         &self.threads,
                     );
@@ -403,9 +289,9 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Jump::from(&instruction);
 
                     if is_positive {
-                        call.ip += offset as usize;
+                        call.ip += offset;
                     } else {
-                        call.ip -= offset as usize + 1;
+                        call.ip -= offset + 1;
                     }
                 }
 
@@ -423,17 +309,6 @@ impl<C: Chunk> ThreadRunner<C> {
                         } else {
                             return None;
                         }
-                    }
-
-                    let mut old_memory = replace(
-                        &mut memory,
-                        memory_stack.pop().expect("Memory stack underflow"),
-                    );
-                    let old_call =
-                        replace(&mut call, call_stack.pop().expect("Call stack underflow"));
-
-                    if should_return_value {
-                        todo!()
                     }
                 }
                 _ => todo!("Handle operation: {operation}"),
