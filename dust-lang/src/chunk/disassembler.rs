@@ -352,7 +352,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
                 identifier
             };
-            let address = address.to_string(r#type.as_operand_type());
+            let address = address.to_string();
             let r#type = r#type.to_string();
             let scope = scope.to_string();
             let row = format!(
@@ -385,7 +385,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
                 "│{index:^5}│{:^42}│",
                 arguments
                     .iter()
-                    .map(|(address, r#type)| address.to_string(r#type.destination_type()))
+                    .map(|(address, _)| address.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
             );
@@ -409,7 +409,6 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
         {
             for (index, value) in constants.iter().enumerate() {
                 let r#type = value.r#type();
-                let operand_type = r#type.as_operand_type();
                 let type_display = r#type.to_string();
                 let value_display = {
                     let mut value_string = value.to_string();
@@ -420,7 +419,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
                     value_string
                 };
-                let register_display = Address::constant(index).to_string(operand_type);
+                let register_display = Address::constant(index).to_string();
                 let constant_display =
                     format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 

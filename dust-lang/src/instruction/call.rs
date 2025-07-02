@@ -59,16 +59,9 @@ impl Display for Call {
             destination,
             function,
             argument_list_index,
-            return_type,
+            ..
         } = self;
 
-        if *return_type != OperandType::NONE {
-            destination.display(f, *return_type)?;
-            write!(f, " = ")?;
-        }
-
-        function.display(f, OperandType::FUNCTION)?;
-
-        write!(f, "(ARGS_{argument_list_index})")
+        write!(f, "{destination} = {function}({argument_list_index})")
     }
 }

@@ -9,7 +9,7 @@ use tracing::{Level, info, span, warn};
 use crate::{
     Address, Chunk, DustString, Operation, Value,
     instruction::{
-        Add, Call, CallNative, Close, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
+        Add, Call, CallNative, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
     invalid_operand_type_panic,
@@ -72,14 +72,17 @@ impl<C: Chunk> ThreadRunner<C> {
         let mut call_stack = Vec::<CallFrame<C>>::new();
         let mut memory = Memory::<C>::new(&self.chunk);
 
+        memory.create_registers(self.chunk.register_count());
+
         let mut call = CallFrame::new(
             Arc::clone(&self.chunk),
             Address::default(),
             OperandType::NONE,
-            memory.get_registers(self.chunk.register_count()),
+            0,
         );
-        let constants = self.chunk.constants();
-        let instructions = self.chunk.instructions();
+        let mut constants = self.chunk.constants();
+        let mut instructions = self.chunk.instructions();
+        let mut skipped_registers = 0;
 
         loop {
             let ip = call.ip;
@@ -107,24 +110,10 @@ impl<C: Chunk> ThreadRunner<C> {
                         jump_next,
                     } = Load::from(&instruction);
 
-                    match r#type {
-                        OperandType::INTEGER => {
-                            let integer = match operand.memory {
-                                MemoryKind::CONSTANT => {
-                                    copy_constant!(operand.index, constants, Integer)
-                                }
-                                _ => todo!(),
-                            };
+                    let new_register =
+                        get_register!(operand, r#type, memory, skipped_registers, constants);
 
-                            match destination.memory {
-                                MemoryKind::REGISTER => {
-                                    call.registers[destination.index] = Register::integer(integer);
-                                }
-                                _ => todo!(),
-                            }
-                        }
-                        _ => todo!(),
-                    }
+                    memory.registers[destination.index + skipped_registers] = new_register;
 
                     if jump_next {
                         call.ip += 1;
@@ -141,11 +130,6 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = List::from(&instruction);
                 }
 
-                // CLOSE
-                Operation::CLOSE => {
-                    let Close { from, to, r#type } = Close::from(&instruction);
-                }
-
                 // ADD
                 Operation::ADD => {
                     let Add {
@@ -154,6 +138,37 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Add::from(&instruction);
+
+                    let sum_register = match r#type {
+                        OperandType::INTEGER => {
+                            let left_integer = match left.memory {
+                                MemoryKind::REGISTER => {
+                                    memory.registers[left.index + skipped_registers].as_integer()
+                                }
+                                MemoryKind::CONSTANT => constants[left.index]
+                                    .as_integer()
+                                    .expect("Expected integer constant"),
+                                MemoryKind::CELL => todo!(),
+                                _ => unreachable!(),
+                            };
+                            let right_integer = match right.memory {
+                                MemoryKind::REGISTER => {
+                                    memory.registers[right.index + skipped_registers].as_integer()
+                                }
+                                MemoryKind::CONSTANT => constants[right.index]
+                                    .as_integer()
+                                    .expect("Expected integer constant"),
+                                MemoryKind::CELL => todo!(),
+                                _ => unreachable!(),
+                            };
+                            let integer_sum = left_integer.saturating_add(right_integer);
+
+                            Register::integer(integer_sum)
+                        }
+                        _ => todo!(),
+                    };
+
+                    memory.registers[destination.index + skipped_registers] = sum_register;
                 }
 
                 // SUBTRACT
@@ -214,6 +229,22 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Less::from(&instruction);
+
+                    let left_register =
+                        get_register!(left, r#type, memory, skipped_registers, constants);
+                    let right_register =
+                        get_register!(right, r#type, memory, skipped_registers, constants);
+                    let is_less = match r#type {
+                        OperandType::INTEGER => {
+                            left_register.as_integer() < right_register.as_integer()
+                        }
+                        OperandType::FLOAT => left_register.as_float() < right_register.as_float(),
+                        _ => invalid_operand_type_panic!(r#type, "LESS"),
+                    };
+
+                    if is_less == comparator {
+                        call.ip += 1;
+                    }
                 }
 
                 // LESS_EQUAL
@@ -263,14 +294,13 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     let chunk = Arc::clone(&call.chunk);
                     let arguments_list = chunk.arguments();
-                    let index = argument_list_index as usize;
 
                     assert!(
-                        index < arguments_list.len(),
+                        argument_list_index < arguments_list.len(),
                         "Argument list index out of bounds"
                     );
 
-                    let arguments = &arguments_list[index];
+                    let arguments = &arguments_list[argument_list_index];
 
                     function.call(
                         destination,
@@ -305,7 +335,15 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     if call_stack.is_empty() {
                         if should_return_value {
-                            todo!()
+                            let return_value = get_value!(
+                                return_value_address,
+                                r#type,
+                                memory,
+                                skipped_registers,
+                                constants
+                            );
+
+                            return Some(return_value);
                         } else {
                             return None;
                         }

@@ -37,7 +37,6 @@ pub struct FullChunk {
 impl FullChunk {
     pub fn strip(self) -> StrippedChunk {
         StrippedChunk {
-            name: self.name,
             r#type: self.r#type,
             instructions: self.instructions,
             constants: self
@@ -203,15 +202,8 @@ impl PartialEq for FullChunk {
             && self.locals == other.locals
             && self.arguments == other.arguments
             && self.parameters == other.parameters
+            && self.register_count == other.register_count
             && self.prototype_index == other.prototype_index
-            && self.boolean_memory_length == other.boolean_memory_length
-            && self.byte_memory_length == other.byte_memory_length
-            && self.character_memory_length == other.character_memory_length
-            && self.float_memory_length == other.float_memory_length
-            && self.integer_memory_length == other.integer_memory_length
-            && self.string_memory_length == other.string_memory_length
-            && self.list_memory_length == other.list_memory_length
-            && self.function_memory_length == other.function_memory_length
     }
 }
 

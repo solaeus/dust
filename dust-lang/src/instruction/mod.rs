@@ -86,7 +86,6 @@ mod add;
 mod address;
 mod call;
 mod call_native;
-mod close;
 mod divide;
 mod equal;
 mod jump;
@@ -108,7 +107,6 @@ pub use add::Add;
 pub use address::Address;
 pub use call::Call;
 pub use call_native::CallNative;
-pub use close::Close;
 pub use divide::Divide;
 pub use equal::Equal;
 pub use jump::Jump;
@@ -236,10 +234,6 @@ impl Instruction {
 
     pub fn no_op() -> Instruction {
         Instruction(0)
-    }
-
-    pub fn close(from: Address, to: Address, r#type: OperandType) -> Instruction {
-        Instruction::from(Close { from, to, r#type })
     }
 
     pub fn load(
@@ -485,7 +479,6 @@ impl Instruction {
         match operation {
             Operation::LOAD => Load::from(self).to_string(),
             Operation::LIST => List::from(self).to_string(),
-            Operation::CLOSE => Close::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),

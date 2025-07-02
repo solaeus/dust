@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, OperandType, Operation};
+use crate::{Instruction, Operation};
 
 use super::{Address, InstructionFields};
 
@@ -48,8 +48,6 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}")?;
-        operand.display(f, OperandType::BOOLEAN)?;
-        write!(f, " {{ JUMP +1 }}")
+        write!(f, "if {bang}{operand} {{ JUMP +1 }}")
     }
 }

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{Chunk, NativeFunction, OperandType};
+use crate::{Chunk, NativeFunction};
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
@@ -53,13 +53,7 @@ impl<C: Chunk> Display for CallNative<C> {
             function,
             argument_list_index,
         } = self;
-        let return_type = function.r#type().return_type.as_operand_type();
 
-        if return_type != OperandType::NONE {
-            destination.display(f, return_type)?;
-            write!(f, " = ")?;
-        }
-
-        write!(f, "{function}(ARGS_{argument_list_index})")
+        write!(f, "{destination} = {function}(ARGS_{argument_list_index})")
     }
 }

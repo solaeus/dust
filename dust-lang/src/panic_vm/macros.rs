@@ -1,70 +1,75 @@
 #![macro_use]
-pub use cells::*;
-pub use constants::*;
 
-#[macro_use]
-pub mod cells {}
+macro_rules! get_register {
+    ($address: expr, $type: expr, $memory: expr, $skipped_registers: expr, $constants: expr) => {{
+        use crate::MemoryKind;
 
-#[macro_use]
-pub mod constants {
-    macro_rules! copy_constant {
-        ($index: expr, $constants:expr, $value_variant: ident) => {{
-            assert!($index < $constants.len(), "Constant index out of bounds");
-
-            let value = &$constants[$index];
-
-            if let Value::$value_variant(value) = value {
-                *value
-            } else {
-                panic!(
-                    "Expected a {} constant at index {}, found {:?}",
-                    stringify!($value_variant),
-                    $index,
-                    value
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                assert!(
+                    $address.index < $memory.registers.len(),
+                    "Register index out of bounds: {} >= {}",
+                    $address.index,
+                    $memory.registers.len()
                 );
+
+                $memory.registers[$address.index + $skipped_registers]
             }
-        }};
-    }
+            MemoryKind::CONSTANT => {
+                let value = &$constants[$address.index as usize];
 
-    macro_rules! clone_constant {
-        ($index: expr, $constants:expr, $value_variant: ident) => {{
-            let index = $index as usize;
+                match value {
+                    Value::Integer(integer) => Register::integer(*integer),
+                    Value::Float(float) => Register::float(*float),
+                    _ => todo!(),
+                }
+            }
+            MemoryKind::ENCODED => match $type {
+                OperandType::BOOLEAN => Register::boolean($address.index != 0),
+                OperandType::BYTE => Register::byte($address.index as u8),
+                _ => unreachable!("Invalid operand type for encoding: {:?}", $type),
+            },
+            MemoryKind::CELL => todo!(),
+            _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
+        }
+    }};
+}
 
-            assert!(index < $constants.len(), "Constant index out of bounds");
+macro_rules! get_value {
+    ($address: expr, $type: expr, $memory: expr, $skipped_registers: expr, $constants: expr) => {{
+        use crate::MemoryKind;
 
-            let value = &$constants[index];
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                assert!(
+                    $address.index < $memory.registers.len(),
+                    "Register index out of bounds: {} >= {}",
+                    $address.index,
+                    $memory.registers.len()
+                );
 
-            if let Value::$value_variant(value) = value {
+                let register = $memory.registers[$address.index + $skipped_registers];
+
+                match $type {
+                    OperandType::INTEGER => Value::Integer(register.as_integer()),
+                    OperandType::FLOAT => Value::Float(register.as_float()),
+                    OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
+                    OperandType::BYTE => Value::Byte(register.as_byte()),
+                    _ => todo!("Unsupported operand type: {:?}", $type),
+                }
+            }
+            MemoryKind::CONSTANT => {
+                let value = &$constants[$address.index as usize];
+
                 value.clone()
-            } else {
-                panic!(
-                    "Expected a {} constant at index {}, found {:?}",
-                    stringify!($value_variant),
-                    index,
-                    value
-                );
             }
-        }};
-    }
-
-    macro_rules! get_constant {
-        ($index: expr, $constants:expr, $value_variant: ident) => {{
-            let index = $index as usize;
-
-            assert!(index < $constants.len(), "Constant index out of bounds");
-
-            let value = &$constants[index];
-
-            if let Value::$value_variant(value) = value {
-                value
-            } else {
-                panic!(
-                    "Expected a {} constant at index {}, found {:?}",
-                    stringify!($value_variant),
-                    index,
-                    value
-                );
-            }
-        }};
-    }
+            MemoryKind::ENCODED => match $type {
+                OperandType::BOOLEAN => Value::Boolean($address.index != 0),
+                OperandType::BYTE => Value::Byte($address.index as u8),
+                _ => unreachable!("Invalid operand type for encoding: {:?}", $type),
+            },
+            MemoryKind::CELL => todo!(),
+            _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
+        }
+    }};
 }

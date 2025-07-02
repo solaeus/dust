@@ -28,24 +28,72 @@ impl<C: Chunk> Value<C> {
         Value::Boolean(boolean)
     }
 
+    pub fn as_boolean(&self) -> Option<bool> {
+        if let Value::Boolean(boolean) = self {
+            Some(*boolean)
+        } else {
+            None
+        }
+    }
+
     pub fn byte(byte: u8) -> Self {
         Value::Byte(byte)
+    }
+
+    pub fn as_byte(&self) -> Option<u8> {
+        if let Value::Byte(byte) = self {
+            Some(*byte)
+        } else {
+            None
+        }
     }
 
     pub fn character(character: char) -> Self {
         Value::Character(character)
     }
 
+    pub fn as_character(&self) -> Option<char> {
+        if let Value::Character(character) = self {
+            Some(*character)
+        } else {
+            None
+        }
+    }
+
     pub fn float(float: f64) -> Self {
         Value::Float(float)
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        if let Value::Float(float) = self {
+            Some(*float)
+        } else {
+            None
+        }
     }
 
     pub fn integer(integer: i64) -> Self {
         Value::Integer(integer)
     }
 
+    pub fn as_integer(&self) -> Option<i64> {
+        if let Value::Integer(integer) = self {
+            Some(*integer)
+        } else {
+            None
+        }
+    }
+
     pub fn string<T: Into<DustString>>(value: T) -> Self {
         Value::String(value.into())
+    }
+
+    pub fn as_string(&self) -> Option<&DustString> {
+        if let Value::String(string) = self {
+            Some(string)
+        } else {
+            None
+        }
     }
 
     pub fn boolean_list<T: Into<Vec<bool>>>(booleans: T) -> Self {

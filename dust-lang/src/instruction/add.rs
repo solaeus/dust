@@ -62,17 +62,9 @@ impl Display for Add {
             destination,
             left,
             right,
-            r#type,
+            ..
         } = self;
 
-        let destination_type = r#type.destination_type();
-        let left_type = r#type.b_type();
-        let right_type = r#type.c_type();
-
-        destination.display(f, destination_type)?;
-        write!(f, " = ")?;
-        left.display(f, left_type)?;
-        write!(f, " + ")?;
-        right.display(f, right_type)
+        write!(f, "{destination} = {left} + {right}")
     }
 }

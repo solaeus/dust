@@ -6,7 +6,6 @@ use crate::{Chunk, DustString, List};
 pub struct Memory<C> {
     pub registers: Vec<Register>,
     pub objects: Vec<Object<C>>,
-    pub currently_borrowed_registers: (usize, usize),
 }
 
 impl<C: Chunk> Memory<C> {
@@ -14,23 +13,12 @@ impl<C: Chunk> Memory<C> {
         Memory {
             registers: Vec::with_capacity(chunk.register_count()),
             objects: Vec::with_capacity(0),
-            currently_borrowed_registers: (0, 0),
         }
     }
 
-    pub fn get_registers(&mut self, count: usize) -> &mut [Register] {
-        if self.registers.len() < count {
-            self.registers.reserve_exact(count);
-            self.registers
-                .resize(self.registers.len() + count, Register(0));
-        }
-
-        let start = self.currently_borrowed_registers.1;
-        let end = start + count;
-
-        self.currently_borrowed_registers = (start, end);
-
-        &mut self.registers[start..end]
+    pub fn create_registers(&mut self, count: usize) {
+        self.registers.reserve_exact(count);
+        self.registers.resize(count, Register(0));
     }
 }
 

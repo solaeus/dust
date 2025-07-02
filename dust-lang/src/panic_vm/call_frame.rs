@@ -3,27 +3,27 @@ use std::sync::Arc;
 use crate::{Address, OperandType, panic_vm::memory::Register};
 
 #[derive(Debug)]
-pub struct CallFrame<'a, C> {
+pub struct CallFrame<C> {
     pub chunk: Arc<C>,
     pub ip: usize,
     pub return_address: Address,
     pub return_type: OperandType,
-    pub registers: &'a mut [Register],
+    pub skipped_registers: usize,
 }
 
-impl<'a, C> CallFrame<'a, C> {
+impl<C> CallFrame<C> {
     pub fn new(
         chunk: Arc<C>,
         return_address: Address,
         return_type: OperandType,
-        registers: &'a mut [Register],
+        skipped_registers: usize,
     ) -> Self {
         CallFrame {
             chunk,
             ip: 0,
             return_address,
             return_type,
-            registers,
+            skipped_registers,
         }
     }
 }

@@ -56,18 +56,12 @@ impl Display for Negate {
             r#type,
         } = self;
 
-        destination.display(f, *r#type)?;
+        let operatore = if *r#type == OperandType::BOOLEAN {
+            "!"
+        } else {
+            "-"
+        };
 
-        match *r#type {
-            OperandType::BOOLEAN => {
-                write!(f, " = !")?;
-            }
-            OperandType::FLOAT | OperandType::INTEGER => {
-                write!(f, " = -")?;
-            }
-            _ => return write!(f, "INVALID_NEGATE_INSTRUCTION"),
-        }
-
-        operand.display(f, *r#type)
+        write!(f, "{destination} = {operatore}{operand}")
     }
 }

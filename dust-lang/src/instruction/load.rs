@@ -57,13 +57,11 @@ impl Display for Load {
         let Load {
             destination,
             operand,
-            r#type,
             jump_next,
+            ..
         } = self;
 
-        destination.display(f, *r#type)?;
-        write!(f, " = ")?;
-        operand.display(f, *r#type)?;
+        write!(f, "{destination} = {operand}")?;
 
         if *jump_next {
             write!(f, " JUMP +1")?;

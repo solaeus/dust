@@ -49,14 +49,11 @@ impl Display for Return {
         let Return {
             should_return_value,
             return_value_address,
-            r#type,
+            ..
         } = self;
 
         if *should_return_value {
-            let type_kind = r#type.destination_type();
-
-            write!(f, "RETURN ")?;
-            return_value_address.display(f, type_kind)?;
+            write!(f, "RETURN {return_value_address}")?;
         } else {
             write!(f, "RETURN")?;
         }

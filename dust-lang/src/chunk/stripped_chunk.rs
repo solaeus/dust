@@ -14,7 +14,6 @@ use super::{Chunk, Disassemble, Disassembler};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StrippedChunk {
-    pub(crate) name: Option<Path>,
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -30,7 +29,6 @@ pub struct StrippedChunk {
 impl Chunk for StrippedChunk {
     fn new(data: CompiledData<Self>) -> Self {
         StrippedChunk {
-            name: data.name,
             r#type: data.r#type,
             instructions: data.instructions,
             constants: data.constants,
@@ -46,7 +44,7 @@ impl Chunk for StrippedChunk {
     }
 
     fn name(&self) -> Option<&Path> {
-        self.name.as_ref()
+        None
     }
 
     fn r#type(&self) -> &FunctionType {
@@ -101,6 +99,6 @@ impl Disassemble for StrippedChunk {
 
 impl Display for StrippedChunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.r#type)
+        write!(f, "stripped_chunk",)
     }
 }

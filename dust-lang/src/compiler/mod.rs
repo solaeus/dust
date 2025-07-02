@@ -38,17 +38,10 @@ pub use local::{BlockScope, Local};
 pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
-use tracing::{Level, debug, error, info, span, trace};
+use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    iter::repeat,
-    marker::PhantomData,
-    mem::replace,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashSet, marker::PhantomData, mem::replace, rc::Rc};
 
 use crate::{
     Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, List, NativeFunction,
@@ -108,7 +101,6 @@ impl<C: Chunk> Compiler<C> {
         let name = Path::new(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
             found: library_name.to_string(),
         })?;
-
         let lexer = Lexer::new(source);
         let mode = CompileMode::Module {
             name,
@@ -574,7 +566,7 @@ where
 
             let boolean = self.parse_boolean_value(text);
             let destination = Address::register(self.next_register_index());
-            let operand = Address::constant(boolean as usize);
+            let operand = Address::encoded(boolean as usize);
             let load = Instruction::load(destination, operand, OperandType::BOOLEAN, false);
 
             self.emit_instruction(load, Type::Boolean, position);
@@ -590,7 +582,7 @@ where
     }
 
     fn parse_boolean_value(&mut self, text: &str) -> bool {
-        text.parse::<bool>().unwrap()
+        text.parse::<bool>().unwrap() // The lexer guarantees that the text is either "true" or "false"
     }
 
     fn parse_byte(&mut self) -> Result<(), CompileError> {
@@ -601,7 +593,7 @@ where
 
             let byte = self.parse_byte_value(text)?;
             let destination = Address::register(self.next_register_index());
-            let operand = Address::constant(byte as usize);
+            let operand = Address::encoded(byte as usize);
             let load_encoded = Instruction::load(destination, operand, OperandType::BYTE, false);
 
             self.emit_instruction(load_encoded, Type::Byte, position);
@@ -925,12 +917,8 @@ where
             && {
                 match right_type {
                     Type::Byte => right.index == 0,
-                    Type::Float => {
-                        self.constants.get(right.index as usize) == Some(&Value::Float(0.0))
-                    }
-                    Type::Integer => {
-                        self.constants.get(right.index as usize) == Some(&Value::Integer(0))
-                    }
+                    Type::Float => self.constants.get(right.index) == Some(&Value::Float(0.0)),
+                    Type::Integer => self.constants.get(right.index) == Some(&Value::Integer(0)),
                     _ => false,
                 }
             };
@@ -1459,6 +1447,7 @@ where
 
         let mut item_type = Type::None;
         let start_register = self.next_register_index();
+        let mut skipped_registers = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
             self.parse_expression()?;
@@ -1472,15 +1461,8 @@ where
 
             let end_register = self.next_register_index();
 
-            if end_register > start_register + 1 {
-                let end_closing = end_register - 2;
-                let close = Instruction::close(
-                    Address::register(start),
-                    Address::register(end_closing),
-                    item_type.as_operand_type(),
-                );
-
-                self.emit_instruction(close, Type::None, self.previous_position);
+            for register_index in start_register..end_register {
+                skipped_registers.push(register_index);
             }
         }
 
@@ -1802,22 +1784,22 @@ where
                 ])
             );
 
-            let (load_instruction, instruction_type, position) = self.instructions.pop().unwrap();
+            let (load_instruction, expression_type, position) = self.instructions.pop().unwrap();
             let Load {
                 destination,
                 operand,
                 r#type,
                 ..
             } = Load::from(&load_instruction);
-            let should_return = r#type != OperandType::NONE;
+            let should_return = expression_type != Type::None;
             let return_address = if !should_return {
                 self.instructions
-                    .push((load_instruction, instruction_type.clone(), position));
+                    .push((load_instruction, expression_type.clone(), position));
 
                 Address::default()
             } else if previous_is_comparison || previous_is_logic {
                 self.instructions
-                    .push((load_instruction, instruction_type.clone(), position));
+                    .push((load_instruction, expression_type.clone(), position));
 
                 destination
             } else {
@@ -1826,7 +1808,7 @@ where
 
             let r#return = Instruction::r#return(should_return, return_address, r#type);
 
-            self.emit_instruction(r#return, instruction_type, self.current_position);
+            self.emit_instruction(r#return, expression_type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
             || matches!(
                 self.get_last_operations(),
@@ -1886,7 +1868,7 @@ where
         self.previous_statement_end = self.instructions.len() - 1;
         self.previous_expression_end = self.instructions.len() - 1;
 
-        let (mut last_instruction, mut last_instruction_type, last_instruction_position) = self
+        let (mut last_instruction, last_instruction_type, last_instruction_position) = self
             .instructions
             .pop()
             .ok_or_else(|| CompileError::ExpectedExpression {
@@ -1907,7 +1889,6 @@ where
             last_instruction_type.clone()
         };
         let address = last_instruction.destination();
-        last_instruction_type = Type::None;
 
         if is_cell {
             let cell_index = self.declare_global(path, r#type, is_mutable);
@@ -1917,11 +1898,8 @@ where
             self.declare_local(path, address, r#type, is_mutable, self.current_block_scope);
         }
 
-        self.instructions.push((
-            last_instruction,
-            last_instruction_type,
-            last_instruction_position,
-        ));
+        self.instructions
+            .push((last_instruction, Type::None, last_instruction_position));
 
         Ok(())
     }

@@ -62,13 +62,9 @@ impl Display for Modulo {
             destination,
             left,
             right,
-            r#type,
+            ..
         } = self;
 
-        destination.display(f, *r#type)?;
-        write!(f, " = ")?;
-        left.display(f, *r#type)?;
-        write!(f, " % ")?;
-        right.display(f, *r#type)
+        write!(f, "{destination} = {left} % {right}")
     }
 }

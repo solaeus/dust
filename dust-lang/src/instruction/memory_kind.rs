@@ -12,7 +12,8 @@ pub struct MemoryKind(pub u8);
 impl MemoryKind {
     pub const CELL: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
-    pub const REGISTER: MemoryKind = MemoryKind(2);
+    pub const ENCODED: MemoryKind = MemoryKind(2);
+    pub const REGISTER: MemoryKind = MemoryKind(3);
 }
 
 impl MemoryKind {
@@ -28,6 +29,7 @@ impl Display for MemoryKind {
         match *self {
             Self::CELL => write!(f, "cell"),
             Self::CONSTANT => write!(f, "const"),
+            Self::ENCODED => write!(f, "enc"),
             Self::REGISTER => write!(f, "reg"),
             _ => write!(f, "invalid_memory_kind"),
         }

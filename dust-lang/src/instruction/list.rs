@@ -62,19 +62,9 @@ impl Display for List {
             destination,
             start,
             end,
-            r#type,
+            ..
         } = self;
-        let item_type = if let Some(item_type) = r#type.list_item_type() {
-            item_type
-        } else {
-            return write!(f, "INVALID_LIST_INSTRUCTION");
-        };
 
-        destination.display(f, *r#type)?;
-        write!(f, " = [")?;
-        start.display(f, item_type)?;
-        write!(f, "..=")?;
-        end.display(f, item_type)?;
-        write!(f, "]")
+        write!(f, "{destination} = [{start}..={end}]")
     }
 }

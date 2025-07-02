@@ -1,8 +1,6 @@
-use std::fmt::{self, Formatter, FormattingOptions};
+use std::fmt::{self, Formatter};
 
 use serde::{Deserialize, Serialize};
-
-use crate::OperandType;
 
 use super::MemoryKind;
 
@@ -40,31 +38,23 @@ impl Address {
         }
     }
 
+    pub fn encoded(index: usize) -> Self {
+        Address {
+            index,
+            memory: MemoryKind::ENCODED,
+        }
+    }
+
     pub fn function_self() -> Self {
         Address {
             index: usize::MAX,
             memory: MemoryKind::CONSTANT,
         }
     }
+}
 
-    pub fn display(&self, f: &mut Formatter, r#type: OperandType) -> fmt::Result {
-        write!(
-            f,
-            "{type}_{memory}_{index}",
-            memory = self.memory,
-            index = self.index
-        )
-    }
-
-    pub fn to_string(&self, type_kind: OperandType) -> String {
-        let mut buffer = String::new();
-
-        self.display(
-            &mut Formatter::new(&mut buffer, FormattingOptions::new()),
-            type_kind,
-        )
-        .unwrap();
-
-        buffer
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}_{}", self.memory, self.index)
     }
 }
