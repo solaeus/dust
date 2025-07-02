@@ -14,41 +14,38 @@ impl Operation {
     // Memory manipulation
     pub const LOAD: Operation = Operation(1);
     pub const LIST: Operation = Operation(2);
-    pub const CLOSE: Operation = Operation(3);
 
     // Arithmetic binary operations
-    pub const ADD: Operation = Operation(4);
-    pub const SUBTRACT: Operation = Operation(5);
-    pub const MULTIPLY: Operation = Operation(6);
-    pub const DIVIDE: Operation = Operation(7);
-    pub const MODULO: Operation = Operation(8);
+    pub const ADD: Operation = Operation(3);
+    pub const SUBTRACT: Operation = Operation(4);
+    pub const MULTIPLY: Operation = Operation(5);
+    pub const DIVIDE: Operation = Operation(6);
+    pub const MODULO: Operation = Operation(7);
 
     // Comparison binary operations
-    pub const EQUAL: Operation = Operation(9);
-    pub const LESS: Operation = Operation(10);
-    pub const LESS_EQUAL: Operation = Operation(11);
+    pub const EQUAL: Operation = Operation(8);
+    pub const LESS: Operation = Operation(9);
+    pub const LESS_EQUAL: Operation = Operation(10);
 
     // Logical AND/OR operations
-    pub const TEST: Operation = Operation(12);
-    pub const TEST_SET: Operation = Operation(13);
+    pub const TEST: Operation = Operation(11);
 
     // Unary numeric negation and logical NOT
-    pub const NEGATE: Operation = Operation(14);
+    pub const NEGATE: Operation = Operation(12);
 
     // Function calls
-    pub const CALL: Operation = Operation(15);
-    pub const CALL_NATIVE: Operation = Operation(16);
+    pub const CALL: Operation = Operation(13);
+    pub const CALL_NATIVE: Operation = Operation(14);
 
     // Control flow
-    pub const JUMP: Operation = Operation(17);
-    pub const RETURN: Operation = Operation(18);
+    pub const JUMP: Operation = Operation(15);
+    pub const RETURN: Operation = Operation(16);
 }
 
 impl Operation {
     pub fn name(&self) -> &'static str {
         match *self {
             Self::NO_OP => "NO_OP",
-            Self::CLOSE => "CLOSE",
             Self::LOAD => "LOAD",
             Self::LIST => "LIST",
             Self::ADD => "ADD",
@@ -61,7 +58,6 @@ impl Operation {
             Self::LESS_EQUAL => "LESS_EQUAL",
             Self::NEGATE => "NEGATE",
             Self::TEST => "TEST",
-            Self::TEST_SET => "TEST_SET",
             Self::CALL => "CALL",
             Self::CALL_NATIVE => "CALL_NATIVE",
             Self::JUMP => "JUMP",

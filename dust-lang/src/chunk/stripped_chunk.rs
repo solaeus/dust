@@ -5,23 +5,15 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Address, FunctionType, Instruction, Local, OperandType, Path, Span, Value,
-    compiler::CompiledData,
-};
+use crate::{FunctionType, Instruction, Local, Path, Span, Value, compiler::CompiledData};
 
 use super::{Chunk, Disassemble, Disassembler};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StrippedChunk {
     pub(crate) r#type: FunctionType,
-
     pub(crate) instructions: Vec<Instruction>,
-
     pub(crate) constants: Vec<Value<Self>>,
-    pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
-    pub(super) parameters: Vec<Address>,
-
     pub(crate) register_count: usize,
     pub(crate) prototype_index: usize,
 }
@@ -32,8 +24,6 @@ impl Chunk for StrippedChunk {
             r#type: data.r#type,
             instructions: data.instructions,
             constants: data.constants,
-            arguments: data.arguments,
-            parameters: data.parameters,
             register_count: data.register_count,
             prototype_index: data.prototype_index,
         }
@@ -55,6 +45,7 @@ impl Chunk for StrippedChunk {
         Arc::new(self)
     }
 
+    #[inline(always)]
     fn instructions(&self) -> &[Instruction] {
         &self.instructions
     }
@@ -63,16 +54,9 @@ impl Chunk for StrippedChunk {
         None
     }
 
+    #[inline(always)]
     fn constants(&self) -> &[Value<Self>] {
         &self.constants
-    }
-
-    fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
-        &self.arguments
-    }
-
-    fn parameters(&self) -> &[Address] {
-        &self.parameters
     }
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {

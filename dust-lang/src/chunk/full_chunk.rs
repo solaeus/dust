@@ -8,8 +8,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Address, Disassembler, FunctionType, Instruction, List, Local, Path, Span, Value,
-    chunk::Disassemble, compiler::CompiledData, instruction::OperandType,
+    Disassembler, FunctionType, Instruction, List, Local, Path, Span, Value, chunk::Disassemble,
+    compiler::CompiledData,
 };
 
 use super::{Chunk, StrippedChunk};
@@ -26,8 +26,6 @@ pub struct FullChunk {
     pub(crate) positions: Vec<Span>,
 
     pub(crate) constants: Vec<Value<Self>>,
-    pub(crate) arguments: Vec<Vec<(Address, OperandType)>>,
-    pub(crate) parameters: Vec<Address>,
     pub(crate) locals: IndexMap<Path, Local>,
 
     pub(crate) register_count: usize,
@@ -84,8 +82,6 @@ impl FullChunk {
                     }
                 })
                 .collect(),
-            arguments: self.arguments,
-            parameters: self.parameters,
             register_count: self.register_count,
             prototype_index: self.prototype_index,
         }
@@ -100,8 +96,6 @@ impl Chunk for FullChunk {
             instructions: data.instructions,
             positions: data.positions,
             constants: data.constants,
-            arguments: data.arguments,
-            parameters: data.parameters,
             locals: data.locals,
             register_count: data.register_count,
             prototype_index: data.prototype_index,
@@ -134,14 +128,6 @@ impl Chunk for FullChunk {
 
     fn constants(&self) -> &[Value<Self>] {
         &self.constants
-    }
-
-    fn arguments(&self) -> &[Vec<(Address, OperandType)>] {
-        &self.arguments
-    }
-
-    fn parameters(&self) -> &[Address] {
-        &self.parameters
     }
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
@@ -185,8 +171,6 @@ impl PartialEq for FullChunk {
             && self.positions == other.positions
             && self.constants == other.constants
             && self.locals == other.locals
-            && self.arguments == other.arguments
-            && self.parameters == other.parameters
             && self.prototype_index == other.prototype_index
     }
 }
@@ -200,8 +184,6 @@ impl PartialEq for FullChunk {
             && self.positions == other.positions
             && self.constants == other.constants
             && self.locals == other.locals
-            && self.arguments == other.arguments
-            && self.parameters == other.parameters
             && self.register_count == other.register_count
             && self.prototype_index == other.prototype_index
     }
@@ -223,7 +205,7 @@ impl Ord for FullChunk {
             .then_with(|| self.positions.cmp(&other.positions))
             .then_with(|| self.constants.cmp(&other.constants))
             .then_with(|| self.locals.iter().cmp(other.locals.iter()))
-            .then_with(|| self.arguments.cmp(&other.arguments))
+            .then_with(|| self.register_count.cmp(&other.register_count))
             .then_with(|| self.prototype_index.cmp(&other.prototype_index))
     }
 }

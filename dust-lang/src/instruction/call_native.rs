@@ -7,19 +7,19 @@ use super::{Address, Instruction, InstructionFields, Operation};
 pub struct CallNative<C> {
     pub destination: Address,
     pub function: NativeFunction<C>,
-    pub argument_list_index: usize,
+    pub argument_count: usize,
 }
 
 impl<C: Chunk> From<&Instruction> for CallNative<C> {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from_index(instruction.b_field());
-        let argument_list_index = instruction.c_field();
+        let argument_count = instruction.c_field();
 
         CallNative {
             destination,
             function,
-            argument_list_index,
+            argument_count,
         }
     }
 }
@@ -32,7 +32,7 @@ impl<C> From<CallNative<C>> for Instruction {
             memory: a_memory_kind,
         } = call_native.destination;
         let b_field = call_native.function.index;
-        let c_field = call_native.argument_list_index;
+        let c_field = call_native.argument_count;
 
         InstructionFields {
             operation,
@@ -51,9 +51,20 @@ impl<C: Chunk> Display for CallNative<C> {
         let CallNative {
             destination,
             function,
-            argument_list_index,
+            argument_count,
         } = self;
 
-        write!(f, "{destination} = {function}(ARGS_{argument_list_index})")
+        write!(f, "{destination} = {function}")?;
+
+        if *argument_count > 0 {
+            write!(
+                f,
+                "({}..={})",
+                function.index + 1,
+                function.index + argument_count + 1
+            )
+        } else {
+            write!(f, "()")
+        }
     }
 }

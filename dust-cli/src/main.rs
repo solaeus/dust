@@ -5,7 +5,6 @@ use std::{
     fs::OpenOptions,
     io::{self, Read, stdout},
     path::PathBuf,
-    sync::Arc,
     thread::{self},
     time::{Duration, Instant},
 };
@@ -192,7 +191,7 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::new(Arc::new(dust_crate.main_chunk));
+        let vm = Vm::new(dust_crate.main_chunk);
         let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 

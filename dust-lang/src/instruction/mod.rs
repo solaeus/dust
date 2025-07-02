@@ -401,13 +401,13 @@ impl Instruction {
     pub fn call(
         destination: Address,
         function: Address,
-        argument_list_index: usize,
+        argument_count: usize,
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function,
-            argument_list_index,
+            argument_count,
             return_type,
         })
     }
@@ -415,12 +415,12 @@ impl Instruction {
     pub fn call_native<C>(
         destination: Address,
         function: NativeFunction<C>,
-        argument_list_index: usize,
+        argument_count: usize,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
-            argument_list_index,
+            argument_count,
         })
     }
 
@@ -460,12 +460,10 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::CLOSE
-            | Operation::EQUAL
+            Operation::EQUAL
             | Operation::LESS
             | Operation::LESS_EQUAL
             | Operation::TEST
-            | Operation::TEST_SET
             | Operation::JUMP
             | Operation::RETURN
             | Operation::NO_OP => false,

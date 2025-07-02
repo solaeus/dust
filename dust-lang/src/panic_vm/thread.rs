@@ -1,5 +1,4 @@
 use std::{
-    mem::replace,
     sync::{Arc, RwLock},
     thread::{Builder, JoinHandle},
 };
@@ -7,17 +6,16 @@ use std::{
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    Address, Chunk, DustString, Operation, Value,
+    Address, Chunk, Operation, Value,
     instruction::{
         Add, Call, CallNative, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
     invalid_operand_type_panic,
     panic_vm::memory::Register,
-    value::List as ListValue,
 };
 
-use super::{CallFrame, Cell, CellValue, Memory, macros::*};
+use super::{CallFrame, Cell, Memory};
 
 pub struct Thread<C> {
     pub handle: JoinHandle<Option<Value<C>>>,
@@ -25,7 +23,7 @@ pub struct Thread<C> {
 
 impl<C: 'static + Chunk + Send + Sync> Thread<C> {
     pub fn new(
-        chunk: Arc<C>,
+        chunk: C,
         cells: Arc<RwLock<Vec<Cell<C>>>>,
         threads: Arc<RwLock<Vec<Thread<C>>>>,
     ) -> Self {
@@ -50,7 +48,7 @@ impl<C: 'static + Chunk + Send + Sync> Thread<C> {
 
 #[derive(Clone)]
 struct ThreadRunner<C> {
-    chunk: Arc<C>,
+    chunk: C,
     threads: Arc<RwLock<Vec<Thread<C>>>>,
     cells: Arc<RwLock<Vec<Cell<C>>>>,
 }
@@ -69,28 +67,20 @@ impl<C: Chunk> ThreadRunner<C> {
                 .unwrap_or_default()
         );
 
-        let mut call_stack = Vec::<CallFrame<C>>::new();
+        let mut call_stack = Vec::<CallFrame<C>>::with_capacity(0);
         let mut memory = Memory::<C>::new(&self.chunk);
 
         memory.create_registers(self.chunk.register_count());
 
-        let mut call = CallFrame::new(
-            Arc::clone(&self.chunk),
-            Address::default(),
-            OperandType::NONE,
-            0,
-        );
-        let mut constants = self.chunk.constants();
-        let mut instructions = self.chunk.instructions();
-        let mut skipped_registers = 0;
+        let mut call = CallFrame::new(&self.chunk, Address::default(), OperandType::NONE, 0);
 
         loop {
             let ip = call.ip;
             call.ip += 1;
 
-            assert!(ip < instructions.len(), "IP out of bounds");
+            assert!(ip < call.chunk.instructions().len(), "IP out of bounds");
 
-            let instruction = instructions[ip];
+            let instruction = call.chunk.instructions()[ip];
             let operation = instruction.operation();
 
             info!("IP = {ip} Run {operation}");
@@ -110,10 +100,9 @@ impl<C: Chunk> ThreadRunner<C> {
                         jump_next,
                     } = Load::from(&instruction);
 
-                    let new_register =
-                        get_register!(operand, r#type, memory, skipped_registers, constants);
+                    let new_register = get_register!(operand, r#type, memory, call);
 
-                    memory.registers[destination.index + skipped_registers] = new_register;
+                    memory.registers[destination.index + call.skipped_registers] = new_register;
 
                     if jump_next {
                         call.ip += 1;
@@ -142,20 +131,20 @@ impl<C: Chunk> ThreadRunner<C> {
                     let sum_register = match r#type {
                         OperandType::INTEGER => {
                             let left_integer = match left.memory {
-                                MemoryKind::REGISTER => {
-                                    memory.registers[left.index + skipped_registers].as_integer()
-                                }
-                                MemoryKind::CONSTANT => constants[left.index]
+                                MemoryKind::REGISTER => memory.registers
+                                    [left.index + call.skipped_registers]
+                                    .as_integer(),
+                                MemoryKind::CONSTANT => call.chunk.constants()[left.index]
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
                                 _ => unreachable!(),
                             };
                             let right_integer = match right.memory {
-                                MemoryKind::REGISTER => {
-                                    memory.registers[right.index + skipped_registers].as_integer()
-                                }
-                                MemoryKind::CONSTANT => constants[right.index]
+                                MemoryKind::REGISTER => memory.registers
+                                    [right.index + call.skipped_registers]
+                                    .as_integer(),
+                                MemoryKind::CONSTANT => call.chunk.constants()[right.index]
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
@@ -168,7 +157,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         _ => todo!(),
                     };
 
-                    memory.registers[destination.index + skipped_registers] = sum_register;
+                    memory.registers[destination.index + call.skipped_registers] = sum_register;
                 }
 
                 // SUBTRACT
@@ -230,10 +219,8 @@ impl<C: Chunk> ThreadRunner<C> {
                         r#type,
                     } = Less::from(&instruction);
 
-                    let left_register =
-                        get_register!(left, r#type, memory, skipped_registers, constants);
-                    let right_register =
-                        get_register!(right, r#type, memory, skipped_registers, constants);
+                    let left_register = get_register!(left, r#type, memory, call);
+                    let right_register = get_register!(right, r#type, memory, call);
                     let is_less = match r#type {
                         OperandType::INTEGER => {
                             left_register.as_integer() < right_register.as_integer()
@@ -279,7 +266,7 @@ impl<C: Chunk> ThreadRunner<C> {
                     let Call {
                         destination,
                         function,
-                        argument_list_index,
+                        argument_count,
                         return_type,
                     } = Call::from(&instruction);
                 }
@@ -289,26 +276,8 @@ impl<C: Chunk> ThreadRunner<C> {
                     let CallNative {
                         destination,
                         function,
-                        argument_list_index,
+                        argument_count,
                     } = CallNative::<C>::from(&instruction);
-
-                    let chunk = Arc::clone(&call.chunk);
-                    let arguments_list = chunk.arguments();
-
-                    assert!(
-                        argument_list_index < arguments_list.len(),
-                        "Argument list index out of bounds"
-                    );
-
-                    let arguments = &arguments_list[argument_list_index];
-
-                    function.call(
-                        destination,
-                        arguments,
-                        &mut call,
-                        &self.cells,
-                        &self.threads,
-                    );
                 }
 
                 // JUMP
@@ -335,13 +304,8 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     if call_stack.is_empty() {
                         if should_return_value {
-                            let return_value = get_value!(
-                                return_value_address,
-                                r#type,
-                                memory,
-                                skipped_registers,
-                                constants
-                            );
+                            let return_value =
+                                get_value!(return_value_address, r#type, memory, call);
 
                             return Some(return_value);
                         } else {

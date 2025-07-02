@@ -65,13 +65,6 @@ const LOCAL_BORDERS: [&str; 3] = [
     "╰─────┴────────────────┴──────────────────────────┴────────────┴───────┴───────╯",
 ];
 
-const ARGUMENT_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 42)];
-const ARGUMENT_LIST_BORDERS: [&str; 3] = [
-    "╭─────┬──────────────────────────────────────────╮",
-    "├─────┼──────────────────────────────────────────┤",
-    "╰─────┴──────────────────────────────────────────╯",
-];
-
 const CONSTANT_COLUMNS: [(&str, usize); 3] = [("ADDRESS", 9), ("TYPE", 26), ("VALUE", 26)];
 const CONSTANT_BORDERS: [&str; 3] = [
     "╭─────────┬──────────────────────────┬──────────────────────────╮",
@@ -367,37 +360,6 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
         Ok(())
     }
 
-    fn write_argument_list_section(&mut self) -> Result<(), io::Error> {
-        let mut column_name_line = String::new();
-
-        for (column_name, width) in ARGUMENT_LIST_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}"));
-        }
-
-        column_name_line.push('│');
-        self.write_center_border_bold("Argument Lists")?;
-        self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
-        self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
-
-        for (index, arguments) in self.chunk.arguments().iter().enumerate() {
-            let argument_list_display = format!(
-                "│{index:^5}│{:^42}│",
-                arguments
-                    .iter()
-                    .map(|(address, _)| address.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            );
-
-            self.write_center_border(&argument_list_display)?;
-        }
-
-        self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
-
-        Ok(())
-    }
-
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
         fn write_constants<'a, 'w, C, W>(
             disassembler: &mut Disassembler<'a, 'w, C, W>,
@@ -532,10 +494,6 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
         if self.chunk.locals().map_or(0, |locals| locals.count()) > 0 {
             self.write_local_section()?;
-        }
-
-        if !self.chunk.arguments().is_empty() {
-            self.write_argument_list_section()?;
         }
 
         if !self.chunk.constants().is_empty() {

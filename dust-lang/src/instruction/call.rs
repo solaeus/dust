@@ -5,7 +5,7 @@ use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 pub struct Call {
     pub destination: Address,
     pub function: Address,
-    pub argument_list_index: usize,
+    pub argument_count: usize,
     pub return_type: OperandType,
 }
 
@@ -13,13 +13,13 @@ impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.destination();
         let function_register = instruction.b_address();
-        let argument_list_index = instruction.c_field();
+        let argument_count = instruction.c_field();
         let return_type = instruction.operand_type();
 
         Call {
             destination,
             function: function_register,
-            argument_list_index,
+            argument_count,
             return_type,
         }
     }
@@ -36,7 +36,7 @@ impl From<Call> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = call.function;
-        let c_field = call.argument_list_index;
+        let c_field = call.argument_count;
         let operand_type = call.return_type;
 
         InstructionFields {
@@ -58,10 +58,21 @@ impl Display for Call {
         let Call {
             destination,
             function,
-            argument_list_index,
+            argument_count,
             ..
         } = self;
 
-        write!(f, "{destination} = {function}({argument_list_index})")
+        write!(f, "{destination} = {function}")?;
+
+        if *argument_count > 0 {
+            write!(
+                f,
+                "({}..={})",
+                function.index + 1,
+                function.index + argument_count + 1
+            )
+        } else {
+            write!(f, "()")
+        }
     }
 }

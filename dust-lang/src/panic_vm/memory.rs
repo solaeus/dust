@@ -1,6 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
-use crate::{Chunk, DustString, List};
+use crate::{Chunk, List};
 
 #[derive(Debug)]
 pub struct Memory<C> {

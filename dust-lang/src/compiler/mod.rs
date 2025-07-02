@@ -184,8 +184,6 @@ pub struct CompiledData<C> {
     pub instructions: Vec<Instruction>,
     pub positions: Vec<Span>,
     pub constants: Vec<Value<C>>,
-    pub arguments: Vec<Vec<(Address, OperandType)>>,
-    pub parameters: Vec<Address>,
     pub locals: IndexMap<Path, Local>,
     pub register_count: usize,
     pub prototype_index: usize,
@@ -200,11 +198,6 @@ impl<C: Chunk> CompiledData<C> {
             .into_iter()
             .map(|(instruction, _, position)| (instruction, position))
             .unzip();
-        let value_arguments = chunk_compiler
-            .arguments
-            .into_iter()
-            .map(|Arguments { values, .. }| values)
-            .collect::<Vec<_>>();
 
         CompiledData {
             name,
@@ -212,8 +205,6 @@ impl<C: Chunk> CompiledData<C> {
             instructions,
             positions,
             constants: chunk_compiler.constants,
-            arguments: value_arguments,
-            parameters: chunk_compiler.parameters,
             locals: chunk_compiler.locals,
             register_count,
             prototype_index: chunk_compiler.prototype_index,
@@ -251,12 +242,6 @@ pub(crate) struct ChunkCompiler<'a, C> {
 
     /// Block-local variables.
     locals: IndexMap<Path, Local>,
-
-    /// Arguments for each function call.
-    arguments: Vec<Arguments>,
-
-    /// Addresses where arguments should be bound when the compiler's chunk is called as a function.
-    parameters: Vec<Address>,
 
     minimum_register_index: usize,
 
@@ -312,8 +297,6 @@ where
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: IndexMap::new(),
-            arguments: Vec::new(),
-            parameters: Vec::new(),
             lexer,
             minimum_register_index: 0,
             reclaimable_register_indexes: Vec::new(),
@@ -1475,11 +1458,6 @@ where
             Address::register(end_register),
             item_type.as_operand_type(),
         );
-        let list_length = end_register - start_register;
-
-        if list_length == 1 && self.get_last_operation() == Some(Operation::CLOSE) {
-            self.instructions.pop();
-        }
 
         self.emit_instruction(list, Type::List(Box::new(item_type)), Span(start, end));
 
@@ -1970,7 +1948,6 @@ where
             function_compiler.minimum_register_index += 1;
             let address = Address::register(local_register_index);
 
-            function_compiler.parameters.push(address);
             function_compiler.declare_local(
                 parameter,
                 address,
@@ -2051,41 +2028,14 @@ where
                 });
             }
         };
-        let type_arguments = Vec::new();
-        let mut value_arguments = Vec::new();
+        let mut argument_count = 0;
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (argument_address, r#type) = match self.get_last_operation() {
-                Some(Operation::LOAD) => {
-                    let (instruction, instruction_type, _) = self.instructions.pop().unwrap();
-
-                    (instruction.b_address(), instruction_type)
-                }
-                None => {
-                    return Err(CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    });
-                }
-                _ => {
-                    let (instruction, instruction_type, _) = self.instructions.last().unwrap();
-
-                    (instruction.destination(), instruction_type.clone())
-                }
-            };
-
-            value_arguments.push((argument_address, r#type.as_operand_type()));
+            argument_count += 1;
         }
-
-        let argument_list_index = self.arguments.len();
-
-        self.arguments.push(Arguments {
-            values: value_arguments,
-            types: type_arguments,
-        });
 
         let end = self.current_position.1;
         let return_operand_type = function_return_type.as_operand_type();
@@ -2093,7 +2043,7 @@ where
         let call = Instruction::call(
             destination,
             last_instruction.b_address(),
-            argument_list_index,
+            argument_count,
             return_operand_type,
         );
 
@@ -2121,46 +2071,19 @@ where
 
         self.expect(Token::LeftParenthesis)?;
 
-        let mut value_arguments = Vec::new();
+        let mut argument_count = 0;
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let (argument_address, r#type) = match self.get_last_operation() {
-                Some(Operation::LOAD) => {
-                    let (instruction, instruction_type, _) = self.instructions.pop().unwrap();
-                    let Load { operand, .. } = Load::from(&instruction);
-
-                    (operand, instruction_type)
-                }
-                None => {
-                    return Err(CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    });
-                }
-                _ => {
-                    let (instruction, instruction_type, _) = self.instructions.last().unwrap();
-
-                    (instruction.destination(), instruction_type.clone())
-                }
-            };
-
-            value_arguments.push((argument_address, r#type.as_operand_type()));
+            argument_count += 1;
         }
-
-        let argument_list_index = self.arguments.len();
-
-        self.arguments.push(Arguments {
-            values: value_arguments,
-            types: types_arguments,
-        });
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();
         let destination = Address::register(self.next_register_index());
-        let call_native = Instruction::call_native(destination, function, argument_list_index);
+        let call_native = Instruction::call_native(destination, function, argument_count);
 
         self.emit_instruction(call_native, return_type, Span(start.0, end));
 

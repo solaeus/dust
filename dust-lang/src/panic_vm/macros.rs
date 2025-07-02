@@ -1,7 +1,7 @@
 #![macro_use]
 
 macro_rules! get_register {
-    ($address: expr, $type: expr, $memory: expr, $skipped_registers: expr, $constants: expr) => {{
+    ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
         use crate::MemoryKind;
 
         match $address.memory {
@@ -13,10 +13,17 @@ macro_rules! get_register {
                     $memory.registers.len()
                 );
 
-                $memory.registers[$address.index + $skipped_registers]
+                $memory.registers[$address.index + $call.skipped_registers]
             }
             MemoryKind::CONSTANT => {
-                let value = &$constants[$address.index as usize];
+                assert!(
+                    $address.index < $call.chunk.constants().len(),
+                    "Constant index out of bounds: {} >= {}",
+                    $address.index,
+                    $call.chunk.constants().len()
+                );
+
+                let value = &$call.chunk.constants()[$address.index as usize];
 
                 match value {
                     Value::Integer(integer) => Register::integer(*integer),
@@ -36,7 +43,7 @@ macro_rules! get_register {
 }
 
 macro_rules! get_value {
-    ($address: expr, $type: expr, $memory: expr, $skipped_registers: expr, $constants: expr) => {{
+    ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
         use crate::MemoryKind;
 
         match $address.memory {
@@ -48,7 +55,7 @@ macro_rules! get_value {
                     $memory.registers.len()
                 );
 
-                let register = $memory.registers[$address.index + $skipped_registers];
+                let register = $memory.registers[$address.index + $call.skipped_registers];
 
                 match $type {
                     OperandType::INTEGER => Value::Integer(register.as_integer()),
@@ -59,9 +66,14 @@ macro_rules! get_value {
                 }
             }
             MemoryKind::CONSTANT => {
-                let value = &$constants[$address.index as usize];
+                assert!(
+                    $address.index < $call.chunk.constants().len(),
+                    "Constant index out of bounds: {} >= {}",
+                    $address.index,
+                    $call.chunk.constants().len()
+                );
 
-                value.clone()
+                $call.chunk.constants()[$address.index as usize].clone()
             }
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),

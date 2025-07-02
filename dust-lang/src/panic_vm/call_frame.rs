@@ -4,7 +4,7 @@ use crate::{Address, OperandType, panic_vm::memory::Register};
 
 #[derive(Debug)]
 pub struct CallFrame<C> {
-    pub chunk: Arc<C>,
+    pub chunk: C,
     pub ip: usize,
     pub return_address: Address,
     pub return_type: OperandType,
@@ -13,7 +13,7 @@ pub struct CallFrame<C> {
 
 impl<C> CallFrame<C> {
     pub fn new(
-        chunk: Arc<C>,
+        chunk: C,
         return_address: Address,
         return_type: OperandType,
         skipped_registers: usize,

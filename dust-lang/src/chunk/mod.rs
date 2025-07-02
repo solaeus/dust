@@ -18,10 +18,7 @@ pub use stripped_chunk::StrippedChunk;
 use std::sync::Arc;
 use std::{fmt::Debug, io::Write};
 
-use crate::{
-    Address, FunctionType, Instruction, Local, OperandType, Path, Span, Value,
-    compiler::CompiledData,
-};
+use crate::{FunctionType, Instruction, Local, Path, Span, Value, compiler::CompiledData};
 
 pub trait Chunk:
     Sized + Clone + Debug + Default + Eq + PartialEq + PartialOrd + Ord + Disassemble
@@ -39,10 +36,6 @@ pub trait Chunk:
     fn positions(&self) -> Option<&[Span]>;
 
     fn constants(&self) -> &[Value<Self>];
-
-    fn arguments(&self) -> &[Vec<(Address, OperandType)>];
-
-    fn parameters(&self) -> &[Address];
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>>;
 

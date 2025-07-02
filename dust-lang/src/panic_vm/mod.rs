@@ -20,7 +20,7 @@ pub type ThreadPool<C> = Arc<RwLock<Vec<Thread<C>>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
     let chunk = compile::<StrippedChunk>(source)?;
-    let vm = Vm::new(Arc::new(chunk));
+    let vm = Vm::new(chunk);
 
     Ok(vm.run())
 }
@@ -34,7 +34,7 @@ impl<C> Vm<C>
 where
     C: 'static + Chunk + Send + Sync,
 {
-    pub fn new(main_chunk: Arc<C>) -> Self {
+    pub fn new(main_chunk: C) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
         let cells = Arc::new(RwLock::new(Vec::<Cell<C>>::new()));
         let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
