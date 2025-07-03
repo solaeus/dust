@@ -1,7 +1,7 @@
 #![macro_use]
 
 macro_rules! get_register {
-    ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
+    ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use super::{Object, Register, RuntimeError};
         use crate::MemoryKind;
 
@@ -40,7 +40,7 @@ macro_rules! get_register {
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Register::boolean($address.index != 0),
                 OperandType::BYTE => Register::byte($address.index as u8),
-                _ => return Err(RuntimeError::InvalidOperandType($type)),
+                _ => return Err(RuntimeError($operation)),
             },
             MemoryKind::CELL => todo!(),
             _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
@@ -65,10 +65,10 @@ macro_rules! get_value_by_cloning_objects {
                 let register = $memory.registers[$address.index + $call.skipped_registers];
 
                 match $type {
-                    OperandType::INTEGER => Value::Integer(register.as_integer()),
-                    OperandType::FLOAT => Value::Float(register.as_float()),
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
                     OperandType::BYTE => Value::Byte(register.as_byte()),
+                    OperandType::INTEGER => Value::Integer(register.as_integer()),
+                    OperandType::FLOAT => Value::Float(register.as_float()),
                     OperandType::STRING => {
                         let object_index = register.as_index();
                         let object = $memory.objects[object_index];
@@ -104,7 +104,7 @@ macro_rules! get_value_by_cloning_objects {
 }
 
 macro_rules! get_value_by_replacing_objects {
-    ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
+    ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use super::Object;
         use crate::MemoryKind;
         use std::mem::replace;
@@ -121,10 +121,10 @@ macro_rules! get_value_by_replacing_objects {
                 let register = $memory.registers[$address.index + $call.skipped_registers];
 
                 match $type {
-                    OperandType::INTEGER => Value::Integer(register.as_integer()),
-                    OperandType::FLOAT => Value::Float(register.as_float()),
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
                     OperandType::BYTE => Value::Byte(register.as_byte()),
+                    OperandType::INTEGER => Value::Integer(register.as_integer()),
+                    OperandType::FLOAT => Value::Float(register.as_float()),
                     OperandType::STRING => {
                         let object_index = register.as_index();
                         let object = replace(&mut $memory.objects[object_index], Object::Empty);
@@ -132,10 +132,10 @@ macro_rules! get_value_by_replacing_objects {
                         if let Object::String(string) = object {
                             Value::String(string)
                         } else {
-                            return Err(RuntimeError::InvalidObject($address));
+                            return Err(RuntimeError($operation));
                         }
                     }
-                    _ => return Err(RuntimeError::InvalidOperandType($type)),
+                    _ => return Err(RuntimeError($operation)),
                 }
             }
             MemoryKind::CONSTANT => {
@@ -151,10 +151,10 @@ macro_rules! get_value_by_replacing_objects {
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),
                 OperandType::BYTE => Value::Byte($address.index as u8),
-                _ => return Err(RuntimeError::InvalidOperandType($type)),
+                _ => return Err(RuntimeError($operation)),
             },
             MemoryKind::CELL => todo!(),
-            _ => return Err(RuntimeError::InvalidAddress($address)),
+            _ => return Err(RuntimeError($operation)),
         }
     }};
 }

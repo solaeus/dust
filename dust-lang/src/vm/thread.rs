@@ -99,7 +99,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         jump_next,
                     } = Load::from(&instruction);
 
-                    let new_register = get_register!(operand, r#type, memory, call);
+                    let new_register = get_register!(operand, r#type, memory, call, operation);
 
                     memory.registers[destination.index + call.skipped_registers] = new_register;
 
@@ -137,7 +137,7 @@ impl<C: Chunk> ThreadRunner<C> {
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
-                                _ => return Err(RuntimeError::InvalidAddress(left)),
+                                _ => return Err(RuntimeError(operation)),
                             };
                             let right_integer = match right.memory {
                                 MemoryKind::REGISTER => memory.registers
@@ -147,7 +147,7 @@ impl<C: Chunk> ThreadRunner<C> {
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
-                                _ => return Err(RuntimeError::InvalidAddress(right)),
+                                _ => return Err(RuntimeError(operation)),
                             };
                             let integer_sum = left_integer.saturating_add(right_integer);
 
@@ -218,8 +218,8 @@ impl<C: Chunk> ThreadRunner<C> {
                         r#type,
                     } = Less::from(&instruction);
 
-                    let left_register = get_register!(left, r#type, memory, call);
-                    let right_register = get_register!(right, r#type, memory, call);
+                    let left_register = get_register!(left, r#type, memory, call, operation);
+                    let right_register = get_register!(right, r#type, memory, call, operation);
                     let is_less = match r#type {
                         OperandType::INTEGER => {
                             left_register.as_integer() < right_register.as_integer()
@@ -307,7 +307,8 @@ impl<C: Chunk> ThreadRunner<C> {
                                 return_value_address,
                                 r#type,
                                 memory,
-                                call
+                                call,
+                                operation
                             );
 
                             return Ok(Some(return_value));
