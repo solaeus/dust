@@ -3,11 +3,13 @@ mod call_frame;
 mod cell;
 pub mod macros;
 mod memory;
+mod runtime_error;
 mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
 pub use memory::{Memory, Object, Register};
+pub use runtime_error::RuntimeError;
 pub use thread::Thread;
 
 use std::sync::{Arc, RwLock};
@@ -22,7 +24,7 @@ pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_
     let chunk = compile::<StrippedChunk>(source)?;
     let vm = Vm::new(chunk);
 
-    Ok(vm.run())
+    vm.run()
 }
 
 pub struct Vm<C> {
@@ -45,7 +47,7 @@ where
         }
     }
 
-    pub fn run(self) -> Option<Value<C>> {
+    pub fn run<'src>(self) -> Result<Option<Value<C>>, DustError<'src>> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 
@@ -55,11 +57,23 @@ where
             .join()
             .expect("Main thread panicked");
         let mut threads = self.threads.write().expect("Failed to lock threads");
+        let mut spawned_thread_error = None;
 
         for thread in threads.drain(..) {
-            thread.handle.join().expect("Thread panicked");
+            let thread_result = thread.handle.join().expect("Thread panicked");
+
+            if let Err(error) = thread_result {
+                spawned_thread_error = Some(error);
+            }
         }
 
-        return_result
+        if let Some(error) = spawned_thread_error {
+            Err(DustError::runtime(error))
+        } else {
+            match return_result {
+                Ok(value_option) => Ok(value_option),
+                Err(error) => Err(DustError::runtime(error)),
+            }
+        }
     }
 }

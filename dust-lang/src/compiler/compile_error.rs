@@ -204,8 +204,6 @@ pub enum CompileError {
     },
 }
 
-impl CompileError {}
-
 impl AnnotatedError for CompileError {
     fn title() -> &'static str {
         "Compilation Error"

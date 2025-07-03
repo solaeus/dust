@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     Address, Chunk, DustString, MemoryKind, OperandType,
-    panic_vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
+    vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
 };
 
 pub fn int_to_str<C: Chunk>(

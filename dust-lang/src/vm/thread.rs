@@ -14,10 +14,10 @@ use crate::{
     invalid_operand_type_panic,
 };
 
-use super::{CallFrame, Cell, Memory, Register};
+use super::{CallFrame, Cell, Memory, Register, RuntimeError};
 
 pub struct Thread<C> {
-    pub handle: JoinHandle<Option<Value<C>>>,
+    pub handle: JoinHandle<Result<Option<Value<C>>, RuntimeError>>,
 }
 
 impl<C: 'static + Chunk + Send + Sync> Thread<C> {
@@ -53,7 +53,7 @@ struct ThreadRunner<C> {
 }
 
 impl<C: Chunk> ThreadRunner<C> {
-    fn run(self) -> Option<Value<C>> {
+    fn run(self) -> Result<Option<Value<C>>, RuntimeError> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
@@ -137,7 +137,7 @@ impl<C: Chunk> ThreadRunner<C> {
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
-                                _ => unreachable!(),
+                                _ => return Err(RuntimeError::InvalidAddress(left)),
                             };
                             let right_integer = match right.memory {
                                 MemoryKind::REGISTER => memory.registers
@@ -147,7 +147,7 @@ impl<C: Chunk> ThreadRunner<C> {
                                     .as_integer()
                                     .expect("Expected integer constant"),
                                 MemoryKind::CELL => todo!(),
-                                _ => unreachable!(),
+                                _ => return Err(RuntimeError::InvalidAddress(right)),
                             };
                             let integer_sum = left_integer.saturating_add(right_integer);
 
@@ -310,9 +310,9 @@ impl<C: Chunk> ThreadRunner<C> {
                                 call
                             );
 
-                            return Some(return_value);
+                            return Ok(Some(return_value));
                         } else {
-                            return None;
+                            return Ok(None);
                         }
                     }
                 }

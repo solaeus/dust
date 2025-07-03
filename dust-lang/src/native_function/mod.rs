@@ -18,7 +18,7 @@ use tracing::warn;
 
 use crate::{
     Address, Chunk, FunctionType, OperandType, Type,
-    panic_vm::{CallFrame, Cell, Memory, ThreadPool},
+    vm::{CallFrame, Cell, Memory, ThreadPool},
 };
 
 pub type NativeFunctionLogic<C> = fn(

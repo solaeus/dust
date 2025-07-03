@@ -43,11 +43,10 @@ pub mod dust_error;
 pub mod instruction;
 pub mod lexer;
 pub mod native_function;
-pub mod panic;
-pub mod panic_vm;
 pub mod token;
 pub mod r#type;
 pub mod value;
+pub mod vm;
 
 // #[cfg(test)]
 // mod tests;
@@ -60,11 +59,10 @@ pub use instruction::{
 };
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
-pub use panic::set_dust_panic_hook;
-pub use panic_vm::{Vm, run};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{DustString, List, Value};
+pub use vm::{RuntimeError, Vm, run};
 
 use std::fmt::Display;
 

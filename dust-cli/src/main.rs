@@ -15,10 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{
-    CompileError, Compiler, Disassemble, DustError, FullChunk, StrippedChunk, Vm,
-    set_dust_panic_hook,
-};
+use dust_lang::{CompileError, Compiler, Disassemble, DustError, FullChunk, StrippedChunk, Vm};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -135,9 +132,6 @@ enum Format {
 
 fn main() {
     let start_time = Instant::now();
-
-    set_dust_panic_hook();
-
     let Cli { mode, options } = Cli::parse();
     let mode = mode.unwrap_or(Mode::Run {
         input: Format::Dust,
@@ -192,8 +186,21 @@ fn main() {
         };
         let compile_time = start_time.elapsed();
         let vm = Vm::new(dust_crate.main_chunk);
-        let return_value = vm.run();
+        let run_result = vm.run();
         let run_time = start_time.elapsed() - compile_time;
+
+        let return_value = match run_result {
+            Ok(value) => value,
+            Err(dust_error) => {
+                let report = dust_error.report();
+
+                if !no_output {
+                    eprintln!("{report}");
+                }
+
+                return;
+            }
+        };
 
         if !no_output && let Some(return_value) = return_value {
             println!("{return_value}")

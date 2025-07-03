@@ -2,7 +2,7 @@
 
 macro_rules! get_register {
     ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
-        use super::{Object, Register};
+        use super::{Object, Register, RuntimeError};
         use crate::MemoryKind;
 
         match $address.memory {
@@ -40,7 +40,7 @@ macro_rules! get_register {
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Register::boolean($address.index != 0),
                 OperandType::BYTE => Register::byte($address.index as u8),
-                _ => unreachable!("Invalid operand type for encoding: {:?}", $type),
+                _ => return Err(RuntimeError::InvalidOperandType($type)),
             },
             MemoryKind::CELL => todo!(),
             _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
@@ -76,10 +76,10 @@ macro_rules! get_value_by_cloning_objects {
                         if let Object::String(string) = object {
                             Value::String(string.clone())
                         } else {
-                            panic!("Expected a string object, found: {:?}", object);
+                            return Err(RuntimeError::InvalidObject($address));
                         }
                     }
-                    _ => todo!("Unsupported operand type: {:?}", $type),
+                    _ => return Err(RuntimeError::InvalidOperandType($address)),
                 }
             }
             MemoryKind::CONSTANT => {
@@ -95,10 +95,10 @@ macro_rules! get_value_by_cloning_objects {
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),
                 OperandType::BYTE => Value::Byte($address.index as u8),
-                _ => unreachable!("Invalid operand type for encoding: {:?}", $type),
+                _ => return Err(RuntimeError::InvalidOperandType($type)),
             },
             MemoryKind::CELL => todo!(),
-            _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
+            _ => return Err(RuntimeError::InvalidAddress($address)),
         }
     }};
 }
@@ -132,10 +132,10 @@ macro_rules! get_value_by_replacing_objects {
                         if let Object::String(string) = object {
                             Value::String(string)
                         } else {
-                            panic!("Expected a string object, found: {:?}", object);
+                            return Err(RuntimeError::InvalidObject($address));
                         }
                     }
-                    _ => todo!("Unsupported operand type: {:?}", $type),
+                    _ => return Err(RuntimeError::InvalidOperandType($type)),
                 }
             }
             MemoryKind::CONSTANT => {
@@ -151,10 +151,10 @@ macro_rules! get_value_by_replacing_objects {
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),
                 OperandType::BYTE => Value::Byte($address.index as u8),
-                _ => unreachable!("Invalid operand type for encoding: {:?}", $type),
+                _ => return Err(RuntimeError::InvalidOperandType($type)),
             },
             MemoryKind::CELL => todo!(),
-            _ => unreachable!("Unsupported memory kind: {:?}", $address.memory),
+            _ => return Err(RuntimeError::InvalidAddress($address)),
         }
     }};
 }

@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     Address, Chunk, OperandType,
-    panic_vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
+    vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
 };
 
 pub fn read_line<C>(

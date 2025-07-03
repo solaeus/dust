@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use crate::{Address, OperandType, panic_vm::memory::Register};
+use crate::{Address, OperandType};
 
 #[derive(Debug)]
 pub struct CallFrame<C> {

@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     Address, OperandType,
-    panic_vm::{CallFrame, Cell, Memory, ThreadPool},
+    vm::{CallFrame, Cell, Memory, ThreadPool},
 };
 
 pub fn spawn<C>(

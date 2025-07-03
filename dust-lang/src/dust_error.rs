@@ -4,18 +4,28 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, Span};
+use crate::{CompileError, RuntimeError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
 pub struct DustError<'src> {
-    pub error: CompileError,
+    pub error: DustErrorKind,
     pub source: &'src str,
 }
 
 impl<'src> DustError<'src> {
     pub fn compile(error: CompileError, source: &'src str) -> Self {
-        DustError { error, source }
+        DustError {
+            error: DustErrorKind::Compile(error),
+            source,
+        }
+    }
+
+    pub fn runtime(error: RuntimeError) -> Self {
+        DustError {
+            error: DustErrorKind::Runtime(error),
+            source: "",
+        }
     }
 
     pub fn report(&self) -> String {
@@ -42,6 +52,35 @@ impl<'src> DustError<'src> {
         report.push_str(&renderer.render(message).to_string());
 
         report
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DustErrorKind {
+    Compile(CompileError),
+    Runtime(RuntimeError),
+}
+
+impl DustErrorKind {
+    fn description(&self) -> &'static str {
+        match self {
+            DustErrorKind::Compile(error) => error.description(),
+            DustErrorKind::Runtime(error) => error.description(),
+        }
+    }
+
+    fn detail_snippets(&self) -> Vec<(String, Span)> {
+        match self {
+            DustErrorKind::Compile(error) => error.detail_snippets(),
+            DustErrorKind::Runtime(error) => error.detail_snippets(),
+        }
+    }
+
+    fn help_snippets(&self) -> Vec<(String, Span)> {
+        match self {
+            DustErrorKind::Compile(error) => error.help_snippets(),
+            DustErrorKind::Runtime(error) => error.help_snippets(),
+        }
     }
 }
 
