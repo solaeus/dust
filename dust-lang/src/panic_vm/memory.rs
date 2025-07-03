@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{Chunk, List};
+use crate::{Chunk, DustString, List};
 
 #[derive(Debug)]
 pub struct Memory<C> {
@@ -16,16 +16,27 @@ impl<C: Chunk> Memory<C> {
         }
     }
 
-    pub fn create_registers(&mut self, count: usize) {
+    pub fn allocate_registers(&mut self, count: usize) {
         self.registers.reserve_exact(count);
         self.registers.resize(count, Register(0));
+    }
+
+    pub fn store_object(&mut self, object: Object<C>) -> Register {
+        let object_index = self.objects.len();
+        let register = Register::index(object_index);
+
+        self.objects.push(object);
+
+        register
     }
 }
 
 #[derive(Debug)]
 pub enum Object<C> {
-    List(List<C>),
+    Empty,
     Function(Arc<C>),
+    List(List<C>),
+    String(DustString),
 }
 
 #[derive(Clone, Copy, Debug)]

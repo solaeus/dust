@@ -1,6 +1,6 @@
 use std::{
     sync::{Arc, RwLock},
-    thread::{Builder, JoinHandle},
+    thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
 use tracing::{Level, info, span, warn};
@@ -12,10 +12,9 @@ use crate::{
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
     invalid_operand_type_panic,
-    panic_vm::memory::Register,
 };
 
-use super::{CallFrame, Cell, Memory};
+use super::{CallFrame, Cell, Memory, Register};
 
 pub struct Thread<C> {
     pub handle: JoinHandle<Option<Value<C>>>,
@@ -37,7 +36,7 @@ impl<C: 'static + Chunk + Send + Sync> Thread<C> {
             threads,
             cells,
         };
-        let handle = Builder::new()
+        let handle = ThreadBuilder::new()
             .name(name)
             .spawn(|| runner.run())
             .expect("Failed to spawn thread");
@@ -70,7 +69,7 @@ impl<C: Chunk> ThreadRunner<C> {
         let mut call_stack = Vec::<CallFrame<C>>::with_capacity(0);
         let mut memory = Memory::<C>::new(&self.chunk);
 
-        memory.create_registers(self.chunk.register_count());
+        memory.allocate_registers(self.chunk.register_count());
 
         let mut call = CallFrame::new(&self.chunk, Address::default(), OperandType::NONE, 0);
 
@@ -304,8 +303,12 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     if call_stack.is_empty() {
                         if should_return_value {
-                            let return_value =
-                                get_value!(return_value_address, r#type, memory, call);
+                            let return_value = get_value_by_replacing_objects!(
+                                return_value_address,
+                                r#type,
+                                memory,
+                                call
+                            );
 
                             return Some(return_value);
                         } else {

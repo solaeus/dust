@@ -7,7 +7,7 @@ mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
-pub use memory::Memory;
+pub use memory::{Memory, Object, Register};
 pub use thread::Thread;
 
 use std::sync::{Arc, RwLock};
