@@ -1,6 +1,43 @@
 #![macro_use]
 
-macro_rules! get_register {
+macro_rules! read_register {
+    ($index: expr,$memory: expr,  $call: expr, $operation: expr) => {{
+        $memory
+            .registers
+            .get($index + $call.skipped_registers)
+            .ok_or(RuntimeError($operation))?
+    }};
+}
+
+macro_rules! read_register_mut {
+    ($index: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        $memory
+            .registers
+            .get_mut($index + $call.skipped_registers)
+            .ok_or(RuntimeError($operation))?
+    }};
+}
+
+macro_rules! read_constant {
+    ($index: expr, $call: expr, $operation: expr) => {{
+        $call
+            .chunk
+            .constants()
+            .get($index)
+            .ok_or(RuntimeError($operation))?
+    }};
+}
+
+macro_rules! read_object {
+    ($index: expr,$memory: expr,  $operation: expr) => {{
+        $memory
+            .objects
+            .get($index)
+            .ok_or(RuntimeError($operation))?
+    }};
+}
+
+macro_rules! get_register_from_address {
     ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use super::{Object, Register, RuntimeError};
         use crate::MemoryKind;
@@ -17,14 +54,11 @@ macro_rules! get_register {
                 $memory.registers[$address.index + $call.skipped_registers]
             }
             MemoryKind::CONSTANT => {
-                assert!(
-                    $address.index < $call.chunk.constants().len(),
-                    "Constant index out of bounds: {} >= {}",
-                    $address.index,
-                    $call.chunk.constants().len()
-                );
-
-                let value = &$call.chunk.constants()[$address.index as usize];
+                let value = &$call
+                    .chunk
+                    .constants()
+                    .get($address.index as usize)
+                    .ok_or_else(|| RuntimeError($operation))?;
 
                 match value {
                     Value::Integer(integer) => Register::integer(*integer),
@@ -48,7 +82,7 @@ macro_rules! get_register {
     }};
 }
 
-macro_rules! get_value_by_cloning_objects {
+macro_rules! get_from_address_value_by_cloning_objects {
     ($address: expr, $type: expr, $memory: expr, $call: expr) => {{
         use super::Object;
         use crate::MemoryKind;
@@ -103,7 +137,7 @@ macro_rules! get_value_by_cloning_objects {
     }};
 }
 
-macro_rules! get_value_by_replacing_objects {
+macro_rules! get_value_from_address_by_replacing_objects {
     ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use super::Object;
         use crate::MemoryKind;
@@ -118,7 +152,10 @@ macro_rules! get_value_by_replacing_objects {
                     $memory.registers.len()
                 );
 
-                let register = $memory.registers[$address.index + $call.skipped_registers];
+                let register = $memory
+                    .registers
+                    .get($address.index + $call.skipped_registers)
+                    .ok_or_else(|| RuntimeError($operation))?;
 
                 match $type {
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),

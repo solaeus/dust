@@ -6,12 +6,13 @@ use std::{
 use tracing::{Level, info, span, warn};
 
 use crate::{
-    Address, Chunk, Operation, Value,
+    Address, Chunk, DustString, Operation, Value,
     instruction::{
         Add, Call, CallNative, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
     invalid_operand_type_panic,
+    vm::Object,
 };
 
 use super::{CallFrame, Cell, Memory, Register, RuntimeError};
@@ -99,9 +100,12 @@ impl<C: Chunk> ThreadRunner<C> {
                         jump_next,
                     } = Load::from(&instruction);
 
-                    let new_register = get_register!(operand, r#type, memory, call, operation);
+                    let new_register =
+                        get_register_from_address!(operand, r#type, memory, call, operation);
+                    let old_register =
+                        read_register_mut!(destination.index, memory, call, operation);
 
-                    memory.registers[destination.index + call.skipped_registers] = new_register;
+                    *old_register = new_register;
 
                     if jump_next {
                         call.ip += 1;
@@ -130,22 +134,25 @@ impl<C: Chunk> ThreadRunner<C> {
                     let sum_register = match r#type {
                         OperandType::INTEGER => {
                             let left_integer = match left.memory {
-                                MemoryKind::REGISTER => memory.registers
-                                    [left.index + call.skipped_registers]
-                                    .as_integer(),
-                                MemoryKind::CONSTANT => call.chunk.constants()[left.index]
+                                MemoryKind::REGISTER => {
+                                    read_register!(left.index, memory, call, operation).as_integer()
+                                }
+                                MemoryKind::CONSTANT => read_constant!(left.index, call, operation)
                                     .as_integer()
-                                    .expect("Expected integer constant"),
+                                    .ok_or(RuntimeError(operation))?,
                                 MemoryKind::CELL => todo!(),
                                 _ => return Err(RuntimeError(operation)),
                             };
                             let right_integer = match right.memory {
-                                MemoryKind::REGISTER => memory.registers
-                                    [right.index + call.skipped_registers]
-                                    .as_integer(),
-                                MemoryKind::CONSTANT => call.chunk.constants()[right.index]
-                                    .as_integer()
-                                    .expect("Expected integer constant"),
+                                MemoryKind::REGISTER => {
+                                    read_register!(right.index, memory, call, operation)
+                                        .as_integer()
+                                }
+                                MemoryKind::CONSTANT => {
+                                    read_constant!(right.index, call, operation)
+                                        .as_integer()
+                                        .ok_or(RuntimeError(operation))?
+                                }
                                 MemoryKind::CELL => todo!(),
                                 _ => return Err(RuntimeError(operation)),
                             };
@@ -153,10 +160,60 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::integer(integer_sum)
                         }
+                        OperandType::STRING => {
+                            let left_string = match left.memory {
+                                MemoryKind::REGISTER => {
+                                    let register =
+                                        read_register!(left.index, memory, call, operation);
+                                    let object =
+                                        read_object!(register.as_index(), memory, operation);
+
+                                    if let Object::String(string) = object {
+                                        string
+                                    } else {
+                                        return Err(RuntimeError(operation));
+                                    }
+                                }
+                                MemoryKind::CONSTANT => read_constant!(left.index, call, operation)
+                                    .as_string()
+                                    .ok_or(RuntimeError(operation))?,
+                                MemoryKind::CELL => todo!(),
+                                _ => return Err(RuntimeError(operation)),
+                            };
+                            let right_string = match right.memory {
+                                MemoryKind::REGISTER => {
+                                    let register =
+                                        read_register!(right.index, memory, call, operation);
+                                    let object =
+                                        read_object!(register.as_index(), memory, operation);
+
+                                    if let Object::String(string) = object {
+                                        string
+                                    } else {
+                                        return Err(RuntimeError(operation));
+                                    }
+                                }
+                                MemoryKind::CONSTANT => {
+                                    read_constant!(right.index, call, operation)
+                                        .as_string()
+                                        .ok_or(RuntimeError(operation))?
+                                }
+                                MemoryKind::CELL => todo!(),
+                                _ => return Err(RuntimeError(operation)),
+                            };
+                            let concatenated_string =
+                                DustString::from(format!("{left_string}{right_string}"));
+                            let string_object = Object::String(concatenated_string);
+
+                            memory.store_object(string_object)
+                        }
                         _ => todo!(),
                     };
 
-                    memory.registers[destination.index + call.skipped_registers] = sum_register;
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = sum_register;
                 }
 
                 // SUBTRACT
@@ -207,6 +264,37 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Equal::from(&instruction);
+
+                    let left_register =
+                        get_register_from_address!(left, r#type, memory, call, operation);
+                    let right_register =
+                        get_register_from_address!(right, r#type, memory, call, operation);
+                    let is_equal = match r#type {
+                        OperandType::INTEGER => {
+                            left_register.as_integer() == right_register.as_integer()
+                        }
+                        OperandType::FLOAT => left_register.as_float() == right_register.as_float(),
+                        OperandType::STRING => {
+                            if left_register == right_register {
+                                true
+                            } else if let (
+                                Object::String(left_string),
+                                Object::String(right_string),
+                            ) = (
+                                read_object!(left_register.as_index(), memory, operation),
+                                read_object!(right_register.as_index(), memory, operation),
+                            ) {
+                                left_string == right_string
+                            } else {
+                                return Err(RuntimeError(operation));
+                            }
+                        }
+                        _ => return Err(RuntimeError(operation)),
+                    };
+
+                    if is_equal == comparator {
+                        call.ip += 1;
+                    }
                 }
 
                 // LESS
@@ -218,14 +306,31 @@ impl<C: Chunk> ThreadRunner<C> {
                         r#type,
                     } = Less::from(&instruction);
 
-                    let left_register = get_register!(left, r#type, memory, call, operation);
-                    let right_register = get_register!(right, r#type, memory, call, operation);
+                    let left_register =
+                        get_register_from_address!(left, r#type, memory, call, operation);
+                    let right_register =
+                        get_register_from_address!(right, r#type, memory, call, operation);
                     let is_less = match r#type {
                         OperandType::INTEGER => {
                             left_register.as_integer() < right_register.as_integer()
                         }
                         OperandType::FLOAT => left_register.as_float() < right_register.as_float(),
-                        _ => invalid_operand_type_panic!(r#type, "LESS"),
+                        OperandType::STRING => {
+                            if left_register == right_register {
+                                false
+                            } else if let (
+                                Object::String(left_string),
+                                Object::String(right_string),
+                            ) = (
+                                read_object!(left_register.as_index(), memory, operation),
+                                read_object!(right_register.as_index(), memory, operation),
+                            ) {
+                                left_string < right_string
+                            } else {
+                                return Err(RuntimeError(operation));
+                            }
+                        }
+                        _ => return Err(RuntimeError(operation)),
                     };
 
                     if is_less == comparator {
@@ -303,7 +408,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     if call_stack.is_empty() {
                         if should_return_value {
-                            let return_value = get_value_by_replacing_objects!(
+                            let return_value = get_value_from_address_by_replacing_objects!(
                                 return_value_address,
                                 r#type,
                                 memory,

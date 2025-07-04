@@ -39,7 +39,7 @@ pub enum Object<C> {
     String(DustString),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Register(u64);
 
 impl Register {

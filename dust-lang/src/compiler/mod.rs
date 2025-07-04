@@ -1092,9 +1092,9 @@ where
         let jump = Instruction::jump(1, true);
         let destination_index = self.next_register_index();
         let destination = Address::register(destination_index);
-        let true_as_address = Address::constant(true as usize);
+        let true_as_address = Address::encoded(true as usize);
         let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
-        let false_as_address = Address::constant(false as usize);
+        let false_as_address = Address::encoded(false as usize);
         let load_false =
             Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
         let comparison_position = Span(left_position.0, right_position.1);
