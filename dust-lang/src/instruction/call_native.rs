@@ -54,14 +54,24 @@ impl<C: Chunk> Display for CallNative<C> {
             argument_count,
         } = self;
 
-        write!(f, "{destination} = {function}")?;
+        if function.returns_value() {
+            write!(f, "{destination} = ")?;
+        }
 
-        if *argument_count > 0 {
+        write!(f, "{function}")?;
+
+        if *argument_count == 1 {
             write!(
                 f,
-                "({}..={})",
-                function.index + 1,
-                function.index + argument_count + 1
+                "({})",
+                Address::register(destination.index - argument_count)
+            )
+        } else if *argument_count > 0 {
+            write!(
+                f,
+                "({}..{})",
+                Address::register(destination.index - argument_count),
+                Address::register(destination.index)
             )
         } else {
             write!(f, "()")

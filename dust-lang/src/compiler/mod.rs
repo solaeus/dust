@@ -1945,7 +1945,6 @@ where
 
             let r#type = function_compiler.parse_type()?;
             let local_register_index = function_compiler.next_register_index();
-            function_compiler.minimum_register_index += 1;
             let address = Address::register(local_register_index);
 
             function_compiler.declare_local(
@@ -2057,13 +2056,13 @@ where
         function: NativeFunction<C>,
         start: Span,
     ) -> Result<(), CompileError> {
-        let mut types_arguments = Vec::new();
+        let mut type_arguments = Vec::new();
 
         if self.allow(Token::Less)? {
             while !self.allow(Token::Greater)? {
                 let r#type = self.parse_type()?;
 
-                types_arguments.push(r#type);
+                type_arguments.push(r#type);
 
                 self.allow(Token::Comma)?;
             }
@@ -2071,18 +2070,32 @@ where
 
         self.expect(Token::LeftParenthesis)?;
 
-        let mut argument_count = 0;
+        let mut argument_count = function.r#type().value_parameters.len();
+        let mut argument_registers = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            argument_count += 1;
+            let argument_register = self.next_register_index() - 1;
+
+            argument_registers.push(argument_register);
+        }
+
+        let destination_index = self.next_register_index();
+        let correct_argument_range = (destination_index - argument_count)..destination_index;
+        let arguments_are_in_correct_registers = argument_registers
+            .iter()
+            .zip(correct_argument_range)
+            .all(|(argument_register, expected_register)| *argument_register == expected_register);
+
+        if !arguments_are_in_correct_registers {
+            todo!()
         }
 
         let end = self.current_position.1;
         let return_type = function.r#type().return_type.clone();
-        let destination = Address::register(self.next_register_index());
+        let destination = Address::register(destination_index);
         let call_native = Instruction::call_native(destination, function, argument_count);
 
         self.emit_instruction(call_native, return_type, Span(start.0, end));
