@@ -386,6 +386,12 @@ impl<C: Chunk> ThreadRunner<C> {
                         operation
                     );
                     let function = object.as_function().ok_or(RuntimeError(operation))?.clone();
+                    let argument_types = function
+                        .r#type()
+                        .value_parameters
+                        .iter()
+                        .map(|parameter| parameter.as_operand_type())
+                        .collect::<Vec<_>>();
 
                     memory.allocate_registers(function.register_count());
 
@@ -396,6 +402,25 @@ impl<C: Chunk> ThreadRunner<C> {
                         call.skipped_registers + call.chunk.register_count(),
                     );
                     let old_call = replace(&mut call, new_call);
+
+                    let first_argument_index = destination.index - argument_count;
+
+                    for (destination_index, (argument_index, r#type)) in
+                        (0..).zip((first_argument_index..destination.index).zip(argument_types))
+                    {
+                        let argument_address = Address::register(argument_index);
+                        let argument_register = get_register_from_address!(
+                            argument_address,
+                            r#type,
+                            memory,
+                            old_call,
+                            operation
+                        );
+                        let destination_register =
+                            read_register_mut!(destination_index, memory, call, operation);
+
+                        *destination_register = argument_register;
+                    }
 
                     call_stack.push(old_call);
                 }

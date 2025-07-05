@@ -360,11 +360,10 @@ where
             return index;
         }
 
-        self.instructions.iter().fold(
-            self.minimum_register_index,
-            |acc, (instruction, r#type, _)| {
+        self.instructions
+            .iter()
+            .fold(self.minimum_register_index, |acc, (instruction, _, _)| {
                 if instruction.yields_value()
-                    && r#type != &Type::None
                     && instruction.a_field() >= acc
                     && instruction.a_memory_kind() == MemoryKind::REGISTER
                 {
@@ -372,8 +371,7 @@ where
                 } else {
                     acc
                 }
-            },
-        )
+            })
     }
 
     /// Advances to the next token emitted by the lexer.
@@ -411,7 +409,7 @@ where
         is_mutable: bool,
         scope: BlockScope,
     ) {
-        info!("Declaring local {identifier}");
+        info!("Declaring local {identifier} at {address}");
 
         self.minimum_register_index += 1;
 
@@ -833,6 +831,14 @@ where
                     self.locals
                         .iter()
                         .find_map(|(_, local)| {
+                            println!(
+                                "{} {} {} {}",
+                                local.address,
+                                operand,
+                                local.address == operand,
+                                local.is_mutable
+                            );
+
                             if local.address == operand {
                                 Some(local.is_mutable)
                             } else {
