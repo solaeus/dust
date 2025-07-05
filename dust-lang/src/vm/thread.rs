@@ -1,5 +1,6 @@
 use std::{
-    sync::{Arc, RwLock},
+    mem::replace,
+    sync::{Arc, RwLock, WaitTimeoutResult},
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
@@ -11,7 +12,6 @@ use crate::{
         Add, Call, CallNative, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
-    invalid_operand_type_panic,
     vm::Object,
 };
 
@@ -72,7 +72,12 @@ impl<C: Chunk> ThreadRunner<C> {
 
         memory.allocate_registers(self.chunk.register_count());
 
-        let mut call = CallFrame::new(&self.chunk, Address::default(), OperandType::NONE, 0);
+        let mut call = CallFrame::new(
+            Arc::new(self.chunk),
+            Address::default(),
+            OperandType::NONE,
+            0,
+        );
 
         loop {
             let ip = call.ip;
@@ -373,6 +378,26 @@ impl<C: Chunk> ThreadRunner<C> {
                         argument_count,
                         return_type,
                     } = Call::from(&instruction);
+                    let object = get_from_address_value_by_cloning_objects!(
+                        function,
+                        OperandType::FUNCTION,
+                        memory,
+                        call,
+                        operation
+                    );
+                    let function = object.as_function().ok_or(RuntimeError(operation))?.clone();
+
+                    memory.allocate_registers(function.register_count());
+
+                    let new_call = CallFrame::new(
+                        function,
+                        destination,
+                        return_type,
+                        call.skipped_registers + call.chunk.register_count(),
+                    );
+                    let old_call = replace(&mut call, new_call);
+
+                    call_stack.push(old_call);
                 }
 
                 // CALL_NATIVE
@@ -421,6 +446,28 @@ impl<C: Chunk> ThreadRunner<C> {
                             return Ok(None);
                         }
                     }
+
+                    let resume_call = call_stack.pop().unwrap();
+
+                    if should_return_value {
+                        let return_value = get_register_from_address!(
+                            return_value_address,
+                            r#type,
+                            memory,
+                            call,
+                            operation
+                        );
+                        let destination_register = read_register_mut!(
+                            call.return_address.index,
+                            memory,
+                            resume_call,
+                            operation
+                        );
+
+                        *destination_register = return_value;
+                    }
+
+                    call = resume_call;
                 }
                 _ => todo!("Handle operation: {operation}"),
             }

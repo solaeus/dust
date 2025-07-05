@@ -128,8 +128,16 @@ impl<C: Chunk> Value<C> {
         Value::List(List::function(functions))
     }
 
-    pub fn function(function: C) -> Self {
-        Value::Function(Arc::new(function))
+    pub fn function(chunk: C) -> Self {
+        Value::Function(Arc::new(chunk))
+    }
+
+    pub fn as_function(&self) -> Option<&Arc<C>> {
+        if let Value::Function(function) = self {
+            Some(function)
+        } else {
+            None
+        }
     }
 
     pub fn r#type(&self) -> Type {
@@ -142,118 +150,6 @@ impl<C: Chunk> Value<C> {
             Value::String(_) => Type::String,
             Value::List(list) => list.r#type(),
             Value::Function(function) => Type::Function(Box::new(function.r#type().clone())),
-        }
-    }
-
-    pub fn as_boolean_or_panic(&self) -> bool {
-        match self {
-            Value::Boolean(boolean) => *boolean,
-            _ => panic!("Attempted to use the value `{self}` as a boolean"),
-        }
-    }
-
-    pub fn as_byte_or_panic(&self) -> u8 {
-        match self {
-            Value::Byte(byte) => *byte,
-            _ => panic!("Attempted to use the value `{self}` as a byte"),
-        }
-    }
-
-    pub fn as_character_or_panic(&self) -> char {
-        match self {
-            Value::Character(character) => *character,
-            _ => panic!("Attempted to use the value `{self}` as a character"),
-        }
-    }
-
-    pub fn as_float_or_panic(&self) -> f64 {
-        match self {
-            Value::Float(float) => *float,
-            _ => panic!("Attempted to use the value `{self}` as a float"),
-        }
-    }
-
-    pub fn as_integer_or_panic(&self) -> i64 {
-        match self {
-            Value::Integer(integer) => *integer,
-            _ => panic!("Attempted to use the value `{self}` as an integer"),
-        }
-    }
-
-    pub fn as_integer_ref_or_panic(&self) -> &i64 {
-        match self {
-            Value::Integer(integer) => integer,
-            _ => panic!("Attempted to use the value `{self}` as an integer reference"),
-        }
-    }
-
-    pub fn as_string_or_panic(&self) -> &DustString {
-        match self {
-            Value::String(string) => string,
-            _ => panic!("Attempted to use the value `{self}` as a string"),
-        }
-    }
-
-    pub fn as_boolean_list_or_panic(&self) -> &Vec<bool> {
-        match self {
-            Value::List(List::Boolean(booleans)) => booleans,
-            _ => panic!("Attempted to use the value `{self}` as a boolean list"),
-        }
-    }
-
-    pub fn as_byte_list_or_panic(&self) -> &Vec<u8> {
-        match self {
-            Value::List(List::Byte(bytes)) => bytes,
-            _ => panic!("Attempted to use the value `{self}` as a byte list"),
-        }
-    }
-
-    pub fn as_character_list_or_panic(&self) -> &Vec<char> {
-        match self {
-            Value::List(List::Character(characters)) => characters,
-            _ => panic!("Attempted to use the value `{self}` as a character list"),
-        }
-    }
-
-    pub fn as_float_list_or_panic(&self) -> &Vec<f64> {
-        match self {
-            Value::List(List::Float(floats)) => floats,
-            _ => panic!("Attempted to use the value `{self}` as a float list"),
-        }
-    }
-
-    pub fn as_integer_list_or_panic(&self) -> &Vec<i64> {
-        match self {
-            Value::List(List::Integer(integers)) => integers,
-            _ => panic!("Attempted to use the value `{self}` as an integer list"),
-        }
-    }
-
-    pub fn as_string_list_or_panic(&self) -> &Vec<DustString> {
-        match self {
-            Value::List(List::String(strings)) => strings,
-            _ => panic!("Attempted to use the value `{self}` as a string list"),
-        }
-    }
-
-    pub fn as_list_list_or_panic(&self) -> &Vec<List<C>> {
-        match self {
-            Value::List(List::List(lists)) => lists,
-            _ => panic!("Attempted to use the value `{self}` as a list list"),
-        }
-    }
-
-    pub fn as_function_list_or_panic(&self) -> &Vec<Arc<C>> {
-        match self {
-            Value::List(List::Function(functions)) => functions,
-            _ => panic!("Attempted to use the value `{self}` as a function list"),
-        }
-    }
-
-    pub fn as_function_or_panic(&self) -> &Arc<C> {
-        match self {
-            Value::Function(function) => function,
-            _ => panic!("Attempted to use the value `{self}` as a function"),
         }
     }
 }
@@ -285,7 +181,7 @@ impl<C: PartialEq> PartialEq for Value<C> {
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::String(left), Value::String(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
-            (Value::Function(left), Value::Function(right)) => Arc::ptr_eq(left, right),
+            (Value::Function(left), Value::Function(right)) => left == right,
             _ => false,
         }
     }
@@ -314,9 +210,7 @@ impl<C: Ord> Ord for Value<C> {
             (Value::String(_), _) => Ordering::Less,
             (Value::List(left), Value::List(right)) => left.cmp(right),
             (Value::List(_), _) => Ordering::Less,
-            (Value::Function(left), Value::Function(right)) => {
-                Arc::as_ptr(left).cmp(&Arc::as_ptr(right))
-            }
+            (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
         }
     }

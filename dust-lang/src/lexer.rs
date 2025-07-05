@@ -745,7 +745,7 @@ pub enum LexError {
 }
 
 impl AnnotatedError for LexError {
-    fn title() -> &'static str {
+    fn title(&self) -> &'static str {
         "Lex Error"
     }
 

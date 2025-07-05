@@ -2016,9 +2016,15 @@ where
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let function_return_type = match &last_instruction_type {
-            Type::Function(function_type) => function_type.return_type.clone(),
-            Type::FunctionSelf => self.r#type.return_type.clone(),
+        let (function_return_type, argument_count) = match &last_instruction_type {
+            Type::Function(function_type) => (
+                function_type.return_type.clone(),
+                function_type.value_parameters.len(),
+            ),
+            Type::FunctionSelf => (
+                self.r#type.return_type.clone(),
+                self.r#type.value_parameters.len(),
+            ),
             _ => {
                 return Err(CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
@@ -2027,13 +2033,26 @@ where
                 });
             }
         };
-        let mut argument_count = 0;
+        let mut argument_registers = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            argument_count += 1;
+            let argument_register = self.next_register_index() - 1;
+
+            argument_registers.push(argument_register);
+        }
+
+        let destination_index = self.next_register_index();
+        let correct_argument_range = (destination_index - argument_count)..destination_index;
+        let arguments_are_in_correct_registers = argument_registers
+            .iter()
+            .zip(correct_argument_range)
+            .all(|(argument_register, expected_register)| *argument_register == expected_register);
+
+        if !arguments_are_in_correct_registers {
+            todo!()
         }
 
         let end = self.current_position.1;
@@ -2070,7 +2089,7 @@ where
 
         self.expect(Token::LeftParenthesis)?;
 
-        let mut argument_count = function.r#type().value_parameters.len();
+        let argument_count = function.r#type().value_parameters.len();
         let mut argument_registers = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {

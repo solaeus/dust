@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use tracing::trace;
+
 use crate::{Chunk, DustString, List};
 
 #[derive(Debug)]
@@ -18,7 +20,8 @@ impl<C: Chunk> Memory<C> {
 
     pub fn allocate_registers(&mut self, count: usize) {
         self.registers.reserve_exact(count);
-        self.registers.resize(count, Register(0));
+        self.registers
+            .resize(self.registers.len() + count, Register(0));
     }
 
     pub fn store_object(&mut self, object: Object<C>) -> Register {

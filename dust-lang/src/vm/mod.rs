@@ -9,7 +9,7 @@ mod thread;
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
 pub use memory::{Memory, Object, Register};
-pub use runtime_error::RuntimeError;
+pub use runtime_error::{RUNTIME_ERROR_TEXT, RuntimeError};
 pub use thread::Thread;
 
 use std::sync::{Arc, RwLock};

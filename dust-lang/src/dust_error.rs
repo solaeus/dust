@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, RuntimeError, Span};
+use crate::{CompileError, RUNTIME_ERROR_TEXT, RuntimeError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
@@ -24,13 +24,13 @@ impl<'src> DustError<'src> {
     pub fn runtime(error: RuntimeError) -> Self {
         DustError {
             error: DustErrorKind::Runtime(error),
-            source: "",
+            source: RUNTIME_ERROR_TEXT,
         }
     }
 
     pub fn report(&self) -> String {
         let (title, description, detail_snippets, help_snippets) = (
-            CompileError::title(),
+            self.error.title(),
             self.error.description(),
             self.error.detail_snippets(),
             self.error.help_snippets(),
@@ -62,6 +62,13 @@ pub enum DustErrorKind {
 }
 
 impl DustErrorKind {
+    fn title(&self) -> &'static str {
+        match self {
+            DustErrorKind::Compile(error) => error.title(),
+            DustErrorKind::Runtime(error) => error.title(),
+        }
+    }
+
     fn description(&self) -> &'static str {
         match self {
             DustErrorKind::Compile(error) => error.description(),
@@ -91,7 +98,7 @@ impl Display for DustError<'_> {
 }
 
 pub trait AnnotatedError {
-    fn title() -> &'static str;
+    fn title(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn detail_snippets(&self) -> Vec<(String, Span)>;
     fn help_snippets(&self) -> Vec<(String, Span)>;

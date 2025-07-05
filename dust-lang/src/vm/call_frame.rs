@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::{Address, OperandType};
 
 #[derive(Debug)]
 pub struct CallFrame<C> {
-    pub chunk: C,
+    pub chunk: Arc<C>,
     pub ip: usize,
     pub return_address: Address,
     pub return_type: OperandType,
@@ -11,7 +13,7 @@ pub struct CallFrame<C> {
 
 impl<C> CallFrame<C> {
     pub fn new(
-        chunk: C,
+        chunk: Arc<C>,
         return_address: Address,
         return_type: OperandType,
         skipped_registers: usize,

@@ -62,7 +62,7 @@ pub use native_function::NativeFunction;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{DustString, List, Value};
-pub use vm::{RuntimeError, Vm, run};
+pub use vm::{RUNTIME_ERROR_TEXT, RuntimeError, Vm, run};
 
 use std::fmt::Display;
 
