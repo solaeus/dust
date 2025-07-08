@@ -8,8 +8,8 @@ pub struct Negate {
     pub r#type: OperandType,
 }
 
-impl From<&Instruction> for Negate {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Negate {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();

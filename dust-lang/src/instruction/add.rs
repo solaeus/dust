@@ -9,8 +9,8 @@ pub struct Add {
     pub r#type: OperandType,
 }
 
-impl From<&Instruction> for Add {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Add {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let left = instruction.b_address();
         let right = instruction.c_address();

@@ -471,7 +471,7 @@ impl Instruction {
         }
     }
 
-    pub fn disassembly_info(&self) -> String {
+    pub fn disassembly_info(self) -> String {
         let operation = self.operation();
 
         match operation {

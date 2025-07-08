@@ -9,8 +9,8 @@ pub struct Call {
     pub return_type: OperandType,
 }
 
-impl From<&Instruction> for Call {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Call {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let function_register = instruction.b_address();
         let argument_count = instruction.c_field();

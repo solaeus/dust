@@ -46,7 +46,7 @@ impl Chunk for StrippedChunk {
     }
 
     #[inline(always)]
-    fn instructions(&self) -> &[Instruction] {
+    fn instructions(&self) -> &Vec<Instruction> {
         &self.instructions
     }
 

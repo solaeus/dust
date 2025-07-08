@@ -118,7 +118,7 @@ impl Chunk for FullChunk {
         Arc::new(self)
     }
 
-    fn instructions(&self) -> &[Instruction] {
+    fn instructions(&self) -> &Vec<Instruction> {
         &self.instructions
     }
 

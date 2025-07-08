@@ -9,8 +9,8 @@ pub struct Load {
     pub jump_next: bool,
 }
 
-impl From<&Instruction> for Load {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Load {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();

@@ -1,6 +1,6 @@
 use std::{
     mem::replace,
-    sync::{Arc, RwLock, WaitTimeoutResult},
+    sync::{Arc, RwLock},
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
@@ -12,6 +12,7 @@ use crate::{
         Add, Call, CallNative, Divide, Equal, Jump, Less, LessEqual, List, Load, MemoryKind,
         Modulo, Multiply, Negate, OperandType, Return, Subtract, Test,
     },
+    value::List as ListValue,
     vm::Object,
 };
 
@@ -68,7 +69,7 @@ impl<C: Chunk> ThreadRunner<C> {
         );
 
         let mut call_stack = Vec::<CallFrame<C>>::with_capacity(0);
-        let mut memory = Memory::<C>::new(&self.chunk);
+        let mut memory = Memory::<C>::new();
 
         memory.allocate_registers(self.chunk.register_count());
 
@@ -78,14 +79,21 @@ impl<C: Chunk> ThreadRunner<C> {
             OperandType::NONE,
             0,
         );
+        let instructions = call.chunk.instructions().clone();
+        let mut highest_ip = 0;
 
         loop {
             let ip = call.ip;
             call.ip += 1;
 
+            if ip > highest_ip {
+                highest_ip = ip;
+            } else {
+            }
+
             assert!(ip < call.chunk.instructions().len(), "IP out of bounds");
 
-            let instruction = call.chunk.instructions()[ip];
+            let instruction = instructions[ip];
             let operation = instruction.operation();
 
             info!("IP = {ip} Run {operation}");
@@ -103,7 +111,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         operand,
                         r#type,
                         jump_next,
-                    } = Load::from(&instruction);
+                    } = Load::from(instruction);
 
                     let new_register =
                         get_register_from_address!(operand, r#type, memory, call, operation);
@@ -124,7 +132,117 @@ impl<C: Chunk> ThreadRunner<C> {
                         start,
                         end,
                         r#type,
-                    } = List::from(&instruction);
+                    } = List::from(instruction);
+
+                    let length = end.index - start.index;
+                    let object = match r#type {
+                        OperandType::BOOLEAN => {
+                            let mut booleans = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let boolean =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_boolean();
+
+                                booleans.push(boolean);
+                            }
+
+                            Object::ValueList(ListValue::<C>::Boolean(booleans))
+                        }
+                        OperandType::BYTE => {
+                            let mut bytes = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let byte = read_register!(register_index, memory, call, operation)
+                                    .as_byte();
+
+                                bytes.push(byte);
+                            }
+
+                            Object::ValueList(ListValue::<C>::Byte(bytes))
+                        }
+                        OperandType::CHARACTER => {
+                            let mut characters = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let character =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_character();
+
+                                characters.push(character);
+                            }
+
+                            Object::ValueList(ListValue::<C>::Character(characters))
+                        }
+                        OperandType::FLOAT => {
+                            let mut floats = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let float = read_register!(register_index, memory, call, operation)
+                                    .as_float();
+
+                                floats.push(float);
+                            }
+
+                            Object::ValueList(ListValue::<C>::Float(floats))
+                        }
+                        OperandType::INTEGER => {
+                            let mut integers = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let integer =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_integer();
+
+                                integers.push(integer);
+                            }
+
+                            Object::ValueList(ListValue::<C>::Integer(integers))
+                        }
+                        OperandType::STRING => {
+                            let mut string_registers = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let register =
+                                    read_register!(register_index, memory, call, operation);
+
+                                string_registers.push(register);
+                            }
+
+                            Object::RegisterList(string_registers)
+                        }
+                        OperandType::LIST => {
+                            let mut list_registers = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let register =
+                                    read_register!(register_index, memory, call, operation);
+
+                                list_registers.push(register);
+                            }
+
+                            Object::RegisterList(list_registers)
+                        }
+                        OperandType::FUNCTION => {
+                            let mut function_registers = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let register =
+                                    read_register!(register_index, memory, call, operation);
+
+                                function_registers.push(register);
+                            }
+
+                            Object::RegisterList(function_registers)
+                        }
+                        _ => return Err(RuntimeError(operation)),
+                    };
+
+                    let object_register = memory.store_object(object);
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = object_register;
                 }
 
                 // ADD
@@ -134,33 +252,12 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Add::from(&instruction);
+                    } = Add::from(instruction);
 
                     let sum_register = match r#type {
                         OperandType::INTEGER => {
-                            let left_integer = match left.memory {
-                                MemoryKind::REGISTER => {
-                                    read_register!(left.index, memory, call, operation).as_integer()
-                                }
-                                MemoryKind::CONSTANT => read_constant!(left.index, call, operation)
-                                    .as_integer()
-                                    .ok_or(RuntimeError(operation))?,
-                                MemoryKind::CELL => todo!(),
-                                _ => return Err(RuntimeError(operation)),
-                            };
-                            let right_integer = match right.memory {
-                                MemoryKind::REGISTER => {
-                                    read_register!(right.index, memory, call, operation)
-                                        .as_integer()
-                                }
-                                MemoryKind::CONSTANT => {
-                                    read_constant!(right.index, call, operation)
-                                        .as_integer()
-                                        .ok_or(RuntimeError(operation))?
-                                }
-                                MemoryKind::CELL => todo!(),
-                                _ => return Err(RuntimeError(operation)),
-                            };
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
                             let integer_sum = left_integer.saturating_add(right_integer);
 
                             Register::integer(integer_sum)
@@ -228,7 +325,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Subtract::from(&instruction);
+                    } = Subtract::from(instruction);
                 }
 
                 // MULTIPLY
@@ -238,7 +335,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Multiply::from(&instruction);
+                    } = Multiply::from(instruction);
                 }
 
                 // DIVIDE
@@ -248,7 +345,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Divide::from(&instruction);
+                    } = Divide::from(instruction);
                 }
 
                 // MODULO
@@ -258,7 +355,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Modulo::from(&instruction);
+                    } = Modulo::from(instruction);
                 }
 
                 // EQUAL
@@ -268,31 +365,14 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Equal::from(&instruction);
+                    } = Equal::from(instruction);
 
-                    let left_register =
-                        get_register_from_address!(left, r#type, memory, call, operation);
-                    let right_register =
-                        get_register_from_address!(right, r#type, memory, call, operation);
                     let is_equal = match r#type {
                         OperandType::INTEGER => {
-                            left_register.as_integer() == right_register.as_integer()
-                        }
-                        OperandType::FLOAT => left_register.as_float() == right_register.as_float(),
-                        OperandType::STRING => {
-                            if left_register == right_register {
-                                true
-                            } else if let (
-                                Object::String(left_string),
-                                Object::String(right_string),
-                            ) = (
-                                read_object!(left_register.as_index(), memory, operation),
-                                read_object!(right_register.as_index(), memory, operation),
-                            ) {
-                                left_string == right_string
-                            } else {
-                                return Err(RuntimeError(operation));
-                            }
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+
+                            left_integer == right_integer
                         }
                         _ => return Err(RuntimeError(operation)),
                     };
@@ -309,31 +389,14 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = Less::from(&instruction);
+                    } = Less::from(instruction);
 
-                    let left_register =
-                        get_register_from_address!(left, r#type, memory, call, operation);
-                    let right_register =
-                        get_register_from_address!(right, r#type, memory, call, operation);
                     let is_less = match r#type {
                         OperandType::INTEGER => {
-                            left_register.as_integer() < right_register.as_integer()
-                        }
-                        OperandType::FLOAT => left_register.as_float() < right_register.as_float(),
-                        OperandType::STRING => {
-                            if left_register == right_register {
-                                false
-                            } else if let (
-                                Object::String(left_string),
-                                Object::String(right_string),
-                            ) = (
-                                read_object!(left_register.as_index(), memory, operation),
-                                read_object!(right_register.as_index(), memory, operation),
-                            ) {
-                                left_string < right_string
-                            } else {
-                                return Err(RuntimeError(operation));
-                            }
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+
+                            left_integer < right_integer
                         }
                         _ => return Err(RuntimeError(operation)),
                     };
@@ -350,7 +413,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         left,
                         right,
                         r#type,
-                    } = LessEqual::from(&instruction);
+                    } = LessEqual::from(instruction);
                 }
 
                 // TEST
@@ -358,7 +421,7 @@ impl<C: Chunk> ThreadRunner<C> {
                     let Test {
                         comparator,
                         operand,
-                    } = Test::from(&instruction);
+                    } = Test::from(instruction);
                 }
 
                 // NEGATE
@@ -367,7 +430,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         destination,
                         operand,
                         r#type,
-                    } = Negate::from(&instruction);
+                    } = Negate::from(instruction);
                 }
 
                 // CALL
@@ -377,8 +440,8 @@ impl<C: Chunk> ThreadRunner<C> {
                         function,
                         argument_count,
                         return_type,
-                    } = Call::from(&instruction);
-                    let object = get_from_address_value_by_cloning_objects!(
+                    } = Call::from(instruction);
+                    let object = get_value_from_address_by_cloning_objects!(
                         function,
                         OperandType::FUNCTION,
                         memory,
@@ -431,7 +494,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         destination,
                         function,
                         argument_count,
-                    } = CallNative::<C>::from(&instruction);
+                    } = CallNative::<C>::from(instruction);
                 }
 
                 // JUMP
@@ -439,7 +502,7 @@ impl<C: Chunk> ThreadRunner<C> {
                     let Jump {
                         offset,
                         is_positive,
-                    } = Jump::from(&instruction);
+                    } = Jump::from(instruction);
 
                     if is_positive {
                         call.ip += offset;
@@ -454,7 +517,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         should_return_value,
                         return_value_address,
                         r#type,
-                    } = Return::from(&instruction);
+                    } = Return::from(instruction);
 
                     if call_stack.is_empty() {
                         if should_return_value {

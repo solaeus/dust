@@ -10,8 +10,8 @@ pub struct CallNative<C> {
     pub argument_count: usize,
 }
 
-impl<C: Chunk> From<&Instruction> for CallNative<C> {
-    fn from(instruction: &Instruction) -> Self {
+impl<C: Chunk> From<Instruction> for CallNative<C> {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from_index(instruction.b_field());
         let argument_count = instruction.c_field();

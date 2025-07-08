@@ -31,7 +31,7 @@ pub trait Chunk:
 
     fn r#type(&self) -> &FunctionType;
 
-    fn instructions(&self) -> &[Instruction];
+    fn instructions(&self) -> &Vec<Instruction>;
 
     fn positions(&self) -> Option<&[Span]>;
 

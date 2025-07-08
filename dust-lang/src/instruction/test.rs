@@ -9,8 +9,8 @@ pub struct Test {
     pub operand: Address,
 }
 
-impl From<&Instruction> for Test {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Test {
+    fn from(instruction: Instruction) -> Self {
         let comparator = instruction.a_field() != 0;
         let operand = instruction.b_address();
 

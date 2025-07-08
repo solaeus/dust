@@ -1,7 +1,22 @@
 #![macro_use]
 
+macro_rules! get_integer {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_integer()
+            }
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                .as_integer()
+                .ok_or(RuntimeError($operation))?,
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
 macro_rules! read_register {
-    ($index: expr,$memory: expr,  $call: expr, $operation: expr) => {{
+    ($index: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use tracing::trace;
 
         trace!(
@@ -9,10 +24,15 @@ macro_rules! read_register {
             $index + $call.skipped_registers
         );
 
-        $memory
-            .registers
-            .get($index + $call.skipped_registers)
-            .ok_or(RuntimeError($operation))?
+        let total_index = $index + $call.skipped_registers;
+
+        if total_index < $memory.top {
+            $memory.stack[total_index]
+        } else if total_index < $memory.top + $memory.heap.len() {
+            $memory.heap[total_index - $memory.top]
+        } else {
+            return Err(RuntimeError($operation));
+        }
     }};
 }
 
@@ -25,10 +45,15 @@ macro_rules! read_register_mut {
             $index + $call.skipped_registers
         );
 
-        $memory
-            .registers
-            .get_mut($index + $call.skipped_registers)
-            .ok_or(RuntimeError($operation))?
+        let total_index = $index + $call.skipped_registers;
+
+        if total_index < $memory.top {
+            &mut $memory.stack[total_index]
+        } else if total_index < $memory.top + $memory.heap.len() {
+            &mut $memory.heap[total_index - $memory.top]
+        } else {
+            return Err(RuntimeError($operation));
+        }
     }};
 }
 
@@ -47,7 +72,7 @@ macro_rules! read_constant {
 }
 
 macro_rules! read_object {
-    ($index: expr,$memory: expr,  $operation: expr) => {{
+    ($index: expr, $memory: expr, $operation: expr) => {{
         use tracing::trace;
 
         trace!("Reading object at index: {}", $index);
@@ -65,16 +90,7 @@ macro_rules! get_register_from_address {
         use crate::MemoryKind;
 
         match $address.memory {
-            MemoryKind::REGISTER => {
-                assert!(
-                    $address.index < $memory.registers.len(),
-                    "Register index out of bounds: {} >= {}",
-                    $address.index,
-                    $memory.registers.len()
-                );
-
-                *read_register!($address.index, $memory, $call, $operation)
-            }
+            MemoryKind::REGISTER => read_register!($address.index, $memory, $call, $operation),
             MemoryKind::CONSTANT => {
                 let value = &$call
                     .chunk
@@ -109,7 +125,7 @@ macro_rules! get_register_from_address {
     }};
 }
 
-macro_rules! get_from_address_value_by_cloning_objects {
+macro_rules! get_value_from_address_by_cloning_objects {
     ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use super::Object;
         use crate::MemoryKind;
@@ -117,13 +133,13 @@ macro_rules! get_from_address_value_by_cloning_objects {
         match $address.memory {
             MemoryKind::REGISTER => {
                 assert!(
-                    $address.index < $memory.registers.len(),
+                    $address.index < $memory.len(),
                     "Register index out of bounds: {} >= {}",
                     $address.index,
-                    $memory.registers.len()
+                    $memory.len()
                 );
 
-                let register = $memory.registers[$address.index + $call.skipped_registers];
+                let register = read_register!($address.index, $memory, $call, $operation);
 
                 match $type {
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
@@ -183,14 +199,13 @@ macro_rules! get_value_from_address_by_replacing_objects {
         match $address.memory {
             MemoryKind::REGISTER => {
                 assert!(
-                    $address.index < $memory.registers.len(),
+                    $address.index < $memory.len(),
                     "Register index out of bounds: {} >= {}",
                     $address.index,
-                    $memory.registers.len()
+                    $memory.len()
                 );
 
                 let register = $memory
-                    .registers
                     .get($address.index + $call.skipped_registers)
                     .ok_or_else(|| RuntimeError($operation))?;
 
@@ -205,6 +220,16 @@ macro_rules! get_value_from_address_by_replacing_objects {
 
                         if let Object::String(string) = object {
                             Value::String(string)
+                        } else {
+                            return Err(RuntimeError($operation));
+                        }
+                    }
+                    OperandType::LIST_INTEGER => {
+                        let object_index = register.as_index();
+                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
+
+                        if let Object::ValueList(list) = object {
+                            Value::List(list)
                         } else {
                             return Err(RuntimeError($operation));
                         }

@@ -9,8 +9,8 @@ pub struct List {
     pub r#type: OperandType,
 }
 
-impl From<&Instruction> for List {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for List {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let start = instruction.b_address();
         let end = instruction.c_address();

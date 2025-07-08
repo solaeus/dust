@@ -9,8 +9,8 @@ pub struct Multiply {
     pub r#type: OperandType,
 }
 
-impl From<&Instruction> for Multiply {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Multiply {
+    fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let left = instruction.b_address();
         let right = instruction.c_address();

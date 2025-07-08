@@ -190,8 +190,20 @@ pub struct CompiledData<C> {
 }
 
 impl<C: Chunk> CompiledData<C> {
-    fn new(mut chunk_compiler: ChunkCompiler<C>) -> Self {
-        let register_count = chunk_compiler.next_register_index();
+    fn new(chunk_compiler: ChunkCompiler<C>) -> Self {
+        let register_count = chunk_compiler.instructions.iter().fold(
+            chunk_compiler.minimum_register_index,
+            |acc, (instruction, _, _)| {
+                if instruction.yields_value()
+                    && instruction.a_field() >= acc
+                    && instruction.a_memory_kind() == MemoryKind::REGISTER
+                {
+                    instruction.a_field() + 1
+                } else {
+                    acc
+                }
+            },
+        );
         let name = chunk_compiler.mode.into_name();
         let (instructions, positions) = chunk_compiler
             .instructions
@@ -758,7 +770,7 @@ where
 
         let (previous_instruction, previous_type, previous_position) =
             self.instructions.pop().unwrap();
-        let (address, push_back) = self.handle_binary_argument(&previous_instruction);
+        let (address, push_back) = self.handle_binary_argument(previous_instruction);
 
         if push_back {
             self.instructions.push((
@@ -792,7 +804,7 @@ where
     /// Takes an instruction and returns an [`address`] that corresponds to its address and a
     /// boolean indicating whether the instruction should be pushed back onto the instruction list.
     /// If `false`, the address makes the instruction irrelevant.
-    fn handle_binary_argument(&mut self, instruction: &Instruction) -> (Address, bool) {
+    fn handle_binary_argument(&mut self, instruction: Instruction) -> (Address, bool) {
         let (address, push_back) = match instruction.operation() {
             Operation::LOAD => {
                 let Load { operand, .. } = Load::from(instruction);
@@ -821,24 +833,16 @@ where
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
                 })?;
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
+        let (left, push_back_left) = self.handle_binary_argument(left_instruction);
 
         let left_is_mutable_variable = match left_instruction.operation() {
             Operation::LOAD => {
-                let Load { operand, .. } = Load::from(&left_instruction);
+                let Load { operand, .. } = Load::from(left_instruction);
 
                 if operand.memory == MemoryKind::REGISTER {
                     self.locals
                         .iter()
                         .find_map(|(_, local)| {
-                            println!(
-                                "{} {} {} {}",
-                                local.address,
-                                operand,
-                                local.address == operand,
-                                local.is_mutable
-                            );
-
                             if local.address == operand {
                                 Some(local.is_mutable)
                             } else {
@@ -900,7 +904,7 @@ where
         }
 
         let (right_instruction, right_type, right_position) = self.instructions.pop().unwrap();
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
+        let (right, push_back_right) = self.handle_binary_argument(right_instruction);
         let right_is_constant_zero = right_instruction.operation() == Operation::LOAD
             && right.memory == MemoryKind::CONSTANT
             && {
@@ -1034,7 +1038,7 @@ where
                     position: self.previous_position,
                 })?;
 
-        let (left, push_back_left) = self.handle_binary_argument(&left_instruction);
+        let (left, push_back_left) = self.handle_binary_argument(left_instruction);
 
         if push_back_left {
             self.instructions
@@ -1056,7 +1060,7 @@ where
                     position: self.previous_position,
                 })?;
 
-        let (right, push_back_right) = self.handle_binary_argument(&right_instruction);
+        let (right, push_back_right) = self.handle_binary_argument(right_instruction);
 
         if left_type != right_type {
             return Err(CompileError::ComparisonTypeConflict {
@@ -1201,7 +1205,7 @@ where
                 r#type,
                 jump_next,
                 ..
-            } = Load::from(&load_instructions[0].0);
+            } = Load::from(load_instructions[0].0);
             load_instructions[0].0 =
                 Instruction::load(Address::register(left.index), operand, r#type, jump_next);
 
@@ -1210,7 +1214,7 @@ where
                 r#type,
                 jump_next,
                 ..
-            } = Load::from(&load_instructions[1].0);
+            } = Load::from(load_instructions[1].0);
             load_instructions[1].0 =
                 Instruction::load(Address::register(left.index), operand, r#type, jump_next);
         }
@@ -1736,7 +1740,7 @@ where
                 let Jump {
                     offset,
                     is_positive,
-                } = Jump::from(&*instruction);
+                } = Jump::from(*instruction);
 
                 if is_positive && offset + index == instruction_length - 1 {
                     *instruction = Instruction::jump(offset + 1, true);
@@ -1774,7 +1778,7 @@ where
                 operand,
                 r#type,
                 ..
-            } = Load::from(&load_instruction);
+            } = Load::from(load_instruction);
             let should_return = expression_type != Type::None;
             let return_address = if !should_return {
                 self.instructions
