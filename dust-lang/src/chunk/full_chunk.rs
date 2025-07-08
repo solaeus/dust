@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Disassembler, FunctionType, Instruction, List, Local, Path, Span, Value, chunk::Disassemble,
+    Disassembler, FunctionType, Instruction, List, Local, Path, Value, chunk::Disassemble,
     compiler::CompiledData,
 };
 
@@ -23,8 +23,6 @@ pub struct FullChunk {
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
-    pub(crate) positions: Vec<Span>,
-
     pub(crate) constants: Vec<Value<Self>>,
     pub(crate) locals: IndexMap<Path, Local>,
 
@@ -94,7 +92,6 @@ impl Chunk for FullChunk {
             name: data.name,
             r#type: data.r#type,
             instructions: data.instructions,
-            positions: data.positions,
             constants: data.constants,
             locals: data.locals,
             register_count: data.register_count,
@@ -120,10 +117,6 @@ impl Chunk for FullChunk {
 
     fn instructions(&self) -> &Vec<Instruction> {
         &self.instructions
-    }
-
-    fn positions(&self) -> Option<&[Span]> {
-        Some(&self.positions)
     }
 
     fn constants(&self) -> &[Value<Self>] {
@@ -168,7 +161,6 @@ impl PartialEq for FullChunk {
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions
-            && self.positions == other.positions
             && self.constants == other.constants
             && self.locals == other.locals
             && self.prototype_index == other.prototype_index
@@ -181,7 +173,6 @@ impl PartialEq for FullChunk {
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions
-            && self.positions == other.positions
             && self.constants == other.constants
             && self.locals == other.locals
             && self.register_count == other.register_count
@@ -202,7 +193,6 @@ impl Ord for FullChunk {
             .cmp(&other.name.as_ref())
             .then_with(|| self.r#type.cmp(&other.r#type))
             .then_with(|| self.instructions.cmp(&other.instructions))
-            .then_with(|| self.positions.cmp(&other.positions))
             .then_with(|| self.constants.cmp(&other.constants))
             .then_with(|| self.locals.iter().cmp(other.locals.iter()))
             .then_with(|| self.register_count.cmp(&other.register_count))

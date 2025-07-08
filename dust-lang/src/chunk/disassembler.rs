@@ -43,12 +43,11 @@ use colored::{ColoredString, Colorize};
 
 use crate::{Address, Local, Value, chunk::Chunk};
 
-const INSTRUCTION_COLUMNS: [(&str, usize); 4] =
-    [("i", 5), ("POSITION", 12), ("OPERATION", 17), ("INFO", 41)];
+const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 17), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
-    "╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮",
-    "├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤",
-    "╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯",
+    "╭─────┬─────────────────┬─────────────────────────────────────────╮",
+    "├─────┼─────────────────┼─────────────────────────────────────────┤",
+    "╰─────┴─────────────────┴─────────────────────────────────────────╯",
 ];
 
 const LOCAL_COLUMNS: [(&str, usize); 6] = [
@@ -283,18 +282,9 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
         self.write_center_border(INSTRUCTION_BORDERS[1])?;
 
         for (index, instruction) in self.chunk.instructions().iter().enumerate() {
-            let position = self.chunk.positions().map_or_else(
-                || "stripped".to_string(),
-                |positions| {
-                    positions
-                        .get(index)
-                        .map(|position| position.to_string())
-                        .unwrap_or_else(|| "ERROR".to_string())
-                },
-            );
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
-            let row = format!("│{index:^5}│{position:^12}│{operation:^17}│{info:^41}│");
+            let row = format!("│{index:^5}│{operation:^17}│{info:^41}│");
 
             self.write_center_border(&row)?;
         }

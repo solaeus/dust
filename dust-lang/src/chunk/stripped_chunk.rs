@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FunctionType, Instruction, Local, Path, Span, Value, compiler::CompiledData};
+use crate::{FunctionType, Instruction, Local, Path, Value, compiler::CompiledData};
 
 use super::{Chunk, Disassemble, Disassembler};
 
@@ -48,10 +48,6 @@ impl Chunk for StrippedChunk {
     #[inline(always)]
     fn instructions(&self) -> &Vec<Instruction> {
         &self.instructions
-    }
-
-    fn positions(&self) -> Option<&[Span]> {
-        None
     }
 
     #[inline(always)]

@@ -1794,8 +1794,11 @@ where
                 operand
             };
 
+            println!("{should_return} {return_address}");
+
             let r#return = Instruction::r#return(should_return, return_address, r#type);
 
+            self.update_return_type(expression_type.clone())?;
             self.emit_instruction(r#return, expression_type, self.current_position);
         } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
             || matches!(
@@ -1807,6 +1810,7 @@ where
         } else if self.allow(Token::Semicolon)? {
             let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
+            self.update_return_type(Type::None)?;
             self.emit_instruction(r#return, Type::None, self.current_position);
         } else if let Some((last_instruction, last_instruction_type, _)) = self.instructions.last()
         {

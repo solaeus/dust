@@ -88,7 +88,6 @@ impl<C: Chunk> ThreadRunner<C> {
 
             if ip > highest_ip {
                 highest_ip = ip;
-            } else {
             }
 
             assert!(ip < call.chunk.instructions().len(), "IP out of bounds");

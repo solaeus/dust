@@ -99,10 +99,18 @@ macro_rules! get_register_from_address {
                     .ok_or_else(|| RuntimeError($operation))?;
 
                 match value {
-                    Value::Integer(integer) => Register::integer(*integer),
+                    Value::Boolean(boolean) => Register::boolean(*boolean),
+                    Value::Byte(byte) => Register::byte(*byte),
+                    Value::Character(character) => Register::character(*character),
                     Value::Float(float) => Register::float(*float),
+                    Value::Integer(integer) => Register::integer(*integer),
                     Value::String(string) => {
                         let object = Object::String(string.clone());
+
+                        $memory.store_object(object)
+                    }
+                    Value::List(list) => {
+                        let object = Object::ValueList(list.clone());
 
                         $memory.store_object(object)
                     }
@@ -111,7 +119,6 @@ macro_rules! get_register_from_address {
 
                         $memory.store_object(object)
                     }
-                    _ => todo!(),
                 }
             }
             MemoryKind::ENCODED => match $type {
@@ -224,7 +231,11 @@ macro_rules! get_value_from_address_by_replacing_objects {
                             return Err(RuntimeError($operation));
                         }
                     }
-                    OperandType::LIST_INTEGER => {
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER => {
                         let object_index = register.as_index();
                         let object = replace(&mut $memory.objects[object_index], Object::Empty);
 
