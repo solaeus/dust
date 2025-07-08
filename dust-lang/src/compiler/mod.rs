@@ -614,17 +614,13 @@ where
         if let Token::Character(character) = self.current_token {
             self.advance()?;
 
-            let character = Value::character(character);
             let destination = Address::register(self.next_register_index());
-            let constant_index = self.push_constant_or_get_index(character);
-            let load_constant = Instruction::load(
-                destination,
-                Address::constant(constant_index),
-                OperandType::CHARACTER,
-                false,
-            );
+            let constant_index = self.push_constant_or_get_index(Value::Character(character));
+            let operand = Address::constant(constant_index);
+            let load_encoded =
+                Instruction::load(destination, operand, OperandType::CHARACTER, false);
 
-            self.emit_instruction(load_constant, Type::Character, position);
+            self.emit_instruction(load_encoded, Type::Character, position);
 
             Ok(())
         } else {
@@ -1102,9 +1098,9 @@ where
         let jump = Instruction::jump(1, true);
         let destination_index = self.next_register_index();
         let destination = Address::register(destination_index);
-        let true_as_address = Address::encoded(true as usize);
+        let true_as_address = Address::constant(true as usize);
         let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
-        let false_as_address = Address::encoded(false as usize);
+        let false_as_address = Address::constant(false as usize);
         let load_false =
             Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
         let comparison_position = Span(left_position.0, right_position.1);
@@ -1462,11 +1458,22 @@ where
         let end_register = self.next_register_index() - 1;
         let end = self.previous_position.1;
         let destination = Address::register(self.next_register_index());
+        let operand_type = match item_type {
+            Type::Boolean => OperandType::LIST_BOOLEAN,
+            Type::Byte => OperandType::LIST_BYTE,
+            Type::Character => OperandType::LIST_CHARACTER,
+            Type::Float => OperandType::LIST_FLOAT,
+            Type::Integer => OperandType::LIST_INTEGER,
+            Type::String => OperandType::LIST_STRING,
+            Type::List(_) => OperandType::LIST_LIST,
+            Type::Function(_) => OperandType::LIST_FUNCTION,
+            _ => todo!(),
+        };
         let list = Instruction::list(
             destination,
             Address::register(start_register),
             Address::register(end_register),
-            item_type.as_operand_type(),
+            operand_type,
         );
 
         self.emit_instruction(list, Type::List(Box::new(item_type)), Span(start, end));
@@ -1793,8 +1800,6 @@ where
             } else {
                 operand
             };
-
-            println!("{should_return} {return_address}");
 
             let r#return = Instruction::r#return(should_return, return_address, r#type);
 

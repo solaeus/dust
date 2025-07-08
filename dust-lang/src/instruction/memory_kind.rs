@@ -10,10 +10,10 @@ use crate::Operation;
 pub struct MemoryKind(pub u8);
 
 impl MemoryKind {
-    pub const CELL: MemoryKind = MemoryKind(0);
+    pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
     pub const ENCODED: MemoryKind = MemoryKind(2);
-    pub const REGISTER: MemoryKind = MemoryKind(3);
+    pub const CELL: MemoryKind = MemoryKind(3);
 }
 
 impl MemoryKind {
@@ -27,10 +27,10 @@ impl MemoryKind {
 impl Display for MemoryKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::CELL => write!(f, "cell"),
-            Self::CONSTANT => write!(f, "const"),
-            Self::ENCODED => write!(f, "enc"),
             Self::REGISTER => write!(f, "reg"),
+            Self::ENCODED => write!(f, "enc"),
+            Self::CONSTANT => write!(f, "const"),
+            Self::CELL => write!(f, "cell"),
             _ => write!(f, "invalid_memory_kind"),
         }
     }

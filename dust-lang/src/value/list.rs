@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, FullChunk, StrippedChunk, Type, chunk::Chunk};
+use crate::{DustString, DebugChunk, StrippedChunk, Type, chunk::Chunk};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum List<C> {
@@ -78,7 +78,7 @@ impl<C: Chunk> List<C> {
     }
 }
 
-impl List<FullChunk> {
+impl List<DebugChunk> {
     pub fn strip_chunks(self) -> List<StrippedChunk> {
         match self {
             List::Boolean(booleans) => List::Boolean(booleans),

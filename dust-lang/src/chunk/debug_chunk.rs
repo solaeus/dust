@@ -17,8 +17,8 @@ use super::{Chunk, StrippedChunk};
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct FullChunk {
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub struct DebugChunk {
     pub(crate) name: Option<Path>,
     pub(crate) r#type: FunctionType,
 
@@ -30,7 +30,7 @@ pub struct FullChunk {
     pub(crate) prototype_index: usize,
 }
 
-impl FullChunk {
+impl DebugChunk {
     pub fn strip(self) -> StrippedChunk {
         StrippedChunk {
             r#type: self.r#type,
@@ -86,9 +86,9 @@ impl FullChunk {
     }
 }
 
-impl Chunk for FullChunk {
+impl Chunk for DebugChunk {
     fn new(data: CompiledData<Self>) -> Self {
-        FullChunk {
+        DebugChunk {
             name: data.name,
             r#type: data.r#type,
             instructions: data.instructions,
@@ -136,7 +136,7 @@ impl Chunk for FullChunk {
     }
 }
 
-impl Disassemble for FullChunk {
+impl Disassemble for DebugChunk {
     fn disassembler<'a, 'w, W: std::io::Write>(
         &'a self,
         writer: &'w mut W,
@@ -145,30 +145,39 @@ impl Disassemble for FullChunk {
     }
 }
 
-impl Display for FullChunk {
+impl Display for DebugChunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.r#type)
     }
 }
 
-impl Eq for FullChunk {}
+impl Debug for DebugChunk {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut buffer = Vec::new();
+        let _ = self.disassembler(&mut buffer).disassemble();
+        let string = String::from_utf8_lossy(&buffer);
+
+        write!(f, "\n{string}")
+    }
+}
+
+impl Eq for DebugChunk {}
 
 /// For testing purposes, ignore the "memory_length" fields so that we don't have to write them them
 /// when writing Chunks for tests.
 #[cfg(debug_assertions)]
-impl PartialEq for FullChunk {
+impl PartialEq for DebugChunk {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.r#type == other.r#type
             && self.instructions == other.instructions
             && self.constants == other.constants
             && self.locals == other.locals
-            && self.prototype_index == other.prototype_index
     }
 }
 
 #[cfg(not(debug_assertions))]
-impl PartialEq for FullChunk {
+impl PartialEq for DebugChunk {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.r#type == other.r#type
@@ -180,13 +189,13 @@ impl PartialEq for FullChunk {
     }
 }
 
-impl PartialOrd for FullChunk {
+impl PartialOrd for DebugChunk {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for FullChunk {
+impl Ord for DebugChunk {
     fn cmp(&self, other: &Self) -> Ordering {
         self.name
             .as_ref()

@@ -135,7 +135,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                     let length = end.index - start.index;
                     let object = match r#type {
-                        OperandType::BOOLEAN => {
+                        OperandType::LIST_BOOLEAN => {
                             let mut booleans = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -148,7 +148,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::Boolean(booleans))
                         }
-                        OperandType::BYTE => {
+                        OperandType::LIST_BYTE => {
                             let mut bytes = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -160,7 +160,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::Byte(bytes))
                         }
-                        OperandType::CHARACTER => {
+                        OperandType::LIST_CHARACTER => {
                             let mut characters = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -173,7 +173,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::Character(characters))
                         }
-                        OperandType::FLOAT => {
+                        OperandType::LIST_FLOAT => {
                             let mut floats = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -185,7 +185,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::Float(floats))
                         }
-                        OperandType::INTEGER => {
+                        OperandType::LIST_INTEGER => {
                             let mut integers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -198,7 +198,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::Integer(integers))
                         }
-                        OperandType::STRING => {
+                        OperandType::LIST_STRING => {
                             let mut string_registers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -210,7 +210,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::RegisterList(string_registers)
                         }
-                        OperandType::LIST => {
+                        OperandType::LIST_LIST => {
                             let mut list_registers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
@@ -222,7 +222,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::RegisterList(list_registers)
                         }
-                        OperandType::FUNCTION => {
+                        OperandType::LIST_FUNCTION => {
                             let mut function_registers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {

@@ -7,12 +7,12 @@
 //!
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
+mod debug_chunk;
 mod disassembler;
-mod full_chunk;
 mod stripped_chunk;
 
+pub use debug_chunk::DebugChunk;
 pub use disassembler::Disassembler;
-pub use full_chunk::FullChunk;
 pub use stripped_chunk::StrippedChunk;
 
 use std::sync::Arc;

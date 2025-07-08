@@ -64,7 +64,7 @@ impl Display for Load {
         write!(f, "{destination} = {operand}")?;
 
         if *jump_next {
-            write!(f, " JUMP +1")?;
+            write!(f, " (jump +1)")?;
         }
 
         Ok(())
