@@ -227,7 +227,8 @@ macro_rules! get_value_from_address_by_replacing_objects {
                     | OperandType::LIST_FLOAT
                     | OperandType::LIST_INTEGER
                     | OperandType::LIST_STRING
-                    | OperandType::LIST_LIST => {
+                    | OperandType::LIST_LIST
+                    | OperandType::LIST_FUNCTION => {
                         let object_index = register.as_index();
                         let object = replace(&mut $memory.objects[object_index], Object::Empty);
 

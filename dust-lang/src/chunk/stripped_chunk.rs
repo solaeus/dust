@@ -9,7 +9,7 @@ use crate::{FunctionType, Instruction, Local, Path, Value, compiler::CompiledDat
 
 use super::{Chunk, Disassemble, Disassembler};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct StrippedChunk {
     pub(crate) r#type: FunctionType,
     pub(crate) instructions: Vec<Instruction>,
@@ -80,5 +80,44 @@ impl Disassemble for StrippedChunk {
 impl Display for StrippedChunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "stripped_chunk",)
+    }
+}
+
+impl Eq for StrippedChunk {}
+
+#[cfg(debug_assertions)]
+impl PartialEq for StrippedChunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.r#type == other.r#type
+            && self.instructions == other.instructions
+            && self.constants == other.constants
+    }
+}
+
+#[cfg(not(debug_assertions))]
+impl PartialEq for StrippedChunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.r#type == other.r#type
+            && self.instructions == other.instructions
+            && self.constants == other.constants
+            && self.register_count == other.register_count
+            && self.prototype_index == other.prototype_index
+    }
+}
+
+impl PartialOrd for StrippedChunk {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for StrippedChunk {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.r#type
+            .cmp(&other.r#type)
+            .then_with(|| self.instructions.cmp(&other.instructions))
+            .then_with(|| self.constants.cmp(&other.constants))
+            .then_with(|| self.register_count.cmp(&other.register_count))
+            .then_with(|| self.prototype_index.cmp(&other.prototype_index))
     }
 }

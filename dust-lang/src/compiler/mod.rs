@@ -438,7 +438,9 @@ where
     ) {
         info!("Declaring local {identifier} at {address}");
 
-        self.minimum_register_index += 1;
+        if address.memory == MemoryKind::REGISTER {
+            self.minimum_register_index += 1;
+        }
 
         self.locals
             .insert(identifier, Local::new(address, r#type, is_mutable, scope));

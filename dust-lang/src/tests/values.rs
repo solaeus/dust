@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use indexmap::indexmap;
 
 use crate::{
@@ -533,5 +535,113 @@ fn function() {
             constants: vec![Value::Integer(42)],
             ..Default::default()
         }))
+    );
+}
+
+#[test]
+fn list_of_functions() {
+    let source = "[fn foo() { 42 }, fn bar() { 100 }]";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new(
+                [],
+                [],
+                Type::List(Box::new(Type::Function(Box::new(FunctionType::new(
+                    [],
+                    [],
+                    Type::Integer
+                )))))
+            ),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::FUNCTION,
+                    false
+                ),
+                Instruction::load(
+                    Address::register(1),
+                    Address::constant(1),
+                    OperandType::FUNCTION,
+                    false
+                ),
+                Instruction::list(
+                    Address::register(2),
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::LIST_FUNCTION,
+                ),
+                Instruction::r#return(true, Address::register(2), OperandType::LIST_FUNCTION)
+            ],
+            locals: indexmap! {
+                Path::new("foo").unwrap() => Local::new(
+                    Address::constant(0),
+                    Type::Function(Box::new(FunctionType::new([], [], Type::Integer))),
+                    false,
+                    BlockScope::new(0, 0)
+                ),
+                Path::new("bar").unwrap() => Local::new(
+                    Address::constant(1),
+                    Type::Function(Box::new(FunctionType::new([], [], Type::Integer))),
+                    false,
+                    BlockScope::new(0, 0)
+                ),
+            },
+            constants: vec![
+                Value::function(DebugChunk {
+                    name: Some(Path::new("foo").unwrap()),
+                    r#type: FunctionType::new([], [], Type::Integer),
+                    instructions: vec![Instruction::r#return(
+                        true,
+                        Address::constant(0),
+                        OperandType::INTEGER
+                    )],
+                    constants: vec![Value::Integer(42)],
+                    ..Default::default()
+                }),
+                Value::function(DebugChunk {
+                    name: Some(Path::new("bar").unwrap()),
+                    r#type: FunctionType::new([], [], Type::Integer),
+                    instructions: vec![Instruction::r#return(
+                        true,
+                        Address::constant(0),
+                        OperandType::INTEGER
+                    )],
+                    constants: vec![Value::Integer(100)],
+                    ..Default::default()
+                })
+            ],
+            ..Default::default()
+        }
+    );
+    assert_eq!(
+        return_value,
+        Some(Value::function_list([
+            Arc::new(StrippedChunk {
+                r#type: FunctionType::new([], [], Type::Integer),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::constant(0),
+                    OperandType::INTEGER
+                )],
+                constants: vec![Value::Integer(42)],
+                ..Default::default()
+            }),
+            Arc::new(StrippedChunk {
+                r#type: FunctionType::new([], [], Type::Integer),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::constant(0),
+                    OperandType::INTEGER
+                )],
+                constants: vec![Value::Integer(100)],
+                ..Default::default()
+            })
+        ]))
     );
 }

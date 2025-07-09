@@ -236,6 +236,25 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Object::ValueList(ListValue::<C>::List(lists))
                         }
+                        OperandType::LIST_FUNCTION => {
+                            let mut functions = Vec::with_capacity(length);
+
+                            for register_index in start.index..=end.index {
+                                let object_index =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_index();
+                                let object =
+                                    replace(&mut memory.objects[object_index], Object::Empty);
+
+                                if let Object::Function(function) = object {
+                                    functions.push(function);
+                                } else {
+                                    return Err(RuntimeError(operation));
+                                }
+                            }
+
+                            Object::ValueList(ListValue::<C>::Function(functions))
+                        }
                         _ => todo!(),
                     };
 
