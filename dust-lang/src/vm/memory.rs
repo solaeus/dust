@@ -119,7 +119,6 @@ pub enum Object<C> {
     Empty,
     Function(Arc<C>),
     ValueList(List<C>),
-    RegisterList(Vec<Register>),
     String(DustString),
 }
 

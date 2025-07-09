@@ -199,28 +199,42 @@ impl<C: Chunk> ThreadRunner<C> {
                             Object::ValueList(ListValue::<C>::Integer(integers))
                         }
                         OperandType::LIST_STRING => {
-                            let mut registers = Vec::with_capacity(length);
+                            let mut strings = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
-                                let register =
-                                    read_register!(register_index, memory, call, operation);
+                                let object_index =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_index();
+                                let object =
+                                    replace(&mut memory.objects[object_index], Object::Empty);
 
-                                registers.push(register);
+                                if let Object::String(string) = object {
+                                    strings.push(string);
+                                } else {
+                                    return Err(RuntimeError(operation));
+                                }
                             }
 
-                            Object::RegisterList(registers)
+                            Object::ValueList(ListValue::<C>::String(strings))
                         }
                         OperandType::LIST_LIST => {
-                            let mut registers = Vec::with_capacity(length);
+                            let mut lists = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
-                                let register =
-                                    read_register!(register_index, memory, call, operation);
+                                let object_index =
+                                    read_register!(register_index, memory, call, operation)
+                                        .as_index();
+                                let object =
+                                    replace(&mut memory.objects[object_index], Object::Empty);
 
-                                registers.push(register);
+                                if let Object::ValueList(list) = object {
+                                    lists.push(list);
+                                } else {
+                                    return Err(RuntimeError(operation));
+                                }
                             }
 
-                            Object::RegisterList(registers)
+                            Object::ValueList(ListValue::<C>::List(lists))
                         }
                         _ => todo!(),
                     };
@@ -513,7 +527,7 @@ impl<C: Chunk> ThreadRunner<C> {
                                 r#type,
                                 memory,
                                 call,
-                                operation
+                                operation,
                             );
 
                             return Ok(Some(return_value));

@@ -128,6 +128,22 @@ impl<C: Chunk> Value<C> {
         Value::List(List::function(functions))
     }
 
+    pub fn as_list(&self) -> Option<&List<C>> {
+        if let Value::List(list) = self {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_list(self) -> Option<List<C>> {
+        if let Value::List(list) = self {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
     pub fn function(chunk: C) -> Self {
         Value::Function(Arc::new(chunk))
     }

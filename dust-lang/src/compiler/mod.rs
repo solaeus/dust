@@ -1455,8 +1455,6 @@ where
         let mut instructions_to_reorder = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
-            let instructions_start = self.instructions.len();
-
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
@@ -1466,7 +1464,6 @@ where
                 // TODO: Check if the item type the same as the previous item type
             }
 
-            let instructions_end = self.instructions.len();
             let end_item_register = self.next_register_index_without_reclaiming();
             last_item_register = end_item_register;
 
@@ -1484,8 +1481,6 @@ where
             let register_index = self.next_register_index_without_reclaiming();
 
             instruction_data.0.set_a_field(register_index);
-
-            println!("{}", instruction_data.0);
 
             self.instructions.push(instruction_data);
         }
@@ -2039,18 +2034,15 @@ where
         let compiled_data = CompiledData::new(function_compiler);
         let chunk = C::new(compiled_data);
         let destination = Address::register(register_index);
-        let load_function = Instruction::load(
-            destination,
-            Address::constant(chunk.prototype_index()),
-            OperandType::FUNCTION,
-            false,
-        );
+        let prototype_address = Address::constant(chunk.prototype_index());
+        let load_function =
+            Instruction::load(destination, prototype_address, OperandType::FUNCTION, false);
         let r#type = Type::Function(Box::new(chunk.r#type().clone()));
 
         if let Some(identifier) = path {
             self.declare_local(
                 identifier,
-                destination,
+                prototype_address,
                 r#type.clone(),
                 false,
                 self.current_block_scope,

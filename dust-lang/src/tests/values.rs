@@ -1,6 +1,8 @@
+use indexmap::indexmap;
+
 use crate::{
-    Address, DebugChunk, DustString, FunctionType, Instruction, List, OperandType, Path, Type,
-    Value, compile, run,
+    Address, BlockScope, DebugChunk, DustString, FunctionType, Instruction, List, Local,
+    OperandType, Path, StrippedChunk, Type, Value, compile, run,
 };
 
 #[test]
@@ -418,24 +420,53 @@ fn list_of_lists() {
                 Instruction::load(
                     Address::register(0),
                     Address::constant(0),
-                    OperandType::LIST_INTEGER,
+                    OperandType::INTEGER,
                     false
                 ),
                 Instruction::load(
                     Address::register(1),
                     Address::constant(1),
-                    OperandType::LIST_INTEGER,
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::load(
+                    Address::register(2),
+                    Address::constant(2),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::load(
+                    Address::register(3),
+                    Address::constant(3),
+                    OperandType::INTEGER,
                     false
                 ),
                 Instruction::list(
-                    Address::register(2),
+                    Address::register(4),
                     Address::register(0),
                     Address::register(1),
+                    OperandType::LIST_INTEGER,
+                ),
+                Instruction::list(
+                    Address::register(5),
+                    Address::register(2),
+                    Address::register(3),
+                    OperandType::LIST_INTEGER,
+                ),
+                Instruction::list(
+                    Address::register(6),
+                    Address::register(4),
+                    Address::register(5),
                     OperandType::LIST_LIST,
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::LIST_LIST)
+                Instruction::r#return(true, Address::register(6), OperandType::LIST_LIST)
             ],
-            constants: vec![Value::integer_list([1, 2]), Value::integer_list([3, 4])],
+            constants: vec![
+                Value::Integer(1),
+                Value::Integer(2),
+                Value::Integer(3),
+                Value::Integer(4)
+            ],
             ..Default::default()
         }
     );
@@ -445,5 +476,62 @@ fn list_of_lists() {
             List::integer([1, 2]),
             List::integer([3, 4])
         ]))
+    );
+}
+
+#[test]
+fn function() {
+    let source = "fn foo() { 42 }";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new(
+                [],
+                [],
+                Type::Function(Box::new(FunctionType::new([], [], Type::Integer)))
+            ),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FUNCTION
+            )],
+            locals: indexmap! {
+                Path::new("foo").unwrap() => Local::new(
+                    Address::constant(0),
+                    Type::Function(Box::new(FunctionType::new([], [], Type::Integer))),
+                    false,
+                    BlockScope::new(0,0)
+                ),
+            },
+            constants: vec![Value::function(DebugChunk {
+                name: Some(Path::new("foo").unwrap()),
+                r#type: FunctionType::new([], [], Type::Integer),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::constant(0),
+                    OperandType::INTEGER
+                )],
+                constants: vec![Value::Integer(42)],
+                ..Default::default()
+            })],
+            ..Default::default()
+        }
+    );
+    assert_eq!(
+        return_value,
+        Some(Value::function(StrippedChunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            constants: vec![Value::Integer(42)],
+            ..Default::default()
+        }))
     );
 }

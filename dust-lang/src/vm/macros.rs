@@ -193,23 +193,18 @@ macro_rules! get_value_from_address_by_cloning_objects {
 }
 
 macro_rules! get_value_from_address_by_replacing_objects {
-    ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
-        use super::Object;
-        use crate::MemoryKind;
-        use std::mem::replace;
-
+    (
+        $address: expr,
+        $type: expr,
+        $memory: expr,
+        $call: expr,
+        $operation: expr,
+    ) => {{
         match $address.memory {
             MemoryKind::REGISTER => {
-                assert!(
-                    $address.index < $memory.len(),
-                    "Register index out of bounds: {} >= {}",
-                    $address.index,
-                    $memory.len()
-                );
-
                 let register = $memory
                     .get($address.index + $call.skipped_registers)
-                    .ok_or_else(|| RuntimeError($operation))?;
+                    .ok_or(RuntimeError($operation))?;
 
                 match $type {
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
@@ -230,60 +225,14 @@ macro_rules! get_value_from_address_by_replacing_objects {
                     | OperandType::LIST_BYTE
                     | OperandType::LIST_CHARACTER
                     | OperandType::LIST_FLOAT
-                    | OperandType::LIST_INTEGER => {
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING
+                    | OperandType::LIST_LIST => {
                         let object_index = register.as_index();
                         let object = replace(&mut $memory.objects[object_index], Object::Empty);
 
                         if let Object::ValueList(list) = object {
                             Value::List(list)
-                        } else {
-                            return Err(RuntimeError($operation));
-                        }
-                    }
-                    OperandType::LIST_STRING => {
-                        let object_index = register.as_index();
-                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
-
-                        if let Object::RegisterList(regisers) = object {
-                            let mut strings = Vec::with_capacity(regisers.len());
-
-                            for register in regisers {
-                                let object_index = register.as_index();
-                                let object =
-                                    replace(&mut $memory.objects[object_index], Object::Empty);
-
-                                if let Object::String(string) = object {
-                                    strings.push(string.clone());
-                                } else {
-                                    return Err(RuntimeError($operation));
-                                }
-                            }
-
-                            Value::List(ListValue::string(strings))
-                        } else {
-                            return Err(RuntimeError($operation));
-                        }
-                    }
-                    OperandType::LIST_LIST => {
-                        let object_index = register.as_index();
-                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
-
-                        if let Object::RegisterList(regisers) = object {
-                            let mut lists = Vec::with_capacity(regisers.len());
-
-                            for register in regisers {
-                                let object_index = register.as_index();
-                                let object =
-                                    replace(&mut $memory.objects[object_index], Object::Empty);
-
-                                if let Object::ValueList(list) = object {
-                                    lists.push(list);
-                                } else {
-                                    return Err(RuntimeError($operation));
-                                }
-                            }
-
-                            Value::List(ListValue::list(lists))
                         } else {
                             return Err(RuntimeError($operation));
                         }

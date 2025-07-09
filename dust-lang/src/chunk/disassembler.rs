@@ -101,7 +101,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
             source: None,
             style: false,
             indent: 0,
-            width: Self::content_length(),
+            width: 80,
             show_type: false,
             show_chunk_type_name: true,
         }
@@ -138,13 +138,17 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
     }
 
     pub fn width(&mut self, width: usize) -> &mut Self {
-        self.width = width.max(Self::content_length());
+        self.width = width.max(self.content_length());
 
         self
     }
 
-    fn content_length() -> usize {
-        INSTRUCTION_BORDERS[0].chars().count()
+    fn content_length(&self) -> usize {
+        if self.chunk.locals().is_some_and(|locals| locals.count() > 0) {
+            LOCAL_BORDERS[0].chars().count()
+        } else {
+            INSTRUCTION_BORDERS[0].chars().count()
+        }
     }
 
     fn line_length(&self) -> usize {
