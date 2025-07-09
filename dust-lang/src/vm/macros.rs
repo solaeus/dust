@@ -240,6 +240,54 @@ macro_rules! get_value_from_address_by_replacing_objects {
                             return Err(RuntimeError($operation));
                         }
                     }
+                    OperandType::LIST_STRING => {
+                        let object_index = register.as_index();
+                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
+
+                        if let Object::RegisterList(regisers) = object {
+                            let mut strings = Vec::with_capacity(regisers.len());
+
+                            for register in regisers {
+                                let object_index = register.as_index();
+                                let object =
+                                    replace(&mut $memory.objects[object_index], Object::Empty);
+
+                                if let Object::String(string) = object {
+                                    strings.push(string.clone());
+                                } else {
+                                    return Err(RuntimeError($operation));
+                                }
+                            }
+
+                            Value::List(ListValue::string(strings))
+                        } else {
+                            return Err(RuntimeError($operation));
+                        }
+                    }
+                    OperandType::LIST_LIST => {
+                        let object_index = register.as_index();
+                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
+
+                        if let Object::RegisterList(regisers) = object {
+                            let mut lists = Vec::with_capacity(regisers.len());
+
+                            for register in regisers {
+                                let object_index = register.as_index();
+                                let object =
+                                    replace(&mut $memory.objects[object_index], Object::Empty);
+
+                                if let Object::ValueList(list) = object {
+                                    lists.push(list);
+                                } else {
+                                    return Err(RuntimeError($operation));
+                                }
+                            }
+
+                            Value::List(ListValue::list(lists))
+                        } else {
+                            return Err(RuntimeError($operation));
+                        }
+                    }
                     _ => todo!(),
                 }
             }

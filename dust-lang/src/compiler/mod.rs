@@ -386,6 +386,21 @@ where
             })
     }
 
+    fn next_register_index_without_reclaiming(&mut self) -> usize {
+        self.instructions
+            .iter()
+            .fold(self.minimum_register_index, |acc, (instruction, _, _)| {
+                if instruction.yields_value()
+                    && instruction.a_field() >= acc
+                    && instruction.a_memory_kind() == MemoryKind::REGISTER
+                {
+                    instruction.a_field() + 1
+                } else {
+                    acc
+                }
+            })
+    }
+
     /// Advances to the next token emitted by the lexer.
     fn advance(&mut self) -> Result<(), CompileError> {
         if self.is_eof() {
@@ -1435,10 +1450,13 @@ where
         self.advance()?;
 
         let mut item_type = Type::None;
-        let start_register = self.next_register_index();
-        let mut skipped_registers = Vec::new();
+        let mut first_item_register = self.next_register_index();
+        let mut last_item_register = first_item_register;
+        let mut instructions_to_reorder = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
+            let instructions_start = self.instructions.len();
+
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
@@ -1448,16 +1466,38 @@ where
                 // TODO: Check if the item type the same as the previous item type
             }
 
-            let end_register = self.next_register_index();
+            let instructions_end = self.instructions.len();
+            let end_item_register = self.next_register_index_without_reclaiming();
+            last_item_register = end_item_register;
 
-            for register_index in start_register..end_register {
-                skipped_registers.push(register_index);
+            if self.instructions.last().unwrap().0.yields_value() {
+                let instruction_data = self.instructions.pop().unwrap();
+
+                instructions_to_reorder.push(instruction_data);
             }
         }
 
-        let end_register = self.next_register_index() - 1;
+        let mut destination_register = last_item_register + 1;
+        let reordered_instructions_count = instructions_to_reorder.len();
+
+        for mut instruction_data in instructions_to_reorder {
+            let register_index = self.next_register_index_without_reclaiming();
+
+            instruction_data.0.set_a_field(register_index);
+
+            println!("{}", instruction_data.0);
+
+            self.instructions.push(instruction_data);
+        }
+
+        if reordered_instructions_count > 0 {
+            first_item_register =
+                self.next_register_index_without_reclaiming() - reordered_instructions_count;
+            last_item_register = first_item_register + reordered_instructions_count - 1;
+            destination_register = last_item_register + 1;
+        }
+
         let end = self.previous_position.1;
-        let destination = Address::register(self.next_register_index());
         let operand_type = match item_type {
             Type::Boolean => OperandType::LIST_BOOLEAN,
             Type::Byte => OperandType::LIST_BYTE,
@@ -1470,9 +1510,9 @@ where
             _ => todo!(),
         };
         let list = Instruction::list(
-            destination,
-            Address::register(start_register),
-            Address::register(end_register),
+            Address::register(destination_register),
+            Address::register(first_item_register),
+            Address::register(last_item_register),
             operand_type,
         );
 

@@ -199,42 +199,30 @@ impl<C: Chunk> ThreadRunner<C> {
                             Object::ValueList(ListValue::<C>::Integer(integers))
                         }
                         OperandType::LIST_STRING => {
-                            let mut string_registers = Vec::with_capacity(length);
+                            let mut registers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
                                 let register =
                                     read_register!(register_index, memory, call, operation);
 
-                                string_registers.push(register);
+                                registers.push(register);
                             }
 
-                            Object::RegisterList(string_registers)
+                            Object::RegisterList(registers)
                         }
                         OperandType::LIST_LIST => {
-                            let mut list_registers = Vec::with_capacity(length);
+                            let mut registers = Vec::with_capacity(length);
 
                             for register_index in start.index..=end.index {
                                 let register =
                                     read_register!(register_index, memory, call, operation);
 
-                                list_registers.push(register);
+                                registers.push(register);
                             }
 
-                            Object::RegisterList(list_registers)
+                            Object::RegisterList(registers)
                         }
-                        OperandType::LIST_FUNCTION => {
-                            let mut function_registers = Vec::with_capacity(length);
-
-                            for register_index in start.index..=end.index {
-                                let register =
-                                    read_register!(register_index, memory, call, operation);
-
-                                function_registers.push(register);
-                            }
-
-                            Object::RegisterList(function_registers)
-                        }
-                        _ => return Err(RuntimeError(operation)),
+                        _ => todo!(),
                     };
 
                     let object_register = memory.store_object(object);
