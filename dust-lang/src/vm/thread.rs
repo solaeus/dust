@@ -356,6 +356,21 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Multiply::from(instruction);
+
+                    let product_register = match r#type {
+                        OperandType::INTEGER => {
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+                            let integer_product = left_integer.saturating_mul(right_integer);
+
+                            Register::integer(integer_product)
+                        }
+                        _ => todo!(),
+                    };
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = product_register;
                 }
 
                 // DIVIDE
