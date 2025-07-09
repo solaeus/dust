@@ -275,6 +275,20 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Add::from(instruction);
 
                     let sum_register = match r#type {
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+                            let byte_sum = left_byte.saturating_add(right_byte);
+
+                            Register::byte(byte_sum)
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+                            let float_sum = left_float + right_float;
+
+                            Register::float(float_sum)
+                        }
                         OperandType::INTEGER => {
                             let left_integer = get_integer!(left, memory, call, operation);
                             let right_integer = get_integer!(right, memory, call, operation);
@@ -346,6 +360,35 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Subtract::from(instruction);
+
+                    let difference_register = match r#type {
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+                            let byte_difference = left_byte.saturating_sub(right_byte);
+
+                            Register::byte(byte_difference)
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+                            let float_difference = left_float - right_float;
+
+                            Register::float(float_difference)
+                        }
+                        OperandType::INTEGER => {
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+                            let integer_difference = left_integer.saturating_sub(right_integer);
+
+                            Register::integer(integer_difference)
+                        }
+                        _ => todo!(),
+                    };
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = difference_register;
                 }
 
                 // MULTIPLY
@@ -358,6 +401,20 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Multiply::from(instruction);
 
                     let product_register = match r#type {
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+                            let byte_product = left_byte.saturating_mul(right_byte);
+
+                            Register::byte(byte_product)
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+                            let float_product = left_float * right_float;
+
+                            Register::float(float_product)
+                        }
                         OperandType::INTEGER => {
                             let left_integer = get_integer!(left, memory, call, operation);
                             let right_integer = get_integer!(right, memory, call, operation);
@@ -381,6 +438,44 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Divide::from(instruction);
+
+                    let quotient_register = match r#type {
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+
+                            if right_byte == 0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::byte(left_byte / right_byte)
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+
+                            if right_float == 0.0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::float(left_float / right_float)
+                        }
+                        OperandType::INTEGER => {
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+
+                            if right_integer == 0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::integer(left_integer / right_integer)
+                        }
+                        _ => todo!(),
+                    };
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = quotient_register;
                 }
 
                 // MODULO
@@ -391,6 +486,44 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = Modulo::from(instruction);
+
+                    let remainder_register = match r#type {
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+
+                            if right_byte == 0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::byte(left_byte % right_byte)
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+
+                            if right_float == 0.0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::float(left_float % right_float)
+                        }
+                        OperandType::INTEGER => {
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+
+                            if right_integer == 0 {
+                                return Err(RuntimeError(operation));
+                            }
+
+                            Register::integer(left_integer % right_integer)
+                        }
+                        _ => todo!(),
+                    };
+                    let destination_register =
+                        read_register_mut!(destination.index, memory, call, operation);
+
+                    *destination_register = remainder_register;
                 }
 
                 // EQUAL

@@ -1,5 +1,22 @@
 #![macro_use]
 
+macro_rules! get_byte {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        use tracing::trace;
+
+        trace!("Reading byte at address: {:?}", $address);
+
+        match $address.memory {
+            MemoryKind::ENCODED => $address.index as u8,
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_byte()
+            }
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
 macro_rules! get_integer {
     ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
         match $address.memory {
@@ -8,6 +25,21 @@ macro_rules! get_integer {
             }
             MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
                 .as_integer()
+                .ok_or(RuntimeError($operation))?,
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
+macro_rules! get_float {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_float()
+            }
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                .as_float()
                 .ok_or(RuntimeError($operation))?,
             MemoryKind::CELL => todo!(),
             _ => return Err(RuntimeError($operation)),
