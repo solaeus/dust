@@ -566,7 +566,19 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             left_string == right_string
                         }
-                        _ => todo!(),
+                        OperandType::LIST => {
+                            let left_list = get_list!(left, memory, call, operation);
+                            let right_list = get_list!(right, memory, call, operation);
+
+                            left_list == right_list
+                        }
+                        OperandType::FUNCTION => {
+                            let left_function = get_function!(left, memory, call, operation);
+                            let right_function = get_function!(right, memory, call, operation);
+
+                            left_function == right_function
+                        }
+                        _ => return Err(RuntimeError(operation)),
                     };
 
                     if is_equal == comparator {
@@ -614,6 +626,24 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             left_integer < right_integer
                         }
+                        OperandType::STRING => {
+                            let left_string = get_string!(left, memory, call, operation);
+                            let right_string = get_string!(right, memory, call, operation);
+
+                            left_string < right_string
+                        }
+                        OperandType::LIST => {
+                            let left_list = get_list!(left, memory, call, operation);
+                            let right_list = get_list!(right, memory, call, operation);
+
+                            left_list < right_list
+                        }
+                        OperandType::FUNCTION => {
+                            let left_function = get_function!(left, memory, call, operation);
+                            let right_function = get_function!(right, memory, call, operation);
+
+                            left_function < right_function
+                        }
                         _ => return Err(RuntimeError(operation)),
                     };
 
@@ -630,6 +660,62 @@ impl<C: Chunk> ThreadRunner<C> {
                         right,
                         r#type,
                     } = LessEqual::from(instruction);
+
+                    let is_less_or_equal = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left_boolean = get_boolean!(left, memory, call, operation);
+                            let right_boolean = get_boolean!(right, memory, call, operation);
+
+                            left_boolean <= right_boolean
+                        }
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+
+                            left_byte <= right_byte
+                        }
+                        OperandType::CHARACTER => {
+                            let left_character = get_character!(left, memory, call, operation);
+                            let right_character = get_character!(right, memory, call, operation);
+
+                            left_character <= right_character
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+
+                            left_float <= right_float
+                        }
+                        OperandType::INTEGER => {
+                            let left_integer = get_integer!(left, memory, call, operation);
+                            let right_integer = get_integer!(right, memory, call, operation);
+
+                            left_integer <= right_integer
+                        }
+                        OperandType::STRING => {
+                            let left_string = get_string!(left, memory, call, operation);
+                            let right_string = get_string!(right, memory, call, operation);
+
+                            left_string <= right_string
+                        }
+                        OperandType::LIST => {
+                            let left_list = get_list!(left, memory, call, operation);
+                            let right_list = get_list!(right, memory, call, operation);
+
+                            left_list <= right_list
+                        }
+                        OperandType::FUNCTION => {
+                            let left_function = get_function!(left, memory, call, operation);
+                            let right_function = get_function!(right, memory, call, operation);
+
+                            left_function <= right_function
+                        }
+                        _ => return Err(RuntimeError(operation)),
+                    };
+
+                    if is_less_or_equal == comparator {
+                        call.ip += 1;
+                    }
                 }
 
                 // TEST
@@ -638,6 +724,12 @@ impl<C: Chunk> ThreadRunner<C> {
                         comparator,
                         operand,
                     } = Test::from(instruction);
+
+                    let is_true = get_boolean!(operand, memory, call, operation);
+
+                    if is_true == comparator {
+                        call.ip += 1;
+                    }
                 }
 
                 // NEGATE

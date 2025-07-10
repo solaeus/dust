@@ -111,6 +111,36 @@ macro_rules! get_string {
     }};
 }
 
+macro_rules! get_list {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        {
+            use tracing::trace;
+
+            trace!("Reading list at address: {:?}", $address);
+
+            match $address.memory {
+                MemoryKind::REGISTER => {
+                    let register = read_register!($address.index, $memory, $call, $operation);
+                    let object_index = register.as_index();
+                    let object = read_object!(object_index, $memory, $operation);
+
+                    if let Object::ValueList(list) = object {
+                        list.clone()
+                    } else {
+                        return Err(RuntimeError($operation));
+                    }
+                }
+                MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                    .as_list()
+                    .ok_or(RuntimeError($operation))?
+                    .clone(),
+                MemoryKind::CELL => todo!(),
+                _ => return Err(RuntimeError($operation)),
+            }
+        }
+    }};
+}
+
 macro_rules! get_function {
     ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use tracing::trace;

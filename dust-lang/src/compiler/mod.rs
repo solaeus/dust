@@ -1813,6 +1813,7 @@ where
                     Operation::TEST,
                     Operation::JUMP,
                     Operation::LOAD,
+                    Operation::LOAD,
                 ])
             );
 
