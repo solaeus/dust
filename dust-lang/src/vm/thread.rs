@@ -79,20 +79,14 @@ impl<C: Chunk> ThreadRunner<C> {
             OperandType::NONE,
             0,
         );
-        let instructions = call.chunk.instructions().clone();
-        let mut highest_ip = 0;
 
         loop {
             let ip = call.ip;
             call.ip += 1;
 
-            if ip > highest_ip {
-                highest_ip = ip;
-            }
-
             assert!(ip < call.chunk.instructions().len(), "IP out of bounds");
 
-            let instruction = instructions[ip];
+            let instruction = call.chunk.instructions()[ip];
             let operation = instruction.operation();
 
             info!("IP = {ip} Run {operation}");
@@ -536,13 +530,43 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Equal::from(instruction);
 
                     let is_equal = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left_boolean = get_boolean!(left, memory, call, operation);
+                            let right_boolean = get_boolean!(right, memory, call, operation);
+
+                            left_boolean == right_boolean
+                        }
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+
+                            left_byte == right_byte
+                        }
+                        OperandType::CHARACTER => {
+                            let left_character = get_character!(left, memory, call, operation);
+                            let right_character = get_character!(right, memory, call, operation);
+
+                            left_character == right_character
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+
+                            left_float == right_float
+                        }
                         OperandType::INTEGER => {
                             let left_integer = get_integer!(left, memory, call, operation);
                             let right_integer = get_integer!(right, memory, call, operation);
 
                             left_integer == right_integer
                         }
-                        _ => return Err(RuntimeError(operation)),
+                        OperandType::STRING => {
+                            let left_string = get_string!(left, memory, call, operation);
+                            let right_string = get_string!(right, memory, call, operation);
+
+                            left_string == right_string
+                        }
+                        _ => todo!(),
                     };
 
                     if is_equal == comparator {
@@ -560,6 +584,30 @@ impl<C: Chunk> ThreadRunner<C> {
                     } = Less::from(instruction);
 
                     let is_less = match r#type {
+                        OperandType::BOOLEAN => {
+                            let left_boolean = get_boolean!(left, memory, call, operation);
+                            let right_boolean = get_boolean!(right, memory, call, operation);
+
+                            left_boolean && !right_boolean
+                        }
+                        OperandType::BYTE => {
+                            let left_byte = get_byte!(left, memory, call, operation);
+                            let right_byte = get_byte!(right, memory, call, operation);
+
+                            left_byte < right_byte
+                        }
+                        OperandType::CHARACTER => {
+                            let left_character = get_character!(left, memory, call, operation);
+                            let right_character = get_character!(right, memory, call, operation);
+
+                            left_character < right_character
+                        }
+                        OperandType::FLOAT => {
+                            let left_float = get_float!(left, memory, call, operation);
+                            let right_float = get_float!(right, memory, call, operation);
+
+                            left_float < right_float
+                        }
                         OperandType::INTEGER => {
                             let left_integer = get_integer!(left, memory, call, operation);
                             let right_integer = get_integer!(right, memory, call, operation);
@@ -609,14 +657,7 @@ impl<C: Chunk> ThreadRunner<C> {
                         argument_count,
                         return_type,
                     } = Call::from(instruction);
-                    let object = get_value_from_address_by_cloning_objects!(
-                        function,
-                        OperandType::FUNCTION,
-                        memory,
-                        call,
-                        operation
-                    );
-                    let function = object.as_function().ok_or(RuntimeError(operation))?.clone();
+                    let function = get_function!(function, memory, call, operation);
                     let argument_types = function
                         .r#type()
                         .value_parameters

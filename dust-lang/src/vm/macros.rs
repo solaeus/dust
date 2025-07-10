@@ -1,5 +1,22 @@
 #![macro_use]
 
+macro_rules! get_boolean {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        use tracing::trace;
+
+        trace!("Reading boolean at address: {:?}", $address);
+
+        match $address.memory {
+            MemoryKind::ENCODED => $address.index != 0,
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_boolean()
+            }
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
 macro_rules! get_byte {
     ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
         use tracing::trace;
@@ -11,6 +28,40 @@ macro_rules! get_byte {
             MemoryKind::REGISTER => {
                 read_register!($address.index, $memory, $call, $operation).as_byte()
             }
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
+macro_rules! get_character {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        use tracing::trace;
+
+        trace!("Reading character at address: {:?}", $address);
+
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_character()
+            }
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                .as_character()
+                .ok_or(RuntimeError($operation))?,
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
+macro_rules! get_float {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                read_register!($address.index, $memory, $call, $operation).as_float()
+            }
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                .as_float()
+                .ok_or(RuntimeError($operation))?,
             MemoryKind::CELL => todo!(),
             _ => return Err(RuntimeError($operation)),
         }
@@ -32,15 +83,56 @@ macro_rules! get_integer {
     }};
 }
 
-macro_rules! get_float {
+macro_rules! get_string {
     ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        use tracing::trace;
+
+        trace!("Reading string at address: {:?}", $address);
+
         match $address.memory {
             MemoryKind::REGISTER => {
-                read_register!($address.index, $memory, $call, $operation).as_float()
+                let register = read_register!($address.index, $memory, $call, $operation);
+                let object_index = register.as_index();
+                let object = read_object!(object_index, $memory, $operation);
+
+                if let Object::String(string) = object {
+                    string.clone()
+                } else {
+                    return Err(RuntimeError($operation));
+                }
             }
             MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
-                .as_float()
-                .ok_or(RuntimeError($operation))?,
+                .as_string()
+                .ok_or(RuntimeError($operation))?
+                .clone(),
+            MemoryKind::CELL => todo!(),
+            _ => return Err(RuntimeError($operation)),
+        }
+    }};
+}
+
+macro_rules! get_function {
+    ($address: expr, $memory: expr, $call: expr, $operation: expr) => {{
+        use tracing::trace;
+
+        trace!("Reading function at address: {:?}", $address);
+
+        match $address.memory {
+            MemoryKind::REGISTER => {
+                let register = read_register!($address.index, $memory, $call, $operation);
+                let object_index = register.as_index();
+                let object = read_object!(object_index, $memory, $operation);
+
+                if let Object::Function(function) = object {
+                    function.clone()
+                } else {
+                    return Err(RuntimeError($operation));
+                }
+            }
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
+                .as_function()
+                .ok_or(RuntimeError($operation))?
+                .clone(),
             MemoryKind::CELL => todo!(),
             _ => return Err(RuntimeError($operation)),
         }
@@ -212,7 +304,7 @@ macro_rules! get_value_from_address_by_cloning_objects {
                     _ => return Err(RuntimeError($operation)),
                 }
             }
-            MemoryKind::CONSTANT => match $type {
+            MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),
                 OperandType::BYTE => Value::Byte($address.index as u8),
 
@@ -241,6 +333,7 @@ macro_rules! get_value_from_address_by_replacing_objects {
                 match $type {
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
                     OperandType::BYTE => Value::Byte(register.as_byte()),
+                    OperandType::CHARACTER => Value::Character(register.as_character()),
                     OperandType::INTEGER => Value::Integer(register.as_integer()),
                     OperandType::FLOAT => Value::Float(register.as_float()),
                     OperandType::STRING => {
@@ -266,6 +359,16 @@ macro_rules! get_value_from_address_by_replacing_objects {
 
                         if let Object::ValueList(list) = object {
                             Value::List(list)
+                        } else {
+                            return Err(RuntimeError($operation));
+                        }
+                    }
+                    OperandType::FUNCTION => {
+                        let object_index = register.as_index();
+                        let object = replace(&mut $memory.objects[object_index], Object::Empty);
+
+                        if let Object::Function(function) = object {
+                            Value::Function(function)
                         } else {
                             return Err(RuntimeError($operation));
                         }

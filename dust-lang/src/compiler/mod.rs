@@ -2062,13 +2062,28 @@ where
 
         self.advance()?;
 
-        let (last_instruction, last_instruction_type, _) =
-            self.instructions
-                .pop()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
+        let (mut last_instruction, mut last_instruction_type, _) = self
+            .instructions
+            .pop()
+            .ok_or_else(|| CompileError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            })?;
+
+        while let Some(instruction) = self
+            .instructions
+            .last()
+            .map(|(instruction, _, _)| *instruction)
+        {
+            if last_instruction.operation() == Operation::LOAD
+                && last_instruction.b_address() == instruction.b_address()
+            {
+                (last_instruction, last_instruction_type, _) = self.instructions.pop().unwrap();
+            } else {
+                break;
+            }
+        }
+
         let (function_return_type, argument_count) = match &last_instruction_type {
             Type::Function(function_type) => (
                 function_type.return_type.clone(),
