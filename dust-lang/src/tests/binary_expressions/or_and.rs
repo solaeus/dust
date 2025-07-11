@@ -21,7 +21,7 @@ fn true_or_true_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -50,6 +50,7 @@ fn true_or_true_and_false() {
     let source = "true || true && false";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -63,7 +64,7 @@ fn true_or_true_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -91,6 +92,7 @@ fn true_or_false_and_true() {
     let source = "true || false && true";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -104,7 +106,7 @@ fn true_or_false_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -132,6 +134,7 @@ fn true_or_false_and_false() {
     let source = "true || false && false";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -145,7 +148,7 @@ fn true_or_false_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -173,6 +176,7 @@ fn false_or_true_and_true() {
     let source = "false || true && true";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -186,7 +190,7 @@ fn false_or_true_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -227,7 +231,7 @@ fn false_or_true_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -255,6 +259,7 @@ fn false_or_false_and_true() {
     let source = "false || false && true";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -268,7 +273,7 @@ fn false_or_false_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -296,6 +301,7 @@ fn false_or_false_and_false() {
     let source = "false || false && false";
     let chunk = compile::<DebugChunk>(source).unwrap();
     let return_value = run(source).unwrap();
+
     assert_eq!(
         chunk,
         DebugChunk {
@@ -309,7 +315,7 @@ fn false_or_false_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), false),
-                Instruction::jump(1, true),
+                Instruction::jump(4, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
