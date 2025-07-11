@@ -21,7 +21,7 @@ fn true_and_true_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -63,7 +63,7 @@ fn true_and_true_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -105,7 +105,7 @@ fn true_and_false_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -147,7 +147,7 @@ fn true_and_false_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -189,7 +189,7 @@ fn false_and_true_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -231,7 +231,7 @@ fn false_and_true_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(1),
@@ -273,7 +273,7 @@ fn false_and_false_and_true() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),
@@ -315,7 +315,7 @@ fn false_and_false_and_false() {
                     false
                 ),
                 Instruction::test(Address::register(0), true),
-                Instruction::jump(2, true),
+                Instruction::jump(1, true),
                 Instruction::load(
                     Address::register(0),
                     Address::encoded(0),

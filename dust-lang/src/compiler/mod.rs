@@ -48,7 +48,7 @@ use crate::{
     Operation, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
-    instruction::{Jump, Load, MemoryKind, OperandType},
+    instruction::{Jump, Load, MemoryKind, OperandType, Test},
     r#type::ConcreteType,
 };
 
@@ -1132,18 +1132,19 @@ where
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
         let is_logic_chain = matches!(
-            self.previous_token,
-            Token::DoubleAmpersand | Token::DoublePipe | Token::Bang
+            self.get_last_operations(),
+            Some([Operation::TEST, Operation::JUMP, Operation::LOAD])
         );
-        let (left_instruction, left_type, left_position) = self
-            .instructions
-            .last()
-            .cloned()
-            .ok_or_else(|| CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })?;
-        let left = left_instruction.destination();
+
+        let (left, left_type, left_position) =
+            self.instructions
+                .last()
+                .cloned()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
+        let left_destination = left.destination();
 
         if left_type != Type::Boolean {
             return Err(CompileError::ExpectedBoolean {
@@ -1155,7 +1156,7 @@ where
         let operator = self.current_token;
         let operator_position = self.current_position;
         let rule = ParseRule::<C>::from(operator);
-        let test_boolean = match operator {
+        let comparator = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
             _ => {
@@ -1166,7 +1167,7 @@ where
                 });
             }
         };
-        let test = Instruction::test(left, test_boolean);
+        let test = Instruction::test(left_destination, comparator);
 
         self.emit_instruction(test, Type::None, operator_position);
 
@@ -1176,24 +1177,7 @@ where
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
 
-        let right_type = &self.instructions.last().unwrap().1;
-
-        if right_type != &Type::Boolean {
-            return Err(CompileError::ExpectedBoolean {
-                found: self.previous_token.to_owned(),
-                position: left_position,
-            });
-        }
-
-        let instruction_count = self.instructions.len();
-
-        if instruction_count == jump_index + 1 {
-            let (last_instruction, _, _) = self.instructions.last_mut().unwrap();
-
-            if last_instruction.yields_value() {
-                last_instruction.set_destination(left);
-            }
-        } else if matches!(
+        if matches!(
             self.get_last_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
@@ -1202,16 +1186,11 @@ where
                 Operation::LOAD,
             ])
         ) {
-            let load_instructions = if cfg!(debug_assertions) {
-                self.instructions
-                    .get_disjoint_mut([instruction_count - 1, instruction_count - 2])
-                    .unwrap() // Safe because the indices in bounds and do not overlap
-            } else {
-                unsafe {
-                    self.instructions
-                        .get_disjoint_unchecked_mut([instruction_count - 1, instruction_count - 2])
-                }
-            };
+            let instruction_count = self.instructions.len();
+            let load_instructions = self
+                .instructions
+                .get_disjoint_mut([instruction_count - 1, instruction_count - 2])
+                .unwrap();
 
             let Load {
                 operand,
@@ -1219,8 +1198,12 @@ where
                 jump_next,
                 ..
             } = Load::from(load_instructions[0].0);
-            load_instructions[0].0 =
-                Instruction::load(Address::register(left.index), operand, r#type, jump_next);
+            load_instructions[0].0 = Instruction::load(
+                Address::register(left_destination.index),
+                operand,
+                r#type,
+                jump_next,
+            );
 
             let Load {
                 operand,
@@ -1228,24 +1211,58 @@ where
                 jump_next,
                 ..
             } = Load::from(load_instructions[1].0);
-            load_instructions[1].0 =
-                Instruction::load(Address::register(left.index), operand, r#type, jump_next);
+            load_instructions[1].0 = Instruction::load(
+                Address::register(left_destination.index),
+                operand,
+                r#type,
+                jump_next,
+            );
+        } else {
+            let (right, right_type, right_position) = self.instructions.last_mut().unwrap();
+
+            if right_type != &Type::Boolean {
+                return Err(CompileError::ExpectedBoolean {
+                    found: self.previous_token.to_owned(),
+                    position: *right_position,
+                });
+            }
+
+            if right.yields_value() {
+                right.set_destination(left_destination);
+            }
         }
 
         let instructions_length = self.instructions.len();
-        let jump_distance = if is_logic_chain
-            || !matches!(
-                self.current_token,
-                Token::DoubleAmpersand | Token::DoublePipe | Token::Bang
-            ) {
-            instructions_length - jump_index
-        } else {
-            instructions_length - jump_index + 1
-        };
+        let jump_distance = instructions_length - jump_index;
         let jump = Instruction::jump(jump_distance, true);
 
         self.instructions
             .insert(jump_index, (jump, Type::None, jump_position));
+
+        if is_logic_chain {
+            let instruction_count = self.instructions.len();
+            let start_slice = instruction_count.saturating_sub(7);
+            let mut comparator = comparator;
+            let mut instruction_slice = &mut self.instructions[start_slice..start_slice + 4];
+
+            while instruction_slice[2].0.operation() == Operation::JUMP {
+                if comparator {
+                    let new_distance = jump_distance + (instruction_count - start_slice - 4);
+
+                    instruction_slice[2].0.set_b_field(new_distance);
+                }
+
+                instruction_slice[0].0.set_destination(left_destination);
+
+                let start_slice = start_slice.saturating_sub(4);
+                comparator = instruction_slice[1].0.a_field() != 0;
+                instruction_slice = &mut self.instructions[start_slice..start_slice + 4];
+
+                if start_slice <= 3 {
+                    break;
+                }
+            }
+        }
 
         Ok(())
     }
@@ -2626,10 +2643,7 @@ where
 
     fn parse(&mut self, precedence: Precedence) -> Result<(), CompileError> {
         if let Some(prefix_parser) = ParseRule::from(self.current_token).prefix {
-            debug!(
-                "{} is prefix with precedence {precedence}",
-                self.current_token,
-            );
+            debug!("{} is prefix", self.current_token,);
 
             prefix_parser(self)?;
         }
@@ -2639,8 +2653,8 @@ where
         while precedence <= infix_rule.precedence {
             if let Some(infix_parser) = infix_rule.infix {
                 debug!(
-                    "{} is infix with precedence {precedence}",
-                    self.current_token,
+                    "{} is infix with precedence {}",
+                    self.current_token, infix_rule.precedence
                 );
 
                 if self.current_token == Token::Equal {

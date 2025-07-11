@@ -211,6 +211,12 @@ impl Instruction {
         *self = fields.build();
     }
 
+    pub fn set_b_field(&mut self, bits: usize) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.b_field = bits;
+        *self = fields.build();
+    }
+
     pub fn set_destination(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = address.index;
