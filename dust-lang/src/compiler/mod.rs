@@ -1813,6 +1813,14 @@ where
                     Operation::TEST,
                     Operation::JUMP,
                     Operation::LOAD,
+                ])
+            ) || matches!(
+                self.get_last_operations(),
+                Some([
+                    Operation::LOAD,
+                    Operation::TEST,
+                    Operation::JUMP,
+                    Operation::LOAD,
                     Operation::LOAD,
                 ])
             );

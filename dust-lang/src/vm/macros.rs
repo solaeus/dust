@@ -96,15 +96,14 @@ macro_rules! get_string {
                 let object = read_object!(object_index, $memory, $operation);
 
                 if let Object::String(string) = object {
-                    string.clone()
+                    string
                 } else {
                     return Err(RuntimeError($operation));
                 }
             }
             MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
                 .as_string()
-                .ok_or(RuntimeError($operation))?
-                .clone(),
+                .ok_or(RuntimeError($operation))?,
             MemoryKind::CELL => todo!(),
             _ => return Err(RuntimeError($operation)),
         }
@@ -125,15 +124,14 @@ macro_rules! get_list {
                     let object = read_object!(object_index, $memory, $operation);
 
                     if let Object::ValueList(list) = object {
-                        list.clone()
+                        list
                     } else {
                         return Err(RuntimeError($operation));
                     }
                 }
                 MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
                     .as_list()
-                    .ok_or(RuntimeError($operation))?
-                    .clone(),
+                    .ok_or(RuntimeError($operation))?,
                 MemoryKind::CELL => todo!(),
                 _ => return Err(RuntimeError($operation)),
             }
@@ -154,15 +152,14 @@ macro_rules! get_function {
                 let object = read_object!(object_index, $memory, $operation);
 
                 if let Object::Function(function) = object {
-                    function.clone()
+                    function
                 } else {
                     return Err(RuntimeError($operation));
                 }
             }
             MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation)
                 .as_function()
-                .ok_or(RuntimeError($operation))?
-                .clone(),
+                .ok_or(RuntimeError($operation))?,
             MemoryKind::CELL => todo!(),
             _ => return Err(RuntimeError($operation)),
         }
@@ -181,8 +178,12 @@ macro_rules! read_register {
         let total_index = $index + $call.skipped_registers;
 
         if total_index < $memory.top {
+            trace!("Reading from stack at index: {}", total_index);
+
             $memory.stack[total_index]
         } else if total_index < $memory.top + $memory.heap.len() {
+            trace!("Reading from heap at index: {}", total_index - $memory.top);
+
             $memory.heap[total_index - $memory.top]
         } else {
             return Err(RuntimeError($operation));
@@ -202,8 +203,15 @@ macro_rules! read_register_mut {
         let total_index = $index + $call.skipped_registers;
 
         if total_index < $memory.top {
+            trace!("Reading from stack mutably at index: {}", total_index);
+
             &mut $memory.stack[total_index]
         } else if total_index < $memory.top + $memory.heap.len() {
+            trace!(
+                "Reading from heap mutably at index: {}",
+                total_index - $memory.top
+            );
+
             &mut $memory.heap[total_index - $memory.top]
         } else {
             return Err(RuntimeError($operation));
@@ -290,62 +298,6 @@ macro_rules! get_register_from_address {
     }};
 }
 
-macro_rules! get_value_from_address_by_cloning_objects {
-    ($address: expr, $type: expr, $memory: expr, $call: expr, $operation: expr) => {{
-        use super::Object;
-        use crate::MemoryKind;
-
-        match $address.memory {
-            MemoryKind::REGISTER => {
-                assert!(
-                    $address.index < $memory.len(),
-                    "Register index out of bounds: {} >= {}",
-                    $address.index,
-                    $memory.len()
-                );
-
-                let register = read_register!($address.index, $memory, $call, $operation);
-
-                match $type {
-                    OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
-                    OperandType::BYTE => Value::Byte(register.as_byte()),
-                    OperandType::INTEGER => Value::Integer(register.as_integer()),
-                    OperandType::FLOAT => Value::Float(register.as_float()),
-                    OperandType::STRING => {
-                        let object_index = register.as_index();
-                        let object = read_object!(object_index, $memory, $operation);
-
-                        if let Object::String(string) = object {
-                            Value::String(string.clone())
-                        } else {
-                            return Err(RuntimeError($operation));
-                        }
-                    }
-                    OperandType::FUNCTION => {
-                        let object_index = register.as_index();
-                        let object = read_object!(object_index, $memory, $operation);
-
-                        if let Object::Function(function) = object {
-                            Value::Function(function.clone())
-                        } else {
-                            return Err(RuntimeError($operation));
-                        }
-                    }
-                    _ => return Err(RuntimeError($operation)),
-                }
-            }
-            MemoryKind::ENCODED => match $type {
-                OperandType::BOOLEAN => Value::Boolean($address.index != 0),
-                OperandType::BYTE => Value::Byte($address.index as u8),
-
-                _ => $call.chunk.constants()[$address.index as usize].clone(),
-            },
-            MemoryKind::CELL => todo!(),
-            _ => return Err(RuntimeError($operation)),
-        }
-    }};
-}
-
 macro_rules! get_value_from_address_by_replacing_objects {
     (
         $address: expr,
@@ -356,9 +308,7 @@ macro_rules! get_value_from_address_by_replacing_objects {
     ) => {{
         match $address.memory {
             MemoryKind::REGISTER => {
-                let register = $memory
-                    .get($address.index + $call.skipped_registers)
-                    .ok_or(RuntimeError($operation))?;
+                let register = read_register!($address.index, $memory, $call, $operation);
 
                 match $type {
                     OperandType::BOOLEAN => Value::Boolean(register.as_boolean()),
@@ -406,12 +356,7 @@ macro_rules! get_value_from_address_by_replacing_objects {
                     _ => todo!(),
                 }
             }
-            MemoryKind::CONSTANT => $call
-                .chunk
-                .constants()
-                .get($address.index as usize)
-                .cloned()
-                .ok_or(RuntimeError($operation))?,
+            MemoryKind::CONSTANT => read_constant!($address.index, $call, $operation).clone(),
             MemoryKind::ENCODED => match $type {
                 OperandType::BOOLEAN => Value::Boolean($address.index != 0),
                 OperandType::BYTE => Value::Byte($address.index as u8),

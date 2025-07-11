@@ -276,6 +276,15 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::byte(byte_sum)
                         }
+                        OperandType::CHARACTER => {
+                            let left_character = get_character!(left, memory, call, operation);
+                            let right_character = get_character!(right, memory, call, operation);
+                            let concatenated_string =
+                                DustString::from(format!("{left_character}{right_character}",));
+                            let string_object = Object::String(concatenated_string);
+
+                            memory.store_object(string_object)
+                        }
                         OperandType::FLOAT => {
                             let left_float = get_float!(left, memory, call, operation);
                             let right_float = get_float!(right, memory, call, operation);
@@ -377,7 +386,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::integer(integer_difference)
                         }
-                        _ => todo!(),
+                        _ => return Err(RuntimeError(operation)),
                     };
                     let destination_register =
                         read_register_mut!(destination.index, memory, call, operation);
@@ -416,7 +425,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::integer(integer_product)
                         }
-                        _ => todo!(),
+                        _ => return Err(RuntimeError(operation)),
                     };
                     let destination_register =
                         read_register_mut!(destination.index, memory, call, operation);
@@ -464,7 +473,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::integer(left_integer / right_integer)
                         }
-                        _ => todo!(),
+                        _ => return Err(RuntimeError(operation)),
                     };
                     let destination_register =
                         read_register_mut!(destination.index, memory, call, operation);
@@ -512,7 +521,7 @@ impl<C: Chunk> ThreadRunner<C> {
 
                             Register::integer(left_integer % right_integer)
                         }
-                        _ => todo!(),
+                        _ => return Err(RuntimeError(operation)),
                     };
                     let destination_register =
                         read_register_mut!(destination.index, memory, call, operation);
@@ -749,18 +758,18 @@ impl<C: Chunk> ThreadRunner<C> {
                         argument_count,
                         return_type,
                     } = Call::from(instruction);
-                    let function = get_function!(function, memory, call, operation);
-                    let argument_types = function
+                    let prototype = Arc::clone(get_function!(function, memory, call, operation));
+                    let argument_types = prototype
                         .r#type()
                         .value_parameters
                         .iter()
                         .map(|parameter| parameter.as_operand_type())
                         .collect::<Vec<_>>();
 
-                    memory.allocate_registers(function.register_count());
+                    memory.allocate_registers(prototype.register_count());
 
                     let new_call = CallFrame::new(
-                        function,
+                        prototype,
                         destination,
                         return_type,
                         call.skipped_registers + call.chunk.register_count(),
