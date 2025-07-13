@@ -8,7 +8,7 @@ mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
-pub use memory::{Memory, Object, Register};
+pub use memory::{Object, Register};
 pub use runtime_error::{RUNTIME_ERROR_TEXT, RuntimeError};
 pub use thread::Thread;
 
@@ -16,9 +16,9 @@ use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{Chunk, DustError, StrippedChunk, Value, compile};
+use crate::{DustError, StrippedChunk, Value, compile};
 
-pub type ThreadPool<C> = Arc<RwLock<Vec<Thread<C>>>>;
+pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
     let chunk = compile::<StrippedChunk>(source)?;
@@ -27,18 +27,15 @@ pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_
     vm.run()
 }
 
-pub struct Vm<C> {
-    main_thread: Thread<C>,
-    threads: ThreadPool<C>,
+pub struct Vm {
+    main_thread: Thread,
+    threads: ThreadPool,
 }
 
-impl<C> Vm<C>
-where
-    C: 'static + Chunk + Send + Sync,
-{
-    pub fn new(main_chunk: C) -> Self {
+impl Vm {
+    pub fn new(main_chunk: StrippedChunk) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
-        let cells = Arc::new(RwLock::new(Vec::<Cell<C>>::new()));
+        let cells = Arc::new(RwLock::new(Vec::<Cell>::new()));
         let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
 
         Self {
@@ -47,7 +44,7 @@ where
         }
     }
 
-    pub fn run<'src>(self) -> Result<Option<Value<C>>, DustError<'src>> {
+    pub fn run<'src>(self) -> Result<Option<Value<StrippedChunk>>, DustError<'src>> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 

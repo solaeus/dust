@@ -48,7 +48,7 @@ use crate::{
     Operation, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     dust_crate::Program,
-    instruction::{Jump, Load, MemoryKind, OperandType, Test},
+    instruction::{Jump, Load, MemoryKind, OperandType},
     r#type::ConcreteType,
 };
 
@@ -121,11 +121,7 @@ impl<C: Chunk> Compiler<C> {
         chunk_compiler.compile()?;
 
         drop(chunk_compiler);
-
-        #[cfg(debug_assertions)]
-        if Rc::strong_count(&main_module) > 1 {
-            panic!("Unnecessary clone of main module detected. This is a bug in the compiler.");
-        }
+        debug_assert!(Rc::strong_count(&main_module) == 1);
 
         let main_module = Rc::unwrap_or_clone(main_module).into_inner();
 
@@ -351,7 +347,8 @@ where
         self.parse_implicit_return()?;
 
         if self.instructions.is_empty() {
-            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
+            let r#return =
+                Instruction::r#return(false as usize, Address::default(), OperandType::NONE);
 
             self.emit_instruction(r#return, Type::None, self.current_position);
         }
@@ -577,7 +574,8 @@ where
             let boolean = self.parse_boolean_value(text);
             let destination = Address::register(self.next_register_index());
             let operand = Address::encoded(boolean as usize);
-            let load = Instruction::load(destination, operand, OperandType::BOOLEAN, false);
+            let load =
+                Instruction::load(destination, operand, OperandType::BOOLEAN, false as usize);
 
             self.emit_instruction(load, Type::Boolean, position);
 
@@ -604,7 +602,8 @@ where
             let byte = self.parse_byte_value(text)?;
             let destination = Address::register(self.next_register_index());
             let operand = Address::encoded(byte as usize);
-            let load_encoded = Instruction::load(destination, operand, OperandType::BYTE, false);
+            let load_encoded =
+                Instruction::load(destination, operand, OperandType::BYTE, false as usize);
 
             self.emit_instruction(load_encoded, Type::Byte, position);
 
@@ -635,7 +634,7 @@ where
             let constant_index = self.push_constant_or_get_index(Value::Character(character));
             let operand = Address::constant(constant_index);
             let load_encoded =
-                Instruction::load(destination, operand, OperandType::CHARACTER, false);
+                Instruction::load(destination, operand, OperandType::CHARACTER, false as usize);
 
             self.emit_instruction(load_encoded, Type::Character, position);
 
@@ -662,7 +661,7 @@ where
                 destination,
                 Address::constant(constant_index),
                 OperandType::FLOAT,
-                false,
+                false as usize,
             );
 
             self.emit_instruction(load_constant, Type::Float, position);
@@ -698,7 +697,7 @@ where
                 destination,
                 Address::constant(constant_index),
                 OperandType::INTEGER,
-                false,
+                false as usize,
             );
 
             self.emit_instruction(load_constant, Type::Integer, position);
@@ -751,7 +750,7 @@ where
                 destination,
                 Address::constant(constant_index),
                 OperandType::STRING,
-                false,
+                false as usize,
             );
 
             self.emit_instruction(load_constant, Type::String, position);
@@ -1091,12 +1090,12 @@ where
 
         let operand_type = left_type.as_operand_type();
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(true, left, right, operand_type),
-            Token::BangEqual => Instruction::equal(false, left, right, operand_type),
-            Token::Less => Instruction::less(true, left, right, operand_type),
-            Token::LessEqual => Instruction::less_equal(true, left, right, operand_type),
-            Token::Greater => Instruction::less_equal(false, left, right, operand_type),
-            Token::GreaterEqual => Instruction::less(false, left, right, operand_type),
+            Token::DoubleEqual => Instruction::equal(true as usize, left, right, operand_type),
+            Token::BangEqual => Instruction::equal(false as usize, left, right, operand_type),
+            Token::Less => Instruction::less(true as usize, left, right, operand_type),
+            Token::LessEqual => Instruction::less_equal(true as usize, left, right, operand_type),
+            Token::Greater => Instruction::less_equal(false as usize, left, right, operand_type),
+            Token::GreaterEqual => Instruction::less(false as usize, left, right, operand_type),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1112,14 +1111,23 @@ where
                 });
             }
         };
-        let jump = Instruction::jump(1, true);
+        let jump = Instruction::jump(1, true as usize);
         let destination_index = self.next_register_index();
         let destination = Address::register(destination_index);
-        let true_as_address = Address::constant(true as usize);
-        let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
-        let false_as_address = Address::constant(false as usize);
-        let load_false =
-            Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
+        let true_as_address = Address::encoded(true as usize);
+        let load_true = Instruction::load(
+            destination,
+            true_as_address,
+            OperandType::BOOLEAN,
+            true as usize,
+        );
+        let false_as_address = Address::encoded(false as usize);
+        let load_false = Instruction::load(
+            destination,
+            false_as_address,
+            OperandType::BOOLEAN,
+            false as usize,
+        );
         let comparison_position = Span(left_position.0, right_position.1);
 
         self.emit_instruction(comparison, Type::Boolean, comparison_position);
@@ -1234,7 +1242,7 @@ where
 
         let instructions_length = self.instructions.len();
         let jump_distance = instructions_length - jump_index;
-        let jump = Instruction::jump(jump_distance, true);
+        let jump = Instruction::jump(jump_distance, true as usize);
 
         self.instructions
             .insert(jump_index, (jump, Type::None, jump_position));
@@ -1312,7 +1320,7 @@ where
                     destination,
                     Address::function_self(),
                     OperandType::FUNCTION,
-                    false,
+                    false as usize,
                 );
 
                 self.emit_instruction(load, Type::FunctionSelf, variable_position);
@@ -1353,7 +1361,7 @@ where
 
         let operand_type = variable_type.as_operand_type();
         let destination = Address::register(self.next_register_index());
-        let load = Instruction::load(destination, variable_address, operand_type, false);
+        let load = Instruction::load(destination, variable_address, operand_type, false as usize);
 
         self.emit_instruction(load, variable_type, self.previous_position);
 
@@ -1649,13 +1657,13 @@ where
                         load.destination(),
                         load.b_address(),
                         load.operand_type(),
-                        true,
+                        true as usize,
                     );
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
                         offset: jump_distance,
-                        is_positive: true,
+                        is_positive: true as usize,
                     });
 
                     self.instructions
@@ -1666,7 +1674,7 @@ where
                 if_block_distance += 1;
                 let jump = Instruction::from(Jump {
                     offset: jump_distance,
-                    is_positive: true,
+                    is_positive: true as usize,
                 });
 
                 self.instructions
@@ -1674,7 +1682,7 @@ where
             }
         }
 
-        let jump = Instruction::jump(if_block_distance, true);
+        let jump = Instruction::jump(if_block_distance, true as usize);
 
         self.instructions
             .insert(if_block_start, (jump, Type::None, if_block_start_position));
@@ -1715,7 +1723,7 @@ where
         let jump_distance = block_end - block_start + 1;
         let jump = Instruction::from(Jump {
             offset: jump_distance,
-            is_positive: true,
+            is_positive: true as usize,
         });
 
         self.instructions
@@ -1724,7 +1732,7 @@ where
         let jump_back_distance = block_end - expression_start + 1;
         let jump_back = Instruction::from(Jump {
             offset: jump_back_distance,
-            is_positive: false,
+            is_positive: false as usize,
         });
 
         self.emit_instruction(jump_back, Type::None, self.current_position);
@@ -1787,7 +1795,7 @@ where
             };
         let end = self.current_position.1;
         let r#return = Instruction::r#return(
-            should_return_value,
+            should_return_value as usize,
             Address::register(return_register),
             operand_type,
         );
@@ -1803,8 +1811,8 @@ where
                     is_positive,
                 } = Jump::from(*instruction);
 
-                if is_positive && offset + index == instruction_length - 1 {
-                    *instruction = Instruction::jump(offset + 1, true);
+                if is_positive != 0 && offset + index == instruction_length - 1 {
+                    *instruction = Instruction::jump(offset + 1, true as usize);
                 }
             }
         }
@@ -1849,8 +1857,8 @@ where
                 r#type,
                 ..
             } = Load::from(load_instruction);
-            let should_return = expression_type != Type::None;
-            let return_address = if !should_return {
+            let should_return_value = expression_type != Type::None;
+            let return_address = if !should_return_value {
                 self.instructions
                     .push((load_instruction, expression_type.clone(), position));
 
@@ -1864,7 +1872,8 @@ where
                 operand
             };
 
-            let r#return = Instruction::r#return(should_return, return_address, r#type);
+            let r#return =
+                Instruction::r#return(should_return_value as usize, return_address, r#type);
 
             self.update_return_type(expression_type.clone())?;
             self.emit_instruction(r#return, expression_type, self.current_position);
@@ -1876,7 +1885,8 @@ where
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
+            let r#return =
+                Instruction::r#return(false as usize, Address::default(), OperandType::NONE);
 
             self.update_return_type(Type::None)?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -1885,8 +1895,11 @@ where
             let operand_type = last_instruction_type.as_operand_type();
             let return_value_address = last_instruction.destination();
             let should_return_value = operand_type != OperandType::NONE;
-            let r#return =
-                Instruction::r#return(should_return_value, return_value_address, operand_type);
+            let r#return = Instruction::r#return(
+                should_return_value as usize,
+                return_value_address,
+                operand_type,
+            );
 
             self.update_return_type(last_instruction_type.clone())?;
             self.emit_instruction(r#return, Type::None, self.current_position);
@@ -2063,8 +2076,12 @@ where
         let chunk = C::new(compiled_data);
         let destination = Address::register(register_index);
         let prototype_address = Address::constant(chunk.prototype_index());
-        let load_function =
-            Instruction::load(destination, prototype_address, OperandType::FUNCTION, false);
+        let load_function = Instruction::load(
+            destination,
+            prototype_address,
+            OperandType::FUNCTION,
+            false as usize,
+        );
         let r#type = Type::Function(Box::new(chunk.r#type().clone()));
 
         if let Some(identifier) = path {
@@ -2166,7 +2183,7 @@ where
 
     fn parse_call_native(
         &mut self,
-        function: NativeFunction<C>,
+        function: NativeFunction,
         start: Span,
     ) -> Result<(), CompileError> {
         let mut type_arguments = Vec::new();
@@ -2560,8 +2577,12 @@ where
                     },
                     _ => todo!("Handle other constant types in use statement"),
                 };
-                let instruction =
-                    Instruction::load(destination, operand, r#type.as_operand_type(), false);
+                let instruction = Instruction::load(
+                    destination,
+                    operand,
+                    r#type.as_operand_type(),
+                    false as usize,
+                );
 
                 self.emit_instruction(instruction, Type::None, item_position);
                 self.declare_local(
@@ -2617,8 +2638,12 @@ where
                 let (variable_address, item_type) =
                     self.bring_item_into_local_scope(aliased_path, item, item_position);
                 let destination = Address::register(self.next_register_index());
-                let load =
-                    Instruction::load(destination, variable_address, OperandType::FUNCTION, false);
+                let load = Instruction::load(
+                    destination,
+                    variable_address,
+                    OperandType::FUNCTION,
+                    false as usize,
+                );
 
                 self.emit_instruction(load, item_type, self.previous_position);
                 self.parse_call()?;

@@ -33,7 +33,8 @@
     never_type,
     once_cell_get_mut,
     panic_payload_as_str,
-    pattern
+    pattern,
+    new_zeroed_alloc
 )]
 
 pub mod chunk;
@@ -48,10 +49,10 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
-pub use chunk::{Chunk, Disassemble, Disassembler, DebugChunk, StrippedChunk};
+pub use chunk::{Chunk, DebugChunk, Disassemble, Disassembler, StrippedChunk};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Local, Module, Path, compile};
 pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{

@@ -127,7 +127,7 @@ pub use test::Test;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{NativeFunction, StrippedChunk};
+use crate::NativeFunction;
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -246,7 +246,7 @@ impl Instruction {
         destination: Address,
         operand: Address,
         r#type: OperandType,
-        jump_next: bool,
+        jump_next: usize,
     ) -> Instruction {
         Instruction::from(Load {
             destination,
@@ -341,7 +341,7 @@ impl Instruction {
     }
 
     pub fn equal(
-        comparator: bool,
+        comparator: usize,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -355,7 +355,7 @@ impl Instruction {
     }
 
     pub fn less(
-        comparator: bool,
+        comparator: usize,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -369,7 +369,7 @@ impl Instruction {
     }
 
     pub fn less_equal(
-        comparator: bool,
+        comparator: usize,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -397,7 +397,7 @@ impl Instruction {
         })
     }
 
-    pub fn jump(offset: usize, is_positive: bool) -> Instruction {
+    pub fn jump(offset: usize, is_positive: usize) -> Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
@@ -418,9 +418,9 @@ impl Instruction {
         })
     }
 
-    pub fn call_native<C>(
+    pub fn call_native(
         destination: Address,
-        function: NativeFunction<C>,
+        function: NativeFunction,
         argument_count: usize,
     ) -> Instruction {
         Instruction::from(CallNative {
@@ -431,7 +431,7 @@ impl Instruction {
     }
 
     pub fn r#return(
-        should_return_value: bool,
+        should_return_value: usize,
         return_address: Address,
         r#type: OperandType,
     ) -> Instruction {
@@ -462,7 +462,7 @@ impl Instruction {
             | Operation::NEGATE
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
-                let function = NativeFunction::<StrippedChunk>::from_index(self.b_field());
+                let function = NativeFunction::from_index(self.b_field());
 
                 function.returns_value()
             }
@@ -494,7 +494,7 @@ impl Instruction {
             Operation::LESS_EQUAL => LessEqual::from(self).to_string(),
             Operation::TEST => Test::from(self).to_string(),
             Operation::CALL => Call::from(self).to_string(),
-            Operation::CALL_NATIVE => CallNative::<StrippedChunk>::from(self).to_string(),
+            Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
             Operation::NO_OP => String::new(),

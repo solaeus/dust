@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Less {
-    pub comparator: bool,
+    pub comparator: usize,
     pub left: Address,
     pub right: Address,
     pub r#type: OperandType,
@@ -11,7 +11,7 @@ pub struct Less {
 
 impl From<Instruction> for Less {
     fn from(instruction: Instruction) -> Self {
-        let comparator = instruction.a_field() != 0;
+        let comparator = instruction.a_field();
         let left = instruction.b_address();
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
@@ -28,7 +28,7 @@ impl From<Instruction> for Less {
 impl From<Less> for Instruction {
     fn from(less: Less) -> Self {
         let operation = Operation::LESS;
-        let a_field = less.comparator as usize;
+        let a_field = less.comparator;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -61,7 +61,7 @@ impl Display for Less {
             right,
             ..
         } = self;
-        let operator = if *comparator { "<" } else { "≥" };
+        let operator = if *comparator != 0 { "<" } else { "≥" };
 
         write!(f, "if {left} {operator} {right} {{ JUMP +1 }}")
     }

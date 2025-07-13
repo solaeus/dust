@@ -3,7 +3,7 @@ mod and;
 mod and_and;
 mod and_or;
 mod divide;
-// mod equal;
+mod equal;
 // mod greater;
 // mod greater_equal;
 // mod less;

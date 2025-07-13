@@ -1,72 +1,16 @@
 use std::sync::Arc;
 
-use tracing::trace;
+use crate::{DustString, List, StrippedChunk};
 
-use crate::{Chunk, DustString, List};
-
-const STACK_SIZE: usize = 64;
-
-#[derive(Debug)]
-pub struct Memory<C> {
-    pub stack: [Register; STACK_SIZE],
-    pub top: usize,
-
-    pub heap: Vec<Register>,
-
-    pub objects: Vec<Object<C>>,
-}
-
-impl<C: Chunk> Memory<C> {
-    pub fn new() -> Self {
-        Memory {
-            stack: [Register(0); STACK_SIZE],
-            top: 0,
-            heap: Vec::with_capacity(0),
-            objects: Vec::with_capacity(0),
-        }
-    }
-
-    pub fn allocate_registers(&mut self, count: usize) {
-        trace!(
-            "Allocating {} registers with stack size {STACK_SIZE}",
-            count
-        );
-
-        if self.top + count <= STACK_SIZE {
-            self.top += count;
-        } else {
-            let additional = count - STACK_SIZE;
-
-            self.heap.reserve_exact(additional);
-            self.heap.resize(self.heap.len() + additional, Register(0));
-        }
-    }
-
-    pub fn store_object(&mut self, object: Object<C>) -> Register {
-        let object_index = self.objects.len();
-        let register = Register::index(object_index);
-
-        self.objects.push(object);
-
-        register
-    }
-}
-
-impl<C: Chunk> Default for Memory<C> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug)]
-pub enum Object<C> {
+#[derive(Clone, Debug)]
+pub enum Object {
     Empty,
-    Function(Arc<C>),
-    ValueList(List<C>),
+    Function(Arc<StrippedChunk>),
+    ValueList(List<StrippedChunk>),
     String(DustString),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Register(u64);
 
 impl Register {

@@ -1,16 +1,16 @@
 use std::fmt::Display;
 
-use crate::{Chunk, NativeFunction};
+use crate::NativeFunction;
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
-pub struct CallNative<C> {
+pub struct CallNative {
     pub destination: Address,
-    pub function: NativeFunction<C>,
+    pub function: NativeFunction,
     pub argument_count: usize,
 }
 
-impl<C: Chunk> From<Instruction> for CallNative<C> {
+impl From<Instruction> for CallNative {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let function = NativeFunction::from_index(instruction.b_field());
@@ -24,8 +24,8 @@ impl<C: Chunk> From<Instruction> for CallNative<C> {
     }
 }
 
-impl<C> From<CallNative<C>> for Instruction {
-    fn from(call_native: CallNative<C>) -> Self {
+impl From<CallNative> for Instruction {
+    fn from(call_native: CallNative) -> Self {
         let operation = Operation::CALL_NATIVE;
         let Address {
             index: a_field,
@@ -46,7 +46,7 @@ impl<C> From<CallNative<C>> for Instruction {
     }
 }
 
-impl<C: Chunk> Display for CallNative<C> {
+impl Display for CallNative {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let CallNative {
             destination,

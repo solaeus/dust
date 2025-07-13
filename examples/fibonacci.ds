@@ -1,5 +1,3 @@
-use std::io::write_line;
-
 fn fib (n: int) -> int {
     if n <= 0 {
         0
@@ -10,4 +8,4 @@ fn fib (n: int) -> int {
     }
 }
 
-write_line(str.from_int(fib(25)))
+fib(25)

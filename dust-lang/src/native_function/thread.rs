@@ -2,15 +2,15 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     Address, OperandType,
-    vm::{CallFrame, Cell, Memory, ThreadPool},
+    vm::{CallFrame, Cell, ThreadPool},
 };
 
-pub fn spawn<C>(
+pub fn spawn(
     _: Address,
     arguments: &[(Address, OperandType)],
-    call: &mut CallFrame<C>,
-    cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    threads: &ThreadPool<C>,
+    call: &mut CallFrame,
+    cells: &Arc<RwLock<Vec<Cell>>>,
+    threads: &ThreadPool,
 ) {
     todo!();
 }

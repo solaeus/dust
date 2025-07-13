@@ -18,15 +18,15 @@ use tracing::warn;
 
 use crate::{
     Address, Chunk, FunctionType, OperandType, Type,
-    vm::{CallFrame, Cell, Memory, ThreadPool},
+    vm::{CallFrame, Cell, ThreadPool},
 };
 
-pub type NativeFunctionLogic<C> = fn(
+pub type NativeFunctionLogic = fn(
     destination: Address,
     arguments: &[(Address, OperandType)],
-    call: &mut CallFrame<C>,
-    cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    threads: &ThreadPool<C>,
+    call: &mut CallFrame,
+    cells: &Arc<RwLock<Vec<Cell>>>,
+    threads: &ThreadPool,
 );
 
 macro_rules! define_native_function {
@@ -35,13 +35,13 @@ macro_rules! define_native_function {
         ///
         /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-        pub struct NativeFunction<C> {
+        pub struct NativeFunction {
             pub index: usize,
-            _marker: PhantomData<C>,
+
         }
 
-        impl<C: Chunk> NativeFunction<C> {
-            const LOOKUP_TABLE: [NativeFunctionLogic<C>; 5] = [
+        impl NativeFunction {
+            const LOOKUP_TABLE: [NativeFunctionLogic; 5] = [
                 $(
                     $logic,
                 )*
@@ -50,7 +50,6 @@ macro_rules! define_native_function {
             pub fn from_index(index: usize) -> Self {
                 NativeFunction {
                     index,
-                    _marker: PhantomData,
                 }
             }
 
@@ -58,9 +57,9 @@ macro_rules! define_native_function {
                 &self,
                 destination: Address,
                 arguments: &[(Address, OperandType)],
-                call: &mut CallFrame<C>,
-                cells: &Arc<RwLock<Vec<Cell<C>>>>,
-                threads: &ThreadPool<C>,
+                call: &mut CallFrame,
+                cells: &Arc<RwLock<Vec<Cell>>>,
+                threads: &ThreadPool,
             ) {
                 Self::LOOKUP_TABLE[self.index as usize](
                     destination,
@@ -86,7 +85,6 @@ macro_rules! define_native_function {
                     $(
                         $name => Some(NativeFunction {
                             index: $index,
-                            _marker: PhantomData,
                         }),
                     )*
                     _ => None,
@@ -112,7 +110,7 @@ macro_rules! define_native_function {
             }
         }
 
-        impl<C> Display for NativeFunction<C> {
+        impl Display for NativeFunction {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
                 match self.index {
                     $(
@@ -125,12 +123,12 @@ macro_rules! define_native_function {
     }
 }
 
-fn no_op<C>(
+fn no_op(
     _destination: Address,
     _arguments: &[(Address, OperandType)],
-    _call: &mut CallFrame<C>,
-    _cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    _threads: &ThreadPool<C>,
+    _call: &mut CallFrame,
+    _cells: &Arc<RwLock<Vec<Cell>>>,
+    _threads: &ThreadPool,
 ) {
     warn!("Running NO_OP native function")
 }

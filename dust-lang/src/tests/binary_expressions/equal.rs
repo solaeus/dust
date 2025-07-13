@@ -1,314 +1,481 @@
 use crate::{
-    Address, Chunk, DustString, FunctionType, Instruction, Span, Type, Value, compile, run,
+    Address, DebugChunk, FunctionType, Instruction, OperandType, Path, Type, Value, compile, run,
 };
 
-use crate::instruction::{AddressKind, Destination};
-
 #[test]
-fn equal_bytes() {
-    let source = "0x0A == 0x03";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::load_encoded(
-                Destination::stack(0),
-                0x0A,
-                AddressKind::BYTE_MEMORY,
-                false,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(1),
-                0x03,
-                AddressKind::BYTE_MEMORY,
-                false,
-            ),
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::BYTE_REGISTER),
-                Address::new(1, AddressKind::BYTE_REGISTER),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(0, 4),
-            Span(8, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(0, 12),
-            Span(12, 12),
-        ],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+fn equal_bytes_true() {
+    let source = "0x21 == 0x21";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::encoded(0x21),
+                    Address::encoded(0x21),
+                    OperandType::BYTE
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true,
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false,
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
 }
 
 #[test]
-fn equal_characters() {
+fn equal_bytes_false() {
+    let source = "0x21 == 0x22";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::encoded(0x21),
+                    Address::encoded(0x22),
+                    OperandType::BYTE
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true,
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false,
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
+}
+
+#[test]
+fn equal_characters_true() {
+    let source = "'a' == 'a'";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(0),
+                    OperandType::CHARACTER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::character('a')],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
+}
+
+#[test]
+fn equal_characters_false() {
     let source = "'a' == 'b'";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::CHARACTER_CONSTANT),
-                Address::new(1, AddressKind::CHARACTER_CONSTANT),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(0, 10),
-            Span(0, 10),
-            Span(0, 10),
-            Span(0, 10),
-            Span(10, 10),
-        ],
-        character_constants: vec!['a', 'b'],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::character('a'), Value::character('b')],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
 }
 
 #[test]
-fn equal_floats() {
-    let source = "10.0 == 3.0";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::FLOAT_CONSTANT),
-                Address::new(1, AddressKind::FLOAT_CONSTANT),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(0, 11),
-            Span(0, 11),
-            Span(0, 11),
-            Span(0, 11),
-            Span(11, 11),
-        ],
-        float_constants: vec![10.0, 3.0],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+fn equal_floats_true() {
+    let source = "42.0 == 42.0";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(0),
+                    OperandType::FLOAT
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::Float(42.0)],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
 }
 
 #[test]
-fn equal_integers() {
-    let source = "10 == 3";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::INTEGER_CONSTANT),
-                Address::new(1, AddressKind::INTEGER_CONSTANT),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![Span(0, 7), Span(0, 7), Span(0, 7), Span(0, 7), Span(7, 7)],
-        integer_constants: vec![10, 3],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+fn equal_floats_false() {
+    let source = "42.0 == 43.0";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::Float(42.0), Value::Float(43.0)],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
 }
 
 #[test]
-fn equal_strings() {
+fn equal_integers_true() {
+    let source = "42 == 42";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::Integer(42)],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
+}
+
+#[test]
+fn equal_integers_false() {
+    let source = "42 == 43";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::Integer(42), Value::Integer(43)],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
+}
+
+#[test]
+fn equal_strings_true() {
+    let source = "\"abc\" == \"abc\"";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(0),
+                    OperandType::STRING
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::string("abc")],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
+}
+
+#[test]
+fn equal_strings_false() {
     let source = "\"abc\" == \"def\"";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::STRING_CONSTANT),
-                Address::new(1, AddressKind::STRING_CONSTANT),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(0, 14),
-            Span(0, 14),
-            Span(0, 14),
-            Span(0, 14),
-            Span(14, 14),
-        ],
-        string_constants: vec![DustString::from("abc"), DustString::from("def")],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::string("abc"), Value::string("def")],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
 }
 
 #[test]
-fn equal_lists() {
-    let source = "[1, 2, 3] == [4, 5, 6]";
-    let chunk = Chunk {
-        r#type: FunctionType::new([], [], Type::Boolean),
-        instructions: vec![
-            Instruction::load_constant(
-                Destination::heap(0),
-                Address::new(0, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_constant(
-                Destination::heap(1),
-                Address::new(1, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_constant(
-                Destination::heap(2),
-                Address::new(2, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_list(
-                Destination::stack(0),
-                Address::new(0, AddressKind::INTEGER_MEMORY),
-                2,
-                false,
-            ),
-            Instruction::load_constant(
-                Destination::heap(3),
-                Address::new(3, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_constant(
-                Destination::heap(4),
-                Address::new(4, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_constant(
-                Destination::heap(5),
-                Address::new(5, AddressKind::INTEGER_CONSTANT),
-                false,
-            ),
-            Instruction::load_list(
-                Destination::stack(1),
-                Address::new(3, AddressKind::INTEGER_MEMORY),
-                5,
-                false,
-            ),
-            Instruction::equal(
-                true,
-                Address::new(0, AddressKind::LIST_REGISTER),
-                Address::new(1, AddressKind::LIST_REGISTER),
-            ),
-            Instruction::jump(1, true),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                true as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                true,
-            ),
-            Instruction::load_encoded(
-                Destination::stack(0),
-                false as u16,
-                AddressKind::BOOLEAN_MEMORY,
-                false,
-            ),
-            Instruction::r#return(true, Address::new(0, AddressKind::BOOLEAN_REGISTER)),
-        ],
-        positions: vec![
-            Span(1, 2),
-            Span(4, 5),
-            Span(7, 8),
-            Span(0, 9),
-            Span(14, 15),
-            Span(17, 18),
-            Span(20, 21),
-            Span(13, 22),
-            Span(0, 22),
-            Span(0, 22),
-            Span(0, 22),
-            Span(0, 22),
-            Span(22, 22),
-        ],
-        integer_constants: vec![1, 2, 3, 4, 5, 6],
-        ..Chunk::default()
-    };
-    let return_value = Some(Value::boolean(false));
+fn equal_lists_true() {
+    let source = "[1, 2] == [1, 2]";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
 
-    assert_eq!(chunk, compile(source).unwrap());
-    assert_eq!(return_value, run(source).unwrap());
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::LIST_INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::integer_list([1, 2]), Value::integer_list([1, 2])],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(true)));
+}
+
+#[test]
+fn equal_lists_false() {
+    let source = "[1, 2] == [2, 1]";
+    let chunk = compile::<DebugChunk>(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        DebugChunk {
+            name: Some(Path::new("main").unwrap()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::LIST_INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(true as usize),
+                    OperandType::BOOLEAN,
+                    true
+                ),
+                Instruction::load(
+                    Address::register(0),
+                    Address::encoded(false as usize),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+            ],
+            constants: vec![Value::integer_list([1, 2]), Value::integer_list([2, 1])],
+            ..Default::default()
+        }
+    );
+    assert_eq!(return_value, Some(Value::Boolean(false)));
 }

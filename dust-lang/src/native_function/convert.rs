@@ -3,16 +3,16 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    Address, Chunk, DustString, MemoryKind, OperandType,
-    vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
+    Address, Chunk, OperandType,
+    vm::{CallFrame, Cell, ThreadPool},
 };
 
-pub fn int_to_str<C: Chunk>(
+pub fn int_to_str(
     destination: Address,
     arguments: &[(Address, OperandType)],
-    call: &mut CallFrame<C>,
-    cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    _: &ThreadPool<C>,
+    call: &mut CallFrame,
+    cells: &Arc<RwLock<Vec<Cell>>>,
+    _: &ThreadPool,
 ) {
     todo!()
 }

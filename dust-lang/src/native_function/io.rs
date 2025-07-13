@@ -2,25 +2,25 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     Address, Chunk, OperandType,
-    vm::{CallFrame, Cell, Memory, ThreadPool, macros::*},
+    vm::{CallFrame, Cell, ThreadPool},
 };
 
-pub fn read_line<C>(
+pub fn read_line(
     destination: Address,
     _: &[(Address, OperandType)],
-    _: &mut CallFrame<C>,
-    cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    _: &ThreadPool<C>,
+    _: &mut CallFrame,
+    cells: &Arc<RwLock<Vec<Cell>>>,
+    _: &ThreadPool,
 ) {
     todo!()
 }
 
-pub fn write_line<C: Chunk>(
+pub fn write_line(
     _: Address,
     arguments: &[(Address, OperandType)],
-    call: &mut CallFrame<C>,
-    cells: &Arc<RwLock<Vec<Cell<C>>>>,
-    _: &ThreadPool<C>,
+    call: &mut CallFrame,
+    cells: &Arc<RwLock<Vec<Cell>>>,
+    _: &ThreadPool,
 ) {
     todo!()
 }

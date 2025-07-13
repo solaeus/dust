@@ -1,13 +1,13 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{DustString, List};
+use crate::{DustString, List, StrippedChunk};
 
 #[derive(Debug, Default)]
-pub struct Cell<C> {
-    pub lock: Arc<RwLock<CellValue<C>>>,
+pub struct Cell {
+    pub lock: Arc<RwLock<CellValue>>,
 }
 
-impl<C> Cell<C> {
+impl Cell {
     pub fn empty() -> Self {
         Self {
             lock: Arc::new(RwLock::new(CellValue::Empty)),
@@ -16,7 +16,7 @@ impl<C> Cell<C> {
 }
 
 #[derive(Debug, Default)]
-pub enum CellValue<C> {
+pub enum CellValue {
     #[default]
     Empty,
 
@@ -26,6 +26,6 @@ pub enum CellValue<C> {
     Float(f64),
     Integer(i64),
     String(DustString),
-    List(List<C>),
-    Function(Arc<C>),
+    List(List<StrippedChunk>),
+    Function(Arc<StrippedChunk>),
 }

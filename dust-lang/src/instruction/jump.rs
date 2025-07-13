@@ -6,14 +6,14 @@ use super::InstructionFields;
 
 pub struct Jump {
     pub offset: usize,
-    pub is_positive: bool,
+    pub is_positive: usize,
 }
 
 impl From<Instruction> for Jump {
     fn from(instruction: Instruction) -> Self {
         Jump {
             offset: instruction.b_field(),
-            is_positive: instruction.c_field() != 0,
+            is_positive: instruction.c_field(),
         }
     }
 }
@@ -22,7 +22,7 @@ impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
         let operation = Operation::JUMP;
         let b_field = jump.offset;
-        let c_field = jump.is_positive as usize;
+        let c_field = jump.is_positive;
 
         InstructionFields {
             operation,
@@ -40,7 +40,7 @@ impl Display for Jump {
             offset,
             is_positive,
         } = self;
-        let sign = if *is_positive { "+" } else { "-" };
+        let sign = if *is_positive != 0 { "+" } else { "-" };
 
         write!(f, "JUMP {sign}{offset}")
     }
