@@ -24,7 +24,6 @@ tracing = "0.1.41"
 crossbeam-channel = "0.5.14"
 hashbrown = "0.15.3"
 indexmap = { version = "2.9.0", features = ["serde"] }
-smallvec = "1.15.1"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

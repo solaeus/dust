@@ -4,7 +4,6 @@ use std::{
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
-use smallvec::{SmallVec, smallvec};
 use tracing::{Level, error, info, span, trace, warn};
 
 use crate::{
@@ -38,11 +37,11 @@ impl Thread {
             .name(name)
             .spawn(|| {
                 let runner = ThreadRunner {
-                    decoded_instructions: SmallVec::with_capacity(chunk.instructions.len()),
-                    register_stack: smallvec![Register::default(); chunk.register_count],
+                    decoded_instructions: Vec::with_capacity(chunk.instructions.len()),
+                    register_stack: vec![Register::default(); chunk.register_count],
                     register_start: 0,
-                    object_pool: SmallVec::new(),
-                    call_stack: SmallVec::new(),
+                    object_pool: Vec::new(),
+                    call_stack: Vec::new(),
                     active_call: CallFrame::new(
                         Arc::new(chunk),
                         Address::default(),
@@ -63,15 +62,15 @@ impl Thread {
 
 #[derive(Clone)]
 struct ThreadRunner {
-    decoded_instructions: SmallVec<[DecodedInstruction; 32]>,
+    decoded_instructions: Vec<DecodedInstruction>,
 
-    call_stack: SmallVec<[CallFrame; 8]>,
+    call_stack: Vec<CallFrame>,
     active_call: CallFrame,
 
-    register_stack: SmallVec<[Register; 32]>,
+    register_stack: Vec<Register>,
     register_start: usize,
 
-    object_pool: SmallVec<[Object; 8]>,
+    object_pool: Vec<Object>,
 
     threads: Arc<RwLock<Vec<Thread>>>,
     cells: Arc<RwLock<Vec<Cell>>>,

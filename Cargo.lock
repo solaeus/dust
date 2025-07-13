@@ -335,7 +335,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "smallvec",
  "smartstring",
  "tracing",
 ]
