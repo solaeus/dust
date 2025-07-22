@@ -7,14 +7,16 @@ use std::{
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, JitInstruction, StrippedChunk, Value, instruction::OperandType, jit::Jit,
+    Address, Chunk, JitInstruction, StrippedChunk, Value,
+    instruction::OperandType,
+    jit::{Jit, JitError},
     vm::Register,
 };
 
-use super::{CallFrame, Cell, Object, RuntimeError};
+use super::{CallFrame, Cell, Object};
 
 pub struct Thread {
-    pub handle: JoinHandle<Result<Option<Value<StrippedChunk>>, RuntimeError>>,
+    pub handle: JoinHandle<Result<Option<Value<StrippedChunk>>, JitError>>,
 }
 
 impl Thread {
@@ -68,7 +70,7 @@ pub struct ThreadRunner<'a> {
 }
 
 impl<'a> ThreadRunner<'a> {
-    fn run(mut self) -> Result<Option<Value>, RuntimeError> {
+    fn run(mut self) -> Result<Option<Value<StrippedChunk>>, JitError> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
@@ -82,7 +84,7 @@ impl<'a> ThreadRunner<'a> {
         );
 
         let mut jit = Jit::new();
-        let decoded_chunk = jit.compile(self.main_chunk.as_ref());
+        let decoded_chunk = jit.compile(self.main_chunk.as_ref())?;
         let mut register_stack = vec![Register::default(); self.main_chunk.register_count];
         let mut call = CallFrame::new(
             Arc::clone(&self.main_chunk),

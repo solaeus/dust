@@ -1,16 +1,13 @@
 //! This VM never emits errors. Instead, errors are handled as panics.
 mod call_frame;
 mod cell;
-pub mod macros;
 mod memory;
-mod runtime_error;
 pub mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
 pub use memory::{Object, Register};
-pub use runtime_error::{RUNTIME_ERROR_TEXT, RuntimeError};
-pub use thread::Thread;
+pub use thread::{Thread, ThreadRunner};
 
 use std::sync::{Arc, RwLock};
 
@@ -65,11 +62,11 @@ impl Vm {
         }
 
         if let Some(error) = spawned_thread_error {
-            Err(DustError::runtime(error))
+            Err(DustError::jit(error))
         } else {
             match return_result {
                 Ok(value_option) => Ok(value_option),
-                Err(error) => Err(DustError::runtime(error)),
+                Err(error) => Err(DustError::jit(error)),
             }
         }
     }

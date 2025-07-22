@@ -56,7 +56,7 @@ pub mod vm;
 
 pub use chunk::{Chunk, DebugChunk, Disassemble, Disassembler, StrippedChunk};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Local, Module, Path, compile};
-pub use dust_error::{AnnotatedError, DustError};
+pub use dust_error::{AnnotatedError, DustError, JIT_ERROR_TEXT};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
@@ -66,7 +66,7 @@ pub use native_function::NativeFunction;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{DustString, List, Value};
-pub use vm::{RUNTIME_ERROR_TEXT, RuntimeError, Vm, run};
+pub use vm::{CallFrame, Cell, Object, Register, ThreadRunner, Vm, run};
 
 use std::fmt::Display;
 

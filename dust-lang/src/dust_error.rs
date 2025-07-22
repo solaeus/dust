@@ -4,7 +4,9 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, RUNTIME_ERROR_TEXT, RuntimeError, Span};
+use crate::{CompileError, Span, jit::JitError};
+
+pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation. This indicates invalid bytecode or an unsupported operation.";
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]
@@ -21,10 +23,10 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn runtime(error: RuntimeError) -> Self {
+    pub fn jit(error: JitError) -> Self {
         DustError {
-            error: DustErrorKind::Runtime(error),
-            source: RUNTIME_ERROR_TEXT,
+            error: DustErrorKind::Jit(error),
+            source: JIT_ERROR_TEXT,
         }
     }
 
@@ -58,35 +60,35 @@ impl<'src> DustError<'src> {
 #[derive(Debug, PartialEq)]
 pub enum DustErrorKind {
     Compile(CompileError),
-    Runtime(RuntimeError),
+    Jit(JitError),
 }
 
 impl DustErrorKind {
     fn title(&self) -> &'static str {
         match self {
             DustErrorKind::Compile(error) => error.title(),
-            DustErrorKind::Runtime(error) => error.title(),
+            DustErrorKind::Jit(error) => error.title(),
         }
     }
 
     fn description(&self) -> &'static str {
         match self {
             DustErrorKind::Compile(error) => error.description(),
-            DustErrorKind::Runtime(error) => error.description(),
+            DustErrorKind::Jit(error) => error.description(),
         }
     }
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         match self {
             DustErrorKind::Compile(error) => error.detail_snippets(),
-            DustErrorKind::Runtime(error) => error.detail_snippets(),
+            DustErrorKind::Jit(error) => error.detail_snippets(),
         }
     }
 
     fn help_snippets(&self) -> Vec<(String, Span)> {
         match self {
             DustErrorKind::Compile(error) => error.help_snippets(),
-            DustErrorKind::Runtime(error) => error.help_snippets(),
+            DustErrorKind::Jit(error) => error.help_snippets(),
         }
     }
 }
