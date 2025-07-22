@@ -2,7 +2,12 @@ mod dust_range;
 mod dust_string;
 mod list;
 
-use std::{cmp::Ordering, fmt::Display, sync::Arc};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,15 +17,16 @@ pub use list::List;
 use crate::{Chunk, StrippedChunk, Type};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum Value<C = StrippedChunk> {
-    Boolean(bool),
-    Byte(u8),
-    Character(char),
-    Float(f64),
-    Integer(i64),
-    String(DustString),
-    List(List<C>),
-    Function(Arc<C>),
+    Boolean(bool) = 0,
+    Byte(u8) = 1,
+    Character(char) = 2,
+    Float(f64) = 3,
+    Integer(i64) = 4,
+    String(DustString) = 5,
+    List(List<C>) = 6,
+    Function(Arc<C>) = 7,
 }
 
 impl<C: Chunk> Value<C> {
@@ -228,6 +234,21 @@ impl<C: Ord> Ord for Value<C> {
             (Value::List(_), _) => Ordering::Less,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+impl Hash for Value<StrippedChunk> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Value::Boolean(value) => value.hash(state),
+            Value::Byte(value) => value.hash(state),
+            Value::Character(value) => value.hash(state),
+            Value::Float(value) => value.to_bits().hash(state),
+            Value::Integer(value) => value.hash(state),
+            Value::String(value) => value.hash(state),
+            Value::List(value) => value.hash(state),
+            Value::Function(value) => Arc::as_ptr(value).hash(state),
         }
     }
 }

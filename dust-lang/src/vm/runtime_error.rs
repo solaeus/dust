@@ -3,6 +3,7 @@ use crate::{AnnotatedError, Span};
 pub const RUNTIME_ERROR_TEXT: &str = "An error occurred during the execution of the Dust VM. This is a bug in the VM or the compiler.";
 
 #[derive(Debug, PartialEq)]
+#[repr(C)]
 pub enum RuntimeError {
     // Call stack errors
     CallStackUnderflow,

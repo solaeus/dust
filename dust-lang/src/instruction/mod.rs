@@ -132,8 +132,9 @@ use crate::NativeFunction;
 /// An instruction for the Dust virtual machine.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Instruction(u64);
+#[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[repr(C)]
+pub struct Instruction(pub(crate) u64);
 
 impl Instruction {
     pub fn destination(&self) -> Address {

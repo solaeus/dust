@@ -1,5 +1,6 @@
 use std::{
     fmt::{Debug, Display},
+    hash::Hash,
     sync::Arc,
 };
 
@@ -10,12 +11,13 @@ use crate::{FunctionType, Instruction, Local, Path, Value, compiler::CompiledDat
 use super::{Chunk, Disassemble, Disassembler};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
 pub struct StrippedChunk {
-    pub(crate) r#type: FunctionType,
-    pub(crate) instructions: Vec<Instruction>,
     pub(crate) constants: Vec<Value<Self>>,
     pub(crate) register_count: usize,
     pub(crate) prototype_index: usize,
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) r#type: FunctionType,
 }
 
 impl Chunk for StrippedChunk {
@@ -119,5 +121,15 @@ impl Ord for StrippedChunk {
             .then_with(|| self.constants.cmp(&other.constants))
             .then_with(|| self.register_count.cmp(&other.register_count))
             .then_with(|| self.prototype_index.cmp(&other.prototype_index))
+    }
+}
+
+impl Hash for StrippedChunk {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.r#type.hash(state);
+        self.instructions.hash(state);
+        self.constants.hash(state);
+        self.register_count.hash(state);
+        self.prototype_index.hash(state);
     }
 }

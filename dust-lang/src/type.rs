@@ -7,7 +7,7 @@ use tracing::error;
 use crate::instruction::OperandType;
 
 /// Description of a kind of value.
-#[derive(Clone, Default, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
     #[default]
     None,
@@ -178,7 +178,9 @@ impl Display for Type {
 /// the type details are available. Therefore a `TypeKind` can represent a list but cannot convey
 /// that it is a list of integers. This makes `TypeKind` much smaller (1 byte v.s. 32 bytes), which
 /// is useful for performance.
-#[derive(Clone, Copy, Default, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub enum ConcreteType {
     #[default]
     None,
@@ -206,7 +208,7 @@ impl ConcreteType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
     pub type_parameters: Vec<u16>,
     pub value_parameters: Vec<Type>,

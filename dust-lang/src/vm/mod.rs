@@ -4,7 +4,7 @@ mod cell;
 pub mod macros;
 mod memory;
 mod runtime_error;
-mod thread;
+pub mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};

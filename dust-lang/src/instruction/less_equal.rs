@@ -28,7 +28,7 @@ impl From<Instruction> for LessEqual {
 impl From<LessEqual> for Instruction {
     fn from(less_equal: LessEqual) -> Self {
         let operation = Operation::LESS_EQUAL;
-        let a_field = less_equal.comparator as usize;
+        let a_field = less_equal.comparator;
         let Address {
             index: b_field,
             memory: b_memory_kind,

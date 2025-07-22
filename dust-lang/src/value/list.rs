@@ -1,14 +1,16 @@
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
+    hash::{Hash, Hasher},
     sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DustString, DebugChunk, StrippedChunk, Type, chunk::Chunk};
+use crate::{DebugChunk, DustString, StrippedChunk, Type, chunk::Chunk};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub enum List<C> {
     Boolean(Vec<bool>),
     Byte(Vec<u8>),
@@ -255,6 +257,29 @@ impl<C: Ord> Ord for List<C> {
                 Ordering::Equal
             }
             _ => Ordering::Equal,
+        }
+    }
+}
+
+impl Hash for List<StrippedChunk> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            List::Boolean(value) => value.hash(state),
+            List::Byte(value) => value.hash(state),
+            List::Character(value) => value.hash(state),
+            List::Float(value) => {
+                for float in value {
+                    float.to_bits().hash(state);
+                }
+            }
+            List::Integer(value) => value.hash(state),
+            List::String(value) => value.hash(state),
+            List::List(value) => value.hash(state),
+            List::Function(value) => {
+                for function in value {
+                    Arc::as_ptr(function).hash(state);
+                }
+            }
         }
     }
 }

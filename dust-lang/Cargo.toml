@@ -24,6 +24,9 @@ tracing = "0.1.41"
 crossbeam-channel = "0.5.14"
 hashbrown = "0.15.3"
 indexmap = { version = "2.9.0", features = ["serde"] }
+cranelift = "0.121.2"
+cranelift-jit = "0.121.2"
+cranelift-module = "0.121.2"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

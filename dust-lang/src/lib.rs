@@ -31,6 +31,7 @@
     formatting_options,
     new_range_api,
     never_type,
+    offset_of_enum,
     once_cell_get_mut,
     panic_payload_as_str,
     pattern,
@@ -42,6 +43,7 @@ pub mod compiler;
 pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
+pub mod jit;
 pub mod lexer;
 pub mod native_function;
 pub mod token;
@@ -58,6 +60,7 @@ pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
+pub use jit::JitInstruction;
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use token::{Token, TokenKind, TokenOwned};
