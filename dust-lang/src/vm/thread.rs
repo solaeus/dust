@@ -94,7 +94,7 @@ impl<'a> ThreadRunner<'a> {
             OperandType::NONE,
         );
 
-        (decoded_chunk)(&mut self, &mut call);
+        (decoded_chunk.logic)(&mut self, &mut call);
 
         Ok(self.return_value)
     }

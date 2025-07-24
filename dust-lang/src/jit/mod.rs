@@ -9,9 +9,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    CallFrame, OperandType, Operation, Register, StrippedChunk, ThreadRunner,
-    instruction::MemoryKind,
-    instruction::{Add, Jump, Less, Load, Return},
+    CallFrame, Instruction, OperandType, Operation, Register, StrippedChunk, ThreadRunner,
+    instruction::{Add, Jump, Less, Load, MemoryKind, Return, Test},
 };
 
 pub extern "C" fn load_constant(value: u64) -> u64 {
@@ -46,10 +45,7 @@ impl Jit {
         Self { module }
     }
 
-    pub fn compile(
-        &mut self,
-        chunk: &StrippedChunk,
-    ) -> Result<extern "C" fn(*mut ThreadRunner, *mut CallFrame), JitError> {
+    pub fn compile(&mut self, chunk: &StrippedChunk) -> Result<JitInstruction, JitError> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -244,13 +240,15 @@ impl Jit {
                         }
                     }
                 }
-                Operation::ADD => {
-                    let Add {
-                        destination,
-                        left,
-                        right,
-                        r#type,
-                    } = Add::from(*current_instruction);
+                Operation::ADD
+                | Operation::SUBTRACT
+                | Operation::MULTIPLY
+                | Operation::DIVIDE
+                | Operation::MODULO => {
+                    let destination = current_instruction.destination();
+                    let left = current_instruction.b_address();
+                    let right = current_instruction.c_address();
+                    let r#type = current_instruction.operand_type();
                     match r#type {
                         OperandType::INTEGER => {
                             let call_frame_registers_field_offset =
@@ -307,7 +305,10 @@ impl Jit {
                                                 instruction_pointer: current_instruction_pointer,
                                                 constant_index: right.index,
                                                 expected_type: OperandType::INTEGER,
-                                                operation: "ADD".to_string(),
+                                                operation: format!(
+                                                    "{:?}",
+                                                    current_instruction.operation()
+                                                ),
                                             });
                                         }
                                     };
@@ -318,14 +319,29 @@ impl Jit {
                                 _ => {
                                     return Err(JitError::UnsupportedMemoryKind {
                                         instruction_pointer: current_instruction_pointer,
-                                        operation: "ADD".to_string(),
+                                        operation: format!("{:?}", current_instruction.operation()),
                                         memory_kind_description: format!("{:?}", right.memory),
                                     });
                                 }
                             };
-                            let addition_result_value = function_builder
-                                .ins()
-                                .iadd(left_operand_value, right_operand_value);
+                            let result_value = match current_instruction.operation() {
+                                Operation::ADD => function_builder
+                                    .ins()
+                                    .iadd(left_operand_value, right_operand_value),
+                                Operation::SUBTRACT => function_builder
+                                    .ins()
+                                    .isub(left_operand_value, right_operand_value),
+                                Operation::MULTIPLY => function_builder
+                                    .ins()
+                                    .imul(left_operand_value, right_operand_value),
+                                Operation::DIVIDE => function_builder
+                                    .ins()
+                                    .udiv(left_operand_value, right_operand_value),
+                                Operation::MODULO => function_builder
+                                    .ins()
+                                    .urem(left_operand_value, right_operand_value),
+                                _ => unreachable!(),
+                            };
                             let destination_operand_index = function_builder
                                 .ins()
                                 .iconst(types::I64, destination.index as i64);
@@ -339,7 +355,7 @@ impl Jit {
                             );
                             function_builder.ins().store(
                                 MemFlags::new(),
-                                addition_result_value,
+                                result_value,
                                 destination_register_address,
                                 0,
                             );
@@ -348,18 +364,21 @@ impl Jit {
                             return Err(JitError::UnsupportedOperandType {
                                 instruction_pointer: current_instruction_pointer,
                                 operand_type: r#type,
-                                operation: "ADD".to_string(),
+                                operation: format!("{:?}", current_instruction.operation()),
                             });
                         }
                     }
                 }
-                Operation::LESS => {
-                    let Less {
-                        comparator,
-                        left,
-                        right,
-                        r#type,
-                    } = Less::from(*current_instruction);
+                Operation::LESS | Operation::EQUAL | Operation::LESS_EQUAL => {
+                    let comparator = match current_instruction.operation() {
+                        Operation::LESS => IntCC::SignedLessThan,
+                        Operation::EQUAL => IntCC::Equal,
+                        Operation::LESS_EQUAL => IntCC::SignedLessThanOrEqual,
+                        _ => unreachable!(),
+                    };
+                    let left = current_instruction.b_address();
+                    let right = current_instruction.c_address();
+                    let r#type = current_instruction.operand_type();
                     match r#type {
                         OperandType::INTEGER => match (left.memory, right.memory) {
                             (MemoryKind::REGISTER, MemoryKind::CONSTANT) => {
@@ -371,7 +390,10 @@ impl Jit {
                                                 instruction_pointer: current_instruction_pointer,
                                                 constant_index: right.index,
                                                 expected_type: OperandType::INTEGER,
-                                                operation: "LESS".to_string(),
+                                                operation: format!(
+                                                    "{:?}",
+                                                    current_instruction.operation()
+                                                ),
                                             });
                                         }
                                     };
@@ -399,19 +421,11 @@ impl Jit {
                                 let cranelift_constant_value = function_builder
                                     .ins()
                                     .iconst(types::I64, integer_constant_value);
-                                let comparison_result = if comparator != 0 {
-                                    function_builder.ins().icmp(
-                                        IntCC::SignedLessThan,
-                                        left_operand_value,
-                                        cranelift_constant_value,
-                                    )
-                                } else {
-                                    function_builder.ins().icmp(
-                                        IntCC::SignedGreaterThanOrEqual,
-                                        left_operand_value,
-                                        cranelift_constant_value,
-                                    )
-                                };
+                                let comparison_result = function_builder.ins().icmp(
+                                    comparator,
+                                    left_operand_value,
+                                    cranelift_constant_value,
+                                );
 
                                 let skip_next_instruction_pointer = current_instruction_pointer + 2;
                                 let proceed_to_next_instruction_pointer =
@@ -462,7 +476,7 @@ impl Jit {
                             _ => {
                                 return Err(JitError::UnsupportedMemoryKind {
                                     instruction_pointer: current_instruction_pointer,
-                                    operation: "LESS".to_string(),
+                                    operation: format!("{:?}", current_instruction.operation()),
                                     memory_kind_description: format!(
                                         "left: {:?}, right: {:?}",
                                         left.memory, right.memory
@@ -474,9 +488,98 @@ impl Jit {
                             return Err(JitError::UnsupportedOperandType {
                                 instruction_pointer: current_instruction_pointer,
                                 operand_type: r#type,
-                                operation: "LESS".to_string(),
+                                operation: format!("{:?}", current_instruction.operation()),
                             });
                         }
+                    }
+                }
+                Operation::TEST => {
+                    let Test {
+                        comparator,
+                        operand,
+                    } = Test::from(*current_instruction);
+                    let operand_value = match operand.memory {
+                        MemoryKind::REGISTER => {
+                            let call_frame_registers_field_offset =
+                                offset_of!(CallFrame, registers) as i32;
+                            let call_frame_registers_pointer = function_builder.ins().load(
+                                pointer_type,
+                                MemFlags::new(),
+                                call_frame_pointer,
+                                call_frame_registers_field_offset,
+                            );
+                            let operand_index = function_builder
+                                .ins()
+                                .iconst(types::I64, operand.index as i64);
+                            let operand_byte_offset = function_builder
+                                .ins()
+                                .imul_imm(operand_index, std::mem::size_of::<Register>() as i64);
+                            let operand_address = function_builder
+                                .ins()
+                                .iadd(call_frame_registers_pointer, operand_byte_offset);
+                            function_builder.ins().load(
+                                types::I64,
+                                MemFlags::new(),
+                                operand_address,
+                                0,
+                            )
+                        }
+                        _ => {
+                            return Err(JitError::UnsupportedMemoryKind {
+                                instruction_pointer: current_instruction_pointer,
+                                operation: "TEST".to_string(),
+                                memory_kind_description: format!("{:?}", operand.memory),
+                            });
+                        }
+                    };
+                    let condition = if comparator {
+                        function_builder
+                            .ins()
+                            .icmp_imm(IntCC::NotEqual, operand_value, 0)
+                    } else {
+                        function_builder
+                            .ins()
+                            .icmp_imm(IntCC::Equal, operand_value, 0)
+                    };
+                    let skip_next_instruction_pointer = current_instruction_pointer + 2;
+                    let proceed_to_next_instruction_pointer = current_instruction_pointer + 1;
+                    let skip_next_instruction_block =
+                        if skip_next_instruction_pointer < instruction_blocks.len() {
+                            instruction_blocks[skip_next_instruction_pointer]
+                        } else {
+                            return Err(JitError::BranchTargetOutOfBounds {
+                                instruction_pointer: current_instruction_pointer,
+                                branch_target_instruction_pointer: skip_next_instruction_pointer,
+                                total_instruction_count: instruction_blocks.len(),
+                            });
+                        };
+                    let proceed_to_next_instruction_block = if proceed_to_next_instruction_pointer
+                        < instruction_blocks.len()
+                    {
+                        instruction_blocks[proceed_to_next_instruction_pointer]
+                    } else {
+                        return Err(JitError::BranchTargetOutOfBounds {
+                            instruction_pointer: current_instruction_pointer,
+                            branch_target_instruction_pointer: proceed_to_next_instruction_pointer,
+                            total_instruction_count: instruction_blocks.len(),
+                        });
+                    };
+                    function_builder.ins().brif(
+                        condition,
+                        proceed_to_next_instruction_block,
+                        &[],
+                        skip_next_instruction_block,
+                        &[],
+                    );
+                    if skip_next_instruction_pointer < instruction_blocks.len()
+                        && !processed_instructions[skip_next_instruction_pointer]
+                    {
+                        instruction_worklist.push_back(skip_next_instruction_pointer);
+                    }
+                    if proceed_to_next_instruction_pointer < instruction_blocks.len()
+                        && !processed_instructions[proceed_to_next_instruction_pointer]
+                    {
+                        instruction_worklist.push_back(proceed_to_next_instruction_pointer);
                     }
                 }
                 Operation::JUMP => {
@@ -618,10 +721,15 @@ impl Jit {
             })?;
 
         let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
-        Ok(unsafe {
+        let logic = unsafe {
             std::mem::transmute::<*const u8, extern "C" fn(*mut ThreadRunner, *mut CallFrame)>(
                 compiled_function_pointer,
             )
+        };
+
+        Ok(JitInstruction {
+            logic,
+            register_count: chunk.register_count,
         })
     }
 }
@@ -634,12 +742,16 @@ impl Default for Jit {
 
 pub struct JitInstruction {
     pub logic: extern "C" fn(*mut ThreadRunner, *mut CallFrame),
+    pub register_count: usize,
 }
 
 impl JitInstruction {
     pub fn no_op() -> Self {
         extern "C" fn no_op_logic(_: *mut ThreadRunner, _: *mut CallFrame) {}
 
-        Self { logic: no_op_logic }
+        Self {
+            logic: no_op_logic,
+            register_count: 0,
+        }
     }
 }
