@@ -23,6 +23,7 @@ pub struct Jit {
 
 /// # Safety
 /// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn set_return_value_integer(thread_runner: *mut Thread, integer_value: i64) {
     unsafe {
         (*thread_runner).return_value = Some(crate::Value::Integer(integer_value));

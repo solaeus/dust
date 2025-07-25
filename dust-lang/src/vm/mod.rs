@@ -44,12 +44,12 @@ impl Vm {
         for chunk in program.prototypes {
             let jit_chunk = jit.compile(&chunk)?;
 
-            jit_chunks.push(Arc::new(jit_chunk));
+            jit_chunks.push(jit_chunk);
         }
 
         let main_chunk = jit.compile(&program.main)?;
         let main_thread = ThreadHandle::new(
-            Arc::new(main_chunk),
+            main_chunk,
             Arc::new(jit_chunks),
             cells,
             Arc::clone(&threads),

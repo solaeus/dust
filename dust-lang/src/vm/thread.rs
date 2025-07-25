@@ -5,7 +5,7 @@ use std::{
 
 use tracing::{Level, info, span};
 
-use crate::{Address, JitChunk, Value, instruction::OperandType, vm::Register};
+use crate::{JitChunk, Value, vm::Register};
 
 use super::{CallFrame, Cell, Object};
 
@@ -15,8 +15,8 @@ pub struct ThreadHandle {
 
 impl ThreadHandle {
     pub fn new(
-        main_chunk: Arc<JitChunk>,
-        chunks: Arc<Vec<Arc<JitChunk>>>,
+        main_chunk: JitChunk,
+        chunks: Arc<Vec<JitChunk>>,
         cells: Arc<RwLock<Vec<Cell>>>,
         threads: Arc<RwLock<Vec<ThreadHandle>>>,
     ) -> Self {
@@ -42,14 +42,14 @@ impl ThreadHandle {
 }
 
 #[repr(C)]
-pub struct Thread<'a> {
+pub struct Thread {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
 
-    main_chunk: Arc<JitChunk>,
-    chunks: Arc<Vec<Arc<JitChunk>>>,
+    main_chunk: JitChunk,
+    chunks: Arc<Vec<JitChunk>>,
 
-    call_stack: Vec<CallFrame<'a>>,
+    call_stack: Vec<CallFrame>,
 
     object_pool: Vec<Object>,
 
@@ -57,7 +57,7 @@ pub struct Thread<'a> {
     cells: Arc<RwLock<Vec<Cell>>>,
 }
 
-impl<'a> Thread<'a> {
+impl Thread {
     fn run(mut self) -> Option<Value> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
@@ -66,14 +66,15 @@ impl<'a> Thread<'a> {
 
         let mut register_stack = vec![Register::default(); self.main_chunk.register_count];
         let register_count = self.main_chunk.register_count;
-        let mut call = CallFrame::new(
-            self.main_chunk.clone(),
-            &mut register_stack[0..register_count],
-            true,
-            Address::default(),
-            OperandType::NONE,
-        );
-
+        let mut call = CallFrame {
+            ip: 0,
+            chunk: &self.main_chunk,
+            is_end_of_stack: true,
+            registers: register_stack.as_mut_ptr(),
+            register_count,
+            return_address: 0,
+            return_value: None,
+        };
         (self.main_chunk.logic)(&mut self, &mut call);
 
         self.return_value
