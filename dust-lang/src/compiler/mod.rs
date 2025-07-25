@@ -41,7 +41,7 @@ pub use path::Path;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{cell::RefCell, collections::HashSet, marker::PhantomData, mem::replace, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc};
 
 use crate::{
     Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, List, NativeFunction,
@@ -63,8 +63,8 @@ use crate::{
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
-pub fn compile<C: Chunk>(source: &'_ str) -> Result<Program<C>, DustError<'_>> {
-    let compiler = Compiler::<C>::new();
+pub fn compile(source: &'_ str) -> Result<Program, DustError<'_>> {
+    let compiler = Compiler::new();
 
     compiler
         .compile_program(None, source)
@@ -76,16 +76,14 @@ pub fn compile<C: Chunk>(source: &'_ str) -> Result<Program<C>, DustError<'_>> {
 ///
 /// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
-pub struct Compiler<C> {
+pub struct Compiler {
     allow_native_functions: bool,
-    _marker: PhantomData<C>,
 }
 
-impl<C: Chunk> Compiler<C> {
+impl Compiler {
     pub fn new() -> Self {
         Self {
             allow_native_functions: false,
-            _marker: PhantomData,
         }
     }
 
@@ -93,7 +91,7 @@ impl<C: Chunk> Compiler<C> {
         &mut self,
         library_name: &str,
         source: &str,
-    ) -> Result<Module<C>, CompileError> {
+    ) -> Result<Module, CompileError> {
         let logging = span!(Level::INFO, "Compile Library");
         let _enter = logging.enter();
 
@@ -111,10 +109,10 @@ impl<C: Chunk> Compiler<C> {
         let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library::<C>(&mut *main_module.borrow_mut());
+            apply_standard_library(&mut main_module.borrow_mut());
         }
 
-        let mut chunk_compiler = ChunkCompiler::<C>::new(
+        let mut chunk_compiler = ChunkCompiler::new(
             lexer,
             mode,
             item_scope,
@@ -138,7 +136,7 @@ impl<C: Chunk> Compiler<C> {
         &self,
         program_name: Option<&str>,
         source: &str,
-    ) -> Result<Program<C>, CompileError> {
+    ) -> Result<Program, CompileError> {
         let logging = span!(Level::INFO, "Compile Program");
         let _enter = logging.enter();
 
@@ -155,10 +153,10 @@ impl<C: Chunk> Compiler<C> {
         let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library::<C>(&mut *main_module.borrow_mut());
+            apply_standard_library(&mut main_module.borrow_mut());
         }
 
-        let mut chunk_compiler = ChunkCompiler::<C>::new(
+        let mut chunk_compiler = ChunkCompiler::new(
             lexer,
             mode,
             item_scope,
@@ -171,8 +169,27 @@ impl<C: Chunk> Compiler<C> {
         chunk_compiler.compile()?;
 
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
-        let compiled_data = CompiledData::new(chunk_compiler);
-        let main_chunk = C::new(compiled_data);
+        let register_count = chunk_compiler.next_register_index_without_reclaiming();
+        let name = chunk_compiler.mode.into_name();
+        let (instructions, positions) = chunk_compiler
+            .instructions
+            .into_iter()
+            .map(|(instruction, _, position)| (instruction, position))
+            .unzip();
+        let main_chunk = Chunk {
+            name,
+            r#type: chunk_compiler.r#type,
+            instructions,
+            positions,
+            constants: chunk_compiler.constants,
+            locals: chunk_compiler.locals,
+            call_arguments: chunk_compiler.call_arguments,
+            register_count,
+            prototype_index: 0,
+        };
+
+        drop(chunk_compiler.prototypes);
+
         let prototypes = Rc::into_inner(prototypes).unwrap().into_inner();
 
         Ok(Program {
@@ -183,57 +200,9 @@ impl<C: Chunk> Compiler<C> {
     }
 }
 
-impl<C: Chunk> Default for Compiler<C> {
+impl Default for Compiler {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-pub struct CompiledData {
-    pub name: Option<Path>,
-    pub r#type: FunctionType,
-    pub instructions: Vec<Instruction>,
-    pub positions: Vec<Span>,
-    pub constants: Vec<Value>,
-    pub locals: IndexMap<Path, Local>,
-    pub call_arguments: Vec<Vec<(Address, OperandType)>>,
-    pub register_count: usize,
-    pub prototype_index: usize,
-}
-
-impl CompiledData {
-    fn new<C>(chunk_compiler: ChunkCompiler<C>) -> Self {
-        let register_count = chunk_compiler.instructions.iter().fold(
-            chunk_compiler.minimum_register_index,
-            |acc, (instruction, _, _)| {
-                if instruction.yields_value()
-                    && instruction.a_field() >= acc
-                    && instruction.a_memory_kind() == MemoryKind::REGISTER
-                {
-                    instruction.a_field() + 1
-                } else {
-                    acc
-                }
-            },
-        );
-        let name = chunk_compiler.mode.into_name();
-        let (instructions, positions) = chunk_compiler
-            .instructions
-            .into_iter()
-            .map(|(instruction, _, position)| (instruction, position))
-            .unzip();
-
-        CompiledData {
-            name,
-            r#type: chunk_compiler.r#type,
-            instructions,
-            positions,
-            constants: chunk_compiler.constants,
-            locals: chunk_compiler.locals,
-            call_arguments: chunk_compiler.call_arguments,
-            register_count,
-            prototype_index: chunk_compiler.prototype_index,
-        }
     }
 }
 
@@ -244,10 +213,10 @@ pub struct Arguments {
 }
 
 #[derive(Debug)]
-pub(crate) struct ChunkCompiler<'a, C> {
+pub(crate) struct ChunkCompiler<'a> {
     /// Indication of what the compiler will produce when it finishes. This value should never be
     /// mutated.
-    mode: CompileMode<C>,
+    mode: CompileMode,
 
     /// Used to get tokens for the compiler.
     lexer: Lexer<'a>,
@@ -290,10 +259,10 @@ pub(crate) struct ChunkCompiler<'a, C> {
     /// that value is never read because the main chunk is not a callable function.
     prototype_index: usize,
 
-    main_module: Rc<RefCell<Module<C>>>,
+    main_module: Rc<RefCell<Module>>,
 
     globals: Rc<RefCell<IndexMap<Path, Global>>>,
-    prototypes: Rc<RefCell<Vec<C>>>,
+    prototypes: Rc<RefCell<Vec<Chunk>>>,
 
     previous_statement_end: usize,
     previous_expression_end: usize,
@@ -306,17 +275,14 @@ pub(crate) struct ChunkCompiler<'a, C> {
     allow_native_functions: bool,
 }
 
-impl<'a, C> ChunkCompiler<'a, C>
-where
-    C: Chunk + Ord,
-{
+impl<'a> ChunkCompiler<'a> {
     fn new(
         mut lexer: Lexer<'a>,
-        mode: CompileMode<C>,
+        mode: CompileMode,
         item_scope: HashSet<Path>,
-        main_module: Rc<RefCell<Module<C>>>,
+        main_module: Rc<RefCell<Module>>,
         globals: Rc<RefCell<IndexMap<Path, Global>>>,
-        prototypes: Rc<RefCell<Vec<C>>>,
+        prototypes: Rc<RefCell<Vec<Chunk>>>,
     ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
@@ -480,7 +446,7 @@ where
         cell_index
     }
 
-    fn clone_item(&self, item_path: &Path) -> Result<(Item<C>, Span), CompileError> {
+    fn clone_item(&self, item_path: &Path) -> Result<(Item, Span), CompileError> {
         if let CompileMode::Module { module, .. } = &self.mode {
             if let Some(found) = module.find_item(item_path) {
                 return Ok(found.clone());
@@ -915,7 +881,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C>::from(operator);
+        let rule = ParseRule::from(operator);
         let is_assignment = matches!(
             operator,
             Token::PlusEqual
@@ -1085,7 +1051,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C>::from(operator);
+        let rule = ParseRule::from(operator);
 
         self.advance()?;
         self.parse_sub_expression(&rule.precedence)?;
@@ -1189,7 +1155,7 @@ where
 
         let operator = self.current_token;
         let operator_position = self.current_position;
-        let rule = ParseRule::<C>::from(operator);
+        let rule = ParseRule::from(operator);
         let comparator = match operator {
             Token::DoubleAmpersand => true,
             Token::DoublePipe => false,
@@ -2022,7 +1988,7 @@ where
         };
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
             let mode = CompileMode::Function { name: path.clone() };
-            let mut compiler = ChunkCompiler::<C>::new(
+            let mut compiler = ChunkCompiler::new(
                 self.lexer,
                 mode,
                 self.current_item_scope.clone(),
@@ -2096,10 +2062,25 @@ where
 
         self.lexer.skip_to(self.current_position.1);
 
-        let compiled_data = CompiledData::new(function_compiler);
-        let chunk = C::new(compiled_data);
-        let prototype_address = Address::constant(chunk.prototype_index());
-        let r#type = Type::Function(Box::new(chunk.r#type().clone()));
+        let register_count = function_compiler.next_register_index();
+        let (instructions, positions) = function_compiler
+            .instructions
+            .into_iter()
+            .map(|(instruction, _, position)| (instruction, position))
+            .unzip();
+        let chunk = Chunk {
+            name: path.clone(),
+            r#type: function_compiler.r#type,
+            instructions,
+            positions,
+            constants: function_compiler.constants,
+            locals: function_compiler.locals,
+            call_arguments: function_compiler.call_arguments,
+            register_count,
+            prototype_index: function_compiler.prototype_index,
+        };
+        let prototype_address = Address::constant(chunk.prototype_index);
+        let r#type = Type::Function(Box::new(chunk.r#type.clone()));
 
         if let Some(identifier) = path {
             self.declare_local(
@@ -2135,14 +2116,14 @@ where
                 } else {
                     let prototype = prototypes
                         .iter()
-                        .find(|prototype| prototype.name() == Some(&Path::new(text).unwrap()))
+                        .find(|prototype| prototype.name == Some(Path::new(text).unwrap()))
                         .ok_or_else(|| CompileError::ExpectedFunction {
                             found: function_token.to_owned(),
                             actual_type: Type::None,
                             position: function_token_position,
                         })?;
 
-                    (prototype.r#type().clone(), prototype.prototype_index())
+                    (prototype.r#type.clone(), prototype.prototype_index)
                 }
             }
             _ => {
@@ -2323,7 +2304,7 @@ where
                     let prototype = self.prototypes.borrow_mut().pop().unwrap();
 
                     if let CompileMode::Module { module, .. } = &mut self.mode
-                        && let Some(path) = prototype.name()
+                        && let Some(path) = &prototype.name
                     {
                         module.items.insert(
                             path.clone(),
@@ -2500,7 +2481,7 @@ where
     fn bring_item_into_local_scope(
         &mut self,
         item_name: Path,
-        item: Item<C>,
+        item: Item,
         item_position: Span,
     ) -> (Address, Type) {
         match item {
@@ -2604,7 +2585,7 @@ where
                 (destination, r#type)
             }
             Item::Function(prototype) => {
-                let r#type = Type::Function(Box::new(prototype.r#type().clone()));
+                let r#type = Type::Function(Box::new(prototype.r#type.clone()));
                 let prototype_index = self.prototypes.borrow().len();
 
                 self.prototypes.borrow_mut().push(prototype);

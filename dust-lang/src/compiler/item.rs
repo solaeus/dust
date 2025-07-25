@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Type, Value};
+use crate::{Chunk, Type, Value};
 
 use super::Module;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Item<C> {
+pub enum Item {
     Constant { value: Value, r#type: Type },
-    Function(C),
-    Module(Module<C>),
+    Function(Chunk),
+    Module(Module),
 }

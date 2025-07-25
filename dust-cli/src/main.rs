@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{CompileError, Compiler, DebugChunk, Disassemble, DustError, StrippedChunk, Vm};
+use dust_lang::{CompileError, Compiler, Disassembler, DustError, Vm};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -160,7 +160,7 @@ fn main() {
 
         let dust_program = match input {
             Format::Dust => {
-                let compiler = Compiler::<StrippedChunk>::new();
+                let compiler = Compiler::new();
 
                 match compiler.compile_program(source_name, &source) {
                     Ok(chunk) => chunk,
@@ -221,7 +221,7 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let compiler = Compiler::<DebugChunk>::new();
+        let compiler = Compiler::new();
 
         let dust_crate = match compiler.compile_program(source_name, &source) {
             Ok(dust_crate) => dust_crate,
@@ -237,9 +237,7 @@ fn main() {
             Format::Dust => {
                 let mut stdout = stdout().lock();
 
-                dust_crate
-                    .main
-                    .disassembler(&mut stdout)
+                Disassembler::new(&dust_crate.main, &mut stdout)
                     .width(80)
                     .style(style)
                     .source(&source)
@@ -247,8 +245,7 @@ fn main() {
                     .expect("Failed to write disassembly to stdout");
 
                 for chunk in dust_crate.prototypes {
-                    chunk
-                        .disassembler(&mut stdout)
+                    Disassembler::new(&chunk, &mut stdout)
                         .width(80)
                         .style(style)
                         .source(&source)

@@ -6,19 +6,17 @@ pub use jit_error::JitError;
 
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module};
 
 use crate::{
-    CallFrame, OperandType, Operation, Register, StrippedChunk, Thread,
+    CallFrame, Chunk, OperandType, Operation, Register, Thread,
+    dust_crate::Program,
     instruction::{Jump, Load, MemoryKind, Return, Test},
 };
 
-pub extern "C" fn load_constant(value: u64) -> u64 {
-    value
-}
-
 pub struct Jit {
     module: JITModule,
+    set_return_function_id: FuncId,
 }
 
 /// # Safety
@@ -31,19 +29,88 @@ pub unsafe extern "C" fn set_return_value_integer(thread_runner: *mut Thread, in
 }
 
 impl Jit {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, JitError> {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
         builder.symbol(
             "set_return_value_integer",
             set_return_value_integer as *const u8,
         );
 
-        let module = JITModule::new(builder);
+        let mut module = JITModule::new(builder);
+        let pointer_type = module.isa().pointer_type();
+        let mut return_value_signature = Signature::new(module.isa().default_call_conv());
 
-        Self { module }
+        return_value_signature
+            .params
+            .push(AbiParam::new(pointer_type));
+        return_value_signature
+            .params
+            .push(AbiParam::new(types::I64));
+        return_value_signature.returns = vec![];
+
+        let set_return_function_id = module
+            .declare_function(
+                "set_return_value_integer",
+                Linkage::Import,
+                &return_value_signature,
+            )
+            .map_err(|error| JitError::CraneliftModuleError {
+                instruction_pointer: None,
+                message: format!("Failed to declare set_return_value_integer function: {error}"),
+            })?;
+
+        Ok(Self {
+            module,
+            set_return_function_id,
+        })
     }
 
-    pub fn compile(&mut self, chunk: &StrippedChunk) -> Result<JitChunk, JitError> {
+    pub fn compile(&mut self, program: Program) -> Result<(JitChunk, Vec<JitChunk>), JitError> {
+        let (main_func_id, main_register_count) = self.compile_chunk(&program.main)?;
+        let mut prototype_data = Vec::with_capacity(program.prototypes.len());
+
+        for chunk in &program.prototypes {
+            let (func_id, register_count) = self.compile_chunk(chunk)?;
+
+            prototype_data.push((func_id, register_count));
+        }
+
+        self.module
+            .finalize_definitions()
+            .map_err(|error| JitError::CraneliftModuleError {
+                instruction_pointer: None,
+                message: format!("Failed to finalize definitions: {error}"),
+            })?;
+
+        let main_function_pointer = self.module.get_finalized_function(main_func_id);
+        let main_logic = unsafe {
+            std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
+                main_function_pointer,
+            )
+        };
+        let main = JitChunk {
+            logic: main_logic,
+            register_count: main_register_count,
+        };
+        let mut prototypes = Vec::with_capacity(program.prototypes.len());
+
+        for (chunk_id, register_count) in prototype_data {
+            let function_pointer = self.module.get_finalized_function(chunk_id);
+            let logic = unsafe {
+                std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
+                    function_pointer,
+                )
+            };
+            prototypes.push(JitChunk {
+                logic,
+                register_count,
+            });
+        }
+
+        Ok((main, prototypes))
+    }
+
+    fn compile_chunk(&mut self, chunk: &Chunk) -> Result<(FuncId, usize), JitError> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -76,38 +143,19 @@ impl Jit {
         return_value_signature.params =
             vec![AbiParam::new(pointer_type), AbiParam::new(types::I64)];
         return_value_signature.returns = vec![];
-        let mut return_value_signature = Signature::new(self.module.isa().default_call_conv());
-        return_value_signature
-            .params
-            .push(AbiParam::new(pointer_type));
-        return_value_signature
-            .params
-            .push(AbiParam::new(types::I64));
-        return_value_signature.returns = vec![];
-        let set_return_function_id = self
-            .module
-            .declare_function(
-                "set_return_value_integer",
-                Linkage::Import,
-                &return_value_signature,
-            )
-            .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
-                message: format!("Failed to declare set_return_value_integer function: {error}"),
-            })?;
         let set_return_function_reference = self
             .module
-            .declare_func_in_func(set_return_function_id, function_builder.func);
+            .declare_func_in_func(self.set_return_function_id, function_builder.func);
 
         let function_entry_block = function_builder.create_block();
         function_builder.switch_to_block(function_entry_block);
         function_builder.append_block_params_for_function_params(function_entry_block);
-        function_builder.declare_var(Variable::new(0), pointer_type);
-        function_builder.declare_var(Variable::new(1), pointer_type);
+        let variable_0 = function_builder.declare_var(pointer_type);
+        let variable_1 = function_builder.declare_var(pointer_type);
         let thread_runner_pointer = function_builder.block_params(function_entry_block)[0];
         let call_frame_pointer = function_builder.block_params(function_entry_block)[1];
-        function_builder.def_var(Variable::new(0), thread_runner_pointer);
-        function_builder.def_var(Variable::new(1), call_frame_pointer);
+        function_builder.def_var(variable_0, thread_runner_pointer);
+        function_builder.def_var(variable_1, call_frame_pointer);
 
         function_builder.ins().jump(instruction_blocks[0], &[]);
 
@@ -121,8 +169,8 @@ impl Jit {
                 continue;
             }
             function_builder.switch_to_block(instruction_blocks[current_instruction_pointer]);
-            let _thread_runner_pointer = function_builder.use_var(Variable::new(0));
-            let call_frame_pointer = function_builder.use_var(Variable::new(1));
+            let _thread_runner_pointer = function_builder.use_var(variable_0);
+            let call_frame_pointer = function_builder.use_var(variable_1);
             let current_instruction = &bytecode_instructions[current_instruction_pointer];
 
             match current_instruction.operation() {
@@ -620,9 +668,8 @@ impl Jit {
                     if should_return_value != 0 {
                         match r#type {
                             OperandType::INTEGER => {
-                                let thread_runner_pointer =
-                                    function_builder.use_var(Variable::new(0));
-                                let call_frame_pointer = function_builder.use_var(Variable::new(1));
+                                let thread_runner_pointer = function_builder.use_var(variable_0);
+                                let call_frame_pointer = function_builder.use_var(variable_1);
                                 let call_frame_registers_field_offset =
                                     offset_of!(CallFrame, registers) as i32;
                                 let call_frame_registers_pointer = function_builder.ins().load(
@@ -674,15 +721,13 @@ impl Jit {
                     });
                 }
             }
+
             if !matches!(
                 current_instruction.operation(),
                 Operation::JUMP | Operation::RETURN | Operation::LESS
             ) {
                 let next_sequential_instruction_pointer = current_instruction_pointer + 1;
-                if next_sequential_instruction_pointer < instruction_blocks.len()
-                    && bytecode_instructions[next_sequential_instruction_pointer].operation()
-                        != Operation::RETURN
-                {
+                if next_sequential_instruction_pointer < instruction_blocks.len() {
                     function_builder
                         .ins()
                         .jump(instruction_blocks[next_sequential_instruction_pointer], &[]);
@@ -691,6 +736,7 @@ impl Jit {
                     }
                 }
             }
+
             processed_instructions[current_instruction_pointer] = true;
         }
 
@@ -711,30 +757,8 @@ impl Jit {
                 message: format!("Failed to define function: {error}"),
             })?;
         self.module.clear_context(&mut compilation_context);
-        self.module
-            .finalize_definitions()
-            .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
-                message: format!("Failed to finalize definitions: {error}"),
-            })?;
 
-        let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
-        let logic = unsafe {
-            std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
-                compiled_function_pointer,
-            )
-        };
-
-        Ok(JitChunk {
-            logic,
-            register_count: chunk.register_count,
-        })
-    }
-}
-
-impl Default for Jit {
-    fn default() -> Self {
-        Self::new()
+        Ok((compiled_function_id, chunk.register_count))
     }
 }
 
