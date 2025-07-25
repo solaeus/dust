@@ -9,7 +9,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    CallFrame, OperandType, Operation, Register, StrippedChunk, ThreadRunner,
+    CallFrame, OperandType, Operation, Register, StrippedChunk, Thread,
     instruction::{Jump, Load, MemoryKind, Return, Test},
 };
 
@@ -23,10 +23,7 @@ pub struct Jit {
 
 /// # Safety
 /// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
-pub unsafe extern "C" fn set_return_value_integer(
-    thread_runner: *mut ThreadRunner,
-    integer_value: i64,
-) {
+pub unsafe extern "C" fn set_return_value_integer(thread_runner: *mut Thread, integer_value: i64) {
     unsafe {
         (*thread_runner).return_value = Some(crate::Value::Integer(integer_value));
     }
@@ -722,7 +719,7 @@ impl Jit {
 
         let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
         let logic = unsafe {
-            std::mem::transmute::<*const u8, extern "C" fn(*mut ThreadRunner, *mut CallFrame)>(
+            std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
                 compiled_function_pointer,
             )
         };
@@ -742,13 +739,13 @@ impl Default for Jit {
 
 #[derive(Debug)]
 pub struct JitChunk {
-    pub logic: extern "C" fn(*mut ThreadRunner, *mut CallFrame),
+    pub logic: extern "C" fn(*mut Thread, *mut CallFrame),
     pub register_count: usize,
 }
 
 impl JitChunk {
     pub fn no_op() -> Self {
-        extern "C" fn no_op_logic(_: *mut ThreadRunner, _: *mut CallFrame) {}
+        extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame) {}
 
         Self {
             logic: no_op_logic,

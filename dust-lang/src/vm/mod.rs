@@ -7,7 +7,7 @@ pub mod thread;
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
 pub use memory::{Object, Register};
-pub use thread::{Thread, ThreadRunner};
+pub use thread::{Thread, ThreadHandle};
 
 use std::sync::{Arc, RwLock};
 
@@ -19,7 +19,7 @@ use crate::{
     jit::{Jit, JitError},
 };
 
-pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
+pub type ThreadPool = Arc<RwLock<Vec<ThreadHandle>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
     let program = compile::<StrippedChunk>(source)?;
@@ -29,7 +29,7 @@ pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_
 }
 
 pub struct Vm {
-    main_thread: Thread,
+    main_thread: ThreadHandle,
     threads: ThreadPool,
 }
 
@@ -47,7 +47,7 @@ impl Vm {
             jit_chunks.push(Arc::new(jit_chunk));
         }
 
-        let main_thread = Thread::new(Arc::new(jit_chunks), cells, Arc::clone(&threads));
+        let main_thread = ThreadHandle::new(Arc::new(jit_chunks), cells, Arc::clone(&threads));
 
         Ok(Self {
             main_thread,

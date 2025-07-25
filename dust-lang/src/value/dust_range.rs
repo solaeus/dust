@@ -14,7 +14,7 @@ pub enum DustRange {
 }
 
 impl DustRange {
-    pub fn r#type(&self) -> Type {
+    pub fn _type(&self) -> Type {
         match self {
             DustRange::Byte(_) => Type::Range(Box::new(Type::Byte)),
             DustRange::Character(_) => Type::Range(Box::new(Type::Character)),

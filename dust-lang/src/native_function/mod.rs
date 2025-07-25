@@ -6,28 +6,17 @@ mod convert;
 mod io;
 mod thread;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    marker::PhantomData,
-    sync::{Arc, RwLock},
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
 use tracing::warn;
 
-use crate::{
-    Address, Chunk, FunctionType, OperandType, Type,
-    vm::{CallFrame, Cell, ThreadPool},
-};
+use crate::{FunctionType, Type, vm::CallFrame};
 
-pub type NativeFunctionLogic = fn(
-    destination: Address,
-    arguments: &[(Address, OperandType)],
-    call: &mut CallFrame,
-    cells: &Arc<RwLock<Vec<Cell>>>,
-    threads: &ThreadPool,
-);
+#[allow(non_camel_case_types)]
+pub type NativeFunctionLogic =
+    unsafe extern "C" fn(thread: &mut crate::vm::Thread, frame: &mut CallFrame);
 
 macro_rules! define_native_function {
     ($(($index: literal, $name:expr, $type:expr, $logic:expr)),*) => {
@@ -41,33 +30,10 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-            const LOOKUP_TABLE: [NativeFunctionLogic; 5] = [
-                $(
-                    $logic,
-                )*
-            ];
-
             pub fn from_index(index: usize) -> Self {
                 NativeFunction {
                     index,
                 }
-            }
-
-            pub fn call(
-                &self,
-                destination: Address,
-                arguments: &[(Address, OperandType)],
-                call: &mut CallFrame,
-                cells: &Arc<RwLock<Vec<Cell>>>,
-                threads: &ThreadPool,
-            ) {
-                Self::LOOKUP_TABLE[self.index as usize](
-                    destination,
-                    arguments,
-                    call,
-                    cells,
-                    threads,
-                );
             }
 
             pub fn name(&self) -> &'static str {
@@ -123,13 +89,8 @@ macro_rules! define_native_function {
     }
 }
 
-fn no_op(
-    _destination: Address,
-    _arguments: &[(Address, OperandType)],
-    _call: &mut CallFrame,
-    _cells: &Arc<RwLock<Vec<Cell>>>,
-    _threads: &ThreadPool,
-) {
+#[unsafe(no_mangle)]
+pub extern "C" fn no_op(_thread: &mut crate::vm::Thread, _frame: &mut CallFrame) {
     warn!("Running NO_OP native function")
 }
 

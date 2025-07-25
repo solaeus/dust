@@ -1,18 +1,8 @@
 #![macro_use]
 
-use std::sync::{Arc, RwLock};
+use crate::vm::CallFrame;
 
-use crate::{
-    Address, Chunk, OperandType,
-    vm::{CallFrame, Cell, ThreadPool},
-};
-
-pub fn int_to_str(
-    destination: Address,
-    arguments: &[(Address, OperandType)],
-    call: &mut CallFrame,
-    cells: &Arc<RwLock<Vec<Cell>>>,
-    _: &ThreadPool,
-) {
+#[unsafe(no_mangle)]
+pub extern "C" fn int_to_str(_: &mut crate::vm::Thread, _: &mut CallFrame) {
     todo!()
 }

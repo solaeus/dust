@@ -9,19 +9,19 @@ use crate::{Address, JitChunk, StrippedChunk, Value, instruction::OperandType, v
 
 use super::{CallFrame, Cell, Object};
 
-pub struct Thread {
+pub struct ThreadHandle {
     pub handle: JoinHandle<Option<Value<StrippedChunk>>>,
 }
 
-impl Thread {
+impl ThreadHandle {
     pub fn new(
         chunks: Arc<Vec<Arc<JitChunk>>>,
         cells: Arc<RwLock<Vec<Cell>>>,
-        threads: Arc<RwLock<Vec<Thread>>>,
+        threads: Arc<RwLock<Vec<ThreadHandle>>>,
     ) -> Self {
         let handle = ThreadBuilder::new()
             .spawn(move || {
-                let runner = ThreadRunner {
+                let runner = Thread {
                     object_pool: Vec::new(),
                     call_stack: Vec::new(),
                     threads,
@@ -35,12 +35,12 @@ impl Thread {
             })
             .expect("Failed to spawn thread");
 
-        Thread { handle }
+        ThreadHandle { handle }
     }
 }
 
 #[repr(C)]
-pub struct ThreadRunner<'a> {
+pub struct Thread<'a> {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
 
@@ -50,11 +50,11 @@ pub struct ThreadRunner<'a> {
 
     object_pool: Vec<Object>,
 
-    threads: Arc<RwLock<Vec<Thread>>>,
+    threads: Arc<RwLock<Vec<ThreadHandle>>>,
     cells: Arc<RwLock<Vec<Cell>>>,
 }
 
-impl<'a> ThreadRunner<'a> {
+impl<'a> Thread<'a> {
     fn run(mut self) -> Option<Value<StrippedChunk>> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();

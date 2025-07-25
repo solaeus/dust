@@ -1,16 +1,6 @@
-use std::sync::{Arc, RwLock};
+use crate::{Thread, vm::CallFrame};
 
-use crate::{
-    Address, OperandType,
-    vm::{CallFrame, Cell, ThreadPool},
-};
-
-pub fn spawn(
-    _: Address,
-    arguments: &[(Address, OperandType)],
-    call: &mut CallFrame,
-    cells: &Arc<RwLock<Vec<Cell>>>,
-    threads: &ThreadPool,
-) {
+#[unsafe(no_mangle)]
+pub extern "C" fn spawn(_: &mut Thread, _: &mut CallFrame) {
     todo!();
 }

@@ -1,26 +1,11 @@
-use std::sync::{Arc, RwLock};
+use crate::{Thread, vm::CallFrame};
 
-use crate::{
-    Address, Chunk, OperandType,
-    vm::{CallFrame, Cell, ThreadPool},
-};
-
-pub fn read_line(
-    destination: Address,
-    _: &[(Address, OperandType)],
-    _: &mut CallFrame,
-    cells: &Arc<RwLock<Vec<Cell>>>,
-    _: &ThreadPool,
-) {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn read_line(_: &mut Thread, _: &mut CallFrame) {
     todo!()
 }
 
-pub fn write_line(
-    _: Address,
-    arguments: &[(Address, OperandType)],
-    call: &mut CallFrame,
-    cells: &Arc<RwLock<Vec<Cell>>>,
-    _: &ThreadPool,
-) {
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn write_line(_: &mut Thread, _: &mut CallFrame) {
     todo!()
 }
