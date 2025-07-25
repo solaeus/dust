@@ -237,13 +237,21 @@ fn main() {
             Format::Dust => {
                 let mut stdout = stdout().lock();
 
+                dust_crate
+                    .main
+                    .disassembler(&mut stdout)
+                    .width(80)
+                    .style(style)
+                    .source(&source)
+                    .disassemble()
+                    .expect("Failed to write disassembly to stdout");
+
                 for chunk in dust_crate.prototypes {
                     chunk
                         .disassembler(&mut stdout)
                         .width(80)
                         .style(style)
                         .source(&source)
-                        .show_chunk_type_name(true)
                         .disassemble()
                         .expect("Failed to write disassembly to stdout");
                 }

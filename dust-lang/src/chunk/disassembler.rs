@@ -41,7 +41,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Address, Local, Value, chunk::Chunk};
+use crate::{Address, Local, chunk::Chunk};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 17), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -77,6 +77,13 @@ const LEFT_BORDER: char = '│';
 const RIGHT_BORDER: char = '│';
 const BOTTOM_BORDER: [char; 3] = ['╰', '─', '╯'];
 
+const ARGUMENTS_COLUMNS: [(&str, usize); 2] = [("i", 5), ("ADDRESSES", 53)];
+const ARGUMENTS_BORDERS: [&str; 3] = [
+    "╭─────┬─────────────────────────────────────────────────────╮",
+    "├─────┼─────────────────────────────────────────────────────┤",
+    "╰─────┴─────────────────────────────────────────────────────╯",
+];
+
 /// Builder that constructs a human-readable representation of a chunk.
 ///
 /// See the [module-level documentation](index.html) for more information.
@@ -90,7 +97,6 @@ pub struct Disassembler<'a, 'w, C, W> {
     indent: usize,
     width: usize,
     show_type: bool,
-    show_chunk_type_name: bool,
 }
 
 impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
@@ -103,14 +109,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
             indent: 0,
             width: 80,
             show_type: false,
-            show_chunk_type_name: true,
         }
-    }
-
-    fn indent(&mut self, indent: usize) -> &mut Self {
-        self.indent = indent;
-
-        self
     }
 
     pub fn source(&mut self, source: &'a str) -> &mut Self {
@@ -127,12 +126,6 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
     pub fn show_type(&mut self, show_type: bool) -> &mut Self {
         self.show_type = show_type;
-
-        self
-    }
-
-    pub fn show_chunk_type_name(&mut self, show_chunk_type_name: bool) -> &mut Self {
-        self.show_chunk_type_name = show_chunk_type_name;
 
         self
     }
@@ -339,7 +332,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
                 identifier
             };
-            let address = address.display_with_type(crate::instruction::OperandType::NONE);
+            let address = address.display_with_type(r#type.as_operand_type());
             let r#type = r#type.to_string();
             let scope = scope.to_string();
             let row = format!(
@@ -355,64 +348,6 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
     }
 
     fn write_constant_section(&mut self) -> Result<(), io::Error> {
-        fn write_constants<'a, 'w, C, W>(
-            disassembler: &mut Disassembler<'a, 'w, C, W>,
-            constants: &'a [Value<C>],
-        ) -> Result<(), io::Error>
-        where
-            C: Chunk,
-            W: Write,
-        {
-            for (index, value) in constants.iter().enumerate() {
-                let r#type = value.r#type();
-                let type_display = r#type.to_string();
-                let value_display = {
-                    let mut value_string = value.to_string();
-
-                    if value_string.len() > 26 {
-                        value_string = format!("{value_string:.23}...");
-                    }
-
-                    value_string
-                };
-                let register_display = Address::constant(index)
-                    .display_with_type(crate::instruction::OperandType::NONE);
-                let constant_display =
-                    format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
-
-                disassembler.write_center_border(&constant_display)?;
-            }
-
-            Ok(())
-        }
-
-        fn write_prototypes<'a, 'w, C, W>(
-            disassembler: &mut Disassembler<'a, 'w, C, W>,
-            constants: &'a [Value<C>],
-        ) -> Result<(), io::Error>
-        where
-            C: Chunk,
-            W: Write,
-        {
-            for value in constants
-                .iter()
-                .skip_while(|value| !matches!(value, Value::Function(_)))
-            {
-                if let Value::Function(prototype) = value {
-                    prototype
-                        .disassembler(disassembler.writer)
-                        .indent(disassembler.indent + 1)
-                        .style(disassembler.style)
-                        .show_type(disassembler.show_type)
-                        .show_chunk_type_name(false)
-                        .width(disassembler.width)
-                        .disassemble()?;
-                }
-            }
-
-            Ok(())
-        }
-
         let mut column_name_line = String::new();
 
         for (column_name, width) in CONSTANT_COLUMNS {
@@ -424,22 +359,64 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
         self.write_center_border(CONSTANT_BORDERS[0])?;
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
-        write_constants(self, self.chunk.constants())?;
+
+        let constants = self.chunk.constants();
+        for (index, value) in constants.iter().enumerate() {
+            let r#type = value.r#type();
+            let type_display = r#type.to_string();
+            let value_display = {
+                let mut value_string = value.to_string();
+
+                if value_string.len() > 26 {
+                    value_string = format!("{value_string:.23}...");
+                }
+
+                value_string
+            };
+            let register_display =
+                Address::constant(index).display_with_type(r#type.as_operand_type());
+            let constant_display =
+                format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
+
+            self.write_center_border(&constant_display)?;
+        }
+
         self.write_center_border(CONSTANT_BORDERS[2])?;
-        write_prototypes(self, self.chunk.constants())?;
+
+        Ok(())
+    }
+
+    fn write_arguments_section(&mut self) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in ARGUMENTS_COLUMNS {
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
+        }
+
+        column_name_line.push('│');
+        self.write_center_border_bold("Call Arguments")?;
+        self.write_center_border(ARGUMENTS_BORDERS[0])?;
+        self.write_center_border_bold(&column_name_line)?;
+        self.write_center_border(ARGUMENTS_BORDERS[1])?;
+
+        for (index, arguments) in self.chunk.call_arguments().iter().enumerate() {
+            let arguments_display = arguments
+                .iter()
+                .map(|(address, r#type)| address.display_with_type(*r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let row = format!("│{index:^5}│{arguments_display:^53}│");
+
+            self.write_center_border(&row)?;
+        }
+
+        self.write_center_border(ARGUMENTS_BORDERS[2])?;
 
         Ok(())
     }
 
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.write_page_border(TOP_BORDER)?;
-
-        if self.show_chunk_type_name {
-            let chunk_type_name = C::chunk_type_name();
-
-            self.write_center_border_bold(chunk_type_name)?;
-            self.write_center_border(&"┈".repeat(self.width))?;
-        }
 
         let name = self.chunk.name();
 
@@ -493,6 +470,10 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
         if !self.chunk.constants().is_empty() {
             self.write_constant_section()?;
+        }
+
+        if !self.chunk.call_arguments().is_empty() {
+            self.write_arguments_section()?;
         }
 
         self.write_page_border(BOTTOM_BORDER)

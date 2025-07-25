@@ -2,27 +2,26 @@ use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
-    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DebugChunk, DustString, StrippedChunk, Type, chunk::Chunk};
+use crate::{DustString, Function, Type};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
-pub enum List<C> {
+pub enum List {
     Boolean(Vec<bool>),
     Byte(Vec<u8>),
     Character(Vec<char>),
     Float(Vec<f64>),
     Integer(Vec<i64>),
     String(Vec<DustString>),
-    List(Vec<List<C>>),
-    Function(Vec<Arc<C>>),
+    List(Vec<List>),
+    Function(Vec<Function>),
 }
 
-impl<C: Chunk> List<C> {
+impl List {
     pub fn boolean<T: Into<Vec<bool>>>(booleans: T) -> Self {
         List::Boolean(booleans.into())
     }
@@ -48,11 +47,11 @@ impl<C: Chunk> List<C> {
     }
 
     #[expect(clippy::self_named_constructors)]
-    pub fn list<T: Into<Vec<List<C>>>>(lists: T) -> Self {
+    pub fn list<T: Into<Vec<List>>>(lists: T) -> Self {
         List::List(lists.into())
     }
 
-    pub fn function<T: Into<Vec<Arc<C>>>>(functions: T) -> Self {
+    pub fn function<T: Into<Vec<Function>>>(functions: T) -> Self {
         List::Function(functions.into())
     }
 
@@ -70,7 +69,7 @@ impl<C: Chunk> List<C> {
                 .unwrap_or(Type::None),
             List::Function(functions) => functions
                 .first()
-                .map(|function| Type::Function(Box::new(function.r#type().clone())))
+                .map(|function| Type::Function(Box::new(function.r#type.clone())))
                 .unwrap_or(Type::None),
         }
     }
@@ -80,37 +79,7 @@ impl<C: Chunk> List<C> {
     }
 }
 
-impl List<DebugChunk> {
-    pub fn strip_chunks(self) -> List<StrippedChunk> {
-        match self {
-            List::Boolean(booleans) => List::Boolean(booleans),
-            List::Byte(bytes) => List::Byte(bytes),
-            List::Character(characters) => List::Character(characters),
-            List::Float(floats) => List::Float(floats),
-            List::Integer(items) => List::Integer(items),
-            List::String(strings) => List::String(strings),
-            List::List(lists) => {
-                let stripped_lists = lists.into_iter().map(|list| list.strip_chunks()).collect();
-
-                List::List(stripped_lists)
-            }
-            List::Function(functions) => {
-                let stripped_functions = functions
-                    .into_iter()
-                    .map(|function| {
-                        let function = Arc::unwrap_or_clone(function);
-
-                        Arc::new(function.strip())
-                    })
-                    .collect::<Vec<_>>();
-
-                List::Function(stripped_functions)
-            }
-        }
-    }
-}
-
-impl<C: Chunk> Display for List<C> {
+impl Display for List {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 
@@ -184,7 +153,7 @@ impl<C: Chunk> Display for List<C> {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{}", function.r#type())?;
+                    write!(f, "{}", function.r#type)?;
                 }
             }
         }
@@ -193,93 +162,68 @@ impl<C: Chunk> Display for List<C> {
     }
 }
 
-impl<C: PartialEq> Eq for List<C> {}
+impl Eq for List {}
 
-impl<C: PartialEq> PartialEq for List<C> {
+impl PartialEq for List {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (List::Boolean(left), List::Boolean(right)) => left == right,
-            (List::Byte(left), List::Byte(right)) => left == right,
-            (List::Character(left), List::Character(right)) => left == right,
-            (List::Float(left), List::Float(right)) => {
-                for (left, right) in left.iter().zip(right.iter()) {
-                    if left.to_bits() != right.to_bits() {
-                        return false;
-                    }
-                }
-
-                true
-            }
-            (List::Integer(left), List::Integer(right)) => left == right,
-            (List::String(left), List::String(right)) => left == right,
-            (List::List(left), List::List(right)) => left == right,
-            (List::Function(left), List::Function(right)) => left == right,
-            _ => false,
+            (List::Boolean(a), List::Boolean(b)) => a == b,
+            (List::Byte(a), List::Byte(b)) => a == b,
+            (List::Character(a), List::Character(b)) => a == b,
+            (List::Float(a), List::Float(b)) => a == b,
+            (List::Integer(a), List::Integer(b)) => a == b,
+            (List::String(a), List::String(b)) => a == b,
+            (List::List(a), List::List(b)) => a == b,
+            (List::Function(a), List::Function(b)) => a == b,
+            _ => self.r#type() == other.r#type(),
         }
     }
 }
 
-impl<C: Ord> PartialOrd for List<C> {
+impl PartialOrd for List {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: Ord> Ord for List<C> {
+impl Ord for List {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (List::Boolean(left), List::Boolean(right)) => left.cmp(right),
-            (List::Byte(left), List::Byte(right)) => left.cmp(right),
-            (List::Character(left), List::Character(right)) => left.cmp(right),
-            (List::Float(left), List::Float(right)) => {
-                for (left, right) in left.iter().zip(right.iter()) {
-                    let cmp = left.total_cmp(right);
-
-                    if cmp != Ordering::Equal {
-                        return cmp;
-                    }
-                }
-
-                Ordering::Equal
-            }
-            (List::Integer(left), List::Integer(right)) => left.cmp(right),
-            (List::String(left), List::String(right)) => left.cmp(right),
-            (List::List(left), List::List(right)) => left.cmp(right),
-            (List::Function(left), List::Function(right)) => {
-                for (left, right) in left.iter().zip(right.iter()) {
-                    let cmp = Arc::as_ptr(left).cmp(&Arc::as_ptr(right));
-
-                    if cmp != Ordering::Equal {
-                        return cmp;
-                    }
-                }
-
-                Ordering::Equal
-            }
-            _ => Ordering::Equal,
+            (List::Boolean(a), List::Boolean(b)) => a.cmp(b),
+            (List::Byte(a), List::Byte(b)) => a.cmp(b),
+            (List::Character(a), List::Character(b)) => a.cmp(b),
+            (List::Float(a), List::Float(b)) => a
+                .iter()
+                .zip(b.iter())
+                .find_map(|(a, b)| match a.to_bits().cmp(&b.to_bits()) {
+                    Ordering::Equal => None,
+                    other => Some(other),
+                })
+                .unwrap_or(Ordering::Equal),
+            (List::Integer(a), List::Integer(b)) => a.cmp(b),
+            (List::String(a), List::String(b)) => a.cmp(b),
+            (List::List(a), List::List(b)) => a.cmp(b),
+            (List::Function(a), List::Function(b)) => a.cmp(b),
+            _ => self.r#type().cmp(&other.r#type()),
         }
     }
 }
 
-impl Hash for List<StrippedChunk> {
+impl Hash for List {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            List::Boolean(value) => value.hash(state),
-            List::Byte(value) => value.hash(state),
-            List::Character(value) => value.hash(state),
-            List::Float(value) => {
-                for float in value {
+            List::Boolean(booleans) => booleans.hash(state),
+            List::Byte(bytes) => bytes.hash(state),
+            List::Character(characters) => characters.hash(state),
+            List::Float(floats) => {
+                for float in floats {
                     float.to_bits().hash(state);
                 }
             }
-            List::Integer(value) => value.hash(state),
-            List::String(value) => value.hash(state),
-            List::List(value) => value.hash(state),
-            List::Function(value) => {
-                for function in value {
-                    Arc::as_ptr(function).hash(state);
-                }
-            }
+            List::Integer(items) => items.hash(state),
+            List::String(strings) => strings.hash(state),
+            List::List(lists) => lists.hash(state),
+            List::Function(functions) => functions.hash(state),
         }
     }
 }

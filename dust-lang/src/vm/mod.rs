@@ -21,7 +21,7 @@ use crate::{
 
 pub type ThreadPool = Arc<RwLock<Vec<ThreadHandle>>>;
 
-pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
+pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
     let program = compile::<StrippedChunk>(source)?;
     let vm = Vm::new(program).map_err(DustError::jit)?;
 
@@ -47,7 +47,13 @@ impl Vm {
             jit_chunks.push(Arc::new(jit_chunk));
         }
 
-        let main_thread = ThreadHandle::new(Arc::new(jit_chunks), cells, Arc::clone(&threads));
+        let main_chunk = jit.compile(&program.main)?;
+        let main_thread = ThreadHandle::new(
+            Arc::new(main_chunk),
+            Arc::new(jit_chunks),
+            cells,
+            Arc::clone(&threads),
+        );
 
         Ok(Self {
             main_thread,
@@ -55,7 +61,7 @@ impl Vm {
         })
     }
 
-    pub fn run(self) -> Option<Value<StrippedChunk>> {
+    pub fn run(self) -> Option<Value> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 

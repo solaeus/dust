@@ -65,7 +65,7 @@ pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
-pub use value::{DustString, List, Value};
+pub use value::{DustString, Function, List, Value};
 pub use vm::{CallFrame, Cell, Object, Register, Thread, Vm, run};
 
 use std::fmt::Display;

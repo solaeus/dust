@@ -111,7 +111,7 @@ impl<C: Chunk> Compiler<C> {
         let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut());
+            apply_standard_library::<C>(&mut *main_module.borrow_mut());
         }
 
         let mut chunk_compiler = ChunkCompiler::<C>::new(
@@ -155,7 +155,7 @@ impl<C: Chunk> Compiler<C> {
         let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut());
+            apply_standard_library::<C>(&mut *main_module.borrow_mut());
         }
 
         let mut chunk_compiler = ChunkCompiler::<C>::new(
@@ -173,12 +173,10 @@ impl<C: Chunk> Compiler<C> {
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
         let compiled_data = CompiledData::new(chunk_compiler);
         let main_chunk = C::new(compiled_data);
-
-        let mut prototypes = Rc::into_inner(prototypes).unwrap().into_inner();
-
-        prototypes.insert(0, main_chunk);
+        let prototypes = Rc::into_inner(prototypes).unwrap().into_inner();
 
         Ok(Program {
+            main: main_chunk,
             prototypes,
             cell_count,
         })
@@ -191,19 +189,20 @@ impl<C: Chunk> Default for Compiler<C> {
     }
 }
 
-pub struct CompiledData<C> {
+pub struct CompiledData {
     pub name: Option<Path>,
     pub r#type: FunctionType,
     pub instructions: Vec<Instruction>,
     pub positions: Vec<Span>,
-    pub constants: Vec<Value<C>>,
+    pub constants: Vec<Value>,
     pub locals: IndexMap<Path, Local>,
+    pub call_arguments: Vec<Vec<(Address, OperandType)>>,
     pub register_count: usize,
     pub prototype_index: usize,
 }
 
-impl<C: Chunk> CompiledData<C> {
-    fn new(chunk_compiler: ChunkCompiler<C>) -> Self {
+impl CompiledData {
+    fn new<C>(chunk_compiler: ChunkCompiler<C>) -> Self {
         let register_count = chunk_compiler.instructions.iter().fold(
             chunk_compiler.minimum_register_index,
             |acc, (instruction, _, _)| {
@@ -231,6 +230,7 @@ impl<C: Chunk> CompiledData<C> {
             positions,
             constants: chunk_compiler.constants,
             locals: chunk_compiler.locals,
+            call_arguments: chunk_compiler.call_arguments,
             register_count,
             prototype_index: chunk_compiler.prototype_index,
         }
@@ -263,10 +263,12 @@ pub(crate) struct ChunkCompiler<'a, C> {
 
     /// Constant values that have been compiled, including function prototypes. These are assigned to
     /// the chunk when [`Compiler::finish`] is called.
-    constants: Vec<Value<C>>,
+    constants: Vec<Value>,
 
     /// Block-local variables.
     locals: IndexMap<Path, Local>,
+
+    call_arguments: Vec<Vec<(Address, OperandType)>>,
 
     minimum_register_index: usize,
 
@@ -324,6 +326,7 @@ where
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: IndexMap::new(),
+            call_arguments: Vec::new(),
             lexer,
             minimum_register_index: 0,
             reclaimable_register_indexes: Vec::new(),
@@ -492,7 +495,7 @@ where
         })
     }
 
-    fn push_constant_or_get_index(&mut self, constant: Value<C>) -> usize {
+    fn push_constant_or_get_index(&mut self, constant: Value) -> usize {
         let found_index = self
             .constants
             .iter()
@@ -2123,6 +2126,8 @@ where
         let prototypes = prototypes.borrow();
         let (function_type, prototype_index) = match function_token {
             Token::Identifier(text) => {
+                self.instructions.pop();
+
                 if let CompileMode::Function { name } = &self.mode
                     && name.as_ref() == Some(&Path::new(text).unwrap())
                 {
@@ -2148,35 +2153,39 @@ where
                 });
             }
         };
-        let argument_count = function_type.value_parameters.len();
-        let mut argument_registers = Vec::with_capacity(argument_count);
+        let mut argument_addresses = Vec::new();
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_register = self.next_register_index() - 1;
+            let (address, r#type) = self
+                .instructions
+                .pop()
+                .map(|(instruction, r#type, _)| {
+                    let address = self.handle_binary_argument(instruction).0;
 
-            argument_registers.push(argument_register);
-        }
+                    (address, r#type.as_operand_type())
+                })
+                .unwrap();
 
-        let destination_index = self.next_register_index();
-        let correct_argument_range = (destination_index - argument_count)..destination_index;
-        let arguments_are_in_correct_registers = argument_registers
-            .iter()
-            .zip(correct_argument_range)
-            .all(|(argument_register, expected_register)| *argument_register == expected_register);
-
-        if !arguments_are_in_correct_registers {
-            todo!()
+            argument_addresses.push((address, r#type));
         }
 
         let end = self.current_position.1;
-        let return_type = function_type.return_type.clone();
-        let return_operand_type = function_type.return_type.as_operand_type();
+        let argument_index = self.call_arguments.len();
+
+        self.call_arguments.push(argument_addresses);
+
         let destination = Address::register(self.next_register_index());
         let operand = Address::constant(prototype_index);
-        let call = Instruction::call(destination, operand, argument_count, return_operand_type);
+        let return_type = function_type.return_type;
+        let call = Instruction::call(
+            destination,
+            operand,
+            argument_index,
+            return_type.as_operand_type(),
+        );
 
         self.emit_instruction(call, return_type, Span(function_token_position.0, end));
 
@@ -2319,7 +2328,7 @@ where
                         module.items.insert(
                             path.clone(),
                             (
-                                Item::Function(prototype.into_function()),
+                                Item::Function(prototype),
                                 Span(start_function_position, end_function_position),
                             ),
                         );
@@ -2596,8 +2605,10 @@ where
             }
             Item::Function(prototype) => {
                 let r#type = Type::Function(Box::new(prototype.r#type().clone()));
-                let function = Value::Function(prototype);
-                let prototype_index = self.push_constant_or_get_index(function);
+                let prototype_index = self.prototypes.borrow().len();
+
+                self.prototypes.borrow_mut().push(prototype);
+
                 let address = Address::constant(prototype_index);
 
                 self.declare_local(

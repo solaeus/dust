@@ -6,24 +6,27 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FunctionType, Instruction, Local, Path, Value, compiler::CompiledData};
+use crate::{
+    Address, FunctionType, Instruction, Local, OperandType, Path, Value, compiler::CompiledData,
+};
 
 use super::{Chunk, Disassemble, Disassembler};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[repr(C)]
 pub struct StrippedChunk {
-    pub(crate) constants: Vec<Value<Self>>,
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) constants: Vec<Value>,
+    pub(crate) call_arguments: Vec<Vec<(Address, OperandType)>>,
     pub(crate) register_count: usize,
     pub(crate) prototype_index: usize,
-    pub(crate) instructions: Vec<Instruction>,
     pub(crate) r#type: FunctionType,
 }
 
 impl Chunk for StrippedChunk {
-    fn new(data: CompiledData<Self>) -> Self {
+    fn new(data: CompiledData) -> Self {
         StrippedChunk {
             r#type: data.r#type,
+            call_arguments: data.call_arguments,
             instructions: data.instructions,
             constants: data.constants,
             register_count: data.register_count,
@@ -53,12 +56,16 @@ impl Chunk for StrippedChunk {
     }
 
     #[inline(always)]
-    fn constants(&self) -> &[Value<Self>] {
+    fn constants(&self) -> &[Value] {
         &self.constants
     }
 
     fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>> {
         None::<std::iter::Empty<(&Path, &Local)>>
+    }
+
+    fn call_arguments(&self) -> &Vec<Vec<(Address, OperandType)>> {
+        &self.call_arguments
     }
 
     fn register_count(&self) -> usize {

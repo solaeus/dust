@@ -408,13 +408,13 @@ impl Instruction {
     pub fn call(
         destination: Address,
         function: Address,
-        argument_count: usize,
+        arguments_index: usize,
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             function,
-            argument_count,
+            arguments_index,
             return_type,
         })
     }

@@ -13,8 +13,9 @@ impl<C> DustCrate<C> {
         Self::Library(module)
     }
 
-    pub fn program(prototypes: Vec<C>, cell_count: u16) -> Self {
+    pub fn program(main: C, prototypes: Vec<C>, cell_count: u16) -> Self {
         Self::Program(Box::new(Program {
+            main,
             prototypes,
             cell_count,
         }))
@@ -23,6 +24,7 @@ impl<C> DustCrate<C> {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Program<C> {
+    pub main: C,
     pub prototypes: Vec<C>,
     pub cell_count: u16,
 }
