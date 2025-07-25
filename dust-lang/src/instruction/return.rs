@@ -53,11 +53,13 @@ impl Display for Return {
         } = self;
 
         if *should_return_value != 0 {
-            write!(f, "RETURN {return_value_address}")?;
+            write!(
+                f,
+                "RETURN {}",
+                return_value_address.display_with_type(self.r#type)
+            )
         } else {
-            write!(f, "RETURN")?;
+            write!(f, "RETURN")
         }
-
-        Ok(())
     }
 }

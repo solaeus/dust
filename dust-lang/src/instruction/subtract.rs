@@ -65,6 +65,12 @@ impl Display for Subtract {
             ..
         } = self;
 
-        write!(f, "{destination} = {left} - {right}")
+        write!(
+            f,
+            "{} = {} - {}",
+            destination.display_with_type(self.r#type),
+            left.display_with_type(self.r#type),
+            right.display_with_type(self.r#type)
+        )
     }
 }

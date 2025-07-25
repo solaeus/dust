@@ -63,6 +63,12 @@ impl Display for Less {
         } = self;
         let operator = if *comparator != 0 { "<" } else { "≥" };
 
-        write!(f, "if {left} {operator} {right} {{ JUMP +1 }}")
+        write!(
+            f,
+            "if {} {} {} (jump +1)",
+            left.display_with_type(self.r#type),
+            operator,
+            right.display_with_type(self.r#type)
+        )
     }
 }

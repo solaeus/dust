@@ -63,23 +63,25 @@ impl Display for Call {
         } = self;
 
         if *return_type != OperandType::NONE {
-            write!(f, "{destination} = ")?;
+            write!(f, "{} = ", destination.display_with_type(*return_type))?;
         }
 
-        write!(f, "{function}")?;
+        write!(f, "{}", function.display_with_type(OperandType::FUNCTION))?;
 
         if *argument_count == 1 {
             write!(
                 f,
                 "({})",
                 Address::register(destination.index - argument_count)
+                    .display_with_type(OperandType::NONE)
             )
         } else if *argument_count > 0 {
             write!(
                 f,
                 "({}..{})",
-                Address::register(destination.index - argument_count),
-                Address::register(destination.index)
+                Address::register(destination.index - argument_count)
+                    .display_with_type(OperandType::NONE),
+                Address::register(destination.index).display_with_type(OperandType::NONE)
             )
         } else {
             write!(f, "()")

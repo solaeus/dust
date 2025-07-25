@@ -339,7 +339,7 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
                 identifier
             };
-            let address = address.to_string();
+            let address = address.display_with_type(crate::instruction::OperandType::NONE);
             let r#type = r#type.to_string();
             let scope = scope.to_string();
             let row = format!(
@@ -375,7 +375,8 @@ impl<'a, 'w, C: Chunk, W: Write> Disassembler<'a, 'w, C, W> {
 
                     value_string
                 };
-                let register_display = Address::constant(index).to_string();
+                let register_display = Address::constant(index)
+                    .display_with_type(crate::instruction::OperandType::NONE);
                 let constant_display =
                     format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 

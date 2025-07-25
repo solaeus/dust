@@ -1,5 +1,3 @@
-use std::fmt::{self, Formatter};
-
 use serde::{Deserialize, Serialize};
 
 use super::MemoryKind;
@@ -51,10 +49,22 @@ impl Address {
             memory: MemoryKind::CONSTANT,
         }
     }
-}
 
-impl fmt::Display for Address {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}_{}", self.memory, self.index)
+    pub fn display_with_type(&self, operand_type: crate::instruction::OperandType) -> String {
+        use crate::instruction::MemoryKind;
+        use crate::instruction::OperandType;
+
+        if self.memory == MemoryKind::CONSTANT && self.index == u16::MAX as usize {
+            return "self".to_string();
+        }
+
+        match (self.memory, operand_type) {
+            (MemoryKind::CONSTANT, OperandType::FUNCTION) => format!("proto_{}", self.index),
+            (MemoryKind::CONSTANT, _) => format!("const_{}", self.index),
+            (MemoryKind::REGISTER, _) => format!("reg_{}", self.index),
+            (MemoryKind::ENCODED, _) => format!("enc_{}", self.index),
+            (MemoryKind::CELL, _) => format!("cell_{}", self.index),
+            _ => format!("invalid_memory_kind_{}", self.index),
+        }
     }
 }

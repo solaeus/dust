@@ -48,6 +48,11 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}{operand} {{ JUMP +1 }}")
+        write!(
+            f,
+            "if {}{} (jump +1)",
+            bang,
+            operand.display_with_type(crate::instruction::OperandType::BOOLEAN)
+        )
     }
 }

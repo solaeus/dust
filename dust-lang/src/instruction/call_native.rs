@@ -55,7 +55,11 @@ impl Display for CallNative {
         } = self;
 
         if function.returns_value() {
-            write!(f, "{destination} = ")?;
+            write!(
+                f,
+                "{} = ",
+                destination.display_with_type(super::OperandType::FUNCTION)
+            )?;
         }
 
         write!(f, "{function}")?;
@@ -65,13 +69,15 @@ impl Display for CallNative {
                 f,
                 "({})",
                 Address::register(destination.index - argument_count)
+                    .display_with_type(super::OperandType::NONE)
             )
         } else if *argument_count > 0 {
             write!(
                 f,
                 "({}..{})",
-                Address::register(destination.index - argument_count),
-                Address::register(destination.index)
+                Address::register(destination.index - argument_count)
+                    .display_with_type(super::OperandType::NONE),
+                Address::register(destination.index).display_with_type(super::OperandType::NONE)
             )
         } else {
             write!(f, "()")

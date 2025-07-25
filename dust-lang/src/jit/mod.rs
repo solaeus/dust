@@ -9,8 +9,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    CallFrame, Instruction, OperandType, Operation, Register, StrippedChunk, ThreadRunner,
-    instruction::{Add, Jump, Less, Load, MemoryKind, Return, Test},
+    CallFrame, OperandType, Operation, Register, StrippedChunk, ThreadRunner,
+    instruction::{Jump, Load, MemoryKind, Return, Test},
 };
 
 pub extern "C" fn load_constant(value: u64) -> u64 {
@@ -45,7 +45,7 @@ impl Jit {
         Self { module }
     }
 
-    pub fn compile(&mut self, chunk: &StrippedChunk) -> Result<JitInstruction, JitError> {
+    pub fn compile(&mut self, chunk: &StrippedChunk) -> Result<JitChunk, JitError> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -727,7 +727,7 @@ impl Jit {
             )
         };
 
-        Ok(JitInstruction {
+        Ok(JitChunk {
             logic,
             register_count: chunk.register_count,
         })
@@ -740,12 +740,13 @@ impl Default for Jit {
     }
 }
 
-pub struct JitInstruction {
+#[derive(Debug)]
+pub struct JitChunk {
     pub logic: extern "C" fn(*mut ThreadRunner, *mut CallFrame),
     pub register_count: usize,
 }
 
-impl JitInstruction {
+impl JitChunk {
     pub fn no_op() -> Self {
         extern "C" fn no_op_logic(_: *mut ThreadRunner, _: *mut CallFrame) {}
 

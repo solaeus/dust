@@ -60,7 +60,7 @@ pub use dust_error::{AnnotatedError, DustError, JIT_ERROR_TEXT};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
-pub use jit::JitInstruction;
+pub use jit::JitChunk;
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
 pub use token::{Token, TokenKind, TokenOwned};

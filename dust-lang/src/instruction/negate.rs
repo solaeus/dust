@@ -62,6 +62,12 @@ impl Display for Negate {
             "-"
         };
 
-        write!(f, "{destination} = {operatore}{operand}")
+        write!(
+            f,
+            "{} = {}{}",
+            destination.display_with_type(*r#type),
+            operatore,
+            operand.display_with_type(*r#type)
+        )
     }
 }

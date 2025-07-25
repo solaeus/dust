@@ -158,7 +158,7 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let dust_crate = match input {
+        let dust_program = match input {
             Format::Dust => {
                 let compiler = Compiler::<StrippedChunk>::new();
 
@@ -185,22 +185,9 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::new(dust_crate.main_chunk);
-        let run_result = vm.run();
+        let vm = Vm::new(dust_program).expect("Failed to create JIT VM from Dust program");
+        let return_value = vm.run();
         let run_time = start_time.elapsed() - compile_time;
-
-        let return_value = match run_result {
-            Ok(value) => value,
-            Err(dust_error) => {
-                let report = dust_error.report();
-
-                if !no_output {
-                    eprintln!("{report}");
-                }
-
-                return;
-            }
-        };
 
         if !no_output && let Some(return_value) = return_value {
             println!("{return_value}")
@@ -250,15 +237,16 @@ fn main() {
             Format::Dust => {
                 let mut stdout = stdout().lock();
 
-                dust_crate
-                    .main_chunk
-                    .disassembler(&mut stdout)
-                    .width(80)
-                    .style(style)
-                    .source(&source)
-                    .show_chunk_type_name(true)
-                    .disassemble()
-                    .expect("Failed to write disassembly to stdout");
+                for chunk in dust_crate.prototypes {
+                    chunk
+                        .disassembler(&mut stdout)
+                        .width(80)
+                        .style(style)
+                        .source(&source)
+                        .show_chunk_type_name(true)
+                        .disassemble()
+                        .expect("Failed to write disassembly to stdout");
+                }
             }
             Format::Json => {
                 let json = serde_json::to_string_pretty(&dust_crate)

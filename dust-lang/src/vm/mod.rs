@@ -13,15 +13,19 @@ use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{DustError, StrippedChunk, Value, compile};
+use crate::{
+    DustError, StrippedChunk, Value, compile,
+    dust_crate::Program,
+    jit::{Jit, JitError},
+};
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
-    let chunk = compile::<StrippedChunk>(source)?;
-    let vm = Vm::new(chunk);
+    let program = compile::<StrippedChunk>(source)?;
+    let vm = Vm::new(program).map_err(DustError::jit)?;
 
-    vm.run()
+    Ok(vm.run())
 }
 
 pub struct Vm {
@@ -30,44 +34,42 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(main_chunk: StrippedChunk) -> Self {
+    pub fn new(program: Program<StrippedChunk>) -> Result<Self, JitError> {
         let threads = Arc::new(RwLock::new(Vec::new()));
         let cells = Arc::new(RwLock::new(Vec::<Cell>::new()));
-        let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
 
-        Self {
+        let mut jit = Jit::new();
+        let mut jit_chunks = Vec::new();
+
+        for chunk in program.prototypes {
+            let jit_chunk = jit.compile(&chunk)?;
+
+            jit_chunks.push(Arc::new(jit_chunk));
+        }
+
+        let main_thread = Thread::new(Arc::new(jit_chunks), cells, Arc::clone(&threads));
+
+        Ok(Self {
             main_thread,
             threads,
-        }
+        })
     }
 
-    pub fn run<'src>(self) -> Result<Option<Value<StrippedChunk>>, DustError<'src>> {
+    pub fn run(self) -> Option<Value<StrippedChunk>> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 
-        let return_result = self
+        let return_value = self
             .main_thread
             .handle
             .join()
             .expect("Main thread panicked");
         let mut threads = self.threads.write().expect("Failed to lock threads");
-        let mut spawned_thread_error = None;
 
         for thread in threads.drain(..) {
-            let thread_result = thread.handle.join().expect("Thread panicked");
-
-            if let Err(error) = thread_result {
-                spawned_thread_error = Some(error);
-            }
+            let _ = thread.handle.join().expect("Thread panicked");
         }
 
-        if let Some(error) = spawned_thread_error {
-            Err(DustError::jit(error))
-        } else {
-            match return_result {
-                Ok(value_option) => Ok(value_option),
-                Err(error) => Err(DustError::jit(error)),
-            }
-        }
+        return_value
     }
 }
