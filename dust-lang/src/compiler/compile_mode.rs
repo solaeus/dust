@@ -4,7 +4,7 @@ use super::Path;
 
 /// Indication of what the compiler will produce when it finishes.
 #[derive(Debug)]
-pub enum CompileMode<C> {
+pub enum CompileMode {
     /// Indicates that the compiler should produce a function prototype.
     Function { name: Option<Path> },
 
@@ -12,10 +12,10 @@ pub enum CompileMode<C> {
     Main { name: Path },
 
     /// Indicates that the compiler should parse values and place them in the namespace.
-    Module { name: Path, module: Module<C> },
+    Module { name: Path, module: Module },
 }
 
-impl<C> CompileMode<C> {
+impl CompileMode {
     pub fn into_name(self) -> Option<Path> {
         match self {
             CompileMode::Function { name } => name,

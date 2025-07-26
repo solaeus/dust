@@ -7,7 +7,7 @@ use std::{
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, JitInstruction, StrippedChunk, Value,
+    Address, Chunk, JitInstruction, Value,
     instruction::OperandType,
     jit::{Jit, JitError},
     vm::Register,
@@ -16,17 +16,17 @@ use crate::{
 use super::{CallFrame, Cell, Object};
 
 pub struct Thread {
-    pub handle: JoinHandle<Result<Option<Value<StrippedChunk>>, JitError>>,
+    pub handle: JoinHandle<Result<Option<Value>, JitError>>,
 }
 
 impl Thread {
     pub fn new(
-        chunk: StrippedChunk,
+        chunk: Chunk,
         cells: Arc<RwLock<Vec<Cell>>>,
         threads: Arc<RwLock<Vec<Thread>>>,
     ) -> Self {
         let name = chunk
-            .name()
+            .name
             .as_ref()
             .map(|name| name.to_string())
             .unwrap_or_else(|| "anonymous".to_string());
@@ -34,7 +34,6 @@ impl Thread {
             .name(name)
             .spawn(move || {
                 let runner = ThreadRunner {
-                    decoded_instruction_cache: HashMap::new(),
                     object_pool: Vec::new(),
                     call_stack: Vec::new(),
                     threads,
@@ -57,9 +56,7 @@ pub struct ThreadRunner<'a> {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
 
-    main_chunk: Arc<StrippedChunk>,
-
-    decoded_instruction_cache: HashMap<Arc<StrippedChunk>, Vec<JitInstruction>>,
+    main_chunk: Arc<Chunk>,
 
     call_stack: Vec<CallFrame<'a>>,
 
@@ -70,14 +67,14 @@ pub struct ThreadRunner<'a> {
 }
 
 impl<'a> ThreadRunner<'a> {
-    fn run(mut self) -> Result<Option<Value<StrippedChunk>>, JitError> {
+    fn run(mut self) -> Result<Option<Value>, JitError> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
         info!(
             "Starting thread {}",
             self.main_chunk
-                .name()
+                .name
                 .as_ref()
                 .map(|name| name.as_ref())
                 .unwrap_or_default()

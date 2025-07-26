@@ -7,22 +7,22 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DebugChunk, DustString, StrippedChunk, Type, chunk::Chunk};
+use crate::{DustString, Type, chunk::Chunk};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
-pub enum List<C> {
+pub enum List {
     Boolean(Vec<bool>),
     Byte(Vec<u8>),
     Character(Vec<char>),
     Float(Vec<f64>),
     Integer(Vec<i64>),
     String(Vec<DustString>),
-    List(Vec<List<C>>),
-    Function(Vec<Arc<C>>),
+    List(Vec<List>),
+    Function(Vec<Arc<Chunk>>),
 }
 
-impl<C: Chunk> List<C> {
+impl List {
     pub fn boolean<T: Into<Vec<bool>>>(booleans: T) -> Self {
         List::Boolean(booleans.into())
     }
@@ -48,11 +48,11 @@ impl<C: Chunk> List<C> {
     }
 
     #[expect(clippy::self_named_constructors)]
-    pub fn list<T: Into<Vec<List<C>>>>(lists: T) -> Self {
+    pub fn list<T: Into<Vec<List>>>(lists: T) -> Self {
         List::List(lists.into())
     }
 
-    pub fn function<T: Into<Vec<Arc<C>>>>(functions: T) -> Self {
+    pub fn function<T: Into<Vec<Arc<Chunk>>>>(functions: T) -> Self {
         List::Function(functions.into())
     }
 
@@ -70,7 +70,7 @@ impl<C: Chunk> List<C> {
                 .unwrap_or(Type::None),
             List::Function(functions) => functions
                 .first()
-                .map(|function| Type::Function(Box::new(function.r#type().clone())))
+                .map(|function| Type::Function(Box::new(function.r#type.clone())))
                 .unwrap_or(Type::None),
         }
     }
@@ -80,37 +80,7 @@ impl<C: Chunk> List<C> {
     }
 }
 
-impl List<DebugChunk> {
-    pub fn strip_chunks(self) -> List<StrippedChunk> {
-        match self {
-            List::Boolean(booleans) => List::Boolean(booleans),
-            List::Byte(bytes) => List::Byte(bytes),
-            List::Character(characters) => List::Character(characters),
-            List::Float(floats) => List::Float(floats),
-            List::Integer(items) => List::Integer(items),
-            List::String(strings) => List::String(strings),
-            List::List(lists) => {
-                let stripped_lists = lists.into_iter().map(|list| list.strip_chunks()).collect();
-
-                List::List(stripped_lists)
-            }
-            List::Function(functions) => {
-                let stripped_functions = functions
-                    .into_iter()
-                    .map(|function| {
-                        let function = Arc::unwrap_or_clone(function);
-
-                        Arc::new(function.strip())
-                    })
-                    .collect::<Vec<_>>();
-
-                List::Function(stripped_functions)
-            }
-        }
-    }
-}
-
-impl<C: Chunk> Display for List<C> {
+impl Display for List {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[")?;
 
@@ -184,7 +154,7 @@ impl<C: Chunk> Display for List<C> {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{}", function.r#type())?;
+                    write!(f, "{}", function.r#type)?;
                 }
             }
         }
@@ -193,9 +163,9 @@ impl<C: Chunk> Display for List<C> {
     }
 }
 
-impl<C: PartialEq> Eq for List<C> {}
+impl Eq for List {}
 
-impl<C: PartialEq> PartialEq for List<C> {
+impl PartialEq for List {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (List::Boolean(left), List::Boolean(right)) => left == right,
@@ -219,13 +189,13 @@ impl<C: PartialEq> PartialEq for List<C> {
     }
 }
 
-impl<C: Ord> PartialOrd for List<C> {
+impl PartialOrd for List {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: Ord> Ord for List<C> {
+impl Ord for List {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (List::Boolean(left), List::Boolean(right)) => left.cmp(right),
@@ -261,7 +231,7 @@ impl<C: Ord> Ord for List<C> {
     }
 }
 
-impl Hash for List<StrippedChunk> {
+impl Hash for List {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             List::Boolean(value) => value.hash(state),
@@ -275,11 +245,7 @@ impl Hash for List<StrippedChunk> {
             List::Integer(value) => value.hash(state),
             List::String(value) => value.hash(state),
             List::List(value) => value.hash(state),
-            List::Function(value) => {
-                for function in value {
-                    Arc::as_ptr(function).hash(state);
-                }
-            }
+            List::Function(value) => value.hash(state),
         }
     }
 }

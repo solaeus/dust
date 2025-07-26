@@ -1,20 +1,20 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Chunk, Token};
+use crate::Token;
 
 use super::{ChunkCompiler, CompileError};
 
-pub type Parser<'a, C> = fn(&mut ChunkCompiler<'a, C>) -> Result<(), CompileError>;
+pub type Parser<'a> = fn(&mut ChunkCompiler<'a>) -> Result<(), CompileError>;
 
 /// Rule that defines how to parse a token.
 #[derive(Debug, Clone, Copy)]
-pub struct ParseRule<'a, C> {
-    pub prefix: Option<Parser<'a, C>>,
-    pub infix: Option<Parser<'a, C>>,
+pub struct ParseRule<'a> {
+    pub prefix: Option<Parser<'a>>,
+    pub infix: Option<Parser<'a>>,
     pub precedence: Precedence,
 }
 
-impl<C: Chunk> From<Token<'_>> for ParseRule<'_, C> {
+impl From<Token<'_>> for ParseRule<'_> {
     fn from(token: Token) -> Self {
         match token {
             Token::Any => ParseRule {

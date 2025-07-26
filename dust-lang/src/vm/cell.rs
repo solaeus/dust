@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{DustString, List, StrippedChunk};
+use crate::{Chunk, DustString, List};
 
 #[derive(Debug, Default)]
 pub struct Cell {
@@ -26,6 +26,6 @@ pub enum CellValue {
     Float(f64),
     Integer(i64),
     String(DustString),
-    List(List<StrippedChunk>),
-    Function(Arc<StrippedChunk>),
+    List(List),
+    Function(Arc<Chunk>),
 }

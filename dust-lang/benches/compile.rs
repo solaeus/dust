@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use dust_lang::{StrippedChunk, compile};
+use dust_lang::compile;
 
 const LOOP: &str = r"
 let mut i = 0
@@ -22,7 +22,7 @@ fn addictive_addition() {
 ";
 
 fn compile_bench(source: &str) {
-    compile::<StrippedChunk>(source).unwrap();
+    compile(source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

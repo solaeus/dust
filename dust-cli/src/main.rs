@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{CompileError, Compiler, DebugChunk, Disassemble, DustError, StrippedChunk, Vm};
+use dust_lang::{CompileError, Compiler, DustError, Vm};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -160,7 +160,7 @@ fn main() {
 
         let dust_crate = match input {
             Format::Dust => {
-                let compiler = Compiler::<StrippedChunk>::new();
+                let compiler = Compiler::new();
 
                 match compiler.compile_program(source_name, &source) {
                     Ok(chunk) => chunk,
@@ -234,7 +234,7 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let compiler = Compiler::<DebugChunk>::new();
+        let compiler = Compiler::new();
 
         let dust_crate = match compiler.compile_program(source_name, &source) {
             Ok(dust_crate) => dust_crate,

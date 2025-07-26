@@ -14,22 +14,22 @@ use serde::{Deserialize, Serialize};
 pub use dust_string::DustString;
 pub use list::List;
 
-use crate::{Chunk, StrippedChunk, Type};
+use crate::{Chunk, Type};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(u8)]
-pub enum Value<C = StrippedChunk> {
+pub enum Value {
     Boolean(bool) = 0,
     Byte(u8) = 1,
     Character(char) = 2,
     Float(f64) = 3,
     Integer(i64) = 4,
     String(DustString) = 5,
-    List(List<C>) = 6,
-    Function(Arc<C>) = 7,
+    List(List) = 6,
+    Function(Arc<Chunk>) = 7,
 }
 
-impl<C: Chunk> Value<C> {
+impl Value {
     pub fn boolean(boolean: bool) -> Self {
         Value::Boolean(boolean)
     }
@@ -126,15 +126,15 @@ impl<C: Chunk> Value<C> {
         Value::List(List::string(strings))
     }
 
-    pub fn list_list<T: Into<Vec<List<C>>>>(lists: T) -> Self {
+    pub fn list_list<T: Into<Vec<List>>>(lists: T) -> Self {
         Value::List(List::list(lists))
     }
 
-    pub fn function_list<T: Into<Vec<Arc<C>>>>(functions: T) -> Self {
+    pub fn function_list<T: Into<Vec<Arc<Chunk>>>>(functions: T) -> Self {
         Value::List(List::function(functions))
     }
 
-    pub fn as_list(&self) -> Option<&List<C>> {
+    pub fn as_list(&self) -> Option<&List> {
         if let Value::List(list) = self {
             Some(list)
         } else {
@@ -142,7 +142,7 @@ impl<C: Chunk> Value<C> {
         }
     }
 
-    pub fn into_list(self) -> Option<List<C>> {
+    pub fn into_list(self) -> Option<List> {
         if let Value::List(list) = self {
             Some(list)
         } else {
@@ -150,11 +150,11 @@ impl<C: Chunk> Value<C> {
         }
     }
 
-    pub fn function(chunk: C) -> Self {
+    pub fn function(chunk: Chunk) -> Self {
         Value::Function(Arc::new(chunk))
     }
 
-    pub fn as_function(&self) -> Option<&Arc<C>> {
+    pub fn as_function(&self) -> Option<&Arc<Chunk>> {
         if let Value::Function(function) = self {
             Some(function)
         } else {
@@ -171,12 +171,12 @@ impl<C: Chunk> Value<C> {
             Value::Integer(_) => Type::Integer,
             Value::String(_) => Type::String,
             Value::List(list) => list.r#type(),
-            Value::Function(function) => Type::Function(Box::new(function.r#type().clone())),
+            Value::Function(function) => Type::Function(Box::new(function.r#type.clone())),
         }
     }
 }
 
-impl<C: Chunk> Display for Value<C> {
+impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
@@ -186,14 +186,14 @@ impl<C: Chunk> Display for Value<C> {
             Value::Integer(integer) => write!(f, "{integer}"),
             Value::String(string) => write!(f, "{string}"),
             Value::List(list) => write!(f, "{list}"),
-            Value::Function(function) => write!(f, "{}", function.r#type()),
+            Value::Function(function) => write!(f, "{}", function.r#type),
         }
     }
 }
 
-impl<C: PartialEq> Eq for Value<C> {}
+impl Eq for Value {}
 
-impl<C: PartialEq> PartialEq for Value<C> {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
@@ -209,13 +209,13 @@ impl<C: PartialEq> PartialEq for Value<C> {
     }
 }
 
-impl<C: Ord> PartialOrd for Value<C> {
+impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: Ord> Ord for Value<C> {
+impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
@@ -238,7 +238,7 @@ impl<C: Ord> Ord for Value<C> {
     }
 }
 
-impl Hash for Value<StrippedChunk> {
+impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             Value::Boolean(value) => value.hash(state),
@@ -248,7 +248,7 @@ impl Hash for Value<StrippedChunk> {
             Value::Integer(value) => value.hash(state),
             Value::String(value) => value.hash(state),
             Value::List(value) => value.hash(state),
-            Value::Function(value) => Arc::as_ptr(value).hash(state),
+            Value::Function(value) => value.hash(state),
         }
     }
 }

@@ -7,11 +7,11 @@ use crate::Span;
 use super::{Item, Path};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Module<C> {
-    pub items: HashMap<Path, (Item<C>, Span)>,
+pub struct Module {
+    pub items: HashMap<Path, (Item, Span)>,
 }
 
-impl<C> Module<C> {
+impl Module {
     pub fn new() -> Self {
         Module {
             items: HashMap::new(),
@@ -24,7 +24,7 @@ impl<C> Module<C> {
         }
     }
 
-    pub fn find_item<'b>(&'b self, item_path: &'b Path) -> Option<&'b (Item<C>, Span)> {
+    pub fn find_item<'b>(&'b self, item_path: &'b Path) -> Option<&'b (Item, Span)> {
         let mut current_module = self;
 
         for module_name in item_path.modules() {

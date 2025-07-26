@@ -7,44 +7,42 @@
 //!
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
-mod debug_chunk;
 mod disassembler;
-mod stripped_chunk;
 
-pub use debug_chunk::DebugChunk;
 pub use disassembler::Disassembler;
-pub use stripped_chunk::StrippedChunk;
+use serde::{Deserialize, Serialize};
 
-use std::sync::Arc;
-use std::{fmt::Debug, io::Write};
+use std::{
+    fmt::{Debug, Display},
+    io::Write,
+};
 
-use crate::{FunctionType, Instruction, Local, Path, Value, compiler::CompiledData};
+use crate::{FunctionType, Instruction, Local, Path, Value};
 
-pub trait Chunk:
-    Sized + Clone + Debug + Default + Eq + PartialEq + PartialOrd + Ord + Disassemble
-{
-    fn new(data: CompiledData<Self>) -> Self;
+/// Representation of a Dust program or function.
+///
+/// See the [module-level documentation](index.html) for more information.
+#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Chunk {
+    pub(crate) name: Option<Path>,
+    pub(crate) r#type: FunctionType,
 
-    fn chunk_type_name() -> &'static str;
+    pub(crate) instructions: Vec<Instruction>,
+    pub(crate) constants: Vec<Value>,
+    pub(crate) locals: Vec<(Path, Local)>,
 
-    fn name(&self) -> Option<&Path>;
-
-    fn r#type(&self) -> &FunctionType;
-
-    fn instructions(&self) -> &Vec<Instruction>;
-
-    fn constants(&self) -> &[Value<Self>];
-
-    fn locals(&self) -> Option<impl Iterator<Item = (&Path, &Local)>>;
-
-    fn register_count(&self) -> usize;
-
-    fn prototype_index(&self) -> usize;
-
-    fn into_function(self) -> Arc<Self>;
+    pub(crate) register_count: usize,
+    pub(crate) prototype_index: usize,
 }
 
-pub trait Disassemble: Sized {
-    fn disassembler<'a, 'w, W: Write>(&'a self, writer: &'w mut W)
-    -> Disassembler<'a, 'w, Self, W>;
+impl Chunk {
+    pub fn disassembler<'a, 'w, W: Write>(&'a self, writer: &'w mut W) -> Disassembler<'a, 'w, W> {
+        Disassembler::new(self, writer)
+    }
+}
+
+impl Display for Chunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.r#type)
+    }
 }

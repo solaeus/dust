@@ -54,7 +54,7 @@ pub mod vm;
 // #[cfg(test)]
 // mod tests;
 
-pub use chunk::{Chunk, DebugChunk, Disassemble, Disassembler, StrippedChunk};
+pub use chunk::{Chunk, Disassembler};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Local, Module, Path, compile};
 pub use dust_error::{AnnotatedError, DustError, JIT_ERROR_TEXT};
 pub use instruction::{

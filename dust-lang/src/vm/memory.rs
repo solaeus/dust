@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::{DustString, List, StrippedChunk};
+use crate::{Chunk, DustString, List};
 
 #[derive(Clone, Debug)]
 pub enum Object {
     Empty,
-    Function(Arc<StrippedChunk>),
-    ValueList(List<StrippedChunk>),
+    Function(Arc<Chunk>),
+    ValueList(List),
     String(DustString),
 }
 

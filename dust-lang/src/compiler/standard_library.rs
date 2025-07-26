@@ -34,7 +34,7 @@ pub const STD_LENGTH: usize = {
     STD.len()
 };
 
-pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Module<C> {
+pub(crate) fn generate_standard_library() -> Module {
     let logging = span!(Level::INFO, "Standard Library");
     let _span_guard = logging.enter();
 
@@ -46,8 +46,8 @@ pub(crate) fn generate_standard_library<'a, C: 'a + Chunk>() -> Module<C> {
         .expect("Failed to compile standard library")
 }
 
-pub fn apply_standard_library<'a, C: 'a + Chunk>(module: &mut Module<C>) {
-    let std_crate = generate_standard_library::<C>();
+pub fn apply_standard_library(module: &mut Module) {
+    let std_crate = generate_standard_library();
     let std_position = Span(0, STD_LENGTH);
 
     module.items.insert(

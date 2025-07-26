@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Address, Type};
 
 /// Block-scoped variable.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Local {
     /// Where the variable's value is stored.
     pub address: Address,
@@ -41,7 +41,9 @@ impl Local {
 /// between blocks that are not nested together but have the same depth, i.e. sibling scopes. If the
 /// `block_index` is 0, then the scope is the root scope of the chunk. The `block_index` is always 0
 /// when the `depth` is 0.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct BlockScope {
     /// Level of block nesting.
     pub block_depth: u8,

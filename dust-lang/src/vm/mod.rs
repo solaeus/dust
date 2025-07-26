@@ -13,12 +13,12 @@ use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{DustError, StrippedChunk, Value, compile};
+use crate::{Chunk, DustError, Value, compile};
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
-pub fn run(source: &'_ str) -> Result<Option<Value<StrippedChunk>>, DustError<'_>> {
-    let chunk = compile::<StrippedChunk>(source)?;
+pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
+    let chunk = compile(source)?;
     let vm = Vm::new(chunk);
 
     vm.run()
@@ -30,7 +30,7 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(main_chunk: StrippedChunk) -> Self {
+    pub fn new(main_chunk: Chunk) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
         let cells = Arc::new(RwLock::new(Vec::<Cell>::new()));
         let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
@@ -41,7 +41,7 @@ impl Vm {
         }
     }
 
-    pub fn run<'src>(self) -> Result<Option<Value<StrippedChunk>>, DustError<'src>> {
+    pub fn run<'src>(self) -> Result<Option<Value>, DustError<'src>> {
         let span = span!(Level::INFO, "Run");
         let _enter = span.enter();
 
