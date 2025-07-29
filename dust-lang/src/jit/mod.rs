@@ -192,7 +192,6 @@ impl<'a> Jit<'a> {
                         r#type,
                         ..
                     } = Load::from(*current_instruction);
-
                     let value = match r#type {
                         OperandType::INTEGER => {
                             self.get_integer(&mut function_builder, registers_pointer, &operand)?
@@ -205,16 +204,15 @@ impl<'a> Jit<'a> {
                             });
                         }
                     };
-
                     let destination_register_byte_offset =
                         (destination.index * size_of::<Register>()) as i32;
+
                     function_builder.ins().store(
                         MemFlags::new(),
                         value,
                         registers_pointer,
                         destination_register_byte_offset,
                     );
-
                     self.terminate_with_jump(
                         &mut function_builder,
                         ip,
@@ -384,27 +382,29 @@ impl<'a> Jit<'a> {
                         offset,
                         is_positive,
                     } = Jump::from(*current_instruction);
-                    let jump_target_instruction_pointer = if is_positive != 0 {
+                    let jump_target_ip = if is_positive != 0 {
                         ip + offset + 1
                     } else {
                         ip - offset
                     };
-                    if jump_target_instruction_pointer < instruction_blocks.len() {
-                        if jump_target_instruction_pointer == ip {
-                            return Err(JitError::JumpToSelf {
-                                instruction_pointer: ip,
-                            });
-                        }
-                        function_builder
-                            .ins()
-                            .jump(instruction_blocks[jump_target_instruction_pointer], &[]);
-                    } else {
+
+                    if jump_target_ip >= instruction_blocks.len() {
                         return Err(JitError::JumpTargetOutOfBounds {
                             instruction_pointer: ip,
-                            target_instruction_pointer: jump_target_instruction_pointer,
+                            target_instruction_pointer: jump_target_ip,
                             total_instruction_count: instruction_blocks.len(),
                         });
                     }
+
+                    if jump_target_ip == ip {
+                        return Err(JitError::JumpToSelf {
+                            instruction_pointer: ip,
+                        });
+                    }
+
+                    function_builder
+                        .ins()
+                        .jump(instruction_blocks[jump_target_ip], &[]);
                 }
                 Operation::RETURN => {
                     let Return {

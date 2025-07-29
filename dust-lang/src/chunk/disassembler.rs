@@ -71,7 +71,6 @@ const CONSTANT_BORDERS: [&str; 3] = [
     "╰─────────┴──────────────────────────┴──────────────────────────╯",
 ];
 
-const INDENTATION: &str = "│  ";
 const TOP_BORDER: [char; 3] = ['╭', '─', '╮'];
 const LEFT_BORDER: char = '│';
 const RIGHT_BORDER: char = '│';
@@ -87,7 +86,6 @@ pub struct Disassembler<'a, 'w, W> {
 
     // Options
     style: bool,
-    indent: usize,
     width: usize,
     show_type: bool,
     show_chunk_type_name: bool,
@@ -100,17 +98,10 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             writer,
             source: None,
             style: false,
-            indent: 0,
             width: 80,
             show_type: false,
             show_chunk_type_name: true,
         }
-    }
-
-    fn indent(&mut self, indent: usize) -> &mut Self {
-        self.indent = indent;
-
-        self
     }
 
     pub fn source(&mut self, source: &'a str) -> &mut Self {
@@ -152,9 +143,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
     }
 
     fn line_length(&self) -> usize {
-        let indentation_length = INDENTATION.chars().count();
-
-        self.width + (indentation_length * self.indent) + 2 // Left and right border
+        self.width + 2 // Left and right border
     }
 
     fn write_char(&mut self, character: char) -> Result<(), io::Error> {
@@ -203,10 +192,6 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
                 (0, extra_space)
             }
         };
-
-        for _ in 0..self.indent {
-            self.write_str(INDENTATION)?;
-        }
 
         if add_border {
             self.write_char(LEFT_BORDER)?;
@@ -258,10 +243,6 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
     }
 
     fn write_page_border(&mut self, border: [char; 3]) -> Result<(), io::Error> {
-        for _ in 0..self.indent {
-            self.write_str(INDENTATION)?;
-        }
-
         self.write_char(border[0])?;
 
         for _ in 0..self.line_length() {

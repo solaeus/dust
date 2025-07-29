@@ -2,12 +2,14 @@
 mod call_frame;
 mod cell;
 mod object;
+mod object_pool;
 mod register;
 pub mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
 pub use object::Object;
+pub use object_pool::ObjectPool;
 pub use register::Register;
 pub use thread::{Thread, ThreadRunner};
 
