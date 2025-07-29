@@ -9,7 +9,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    CallFrame, Chunk, OperandType, Operation, Register, ThreadRunner,
+    CallFrame, Chunk, Instruction, OperandType, Operation, Register, ThreadRunner,
     instruction::{Jump, Load, MemoryKind, Return, Test},
 };
 
@@ -43,6 +43,23 @@ impl Jit {
         let module = JITModule::new(builder);
 
         Self { module }
+    }
+
+    fn terminate_with_jump(
+        &self,
+        function_builder: &mut FunctionBuilder,
+        ip: usize,
+        instruction_blocks: &[Block],
+        bytecode_instructions: &[Instruction],
+    ) {
+        let next_ip = ip + 1;
+        if next_ip < instruction_blocks.len()
+            && bytecode_instructions[next_ip].operation() != Operation::RETURN
+        {
+            function_builder
+                .ins()
+                .jump(instruction_blocks[next_ip], &[]);
+        }
     }
 
     pub fn compile(&mut self, chunk: &Chunk) -> Result<JitInstruction, JitError> {
@@ -104,28 +121,21 @@ impl Jit {
         let function_entry_block = function_builder.create_block();
         function_builder.switch_to_block(function_entry_block);
         function_builder.append_block_params_for_function_params(function_entry_block);
-        function_builder.declare_var(Variable::new(0), pointer_type);
-        function_builder.declare_var(Variable::new(1), pointer_type);
+
+        let variable_0 = function_builder.declare_var(pointer_type);
+        let variable_1 = function_builder.declare_var(pointer_type);
         let thread_runner_pointer = function_builder.block_params(function_entry_block)[0];
         let call_frame_pointer = function_builder.block_params(function_entry_block)[1];
-        function_builder.def_var(Variable::new(0), thread_runner_pointer);
-        function_builder.def_var(Variable::new(1), call_frame_pointer);
+        function_builder.def_var(variable_0, thread_runner_pointer);
+        function_builder.def_var(variable_1, call_frame_pointer);
 
         function_builder.ins().jump(instruction_blocks[0], &[]);
 
-        let mut processed_instructions = vec![false; total_instruction_count];
-        let mut instruction_worklist = VecDeque::new();
-        instruction_worklist.push_back(0);
-        instruction_worklist.push_back(bytecode_instructions.len() - 1);
-
-        while let Some(current_instruction_pointer) = instruction_worklist.pop_front() {
-            if processed_instructions[current_instruction_pointer] {
-                continue;
-            }
-            function_builder.switch_to_block(instruction_blocks[current_instruction_pointer]);
-            let _thread_runner_pointer = function_builder.use_var(Variable::new(0));
-            let call_frame_pointer = function_builder.use_var(Variable::new(1));
-            let current_instruction = &bytecode_instructions[current_instruction_pointer];
+        for ip in 0..total_instruction_count {
+            function_builder.switch_to_block(instruction_blocks[ip]);
+            let _thread_runner_pointer = function_builder.use_var(variable_0);
+            let call_frame_pointer = function_builder.use_var(variable_1);
+            let current_instruction = &bytecode_instructions[ip];
 
             match current_instruction.operation() {
                 Operation::LOAD => {
@@ -145,38 +155,21 @@ impl Jit {
                                 call_frame_pointer,
                                 call_frame_registers_field_offset,
                             );
-                            let source_operand_index = function_builder
-                                .ins()
-                                .iconst(types::I64, operand.index as i64);
-                            let source_register_byte_offset = function_builder.ins().imul_imm(
-                                source_operand_index,
-                                std::mem::size_of::<Register>() as i64,
-                            );
-                            let destination_operand_index = function_builder
-                                .ins()
-                                .iconst(types::I64, destination.index as i64);
-                            let destination_register_byte_offset = function_builder.ins().imul_imm(
-                                destination_operand_index,
-                                std::mem::size_of::<Register>() as i64,
-                            );
-                            let source_register_address = function_builder
-                                .ins()
-                                .iadd(call_frame_registers_pointer, source_register_byte_offset);
-                            let destination_register_address = function_builder.ins().iadd(
-                                call_frame_registers_pointer,
-                                destination_register_byte_offset,
-                            );
+                            let source_register_byte_offset =
+                                (operand.index * size_of::<Register>()) as i32;
+                            let destination_register_byte_offset =
+                                (destination.index * size_of::<Register>()) as i32;
                             let source_register_value = function_builder.ins().load(
                                 types::I64,
                                 MemFlags::new(),
-                                source_register_address,
-                                0,
+                                call_frame_registers_pointer,
+                                source_register_byte_offset,
                             );
                             function_builder.ins().store(
                                 MemFlags::new(),
                                 source_register_value,
-                                destination_register_address,
-                                0,
+                                call_frame_registers_pointer,
+                                destination_register_byte_offset,
                             );
                         }
                         MemoryKind::CONSTANT => match r#type {
@@ -186,7 +179,7 @@ impl Jit {
                                         Some(value) => value,
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                instruction_pointer: current_instruction_pointer,
+                                                instruction_pointer: ip,
                                                 constant_index: operand.index,
                                                 expected_type: OperandType::INTEGER,
                                                 operation: "LOAD".to_string(),
@@ -225,7 +218,7 @@ impl Jit {
                             }
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
-                                    instruction_pointer: current_instruction_pointer,
+                                    instruction_pointer: ip,
                                     operand_type: r#type,
                                     operation: "LOAD".to_string(),
                                 });
@@ -233,12 +226,19 @@ impl Jit {
                         },
                         _ => {
                             return Err(JitError::UnsupportedMemoryKind {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                                 operation: "LOAD".to_string(),
                                 memory_kind_description: format!("{:?}", operand.memory),
                             });
                         }
                     }
+
+                    self.terminate_with_jump(
+                        &mut function_builder,
+                        ip,
+                        &instruction_blocks,
+                        bytecode_instructions,
+                    );
                 }
                 Operation::ADD
                 | Operation::SUBTRACT
@@ -259,66 +259,48 @@ impl Jit {
                                 call_frame_pointer,
                                 call_frame_registers_field_offset,
                             );
-                            let left_operand_index =
-                                function_builder.ins().iconst(types::I64, left.index as i64);
-                            let left_register_byte_offset = function_builder.ins().imul_imm(
-                                left_operand_index,
-                                std::mem::size_of::<Register>() as i64,
-                            );
-                            let left_register_address = function_builder
-                                .ins()
-                                .iadd(call_frame_registers_pointer, left_register_byte_offset);
+                            let left_register_byte_offset =
+                                (left.index * size_of::<Register>()) as i32;
                             let left_operand_value = function_builder.ins().load(
                                 types::I64,
                                 MemFlags::new(),
-                                left_register_address,
-                                0,
+                                call_frame_registers_pointer,
+                                left_register_byte_offset,
                             );
                             let right_operand_value = match right.memory {
                                 MemoryKind::REGISTER => {
-                                    let right_operand_index = function_builder
-                                        .ins()
-                                        .iconst(types::I64, right.index as i64);
                                     let right_register_byte_offset =
-                                        function_builder.ins().imul_imm(
-                                            right_operand_index,
-                                            std::mem::size_of::<Register>() as i64,
-                                        );
-                                    let right_register_address = function_builder.ins().iadd(
-                                        call_frame_registers_pointer,
-                                        right_register_byte_offset,
-                                    );
+                                        (right.index * size_of::<Register>()) as i32;
                                     function_builder.ins().load(
                                         types::I64,
                                         MemFlags::new(),
-                                        right_register_address,
-                                        0,
+                                        call_frame_registers_pointer,
+                                        right_register_byte_offset,
                                     )
                                 }
                                 MemoryKind::CONSTANT => {
-                                    let integer_constant_value = match constant_pool[right.index]
-                                        .as_integer()
-                                    {
-                                        Some(val) => val,
-                                        None => {
-                                            return Err(JitError::InvalidConstantType {
-                                                instruction_pointer: current_instruction_pointer,
-                                                constant_index: right.index,
-                                                expected_type: OperandType::INTEGER,
-                                                operation: format!(
-                                                    "{:?}",
-                                                    current_instruction.operation()
-                                                ),
-                                            });
-                                        }
-                                    };
+                                    let integer_constant_value =
+                                        match constant_pool[right.index].as_integer() {
+                                            Some(val) => val,
+                                            None => {
+                                                return Err(JitError::InvalidConstantType {
+                                                    instruction_pointer: ip,
+                                                    constant_index: right.index,
+                                                    expected_type: OperandType::INTEGER,
+                                                    operation: format!(
+                                                        "{:?}",
+                                                        current_instruction.operation()
+                                                    ),
+                                                });
+                                            }
+                                        };
                                     function_builder
                                         .ins()
                                         .iconst(types::I64, integer_constant_value)
                                 }
                                 _ => {
                                     return Err(JitError::UnsupportedMemoryKind {
-                                        instruction_pointer: current_instruction_pointer,
+                                        instruction_pointer: ip,
                                         operation: format!("{:?}", current_instruction.operation()),
                                         memory_kind_description: format!("{:?}", right.memory),
                                     });
@@ -342,32 +324,30 @@ impl Jit {
                                     .urem(left_operand_value, right_operand_value),
                                 _ => unreachable!(),
                             };
-                            let destination_operand_index = function_builder
-                                .ins()
-                                .iconst(types::I64, destination.index as i64);
-                            let destination_register_byte_offset = function_builder.ins().imul_imm(
-                                destination_operand_index,
-                                std::mem::size_of::<Register>() as i64,
-                            );
-                            let destination_register_address = function_builder.ins().iadd(
-                                call_frame_registers_pointer,
-                                destination_register_byte_offset,
-                            );
+                            let destination_register_byte_offset =
+                                (destination.index * size_of::<Register>()) as i32;
                             function_builder.ins().store(
                                 MemFlags::new(),
                                 result_value,
-                                destination_register_address,
-                                0,
+                                call_frame_registers_pointer,
+                                destination_register_byte_offset,
                             );
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                                 operand_type: r#type,
                                 operation: format!("{:?}", current_instruction.operation()),
                             });
                         }
                     }
+
+                    self.terminate_with_jump(
+                        &mut function_builder,
+                        ip,
+                        &instruction_blocks,
+                        bytecode_instructions,
+                    );
                 }
                 Operation::LESS | Operation::EQUAL | Operation::LESS_EQUAL => {
                     let comparator = match current_instruction.operation() {
@@ -387,7 +367,7 @@ impl Jit {
                                         Some(val) => val,
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                instruction_pointer: current_instruction_pointer,
+                                                instruction_pointer: ip,
                                                 constant_index: right.index,
                                                 expected_type: OperandType::INTEGER,
                                                 operation: format!(
@@ -405,18 +385,13 @@ impl Jit {
                                     call_frame_pointer,
                                     call_frame_registers_field_offset,
                                 );
-                                let left_register_byte_offset = function_builder.ins().iconst(
-                                    pointer_type,
-                                    (left.index * std::mem::size_of::<Register>()) as i64,
-                                );
-                                let left_register_address = function_builder
-                                    .ins()
-                                    .iadd(call_frame_registers_pointer, left_register_byte_offset);
+                                let left_register_byte_offset =
+                                    (left.index * size_of::<Register>()) as i32;
                                 let left_operand_value = function_builder.ins().load(
                                     types::I64,
                                     MemFlags::new(),
-                                    left_register_address,
-                                    0,
+                                    call_frame_registers_pointer,
+                                    left_register_byte_offset,
                                 );
                                 let cranelift_constant_value = function_builder
                                     .ins()
@@ -427,15 +402,14 @@ impl Jit {
                                     cranelift_constant_value,
                                 );
 
-                                let skip_next_instruction_pointer = current_instruction_pointer + 2;
-                                let proceed_to_next_instruction_pointer =
-                                    current_instruction_pointer + 1;
+                                let skip_next_instruction_pointer = ip + 2;
+                                let proceed_to_next_instruction_pointer = ip + 1;
                                 let skip_next_instruction_block =
                                     if skip_next_instruction_pointer < instruction_blocks.len() {
                                         instruction_blocks[skip_next_instruction_pointer]
                                     } else {
                                         return Err(JitError::BranchTargetOutOfBounds {
-                                            instruction_pointer: current_instruction_pointer,
+                                            instruction_pointer: ip,
                                             branch_target_instruction_pointer:
                                                 skip_next_instruction_pointer,
                                             total_instruction_count: instruction_blocks.len(),
@@ -448,7 +422,7 @@ impl Jit {
                                         instruction_blocks[proceed_to_next_instruction_pointer]
                                     } else {
                                         return Err(JitError::BranchTargetOutOfBounds {
-                                            instruction_pointer: current_instruction_pointer,
+                                            instruction_pointer: ip,
                                             branch_target_instruction_pointer:
                                                 proceed_to_next_instruction_pointer,
                                             total_instruction_count: instruction_blocks.len(),
@@ -461,21 +435,10 @@ impl Jit {
                                     proceed_to_next_instruction_block,
                                     &[],
                                 );
-                                if skip_next_instruction_pointer < instruction_blocks.len()
-                                    && !processed_instructions[skip_next_instruction_pointer]
-                                {
-                                    instruction_worklist.push_back(skip_next_instruction_pointer);
-                                }
-                                if proceed_to_next_instruction_pointer < instruction_blocks.len()
-                                    && !processed_instructions[proceed_to_next_instruction_pointer]
-                                {
-                                    instruction_worklist
-                                        .push_back(proceed_to_next_instruction_pointer);
-                                }
                             }
                             _ => {
                                 return Err(JitError::UnsupportedMemoryKind {
-                                    instruction_pointer: current_instruction_pointer,
+                                    instruction_pointer: ip,
                                     operation: format!("{:?}", current_instruction.operation()),
                                     memory_kind_description: format!(
                                         "left: {:?}, right: {:?}",
@@ -486,7 +449,7 @@ impl Jit {
                         },
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                                 operand_type: r#type,
                                 operation: format!("{:?}", current_instruction.operation()),
                             });
@@ -508,25 +471,18 @@ impl Jit {
                                 call_frame_pointer,
                                 call_frame_registers_field_offset,
                             );
-                            let operand_index = function_builder
-                                .ins()
-                                .iconst(types::I64, operand.index as i64);
-                            let operand_byte_offset = function_builder
-                                .ins()
-                                .imul_imm(operand_index, std::mem::size_of::<Register>() as i64);
-                            let operand_address = function_builder
-                                .ins()
-                                .iadd(call_frame_registers_pointer, operand_byte_offset);
+                            let operand_byte_offset =
+                                (operand.index * size_of::<Register>()) as i32;
                             function_builder.ins().load(
                                 types::I64,
                                 MemFlags::new(),
-                                operand_address,
-                                0,
+                                call_frame_registers_pointer,
+                                operand_byte_offset,
                             )
                         }
                         _ => {
                             return Err(JitError::UnsupportedMemoryKind {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                                 operation: "TEST".to_string(),
                                 memory_kind_description: format!("{:?}", operand.memory),
                             });
@@ -541,14 +497,14 @@ impl Jit {
                             .ins()
                             .icmp_imm(IntCC::Equal, operand_value, 0)
                     };
-                    let skip_next_instruction_pointer = current_instruction_pointer + 2;
-                    let proceed_to_next_instruction_pointer = current_instruction_pointer + 1;
+                    let skip_next_instruction_pointer = ip + 2;
+                    let proceed_to_next_instruction_pointer = ip + 1;
                     let skip_next_instruction_block =
                         if skip_next_instruction_pointer < instruction_blocks.len() {
                             instruction_blocks[skip_next_instruction_pointer]
                         } else {
                             return Err(JitError::BranchTargetOutOfBounds {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                                 branch_target_instruction_pointer: skip_next_instruction_pointer,
                                 total_instruction_count: instruction_blocks.len(),
                             });
@@ -559,7 +515,7 @@ impl Jit {
                         instruction_blocks[proceed_to_next_instruction_pointer]
                     } else {
                         return Err(JitError::BranchTargetOutOfBounds {
-                            instruction_pointer: current_instruction_pointer,
+                            instruction_pointer: ip,
                             branch_target_instruction_pointer: proceed_to_next_instruction_pointer,
                             total_instruction_count: instruction_blocks.len(),
                         });
@@ -571,16 +527,6 @@ impl Jit {
                         skip_next_instruction_block,
                         &[],
                     );
-                    if skip_next_instruction_pointer < instruction_blocks.len()
-                        && !processed_instructions[skip_next_instruction_pointer]
-                    {
-                        instruction_worklist.push_back(skip_next_instruction_pointer);
-                    }
-                    if proceed_to_next_instruction_pointer < instruction_blocks.len()
-                        && !processed_instructions[proceed_to_next_instruction_pointer]
-                    {
-                        instruction_worklist.push_back(proceed_to_next_instruction_pointer);
-                    }
                 }
                 Operation::JUMP => {
                     let Jump {
@@ -588,25 +534,22 @@ impl Jit {
                         is_positive,
                     } = Jump::from(*current_instruction);
                     let jump_target_instruction_pointer = if is_positive != 0 {
-                        current_instruction_pointer + offset + 1
+                        ip + offset + 1
                     } else {
-                        current_instruction_pointer - offset
+                        ip - offset
                     };
                     if jump_target_instruction_pointer < instruction_blocks.len() {
-                        if jump_target_instruction_pointer == current_instruction_pointer {
+                        if jump_target_instruction_pointer == ip {
                             return Err(JitError::JumpToSelf {
-                                instruction_pointer: current_instruction_pointer,
+                                instruction_pointer: ip,
                             });
                         }
                         function_builder
                             .ins()
                             .jump(instruction_blocks[jump_target_instruction_pointer], &[]);
-                        if !processed_instructions[jump_target_instruction_pointer] {
-                            instruction_worklist.push_back(jump_target_instruction_pointer);
-                        }
                     } else {
                         return Err(JitError::JumpTargetOutOfBounds {
-                            instruction_pointer: current_instruction_pointer,
+                            instruction_pointer: ip,
                             target_instruction_pointer: jump_target_instruction_pointer,
                             total_instruction_count: instruction_blocks.len(),
                         });
@@ -633,23 +576,13 @@ impl Jit {
                                     call_frame_pointer,
                                     call_frame_registers_field_offset,
                                 );
-                                let return_value_operand_index = function_builder
-                                    .ins()
-                                    .iconst(types::I64, return_value_address.index as i64);
                                 let return_value_register_byte_offset =
-                                    function_builder.ins().imul_imm(
-                                        return_value_operand_index,
-                                        std::mem::size_of::<Register>() as i64,
-                                    );
-                                let return_value_register_address = function_builder.ins().iadd(
-                                    call_frame_registers_pointer,
-                                    return_value_register_byte_offset,
-                                );
+                                    (return_value_address.index * size_of::<Register>()) as i32;
                                 let return_value = function_builder.ins().load(
                                     types::I64,
                                     MemFlags::new(),
-                                    return_value_register_address,
-                                    0,
+                                    call_frame_registers_pointer,
+                                    return_value_register_byte_offset,
                                 );
                                 function_builder.ins().call(
                                     set_return_function_reference,
@@ -659,7 +592,7 @@ impl Jit {
                             }
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
-                                    instruction_pointer: current_instruction_pointer,
+                                    instruction_pointer: ip,
                                     operand_type: r#type,
                                     operation: "RETURN".to_string(),
                                 });
@@ -671,29 +604,11 @@ impl Jit {
                 }
                 _ => {
                     return Err(JitError::UnhandledOperation {
-                        instruction_pointer: current_instruction_pointer,
+                        instruction_pointer: ip,
                         operation_name: format!("{:?}", current_instruction.operation()),
                     });
                 }
             }
-            if !matches!(
-                current_instruction.operation(),
-                Operation::JUMP | Operation::RETURN | Operation::LESS
-            ) {
-                let next_sequential_instruction_pointer = current_instruction_pointer + 1;
-                if next_sequential_instruction_pointer < instruction_blocks.len()
-                    && bytecode_instructions[next_sequential_instruction_pointer].operation()
-                        != Operation::RETURN
-                {
-                    function_builder
-                        .ins()
-                        .jump(instruction_blocks[next_sequential_instruction_pointer], &[]);
-                    if !processed_instructions[next_sequential_instruction_pointer] {
-                        instruction_worklist.push_back(next_sequential_instruction_pointer);
-                    }
-                }
-            }
-            processed_instructions[current_instruction_pointer] = true;
         }
 
         function_builder.switch_to_block(unreachable_final_block);
