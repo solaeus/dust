@@ -1,7 +1,7 @@
-#![feature(duration_millis_float, iter_intersperse)]
+#![feature(duration_millis_float, formatting_options, iter_intersperse)]
 
 use std::{
-    fmt::{self},
+    fmt::{self, Formatter, FormattingOptions},
     fs::OpenOptions,
     io::{self, Read, stdout},
     path::PathBuf,
@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{CompileError, Compiler, DustError, Vm};
+use dust_lang::{CompileError, Compiler, Disassembler, DustError, Vm};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -158,7 +158,7 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let dust_crate = match input {
+        let dust_program = match input {
             Format::Dust => {
                 let compiler = Compiler::new();
 
@@ -185,7 +185,8 @@ fn main() {
             }
         };
         let compile_time = start_time.elapsed();
-        let vm = Vm::new(dust_crate.main_chunk);
+        let prototypes = dust_program.prototypes.clone();
+        let vm = Vm::new(dust_program);
         let run_result = vm.run();
         let run_time = start_time.elapsed() - compile_time;
 
@@ -203,7 +204,14 @@ fn main() {
         };
 
         if !no_output && let Some(return_value) = return_value {
-            println!("{return_value}")
+            let mut buffer = String::new();
+
+            let _ = return_value.display(
+                &mut Formatter::new(&mut buffer, FormattingOptions::default()),
+                &prototypes,
+            );
+
+            println!("{buffer}");
         }
 
         if time && !no_output {
@@ -249,14 +257,12 @@ fn main() {
         match output {
             Format::Dust => {
                 let mut stdout = stdout().lock();
+                let mut disassembler = Disassembler::new(&dust_crate, &mut stdout);
 
-                dust_crate
-                    .main_chunk
-                    .disassembler(&mut stdout)
-                    .width(80)
-                    .style(style)
+                disassembler
                     .source(&source)
-                    .show_chunk_type_name(true)
+                    .style(style)
+                    .show_type(true)
                     .disassemble()
                     .expect("Failed to write disassembly to stdout");
             }

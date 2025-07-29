@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 
 use tracing::{Level, span};
 
-use crate::{Chunk, DustError, Value, compile};
+use crate::{DustError, Program, Value, compile};
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
@@ -34,10 +34,17 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(main_chunk: Chunk) -> Self {
+    pub fn new(program: Program) -> Self {
         let threads = Arc::new(RwLock::new(Vec::new()));
-        let cells = Arc::new(RwLock::new(Vec::<Cell>::new()));
-        let main_thread = Thread::new(main_chunk, cells, Arc::clone(&threads));
+
+        let mut cells = Vec::with_capacity(program.cell_count as usize);
+
+        for _ in 0..program.cell_count {
+            cells.push(Cell::default());
+        }
+
+        let cells = Arc::new(RwLock::new(cells));
+        let main_thread = Thread::new(program.main_chunk, cells, Arc::clone(&threads));
 
         Self {
             main_thread,

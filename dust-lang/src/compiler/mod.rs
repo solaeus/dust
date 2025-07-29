@@ -41,13 +41,12 @@ pub use path::Path;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc, sync::Arc};
 
 use crate::{
-    Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, List, NativeFunction,
-    Operation, Span, Token, TokenKind, Type, Value,
+    Address, Chunk, DustError, FunctionType, Instruction, Lexer, List, NativeFunction, Operation,
+    Program, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
-    dust_crate::Program,
     instruction::{Jump, Load, MemoryKind, OperandType},
     r#type::ConcreteType,
 };
@@ -63,13 +62,12 @@ use crate::{
 ///
 /// assert_eq!(chunk.instructions().len(), 6);
 /// ```
-pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
+pub fn compile(source: &'_ str) -> Result<Program, DustError<'_>> {
     let compiler = Compiler::new();
-    let Program { main_chunk, .. } = compiler
-        .compile_program(None, source)
-        .map_err(|error| DustError::compile(error, source))?;
 
-    Ok(main_chunk)
+    compiler
+        .compile_program(None, source)
+        .map_err(|error| DustError::compile(error, source))
 }
 
 /// The Dust compiler assembles a [`Chunk`] for the Dust VM. Any unrecognized symbols, disallowed
@@ -107,13 +105,20 @@ impl Compiler {
         let item_scope = HashSet::new();
         let main_module = Rc::new(RefCell::new(Module::new()));
         let globals = Rc::new(RefCell::new(IndexMap::new()));
+        let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
             apply_standard_library(&mut main_module.borrow_mut());
         }
 
-        let mut chunk_compiler =
-            ChunkCompiler::new(lexer, mode, item_scope, main_module.clone(), globals)?;
+        let mut chunk_compiler = ChunkCompiler::new(
+            lexer,
+            mode,
+            item_scope,
+            main_module.clone(),
+            globals,
+            prototypes,
+        )?;
         chunk_compiler.allow_native_functions = self.allow_native_functions;
 
         chunk_compiler.compile()?;
@@ -146,12 +151,14 @@ impl Compiler {
         let item_scope = HashSet::new();
         let main_module = Rc::new(RefCell::new(Module::new()));
         let globals = Rc::new(RefCell::new(IndexMap::new()));
+        let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         if !self.allow_native_functions {
             apply_standard_library(&mut main_module.borrow_mut());
         }
 
-        let mut chunk_compiler = ChunkCompiler::new(lexer, mode, item_scope, main_module, globals)?;
+        let mut chunk_compiler =
+            ChunkCompiler::new(lexer, mode, item_scope, main_module, globals, prototypes)?;
         chunk_compiler.allow_native_functions = true;
 
         chunk_compiler.compile()?;
@@ -173,10 +180,15 @@ impl Compiler {
             register_count,
             prototype_index: 0,
         };
+        let prototypes = Rc::into_inner(chunk_compiler.prototypes)
+            .expect("Unnecessary clone of prototypes")
+            .into_inner();
+        let prototypes = Arc::new(prototypes);
 
         Ok(Program {
             main_chunk,
             cell_count,
+            prototypes,
         })
     }
 }
@@ -242,6 +254,8 @@ pub(crate) struct ChunkCompiler<'a> {
 
     globals: Rc<RefCell<IndexMap<Path, Global>>>,
 
+    prototypes: Rc<RefCell<Vec<Arc<Chunk>>>>,
+
     previous_statement_end: usize,
     previous_expression_end: usize,
 
@@ -260,6 +274,7 @@ impl<'a> ChunkCompiler<'a> {
         item_scope: HashSet<Path>,
         main_module: Rc<RefCell<Module>>,
         globals: Rc<RefCell<IndexMap<Path, Global>>>,
+        prototypes: Rc<RefCell<Vec<Arc<Chunk>>>>,
     ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
@@ -278,6 +293,7 @@ impl<'a> ChunkCompiler<'a> {
             prototype_index: 0,
             main_module,
             globals,
+            prototypes,
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -707,7 +723,7 @@ impl<'a> ChunkCompiler<'a> {
         if let Token::String(text) = self.current_token {
             self.advance()?;
 
-            let string = Value::string(DustString::from(text));
+            let string = Value::string(String::from(text));
             let constant_index = self.push_constant_or_get_index(string);
             let destination = Address::register(self.next_register_index());
             let load_constant = Instruction::load(
@@ -1946,7 +1962,6 @@ impl<'a> ChunkCompiler<'a> {
             self.advance()?;
         }
 
-        let function_start = self.previous_position.0;
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
@@ -1959,7 +1974,6 @@ impl<'a> ChunkCompiler<'a> {
         } else {
             None
         };
-        let register_index = self.next_register_index();
         let mut function_compiler = if self.current_token == Token::LeftParenthesis {
             let mode = CompileMode::Function { name: path.clone() };
             let mut compiler = ChunkCompiler::new(
@@ -1968,6 +1982,7 @@ impl<'a> ChunkCompiler<'a> {
                 self.current_item_scope.clone(),
                 self.main_module.clone(),
                 self.globals.clone(),
+                self.prototypes.clone(),
             )?; // This will consume the parenthesis
 
             compiler.prototype_index = self.constants.len();
@@ -2035,7 +2050,6 @@ impl<'a> ChunkCompiler<'a> {
 
         self.lexer.skip_to(self.current_position.1);
 
-        let function_end = function_compiler.previous_position.1;
         let register_count = function_compiler.next_register_index_without_reclaiming();
         let instructions = function_compiler
             .instructions
@@ -2052,14 +2066,7 @@ impl<'a> ChunkCompiler<'a> {
             register_count,
             prototype_index: function_compiler.prototype_index,
         };
-        let destination = Address::register(register_index);
         let prototype_address = Address::constant(chunk.prototype_index);
-        let load_function = Instruction::load(
-            destination,
-            prototype_address,
-            OperandType::FUNCTION,
-            false as usize,
-        );
         let r#type = Type::Function(Box::new(chunk.r#type.clone()));
 
         if let Some(identifier) = path {
@@ -2072,8 +2079,7 @@ impl<'a> ChunkCompiler<'a> {
             );
         }
 
-        self.constants.push(Value::function(chunk));
-        self.emit_instruction(load_function, r#type, Span(function_start, function_end));
+        self.prototypes.borrow_mut().push(Arc::new(chunk));
 
         Ok(())
     }
@@ -2083,45 +2089,19 @@ impl<'a> ChunkCompiler<'a> {
 
         self.advance()?;
 
-        let (mut last_instruction, mut last_instruction_type, _) = self
-            .instructions
-            .pop()
-            .ok_or_else(|| CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })?;
-
-        while let Some(instruction) = self
-            .instructions
-            .last()
-            .map(|(instruction, _, _)| *instruction)
-        {
-            if last_instruction.operation() == Operation::LOAD
-                && last_instruction.b_address() == instruction.b_address()
-            {
-                (last_instruction, last_instruction_type, _) = self.instructions.pop().unwrap();
-            } else {
-                break;
-            }
-        }
-
-        let (function_return_type, argument_count) = match &last_instruction_type {
-            Type::Function(function_type) => (
-                function_type.return_type.clone(),
-                function_type.value_parameters.len(),
-            ),
-            Type::FunctionSelf => (
-                self.r#type.return_type.clone(),
-                self.r#type.value_parameters.len(),
-            ),
-            _ => {
-                return Err(CompileError::ExpectedFunction {
+        let (function, return_type, function_index) = {
+            let prototypes = self.prototypes.borrow();
+            let function = prototypes
+                .last()
+                .ok_or_else(|| CompileError::ExpectedFunction {
                     found: self.previous_token.to_owned(),
-                    actual_type: last_instruction_type.clone(),
                     position: self.previous_position,
-                });
-            }
+                })?;
+            let index = self.prototypes.borrow().len() - 1;
+
+            (function.clone(), function.r#type.return_type.clone(), index)
         };
+        let argument_count = function.r#type.value_parameters.len();
         let mut argument_registers = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {
@@ -2145,16 +2125,16 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let end = self.current_position.1;
-        let return_operand_type = function_return_type.as_operand_type();
+        let return_operand_type = return_type.as_operand_type();
         let destination = Address::register(self.next_register_index());
         let call = Instruction::call(
             destination,
-            last_instruction.b_address(),
+            Address::constant(function_index),
             argument_count,
             return_operand_type,
         );
 
-        self.emit_instruction(call, function_return_type, Span(start, end));
+        self.emit_instruction(call, return_type, Span(start, end));
 
         Ok(())
     }
@@ -2282,19 +2262,12 @@ impl<'a> ChunkCompiler<'a> {
             match self.current_token {
                 Token::Const => self.parse_const()?,
                 Token::Fn => {
+                    let function_start = self.current_position.0;
+
                     self.parse_function()?;
 
-                    let (_, _, function_position) = self.instructions.pop().unwrap();
-                    let last_constant = self.constants.pop().unwrap();
-                    let prototype = if let Value::Function(prototype) = last_constant {
-                        prototype
-                    } else {
-                        return Err(CompileError::ExpectedFunction {
-                            found: self.previous_token.to_owned(),
-                            actual_type: last_constant.r#type(),
-                            position: function_position,
-                        });
-                    };
+                    let function_position = Span(function_start, self.current_position.1);
+                    let prototype = self.prototypes.borrow_mut().pop().unwrap();
 
                     if let CompileMode::Module { module, .. } = &mut self.mode
                         && let Some(path) = &prototype.name
@@ -2409,7 +2382,7 @@ impl<'a> ChunkCompiler<'a> {
                 let string = if let Token::String(text) = self.current_token {
                     self.advance()?;
 
-                    DustString::from(text)
+                    String::from(text)
                 } else {
                     return Err(CompileError::ExpectedToken {
                         expected: TokenKind::String,
@@ -2575,8 +2548,14 @@ impl<'a> ChunkCompiler<'a> {
             }
             Item::Function(prototype) => {
                 let r#type = Type::Function(Box::new(prototype.r#type.clone()));
-                let function = Value::Function(prototype);
-                let prototype_index = self.push_constant_or_get_index(function);
+                let prototype_index = {
+                    let mut prototypes = self.prototypes.borrow_mut();
+                    let prototype_index = prototypes.len();
+
+                    prototypes.push(prototype);
+
+                    prototype_index
+                };
                 let address = Address::constant(prototype_index);
 
                 self.declare_local(

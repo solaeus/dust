@@ -12,10 +12,7 @@ mod disassembler;
 pub use disassembler::Disassembler;
 use serde::{Deserialize, Serialize};
 
-use std::{
-    fmt::{Debug, Display},
-    io::Write,
-};
+use std::fmt::{Debug, Display};
 
 use crate::{FunctionType, Instruction, Local, Path, Value};
 
@@ -33,12 +30,6 @@ pub struct Chunk {
 
     pub(crate) register_count: usize,
     pub(crate) prototype_index: usize,
-}
-
-impl Chunk {
-    pub fn disassembler<'a, 'w, W: Write>(&'a self, writer: &'w mut W) -> Disassembler<'a, 'w, W> {
-        Disassembler::new(self, writer)
-    }
 }
 
 impl Display for Chunk {

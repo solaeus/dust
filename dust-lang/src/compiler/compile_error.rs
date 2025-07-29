@@ -39,7 +39,6 @@ pub enum CompileError {
     },
     ExpectedFunction {
         found: TokenOwned,
-        actual_type: Type,
         position: Span,
     },
     ExpectedFunctionType {
@@ -307,13 +306,9 @@ impl AnnotatedError for CompileError {
                     *position,
                 )]
             }
-            Self::ExpectedFunction {
-                found,
-                actual_type,
-                position,
-            } => {
+            Self::ExpectedFunction { found, position } => {
                 vec![(
-                    format!("Expected a function but found `{found}` of type `{actual_type}`",),
+                    format!("Expected a function but found `{found}`",),
                     *position,
                 )]
             }

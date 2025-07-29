@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Module};
+use crate::{Chunk, Module, Program};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DustCrate {
@@ -13,16 +15,11 @@ impl DustCrate {
         Self::Library(module)
     }
 
-    pub fn program(main_chunk: Chunk, cell_count: u16) -> Self {
+    pub fn program(main_chunk: Chunk, cell_count: u16, prototypes: Arc<Vec<Arc<Chunk>>>) -> Self {
         Self::Program(Box::new(Program {
             main_chunk,
             cell_count,
+            prototypes,
         }))
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Program {
-    pub main_chunk: Chunk,
-    pub cell_count: u16,
 }

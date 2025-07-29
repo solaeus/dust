@@ -47,6 +47,7 @@ pub mod instruction;
 pub mod jit;
 pub mod lexer;
 pub mod native_function;
+pub mod program;
 pub mod token;
 pub mod r#type;
 pub mod value;
@@ -64,9 +65,10 @@ pub use instruction::{
 pub use jit::JitInstruction;
 pub use lexer::{LexError, Lexer, lex};
 pub use native_function::NativeFunction;
+pub use program::Program;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
-pub use value::{DustString, List, Value};
+pub use value::{List, Value};
 pub use vm::{CallFrame, Cell, Object, Register, ThreadRunner, Vm, run};
 
 use std::fmt::Display;

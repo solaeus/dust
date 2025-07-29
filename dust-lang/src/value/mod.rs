@@ -1,32 +1,29 @@
 mod dust_range;
-mod dust_string;
 mod list;
 
 use std::{
     cmp::Ordering,
-    fmt::Display,
+    fmt::{self, Formatter},
     hash::{Hash, Hasher},
     sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-pub use dust_string::DustString;
 pub use list::List;
 
-use crate::{Chunk, Type};
+use crate::{Chunk, OperandType};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[repr(u8)]
 pub enum Value {
-    Boolean(bool) = 0,
-    Byte(u8) = 1,
-    Character(char) = 2,
-    Float(f64) = 3,
-    Integer(i64) = 4,
-    String(DustString) = 5,
-    List(List) = 6,
-    Function(Arc<Chunk>) = 7,
+    Boolean(bool),
+    Byte(u8),
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String(String),
+    List(List),
+    Function(usize),
 }
 
 impl Value {
@@ -90,11 +87,11 @@ impl Value {
         }
     }
 
-    pub fn string<T: Into<DustString>>(value: T) -> Self {
+    pub fn string<T: Into<String>>(value: T) -> Self {
         Value::String(value.into())
     }
 
-    pub fn as_string(&self) -> Option<&DustString> {
+    pub fn as_string(&self) -> Option<&String> {
         if let Value::String(string) = self {
             Some(string)
         } else {
@@ -122,7 +119,7 @@ impl Value {
         Value::List(List::integer(items))
     }
 
-    pub fn string_list<T: Into<Vec<DustString>>>(strings: T) -> Self {
+    pub fn string_list<T: Into<Vec<String>>>(strings: T) -> Self {
         Value::List(List::string(strings))
     }
 
@@ -130,8 +127,8 @@ impl Value {
         Value::List(List::list(lists))
     }
 
-    pub fn function_list<T: Into<Vec<Arc<Chunk>>>>(functions: T) -> Self {
-        Value::List(List::function(functions))
+    pub fn function_list<T: Into<Vec<usize>>>(prototype_indexes: T) -> Self {
+        Value::List(List::function(prototype_indexes))
     }
 
     pub fn as_list(&self) -> Option<&List> {
@@ -150,34 +147,32 @@ impl Value {
         }
     }
 
-    pub fn function(chunk: Chunk) -> Self {
-        Value::Function(Arc::new(chunk))
+    pub fn function(prototype_index: usize) -> Self {
+        Value::Function(prototype_index)
     }
 
-    pub fn as_function(&self) -> Option<&Arc<Chunk>> {
-        if let Value::Function(function) = self {
-            Some(function)
+    pub fn as_function(&self) -> Option<usize> {
+        if let Value::Function(index) = self {
+            Some(*index)
         } else {
             None
         }
     }
 
-    pub fn r#type(&self) -> Type {
+    pub fn operand_type(&self) -> OperandType {
         match self {
-            Value::Boolean(_) => Type::Boolean,
-            Value::Byte(_) => Type::Byte,
-            Value::Character(_) => Type::Character,
-            Value::Float(_) => Type::Float,
-            Value::Integer(_) => Type::Integer,
-            Value::String(_) => Type::String,
-            Value::List(list) => list.r#type(),
-            Value::Function(function) => Type::Function(Box::new(function.r#type.clone())),
+            Value::Boolean(_) => OperandType::BOOLEAN,
+            Value::Byte(_) => OperandType::BYTE,
+            Value::Character(_) => OperandType::CHARACTER,
+            Value::Float(_) => OperandType::FLOAT,
+            Value::Integer(_) => OperandType::INTEGER,
+            Value::String(_) => OperandType::STRING,
+            Value::List(list) => list.operand_type(),
+            Value::Function(_) => OperandType::FUNCTION,
         }
     }
-}
 
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub fn display(&self, f: &mut Formatter, prototypes: &[Arc<Chunk>]) -> fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
             Value::Byte(byte) => write!(f, "{byte:#04X}"),
@@ -185,8 +180,14 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
             Value::String(string) => write!(f, "{string}"),
-            Value::List(list) => write!(f, "{list}"),
-            Value::Function(function) => write!(f, "{}", function.r#type),
+            Value::List(list) => list.display(f, prototypes),
+            Value::Function(function) => {
+                if let Some(chunk) = prototypes.get(*function) {
+                    write!(f, "{}", chunk.r#type)
+                } else {
+                    write!(f, "<unknown>")
+                }
+            }
         }
     }
 }

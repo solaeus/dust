@@ -1,25 +1,39 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use slab::Slab;
 
-use crate::{List, Object, vm::object::ObjectData};
+use crate::{List, Object, vm::object::ObjectValue};
 
 pub struct ObjectPool {
     objects: Slab<Object>,
     roots: HashSet<usize>,
+    allocations_since_collection: usize,
 }
 
 impl ObjectPool {
+    const MAX_ALLOCATIONS_BEFORE_COLLECTION: usize = {
+        if cfg!(debug_assertions) {
+            10_000
+        } else {
+            100_000
+        }
+    };
+
     pub fn new() -> Self {
         Self {
             objects: Slab::new(),
             roots: HashSet::new(),
+            allocations_since_collection: 0,
         }
     }
 
     pub fn allocate(&mut self, object: Object) -> usize {
         let key = self.objects.insert(object);
+
         self.roots.insert(key);
+
+        self.allocations_since_collection += 1;
+
         key
     }
 
@@ -38,43 +52,42 @@ impl ObjectPool {
         self.objects.get_mut(key)
     }
 
-    /// Mark-and-sweep GC: mark from roots, then sweep.
     pub fn collect_garbage(&mut self) {
-        for root in self.roots.clone() {
-            self.mark(root);
+        if self.allocations_since_collection < Self::MAX_ALLOCATIONS_BEFORE_COLLECTION {
+            return;
         }
 
-        self.sweep();
-    }
+        let mut worklist: VecDeque<usize> = self.roots.iter().copied().collect();
 
-    fn mark(&mut self, key: usize) {
-        if let Some(object) = self.objects.get_mut(key) {
-            if object.mark {
-                return;
-            }
+        while let Some(key) = worklist.pop_front() {
+            if let Some(object) = self.objects.get_mut(key) {
+                if object.mark {
+                    continue;
+                }
 
-            object.mark = true;
+                object.mark = true;
 
-            if let ObjectData::ValueList(list) = &object.data {
-                for child_key in list_object_keys(list) {
-                    self.mark(child_key);
+                if let ObjectValue::List(list) = &object.value {
+                    for child_key in list_object_keys(list) {
+                        worklist.push_back(child_key);
+                    }
                 }
             }
         }
-    }
 
-    fn sweep(&mut self) {
-        self.objects.retain(|key, object| {
-            let keep = object.mark;
+        self.objects.retain(|key, obj| {
+            let keep = obj.mark;
 
-            if !object.mark {
+            if !keep {
                 self.roots.remove(&key);
             }
 
-            object.mark = false;
+            obj.mark = false;
 
             keep
         });
+
+        self.allocations_since_collection = 0;
     }
 }
 
