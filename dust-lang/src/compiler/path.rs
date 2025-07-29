@@ -1,11 +1,11 @@
 use std::{
     borrow::Borrow,
+    collections::HashSet,
     fmt::{self, Display, Formatter},
     iter::repeat,
     sync::{Arc, LazyLock, Mutex},
 };
 
-use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 use smartstring::{LazyCompact, SmartString};
 

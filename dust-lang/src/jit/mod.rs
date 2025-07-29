@@ -9,7 +9,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    CallFrame, Chunk, Instruction, OperandType, Operation, Register, ThreadRunner,
+    Address, CallFrame, Chunk, Instruction, Object, OperandType, Operation, Register, ThreadRunner,
     instruction::{Jump, Load, MemoryKind, Return, Test},
 };
 
@@ -17,8 +17,10 @@ pub extern "C" fn load_constant(value: u64) -> u64 {
     value
 }
 
-pub struct Jit {
+pub struct Jit<'a> {
     module: JITModule,
+    chunk: &'a Chunk,
+    object_pool: &'a mut Vec<Object>,
 }
 
 /// # Safety
@@ -32,8 +34,8 @@ pub unsafe extern "C" fn set_return_value_integer(
     }
 }
 
-impl Jit {
-    pub fn new() -> Self {
+impl<'a> Jit<'a> {
+    pub fn new(chunk: &'a Chunk, object_pool: &'a mut Vec<Object>) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
         builder.symbol(
             "set_return_value_integer",
@@ -42,7 +44,11 @@ impl Jit {
 
         let module = JITModule::new(builder);
 
-        Self { module }
+        Self {
+            module,
+            chunk,
+            object_pool,
+        }
     }
 
     fn terminate_with_jump(
@@ -62,7 +68,36 @@ impl Jit {
         }
     }
 
-    pub fn compile(&mut self, chunk: &Chunk) -> Result<JitInstruction, JitError> {
+    fn get_integer(
+        &self,
+        function_builder: &mut FunctionBuilder,
+        call_frame_registers_pointer: Value,
+        address: &Address,
+    ) -> Result<Value, JitError> {
+        match address.memory {
+            MemoryKind::REGISTER => {
+                let register_byte_offset = (address.index * size_of::<Register>()) as i32;
+                Ok(function_builder.ins().load(
+                    types::I64,
+                    MemFlags::new(),
+                    call_frame_registers_pointer,
+                    register_byte_offset,
+                ))
+            }
+            MemoryKind::CONSTANT => match self.chunk.constants[address.index].as_integer() {
+                Some(val) => Ok(function_builder.ins().iconst(types::I64, val)),
+                None => Err(JitError::InvalidConstantType {
+                    constant_index: address.index,
+                    expected_type: OperandType::INTEGER,
+                }),
+            },
+            _ => Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            }),
+        }
+    }
+
+    pub fn compile(&mut self) -> Result<JitInstruction, JitError> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -82,8 +117,8 @@ impl Jit {
         let mut function_builder =
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
-        let bytecode_instructions = &chunk.instructions;
-        let constant_pool = &chunk.constants;
+        let bytecode_instructions = &self.chunk.instructions;
+        let constants = &self.chunk.constants;
         let total_instruction_count = bytecode_instructions.len();
 
         let mut instruction_blocks = Vec::with_capacity(total_instruction_count);
@@ -124,20 +159,32 @@ impl Jit {
 
         let variable_0 = function_builder.declare_var(pointer_type);
         let variable_1 = function_builder.declare_var(pointer_type);
+        let variable_2 = function_builder.declare_var(pointer_type);
         let thread_runner_pointer = function_builder.block_params(function_entry_block)[0];
         let call_frame_pointer = function_builder.block_params(function_entry_block)[1];
         function_builder.def_var(variable_0, thread_runner_pointer);
         function_builder.def_var(variable_1, call_frame_pointer);
+
+        let call_frame_registers_field_offset = offset_of!(CallFrame, registers) as i32;
+        let call_frame_registers_pointer = function_builder.ins().load(
+            pointer_type,
+            MemFlags::new(),
+            call_frame_pointer,
+            call_frame_registers_field_offset,
+        );
+        function_builder.def_var(variable_2, call_frame_registers_pointer);
 
         function_builder.ins().jump(instruction_blocks[0], &[]);
 
         for ip in 0..total_instruction_count {
             function_builder.switch_to_block(instruction_blocks[ip]);
             let _thread_runner_pointer = function_builder.use_var(variable_0);
-            let call_frame_pointer = function_builder.use_var(variable_1);
+            let _call_frame_pointer = function_builder.use_var(variable_1);
+            let registers_pointer = function_builder.use_var(variable_2);
             let current_instruction = &bytecode_instructions[ip];
+            let operation = current_instruction.operation();
 
-            match current_instruction.operation() {
+            match operation {
                 Operation::LOAD => {
                     let Load {
                         destination,
@@ -145,93 +192,28 @@ impl Jit {
                         r#type,
                         ..
                     } = Load::from(*current_instruction);
-                    match operand.memory {
-                        MemoryKind::REGISTER => {
-                            let call_frame_registers_field_offset =
-                                offset_of!(CallFrame, registers) as i32;
-                            let call_frame_registers_pointer = function_builder.ins().load(
-                                pointer_type,
-                                MemFlags::new(),
-                                call_frame_pointer,
-                                call_frame_registers_field_offset,
-                            );
-                            let source_register_byte_offset =
-                                (operand.index * size_of::<Register>()) as i32;
-                            let destination_register_byte_offset =
-                                (destination.index * size_of::<Register>()) as i32;
-                            let source_register_value = function_builder.ins().load(
-                                types::I64,
-                                MemFlags::new(),
-                                call_frame_registers_pointer,
-                                source_register_byte_offset,
-                            );
-                            function_builder.ins().store(
-                                MemFlags::new(),
-                                source_register_value,
-                                call_frame_registers_pointer,
-                                destination_register_byte_offset,
-                            );
+
+                    let value = match r#type {
+                        OperandType::INTEGER => {
+                            self.get_integer(&mut function_builder, registers_pointer, &operand)?
                         }
-                        MemoryKind::CONSTANT => match r#type {
-                            OperandType::INTEGER => {
-                                let integer_constant_value =
-                                    match constant_pool[operand.index].as_integer() {
-                                        Some(value) => value,
-                                        None => {
-                                            return Err(JitError::InvalidConstantType {
-                                                instruction_pointer: ip,
-                                                constant_index: operand.index,
-                                                expected_type: OperandType::INTEGER,
-                                                operation: "LOAD".to_string(),
-                                            });
-                                        }
-                                    };
-                                let cranelift_constant_value = function_builder
-                                    .ins()
-                                    .iconst(types::I64, integer_constant_value);
-                                let call_frame_registers_field_offset =
-                                    offset_of!(CallFrame, registers) as i32;
-                                let call_frame_registers_pointer = function_builder.ins().load(
-                                    pointer_type,
-                                    MemFlags::new(),
-                                    call_frame_pointer,
-                                    call_frame_registers_field_offset,
-                                );
-                                let destination_operand_index = function_builder
-                                    .ins()
-                                    .iconst(types::I64, destination.index as i64);
-                                let destination_register_byte_offset =
-                                    function_builder.ins().imul_imm(
-                                        destination_operand_index,
-                                        std::mem::size_of::<Register>() as i64,
-                                    );
-                                let destination_register_address = function_builder.ins().iadd(
-                                    call_frame_registers_pointer,
-                                    destination_register_byte_offset,
-                                );
-                                function_builder.ins().store(
-                                    MemFlags::new(),
-                                    cranelift_constant_value,
-                                    destination_register_address,
-                                    0,
-                                );
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedOperandType {
-                                    instruction_pointer: ip,
-                                    operand_type: r#type,
-                                    operation: "LOAD".to_string(),
-                                });
-                            }
-                        },
+                        // OperandType::FLOAT => self.get_float(...)?,
+                        // OperandType::STRING => self.get_string(...)?,
                         _ => {
-                            return Err(JitError::UnsupportedMemoryKind {
-                                instruction_pointer: ip,
-                                operation: "LOAD".to_string(),
-                                memory_kind_description: format!("{:?}", operand.memory),
+                            return Err(JitError::UnsupportedOperandType {
+                                operand_type: r#type,
                             });
                         }
-                    }
+                    };
+
+                    let destination_register_byte_offset =
+                        (destination.index * size_of::<Register>()) as i32;
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        value,
+                        registers_pointer,
+                        destination_register_byte_offset,
+                    );
 
                     self.terminate_with_jump(
                         &mut function_builder,
@@ -251,93 +233,41 @@ impl Jit {
                     let r#type = current_instruction.operand_type();
                     match r#type {
                         OperandType::INTEGER => {
-                            let call_frame_registers_field_offset =
-                                offset_of!(CallFrame, registers) as i32;
-                            let call_frame_registers_pointer = function_builder.ins().load(
-                                pointer_type,
-                                MemFlags::new(),
-                                call_frame_pointer,
-                                call_frame_registers_field_offset,
-                            );
-                            let left_register_byte_offset =
-                                (left.index * size_of::<Register>()) as i32;
-                            let left_operand_value = function_builder.ins().load(
-                                types::I64,
-                                MemFlags::new(),
-                                call_frame_registers_pointer,
-                                left_register_byte_offset,
-                            );
-                            let right_operand_value = match right.memory {
-                                MemoryKind::REGISTER => {
-                                    let right_register_byte_offset =
-                                        (right.index * size_of::<Register>()) as i32;
-                                    function_builder.ins().load(
-                                        types::I64,
-                                        MemFlags::new(),
-                                        call_frame_registers_pointer,
-                                        right_register_byte_offset,
-                                    )
-                                }
-                                MemoryKind::CONSTANT => {
-                                    let integer_constant_value =
-                                        match constant_pool[right.index].as_integer() {
-                                            Some(val) => val,
-                                            None => {
-                                                return Err(JitError::InvalidConstantType {
-                                                    instruction_pointer: ip,
-                                                    constant_index: right.index,
-                                                    expected_type: OperandType::INTEGER,
-                                                    operation: format!(
-                                                        "{:?}",
-                                                        current_instruction.operation()
-                                                    ),
-                                                });
-                                            }
-                                        };
-                                    function_builder
-                                        .ins()
-                                        .iconst(types::I64, integer_constant_value)
-                                }
-                                _ => {
-                                    return Err(JitError::UnsupportedMemoryKind {
-                                        instruction_pointer: ip,
-                                        operation: format!("{:?}", current_instruction.operation()),
-                                        memory_kind_description: format!("{:?}", right.memory),
-                                    });
-                                }
-                            };
+                            let left_integer =
+                                self.get_integer(&mut function_builder, registers_pointer, &left)?;
+                            let right_integer =
+                                self.get_integer(&mut function_builder, registers_pointer, &right)?;
                             let result_value = match current_instruction.operation() {
-                                Operation::ADD => function_builder
-                                    .ins()
-                                    .iadd(left_operand_value, right_operand_value),
-                                Operation::SUBTRACT => function_builder
-                                    .ins()
-                                    .isub(left_operand_value, right_operand_value),
-                                Operation::MULTIPLY => function_builder
-                                    .ins()
-                                    .imul(left_operand_value, right_operand_value),
-                                Operation::DIVIDE => function_builder
-                                    .ins()
-                                    .udiv(left_operand_value, right_operand_value),
-                                Operation::MODULO => function_builder
-                                    .ins()
-                                    .urem(left_operand_value, right_operand_value),
+                                Operation::ADD => {
+                                    function_builder.ins().iadd(left_integer, right_integer)
+                                }
+                                Operation::SUBTRACT => {
+                                    function_builder.ins().isub(left_integer, right_integer)
+                                }
+                                Operation::MULTIPLY => {
+                                    function_builder.ins().imul(left_integer, right_integer)
+                                }
+                                Operation::DIVIDE => {
+                                    function_builder.ins().udiv(left_integer, right_integer)
+                                }
+                                Operation::MODULO => {
+                                    function_builder.ins().urem(left_integer, right_integer)
+                                }
                                 _ => unreachable!(),
                             };
                             let destination_register_byte_offset =
                                 (destination.index * size_of::<Register>()) as i32;
+
                             function_builder.ins().store(
                                 MemFlags::new(),
                                 result_value,
-                                call_frame_registers_pointer,
+                                registers_pointer,
                                 destination_register_byte_offset,
                             );
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
-                                instruction_pointer: ip,
                                 operand_type: r#type,
-                                operation: format!("{:?}", current_instruction.operation()),
                             });
                         }
                     }
@@ -350,111 +280,42 @@ impl Jit {
                     );
                 }
                 Operation::LESS | Operation::EQUAL | Operation::LESS_EQUAL => {
-                    let comparator = match current_instruction.operation() {
-                        Operation::LESS => IntCC::SignedLessThan,
-                        Operation::EQUAL => IntCC::Equal,
-                        Operation::LESS_EQUAL => IntCC::SignedLessThanOrEqual,
-                        _ => unreachable!(),
-                    };
+                    let comparator = current_instruction.destination().index != 0;
                     let left = current_instruction.b_address();
                     let right = current_instruction.c_address();
                     let r#type = current_instruction.operand_type();
-                    match r#type {
-                        OperandType::INTEGER => match (left.memory, right.memory) {
-                            (MemoryKind::REGISTER, MemoryKind::CONSTANT) => {
-                                let integer_constant_value =
-                                    match constant_pool[right.index].as_integer() {
-                                        Some(val) => val,
-                                        None => {
-                                            return Err(JitError::InvalidConstantType {
-                                                instruction_pointer: ip,
-                                                constant_index: right.index,
-                                                expected_type: OperandType::INTEGER,
-                                                operation: format!(
-                                                    "{:?}",
-                                                    current_instruction.operation()
-                                                ),
-                                            });
-                                        }
-                                    };
-                                let call_frame_registers_field_offset =
-                                    offset_of!(CallFrame, registers) as i32;
-                                let call_frame_registers_pointer = function_builder.ins().load(
-                                    pointer_type,
-                                    MemFlags::new(),
-                                    call_frame_pointer,
-                                    call_frame_registers_field_offset,
-                                );
-                                let left_register_byte_offset =
-                                    (left.index * size_of::<Register>()) as i32;
-                                let left_operand_value = function_builder.ins().load(
-                                    types::I64,
-                                    MemFlags::new(),
-                                    call_frame_registers_pointer,
-                                    left_register_byte_offset,
-                                );
-                                let cranelift_constant_value = function_builder
-                                    .ins()
-                                    .iconst(types::I64, integer_constant_value);
-                                let comparison_result = function_builder.ins().icmp(
-                                    comparator,
-                                    left_operand_value,
-                                    cranelift_constant_value,
-                                );
-
-                                let skip_next_instruction_pointer = ip + 2;
-                                let proceed_to_next_instruction_pointer = ip + 1;
-                                let skip_next_instruction_block =
-                                    if skip_next_instruction_pointer < instruction_blocks.len() {
-                                        instruction_blocks[skip_next_instruction_pointer]
-                                    } else {
-                                        return Err(JitError::BranchTargetOutOfBounds {
-                                            instruction_pointer: ip,
-                                            branch_target_instruction_pointer:
-                                                skip_next_instruction_pointer,
-                                            total_instruction_count: instruction_blocks.len(),
-                                        });
-                                    };
-                                let proceed_to_next_instruction_block =
-                                    if proceed_to_next_instruction_pointer
-                                        < instruction_blocks.len()
-                                    {
-                                        instruction_blocks[proceed_to_next_instruction_pointer]
-                                    } else {
-                                        return Err(JitError::BranchTargetOutOfBounds {
-                                            instruction_pointer: ip,
-                                            branch_target_instruction_pointer:
-                                                proceed_to_next_instruction_pointer,
-                                            total_instruction_count: instruction_blocks.len(),
-                                        });
-                                    };
-                                function_builder.ins().brif(
-                                    comparison_result,
-                                    skip_next_instruction_block,
-                                    &[],
-                                    proceed_to_next_instruction_block,
-                                    &[],
-                                );
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    instruction_pointer: ip,
-                                    operation: format!("{:?}", current_instruction.operation()),
-                                    memory_kind_description: format!(
-                                        "left: {:?}, right: {:?}",
-                                        left.memory, right.memory
-                                    ),
-                                });
-                            }
-                        },
+                    let comparison_operation = match (operation, comparator) {
+                        (Operation::LESS, true) => IntCC::SignedLessThan,
+                        (Operation::LESS, false) => IntCC::SignedGreaterThanOrEqual,
+                        (Operation::EQUAL, true) => IntCC::Equal,
+                        (Operation::EQUAL, false) => IntCC::NotEqual,
+                        (Operation::LESS_EQUAL, true) => IntCC::SignedLessThanOrEqual,
+                        (Operation::LESS_EQUAL, false) => IntCC::SignedGreaterThan,
+                        _ => unreachable!(),
+                    };
+                    let (left, right) = match r#type {
+                        OperandType::INTEGER => (
+                            self.get_integer(&mut function_builder, registers_pointer, &left)?,
+                            self.get_integer(&mut function_builder, registers_pointer, &right)?,
+                        ),
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
-                                instruction_pointer: ip,
                                 operand_type: r#type,
-                                operation: format!("{:?}", current_instruction.operation()),
                             });
                         }
-                    }
+                    };
+                    let comparison_result =
+                        function_builder
+                            .ins()
+                            .icmp(comparison_operation, left, right);
+
+                    function_builder.ins().brif(
+                        comparison_result,
+                        instruction_blocks[ip + 2],
+                        &[],
+                        instruction_blocks[ip + 1],
+                        &[],
+                    );
                 }
                 Operation::TEST => {
                     let Test {
@@ -463,28 +324,18 @@ impl Jit {
                     } = Test::from(*current_instruction);
                     let operand_value = match operand.memory {
                         MemoryKind::REGISTER => {
-                            let call_frame_registers_field_offset =
-                                offset_of!(CallFrame, registers) as i32;
-                            let call_frame_registers_pointer = function_builder.ins().load(
-                                pointer_type,
-                                MemFlags::new(),
-                                call_frame_pointer,
-                                call_frame_registers_field_offset,
-                            );
                             let operand_byte_offset =
                                 (operand.index * size_of::<Register>()) as i32;
                             function_builder.ins().load(
                                 types::I64,
                                 MemFlags::new(),
-                                call_frame_registers_pointer,
+                                registers_pointer,
                                 operand_byte_offset,
                             )
                         }
                         _ => {
                             return Err(JitError::UnsupportedMemoryKind {
-                                instruction_pointer: ip,
-                                operation: "TEST".to_string(),
-                                memory_kind_description: format!("{:?}", operand.memory),
+                                memory_kind: operand.memory,
                             });
                         }
                     };
@@ -565,23 +416,12 @@ impl Jit {
                     if should_return_value != 0 {
                         match r#type {
                             OperandType::INTEGER => {
-                                let thread_runner_pointer =
-                                    function_builder.use_var(Variable::new(0));
-                                let call_frame_pointer = function_builder.use_var(Variable::new(1));
-                                let call_frame_registers_field_offset =
-                                    offset_of!(CallFrame, registers) as i32;
-                                let call_frame_registers_pointer = function_builder.ins().load(
-                                    pointer_type,
-                                    MemFlags::new(),
-                                    call_frame_pointer,
-                                    call_frame_registers_field_offset,
-                                );
                                 let return_value_register_byte_offset =
                                     (return_value_address.index * size_of::<Register>()) as i32;
                                 let return_value = function_builder.ins().load(
                                     types::I64,
                                     MemFlags::new(),
-                                    call_frame_registers_pointer,
+                                    registers_pointer,
                                     return_value_register_byte_offset,
                                 );
                                 function_builder.ins().call(
@@ -592,9 +432,7 @@ impl Jit {
                             }
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
-                                    instruction_pointer: ip,
                                     operand_type: r#type,
-                                    operation: "RETURN".to_string(),
                                 });
                             }
                         }
@@ -644,14 +482,8 @@ impl Jit {
 
         Ok(JitInstruction {
             logic,
-            register_count: chunk.register_count,
+            register_count: self.chunk.register_count,
         })
-    }
-}
-
-impl Default for Jit {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

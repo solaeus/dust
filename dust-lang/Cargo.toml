@@ -22,7 +22,6 @@ smartstring = { version = "1.0.1", features = [
 ], default-features = false }
 tracing = "0.1.41"
 crossbeam-channel = "0.5.14"
-hashbrown = "0.15.3"
 indexmap = { version = "2.9.0", features = ["serde"] }
 cranelift = "0.122"
 cranelift-jit = "0.122"

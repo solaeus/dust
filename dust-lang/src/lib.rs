@@ -29,6 +29,7 @@
 //! ```
 #![feature(
     formatting_options,
+    hash_set_entry,
     new_range_api,
     never_type,
     offset_of_enum,

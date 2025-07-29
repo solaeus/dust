@@ -41,7 +41,7 @@ pub use path::Path;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{cell::RefCell, collections::HashSet, marker::PhantomData, mem::replace, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc};
 
 use crate::{
     Address, Chunk, DustError, DustString, FunctionType, Instruction, Lexer, List, NativeFunction,
@@ -109,7 +109,7 @@ impl Compiler {
         let globals = Rc::new(RefCell::new(IndexMap::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut());
+            apply_standard_library(&mut main_module.borrow_mut());
         }
 
         let mut chunk_compiler =
@@ -148,7 +148,7 @@ impl Compiler {
         let globals = Rc::new(RefCell::new(IndexMap::new()));
 
         if !self.allow_native_functions {
-            apply_standard_library(&mut *main_module.borrow_mut());
+            apply_standard_library(&mut main_module.borrow_mut());
         }
 
         let mut chunk_compiler = ChunkCompiler::new(lexer, mode, item_scope, main_module, globals)?;
@@ -163,11 +163,7 @@ impl Compiler {
             .into_iter()
             .map(|(instruction, _, _)| instruction)
             .collect();
-        let locals = chunk_compiler
-            .locals
-            .into_iter()
-            .map(|(path, local)| (path, local))
-            .collect();
+        let locals = chunk_compiler.locals.into_iter().collect();
         let main_chunk = Chunk {
             name: Some(program_path),
             r#type: chunk_compiler.r#type,
@@ -182,6 +178,12 @@ impl Compiler {
             main_chunk,
             cell_count,
         })
+    }
+}
+
+impl Default for Compiler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2040,11 +2042,7 @@ impl<'a> ChunkCompiler<'a> {
             .into_iter()
             .map(|(instruction, _, _)| instruction)
             .collect();
-        let locals = function_compiler
-            .locals
-            .into_iter()
-            .map(|(path, local)| (path, local))
-            .collect();
+        let locals = function_compiler.locals.into_iter().collect();
         let chunk = Chunk {
             name: path.clone(),
             r#type: function_compiler.r#type,

@@ -1,12 +1,14 @@
 //! This VM never emits errors. Instead, errors are handled as panics.
 mod call_frame;
 mod cell;
-mod memory;
+mod object;
+mod register;
 pub mod thread;
 
 pub use call_frame::CallFrame;
 pub use cell::{Cell, CellValue};
-pub use memory::{Object, Register};
+pub use object::Object;
+pub use register::Register;
 pub use thread::{Thread, ThreadRunner};
 
 use std::sync::{Arc, RwLock};

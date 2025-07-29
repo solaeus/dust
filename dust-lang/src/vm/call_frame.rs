@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use crate::{Address, Chunk, OperandType, Value, vm::Register};
 
-#[derive(Debug)]
 #[repr(C)]
 pub struct CallFrame<'a> {
     pub ip: usize,

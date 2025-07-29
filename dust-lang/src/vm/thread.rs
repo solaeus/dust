@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     sync::{Arc, RwLock},
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
@@ -7,7 +6,7 @@ use std::{
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, JitInstruction, Value,
+    Address, Chunk, Value,
     instruction::OperandType,
     jit::{Jit, JitError},
     vm::Register,
@@ -55,12 +54,11 @@ impl Thread {
 pub struct ThreadRunner<'a> {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
+    pub(crate) object_pool: Vec<Object>,
 
     main_chunk: Arc<Chunk>,
 
     call_stack: Vec<CallFrame<'a>>,
-
-    object_pool: Vec<Object>,
 
     threads: Arc<RwLock<Vec<Thread>>>,
     cells: Arc<RwLock<Vec<Cell>>>,
@@ -80,9 +78,9 @@ impl<'a> ThreadRunner<'a> {
                 .unwrap_or_default()
         );
 
-        let mut jit = Jit::new();
-        let decoded_chunk = jit.compile(self.main_chunk.as_ref())?;
-        let mut register_stack = vec![Register::default(); self.main_chunk.register_count];
+        let mut jit = Jit::new(&self.main_chunk, &mut self.object_pool);
+        let decoded_chunk = jit.compile()?;
+        let mut register_stack = vec![Register { empty: () }; self.main_chunk.register_count];
         let mut call = CallFrame::new(
             Arc::clone(&self.main_chunk),
             &mut register_stack[0..self.main_chunk.register_count],

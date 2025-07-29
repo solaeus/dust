@@ -1,6 +1,6 @@
 use tracing::{Level, span};
 
-use crate::{Chunk, Compiler, Span};
+use crate::{Compiler, Span};
 
 use super::{Item, Module, Path};
 
