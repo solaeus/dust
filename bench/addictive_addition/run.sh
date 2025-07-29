@@ -12,7 +12,7 @@ hyperfine \
     'Rscript bench/addictive_addition/addictive_addition.R' \
     'target/release/dust bench/addictive_addition/addictive_addition.ds' \
     'luajit bench/addictive_addition/addictive_addition.lua' \
-    'java -cp bench/addictive_addition AddictiveAddition' \
+    'java bench/addictive_addition/addictive_addition.java' \
     'julia bench/addictive_addition/addictive_addition.jl' \
     'pypy bench/addictive_addition/addictive_addition.py' \
     'node bench/addictive_addition/addictive_addition.js' \
