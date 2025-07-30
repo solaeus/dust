@@ -69,7 +69,7 @@ pub use program::Program;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{List, Value};
-pub use vm::{CallFrame, Cell, Object, Register, ThreadRunner, Vm, run};
+pub use vm::{CallFrame, Cell, Object, Register, Thread, Vm, run};
 
 use std::fmt::Display;
 

@@ -1,4 +1,3 @@
-mod dust_range;
 mod list;
 
 use std::{

@@ -12,7 +12,7 @@ use cranelift_module::{Linkage, Module};
 use tracing::{Level, info};
 
 use crate::{
-    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, ThreadRunner,
+    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, Thread,
     instruction::{Jump, Load, MemoryKind, Return, Test},
     vm::ObjectPool,
 };
@@ -332,13 +332,14 @@ impl<'a> Jit<'a> {
                     let left = current_instruction.b_address();
                     let right = current_instruction.c_address();
                     let r#type = current_instruction.operand_type();
-                    match r#type {
+                    let result_value = match r#type {
                         OperandType::INTEGER => {
                             let left_integer =
                                 self.get_integer(&mut function_builder, registers_pointer, &left)?;
                             let right_integer =
                                 self.get_integer(&mut function_builder, registers_pointer, &right)?;
-                            let result_value = match current_instruction.operation() {
+
+                            match current_instruction.operation() {
                                 Operation::ADD => {
                                     function_builder.ins().iadd(left_integer, right_integer)
                                 }
@@ -354,24 +355,20 @@ impl<'a> Jit<'a> {
                                 Operation::MODULO => {
                                     function_builder.ins().urem(left_integer, right_integer)
                                 }
-                                _ => unreachable!(),
-                            };
-                            let destination_register_byte_offset =
-                                (destination.index * size_of::<Register>()) as i32;
-
-                            function_builder.ins().store(
-                                MemFlags::new(),
-                                result_value,
-                                registers_pointer,
-                                destination_register_byte_offset,
-                            );
+                                _ => {
+                                    return Err(JitError::UnhandledOperation {
+                                        instruction_pointer: ip,
+                                        operation_name: operation.to_string(),
+                                    });
+                                }
+                            }
                         }
                         OperandType::STRING => {
                             let left_string =
                                 self.get_string(&mut function_builder, registers_pointer, &left)?;
                             let right_string =
                                 self.get_string(&mut function_builder, registers_pointer, &right)?;
-                            let result_value = match current_instruction.operation() {
+                            let concatenated_string_result = match current_instruction.operation() {
                                 Operation::ADD => function_builder.ins().call(
                                     concatenate_strings_function,
                                     &[thread_runner_pointer, left_string, right_string],
@@ -383,24 +380,25 @@ impl<'a> Jit<'a> {
                                     });
                                 }
                             };
-                            let result_pointer = function_builder.inst_results(result_value)[0];
-                            let destination_register_byte_offset =
-                                (destination.index * size_of::<Register>()) as i32;
 
-                            function_builder.ins().store(
-                                MemFlags::new(),
-                                result_pointer,
-                                registers_pointer,
-                                destination_register_byte_offset,
-                            );
+                            function_builder.inst_results(concatenated_string_result)[0]
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: r#type,
                             });
                         }
-                    }
+                    };
 
+                    let destination_register_byte_offset =
+                        (destination.index * size_of::<Register>()) as i32;
+
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        result_value,
+                        registers_pointer,
+                        destination_register_byte_offset,
+                    );
                     self.terminate_with_jump(&mut function_builder, ip, &instruction_blocks)?;
                 }
                 Operation::LESS | Operation::EQUAL | Operation::LESS_EQUAL => {
@@ -612,7 +610,7 @@ impl<'a> Jit<'a> {
 
         let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
         let logic = unsafe {
-            std::mem::transmute::<*const u8, extern "C" fn(*mut ThreadRunner, *mut CallFrame)>(
+            std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
                 compiled_function_pointer,
             )
         };
@@ -625,13 +623,13 @@ impl<'a> Jit<'a> {
 }
 
 pub struct JitInstruction {
-    pub logic: extern "C" fn(*mut ThreadRunner, *mut CallFrame),
+    pub logic: extern "C" fn(*mut Thread, *mut CallFrame),
     pub register_count: usize,
 }
 
 impl JitInstruction {
     pub fn no_op() -> Self {
-        extern "C" fn no_op_logic(_: *mut ThreadRunner, _: *mut CallFrame) {}
+        extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame) {}
 
         Self {
             logic: no_op_logic,

@@ -14,15 +14,15 @@ use crate::{
 
 use super::{CallFrame, Cell, ObjectPool};
 
-pub struct Thread {
+pub struct ThreadHandle {
     pub handle: JoinHandle<Result<Option<Value>, JitError>>,
 }
 
-impl Thread {
+impl ThreadHandle {
     pub fn new(
         chunk: Chunk,
         cells: Arc<RwLock<Vec<Cell>>>,
-        threads: Arc<RwLock<Vec<Thread>>>,
+        threads: Arc<RwLock<Vec<ThreadHandle>>>,
     ) -> Self {
         let name = chunk
             .name
@@ -32,36 +32,35 @@ impl Thread {
         let handle = ThreadBuilder::new()
             .name(name)
             .spawn(move || {
-                let runner = ThreadRunner {
+                Thread {
                     object_pool: ObjectPool::new(),
                     call_stack: Vec::new(),
                     threads,
                     cells,
                     return_value: None,
                     should_exit: false,
-                };
-
-                runner.run(chunk)
+                }
+                .run(chunk)
             })
             .expect("Failed to spawn thread");
 
-        Thread { handle }
+        ThreadHandle { handle }
     }
 }
 
 #[repr(C)]
-pub struct ThreadRunner<'a> {
+pub struct Thread<'a> {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
     pub(crate) object_pool: ObjectPool,
 
     call_stack: Vec<CallFrame<'a>>,
 
-    threads: Arc<RwLock<Vec<Thread>>>,
+    threads: Arc<RwLock<Vec<ThreadHandle>>>,
     cells: Arc<RwLock<Vec<Cell>>>,
 }
 
-impl<'a> ThreadRunner<'a> {
+impl<'a> Thread<'a> {
     fn run(mut self, chunk: Chunk) -> Result<Option<Value>, JitError> {
         let span = span!(Level::INFO, "VM Thread");
         let _enter = span.enter();

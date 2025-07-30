@@ -1,9 +1,9 @@
-use crate::{Object, ThreadRunner};
+use crate::{Object, Thread};
 
 /// # Safety
 /// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
 pub unsafe extern "C" fn concatenate_strings(
-    thread_runner: *mut ThreadRunner,
+    thread: *mut Thread,
     left_pointer: i64,
     rigth_pointer: i64,
 ) -> i64 {
@@ -20,9 +20,7 @@ pub unsafe extern "C" fn concatenate_strings(
         String::new()
     };
     let concatenated = format!("{left_string}{right_string}");
-    let thread_runner = unsafe { &mut *thread_runner };
+    let thread = unsafe { &mut *thread };
 
-    thread_runner
-        .object_pool
-        .allocate(Object::string(concatenated)) as i64
+    thread.object_pool.allocate(Object::string(concatenated)) as i64
 }

@@ -11,7 +11,7 @@ pub use cell::{Cell, CellValue};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::Register;
-pub use thread::{Thread, ThreadRunner};
+pub use thread::{Thread, ThreadHandle};
 
 use std::sync::{Arc, RwLock};
 
@@ -19,7 +19,7 @@ use tracing::{Level, span};
 
 use crate::{DustError, Program, Value, compile};
 
-pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
+pub type ThreadPool = Arc<RwLock<Vec<ThreadHandle>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
     let chunk = compile(source)?;
@@ -29,7 +29,7 @@ pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
 }
 
 pub struct Vm {
-    main_thread: Thread,
+    main_thread: ThreadHandle,
     threads: ThreadPool,
 }
 
@@ -44,7 +44,7 @@ impl Vm {
         }
 
         let cells = Arc::new(RwLock::new(cells));
-        let main_thread = Thread::new(program.main_chunk, cells, Arc::clone(&threads));
+        let main_thread = ThreadHandle::new(program.main_chunk, cells, Arc::clone(&threads));
 
         Self {
             main_thread,
