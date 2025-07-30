@@ -6,7 +6,7 @@ mod jit_error;
 use functions::*;
 pub use jit_error::JitError;
 
-use cranelift::prelude::*;
+use cranelift::{codegen::ir::FuncRef, prelude::*};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 use tracing::{Level, info};
@@ -35,6 +35,7 @@ impl<'a> Jit<'a> {
             "set_return_value_to_string",
             set_return_value_to_string as *const u8,
         );
+        builder.symbol("concatenate_strings", concatenate_strings as *const u8);
 
         let module = JITModule::new(builder);
 
@@ -145,6 +146,26 @@ impl<'a> Jit<'a> {
         Ok(jit_value)
     }
 
+    fn declare_imported_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+        name: &str,
+        signature: Signature,
+    ) -> Result<FuncRef, JitError> {
+        let func_id = self
+            .module
+            .declare_function(name, Linkage::Import, &signature)
+            .map_err(|error| JitError::CraneliftModuleError {
+                instruction_pointer: None,
+                message: format!("Failed to declare {name} function: {error}"),
+            })?;
+        let function_ref = self
+            .module
+            .declare_func_in_func(func_id, function_builder.func);
+
+        Ok(function_ref)
+    }
+
     pub fn compile(&mut self) -> Result<JitInstruction, JitError> {
         let span = tracing::span!(Level::INFO, "JIT Compilation");
         let _enter = span.enter();
@@ -183,6 +204,7 @@ impl<'a> Jit<'a> {
 
         let mut set_return_value_to_integer_signature =
             Signature::new(self.module.isa().default_call_conv());
+
         set_return_value_to_integer_signature
             .params
             .push(AbiParam::new(pointer_type));
@@ -190,24 +212,16 @@ impl<'a> Jit<'a> {
             .params
             .push(AbiParam::new(types::I64));
         set_return_value_to_integer_signature.returns = vec![];
-        let set_return_value_to_integer_function_id = self
-            .module
-            .declare_function(
-                "set_return_value_to_integer",
-                Linkage::Import,
-                &set_return_value_to_integer_signature,
-            )
-            .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
-                message: format!("Failed to declare set_return_value_integer function: {error}"),
-            })?;
-        let set_return_value_to_integer_function_reference = self.module.declare_func_in_func(
-            set_return_value_to_integer_function_id,
-            function_builder.func,
-        );
+
+        let set_return_value_to_integer_function = self.declare_imported_function(
+            &mut function_builder,
+            "set_return_value_to_integer",
+            set_return_value_to_integer_signature,
+        )?;
 
         let mut set_return_value_to_string_signature =
             Signature::new(self.module.isa().default_call_conv());
+
         set_return_value_to_string_signature
             .params
             .push(AbiParam::new(pointer_type));
@@ -215,21 +229,33 @@ impl<'a> Jit<'a> {
             .params
             .push(AbiParam::new(types::I64));
         set_return_value_to_string_signature.returns = vec![];
-        let set_return_value_to_string_function_id = self
-            .module
-            .declare_function(
-                "set_return_value_to_string",
-                Linkage::Import,
-                &set_return_value_to_string_signature,
-            )
-            .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
-                message: format!("Failed to declare set_return_value_string function: {error}"),
-            })?;
-        let set_return_value_to_string_function_reference = self.module.declare_func_in_func(
-            set_return_value_to_string_function_id,
-            function_builder.func,
-        );
+
+        let set_return_value_to_string_function = self.declare_imported_function(
+            &mut function_builder,
+            "set_return_value_to_string",
+            set_return_value_to_string_signature,
+        )?;
+
+        let mut concatenate_strings_signature =
+            Signature::new(self.module.isa().default_call_conv());
+        concatenate_strings_signature
+            .params
+            .push(AbiParam::new(pointer_type));
+        concatenate_strings_signature
+            .params
+            .push(AbiParam::new(pointer_type));
+        concatenate_strings_signature
+            .params
+            .push(AbiParam::new(pointer_type));
+        concatenate_strings_signature
+            .returns
+            .push(AbiParam::new(pointer_type));
+
+        let concatenate_strings_function = self.declare_imported_function(
+            &mut function_builder,
+            "concatenate_strings",
+            concatenate_strings_signature,
+        )?;
 
         let function_entry_block = function_builder.create_block();
         function_builder.switch_to_block(function_entry_block);
@@ -336,6 +362,34 @@ impl<'a> Jit<'a> {
                             function_builder.ins().store(
                                 MemFlags::new(),
                                 result_value,
+                                registers_pointer,
+                                destination_register_byte_offset,
+                            );
+                        }
+                        OperandType::STRING => {
+                            let left_string =
+                                self.get_string(&mut function_builder, registers_pointer, &left)?;
+                            let right_string =
+                                self.get_string(&mut function_builder, registers_pointer, &right)?;
+                            let result_value = match current_instruction.operation() {
+                                Operation::ADD => function_builder.ins().call(
+                                    concatenate_strings_function,
+                                    &[thread_runner_pointer, left_string, right_string],
+                                ),
+                                _ => {
+                                    return Err(JitError::UnhandledOperation {
+                                        instruction_pointer: ip,
+                                        operation_name: operation.to_string(),
+                                    });
+                                }
+                            };
+                            let result_pointer = function_builder.inst_results(result_value)[0];
+                            let destination_register_byte_offset =
+                                (destination.index * size_of::<Register>()) as i32;
+
+                            function_builder.ins().store(
+                                MemFlags::new(),
+                                result_pointer,
                                 registers_pointer,
                                 destination_register_byte_offset,
                             );
@@ -486,26 +540,29 @@ impl<'a> Jit<'a> {
                     } = Return::from(*current_instruction);
 
                     if should_return_value != 0 {
-                        let return_value_register_byte_offset =
-                            (return_value_address.index * size_of::<Register>()) as i32;
-                        let return_value = function_builder.ins().load(
-                            types::I64,
-                            MemFlags::new(),
-                            registers_pointer,
-                            return_value_register_byte_offset,
-                        );
-
                         match r#type {
                             OperandType::INTEGER => {
+                                let return_value = self.get_integer(
+                                    &mut function_builder,
+                                    registers_pointer,
+                                    &return_value_address,
+                                )?;
+
                                 function_builder.ins().call(
-                                    set_return_value_to_integer_function_reference,
+                                    set_return_value_to_integer_function,
                                     &[thread_runner_pointer, return_value],
                                 );
                                 function_builder.ins().return_(&[]);
                             }
                             OperandType::STRING => {
+                                let return_value = self.get_string(
+                                    &mut function_builder,
+                                    registers_pointer,
+                                    &return_value_address,
+                                )?;
+
                                 function_builder.ins().call(
-                                    set_return_value_to_string_function_reference,
+                                    set_return_value_to_string_function,
                                     &[thread_runner_pointer, return_value],
                                 );
                                 function_builder.ins().return_(&[]);

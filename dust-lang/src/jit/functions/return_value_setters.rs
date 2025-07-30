@@ -1,4 +1,4 @@
-use crate::{ThreadRunner, Value};
+use crate::{Object, ThreadRunner, Value};
 
 /// # Safety
 /// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
@@ -15,15 +15,16 @@ pub unsafe extern "C" fn set_return_value_to_integer(
 /// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
 pub unsafe extern "C" fn set_return_value_to_string(
     thread_runner: *mut ThreadRunner,
-    object_index: i64,
+    object_ptr: i64, // Actually a pointer, cast as i64
 ) {
-    let thread_runner = unsafe { &mut *thread_runner };
-    let string = thread_runner
-        .object_pool
-        .get(object_index as usize)
-        .and_then(|object| object.as_string())
-        .cloned()
-        .unwrap_or_default();
+    let object_ptr = object_ptr as *const Object;
+    let string = if !object_ptr.is_null() {
+        unsafe { (*object_ptr).as_string().cloned().unwrap_or_default() }
+    } else {
+        String::new()
+    };
 
-    thread_runner.return_value = Some(Value::String(string));
+    unsafe {
+        (*thread_runner).return_value = Some(Value::String(string));
+    }
 }
