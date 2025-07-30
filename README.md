@@ -4,9 +4,9 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Rust Version](https://img.shields.io/badge/rust-1.90.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
 
-High-performance programming language with a focus on correctness, speed and ease of use.
+**High-performance programming language focused on correctness, speed, and ease of use.**
 
-Dust compiles from source code to a register-based bytecode that can be efficiently JIT-compiled to highly optimized machine code. The bytecode compiler enforces static typing, has no null or undefined values and emits helpful errors that guide the user to the correct syntax. Compiling to a 64-bit encoded bytecode in a single pass before JIT compilation allows powerful optimizations for runtime performance while also delivering a fast startup time. Dust is designed to combine the best features of register-based virtual machines, JIT compilation and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
+Dust enforces static typing, has no null or undefined values, and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation, and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
 
 ```rust
 // An interactive "Hello, world" using Dust's built-in I/O functions
