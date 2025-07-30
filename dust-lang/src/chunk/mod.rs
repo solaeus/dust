@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::{Debug, Display};
 
-use crate::{FunctionType, Instruction, Local, Path, Value};
+use crate::{FunctionType, Instruction, Local, OperandType, Path, Value};
 
 /// Representation of a Dust program or function.
 ///
@@ -28,7 +28,7 @@ pub struct Chunk {
     pub(crate) constants: Vec<Value>,
     pub(crate) locals: Vec<(Path, Local)>,
 
-    pub(crate) register_count: usize,
+    pub(crate) register_tags: Vec<OperandType>,
     pub(crate) prototype_index: usize,
 }
 

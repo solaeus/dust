@@ -162,7 +162,7 @@ impl Compiler {
         chunk_compiler.compile()?;
 
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
-        let register_count = chunk_compiler.next_register_index_without_reclaiming();
+        let register_tags = chunk_compiler.create_register_tags();
         let instructions = chunk_compiler
             .instructions
             .into_iter()
@@ -175,7 +175,7 @@ impl Compiler {
             instructions,
             constants: chunk_compiler.constants,
             locals,
-            register_count,
+            register_tags,
             prototype_index: 0,
         };
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
@@ -230,8 +230,6 @@ pub(crate) struct ChunkCompiler<'a> {
 
     minimum_register_index: usize,
 
-    reclaimable_register_indexes: Vec<usize>,
-
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
     block_index: u8,
@@ -284,7 +282,6 @@ impl<'a> ChunkCompiler<'a> {
             locals: IndexMap::new(),
             lexer,
             minimum_register_index: 0,
-            reclaimable_register_indexes: Vec::new(),
             block_index: 0,
             current_block_scope: BlockScope::default(),
             current_item_scope: item_scope,
@@ -340,13 +337,7 @@ impl<'a> ChunkCompiler<'a> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register_index(&mut self) -> usize {
-        if let Some(index) = self.reclaimable_register_indexes.pop() {
-            trace!("Reclaiming boolean memory at index {index}");
-
-            return index;
-        }
-
+    fn next_register_index(&self) -> usize {
         self.instructions
             .iter()
             .fold(self.minimum_register_index, |acc, (instruction, _, _)| {
@@ -531,6 +522,18 @@ impl<'a> ChunkCompiler<'a> {
         self.r#type.return_type = new_return_type;
 
         Ok(())
+    }
+
+    fn create_register_tags(&self) -> Vec<OperandType> {
+        let mut register_tags = vec![OperandType::NONE; self.next_register_index()];
+
+        for (instruction, r#type, _) in &self.instructions {
+            if instruction.yields_value() {
+                register_tags[instruction.a_field()] = r#type.as_operand_type();
+            }
+        }
+
+        register_tags
     }
 
     fn emit_instruction(&mut self, instruction: Instruction, r#type: Type, position: Span) {
@@ -1419,29 +1422,13 @@ impl<'a> ChunkCompiler<'a> {
     fn parse_block(&mut self) -> Result<(), CompileError> {
         self.advance()?;
 
-        let starting_scope = self.current_block_scope;
         let starting_block = self.current_block_scope.block_index;
-        let start_register = self.next_register_index();
 
         self.block_index += 1;
         self.current_block_scope.begin(self.block_index);
 
         while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
-        }
-
-        let end_register = self.next_register_index();
-
-        for register_index in start_register..end_register {
-            let address = Address::register(register_index);
-
-            if !self
-                .locals
-                .iter()
-                .any(|(_, local)| local.address == address && local.scope == starting_scope)
-            {
-                self.reclaimable_register_indexes.push(register_index);
-            }
         }
 
         self.current_block_scope.end(starting_block);
@@ -2048,7 +2035,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.lexer.skip_to(self.current_position.1);
 
-        let register_count = function_compiler.next_register_index_without_reclaiming();
+        let register_tags = function_compiler.create_register_tags();
         let instructions = function_compiler
             .instructions
             .into_iter()
@@ -2061,7 +2048,7 @@ impl<'a> ChunkCompiler<'a> {
             instructions,
             constants: function_compiler.constants,
             locals,
-            register_count,
+            register_tags,
             prototype_index: function_compiler.prototype_index,
         };
         let prototype_address = Address::constant(chunk.prototype_index);

@@ -4,10 +4,12 @@ use crate::{Address, Chunk, OperandType, Value, vm::Register};
 
 #[repr(C)]
 pub struct CallFrame<'a> {
+    pub registers: &'a mut [Register],
+
     pub ip: usize,
     pub chunk: Arc<Chunk>,
+
     pub is_end_of_stack: bool,
-    pub registers: &'a mut [Register],
     pub return_address: Address,
     pub return_type: OperandType,
     pub return_value: Option<Option<Value>>,

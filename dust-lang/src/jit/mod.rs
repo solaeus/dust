@@ -1,7 +1,9 @@
-use std::{collections::VecDeque, mem::offset_of};
+use std::mem::offset_of;
 
+mod functions;
 mod jit_error;
 
+use functions::*;
 pub use jit_error::JitError;
 
 use cranelift::prelude::*;
@@ -9,37 +11,24 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 
 use crate::{
-    Address, CallFrame, Chunk, Instruction, Object, OperandType, Operation, Register, ThreadRunner,
+    Address, CallFrame, Chunk, OperandType, Operation, Register, ThreadRunner,
     instruction::{Jump, Load, MemoryKind, Return, Test},
+    vm::ObjectPool,
 };
-
-pub extern "C" fn load_constant(value: u64) -> u64 {
-    value
-}
 
 pub struct Jit<'a> {
     module: JITModule,
     chunk: &'a Chunk,
-    object_pool: &'a mut Vec<Object>,
-}
-
-/// # Safety
-/// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
-pub unsafe extern "C" fn set_return_value_integer(
-    thread_runner: *mut ThreadRunner,
-    integer_value: i64,
-) {
-    unsafe {
-        (*thread_runner).return_value = Some(crate::Value::Integer(integer_value));
-    }
+    object_pool: &'a mut ObjectPool,
 }
 
 impl<'a> Jit<'a> {
-    pub fn new(chunk: &'a Chunk, object_pool: &'a mut Vec<Object>) -> Self {
+    pub fn new(chunk: &'a Chunk, object_pool: &'a mut ObjectPool) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
+
         builder.symbol(
-            "set_return_value_integer",
-            set_return_value_integer as *const u8,
+            "set_return_value_to_integer",
+            set_return_value_to_integer as *const u8,
         );
 
         let module = JITModule::new(builder);
@@ -56,16 +45,22 @@ impl<'a> Jit<'a> {
         function_builder: &mut FunctionBuilder,
         ip: usize,
         instruction_blocks: &[Block],
-        bytecode_instructions: &[Instruction],
-    ) {
+    ) -> Result<(), JitError> {
         let next_ip = ip + 1;
-        if next_ip < instruction_blocks.len()
-            && bytecode_instructions[next_ip].operation() != Operation::RETURN
-        {
-            function_builder
-                .ins()
-                .jump(instruction_blocks[next_ip], &[]);
+
+        if next_ip >= instruction_blocks.len() {
+            return Err(JitError::BranchTargetOutOfBounds {
+                instruction_pointer: ip,
+                branch_target_instruction_pointer: next_ip,
+                total_instruction_count: instruction_blocks.len(),
+            });
         }
+
+        function_builder
+            .ins()
+            .jump(instruction_blocks[next_ip], &[]);
+
+        Ok(())
     }
 
     fn get_integer(
@@ -118,7 +113,6 @@ impl<'a> Jit<'a> {
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
         let bytecode_instructions = &self.chunk.instructions;
-        let constants = &self.chunk.constants;
         let total_instruction_count = bytecode_instructions.len();
 
         let mut instruction_blocks = Vec::with_capacity(total_instruction_count);
@@ -138,10 +132,10 @@ impl<'a> Jit<'a> {
             .params
             .push(AbiParam::new(types::I64));
         return_value_signature.returns = vec![];
-        let set_return_function_id = self
+        let set_return_value_to_integer_function_id = self
             .module
             .declare_function(
-                "set_return_value_integer",
+                "set_return_value_to_integer",
                 Linkage::Import,
                 &return_value_signature,
             )
@@ -149,9 +143,10 @@ impl<'a> Jit<'a> {
                 instruction_pointer: None,
                 message: format!("Failed to declare set_return_value_integer function: {error}"),
             })?;
-        let set_return_function_reference = self
-            .module
-            .declare_func_in_func(set_return_function_id, function_builder.func);
+        let set_return_value_to_integer_function_reference = self.module.declare_func_in_func(
+            set_return_value_to_integer_function_id,
+            function_builder.func,
+        );
 
         let function_entry_block = function_builder.create_block();
         function_builder.switch_to_block(function_entry_block);
@@ -213,12 +208,7 @@ impl<'a> Jit<'a> {
                         registers_pointer,
                         destination_register_byte_offset,
                     );
-                    self.terminate_with_jump(
-                        &mut function_builder,
-                        ip,
-                        &instruction_blocks,
-                        bytecode_instructions,
-                    );
+                    self.terminate_with_jump(&mut function_builder, ip, &instruction_blocks)?;
                 }
                 Operation::ADD
                 | Operation::SUBTRACT
@@ -270,12 +260,7 @@ impl<'a> Jit<'a> {
                         }
                     }
 
-                    self.terminate_with_jump(
-                        &mut function_builder,
-                        ip,
-                        &instruction_blocks,
-                        bytecode_instructions,
-                    );
+                    self.terminate_with_jump(&mut function_builder, ip, &instruction_blocks)?;
                 }
                 Operation::LESS | Operation::EQUAL | Operation::LESS_EQUAL => {
                     let comparator = current_instruction.destination().index != 0;
@@ -425,7 +410,7 @@ impl<'a> Jit<'a> {
                                     return_value_register_byte_offset,
                                 );
                                 function_builder.ins().call(
-                                    set_return_function_reference,
+                                    set_return_value_to_integer_function_reference,
                                     &[thread_runner_pointer, return_value],
                                 );
                                 function_builder.ins().return_(&[]);
@@ -482,7 +467,7 @@ impl<'a> Jit<'a> {
 
         Ok(JitInstruction {
             logic,
-            register_count: self.chunk.register_count,
+            register_count: self.chunk.register_tags.len(),
         })
     }
 }

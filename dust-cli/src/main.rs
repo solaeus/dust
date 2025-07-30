@@ -350,12 +350,12 @@ fn get_source_and_name(
 fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
     if use_pretty {
         tracing_subscriber::fmt()
-            .with_max_level(level)
+            .with_env_filter(format!("none,dust_lang={level}"))
             .event_format(PrettyLogFormatter { start_time })
             .init();
     } else {
         tracing_subscriber::fmt()
-            .with_max_level(level)
+            .with_env_filter(format!("none,dust_lang={level}"))
             .without_time()
             .with_writer(io::stdout)
             .init();

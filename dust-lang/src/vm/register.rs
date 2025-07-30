@@ -7,5 +7,6 @@ pub union Register {
     pub char: char,
     pub float: f64,
     pub integer: i64,
-    pub index: usize,
+    pub prototype_index: usize,
+    pub object_key: usize,
 }

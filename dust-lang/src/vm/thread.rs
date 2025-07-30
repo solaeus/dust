@@ -12,7 +12,7 @@ use crate::{
     vm::Register,
 };
 
-use super::{CallFrame, Cell, Object};
+use super::{CallFrame, Cell, ObjectPool};
 
 pub struct Thread {
     pub handle: JoinHandle<Result<Option<Value>, JitError>>,
@@ -33,7 +33,7 @@ impl Thread {
             .name(name)
             .spawn(move || {
                 let runner = ThreadRunner {
-                    object_pool: Vec::new(),
+                    object_pool: ObjectPool::new(),
                     call_stack: Vec::new(),
                     threads,
                     cells,
@@ -54,7 +54,7 @@ impl Thread {
 pub struct ThreadRunner<'a> {
     pub(crate) should_exit: bool,
     pub(crate) return_value: Option<Value>,
-    pub(crate) object_pool: Vec<Object>,
+    pub(crate) object_pool: ObjectPool,
 
     main_chunk: Arc<Chunk>,
 
@@ -80,10 +80,11 @@ impl<'a> ThreadRunner<'a> {
 
         let mut jit = Jit::new(&self.main_chunk, &mut self.object_pool);
         let decoded_chunk = jit.compile()?;
-        let mut register_stack = vec![Register { empty: () }; self.main_chunk.register_count];
+        let register_count = self.main_chunk.register_tags.len();
+        let mut register_stack = vec![Register { empty: () }; register_count];
         let mut call = CallFrame::new(
             Arc::clone(&self.main_chunk),
-            &mut register_stack[0..self.main_chunk.register_count],
+            &mut register_stack[0..register_count],
             true,
             Address::default(),
             OperandType::NONE,
