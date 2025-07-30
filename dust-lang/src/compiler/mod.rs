@@ -145,9 +145,7 @@ impl Compiler {
                 found: program_name.to_string(),
             })?;
         let lexer = Lexer::new(source);
-        let mode = CompileMode::Main {
-            name: program_path.clone(),
-        };
+        let mode = CompileMode::Main;
         let item_scope = HashSet::new();
         let main_module = Rc::new(RefCell::new(Module::new()));
         let globals = Rc::new(RefCell::new(IndexMap::new()));

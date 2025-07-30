@@ -82,6 +82,10 @@ impl Object {
             None
         }
     }
+
+    pub fn size(&self) -> usize {
+        size_of::<Object>() + self.value.heap_size()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -93,14 +97,11 @@ pub enum ObjectValue {
 }
 
 impl ObjectValue {
-    fn size(&self) -> usize {
-        let heap_size = match self {
-            ObjectValue::Empty => 0,
-            ObjectValue::Function(_) => 0,
-            ObjectValue::List(list) => list.heap_size(),
-            ObjectValue::String(string) => string.capacity(),
-        };
-
-        heap_size + size_of::<ObjectValue>()
+    fn heap_size(&self) -> usize {
+        match self {
+            ObjectValue::Empty | ObjectValue::Function(_) => 0,
+            ObjectValue::List(list) => size_of::<List>() + list.heap_size(),
+            ObjectValue::String(string) => size_of::<String>() + string.capacity(),
+        }
     }
 }

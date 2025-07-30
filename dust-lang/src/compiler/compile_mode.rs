@@ -9,18 +9,8 @@ pub enum CompileMode {
     Function { name: Option<Path> },
 
     /// Indicates that the compiler should produce a stand-alone Dust program.
-    Main { name: Path },
+    Main,
 
     /// Indicates that the compiler should parse values and place them in the namespace.
     Module { name: Path, module: Module },
-}
-
-impl CompileMode {
-    pub fn into_name(self) -> Option<Path> {
-        match self {
-            CompileMode::Function { name } => name,
-            CompileMode::Main { name } => Some(name),
-            CompileMode::Module { name, .. } => Some(name),
-        }
-    }
 }
