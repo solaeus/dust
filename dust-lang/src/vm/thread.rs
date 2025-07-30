@@ -37,12 +37,11 @@ impl Thread {
                     call_stack: Vec::new(),
                     threads,
                     cells,
-                    main_chunk: Arc::new(chunk),
                     return_value: None,
                     should_exit: false,
                 };
 
-                runner.run()
+                runner.run(chunk)
             })
             .expect("Failed to spawn thread");
 
@@ -56,8 +55,6 @@ pub struct ThreadRunner<'a> {
     pub(crate) return_value: Option<Value>,
     pub(crate) object_pool: ObjectPool,
 
-    main_chunk: Arc<Chunk>,
-
     call_stack: Vec<CallFrame<'a>>,
 
     threads: Arc<RwLock<Vec<Thread>>>,
@@ -65,25 +62,25 @@ pub struct ThreadRunner<'a> {
 }
 
 impl<'a> ThreadRunner<'a> {
-    fn run(mut self) -> Result<Option<Value>, JitError> {
-        let span = span!(Level::INFO, "Thread");
+    fn run(mut self, chunk: Chunk) -> Result<Option<Value>, JitError> {
+        let span = span!(Level::INFO, "VM Thread");
         let _enter = span.enter();
 
         info!(
             "Starting thread {}",
-            self.main_chunk
+            chunk
                 .name
                 .as_ref()
                 .map(|name| name.as_ref())
                 .unwrap_or_default()
         );
 
-        let mut jit = Jit::new(&self.main_chunk, &mut self.object_pool);
+        let mut jit = Jit::new(&chunk, &mut self.object_pool);
         let decoded_chunk = jit.compile()?;
-        let register_count = self.main_chunk.register_tags.len();
+        let register_count = chunk.register_tags.len();
         let mut register_stack = vec![Register { empty: () }; register_count];
         let mut call = CallFrame::new(
-            Arc::clone(&self.main_chunk),
+            &chunk,
             &mut register_stack[0..register_count],
             true,
             Address::default(),

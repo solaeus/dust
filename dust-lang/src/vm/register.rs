@@ -1,3 +1,5 @@
+use crate::Object;
+
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub union Register {
@@ -8,5 +10,5 @@ pub union Register {
     pub float: f64,
     pub integer: i64,
     pub prototype_index: usize,
-    pub object_key: usize,
+    pub object_pointer: *mut Object,
 }

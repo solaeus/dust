@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{Address, Chunk, OperandType, Value, vm::Register};
 
 #[repr(C)]
@@ -7,7 +5,7 @@ pub struct CallFrame<'a> {
     pub registers: &'a mut [Register],
 
     pub ip: usize,
-    pub chunk: Arc<Chunk>,
+    pub chunk: &'a Chunk,
 
     pub is_end_of_stack: bool,
     pub return_address: Address,
@@ -17,7 +15,7 @@ pub struct CallFrame<'a> {
 
 impl<'a> CallFrame<'a> {
     pub fn new(
-        chunk: Arc<Chunk>,
+        chunk: &'a Chunk,
         registers: &'a mut [Register],
         is_end_of_stack: bool,
         return_address: Address,

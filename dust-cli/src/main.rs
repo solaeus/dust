@@ -357,7 +357,6 @@ fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
         tracing_subscriber::fmt()
             .with_env_filter(format!("none,dust_lang={level}"))
             .without_time()
-            .with_writer(io::stdout)
             .init();
     }
 }

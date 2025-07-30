@@ -1,38 +1,35 @@
-use slab::Slab;
+use std::{pin::Pin, ptr};
 
 use crate::{Object, OperandType, Register};
 
 pub struct ObjectPool {
-    objects: Slab<Object>,
+    objects: Vec<Pin<Box<Object>>>,
     objects_heap_size: usize,
 }
 
 impl ObjectPool {
-    const MAX_SIZE: usize = {
-        if cfg!(debug_assertions) {
-            1_000
-        } else {
-            4_000_000_000
-        }
-    };
-
     pub fn new() -> Self {
         Self {
-            objects: Slab::new(),
+            objects: Vec::new(),
             objects_heap_size: 0,
         }
     }
 
     pub fn pool_size(&self) -> usize {
-        let slab_buffer_size = self.objects.capacity() * size_of::<Object>();
+        let pointer_buffer_size = self.objects.capacity() * size_of::<Pin<Box<Object>>>();
 
-        slab_buffer_size + self.objects_heap_size
+        pointer_buffer_size + self.objects_heap_size
     }
 
-    pub fn allocate(&mut self, object: Object) -> usize {
+    pub fn allocate(&mut self, object: Object) -> *mut Object {
         self.objects_heap_size += object.size();
 
-        self.objects.insert(object)
+        let mut pinned = Box::pin(object);
+        let pointer = &mut *pinned as *mut Object;
+
+        self.objects.push(pinned);
+
+        pointer
     }
 
     pub fn mark(&mut self, key: usize) {
@@ -42,14 +39,14 @@ impl ObjectPool {
     }
 
     pub fn get(&self, key: usize) -> Option<&Object> {
-        self.objects.get(key)
+        self.objects.get(key).map(|object| &**object)
     }
 
     pub fn get_mut(&mut self, key: usize) -> Option<&mut Object> {
-        self.objects.get_mut(key)
+        self.objects.get_mut(key).map(|object| &mut **object)
     }
 
-    fn collect_garbage(&mut self, registers: &[Register], register_tags: &[OperandType]) {
+    fn _collect_garbage(&mut self, registers: &[Register], register_tags: &[OperandType]) {
         for (index, tag) in register_tags.iter().enumerate() {
             if matches!(
                 *tag,
@@ -65,27 +62,30 @@ impl ObjectPool {
                     | OperandType::LIST_FUNCTION
             ) {
                 let register = &registers[index];
-                let key = unsafe { register.object_key };
+                let pointer = unsafe { register.object_pointer };
 
-                if let Some(object) = self.objects.get_mut(key) {
-                    object.mark = true;
+                for object in &mut self.objects {
+                    if ptr::eq(&**object, pointer) {
+                        object.mark = true;
+                        break;
+                    }
                 }
             }
         }
 
+        let mut i = 0;
         self.objects_heap_size = 0;
 
-        self.objects.retain(|_, object| {
-            let keep = object.mark;
+        while i < self.objects.len() {
+            if self.objects[i].mark {
+                self.objects_heap_size += self.objects[i].size();
+                self.objects[i].mark = false;
 
-            if keep {
-                self.objects_heap_size += object.size();
+                i += 1;
+            } else {
+                self.objects.remove(i);
             }
-
-            object.mark = false;
-
-            keep
-        });
+        }
     }
 }
 

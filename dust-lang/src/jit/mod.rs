@@ -9,9 +9,10 @@ pub use jit_error::JitError;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
+use tracing::{Level, info};
 
 use crate::{
-    Address, CallFrame, Chunk, OperandType, Operation, Register, ThreadRunner,
+    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, ThreadRunner,
     instruction::{Jump, Load, MemoryKind, Return, Test},
     vm::ObjectPool,
 };
@@ -29,6 +30,10 @@ impl<'a> Jit<'a> {
         builder.symbol(
             "set_return_value_to_integer",
             set_return_value_to_integer as *const u8,
+        );
+        builder.symbol(
+            "set_return_value_to_string",
+            set_return_value_to_string as *const u8,
         );
 
         let module = JITModule::new(builder);
@@ -69,30 +74,81 @@ impl<'a> Jit<'a> {
         call_frame_registers_pointer: Value,
         address: &Address,
     ) -> Result<Value, JitError> {
-        match address.memory {
+        let jit_value = match address.memory {
             MemoryKind::REGISTER => {
                 let register_byte_offset = (address.index * size_of::<Register>()) as i32;
-                Ok(function_builder.ins().load(
+
+                function_builder.ins().load(
                     types::I64,
                     MemFlags::new(),
                     call_frame_registers_pointer,
                     register_byte_offset,
-                ))
+                )
             }
             MemoryKind::CONSTANT => match self.chunk.constants[address.index].as_integer() {
-                Some(val) => Ok(function_builder.ins().iconst(types::I64, val)),
-                None => Err(JitError::InvalidConstantType {
-                    constant_index: address.index,
-                    expected_type: OperandType::INTEGER,
-                }),
+                Some(integer) => function_builder.ins().iconst(types::I64, integer),
+                None => {
+                    return Err(JitError::InvalidConstantType {
+                        constant_index: address.index,
+                        expected_type: OperandType::INTEGER,
+                    });
+                }
             },
-            _ => Err(JitError::UnsupportedMemoryKind {
-                memory_kind: address.memory,
-            }),
-        }
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                });
+            }
+        };
+
+        Ok(jit_value)
+    }
+
+    fn get_string(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+        call_frame_registers_pointer: Value,
+        address: &Address,
+    ) -> Result<Value, JitError> {
+        let jit_value = match address.memory {
+            MemoryKind::REGISTER => {
+                let register_byte_offset = (address.index * size_of::<Register>()) as i32;
+
+                function_builder.ins().load(
+                    types::I64,
+                    MemFlags::new(),
+                    call_frame_registers_pointer,
+                    register_byte_offset,
+                )
+            }
+            MemoryKind::CONSTANT => match self.chunk.constants[address.index].as_string() {
+                Some(string) => {
+                    let object = Object::string(string.clone());
+                    let key = self.object_pool.allocate(object);
+
+                    function_builder.ins().iconst(types::I64, key as i64)
+                }
+                None => {
+                    return Err(JitError::InvalidConstantType {
+                        constant_index: address.index,
+                        expected_type: OperandType::STRING,
+                    });
+                }
+            },
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                });
+            }
+        };
+
+        Ok(jit_value)
     }
 
     pub fn compile(&mut self) -> Result<JitInstruction, JitError> {
+        let span = tracing::span!(Level::INFO, "JIT Compilation");
+        let _enter = span.enter();
+
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -124,20 +180,22 @@ impl<'a> Jit<'a> {
         return_value_signature.params =
             vec![AbiParam::new(pointer_type), AbiParam::new(types::I64)];
         return_value_signature.returns = vec![];
-        let mut return_value_signature = Signature::new(self.module.isa().default_call_conv());
-        return_value_signature
+
+        let mut set_return_value_to_integer_signature =
+            Signature::new(self.module.isa().default_call_conv());
+        set_return_value_to_integer_signature
             .params
             .push(AbiParam::new(pointer_type));
-        return_value_signature
+        set_return_value_to_integer_signature
             .params
             .push(AbiParam::new(types::I64));
-        return_value_signature.returns = vec![];
+        set_return_value_to_integer_signature.returns = vec![];
         let set_return_value_to_integer_function_id = self
             .module
             .declare_function(
                 "set_return_value_to_integer",
                 Linkage::Import,
-                &return_value_signature,
+                &set_return_value_to_integer_signature,
             )
             .map_err(|error| JitError::CraneliftModuleError {
                 instruction_pointer: None,
@@ -145,6 +203,31 @@ impl<'a> Jit<'a> {
             })?;
         let set_return_value_to_integer_function_reference = self.module.declare_func_in_func(
             set_return_value_to_integer_function_id,
+            function_builder.func,
+        );
+
+        let mut set_return_value_to_string_signature =
+            Signature::new(self.module.isa().default_call_conv());
+        set_return_value_to_string_signature
+            .params
+            .push(AbiParam::new(pointer_type));
+        set_return_value_to_string_signature
+            .params
+            .push(AbiParam::new(types::I64));
+        set_return_value_to_string_signature.returns = vec![];
+        let set_return_value_to_string_function_id = self
+            .module
+            .declare_function(
+                "set_return_value_to_string",
+                Linkage::Import,
+                &set_return_value_to_string_signature,
+            )
+            .map_err(|error| JitError::CraneliftModuleError {
+                instruction_pointer: None,
+                message: format!("Failed to declare set_return_value_string function: {error}"),
+            })?;
+        let set_return_value_to_string_function_reference = self.module.declare_func_in_func(
+            set_return_value_to_string_function_id,
             function_builder.func,
         );
 
@@ -179,6 +262,8 @@ impl<'a> Jit<'a> {
             let current_instruction = &bytecode_instructions[ip];
             let operation = current_instruction.operation();
 
+            info!("Compiling {operation} at IP {ip}");
+
             match operation {
                 Operation::LOAD => {
                     let Load {
@@ -192,7 +277,9 @@ impl<'a> Jit<'a> {
                             self.get_integer(&mut function_builder, registers_pointer, &operand)?
                         }
                         // OperandType::FLOAT => self.get_float(...)?,
-                        // OperandType::STRING => self.get_string(...)?,
+                        OperandType::STRING => {
+                            self.get_string(&mut function_builder, registers_pointer, &operand)?
+                        }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: r#type,
@@ -399,18 +486,26 @@ impl<'a> Jit<'a> {
                     } = Return::from(*current_instruction);
 
                     if should_return_value != 0 {
+                        let return_value_register_byte_offset =
+                            (return_value_address.index * size_of::<Register>()) as i32;
+                        let return_value = function_builder.ins().load(
+                            types::I64,
+                            MemFlags::new(),
+                            registers_pointer,
+                            return_value_register_byte_offset,
+                        );
+
                         match r#type {
                             OperandType::INTEGER => {
-                                let return_value_register_byte_offset =
-                                    (return_value_address.index * size_of::<Register>()) as i32;
-                                let return_value = function_builder.ins().load(
-                                    types::I64,
-                                    MemFlags::new(),
-                                    registers_pointer,
-                                    return_value_register_byte_offset,
-                                );
                                 function_builder.ins().call(
                                     set_return_value_to_integer_function_reference,
+                                    &[thread_runner_pointer, return_value],
+                                );
+                                function_builder.ins().return_(&[]);
+                            }
+                            OperandType::STRING => {
+                                function_builder.ins().call(
+                                    set_return_value_to_string_function_reference,
                                     &[thread_runner_pointer, return_value],
                                 );
                                 function_builder.ins().return_(&[]);

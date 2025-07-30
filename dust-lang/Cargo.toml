@@ -26,7 +26,6 @@ indexmap = { version = "2.9.0", features = ["serde"] }
 cranelift = "0.122"
 cranelift-jit = "0.122"
 cranelift-module = "0.122"
-slab = "0.4.10"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
