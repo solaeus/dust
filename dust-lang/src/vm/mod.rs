@@ -44,7 +44,7 @@ impl Vm {
         }
 
         let cells = Arc::new(RwLock::new(cells));
-        let main_thread = ThreadHandle::new(program.main_chunk, cells, Arc::clone(&threads));
+        let main_thread = ThreadHandle::spawn(program.main_chunk, cells, Arc::clone(&threads));
 
         Self {
             main_thread,

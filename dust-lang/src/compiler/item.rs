@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Chunk, Type, Value};
-
-use super::Module;
+use crate::{Chunk, Module, Type, Value};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Item {

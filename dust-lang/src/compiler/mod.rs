@@ -23,7 +23,6 @@ mod compile_mode;
 mod global;
 mod item;
 mod local;
-mod module;
 mod parse_rule;
 mod path;
 mod standard_library;
@@ -35,7 +34,6 @@ pub use global::Global;
 use indexmap::IndexMap;
 pub use item::Item;
 pub use local::{BlockScope, Local};
-pub use module::Module;
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
 use tracing::{Level, debug, info, span, trace};
@@ -44,8 +42,8 @@ use type_checks::{check_math_type, check_math_types};
 use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc, sync::Arc};
 
 use crate::{
-    Address, Chunk, DustError, FunctionType, Instruction, Lexer, List, NativeFunction, Operation,
-    Program, Span, Token, TokenKind, Type, Value,
+    Address, Chunk, DustError, FunctionType, Instruction, Lexer, List, Module, NativeFunction,
+    Operation, Program, Span, Token, TokenKind, Type, Value,
     compiler::standard_library::apply_standard_library,
     instruction::{Jump, Load, MemoryKind, OperandType},
     r#type::ConcreteType,
@@ -338,21 +336,6 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn next_register_index(&self) -> usize {
-        self.instructions
-            .iter()
-            .fold(self.minimum_register_index, |acc, (instruction, _, _)| {
-                if instruction.yields_value()
-                    && instruction.a_field() >= acc
-                    && instruction.a_memory_kind() == MemoryKind::REGISTER
-                {
-                    instruction.a_field() + 1
-                } else {
-                    acc
-                }
-            })
-    }
-
-    fn next_register_index_without_reclaiming(&mut self) -> usize {
         self.instructions
             .iter()
             .fold(self.minimum_register_index, |acc, (instruction, _, _)| {
@@ -1456,7 +1439,7 @@ impl<'a> ChunkCompiler<'a> {
                 // TODO: Check if the item type the same as the previous item type
             }
 
-            let end_item_register = self.next_register_index_without_reclaiming();
+            let end_item_register = self.next_register_index();
             last_item_register = end_item_register;
 
             if self.instructions.last().unwrap().0.yields_value() {
@@ -1470,7 +1453,7 @@ impl<'a> ChunkCompiler<'a> {
         let reordered_instructions_count = instructions_to_reorder.len();
 
         for mut instruction_data in instructions_to_reorder {
-            let register_index = self.next_register_index_without_reclaiming();
+            let register_index = self.next_register_index();
 
             instruction_data.0.set_a_field(register_index);
 
@@ -1478,8 +1461,7 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         if reordered_instructions_count > 0 {
-            first_item_register =
-                self.next_register_index_without_reclaiming() - reordered_instructions_count;
+            first_item_register = self.next_register_index() - reordered_instructions_count;
             last_item_register = first_item_register + reordered_instructions_count - 1;
             destination_register = last_item_register + 1;
         }

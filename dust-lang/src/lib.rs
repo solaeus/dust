@@ -46,6 +46,7 @@ pub mod dust_error;
 pub mod instruction;
 pub mod jit;
 pub mod lexer;
+pub mod module;
 pub mod native_function;
 pub mod program;
 pub mod token;
@@ -57,13 +58,14 @@ pub mod vm;
 // mod tests;
 
 pub use chunk::{Chunk, Disassembler};
-pub use compiler::{BlockScope, CompileError, Compiler, Global, Local, Module, Path, compile};
+pub use compiler::{BlockScope, CompileError, Compiler, Global, Item, Local, Path, compile};
 pub use dust_error::{AnnotatedError, DustError, JIT_ERROR_TEXT};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
 pub use jit::JitInstruction;
 pub use lexer::{LexError, Lexer, lex};
+pub use module::Module;
 pub use native_function::NativeFunction;
 pub use program::Program;
 pub use token::{Token, TokenKind, TokenOwned};

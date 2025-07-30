@@ -19,7 +19,7 @@ pub struct ThreadHandle {
 }
 
 impl ThreadHandle {
-    pub fn new(
+    pub fn spawn(
         chunk: Chunk,
         cells: Arc<RwLock<Vec<Cell>>>,
         threads: Arc<RwLock<Vec<ThreadHandle>>>,

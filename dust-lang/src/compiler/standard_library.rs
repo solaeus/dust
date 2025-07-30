@@ -1,8 +1,8 @@
 use tracing::{Level, span};
 
-use crate::{Compiler, Span};
+use crate::{Compiler, Module, Span};
 
-use super::{Item, Module, Path};
+use super::{Item, Path};
 
 const STD: &str = r"
 mod io {
