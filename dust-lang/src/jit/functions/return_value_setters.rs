@@ -1,7 +1,7 @@
 use crate::{Object, Thread, Value};
 
 /// # Safety
-/// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
+/// `thread` is a raw pointer and must be valid.
 pub unsafe extern "C" fn set_return_value_to_integer(thread: *mut Thread, integer_value: i64) {
     unsafe {
         (*thread).return_value = Some(Value::Integer(integer_value));
@@ -9,14 +9,10 @@ pub unsafe extern "C" fn set_return_value_to_integer(thread: *mut Thread, intege
 }
 
 /// # Safety
-/// This function dereferences a raw pointer and must only be called with a valid ThreadRunner pointer.
+/// `thread` and `object_pointer` are raw pointers and must be valid.
 pub unsafe extern "C" fn set_return_value_to_string(thread: *mut Thread, object_pointer: i64) {
     let object_ptr = object_pointer as *const Object;
-    let string = if !object_ptr.is_null() {
-        unsafe { (*object_ptr).as_string().cloned().unwrap_or_default() }
-    } else {
-        String::new()
-    };
+    let string = unsafe { (*object_ptr).as_string().cloned().unwrap_or_default() };
 
     unsafe {
         (*thread).return_value = Some(Value::String(string));

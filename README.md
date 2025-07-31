@@ -6,7 +6,7 @@
 
 **High-performance programming language focused on correctness, speed, and ease of use.**
 
-Dust enforces static typing, has no null or undefined values, and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation, and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
+Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation, and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
 
 ```rust
 // An interactive "Hello, world" using Dust's built-in I/O functions

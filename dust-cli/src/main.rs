@@ -186,8 +186,8 @@ fn main() {
         };
         let compile_time = start_time.elapsed();
         let prototypes = dust_program.prototypes.clone();
-        let vm = Vm::new(dust_program);
-        let run_result = vm.run();
+        let vm = Vm::new();
+        let run_result = vm.run(dust_program);
         let run_time = start_time.elapsed() - compile_time;
 
         let return_value = match run_result {
@@ -356,8 +356,63 @@ fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
     } else {
         tracing_subscriber::fmt()
             .with_env_filter(format!("none,dust_lang={level}"))
-            .without_time()
+            .event_format(SimpleLogFormatter { start_time })
             .init();
+    }
+}
+
+struct SimpleLogFormatter {
+    start_time: Instant,
+}
+
+impl<S, N> FormatEvent<S, N> for SimpleLogFormatter
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        context: &FmtContext<'_, S, N>,
+        mut writer: Writer<'_>,
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        use colored::Colorize;
+
+        let elapsed = self.start_time.elapsed().as_secs_f64();
+        let level = event.metadata().level();
+        let scopes = context
+            .event_scope()
+            .map(|scope| scope.from_root().collect::<Vec<_>>())
+            .unwrap_or_default();
+
+        // Choose color and emoji based on log level
+        let (emoji, colorized_level) = match *level {
+            Level::ERROR => ("🕱", "ERROR".red().bold()),
+            Level::WARN => ("⚠️", "WARN".yellow().bold()),
+            Level::INFO => ("🛈", "INFO".blue().bold()),
+            Level::DEBUG => ("🕷", "DEBUG".green().bold()),
+            Level::TRACE => ("🖙", "TRACE".cyan().bold()),
+        };
+
+        write!(
+            writer,
+            "{} {}  {:5}",
+            format!("{elapsed:.5}s").dimmed(),
+            emoji,
+            colorized_level,
+        )?;
+
+        if !scopes.is_empty() {
+            let span_names = scopes
+                .iter()
+                .map(|span| span.metadata().name())
+                .collect::<Vec<_>>();
+            write!(writer, " {}", span_names.join("::").bold())?;
+        }
+
+        write!(writer, " ")?;
+        context.format_fields(writer.by_ref(), event)?;
+        writeln!(writer)
     }
 }
 
@@ -373,7 +428,7 @@ where
     fn format_event(
         &self,
 
-        ctx: &FmtContext<'_, S, N>,
+        context: &FmtContext<'_, S, N>,
 
         mut writer: Writer<'_>,
 
@@ -389,7 +444,7 @@ where
         };
         let level_display = level.as_str();
         let thread_display = thread::current().name().unwrap_or("anonymous").to_string();
-        let scopes = ctx
+        let scopes = context
             .event_scope()
             .map(|scope| scope.from_root())
             .unwrap()
@@ -434,7 +489,7 @@ where
 
         let mut message = String::new();
 
-        ctx.format_fields(Writer::new(&mut message), event)?;
+        context.format_fields(Writer::new(&mut message), event)?;
         writeln!(
             writer,
             "{border}       {border}{message:len$}{border}",

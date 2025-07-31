@@ -89,7 +89,7 @@ impl Compiler {
         library_name: &str,
         source: &str,
     ) -> Result<Module, CompileError> {
-        let logging = span!(Level::INFO, "Compile Library");
+        let logging = span!(Level::INFO, "Library");
         let _enter = logging.enter();
 
         let name = Path::new(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
@@ -134,7 +134,7 @@ impl Compiler {
         program_name: Option<&str>,
         source: &str,
     ) -> Result<Program, CompileError> {
-        let logging = span!(Level::INFO, "Compile Program");
+        let logging = span!(Level::INFO, "Program");
         let _enter = logging.enter();
 
         let program_name = program_name.unwrap_or("main");
@@ -305,7 +305,7 @@ impl<'a> ChunkCompiler<'a> {
             self.current_item_scope.insert(top_level_path.clone());
         }
 
-        let logging = span!(Level::INFO, "Compile");
+        let logging = span!(Level::INFO, "Chunk");
         let _enter = logging.enter();
 
         info!(
@@ -385,7 +385,7 @@ impl<'a> ChunkCompiler<'a> {
         is_mutable: bool,
         scope: BlockScope,
     ) {
-        info!("Declaring local {identifier} at {address}");
+        trace!("Declaring local {identifier} at {address}");
 
         if address.memory == MemoryKind::REGISTER {
             self.minimum_register_index += 1;
@@ -396,7 +396,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn declare_global(&mut self, identifier: Path, r#type: Type, is_mutable: bool) -> usize {
-        info!("Declaring global {identifier}");
+        trace!("Declaring global {identifier}");
 
         let mut globals = self.globals.borrow_mut();
         let cell_index = globals.len();

@@ -15,28 +15,29 @@ pub use thread::{Thread, ThreadHandle};
 
 use std::sync::{Arc, RwLock};
 
-use tracing::{Level, span};
-
 use crate::{DustError, Program, Value, compile};
 
 pub type ThreadPool = Arc<RwLock<Vec<ThreadHandle>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
-    let chunk = compile(source)?;
-    let vm = Vm::new(chunk);
+    let program = compile(source)?;
+    let vm = Vm::new();
 
-    vm.run()
+    vm.run(program)
 }
 
 pub struct Vm {
-    main_thread: ThreadHandle,
-    threads: ThreadPool,
+    thread_pool: ThreadPool,
 }
 
 impl Vm {
-    pub fn new(program: Program) -> Self {
-        let threads = Arc::new(RwLock::new(Vec::new()));
+    pub fn new() -> Self {
+        let thread_pool = Arc::new(RwLock::new(Vec::with_capacity(1)));
 
+        Self { thread_pool }
+    }
+
+    pub fn run<'src>(self, program: Program) -> Result<Option<Value>, DustError<'src>> {
         let mut cells = Vec::with_capacity(program.cell_count as usize);
 
         for _ in 0..program.cell_count {
@@ -44,41 +45,26 @@ impl Vm {
         }
 
         let cells = Arc::new(RwLock::new(cells));
-        let main_thread = ThreadHandle::spawn(program.main_chunk, cells, Arc::clone(&threads));
+        let main_thread =
+            ThreadHandle::spawn(program.main_chunk, cells, Arc::clone(&self.thread_pool));
 
-        Self {
-            main_thread,
-            threads,
+        let return_result = main_thread.handle.join().expect("Main thread panicked");
+        let mut threads = self.thread_pool.write().expect("Failed to lock threads");
+
+        for thread_handle in threads.drain(..) {
+            thread_handle
+                .handle
+                .join()
+                .expect("Thread panicked")
+                .map_err(DustError::jit)?;
         }
+
+        return_result.map_err(DustError::jit)
     }
+}
 
-    pub fn run<'src>(self) -> Result<Option<Value>, DustError<'src>> {
-        let span = span!(Level::INFO, "Run");
-        let _enter = span.enter();
-
-        let return_result = self
-            .main_thread
-            .handle
-            .join()
-            .expect("Main thread panicked");
-        let mut threads = self.threads.write().expect("Failed to lock threads");
-        let mut spawned_thread_error = None;
-
-        for thread in threads.drain(..) {
-            let thread_result = thread.handle.join().expect("Thread panicked");
-
-            if let Err(error) = thread_result {
-                spawned_thread_error = Some(error);
-            }
-        }
-
-        if let Some(error) = spawned_thread_error {
-            Err(DustError::jit(error))
-        } else {
-            match return_result {
-                Ok(value_option) => Ok(value_option),
-                Err(error) => Err(DustError::jit(error)),
-            }
-        }
+impl Default for Vm {
+    fn default() -> Self {
+        Self::new()
     }
 }

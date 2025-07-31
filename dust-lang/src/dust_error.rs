@@ -4,9 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, Span, jit::JitError};
-
-pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation. This indicates invalid bytecode or an unsupported operation.";
+use crate::{CompileError, JIT_ERROR_TEXT, Span, jit::JitError};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]

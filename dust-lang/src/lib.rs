@@ -59,11 +59,11 @@ pub mod vm;
 
 pub use chunk::{Chunk, Disassembler};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Item, Local, Path, compile};
-pub use dust_error::{AnnotatedError, DustError, JIT_ERROR_TEXT};
+pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
-pub use jit::JitInstruction;
+pub use jit::{JIT_ERROR_TEXT, JitError, JitChunk};
 pub use lexer::{LexError, Lexer, lex};
 pub use module::Module;
 pub use native_function::NativeFunction;

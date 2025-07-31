@@ -62,7 +62,7 @@ pub struct Thread<'a> {
 
 impl<'a> Thread<'a> {
     fn run(mut self, chunk: Chunk) -> Result<Option<Value>, JitError> {
-        let span = span!(Level::INFO, "VM Thread");
+        let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
 
         info!(

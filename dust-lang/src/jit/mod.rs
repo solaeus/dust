@@ -4,7 +4,7 @@ mod functions;
 mod jit_error;
 
 use functions::*;
-pub use jit_error::JitError;
+pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
 use cranelift::{codegen::ir::FuncRef, prelude::*};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -166,8 +166,8 @@ impl<'a> Jit<'a> {
         Ok(function_ref)
     }
 
-    pub fn compile(&mut self) -> Result<JitInstruction, JitError> {
-        let span = tracing::span!(Level::INFO, "JIT Compilation");
+    pub fn compile(&mut self) -> Result<JitChunk, JitError> {
+        let span = tracing::span!(Level::INFO, "JIT");
         let _enter = span.enter();
 
         let mut function_builder_context = FunctionBuilderContext::new();
@@ -264,11 +264,9 @@ impl<'a> Jit<'a> {
         let variable_0 = function_builder.declare_var(pointer_type);
         let variable_1 = function_builder.declare_var(pointer_type);
         let variable_2 = function_builder.declare_var(pointer_type);
+
         let thread_runner_pointer = function_builder.block_params(function_entry_block)[0];
         let call_frame_pointer = function_builder.block_params(function_entry_block)[1];
-        function_builder.def_var(variable_0, thread_runner_pointer);
-        function_builder.def_var(variable_1, call_frame_pointer);
-
         let call_frame_registers_field_offset = offset_of!(CallFrame, registers) as i32;
         let call_frame_registers_pointer = function_builder.ins().load(
             pointer_type,
@@ -276,19 +274,24 @@ impl<'a> Jit<'a> {
             call_frame_pointer,
             call_frame_registers_field_offset,
         );
+
+        function_builder.def_var(variable_0, thread_runner_pointer);
+        function_builder.def_var(variable_1, call_frame_pointer);
         function_builder.def_var(variable_2, call_frame_registers_pointer);
 
         function_builder.ins().jump(instruction_blocks[0], &[]);
 
         for ip in 0..total_instruction_count {
-            function_builder.switch_to_block(instruction_blocks[ip]);
-            let _thread_runner_pointer = function_builder.use_var(variable_0);
-            let _call_frame_pointer = function_builder.use_var(variable_1);
-            let registers_pointer = function_builder.use_var(variable_2);
             let current_instruction = &bytecode_instructions[ip];
             let operation = current_instruction.operation();
 
             info!("Compiling {operation} at IP {ip}");
+
+            function_builder.switch_to_block(instruction_blocks[ip]);
+
+            let _thread_runner_pointer = function_builder.use_var(variable_0);
+            let _call_frame_pointer = function_builder.use_var(variable_1);
+            let registers_pointer = function_builder.use_var(variable_2);
 
             match operation {
                 Operation::LOAD => {
@@ -358,7 +361,7 @@ impl<'a> Jit<'a> {
                                 _ => {
                                     return Err(JitError::UnhandledOperation {
                                         instruction_pointer: ip,
-                                        operation_name: operation.to_string(),
+                                        operation,
                                     });
                                 }
                             }
@@ -376,7 +379,7 @@ impl<'a> Jit<'a> {
                                 _ => {
                                     return Err(JitError::UnhandledOperation {
                                         instruction_pointer: ip,
-                                        operation_name: operation.to_string(),
+                                        operation,
                                     });
                                 }
                             };
@@ -550,7 +553,6 @@ impl<'a> Jit<'a> {
                                     set_return_value_to_integer_function,
                                     &[thread_runner_pointer, return_value],
                                 );
-                                function_builder.ins().return_(&[]);
                             }
                             OperandType::STRING => {
                                 let return_value = self.get_string(
@@ -563,7 +565,6 @@ impl<'a> Jit<'a> {
                                     set_return_value_to_string_function,
                                     &[thread_runner_pointer, return_value],
                                 );
-                                function_builder.ins().return_(&[]);
                             }
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
@@ -571,14 +572,14 @@ impl<'a> Jit<'a> {
                                 });
                             }
                         }
-                    } else {
-                        function_builder.ins().return_(&[]);
                     }
+
+                    function_builder.ins().return_(&[]);
                 }
                 _ => {
                     return Err(JitError::UnhandledOperation {
                         instruction_pointer: ip,
-                        operation_name: format!("{:?}", current_instruction.operation()),
+                        operation,
                     });
                 }
             }
@@ -595,6 +596,7 @@ impl<'a> Jit<'a> {
                 instruction_pointer: None,
                 message: format!("Failed to declare anonymous function: {error}"),
             })?;
+
         self.module
             .define_function(compiled_function_id, &mut compilation_context)
             .map_err(|error| JitError::FunctionCompilationError {
@@ -615,19 +617,19 @@ impl<'a> Jit<'a> {
             )
         };
 
-        Ok(JitInstruction {
+        Ok(JitChunk {
             logic,
             register_count: self.chunk.register_tags.len(),
         })
     }
 }
 
-pub struct JitInstruction {
+pub struct JitChunk {
     pub logic: extern "C" fn(*mut Thread, *mut CallFrame),
     pub register_count: usize,
 }
 
-impl JitInstruction {
+impl JitChunk {
     pub fn no_op() -> Self {
         extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame) {}
 

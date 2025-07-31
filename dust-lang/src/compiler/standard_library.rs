@@ -35,7 +35,7 @@ pub const STD_LENGTH: usize = {
 };
 
 pub(crate) fn generate_standard_library() -> Module {
-    let logging = span!(Level::INFO, "Standard Library");
+    let logging = span!(Level::INFO, "std");
     let _span_guard = logging.enter();
 
     let mut compiler = Compiler::new();

@@ -83,7 +83,7 @@ impl ObjectPool {
 
                 i += 1;
             } else {
-                self.objects.remove(i);
+                self.objects.swap_remove(i);
             }
         }
     }
