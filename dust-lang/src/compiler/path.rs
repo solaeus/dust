@@ -20,11 +20,11 @@ fn cache_path(path: Path) -> Path {
 /// A correctly formatted relative or absolute path to a module or value.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Path {
-    inner: Arc<SmartString<LazyCompact>>,
+    inner: Arc<String>,
 }
 
 impl Path {
-    pub fn new<T: Into<SmartString<LazyCompact>>>(inner: T) -> Option<Self> {
+    pub fn new<T: Into<String>>(inner: T) -> Option<Self> {
         let path = Path {
             inner: Arc::new(inner.into()),
         };
@@ -36,7 +36,7 @@ impl Path {
         }
     }
 
-    pub fn new_at_position<T: Into<SmartString<LazyCompact>> + ToString>(
+    pub fn new_at_position<T: Into<String> + ToString>(
         inner: T,
         position: Span,
     ) -> Result<Self, CompileError> {
@@ -54,7 +54,7 @@ impl Path {
         }
     }
 
-    pub fn inner(&self) -> &Arc<SmartString<LazyCompact>> {
+    pub fn inner(&self) -> &Arc<String> {
         &self.inner
     }
 

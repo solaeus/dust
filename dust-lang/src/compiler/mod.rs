@@ -173,6 +173,7 @@ impl Compiler {
             instructions,
             constants: chunk_compiler.constants,
             locals,
+            argument_lists: chunk_compiler.argument_lists,
             register_tags,
             prototype_index: 0,
         };
@@ -224,6 +225,8 @@ pub(crate) struct ChunkCompiler<'a> {
 
     /// Block-local variables.
     locals: IndexMap<Path, Local>,
+
+    argument_lists: Vec<Vec<(Address, OperandType)>>,
 
     minimum_register_index: usize,
 
@@ -277,6 +280,7 @@ impl<'a> ChunkCompiler<'a> {
             instructions: Vec::new(),
             constants: Vec::new(),
             locals: IndexMap::new(),
+            argument_lists: Vec::new(),
             lexer,
             minimum_register_index: 0,
             block_index: 0,
@@ -2025,11 +2029,12 @@ impl<'a> ChunkCompiler<'a> {
         let locals = function_compiler.locals.into_iter().collect();
         let chunk = Chunk {
             name: path.clone(),
-            r#type: function_compiler.r#type,
-            instructions,
-            constants: function_compiler.constants,
             locals,
+            instructions,
             register_tags,
+            r#type: function_compiler.r#type,
+            constants: function_compiler.constants,
+            argument_lists: function_compiler.argument_lists,
             prototype_index: function_compiler.prototype_index,
         };
         let prototype_address = Address::constant(chunk.prototype_index);
@@ -2051,56 +2056,75 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_call(&mut self) -> Result<(), CompileError> {
-        let start = self.previous_position.0;
+        let function_token = self.previous_token;
+        let function_position = self.previous_position;
 
         self.advance()?;
 
-        let (function, return_type, function_index) = {
+        let get_function_info = || -> Result<(Type, usize, usize), CompileError> {
             let prototypes = self.prototypes.borrow();
+
+            if let Token::Identifier(identifier) = function_token {
+                let self_function_name = if let CompileMode::Function { name } = &self.mode {
+                    name.as_ref().map(|path| path.inner().as_str())
+                } else {
+                    None
+                };
+
+                if self_function_name.is_some_and(|name| name == identifier) {
+                    return Ok((self.r#type.return_type.clone(), 0, 0));
+                }
+            }
+
             let function = prototypes
                 .last()
                 .ok_or_else(|| CompileError::ExpectedFunction {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
+                    found: function_token.to_owned(),
+                    position: function_position,
                 })?;
-            let index = self.prototypes.borrow().len() - 1;
+            let return_type = function.r#type.return_type.clone();
+            let prototype_index = function.prototype_index;
+            let argument_count = function.r#type.value_parameters.len();
 
-            (function.clone(), function.r#type.return_type.clone(), index)
+            Ok((return_type, prototype_index, argument_count))
         };
-        let argument_count = function.r#type.value_parameters.len();
-        let mut argument_registers = Vec::with_capacity(argument_count);
+
+        let (return_type, prototype_index, argument_count) = get_function_info()?;
+
+        let mut arguments = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let argument_register = self.next_register_index() - 1;
+            let (last_instruction, last_instruction_type, _) =
+                self.instructions
+                    .pop()
+                    .ok_or_else(|| CompileError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    })?;
+            let argument_address = last_instruction.b_address();
+            let argument_type = last_instruction_type.as_operand_type();
 
-            argument_registers.push(argument_register);
+            arguments.push((argument_address, argument_type));
         }
 
-        let destination_index = self.next_register_index();
-        let correct_argument_range = (destination_index - argument_count)..destination_index;
-        let arguments_are_in_correct_registers = argument_registers
-            .iter()
-            .zip(correct_argument_range)
-            .all(|(argument_register, expected_register)| *argument_register == expected_register);
+        let arguments_index = self.argument_lists.len();
 
-        if !arguments_are_in_correct_registers {
-            todo!()
-        }
+        self.argument_lists.push(arguments);
 
         let end = self.current_position.1;
         let return_operand_type = return_type.as_operand_type();
         let destination = Address::register(self.next_register_index());
         let call = Instruction::call(
             destination,
-            Address::constant(function_index),
-            argument_count,
+            prototype_index,
+            arguments_index,
             return_operand_type,
         );
 
-        self.emit_instruction(call, return_type, Span(start, end));
+        self.emit_instruction(call, return_type, Span(function_position.0, end));
 
         Ok(())
     }

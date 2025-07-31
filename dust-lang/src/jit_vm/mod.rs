@@ -5,7 +5,6 @@ mod jit;
 mod object;
 mod object_pool;
 mod register;
-mod run_status;
 pub mod thread;
 
 pub use call_frame::CallFrame;
@@ -14,8 +13,7 @@ pub use jit::{JIT_ERROR_TEXT, Jit, JitChunk, JitError};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::Register;
-pub use run_status::RunStatus;
-pub use thread::{Thread, ThreadHandle};
+pub use thread::{Thread, ThreadHandle, ThreadStatus};
 
 use std::sync::{Arc, RwLock};
 

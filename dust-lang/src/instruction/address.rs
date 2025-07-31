@@ -55,6 +55,10 @@ impl Address {
 
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}_{}", self.memory, self.index)
+        if self.memory == MemoryKind::CONSTANT && self.index == u16::MAX as usize {
+            write!(f, "self")
+        } else {
+            write!(f, "{}_{}", self.memory, self.index)
+        }
     }
 }

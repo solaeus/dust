@@ -10,9 +10,14 @@ use cranelift_module::{Linkage, Module};
 use tracing::{Level, info};
 
 use crate::{
-    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, RunStatus, Thread,
-    instruction::{Jump, Load, MemoryKind, Return, Test},
+    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, Thread, ThreadStatus,
+    instruction::{Call, Jump, Load, MemoryKind, Return, Test},
     jit_vm::ObjectPool,
+};
+
+const STATUS_TYPE: types::Type = match size_of::<ThreadStatus>() {
+    4 => types::I32,
+    _ => types::I64,
 };
 
 pub struct Jit<'a> {
@@ -164,6 +169,12 @@ impl<'a> Jit<'a> {
         Ok(function_ref)
     }
 
+    fn return_run_status(&mut self, function_builder: &mut FunctionBuilder, status: ThreadStatus) {
+        let value = function_builder.ins().iconst(STATUS_TYPE, status as i64);
+
+        function_builder.ins().return_(&[value]);
+    }
+
     pub fn compile(&mut self) -> Result<JitChunk, JitError> {
         let span = tracing::span!(Level::INFO, "JIT");
         let _enter = span.enter();
@@ -187,6 +198,11 @@ impl<'a> Jit<'a> {
             .signature
             .params
             .push(AbiParam::new(pointer_type));
+        compilation_context
+            .func
+            .signature
+            .returns
+            .push(AbiParam::new(STATUS_TYPE));
 
         let mut return_value_signature = compilation_context.func.signature.clone();
         let mut function_builder =
@@ -501,6 +517,25 @@ impl<'a> Jit<'a> {
                         &[],
                     );
                 }
+                Operation::CALL => {
+                    let Call {
+                        destination,
+                        prototype_index,
+                        arguments_index,
+                        return_type,
+                    } = Call::from(*current_instruction);
+                    // Access the "jit_chunks" field of the CallFrame
+
+                    // Calculate the register range for the function call
+
+                    // Get the JIT chunk for the function being called using `function.index`
+
+                    // Set the `ip` field of the CallFrame to the current ip + 1
+
+                    // Set the `next_call` field of the CallFrame to the current instruction
+
+                    // Return the `ThreadStatus::Call` to indicate a function call
+                }
                 Operation::JUMP => {
                     let Jump {
                         offset,
@@ -571,7 +606,7 @@ impl<'a> Jit<'a> {
                         }
                     }
 
-                    function_builder.ins().return_(&[]);
+                    self.return_run_status(&mut function_builder, ThreadStatus::Return);
                 }
                 _ => {
                     return Err(JitError::UnhandledOperation {
@@ -583,7 +618,7 @@ impl<'a> Jit<'a> {
         }
 
         function_builder.switch_to_block(unreachable_final_block);
-        function_builder.ins().return_(&[]);
+        self.return_run_status(&mut function_builder, ThreadStatus::Return);
         function_builder.seal_all_blocks();
 
         let compiled_function_id = self
@@ -611,18 +646,20 @@ impl<'a> Jit<'a> {
         let logic = unsafe {
             std::mem::transmute::<
                 *const u8,
-                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> RunStatus,
+                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> ThreadStatus,
             >(compiled_function_pointer)
         };
 
         Ok(JitChunk {
             logic,
             register_tags: self.chunk.register_tags.clone(),
+            argument_lists: self.chunk.argument_lists.clone(),
         })
     }
 }
 
 pub struct JitChunk {
-    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> RunStatus,
+    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> ThreadStatus,
     pub register_tags: Vec<OperandType>,
+    pub argument_lists: Vec<Vec<(Address, OperandType)>>,
 }

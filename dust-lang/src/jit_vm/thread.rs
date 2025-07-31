@@ -6,7 +6,7 @@ use std::{
 use tracing::{Level, info, span};
 
 use crate::{
-    Chunk, JitChunk, RunStatus, Value,
+    Chunk, JitChunk, Value,
     instruction::{Call, OperandType},
 };
 
@@ -79,6 +79,7 @@ impl Thread {
 
         let call = CallFrame::new(
             main_chunk,
+            &chunks,
             (0, main_chunk.register_tags.len()),
             0,
             OperandType::NONE,
@@ -86,38 +87,59 @@ impl Thread {
 
         call_stack.push(call);
 
-        while let Some(mut call_frame) = call_stack.pop() {
-            let logic = call_frame.jit_chunk.logic;
-            let register_range = call_frame.register_range;
+        while let Some(mut current_call) = call_stack.pop() {
+            let logic = current_call.jit_chunk.logic;
+            let register_range = current_call.register_range;
             let register_stack_window = &mut register_stack[register_range.0..register_range.1];
             let status = (logic)(
                 &mut self,
-                &mut call_frame,
+                &mut current_call,
                 register_stack_window.as_mut_ptr(),
             );
 
             match status {
-                RunStatus::Call => {
+                ThreadStatus::Call => {
                     let Call {
                         destination,
-                        function,
-                        argument_count,
+                        prototype_index,
+                        arguments_index,
                         return_type,
-                    } = Call::from(call_frame.next_call);
-                    let register_range = (register_range.1, register_range.1 + argument_count);
-                    let jit_chunk = chunks
-                        .get(function.index)
-                        .expect("Invalid destination index for call");
-                    let next_call =
-                        CallFrame::new(jit_chunk, register_range, destination.index, return_type);
+                    } = Call::from(current_call.next_call);
+                    let arguments = current_call
+                        .jit_chunk
+                        .argument_lists
+                        .get(arguments_index)
+                        .expect("Invalid arguments index for call");
 
-                    call_stack.push(call_frame);
+                    let start_register = register_range.1;
+                    let end_register = start_register + arguments.len();
+
+                    register_stack.resize(end_register, Register { empty: () });
+
+                    let jit_chunk = chunks
+                        .get(prototype_index)
+                        .expect("Invalid destination index for call");
+                    let next_call = CallFrame::new(
+                        jit_chunk,
+                        &chunks,
+                        (start_register, end_register),
+                        destination.index,
+                        return_type,
+                    );
+
+                    call_stack.push(current_call);
                     call_stack.push(next_call);
                 }
-                RunStatus::Return => todo!(),
+                ThreadStatus::Return => {}
             }
         }
 
         self.return_value
     }
+}
+
+#[repr(C)]
+pub enum ThreadStatus {
+    Call = 0,
+    Return = 1,
 }

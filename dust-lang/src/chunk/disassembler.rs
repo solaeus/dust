@@ -74,6 +74,13 @@ const CONSTANT_BORDERS: [&str; 3] = [
     "╰─────────┴──────────────────────────┴──────────────────────────╯",
 ];
 
+const ARGUMENT_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("ADDRESSES", 46)];
+const ARGUMENT_LIST_BORDERS: [&str; 3] = [
+    "╭─────┬──────────────────────────────────────────────╮",
+    "├─────┼──────────────────────────────────────────────┤",
+    "╰─────┴──────────────────────────────────────────────╯",
+];
+
 const TOP_BORDER: [char; 3] = ['╭', '─', '╮'];
 const LEFT_BORDER: char = '│';
 const RIGHT_BORDER: char = '│';
@@ -352,6 +359,35 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
+    fn write_argument_lists_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in ARGUMENT_LIST_COLUMNS {
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
+        }
+
+        column_name_line.push('│');
+        self.write_center_border_bold("Argument Lists")?;
+        self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
+        self.write_center_border_bold(&column_name_line)?;
+        self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
+
+        for (index, addresses) in chunk.argument_lists.iter().enumerate() {
+            let arguments_display = addresses
+                .iter()
+                .map(|(address, r#type)| format!("({address}: {type})"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let row = format!("│{index:^5}│{arguments_display:^46}│");
+
+            self.write_center_border(&row)?;
+        }
+
+        self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
+
+        Ok(())
+    }
+
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.disassemble_chunk(&self.program.main_chunk)?;
 
@@ -409,6 +445,10 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
         if !chunk.constants.is_empty() {
             self.write_constant_section(chunk)?;
+        }
+
+        if !chunk.argument_lists.is_empty() {
+            self.write_argument_lists_section(chunk)?;
         }
 
         self.write_page_border(BOTTOM_BORDER)
