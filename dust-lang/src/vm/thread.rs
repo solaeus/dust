@@ -6,7 +6,7 @@ use std::{
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, Value,
+    Chunk, Value,
     instruction::OperandType,
     jit::{Jit, JitError},
     vm::Register,
@@ -38,7 +38,6 @@ impl ThreadHandle {
                     threads,
                     cells,
                     return_value: None,
-                    should_exit: false,
                 }
                 .run(chunk)
             })
@@ -49,18 +48,15 @@ impl ThreadHandle {
 }
 
 #[repr(C)]
-pub struct Thread<'a> {
-    pub(crate) should_exit: bool,
-    pub(crate) return_value: Option<Value>,
-    pub(crate) object_pool: ObjectPool,
-
-    call_stack: Vec<CallFrame<'a>>,
-
-    threads: Arc<RwLock<Vec<ThreadHandle>>>,
-    cells: Arc<RwLock<Vec<Cell>>>,
+pub struct Thread {
+    pub call_stack: Vec<CallFrame>,
+    pub object_pool: ObjectPool,
+    pub threads: Arc<RwLock<Vec<ThreadHandle>>>,
+    pub cells: Arc<RwLock<Vec<Cell>>>,
+    pub return_value: Option<Value>,
 }
 
-impl<'a> Thread<'a> {
+impl Thread {
     fn run(mut self, chunk: Chunk) -> Result<Option<Value>, JitError> {
         let span = span!(Level::INFO, "Thread");
         let _enter = span.enter();
@@ -74,19 +70,34 @@ impl<'a> Thread<'a> {
                 .unwrap_or_default()
         );
 
+        let mut register_stack = vec![Register { empty: () }; chunk.register_tags.len()];
         let mut jit = Jit::new(&chunk, &mut self.object_pool);
-        let decoded_chunk = jit.compile()?;
-        let register_count = chunk.register_tags.len();
-        let mut register_stack = vec![Register { empty: () }; register_count];
-        let mut call = CallFrame::new(
-            &chunk,
-            &mut register_stack[0..register_count],
+        let jit_chunk = jit.compile()?;
+        let call = CallFrame::new(
+            jit_chunk,
+            (0, chunk.register_tags.len()),
             true,
-            Address::default(),
+            0,
             OperandType::NONE,
         );
 
-        (decoded_chunk.logic)(&mut self, &mut call);
+        self.call_stack.push(call);
+
+        while let Some(mut call_frame) = self.call_stack.pop() {
+            let logic = call_frame.jit_chunk.logic;
+            let register_range = call_frame.register_range;
+            let register_stack_window = &mut register_stack[register_range.0..register_range.1];
+
+            (logic)(
+                &mut self,
+                &mut call_frame,
+                register_stack_window.as_mut_ptr(),
+            );
+
+            if call_frame.push_back {
+                self.call_stack.push(call_frame);
+            }
+        }
 
         Ok(self.return_value)
     }

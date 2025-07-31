@@ -1,34 +1,36 @@
-use crate::{Address, Chunk, OperandType, Value, vm::Register};
+use crate::{JitChunk, OperandType, Register};
 
 #[repr(C)]
-pub struct CallFrame<'a> {
-    pub registers: &'a mut [Register],
+pub struct CallFrame {
+    pub register_range: (usize, usize),
 
     pub ip: usize,
-    pub chunk: &'a Chunk,
+    pub jit_chunk: JitChunk,
+    pub push_back: bool,
 
     pub is_end_of_stack: bool,
-    pub return_address: Address,
+    pub return_address_index: usize,
     pub return_type: OperandType,
-    pub return_value: Option<Option<Value>>,
+    pub return_register: Register,
 }
 
-impl<'a> CallFrame<'a> {
+impl CallFrame {
     pub fn new(
-        chunk: &'a Chunk,
-        registers: &'a mut [Register],
+        jit_chunk: JitChunk,
+        register_range: (usize, usize),
         is_end_of_stack: bool,
-        return_address: Address,
+        return_address_index: usize,
         return_type: OperandType,
     ) -> Self {
         CallFrame {
             ip: 0,
-            chunk,
-            registers,
+            jit_chunk,
+            push_back: false,
+            register_range,
             is_end_of_stack,
-            return_address,
+            return_address_index,
             return_type,
-            return_value: None,
+            return_register: Register { empty: () },
         }
     }
 }

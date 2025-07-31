@@ -1,5 +1,3 @@
-use std::mem::offset_of;
-
 mod functions;
 mod jit_error;
 
@@ -184,6 +182,11 @@ impl<'a> Jit<'a> {
             .signature
             .params
             .push(AbiParam::new(pointer_type));
+        compilation_context
+            .func
+            .signature
+            .params
+            .push(AbiParam::new(pointer_type));
 
         let mut return_value_signature = compilation_context.func.signature.clone();
         let mut function_builder =
@@ -267,17 +270,11 @@ impl<'a> Jit<'a> {
 
         let thread_runner_pointer = function_builder.block_params(function_entry_block)[0];
         let call_frame_pointer = function_builder.block_params(function_entry_block)[1];
-        let call_frame_registers_field_offset = offset_of!(CallFrame, registers) as i32;
-        let call_frame_registers_pointer = function_builder.ins().load(
-            pointer_type,
-            MemFlags::new(),
-            call_frame_pointer,
-            call_frame_registers_field_offset,
-        );
+        let registers_pointer = function_builder.block_params(function_entry_block)[2];
 
         function_builder.def_var(variable_0, thread_runner_pointer);
         function_builder.def_var(variable_1, call_frame_pointer);
-        function_builder.def_var(variable_2, call_frame_registers_pointer);
+        function_builder.def_var(variable_2, registers_pointer);
 
         function_builder.ins().jump(instruction_blocks[0], &[]);
 
@@ -612,9 +609,10 @@ impl<'a> Jit<'a> {
 
         let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
         let logic = unsafe {
-            std::mem::transmute::<*const u8, extern "C" fn(*mut Thread, *mut CallFrame)>(
-                compiled_function_pointer,
-            )
+            std::mem::transmute::<
+                *const u8,
+                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register),
+            >(compiled_function_pointer)
         };
 
         Ok(JitChunk {
@@ -625,13 +623,13 @@ impl<'a> Jit<'a> {
 }
 
 pub struct JitChunk {
-    pub logic: extern "C" fn(*mut Thread, *mut CallFrame),
+    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register),
     pub register_count: usize,
 }
 
 impl JitChunk {
     pub fn no_op() -> Self {
-        extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame) {}
+        extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame, _: *mut Register) {}
 
         Self {
             logic: no_op_logic,
