@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
 
 use crate::Chunk;
@@ -8,5 +6,5 @@ use crate::Chunk;
 pub struct Program {
     pub main_chunk: Chunk,
     pub cell_count: u16,
-    pub prototypes: Arc<Vec<Arc<Chunk>>>,
+    pub prototypes: Vec<Chunk>,
 }

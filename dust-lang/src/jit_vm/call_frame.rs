@@ -1,35 +1,30 @@
-use crate::{JitChunk, OperandType, Register};
+use crate::{Instruction, JitChunk, OperandType, Register};
 
 #[repr(C)]
-pub struct CallFrame {
-    pub register_range: (usize, usize),
-
+pub struct CallFrame<'a> {
     pub ip: usize,
-    pub jit_chunk: JitChunk,
-    pub push_back: bool,
-
-    pub is_end_of_stack: bool,
+    pub jit_chunk: &'a JitChunk,
+    pub next_call: Instruction,
+    pub register_range: (usize, usize),
     pub return_address_index: usize,
     pub return_type: OperandType,
     pub return_register: Register,
 }
 
-impl CallFrame {
+impl<'a> CallFrame<'a> {
     pub fn new(
-        jit_chunk: JitChunk,
+        jit_chunk: &'a JitChunk,
         register_range: (usize, usize),
-        is_end_of_stack: bool,
         return_address_index: usize,
         return_type: OperandType,
     ) -> Self {
         CallFrame {
-            ip: 0,
             jit_chunk,
-            push_back: false,
             register_range,
-            is_end_of_stack,
             return_address_index,
             return_type,
+            ip: 0,
+            next_call: Instruction::no_op(),
             return_register: Register { empty: () },
         }
     }

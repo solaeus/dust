@@ -39,7 +39,7 @@ pub use path::Path;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc};
 
 use crate::{
     Address, Chunk, DustError, FunctionType, Instruction, Lexer, List, Module, NativeFunction,
@@ -179,7 +179,6 @@ impl Compiler {
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
             .expect("Unnecessary clone of prototypes")
             .into_inner();
-        let prototypes = Arc::new(prototypes);
 
         Ok(Program {
             main_chunk,
@@ -248,7 +247,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     globals: Rc<RefCell<IndexMap<Path, Global>>>,
 
-    prototypes: Rc<RefCell<Vec<Arc<Chunk>>>>,
+    prototypes: Rc<RefCell<Vec<Chunk>>>,
 
     previous_statement_end: usize,
     previous_expression_end: usize,
@@ -268,7 +267,7 @@ impl<'a> ChunkCompiler<'a> {
         item_scope: HashSet<Path>,
         main_module: Rc<RefCell<Module>>,
         globals: Rc<RefCell<IndexMap<Path, Global>>>,
-        prototypes: Rc<RefCell<Vec<Arc<Chunk>>>>,
+        prototypes: Rc<RefCell<Vec<Chunk>>>,
     ) -> Result<Self, CompileError> {
         let (current_token, current_position) = lexer.next_token()?;
 
@@ -2046,7 +2045,7 @@ impl<'a> ChunkCompiler<'a> {
             );
         }
 
-        self.prototypes.borrow_mut().push(Arc::new(chunk));
+        self.prototypes.borrow_mut().push(chunk);
 
         Ok(())
     }

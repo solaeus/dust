@@ -10,9 +10,9 @@ use cranelift_module::{Linkage, Module};
 use tracing::{Level, info};
 
 use crate::{
-    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, Thread,
+    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, RunStatus, Thread,
     instruction::{Jump, Load, MemoryKind, Return, Test},
-    vm::ObjectPool,
+    jit_vm::ObjectPool,
 };
 
 pub struct Jit<'a> {
@@ -611,29 +611,18 @@ impl<'a> Jit<'a> {
         let logic = unsafe {
             std::mem::transmute::<
                 *const u8,
-                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register),
+                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> RunStatus,
             >(compiled_function_pointer)
         };
 
         Ok(JitChunk {
             logic,
-            register_count: self.chunk.register_tags.len(),
+            register_tags: self.chunk.register_tags.clone(),
         })
     }
 }
 
 pub struct JitChunk {
-    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register),
-    pub register_count: usize,
-}
-
-impl JitChunk {
-    pub fn no_op() -> Self {
-        extern "C" fn no_op_logic(_: *mut Thread, _: *mut CallFrame, _: *mut Register) {}
-
-        Self {
-            logic: no_op_logic,
-            register_count: 0,
-        }
-    }
+    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> RunStatus,
+    pub register_tags: Vec<OperandType>,
 }

@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{CompileError, Compiler, Disassembler, DustError, Vm};
+use dust_lang::{CompileError, Compiler, Disassembler, DustError, JitVm};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -186,7 +186,7 @@ fn main() {
         };
         let compile_time = start_time.elapsed();
         let prototypes = dust_program.prototypes.clone();
-        let vm = Vm::new();
+        let vm = JitVm::new();
         let run_result = vm.run(dust_program);
         let run_time = start_time.elapsed() - compile_time;
 

@@ -355,7 +355,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.disassemble_chunk(&self.program.main_chunk)?;
 
-        for chunk in self.program.prototypes.as_ref() {
+        for chunk in &self.program.prototypes {
             self.disassemble_chunk(chunk)?;
         }
 

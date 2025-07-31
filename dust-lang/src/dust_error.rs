@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, JIT_ERROR_TEXT, Span, jit::JitError};
+use crate::{CompileError, JIT_ERROR_TEXT, JitError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug, PartialEq)]

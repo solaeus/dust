@@ -4,7 +4,6 @@ use std::{
     cmp::Ordering,
     fmt::{self, Formatter},
     hash::{Hash, Hasher},
-    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -171,7 +170,7 @@ impl Value {
         }
     }
 
-    pub fn display(&self, f: &mut Formatter, prototypes: &[Arc<Chunk>]) -> fmt::Result {
+    pub fn display(&self, f: &mut Formatter, prototypes: &[Chunk]) -> fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
             Value::Byte(byte) => write!(f, "{byte:#04X}"),

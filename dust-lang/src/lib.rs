@@ -44,7 +44,7 @@ pub mod compiler;
 pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
-pub mod jit;
+pub mod jit_vm;
 pub mod lexer;
 pub mod module;
 pub mod native_function;
@@ -52,7 +52,6 @@ pub mod program;
 pub mod token;
 pub mod r#type;
 pub mod value;
-pub mod vm;
 
 // #[cfg(test)]
 // mod tests;
@@ -63,7 +62,10 @@ pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
-pub use jit::{JIT_ERROR_TEXT, JitError, JitChunk};
+pub use jit_vm::{
+    CallFrame, Cell, JIT_ERROR_TEXT, Jit, JitChunk, JitError, JitVm, Object, Register, RunStatus,
+    Thread, run,
+};
 pub use lexer::{LexError, Lexer, lex};
 pub use module::Module;
 pub use native_function::NativeFunction;
@@ -71,7 +73,6 @@ pub use program::Program;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{List, Value};
-pub use vm::{CallFrame, Cell, Object, Register, Thread, Vm, run};
 
 use std::fmt::Display;
 

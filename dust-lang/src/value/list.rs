@@ -2,7 +2,6 @@ use std::{
     cmp::Ordering,
     fmt::{self, Formatter},
     hash::{Hash, Hasher},
-    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -127,7 +126,7 @@ impl List {
         }
     }
 
-    pub fn display(&self, f: &mut Formatter, prototypes: &[Arc<Chunk>]) -> fmt::Result {
+    pub fn display(&self, f: &mut Formatter, prototypes: &[Chunk]) -> fmt::Result {
         write!(f, "[")?;
 
         match self {
