@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use dust_lang::run;
 
 const SOURCE: &str = r"
     let mut i = 0
 
-    while i < 5_000_000 {
+    while i < 10_000_000 {
         i += 1
     }
 ";
