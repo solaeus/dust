@@ -422,12 +422,12 @@ impl Instruction {
     pub fn call_native(
         destination: Address,
         function: NativeFunction,
-        argument_count: usize,
+        arguments_index: usize,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
-            argument_count,
+            arguments_index,
         })
     }
 

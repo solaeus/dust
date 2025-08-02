@@ -302,7 +302,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
                 identifier
             };
-            let address = address.to_string();
+            let address = address.to_string(r#type.as_operand_type());
             let r#type = r#type.to_string();
             let scope = scope.to_string();
             let row = format!(
@@ -347,7 +347,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
                 value_string
             };
-            let register_display = Address::constant(index).to_string();
+            let register_display = Address::constant(index).to_string(r#type);
             let constant_display =
                 format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 
@@ -375,7 +375,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         for (index, addresses) in chunk.argument_lists.iter().enumerate() {
             let arguments_display = addresses
                 .iter()
-                .map(|(address, r#type)| format!("({address}: {type})"))
+                .map(|(address, r#type)| format!("({}: {type})", address.to_string(*r#type)))
                 .collect::<Vec<_>>()
                 .join(", ");
             let row = format!("│{index:^5}│{arguments_display:^46}│");

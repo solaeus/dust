@@ -62,9 +62,14 @@ impl Display for List {
             destination,
             start,
             end,
-            ..
+            r#type,
         } = self;
 
-        write!(f, "{destination} = [{start}..={end}]")
+        destination.display(f, *r#type)?;
+        write!(f, " = [")?;
+        start.display(f, r#type.b_type())?;
+        write!(f, "..=")?;
+        end.display(f, r#type.c_type())?;
+        write!(f, "]")
     }
 }

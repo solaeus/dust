@@ -59,7 +59,8 @@ impl Display for Call {
         } = self;
 
         if *return_type != OperandType::NONE {
-            write!(f, "{destination} = ")?;
+            destination.display(f, *return_type)?;
+            write!(f, " = ")?;
         }
 
         write!(f, "proto_{prototype_index}(args_{arguments_index})")

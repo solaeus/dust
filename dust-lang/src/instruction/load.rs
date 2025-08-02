@@ -58,10 +58,12 @@ impl Display for Load {
             destination,
             operand,
             jump_next,
-            ..
+            r#type,
         } = self;
 
-        write!(f, "{destination} = {operand}")?;
+        destination.display(f, *r#type)?;
+        write!(f, " = ")?;
+        operand.display(f, *r#type)?;
 
         if *jump_next != 0 {
             write!(f, " (jump +1)")?;

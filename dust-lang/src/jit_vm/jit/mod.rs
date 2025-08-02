@@ -1,6 +1,8 @@
 mod functions;
 mod jit_error;
 
+use std::mem::offset_of;
+
 use functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
@@ -11,7 +13,7 @@ use tracing::{Level, info};
 
 use crate::{
     Address, CallFrame, Chunk, Object, OperandType, Operation, Register, Thread, ThreadStatus,
-    instruction::{Call, Jump, Load, MemoryKind, Return, Test},
+    instruction::{Jump, Load, MemoryKind, Return, Test},
     jit_vm::ObjectPool,
 };
 
@@ -518,23 +520,28 @@ impl<'a> Jit<'a> {
                     );
                 }
                 Operation::CALL => {
-                    let Call {
-                        destination,
-                        prototype_index,
-                        arguments_index,
-                        return_type,
-                    } = Call::from(*current_instruction);
-                    // Access the "jit_chunks" field of the CallFrame
+                    let ip_offset = offset_of!(CallFrame, ip) as i32;
+                    let next_call_offset = offset_of!(CallFrame, next_call) as i32;
 
-                    // Calculate the register range for the function call
+                    let next_ip = function_builder.ins().iconst(types::I64, (ip + 1) as i64);
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        next_ip,
+                        call_frame_pointer,
+                        ip_offset,
+                    );
 
-                    // Get the JIT chunk for the function being called using `function.index`
+                    let next_call_value = function_builder
+                        .ins()
+                        .iconst(types::I64, current_instruction.0 as i64);
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        next_call_value,
+                        call_frame_pointer,
+                        next_call_offset,
+                    );
 
-                    // Set the `ip` field of the CallFrame to the current ip + 1
-
-                    // Set the `next_call` field of the CallFrame to the current instruction
-
-                    // Return the `ThreadStatus::Call` to indicate a function call
+                    self.return_run_status(&mut function_builder, ThreadStatus::Call);
                 }
                 Operation::JUMP => {
                     let Jump {
