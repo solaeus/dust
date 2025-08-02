@@ -3,10 +3,10 @@ use std::{
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
-use tracing::{Level, info, span};
+use tracing::{Level, info, span, trace};
 
 use crate::{
-    Chunk, JitChunk, Value,
+    Chunk, Instruction, JitChunk, Value,
     instruction::{Call, OperandType},
 };
 
@@ -43,6 +43,9 @@ impl ThreadHandle {
                     .iter()
                     .map(|chunk| Jit::new(chunk, &mut object_pool).compile())
                     .collect::<Result<Vec<_>, JitError>>()?;
+
+                info!("Compiled {} JIT chunks", jit_chunks.len());
+
                 let thread_result = Thread {
                     object_pool: ObjectPool::new(),
                     threads,
@@ -81,7 +84,6 @@ impl Thread {
             main_chunk,
             &chunks,
             (0, main_chunk.register_tags.len()),
-            0,
             OperandType::NONE,
         );
 
@@ -99,12 +101,14 @@ impl Thread {
 
             match status {
                 ThreadStatus::Call => {
+                    let next_call_instruction =
+                        Instruction(current_call.next_call_instruction as u64);
                     let Call {
                         destination,
                         prototype_index,
                         arguments_index,
                         return_type,
-                    } = Call::from(current_call.next_call);
+                    } = Call::from(next_call_instruction);
                     let arguments = current_call
                         .jit_chunk
                         .argument_lists
@@ -123,14 +127,17 @@ impl Thread {
                         jit_chunk,
                         &chunks,
                         (start_register, end_register),
-                        destination.index,
                         return_type,
                     );
+
+                    trace!("Calling function proto_{prototype_index}");
 
                     call_stack.push(current_call);
                     call_stack.push(next_call);
                 }
-                ThreadStatus::Return => {}
+                ThreadStatus::Return => {
+                    trace!("Returning from function");
+                }
             }
         }
 

@@ -6,13 +6,14 @@ use std::mem::offset_of;
 use functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
-use cranelift::{codegen::ir::FuncRef, prelude::*};
+use cranelift::{codegen::ir::FuncRef, frontend::Switch, prelude::*};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 use tracing::{Level, info};
 
 use crate::{
-    Address, CallFrame, Chunk, Object, OperandType, Operation, Register, Thread, ThreadStatus,
+    Address, CallFrame, Chunk, Instruction, Object, OperandType, Operation, Register, Thread,
+    ThreadStatus,
     instruction::{Jump, Load, MemoryKind, Return, Test},
     jit_vm::ObjectPool,
 };
@@ -33,14 +34,15 @@ impl<'a> Jit<'a> {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
         builder.symbol(
-            "set_return_value_to_integer",
-            set_return_value_to_integer as *const u8,
+            "set_thread_return_value_to_integer",
+            set_thread_return_value_to_integer as *const u8,
         );
         builder.symbol(
-            "set_return_value_to_string",
-            set_return_value_to_string as *const u8,
+            "set_thread_return_value_to_string",
+            set_thread_return_value_to_string as *const u8,
         );
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
+        builder.symbol("log_operation", log_operation as *const u8);
 
         let module = JITModule::new(builder);
 
@@ -61,7 +63,7 @@ impl<'a> Jit<'a> {
 
         if next_ip >= instruction_blocks.len() {
             return Err(JitError::BranchTargetOutOfBounds {
-                instruction_pointer: ip,
+                ip,
                 branch_target_instruction_pointer: next_ip,
                 total_instruction_count: instruction_blocks.len(),
             });
@@ -76,9 +78,11 @@ impl<'a> Jit<'a> {
 
     fn get_integer(
         &self,
-        function_builder: &mut FunctionBuilder,
+        address: Address,
         call_frame_registers_pointer: Value,
-        address: &Address,
+        function_builder: &mut FunctionBuilder,
+        ip: usize,
+        instruction: Instruction,
     ) -> Result<Value, JitError> {
         let jit_value = match address.memory {
             MemoryKind::REGISTER => {
@@ -95,6 +99,8 @@ impl<'a> Jit<'a> {
                 Some(integer) => function_builder.ins().iconst(types::I64, integer),
                 None => {
                     return Err(JitError::InvalidConstantType {
+                        ip,
+                        instruction,
                         constant_index: address.index,
                         expected_type: OperandType::INTEGER,
                     });
@@ -102,6 +108,8 @@ impl<'a> Jit<'a> {
             },
             _ => {
                 return Err(JitError::UnsupportedMemoryKind {
+                    ip,
+                    instruction,
                     memory_kind: address.memory,
                 });
             }
@@ -112,9 +120,11 @@ impl<'a> Jit<'a> {
 
     fn get_string(
         &mut self,
-        function_builder: &mut FunctionBuilder,
+        address: Address,
         call_frame_registers_pointer: Value,
-        address: &Address,
+        function_builder: &mut FunctionBuilder,
+        ip: usize,
+        instruction: Instruction,
     ) -> Result<Value, JitError> {
         let jit_value = match address.memory {
             MemoryKind::REGISTER => {
@@ -136,6 +146,8 @@ impl<'a> Jit<'a> {
                 }
                 None => {
                     return Err(JitError::InvalidConstantType {
+                        ip,
+                        instruction,
                         constant_index: address.index,
                         expected_type: OperandType::STRING,
                     });
@@ -143,6 +155,8 @@ impl<'a> Jit<'a> {
             },
             _ => {
                 return Err(JitError::UnsupportedMemoryKind {
+                    ip,
+                    instruction,
                     memory_kind: address.memory,
                 });
             }
@@ -161,7 +175,6 @@ impl<'a> Jit<'a> {
             .module
             .declare_function(name, Linkage::Import, &signature)
             .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
                 message: format!("Failed to declare {name} function: {error}"),
             })?;
         let function_ref = self
@@ -206,55 +219,41 @@ impl<'a> Jit<'a> {
             .returns
             .push(AbiParam::new(STATUS_TYPE));
 
-        let mut return_value_signature = compilation_context.func.signature.clone();
         let mut function_builder =
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
-        let bytecode_instructions = &self.chunk.instructions;
-        let total_instruction_count = bytecode_instructions.len();
-
-        let mut instruction_blocks = Vec::with_capacity(total_instruction_count);
-        for _ in 0..total_instruction_count {
-            instruction_blocks.push(function_builder.create_block());
-        }
-        let unreachable_final_block = function_builder.create_block();
-
-        return_value_signature.params =
-            vec![AbiParam::new(pointer_type), AbiParam::new(types::I64)];
-        return_value_signature.returns = vec![];
-
-        let mut set_return_value_to_integer_signature =
+        let mut set_thread_return_value_to_integer_signature =
             Signature::new(self.module.isa().default_call_conv());
 
-        set_return_value_to_integer_signature
+        set_thread_return_value_to_integer_signature
             .params
             .push(AbiParam::new(pointer_type));
-        set_return_value_to_integer_signature
+        set_thread_return_value_to_integer_signature
             .params
             .push(AbiParam::new(types::I64));
-        set_return_value_to_integer_signature.returns = vec![];
+        set_thread_return_value_to_integer_signature.returns = vec![];
 
-        let set_return_value_to_integer_function = self.declare_imported_function(
+        let set_thread_return_value_to_integer_function = self.declare_imported_function(
             &mut function_builder,
-            "set_return_value_to_integer",
-            set_return_value_to_integer_signature,
+            "set_thread_return_value_to_integer",
+            set_thread_return_value_to_integer_signature,
         )?;
 
-        let mut set_return_value_to_string_signature =
+        let mut set_thread_return_value_to_string_signature =
             Signature::new(self.module.isa().default_call_conv());
 
-        set_return_value_to_string_signature
+        set_thread_return_value_to_string_signature
             .params
             .push(AbiParam::new(pointer_type));
-        set_return_value_to_string_signature
+        set_thread_return_value_to_string_signature
             .params
             .push(AbiParam::new(types::I64));
-        set_return_value_to_string_signature.returns = vec![];
+        set_thread_return_value_to_string_signature.returns = vec![];
 
-        let set_return_value_to_string_function = self.declare_imported_function(
+        let set_thread_return_value_to_string_function = self.declare_imported_function(
             &mut function_builder,
-            "set_return_value_to_string",
-            set_return_value_to_string_signature,
+            "set_thread_return_value_to_string",
+            set_thread_return_value_to_string_signature,
         )?;
 
         let mut concatenate_strings_signature =
@@ -278,7 +277,33 @@ impl<'a> Jit<'a> {
             concatenate_strings_signature,
         )?;
 
+        let mut log_operation_signature = Signature::new(self.module.isa().default_call_conv());
+        log_operation_signature
+            .params
+            .push(AbiParam::new(types::I8));
+        log_operation_signature.returns = vec![];
+
+        let log_operation_function = self.declare_imported_function(
+            &mut function_builder,
+            "log_operation",
+            log_operation_signature,
+        )?;
+
+        let bytecode_instructions = &self.chunk.instructions;
+        let instruction_count = bytecode_instructions.len();
+        let mut instruction_blocks = Vec::with_capacity(instruction_count);
+        let mut switch = Switch::new();
+
+        for ip in 0..instruction_count {
+            let block = function_builder.create_block();
+
+            instruction_blocks.push(block);
+            switch.set_entry(ip as u128, block);
+        }
+
         let function_entry_block = function_builder.create_block();
+        let unreachable_final_block = function_builder.create_block();
+
         function_builder.switch_to_block(function_entry_block);
         function_builder.append_block_params_for_function_params(function_entry_block);
 
@@ -294,15 +319,31 @@ impl<'a> Jit<'a> {
         function_builder.def_var(variable_1, call_frame_pointer);
         function_builder.def_var(variable_2, registers_pointer);
 
-        function_builder.ins().jump(instruction_blocks[0], &[]);
+        let ip_offset = offset_of!(CallFrame, ip) as i32;
+        let ip_value =
+            function_builder
+                .ins()
+                .load(types::I64, MemFlags::new(), call_frame_pointer, ip_offset);
 
-        for ip in 0..total_instruction_count {
+        switch.emit(&mut function_builder, ip_value, unreachable_final_block);
+
+        for ip in 0..instruction_count {
             let current_instruction = &bytecode_instructions[ip];
             let operation = current_instruction.operation();
 
             info!("Compiling {operation} at IP {ip}");
 
             function_builder.switch_to_block(instruction_blocks[ip]);
+
+            #[cfg(debug_assertions)]
+            {
+                let operation_code_instruction =
+                    function_builder.ins().iconst(types::I8, operation.0 as i64);
+
+                function_builder
+                    .ins()
+                    .call(log_operation_function, &[operation_code_instruction]);
+            }
 
             let _thread_runner_pointer = function_builder.use_var(variable_0);
             let _call_frame_pointer = function_builder.use_var(variable_1);
@@ -317,15 +358,25 @@ impl<'a> Jit<'a> {
                         ..
                     } = Load::from(*current_instruction);
                     let value = match r#type {
-                        OperandType::INTEGER => {
-                            self.get_integer(&mut function_builder, registers_pointer, &operand)?
-                        }
+                        OperandType::INTEGER => self.get_integer(
+                            operand,
+                            registers_pointer,
+                            &mut function_builder,
+                            ip,
+                            *current_instruction,
+                        )?,
                         // OperandType::FLOAT => self.get_float(...)?,
-                        OperandType::STRING => {
-                            self.get_string(&mut function_builder, registers_pointer, &operand)?
-                        }
+                        OperandType::STRING => self.get_string(
+                            operand,
+                            registers_pointer,
+                            &mut function_builder,
+                            ip,
+                            *current_instruction,
+                        )?,
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
+                                ip,
+                                instruction: *current_instruction,
                                 operand_type: r#type,
                             });
                         }
@@ -352,10 +403,20 @@ impl<'a> Jit<'a> {
                     let r#type = current_instruction.operand_type();
                     let result_value = match r#type {
                         OperandType::INTEGER => {
-                            let left_integer =
-                                self.get_integer(&mut function_builder, registers_pointer, &left)?;
-                            let right_integer =
-                                self.get_integer(&mut function_builder, registers_pointer, &right)?;
+                            let left_integer = self.get_integer(
+                                left,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?;
+                            let right_integer = self.get_integer(
+                                right,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?;
 
                             match current_instruction.operation() {
                                 Operation::ADD => {
@@ -375,17 +436,28 @@ impl<'a> Jit<'a> {
                                 }
                                 _ => {
                                     return Err(JitError::UnhandledOperation {
-                                        instruction_pointer: ip,
+                                        ip,
+                                        instruction: *current_instruction,
                                         operation,
                                     });
                                 }
                             }
                         }
                         OperandType::STRING => {
-                            let left_string =
-                                self.get_string(&mut function_builder, registers_pointer, &left)?;
-                            let right_string =
-                                self.get_string(&mut function_builder, registers_pointer, &right)?;
+                            let left_string = self.get_string(
+                                left,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?;
+                            let right_string = self.get_string(
+                                right,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?;
                             let concatenated_string_result = match current_instruction.operation() {
                                 Operation::ADD => function_builder.ins().call(
                                     concatenate_strings_function,
@@ -393,7 +465,8 @@ impl<'a> Jit<'a> {
                                 ),
                                 _ => {
                                     return Err(JitError::UnhandledOperation {
-                                        instruction_pointer: ip,
+                                        ip,
+                                        instruction: *current_instruction,
                                         operation,
                                     });
                                 }
@@ -403,6 +476,8 @@ impl<'a> Jit<'a> {
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
+                                ip,
+                                instruction: *current_instruction,
                                 operand_type: r#type,
                             });
                         }
@@ -435,11 +510,25 @@ impl<'a> Jit<'a> {
                     };
                     let (left, right) = match r#type {
                         OperandType::INTEGER => (
-                            self.get_integer(&mut function_builder, registers_pointer, &left)?,
-                            self.get_integer(&mut function_builder, registers_pointer, &right)?,
+                            self.get_integer(
+                                left,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?,
+                            self.get_integer(
+                                right,
+                                registers_pointer,
+                                &mut function_builder,
+                                ip,
+                                *current_instruction,
+                            )?,
                         ),
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
+                                ip,
+                                instruction: *current_instruction,
                                 operand_type: r#type,
                             });
                         }
@@ -475,6 +564,8 @@ impl<'a> Jit<'a> {
                         }
                         _ => {
                             return Err(JitError::UnsupportedMemoryKind {
+                                ip,
+                                instruction: *current_instruction,
                                 memory_kind: operand.memory,
                             });
                         }
@@ -495,7 +586,7 @@ impl<'a> Jit<'a> {
                             instruction_blocks[skip_next_instruction_pointer]
                         } else {
                             return Err(JitError::BranchTargetOutOfBounds {
-                                instruction_pointer: ip,
+                                ip,
                                 branch_target_instruction_pointer: skip_next_instruction_pointer,
                                 total_instruction_count: instruction_blocks.len(),
                             });
@@ -506,7 +597,7 @@ impl<'a> Jit<'a> {
                         instruction_blocks[proceed_to_next_instruction_pointer]
                     } else {
                         return Err(JitError::BranchTargetOutOfBounds {
-                            instruction_pointer: ip,
+                            ip,
                             branch_target_instruction_pointer: proceed_to_next_instruction_pointer,
                             total_instruction_count: instruction_blocks.len(),
                         });
@@ -521,7 +612,7 @@ impl<'a> Jit<'a> {
                 }
                 Operation::CALL => {
                     let ip_offset = offset_of!(CallFrame, ip) as i32;
-                    let next_call_offset = offset_of!(CallFrame, next_call) as i32;
+                    let next_call_offset = offset_of!(CallFrame, next_call_instruction) as i32;
 
                     let next_ip = function_builder.ins().iconst(types::I64, (ip + 1) as i64);
                     function_builder.ins().store(
@@ -556,16 +647,14 @@ impl<'a> Jit<'a> {
 
                     if jump_target_ip >= instruction_blocks.len() {
                         return Err(JitError::JumpTargetOutOfBounds {
-                            instruction_pointer: ip,
+                            ip,
                             target_instruction_pointer: jump_target_ip,
                             total_instruction_count: instruction_blocks.len(),
                         });
                     }
 
                     if jump_target_ip == ip {
-                        return Err(JitError::JumpToSelf {
-                            instruction_pointer: ip,
-                        });
+                        return Err(JitError::JumpToSelf { ip });
                     }
 
                     function_builder
@@ -583,30 +672,36 @@ impl<'a> Jit<'a> {
                         match r#type {
                             OperandType::INTEGER => {
                                 let return_value = self.get_integer(
-                                    &mut function_builder,
+                                    return_value_address,
                                     registers_pointer,
-                                    &return_value_address,
+                                    &mut function_builder,
+                                    ip,
+                                    *current_instruction,
                                 )?;
 
                                 function_builder.ins().call(
-                                    set_return_value_to_integer_function,
+                                    set_thread_return_value_to_integer_function,
                                     &[thread_runner_pointer, return_value],
                                 );
                             }
                             OperandType::STRING => {
                                 let return_value = self.get_string(
-                                    &mut function_builder,
+                                    return_value_address,
                                     registers_pointer,
-                                    &return_value_address,
+                                    &mut function_builder,
+                                    ip,
+                                    *current_instruction,
                                 )?;
 
                                 function_builder.ins().call(
-                                    set_return_value_to_string_function,
+                                    set_thread_return_value_to_string_function,
                                     &[thread_runner_pointer, return_value],
                                 );
                             }
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
+                                    ip,
+                                    instruction: *current_instruction,
                                     operand_type: r#type,
                                 });
                             }
@@ -617,7 +712,8 @@ impl<'a> Jit<'a> {
                 }
                 _ => {
                     return Err(JitError::UnhandledOperation {
-                        instruction_pointer: ip,
+                        ip,
+                        instruction: *current_instruction,
                         operation,
                     });
                 }
@@ -632,20 +728,22 @@ impl<'a> Jit<'a> {
             .module
             .declare_anonymous_function(&compilation_context.func.signature)
             .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
-                message: format!("Failed to declare anonymous function: {error}"),
+                message: format!("Failed to declare chunk function: {error}"),
             })?;
 
         self.module
             .define_function(compiled_function_id, &mut compilation_context)
-            .map_err(|error| JitError::FunctionCompilationError {
-                message: format!("Failed to define function: {error}"),
+            .map_err(|_| JitError::FunctionCompilationError {
+                message: format!(
+                    "Failed to define function:\n{}",
+                    compilation_context.func.display()
+                ),
+                cranelift_ir: compilation_context.func.display().to_string(),
             })?;
         self.module.clear_context(&mut compilation_context);
         self.module
             .finalize_definitions()
             .map_err(|error| JitError::CraneliftModuleError {
-                instruction_pointer: None,
                 message: format!("Failed to finalize definitions: {error}"),
             })?;
 

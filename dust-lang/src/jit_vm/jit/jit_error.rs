@@ -1,42 +1,49 @@
-use crate::{MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
+use crate::{Instruction, MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
 
 pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum JitError {
     JumpToSelf {
-        instruction_pointer: usize,
+        ip: usize,
     },
     JumpTargetOutOfBounds {
-        instruction_pointer: usize,
+        ip: usize,
         target_instruction_pointer: usize,
         total_instruction_count: usize,
     },
     BranchTargetOutOfBounds {
-        instruction_pointer: usize,
+        ip: usize,
         branch_target_instruction_pointer: usize,
         total_instruction_count: usize,
     },
     InvalidConstantType {
+        ip: usize,
+        instruction: Instruction,
         constant_index: usize,
         expected_type: OperandType,
     },
     UnsupportedOperandType {
+        ip: usize,
+        instruction: Instruction,
         operand_type: OperandType,
     },
     UnsupportedMemoryKind {
+        ip: usize,
+        instruction: Instruction,
         memory_kind: MemoryKind,
     },
     UnhandledOperation {
-        instruction_pointer: usize,
+        ip: usize,
+        instruction: Instruction,
         operation: Operation,
     },
     CraneliftModuleError {
-        instruction_pointer: Option<usize>,
         message: String,
     },
     FunctionCompilationError {
         message: String,
+        cranelift_ir: String,
     },
 }
 
@@ -61,81 +68,73 @@ impl AnnotatedError for JitError {
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         vec![match self {
-            JitError::JumpToSelf {
-                instruction_pointer,
-            } => (
-                format!(
-                    "Jump to self detected at instruction pointer: {}",
-                    instruction_pointer
-                ),
+            JitError::JumpToSelf { ip } => (
+                format!("Jump to self detected at ip {ip}"),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
             JitError::JumpTargetOutOfBounds {
-                instruction_pointer,
+                ip,
                 target_instruction_pointer,
                 total_instruction_count,
             } => (
                 format!(
-                    "Jump target out of bounds at instruction pointer: {}, target: {}, total instructions: {}",
-                    instruction_pointer, target_instruction_pointer, total_instruction_count
+                    "Jump target out of bounds at ip {ip}, target {target_instruction_pointer}, total instructions {total_instruction_count}"
                 ),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
             JitError::BranchTargetOutOfBounds {
-                instruction_pointer,
+                ip,
                 branch_target_instruction_pointer,
                 total_instruction_count,
             } => (
                 format!(
-                    "Branch target out of bounds at instruction pointer: {}, branch target: {}, total instructions: {}",
-                    instruction_pointer, branch_target_instruction_pointer, total_instruction_count
+                    "Branch target out of bounds at ip {ip}, branch target {branch_target_instruction_pointer}, total instructions {total_instruction_count}"
                 ),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
             JitError::InvalidConstantType {
+                ip,
+                instruction,
                 constant_index,
                 expected_type,
             } => (
                 format!(
-                    "Invalid constant type at index {}. Expected type: {:?}",
-                    constant_index, expected_type
+                    "Invalid constant type at ip {ip} ({instruction}): index {constant_index}, expected {expected_type}"
                 ),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
-            JitError::UnsupportedOperandType { operand_type } => (
-                format!("Unsupported operand type: {:?}", operand_type),
+            JitError::UnsupportedOperandType {
+                ip,
+                instruction,
+                operand_type,
+            } => (
+                format!("Unsupported operand type at ip {ip} ({instruction}): {operand_type}"),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
-            JitError::UnsupportedMemoryKind { memory_kind } => (
-                format!("Unsupported memory kind: {:?}", memory_kind),
+            JitError::UnsupportedMemoryKind {
+                ip,
+                instruction,
+                memory_kind,
+            } => (
+                format!("Unsupported memory kind at ip {ip} ({instruction}): {memory_kind}"),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
             JitError::UnhandledOperation {
-                instruction_pointer,
+                ip,
+                instruction,
                 operation,
             } => (
-                format!(
-                    "Unhandled operation at instruction pointer {}: {}",
-                    instruction_pointer, operation
-                ),
+                format!("Unhandled operation at ip {ip} ({instruction}): {operation}"),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
-            JitError::CraneliftModuleError {
-                instruction_pointer,
+            JitError::CraneliftModuleError { message } => {
+                (message.clone(), Span(0, JIT_ERROR_TEXT.len()))
+            }
+            JitError::FunctionCompilationError {
                 message,
+                cranelift_ir,
             } => (
-                format!(
-                    "Cranelift module error{}: {}",
-                    instruction_pointer.map_or("".to_string(), |ip| format!(
-                        " at instruction pointer {}",
-                        ip
-                    )),
-                    message
-                ),
-                Span(0, JIT_ERROR_TEXT.len()),
-            ),
-            JitError::FunctionCompilationError { message } => (
-                format!("Function compilation error: {}", message),
+                format!("{message}\nCranelift IR:\n{cranelift_ir}"),
                 Span(0, JIT_ERROR_TEXT.len()),
             ),
         }]
