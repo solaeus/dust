@@ -33,14 +33,6 @@ impl<'a> Jit<'a> {
     pub fn new(chunk: &'a Chunk, object_pool: &'a mut ObjectPool) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
-        builder.symbol(
-            "set_thread_return_value_to_integer",
-            set_thread_return_value_to_integer as *const u8,
-        );
-        builder.symbol(
-            "set_thread_return_value_to_string",
-            set_thread_return_value_to_string as *const u8,
-        );
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
         builder.symbol("log_operation", log_operation as *const u8);
 
@@ -221,40 +213,6 @@ impl<'a> Jit<'a> {
 
         let mut function_builder =
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
-
-        let mut set_thread_return_value_to_integer_signature =
-            Signature::new(self.module.isa().default_call_conv());
-
-        set_thread_return_value_to_integer_signature
-            .params
-            .push(AbiParam::new(pointer_type));
-        set_thread_return_value_to_integer_signature
-            .params
-            .push(AbiParam::new(types::I64));
-        set_thread_return_value_to_integer_signature.returns = vec![];
-
-        let set_thread_return_value_to_integer_function = self.declare_imported_function(
-            &mut function_builder,
-            "set_thread_return_value_to_integer",
-            set_thread_return_value_to_integer_signature,
-        )?;
-
-        let mut set_thread_return_value_to_string_signature =
-            Signature::new(self.module.isa().default_call_conv());
-
-        set_thread_return_value_to_string_signature
-            .params
-            .push(AbiParam::new(pointer_type));
-        set_thread_return_value_to_string_signature
-            .params
-            .push(AbiParam::new(types::I64));
-        set_thread_return_value_to_string_signature.returns = vec![];
-
-        let set_thread_return_value_to_string_function = self.declare_imported_function(
-            &mut function_builder,
-            "set_thread_return_value_to_string",
-            set_thread_return_value_to_string_signature,
-        )?;
 
         let mut concatenate_strings_signature =
             Signature::new(self.module.isa().default_call_conv());
@@ -670,34 +628,48 @@ impl<'a> Jit<'a> {
 
                     if should_return_value != 0 {
                         match r#type {
-                            OperandType::INTEGER => {
-                                let return_value = self.get_integer(
-                                    return_value_address,
-                                    registers_pointer,
-                                    &mut function_builder,
-                                    ip,
-                                    *current_instruction,
-                                )?;
+                            OperandType::INTEGER => match return_value_address.memory {
+                                MemoryKind::REGISTER => {
+                                    let register_byte_offset =
+                                        (return_value_address.index * size_of::<Register>()) as i32;
+                                    let register = function_builder.ins().load(
+                                        types::I64,
+                                        MemFlags::new(),
+                                        registers_pointer,
+                                        register_byte_offset,
+                                    );
+                                    let thread_return_value_offset =
+                                        offset_of!(Thread, return_value) as i32;
 
-                                function_builder.ins().call(
-                                    set_thread_return_value_to_integer_function,
-                                    &[thread_runner_pointer, return_value],
-                                );
-                            }
-                            OperandType::STRING => {
-                                let return_value = self.get_string(
-                                    return_value_address,
-                                    registers_pointer,
-                                    &mut function_builder,
-                                    ip,
-                                    *current_instruction,
-                                )?;
-
-                                function_builder.ins().call(
-                                    set_thread_return_value_to_string_function,
-                                    &[thread_runner_pointer, return_value],
-                                );
-                            }
+                                    function_builder.ins().store(
+                                        MemFlags::new(),
+                                        register,
+                                        thread_runner_pointer,
+                                        thread_return_value_offset,
+                                    );
+                                }
+                                MemoryKind::CONSTANT => {
+                                    let integer = self.chunk.constants[return_value_address.index]
+                                        .as_integer()
+                                        .expect("Expected integer constant");
+                                    let thread_return_value_offset =
+                                        offset_of!(Thread, return_value) as i32;
+                                    let value = function_builder.ins().iconst(types::I64, integer);
+                                    function_builder.ins().store(
+                                        MemFlags::new(),
+                                        value,
+                                        thread_runner_pointer,
+                                        thread_return_value_offset,
+                                    );
+                                }
+                                _ => {
+                                    return Err(JitError::UnsupportedMemoryKind {
+                                        ip,
+                                        instruction: *current_instruction,
+                                        memory_kind: return_value_address.memory,
+                                    });
+                                }
+                            },
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
                                     ip,
@@ -757,14 +729,18 @@ impl<'a> Jit<'a> {
 
         Ok(JitChunk {
             logic,
-            register_tags: self.chunk.register_tags.clone(),
+            constants: self.chunk.constants.clone(),
             argument_lists: self.chunk.argument_lists.clone(),
+            register_tags: self.chunk.register_tags.clone(),
+            return_type: self.chunk.r#type.return_type.as_operand_type(),
         })
     }
 }
 
 pub struct JitChunk {
     pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> ThreadStatus,
-    pub register_tags: Vec<OperandType>,
+    pub constants: Vec<crate::Value>,
     pub argument_lists: Vec<Vec<(Address, OperandType)>>,
+    pub register_tags: Vec<OperandType>,
+    pub return_type: OperandType,
 }

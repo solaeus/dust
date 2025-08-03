@@ -2310,17 +2310,29 @@ impl<'a> ChunkCompiler<'a> {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
-            let last_instruction =
-                self.instructions
+            let Expression { index, r#type, .. } =
+                self.expressions
                     .last()
                     .ok_or_else(|| CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
                     })?;
-            let argument_address = last_instruction.b_address();
-            let argument_type = last_instruction.operand_type();
 
-            arguments.push((argument_address, argument_type));
+            match index {
+                ExpressionIndex::Instruction(instruction_index) => {
+                    let last_instruction = self.instructions[*instruction_index];
+
+                    println!("{last_instruction}");
+
+                    let argument_address = last_instruction.destination();
+                    let argument_type = r#type.as_operand_type();
+
+                    arguments.push((argument_address, argument_type));
+                }
+                ExpressionIndex::Function(_) => {
+                    todo!()
+                }
+            }
         }
 
         let arguments_index = self.argument_lists.len();

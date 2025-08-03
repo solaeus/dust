@@ -8,6 +8,7 @@ pub struct CallFrame<'a> {
     pub next_call_instruction: i64,
     pub register_range: (usize, usize),
     pub return_type: OperandType,
+    pub return_register_index: usize,
 }
 
 impl<'a> CallFrame<'a> {
@@ -16,14 +17,16 @@ impl<'a> CallFrame<'a> {
         jit_chunks: &'a [JitChunk],
         register_range: (usize, usize),
         return_type: OperandType,
+        return_register_index: usize,
     ) -> Self {
         CallFrame {
+            ip: 0,
+            next_call_instruction: 0,
             jit_chunk,
             jit_chunks,
             register_range,
             return_type,
-            ip: 0,
-            next_call_instruction: 0,
+            return_register_index,
         }
     }
 }

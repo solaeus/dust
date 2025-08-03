@@ -1,0 +1,9 @@
+fn increment(x: int) -> int {
+    x + 1
+}
+
+let mut i = 0;
+
+while i < 10 {
+    i = increment(i);
+}

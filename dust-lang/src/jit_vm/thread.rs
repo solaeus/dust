@@ -50,7 +50,7 @@ impl ThreadHandle {
                     object_pool: ObjectPool::new(),
                     threads,
                     cells,
-                    return_value: None,
+                    return_value: Register { empty: () },
                 }
                 .run(jit_chunks);
 
@@ -67,7 +67,7 @@ pub struct Thread {
     pub object_pool: ObjectPool,
     pub threads: Arc<RwLock<Vec<ThreadHandle>>>,
     pub cells: Arc<RwLock<Vec<Cell>>>,
-    pub return_value: Option<Value>,
+    pub return_value: Register,
 }
 
 impl Thread {
@@ -80,14 +80,15 @@ impl Thread {
         let mut call_stack = Vec::new();
         let mut register_stack = vec![Register { empty: () }; main_chunk.register_tags.len()];
 
-        let call = CallFrame::new(
+        let main_call = CallFrame::new(
             main_chunk,
             &chunks,
             (0, main_chunk.register_tags.len()),
-            OperandType::NONE,
+            main_chunk.return_type,
+            0,
         );
 
-        call_stack.push(call);
+        call_stack.push(main_call);
 
         while let Some(mut current_call) = call_stack.pop() {
             let logic = current_call.jit_chunk.logic;
@@ -109,25 +110,60 @@ impl Thread {
                         arguments_index,
                         return_type,
                     } = Call::from(next_call_instruction);
+
+                    let new_jit_chunk = chunks
+                        .get(prototype_index)
+                        .expect("Invalid destination index for call");
+                    let start_register = register_range.1;
+                    let end_register = start_register + new_jit_chunk.register_tags.len();
+
+                    register_stack.resize(end_register, Register { empty: () });
+
                     let arguments = current_call
                         .jit_chunk
                         .argument_lists
                         .get(arguments_index)
                         .expect("Invalid arguments index for call");
 
-                    let start_register = register_range.1;
-                    let end_register = start_register + arguments.len();
+                    for ((address, r#type), destination_index) in
+                        arguments.iter().zip(start_register..)
+                    {
+                        println!("Processing argument: {}", address.to_string(*r#type));
+                        println!("Destination index: {}", destination_index);
 
-                    register_stack.resize(end_register, Register { empty: () });
+                        match *r#type {
+                            OperandType::INTEGER => {
+                                let register =
+                                    register_stack[current_call.register_range.0 + address.index];
 
-                    let jit_chunk = chunks
-                        .get(prototype_index)
-                        .expect("Invalid destination index for call");
+                                println!(
+                                    "Argument register index: {}",
+                                    current_call.register_range.0 + address.index
+                                );
+                                println!("Register value: {}", unsafe { register.integer });
+
+                                register_stack[destination_index] = register;
+
+                                println!(
+                                    "Argument source register {}: {}",
+                                    current_call.register_range.0 + address.index,
+                                    unsafe {
+                                        register_stack
+                                            [current_call.register_range.0 + address.index]
+                                            .integer
+                                    }
+                                );
+                            }
+                            _ => todo!("Unsupported argument: {}", address.to_string(*r#type)),
+                        }
+                    }
+
                     let next_call = CallFrame::new(
-                        jit_chunk,
+                        new_jit_chunk,
                         &chunks,
                         (start_register, end_register),
                         return_type,
+                        destination.index,
                     );
 
                     trace!("Calling function proto_{prototype_index}");
@@ -137,11 +173,40 @@ impl Thread {
                 }
                 ThreadStatus::Return => {
                     trace!("Returning from function");
+
+                    let CallFrame {
+                        return_type,
+                        return_register_index,
+                        ..
+                    } = current_call;
+
+                    if call_stack.is_empty() {
+                        match return_type {
+                            OperandType::INTEGER => {
+                                let integer = unsafe { self.return_value.integer };
+
+                                return Some(Value::Integer(integer));
+                            }
+                            _ => todo!(),
+                        }
+                    } else {
+                        match return_type {
+                            OperandType::INTEGER => {
+                                println!(
+                                    "Returning integer value: {} to reg_{return_register_index}",
+                                    unsafe { self.return_value.integer }
+                                );
+
+                                register_stack[return_register_index] = self.return_value;
+                            }
+                            _ => todo!(),
+                        }
+                    }
                 }
             }
         }
 
-        self.return_value
+        None
     }
 }
 
