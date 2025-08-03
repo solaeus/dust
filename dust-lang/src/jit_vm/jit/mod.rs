@@ -1,21 +1,24 @@
 mod functions;
 mod jit_error;
 
-use std::mem::offset_of;
+use std::mem::{offset_of, transmute};
 
 use functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
-use cranelift::{codegen::ir::FuncRef, frontend::Switch, prelude::*};
+use cranelift::{
+    codegen::ir::{FuncRef, InstBuilder},
+    frontend::Switch,
+    prelude::*,
+};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
-use tracing::{Level, info};
+use tracing::{info, trace};
 
 use crate::{
-    Address, CallFrame, Chunk, Instruction, Object, OperandType, Operation, Register, Thread,
-    ThreadStatus,
+    Address, Chunk, Instruction, OperandType, Operation, Program, Register, Thread, ThreadStatus,
     instruction::{Jump, Load, MemoryKind, Return, Test},
-    jit_vm::ObjectPool,
+    jit_vm::call_frame::{CALL_FRAME_SIZE, offsets::*},
 };
 
 const STATUS_TYPE: types::Type = match size_of::<ThreadStatus>() {
@@ -25,12 +28,11 @@ const STATUS_TYPE: types::Type = match size_of::<ThreadStatus>() {
 
 pub struct Jit<'a> {
     module: JITModule,
-    chunk: &'a Chunk,
-    object_pool: &'a mut ObjectPool,
+    program: &'a Program,
 }
 
 impl<'a> Jit<'a> {
-    pub fn new(chunk: &'a Chunk, object_pool: &'a mut ObjectPool) -> Self {
+    pub fn new(program: &'a Program) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
@@ -38,11 +40,7 @@ impl<'a> Jit<'a> {
 
         let module = JITModule::new(builder);
 
-        Self {
-            module,
-            chunk,
-            object_pool,
-        }
+        Self { module, program }
     }
 
     fn terminate_with_jump(
@@ -71,6 +69,7 @@ impl<'a> Jit<'a> {
     fn get_integer(
         &self,
         address: Address,
+        chunk: &Chunk,
         call_frame_registers_pointer: Value,
         function_builder: &mut FunctionBuilder,
         ip: usize,
@@ -87,7 +86,7 @@ impl<'a> Jit<'a> {
                     register_byte_offset,
                 )
             }
-            MemoryKind::CONSTANT => match self.chunk.constants[address.index].as_integer() {
+            MemoryKind::CONSTANT => match chunk.constants[address.index].as_integer() {
                 Some(integer) => function_builder.ins().iconst(types::I64, integer),
                 None => {
                     return Err(JitError::InvalidConstantType {
@@ -95,53 +94,6 @@ impl<'a> Jit<'a> {
                         instruction,
                         constant_index: address.index,
                         expected_type: OperandType::INTEGER,
-                    });
-                }
-            },
-            _ => {
-                return Err(JitError::UnsupportedMemoryKind {
-                    ip,
-                    instruction,
-                    memory_kind: address.memory,
-                });
-            }
-        };
-
-        Ok(jit_value)
-    }
-
-    fn get_string(
-        &mut self,
-        address: Address,
-        call_frame_registers_pointer: Value,
-        function_builder: &mut FunctionBuilder,
-        ip: usize,
-        instruction: Instruction,
-    ) -> Result<Value, JitError> {
-        let jit_value = match address.memory {
-            MemoryKind::REGISTER => {
-                let register_byte_offset = (address.index * size_of::<Register>()) as i32;
-
-                function_builder.ins().load(
-                    types::I64,
-                    MemFlags::new(),
-                    call_frame_registers_pointer,
-                    register_byte_offset,
-                )
-            }
-            MemoryKind::CONSTANT => match self.chunk.constants[address.index].as_string() {
-                Some(string) => {
-                    let object = Object::string(string.clone());
-                    let key = self.object_pool.allocate(object);
-
-                    function_builder.ins().iconst(types::I64, key as i64)
-                }
-                None => {
-                    return Err(JitError::InvalidConstantType {
-                        ip,
-                        instruction,
-                        constant_index: address.index,
-                        expected_type: OperandType::STRING,
                     });
                 }
             },
@@ -182,10 +134,120 @@ impl<'a> Jit<'a> {
         function_builder.ins().return_(&[value]);
     }
 
-    pub fn compile(&mut self) -> Result<JitChunk, JitError> {
-        let span = tracing::span!(Level::INFO, "JIT");
-        let _enter = span.enter();
+    pub fn compile(&mut self) -> Result<JitExecutor, JitError> {
+        let trampoline_pointer = self.compile_trampoline()?;
 
+        Ok(unsafe { transmute::<*const u8, JitExecutor>(trampoline_pointer) })
+    }
+
+    pub fn compile_trampoline(&mut self) -> Result<*const u8, JitError> {
+        // 1. Create the function signature
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+        signature.params.push(AbiParam::new(pointer_type)); // thread_ptr
+        signature.params.push(AbiParam::new(pointer_type)); // call_stack_ptr
+        signature.params.push(AbiParam::new(pointer_type)); // register_stack_ptr
+        signature.returns.push(AbiParam::new(types::I64)); // return value
+
+        // 2. Declare the trampoline function
+        let function_id = self
+            .module
+            .declare_function("trampoline", Linkage::Export, &signature)
+            .map_err(|e| JitError::CraneliftModuleError {
+                message: format!("{e}"),
+            })?;
+
+        // 3. Build the IR for the trampoline
+        let mut context = self.module.make_context();
+        context.func.signature = signature.clone();
+        let mut function_builder_context = FunctionBuilderContext::new();
+        let mut function_builder =
+            FunctionBuilder::new(&mut context.func, &mut function_builder_context);
+
+        // --- IR emission logic (your trampoline code) ---
+        // Entry block: thread_ptr, call_stack_ptr, register_stack_ptr
+        let entry_block = function_builder.create_block();
+        function_builder.append_block_param(entry_block, pointer_type); // thread_ptr
+        function_builder.append_block_param(entry_block, pointer_type); // call_stack_ptr
+        function_builder.append_block_param(entry_block, pointer_type); // register_stack_ptr
+
+        trace!("Creating entry block");
+
+        function_builder.switch_to_block(entry_block);
+
+        let thread_pointer = function_builder.block_params(entry_block)[0];
+        let call_stack_pointer = function_builder.block_params(entry_block)[1];
+        let register_stack_pointer = function_builder.block_params(entry_block)[2];
+
+        let call_stack_top = function_builder.ins().iconst(types::I64, 0);
+
+        let loop_block = function_builder.create_block();
+        let loop_block_parameter = function_builder.append_block_param(loop_block, types::I64);
+
+        function_builder
+            .ins()
+            .jump(loop_block, &[call_stack_top.into()]);
+
+        function_builder.switch_to_block(loop_block);
+
+        trace!("Creating loop block");
+
+        let call_stack_top_val = function_builder.block_params(loop_block)[0];
+
+        let call_frame_size = function_builder
+            .ins()
+            .iconst(types::I64, CALL_FRAME_SIZE as i64);
+        let frame_offset = function_builder
+            .ins()
+            .imul(call_stack_top_val, call_frame_size);
+        let current_call_pointer = function_builder
+            .ins()
+            .iadd(call_stack_pointer, frame_offset);
+
+        let ip_value = call_frame!(ip, function_builder, current_call_pointer);
+        let one_value = function_builder.ins().iconst(types::I64, 1);
+        let new_ip_value = function_builder.ins().iadd(ip_value, one_value);
+
+        call_frame!(set_ip, function_builder, current_call_pointer, new_ip_value);
+
+        let cmp = function_builder.ins().icmp_imm(IntCC::Equal, ip_value, 0);
+        let exit_block = function_builder.create_block();
+
+        function_builder.ins().brif(
+            cmp,
+            exit_block,
+            &[],
+            loop_block,
+            &[loop_block_parameter.into()],
+        );
+
+        function_builder.switch_to_block(exit_block);
+
+        trace!("Creating exit block");
+
+        function_builder.ins().return_(&[ip_value]);
+        function_builder.seal_all_blocks();
+        function_builder.finalize();
+
+        // 4. Define the function in the module
+        self.module
+            .define_function(function_id, &mut context)
+            .map_err(|error| JitError::CraneliftModuleError {
+                message: error.to_string(),
+            })?;
+
+        // 5. Finalize definitions (if not already done elsewhere)
+        self.module
+            .finalize_definitions()
+            .map_err(|error| JitError::CraneliftModuleError {
+                message: error.to_string(),
+            })?;
+
+        // 6. Return the pointer to the JIT-compiled trampoline function
+        Ok(self.module.get_finalized_function(function_id))
+    }
+
+    fn compile_chunk(&mut self, chunk: &Chunk) -> Result<JitChunk, JitError> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut compilation_context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
@@ -247,7 +309,7 @@ impl<'a> Jit<'a> {
             log_operation_signature,
         )?;
 
-        let bytecode_instructions = &self.chunk.instructions;
+        let bytecode_instructions = &chunk.instructions;
         let instruction_count = bytecode_instructions.len();
         let mut instruction_blocks = Vec::with_capacity(instruction_count);
         let mut switch = Switch::new();
@@ -277,11 +339,7 @@ impl<'a> Jit<'a> {
         function_builder.def_var(variable_1, call_frame_pointer);
         function_builder.def_var(variable_2, registers_pointer);
 
-        let ip_offset = offset_of!(CallFrame, ip) as i32;
-        let ip_value =
-            function_builder
-                .ins()
-                .load(types::I64, MemFlags::new(), call_frame_pointer, ip_offset);
+        let ip_value = call_frame!(ip, function_builder, call_frame_pointer);
 
         switch.emit(&mut function_builder, ip_value, unreachable_final_block);
 
@@ -318,19 +376,13 @@ impl<'a> Jit<'a> {
                     let value = match r#type {
                         OperandType::INTEGER => self.get_integer(
                             operand,
+                            chunk,
                             registers_pointer,
                             &mut function_builder,
                             ip,
                             *current_instruction,
                         )?,
                         // OperandType::FLOAT => self.get_float(...)?,
-                        OperandType::STRING => self.get_string(
-                            operand,
-                            registers_pointer,
-                            &mut function_builder,
-                            ip,
-                            *current_instruction,
-                        )?,
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 ip,
@@ -363,6 +415,7 @@ impl<'a> Jit<'a> {
                         OperandType::INTEGER => {
                             let left_integer = self.get_integer(
                                 left,
+                                chunk,
                                 registers_pointer,
                                 &mut function_builder,
                                 ip,
@@ -370,6 +423,7 @@ impl<'a> Jit<'a> {
                             )?;
                             let right_integer = self.get_integer(
                                 right,
+                                chunk,
                                 registers_pointer,
                                 &mut function_builder,
                                 ip,
@@ -400,37 +454,6 @@ impl<'a> Jit<'a> {
                                     });
                                 }
                             }
-                        }
-                        OperandType::STRING => {
-                            let left_string = self.get_string(
-                                left,
-                                registers_pointer,
-                                &mut function_builder,
-                                ip,
-                                *current_instruction,
-                            )?;
-                            let right_string = self.get_string(
-                                right,
-                                registers_pointer,
-                                &mut function_builder,
-                                ip,
-                                *current_instruction,
-                            )?;
-                            let concatenated_string_result = match current_instruction.operation() {
-                                Operation::ADD => function_builder.ins().call(
-                                    concatenate_strings_function,
-                                    &[thread_runner_pointer, left_string, right_string],
-                                ),
-                                _ => {
-                                    return Err(JitError::UnhandledOperation {
-                                        ip,
-                                        instruction: *current_instruction,
-                                        operation,
-                                    });
-                                }
-                            };
-
-                            function_builder.inst_results(concatenated_string_result)[0]
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
@@ -470,6 +493,7 @@ impl<'a> Jit<'a> {
                         OperandType::INTEGER => (
                             self.get_integer(
                                 left,
+                                chunk,
                                 registers_pointer,
                                 &mut function_builder,
                                 ip,
@@ -477,6 +501,7 @@ impl<'a> Jit<'a> {
                             )?,
                             self.get_integer(
                                 right,
+                                chunk,
                                 registers_pointer,
                                 &mut function_builder,
                                 ip,
@@ -570,28 +595,28 @@ impl<'a> Jit<'a> {
                     );
                 }
                 Operation::CALL => {
-                    let ip_offset = offset_of!(CallFrame, ip) as i32;
-                    let next_call_offset = offset_of!(CallFrame, next_call_instruction) as i32;
-                    let next_ip = function_builder.ins().iconst(types::I64, (ip + 1) as i64);
+                    // let ip_offset = offset_of!(CallFrame, ip) as i32;
+                    // let next_call_offset = offset_of!(CallFrame, next_call_instruction) as i32;
+                    // let next_ip = function_builder.ins().iconst(types::I64, (ip + 1) as i64);
 
-                    function_builder.ins().store(
-                        MemFlags::new(),
-                        next_ip,
-                        call_frame_pointer,
-                        ip_offset,
-                    );
+                    // function_builder.ins().store(
+                    //     MemFlags::new(),
+                    //     next_ip,
+                    //     call_frame_pointer,
+                    //     ip_offset,
+                    // );
 
-                    let next_call_value = function_builder
-                        .ins()
-                        .iconst(types::I64, current_instruction.0 as i64);
+                    // let next_call_value = function_builder
+                    //     .ins()
+                    //     .iconst(types::I64, current_instruction.0 as i64);
 
-                    function_builder.ins().store(
-                        MemFlags::new(),
-                        next_call_value,
-                        call_frame_pointer,
-                        next_call_offset,
-                    );
-                    self.return_run_status(&mut function_builder, ThreadStatus::Call);
+                    // function_builder.ins().store(
+                    //     MemFlags::new(),
+                    //     next_call_value,
+                    //     call_frame_pointer,
+                    //     next_call_offset,
+                    // );
+                    // self.return_run_status(&mut function_builder, ThreadStatus::Call);
                 }
                 Operation::JUMP => {
                     let Jump {
@@ -650,7 +675,7 @@ impl<'a> Jit<'a> {
                                     );
                                 }
                                 MemoryKind::CONSTANT => {
-                                    let integer = self.chunk.constants[return_value_address.index]
+                                    let integer = chunk.constants[return_value_address.index]
                                         .as_integer()
                                         .ok_or(JitError::InvalidConstantType {
                                             ip,
@@ -703,12 +728,23 @@ impl<'a> Jit<'a> {
         self.return_run_status(&mut function_builder, ThreadStatus::Return);
         function_builder.seal_all_blocks();
 
-        let compiled_function_id = self
-            .module
-            .declare_anonymous_function(&compilation_context.func.signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: format!("Failed to declare chunk function: {error}"),
-            })?;
+        let compiled_function_id = if let Some(path) = &chunk.name {
+            self.module
+                .declare_function(
+                    &path.inner(),
+                    Linkage::Export,
+                    &compilation_context.func.signature,
+                )
+                .map_err(|error| JitError::CraneliftModuleError {
+                    message: format!("Failed to declare chunk function: {error}"),
+                })?
+        } else {
+            self.module
+                .declare_anonymous_function(&compilation_context.func.signature)
+                .map_err(|error| JitError::CraneliftModuleError {
+                    message: format!("Failed to declare chunk function: {error}"),
+                })?
+        };
 
         self.module
             .define_function(compiled_function_id, &mut compilation_context)
@@ -720,34 +756,19 @@ impl<'a> Jit<'a> {
                 cranelift_ir: compilation_context.func.display().to_string(),
             })?;
         self.module.clear_context(&mut compilation_context);
-        self.module
-            .finalize_definitions()
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: format!("Failed to finalize definitions: {error}"),
-            })?;
-
-        let compiled_function_pointer = self.module.get_finalized_function(compiled_function_id);
-        let logic = unsafe {
-            std::mem::transmute::<
-                *const u8,
-                extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> ThreadStatus,
-            >(compiled_function_pointer)
-        };
 
         Ok(JitChunk {
-            logic,
-            constants: self.chunk.constants.clone(),
-            argument_lists: self.chunk.argument_lists.clone(),
-            register_tags: self.chunk.register_tags.clone(),
-            return_type: self.chunk.r#type.return_type.as_operand_type(),
+            argument_lists: chunk.argument_lists.clone(),
+            register_tags: chunk.register_tags.clone(),
+            return_type: chunk.r#type.return_type.as_operand_type(),
         })
     }
 }
 
 pub struct JitChunk {
-    pub logic: extern "C" fn(*mut Thread, *mut CallFrame, *mut Register) -> ThreadStatus,
-    pub constants: Vec<crate::Value>,
     pub argument_lists: Vec<Vec<(Address, OperandType)>>,
     pub register_tags: Vec<OperandType>,
     pub return_type: OperandType,
 }
+
+pub type JitExecutor = fn(thread: &mut Thread);
