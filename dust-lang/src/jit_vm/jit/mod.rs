@@ -213,9 +213,9 @@ impl<'a> Jit<'a> {
 
         let mut function_builder =
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
-
         let mut concatenate_strings_signature =
             Signature::new(self.module.isa().default_call_conv());
+
         concatenate_strings_signature
             .params
             .push(AbiParam::new(pointer_type));
@@ -234,8 +234,8 @@ impl<'a> Jit<'a> {
             "concatenate_strings",
             concatenate_strings_signature,
         )?;
-
         let mut log_operation_signature = Signature::new(self.module.isa().default_call_conv());
+
         log_operation_signature
             .params
             .push(AbiParam::new(types::I8));
@@ -560,6 +560,7 @@ impl<'a> Jit<'a> {
                             total_instruction_count: instruction_blocks.len(),
                         });
                     };
+
                     function_builder.ins().brif(
                         condition,
                         proceed_to_next_instruction_block,
@@ -571,8 +572,8 @@ impl<'a> Jit<'a> {
                 Operation::CALL => {
                     let ip_offset = offset_of!(CallFrame, ip) as i32;
                     let next_call_offset = offset_of!(CallFrame, next_call_instruction) as i32;
-
                     let next_ip = function_builder.ins().iconst(types::I64, (ip + 1) as i64);
+
                     function_builder.ins().store(
                         MemFlags::new(),
                         next_ip,
@@ -583,13 +584,13 @@ impl<'a> Jit<'a> {
                     let next_call_value = function_builder
                         .ins()
                         .iconst(types::I64, current_instruction.0 as i64);
+
                     function_builder.ins().store(
                         MemFlags::new(),
                         next_call_value,
                         call_frame_pointer,
                         next_call_offset,
                     );
-
                     self.return_run_status(&mut function_builder, ThreadStatus::Call);
                 }
                 Operation::JUMP => {
@@ -651,10 +652,16 @@ impl<'a> Jit<'a> {
                                 MemoryKind::CONSTANT => {
                                     let integer = self.chunk.constants[return_value_address.index]
                                         .as_integer()
-                                        .expect("Expected integer constant");
+                                        .ok_or(JitError::InvalidConstantType {
+                                            ip,
+                                            instruction: *current_instruction,
+                                            constant_index: return_value_address.index,
+                                            expected_type: OperandType::INTEGER,
+                                        })?;
                                     let thread_return_value_offset =
                                         offset_of!(Thread, return_value) as i32;
                                     let value = function_builder.ins().iconst(types::I64, integer);
+
                                     function_builder.ins().store(
                                         MemFlags::new(),
                                         value,
