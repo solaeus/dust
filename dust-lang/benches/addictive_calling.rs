@@ -4,23 +4,27 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use dust_lang::run;
 
 const SOURCE: &str = r"
-let mut i = 0
+fn increment(x: int) -> int {
+    x + 1
+}
 
-while i < 10_000_000 {
-    i += 1
+let mut i = 0;
+
+while i < 1_000_000 {
+    i = increment(i);
 }
 ";
 
-fn addictive_addition(source: &str) {
+fn addictive_calling(source: &str) {
     run(source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("addictive_addition");
+    let mut group = c.benchmark_group("addictive_calling");
 
     group.measurement_time(Duration::from_secs(15));
-    group.bench_function("addictive_addition", |b| {
-        b.iter(|| addictive_addition(black_box(SOURCE)))
+    group.bench_function("addictive_calling", |b| {
+        b.iter(|| addictive_calling(black_box(SOURCE)))
     });
     group.finish();
 }

@@ -1475,14 +1475,35 @@ impl<'a> ChunkCompiler<'a> {
             if is_mutable {
                 self.parse_expression()?;
 
-                if self
-                    .instructions
-                    .last()
-                    .is_some_and(|instruction| instruction.is_math())
-                {
-                    let math_instruction = self.instructions.last_mut().unwrap();
+                let Expression {
+                    index,
+                    position: expression_position,
+                    ..
+                } = self.expressions.last().cloned().ok_or_else(|| {
+                    CompileError::ExpectedExpression {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    }
+                })?;
 
-                    math_instruction.set_a_field(variable_address.index);
+                match index {
+                    ExpressionIndex::Instruction(instruction_index) => {
+                        let instruction = self.instructions[instruction_index];
+
+                        if instruction.yields_value() {
+                            self.instructions[instruction_index].set_destination(variable_address);
+
+                            return Ok(());
+                        } else {
+                            return Err(CompileError::ExpectedExpression {
+                                found: self.previous_token.to_owned(),
+                                position: expression_position,
+                            });
+                        }
+                    }
+                    ExpressionIndex::Function(_) => {
+                        todo!()
+                    }
                 }
             } else {
                 return Err(CompileError::CannotMutateImmutableVariable {
@@ -1887,6 +1908,9 @@ impl<'a> ChunkCompiler<'a> {
             self.instructions.pop();
             self.instructions.pop();
             self.instructions.pop();
+            self.expressions.pop();
+            self.expressions.pop();
+            self.expressions.pop();
         } else {
             let test = Instruction::test(Address::register(self.next_register_index()), true);
 
@@ -2318,14 +2342,17 @@ impl<'a> ChunkCompiler<'a> {
                         position: self.previous_position,
                     })?;
 
-            match index {
+            match *index {
                 ExpressionIndex::Instruction(instruction_index) => {
-                    let last_instruction = self.instructions[*instruction_index];
+                    let last_instruction = self.instructions[instruction_index];
 
-                    println!("{last_instruction}");
-
-                    let argument_address = last_instruction.destination();
                     let argument_type = r#type.as_operand_type();
+                    let (argument_address, should_remove) =
+                        self.handle_previous_instruction(last_instruction);
+
+                    if should_remove {
+                        self.instructions.remove(instruction_index);
+                    }
 
                     arguments.push((argument_address, argument_type));
                 }

@@ -163,17 +163,17 @@ impl<'a> Jit<'a> {
         name: &str,
         signature: Signature,
     ) -> Result<FuncRef, JitError> {
-        let func_id = self
+        let function_id = self
             .module
             .declare_function(name, Linkage::Import, &signature)
             .map_err(|error| JitError::CraneliftModuleError {
                 message: format!("Failed to declare {name} function: {error}"),
             })?;
-        let function_ref = self
+        let function_reference = self
             .module
-            .declare_func_in_func(func_id, function_builder.func);
+            .declare_func_in_func(function_id, function_builder.func);
 
-        Ok(function_ref)
+        Ok(function_reference)
     }
 
     fn return_run_status(&mut self, function_builder: &mut FunctionBuilder, status: ThreadStatus) {

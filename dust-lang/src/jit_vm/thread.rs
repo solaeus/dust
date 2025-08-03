@@ -128,31 +128,12 @@ impl Thread {
                     for ((address, r#type), destination_index) in
                         arguments.iter().zip(start_register..)
                     {
-                        println!("Processing argument: {}", address.to_string(*r#type));
-                        println!("Destination index: {}", destination_index);
-
                         match *r#type {
                             OperandType::INTEGER => {
                                 let register =
                                     register_stack[current_call.register_range.0 + address.index];
 
-                                println!(
-                                    "Argument register index: {}",
-                                    current_call.register_range.0 + address.index
-                                );
-                                println!("Register value: {}", unsafe { register.integer });
-
                                 register_stack[destination_index] = register;
-
-                                println!(
-                                    "Argument source register {}: {}",
-                                    current_call.register_range.0 + address.index,
-                                    unsafe {
-                                        register_stack
-                                            [current_call.register_range.0 + address.index]
-                                            .integer
-                                    }
-                                );
                             }
                             _ => todo!("Unsupported argument: {}", address.to_string(*r#type)),
                         }
@@ -182,6 +163,7 @@ impl Thread {
 
                     if call_stack.is_empty() {
                         match return_type {
+                            OperandType::NONE => return None,
                             OperandType::INTEGER => {
                                 let integer = unsafe { self.return_value.integer };
 
@@ -192,11 +174,6 @@ impl Thread {
                     } else {
                         match return_type {
                             OperandType::INTEGER => {
-                                println!(
-                                    "Returning integer value: {} to reg_{return_register_index}",
-                                    unsafe { self.return_value.integer }
-                                );
-
                                 register_stack[return_register_index] = self.return_value;
                             }
                             _ => todo!(),
