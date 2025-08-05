@@ -73,19 +73,18 @@ impl ObjectPool {
             }
         }
 
-        let mut i = 0;
         self.objects_heap_size = 0;
 
-        while i < self.objects.len() {
-            if self.objects[i].mark {
-                self.objects_heap_size += self.objects[i].size();
-                self.objects[i].mark = false;
+        self.objects.retain_mut(|object| {
+            if object.mark {
+                self.objects_heap_size += object.size();
+                object.mark = false;
 
-                i += 1;
+                true
             } else {
-                self.objects.swap_remove(i);
+                false
             }
-        }
+        });
     }
 }
 

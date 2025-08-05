@@ -9,7 +9,7 @@ pub enum JitError {
     },
     JumpTargetOutOfBounds {
         ip: usize,
-        target_instruction_pointer: usize,
+        target_instruction_pointer: isize,
         total_instruction_count: usize,
     },
     BranchTargetOutOfBounds {

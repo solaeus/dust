@@ -1,25 +1,25 @@
 //! This VM never emits errors. Instead, errors are handled as panics.
 #[macro_use]
-mod call_frame;
+mod call_stack;
 mod cell;
-mod jit;
+mod jit_compiler;
 mod object;
 mod object_pool;
 mod register;
 pub mod thread;
 
 pub use cell::{Cell, CellValue};
-pub use jit::{JIT_ERROR_TEXT, Jit, JitError, JitExecutor};
+pub use jit_compiler::{JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::Register;
-pub use thread::{Thread, ThreadHandle, ThreadStatus, read_field, write_field};
+pub use thread::{Thread, ThreadStatus};
 
 use std::sync::{Arc, RwLock};
 
 use crate::{DustError, Program, Value, compile};
 
-pub type ThreadPool = Arc<RwLock<Vec<ThreadHandle>>>;
+pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
     let program = compile(source)?;
@@ -47,8 +47,8 @@ impl JitVm {
         }
 
         let cells = Arc::new(RwLock::new(cells));
-        let main_thread = ThreadHandle::spawn(program, cells, Arc::clone(&self.thread_pool))
-            .map_err(DustError::jit)?;
+        let main_thread =
+            Thread::spawn(program, cells, Arc::clone(&self.thread_pool)).map_err(DustError::jit)?;
         let return_result = main_thread
             .handle
             .join()

@@ -3,28 +3,28 @@ use std::{
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
+use cranelift::prelude::{
+    Type,
+    types::{I32, I64},
+};
 use tracing::{Level, info, span, trace};
 
-use crate::{
-    Chunk, Instruction, JitExecutor, Program, Value,
-    instruction::{Call, OperandType},
-    jit_vm::call_frame::CallFrame,
-};
+use crate::{Program, Value, instruction::OperandType};
 
 use super::{
-    Cell, ObjectPool, Register,
-    jit::{Jit, JitError},
+    Cell, Register,
+    jit_compiler::{JitCompiler, JitError},
 };
 
-pub struct ThreadHandle {
+pub struct Thread {
     pub handle: JoinHandle<Result<Option<Value>, JitError>>,
 }
 
-impl ThreadHandle {
+impl Thread {
     pub fn spawn(
         program: Program,
-        cells: Arc<RwLock<Vec<Cell>>>,
-        threads: Arc<RwLock<Vec<ThreadHandle>>>,
+        _cells: Arc<RwLock<Vec<Cell>>>,
+        _threads: Arc<RwLock<Vec<Thread>>>,
     ) -> Result<Self, JitError> {
         let name = program
             .main_chunk
@@ -37,57 +37,67 @@ impl ThreadHandle {
 
         let handle = ThreadBuilder::new()
             .name(name)
-            .spawn(move || {
-                let mut jit = Jit::new(&program);
-                let mut call_stack = Vec::new();
-                let mut register_stack =
-                    Vec::with_capacity(program.main_chunk.register_tags.len() as usize);
-                let mut object_pool = ObjectPool::new();
-                let mut thread = Thread {
-                    register_stack: register_stack.as_mut_ptr(),
-                    call_stack: call_stack.as_mut_ptr(),
-                    object_pool: &mut object_pool,
-                    threads: &threads,
-                    cells: &cells,
-                    return_value: None,
-                };
-
-                let jit_executor = jit.compile()?;
-
-                (jit_executor)(&mut thread);
-
-                Ok(thread.return_value)
-            })
+            .spawn(|| run(program))
             .expect("Failed to spawn thread");
 
-        Ok(ThreadHandle { handle })
+        Ok(Thread { handle })
     }
 }
 
-#[repr(C)]
-pub struct Thread {
-    pub register_stack: *mut Register,
-    pub call_stack: *mut CallFrame,
-    pub object_pool: *mut ObjectPool,
-    pub threads: *const Arc<RwLock<Vec<ThreadHandle>>>,
-    pub cells: *const Arc<RwLock<Vec<Cell>>>,
-    pub return_value: Option<Value>,
+fn run(program: Program) -> Result<Option<Value>, JitError> {
+    let span = span!(Level::TRACE, "Thread");
+    let _enter = span.enter();
+
+    let mut jit = JitCompiler::new(&program);
+    let mut call_stack = call_stack!(new, 10);
+    let mut register_stack = vec![Register { empty: () }; 10];
+    let jit_logic = jit.compile()?;
+    let mut return_register = Register { empty: () };
+    let mut return_type = OperandType::NONE;
+
+    trace!("JIT compiled successfully");
+
+    loop {
+        let thread_status = (jit_logic)(
+            call_stack.as_mut_ptr(),
+            register_stack.as_mut_ptr(),
+            &mut return_register,
+            &mut return_type,
+        );
+
+        match thread_status {
+            ThreadStatus::Error => todo!(),
+            ThreadStatus::ResizeCallStack => todo!(),
+            ThreadStatus::ResizeRegisterStack => todo!(),
+            ThreadStatus::Return => break,
+        }
+    }
+
+    trace!("JIT execution completed with type {return_type}");
+
+    match return_type {
+        OperandType::NONE => Ok(None),
+        OperandType::INTEGER => {
+            let integer = unsafe { return_register.integer };
+
+            Ok(Some(Value::Integer(integer)))
+        }
+        _ => todo!(),
+    }
 }
 
 #[repr(C)]
 pub enum ThreadStatus {
-    Call = 0,
-    Return = 1,
+    Error = 0,
+    ResizeCallStack = 1,
+    ResizeRegisterStack = 2,
+    Return = 3,
 }
 
-pub fn read_field<T: Copy>(frame: &[u8], offset: usize) -> T {
-    assert!(offset + size_of::<T>() <= frame.len());
-    unsafe { *(frame.as_ptr().add(offset) as *const T) }
-}
-
-pub fn write_field<T: Copy>(frame: &mut [u8], offset: usize, value: T) {
-    assert!(offset + size_of::<T>() <= frame.len());
-    unsafe {
-        *(frame.as_mut_ptr().add(offset) as *mut T) = value;
-    }
+impl ThreadStatus {
+    pub const CRANELIFT_TYPE: Type = match size_of::<ThreadStatus>() {
+        4 => I32,
+        8 => I64,
+        _ => panic!("Unsupported ThreadStatus size"),
+    };
 }

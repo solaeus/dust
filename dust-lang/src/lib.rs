@@ -63,8 +63,8 @@ pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
 pub use jit_vm::{
-    Cell, JIT_ERROR_TEXT, Jit, JitError, JitExecutor, JitVm, Object, Register, Thread,
-    ThreadStatus, run,
+    Cell, JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic, JitVm, Object, Register, Thread, ThreadStatus,
+    run,
 };
 pub use lexer::{LexError, Lexer, lex};
 pub use module::Module;
