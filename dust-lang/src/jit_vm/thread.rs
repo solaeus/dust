@@ -9,7 +9,11 @@ use cranelift::prelude::{
 };
 use tracing::{Level, info, span, trace};
 
-use crate::{Program, Value, instruction::OperandType};
+use crate::{
+    Program, Value,
+    instruction::OperandType,
+    jit_vm::call_stack::{new_call_stack, sizes::CALL_FRAME_SIZE},
+};
 
 use super::{
     Cell, Register,
@@ -48,9 +52,10 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let span = span!(Level::TRACE, "Thread");
     let _enter = span.enter();
 
-    let mut jit = JitCompiler::new(&program);
-    let mut call_stack = call_stack!(new, 10);
+    let mut call_stack = new_call_stack(CALL_FRAME_SIZE * 10);
+    let mut call_stack_len = 0;
     let mut register_stack = vec![Register { empty: () }; 10];
+    let mut jit = JitCompiler::new(&program);
     let jit_logic = jit.compile()?;
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
@@ -60,6 +65,7 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     loop {
         let thread_status = (jit_logic)(
             call_stack.as_mut_ptr(),
+            &mut call_stack_len,
             register_stack.as_mut_ptr(),
             &mut return_register,
             &mut return_type,

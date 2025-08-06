@@ -1,11 +1,7 @@
 mod functions;
 mod jit_error;
 
-use std::{
-    iter,
-    mem::{offset_of, transmute},
-    u32,
-};
+use std::mem::transmute;
 
 use functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
@@ -13,12 +9,13 @@ pub use jit_error::{JIT_ERROR_TEXT, JitError};
 use cranelift::{
     codegen::{
         CodegenError,
-        ir::{FuncRef, InstBuilder, immediates::Offset32},
+        ir::{FuncRef, InstBuilder},
     },
     frontend::Switch,
     prelude::{
+        AbiParam, Block, EntityRef, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags,
+        Signature, Value as CraneliftValue,
         types::{I8, I32, I64},
-        *,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -26,8 +23,9 @@ use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use tracing::{Level, info, trace};
 
 use crate::{
-    Address, Chunk, Instruction, OperandType, Operation, Program, Register, Thread, ThreadStatus,
-    instruction::{Add, Jump, Load, MemoryKind, Return, Test},
+    Address, Chunk, Instruction, OperandType, Operation, Program, Register, ThreadStatus,
+    instruction::{Add, Jump, Load, MemoryKind, Return},
+    jit_vm::call_stack::{get_frame_ip, new_call_frame},
 };
 
 pub struct JitCompiler<'a> {
@@ -41,6 +39,7 @@ impl<'a> JitCompiler<'a> {
 
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
         builder.symbol("log_operation", log_operation as *const u8);
+        builder.symbol("log_value", log_value as *const u8);
 
         let module = JITModule::new(builder);
 
@@ -85,24 +84,24 @@ impl<'a> JitCompiler<'a> {
         &self,
         address: Address,
         chunk: &Chunk,
-        call_frame_registers_pointer: Value,
+        call_frame_registers_pointer: CraneliftValue,
         function_builder: &mut FunctionBuilder,
         ip: usize,
         instruction: Instruction,
-    ) -> Result<Value, JitError> {
+    ) -> Result<CraneliftValue, JitError> {
         let jit_value = match address.memory {
             MemoryKind::REGISTER => {
                 let register_byte_offset = (address.index * size_of::<Register>()) as i32;
 
                 function_builder.ins().load(
-                    types::I64,
+                    I64,
                     MemFlags::new(),
                     call_frame_registers_pointer,
                     register_byte_offset,
                 )
             }
             MemoryKind::CONSTANT => match chunk.constants[address.index].as_integer() {
-                Some(integer) => function_builder.ins().iconst(types::I64, integer),
+                Some(integer) => function_builder.ins().iconst(I64, integer),
                 None => {
                     return Err(JitError::InvalidConstantType {
                         ip,
@@ -143,14 +142,6 @@ impl<'a> JitCompiler<'a> {
         Ok(function_reference)
     }
 
-    fn return_run_status(&mut self, function_builder: &mut FunctionBuilder, status: ThreadStatus) {
-        let value = function_builder
-            .ins()
-            .iconst(ThreadStatus::CRANELIFT_TYPE, status as i64);
-
-        function_builder.ins().return_(&[value]);
-    }
-
     pub fn compile(&mut self) -> Result<JitLogic, JitError> {
         let span = tracing::span!(Level::INFO, "JIT");
         let _enter = span.enter();
@@ -160,29 +151,37 @@ impl<'a> JitCompiler<'a> {
         Ok(unsafe { transmute::<*const u8, JitLogic>(trampoline_pointer) })
     }
 
-    pub fn compile_loop(&mut self) -> Result<*const u8, JitError> {
+    fn compile_loop(&mut self) -> Result<*const u8, JitError> {
         let mut context = self.module.make_context();
-        let all_chunks = self
-            .program
-            .prototypes
-            .iter()
-            .chain(iter::once(&self.program.main_chunk));
-        let mut functions = Vec::with_capacity(self.program.prototypes.len() + 1);
 
-        for chunk in all_chunks {
-            let function_reference = self.compile_chunk(chunk)?;
-            let function_reference = self
-                .module
-                .declare_func_in_func(function_reference, &mut context.func);
+        let main_function_reference = {
+            let main_function_id = self.compile_chunk(&self.program.main_chunk)?;
 
-            functions.push(function_reference);
-        }
+            self.module
+                .declare_func_in_func(main_function_id, &mut context.func)
+        };
+        let function_references = {
+            let mut references = Vec::with_capacity(self.program.prototypes.len());
 
-        info!("Compiled main and {} functions", functions.len() - 1);
+            for chunk in &self.program.prototypes {
+                let function_id = self.compile_chunk(chunk)?;
+                let function_reference = self
+                    .module
+                    .declare_func_in_func(function_id, &mut context.func);
 
-        let function_ids = functions.as_slice();
+                references.push(function_reference);
+            }
+
+            references
+        };
+
         let pointer_type = self.module.isa().pointer_type();
 
+        context
+            .func
+            .signature
+            .params
+            .push(AbiParam::new(pointer_type));
         context
             .func
             .signature
@@ -218,20 +217,56 @@ impl<'a> JitCompiler<'a> {
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut function_builder =
             FunctionBuilder::new(&mut context.func, &mut function_builder_context);
+        let mut switch = Switch::new();
 
-        let entry_block = {
-            let block = function_builder.create_block();
+        // let entry_block = {
+        //     let block = function_builder.create_block();
 
-            function_builder.append_block_params_for_function_params(block);
+        //     function_builder.append_block_params_for_function_params(block);
 
-            block
-        };
+        //     block
+        // };
         let main_block = {
             let block = function_builder.create_block();
 
             function_builder.append_block_params_for_function_params(block);
 
             block
+        };
+        let _function_blocks = {
+            let mut blocks = Vec::with_capacity(self.program.prototypes.len() + 1);
+
+            for (function_index, function_reference) in function_references.into_iter().enumerate()
+            {
+                let block = function_builder.create_block();
+
+                function_builder.switch_to_block(block);
+                function_builder.append_block_params_for_function_params(block);
+
+                let call_stack = function_builder.block_params(block)[0];
+                let call_stack_length = function_builder.block_params(block)[1];
+                let register_stack = function_builder.block_params(block)[2];
+                let return_register = function_builder.block_params(block)[3];
+                let return_type = function_builder.block_params(block)[4];
+
+                function_builder.ins().call(
+                    function_reference,
+                    &[
+                        call_stack,
+                        call_stack_length,
+                        register_stack,
+                        return_register,
+                        return_type,
+                    ],
+                );
+                function_builder.ins().return_(&[]);
+                blocks.push(block);
+                switch.set_entry(function_index as u128, block);
+            }
+
+            info!("Compiled {} function(s)", blocks.len());
+
+            blocks
         };
         let return_block = {
             let block = function_builder.create_block();
@@ -241,71 +276,85 @@ impl<'a> JitCompiler<'a> {
             block
         };
 
-        {
-            function_builder.switch_to_block(entry_block);
+        // {
+        //     function_builder.switch_to_block(entry_block);
 
-            let call_stack = function_builder.block_params(entry_block)[0];
-            let register_stack = function_builder.block_params(entry_block)[1];
-            let return_register = function_builder.block_params(entry_block)[2];
-            let return_type = function_builder.block_params(entry_block)[3];
+        //     let call_stack = function_builder.block_params(entry_block)[0];
+        //     let call_stack_length = function_builder.block_params(entry_block)[1];
+        //     let register_stack = function_builder.block_params(entry_block)[2];
+        //     let return_register = function_builder.block_params(entry_block)[3];
+        //     let return_type = function_builder.block_params(entry_block)[4];
 
-            function_builder.ins().jump(
-                main_block,
-                &[
-                    call_stack.into(),
-                    register_stack.into(),
-                    return_register.into(),
-                    return_type.into(),
-                ],
-            );
-        }
-
-        info!("Compiling execution loop");
+        //     function_builder.ins().jump(
+        //         main_block,
+        //         &[
+        //             call_stack.into(),
+        //             call_stack_length.into(),
+        //             register_stack.into(),
+        //             return_register.into(),
+        //             return_type.into(),
+        //         ],
+        //     );
+        // }
 
         {
             function_builder.switch_to_block(main_block);
 
-            let call_stack_length = Variable::new(0);
-            let initial_length = function_builder.ins().iconst(I32, 0);
+            let call_stack_pointer = function_builder.block_params(main_block)[0];
+            let call_stack_length_pointer = function_builder.block_params(main_block)[1];
+            let register_stack_pointer = function_builder.block_params(main_block)[2];
+            let return_register_pointer = function_builder.block_params(main_block)[3];
+            let return_type_pointer = function_builder.block_params(main_block)[4];
 
-            function_builder.declare_var(I32);
-            function_builder.def_var(call_stack_length, initial_length);
-
-            let call_stack = function_builder.block_params(main_block)[0];
-            let register_stack = function_builder.block_params(main_block)[1];
-            let return_register = function_builder.block_params(main_block)[2];
-            let return_type = function_builder.block_params(main_block)[3];
-            let main_function = *function_ids.last().unwrap();
-            let call_instruction = function_builder.ins().call(
-                main_function,
-                &[call_stack, register_stack, return_register, return_type],
-            );
-            let next_function_index = function_builder.inst_results(call_instruction)[0];
-            let current_call_stack_length = function_builder.use_var(call_stack_length);
-            let out_of_bounds = function_builder.ins().icmp(
-                IntCC::UnsignedGreaterThanOrEqual,
-                next_function_index,
-                current_call_stack_length,
-            );
-            let return_thread_status = function_builder
+            let zero = function_builder.ins().iconst(I64, 0);
+            let register_count = function_builder
                 .ins()
-                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
+                .iconst(I64, self.program.main_chunk.register_tags.len() as i64);
+            let no_op_instruction = function_builder
+                .ins()
+                .iconst(I64, Instruction::no_op().0 as i64);
+            let one = function_builder.ins().iconst(I64, 1);
+            let call_stack_length =
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let new_call_stack_length = function_builder.ins().iadd(call_stack_length, one);
 
-            function_builder.ins().brif(
-                out_of_bounds,
-                return_block,
-                &[return_thread_status.into()],
-                main_block,
+            new_call_frame(
+                zero,
+                zero,
+                zero,
+                no_op_instruction,
+                zero,
+                register_count,
+                call_stack_pointer,
+                &mut function_builder,
+            );
+            function_builder.ins().store(
+                MemFlags::new(),
+                new_call_stack_length,
+                call_stack_length_pointer,
+                0,
+            );
+            function_builder.ins().call(
+                main_function_reference,
                 &[
-                    call_stack.into(),
-                    register_stack.into(),
-                    return_register.into(),
-                    return_type.into(),
+                    call_stack_pointer,
+                    call_stack_length_pointer,
+                    register_stack_pointer,
+                    return_register_pointer,
+                    return_type_pointer,
                 ],
             );
-        }
 
-        info!("Execution loop compiled successfully");
+            let return_thread_status = function_builder
+                .ins()
+                .iconst(I32, ThreadStatus::Return as i64);
+
+            function_builder
+                .ins()
+                .jump(return_block, &[return_thread_status.into()]);
+        }
 
         {
             function_builder.switch_to_block(return_block);
@@ -343,7 +392,7 @@ impl<'a> JitCompiler<'a> {
         Ok(self.module.get_finalized_function(function_id))
     }
 
-    fn compile_chunk(&mut self, chunk: &Chunk) -> Result<FuncId, JitError> {
+    pub fn compile_chunk(&mut self, chunk: &Chunk) -> Result<FuncId, JitError> {
         info!(
             "Compiling function {}",
             chunk.name.as_ref().map_or("anonymous", |path| path.inner())
@@ -376,8 +425,8 @@ impl<'a> JitCompiler<'a> {
         compilation_context
             .func
             .signature
-            .returns
-            .push(AbiParam::new(ThreadStatus::CRANELIFT_TYPE));
+            .params
+            .push(AbiParam::new(pointer_type));
 
         let mut function_builder =
             FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
@@ -386,9 +435,7 @@ impl<'a> JitCompiler<'a> {
         let log_operation_function = {
             let mut log_operation_signature = Signature::new(self.module.isa().default_call_conv());
 
-            log_operation_signature
-                .params
-                .push(AbiParam::new(types::I8));
+            log_operation_signature.params.push(AbiParam::new(I8));
             log_operation_signature.returns = vec![];
 
             self.declare_imported_function(
@@ -396,6 +443,16 @@ impl<'a> JitCompiler<'a> {
                 "log_operation",
                 log_operation_signature,
             )?
+        };
+
+        #[cfg(debug_assertions)]
+        let _log_value_function = {
+            let mut log_value_signature = Signature::new(self.module.isa().default_call_conv());
+
+            log_value_signature.params.push(AbiParam::new(I64));
+            log_value_signature.returns = vec![];
+
+            self.declare_imported_function(&mut function_builder, "log_value", log_value_signature)?
         };
 
         let bytecode_instructions = &chunk.instructions;
@@ -418,33 +475,25 @@ impl<'a> JitCompiler<'a> {
         function_builder.append_block_params_for_function_params(function_entry_block);
 
         let call_stack_pointer = function_builder.block_params(function_entry_block)[0];
-        let call_stack_variable = function_builder.declare_var(pointer_type);
+        let call_stack_length_pointer = function_builder.block_params(function_entry_block)[1];
+        let register_stack_pointer = function_builder.block_params(function_entry_block)[2];
+        let return_register_pointer = function_builder.block_params(function_entry_block)[3];
+        let return_type_pointer = function_builder.block_params(function_entry_block)[4];
 
-        let register_stack_pointer = function_builder.block_params(function_entry_block)[1];
-        let register_stack_variable = function_builder.declare_var(pointer_type);
+        let top_call_frame_index = {
+            let call_stack_length =
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let one = function_builder.ins().iconst(I64, 1);
 
-        let return_register_pointer = function_builder.block_params(function_entry_block)[2];
-        let return_register_variable = function_builder.declare_var(pointer_type);
+            function_builder.ins().isub(call_stack_length, one)
+        };
 
-        let return_type_pointer = function_builder.block_params(function_entry_block)[3];
-        let return_type_variable = function_builder.declare_var(pointer_type);
-
-        function_builder.def_var(call_stack_variable, call_stack_pointer);
-        function_builder.def_var(register_stack_variable, register_stack_pointer);
-        function_builder.def_var(return_register_variable, return_register_pointer);
-        function_builder.def_var(return_type_variable, return_type_pointer);
-
-        let call_stack_variable = function_builder.use_var(call_stack_variable);
-        let register_stack_variable = function_builder.use_var(register_stack_variable);
-        let return_register_variable = function_builder.use_var(return_register_variable);
-        let return_type_variable = function_builder.use_var(return_type_variable);
-
-        let ip_offset = call_stack!(ip_offset, 0, call_stack_pointer);
-        let ip_value = function_builder.ins().load(
-            types::I64,
-            MemFlags::new(),
+        let ip_value = get_frame_ip(
+            top_call_frame_index,
             call_stack_pointer,
-            Offset32::new(ip_offset as i32),
+            &mut function_builder,
         );
 
         switch.emit(&mut function_builder, ip_value, unreachable_final_block);
@@ -463,7 +512,7 @@ impl<'a> JitCompiler<'a> {
             #[cfg(debug_assertions)]
             {
                 let operation_code_instruction =
-                    function_builder.ins().iconst(types::I8, operation.0 as i64);
+                    function_builder.ins().iconst(I8, operation.0 as i64);
 
                 function_builder
                     .ins()
@@ -482,7 +531,7 @@ impl<'a> JitCompiler<'a> {
                         OperandType::INTEGER => self.get_integer(
                             operand,
                             chunk,
-                            register_stack_variable,
+                            register_stack_pointer,
                             &mut function_builder,
                             ip,
                             *current_instruction,
@@ -494,7 +543,7 @@ impl<'a> JitCompiler<'a> {
                     function_builder.ins().store(
                         MemFlags::new(),
                         result_register,
-                        register_stack_variable,
+                        register_stack_pointer,
                         register_offset,
                     );
 
@@ -523,7 +572,7 @@ impl<'a> JitCompiler<'a> {
                             let left_value = self.get_integer(
                                 left,
                                 chunk,
-                                register_stack_variable,
+                                register_stack_pointer,
                                 &mut function_builder,
                                 ip,
                                 *current_instruction,
@@ -531,7 +580,7 @@ impl<'a> JitCompiler<'a> {
                             let right_value = self.get_integer(
                                 right,
                                 chunk,
-                                register_stack_variable,
+                                register_stack_pointer,
                                 &mut function_builder,
                                 ip,
                                 *current_instruction,
@@ -564,7 +613,7 @@ impl<'a> JitCompiler<'a> {
                             let left_value = self.get_integer(
                                 left,
                                 chunk,
-                                register_stack_variable,
+                                register_stack_pointer,
                                 &mut function_builder,
                                 ip,
                                 *current_instruction,
@@ -572,7 +621,7 @@ impl<'a> JitCompiler<'a> {
                             let right_value = self.get_integer(
                                 right,
                                 chunk,
-                                register_stack_variable,
+                                register_stack_pointer,
                                 &mut function_builder,
                                 ip,
                                 *current_instruction,
@@ -587,7 +636,7 @@ impl<'a> JitCompiler<'a> {
                     function_builder.ins().store(
                         MemFlags::new(),
                         result_register,
-                        register_stack_variable,
+                        register_stack_pointer,
                         register_offset,
                     );
                 }
@@ -619,9 +668,6 @@ impl<'a> JitCompiler<'a> {
                         return_value_address,
                         r#type,
                     } = Return::from(*current_instruction);
-                    let return_status_value = function_builder
-                        .ins()
-                        .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
 
                     if should_return_value != 0 {
                         let (value_to_return, return_type) = match r#type {
@@ -629,7 +675,7 @@ impl<'a> JitCompiler<'a> {
                                 let integer_value = self.get_integer(
                                     return_value_address,
                                     chunk,
-                                    register_stack_variable,
+                                    register_stack_pointer,
                                     &mut function_builder,
                                     ip,
                                     *current_instruction,
@@ -646,24 +692,24 @@ impl<'a> JitCompiler<'a> {
                         function_builder.ins().store(
                             MemFlags::new(),
                             value_to_return,
-                            return_register_variable,
+                            return_register_pointer,
                             0,
                         );
                         function_builder.ins().store(
                             MemFlags::new(),
                             return_type,
-                            return_type_variable,
+                            return_type_pointer,
                             0,
                         );
-                        function_builder.ins().return_(&[return_status_value]);
+                        function_builder.ins().return_(&[]);
                     } else {
                         function_builder.ins().store(
                             MemFlags::new(),
-                            Value::new(0),
+                            CraneliftValue::new(0),
                             return_register_pointer,
                             0,
                         );
-                        function_builder.ins().return_(&[return_status_value]);
+                        function_builder.ins().return_(&[]);
                     }
                 }
                 _ => {
@@ -690,12 +736,7 @@ impl<'a> JitCompiler<'a> {
         trace!("{instruction_count} instruction(s) compiled successfully");
 
         function_builder.switch_to_block(unreachable_final_block);
-
-        let return_status_value = function_builder
-            .ins()
-            .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
-
-        function_builder.ins().return_(&[return_status_value]);
+        function_builder.ins().return_(&[]);
         function_builder.seal_all_blocks();
 
         let compiled_function_id = self
@@ -735,6 +776,7 @@ impl<'a> JitCompiler<'a> {
 
 pub type JitLogic = fn(
     call_stack: *mut u8,
+    call_stack_length: *mut usize,
     register_stack: *mut Register,
     return_register: *mut Register,
     return_type: *mut OperandType,

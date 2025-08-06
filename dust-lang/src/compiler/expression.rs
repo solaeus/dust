@@ -3,7 +3,7 @@ use crate::{Span, Type};
 #[derive(Clone, Debug)]
 pub struct Expression {
     pub index: ExpressionIndex,
-    pub kind: ExpressionKind,
+    pub _kind: ExpressionKind,
     pub r#type: Type,
     pub position: Span,
 }

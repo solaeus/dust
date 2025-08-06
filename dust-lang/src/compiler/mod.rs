@@ -96,7 +96,7 @@ impl Compiler {
         library_name: &str,
         source: &str,
     ) -> Result<Module, CompileError> {
-        let logging = span!(Level::INFO, "Library");
+        let logging = span!(Level::INFO, "Compile_Library");
         let _enter = logging.enter();
 
         let name = Path::new(library_name).ok_or_else(|| CompileError::InvalidLibraryPath {
@@ -141,7 +141,7 @@ impl Compiler {
         program_name: Option<&str>,
         source: &str,
     ) -> Result<Program, CompileError> {
-        let logging = span!(Level::INFO, "Program");
+        let logging = span!(Level::INFO, "Compile_Program");
         let _enter = logging.enter();
 
         let program_name = program_name.unwrap_or("main");
@@ -542,7 +542,7 @@ impl<'a> ChunkCompiler<'a> {
         self.instructions.push(instruction);
         self.expressions.push(Expression {
             index: ExpressionIndex::Instruction(instruction_index),
-            kind: expression_kind,
+            _kind: expression_kind,
             r#type,
             position,
         });
@@ -2283,7 +2283,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.expressions.push(Expression {
             index: ExpressionIndex::Function(prototype_index),
-            kind: ExpressionKind::Function,
+            _kind: ExpressionKind::Function,
             r#type: r#type.clone(),
             position: function_compiler.current_position,
         });
