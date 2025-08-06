@@ -25,7 +25,7 @@ use tracing::{Level, info, trace};
 use crate::{
     Address, Chunk, Instruction, OperandType, Operation, Program, Register, ThreadStatus,
     instruction::{Add, Jump, Load, MemoryKind, Return},
-    jit_vm::call_stack::{get_frame_ip, new_call_frame},
+    jit_vm::call_stack::{get_frame_function_index, get_frame_ip, new_call_frame},
 };
 
 pub struct JitCompiler<'a> {
@@ -219,47 +219,23 @@ impl<'a> JitCompiler<'a> {
             FunctionBuilder::new(&mut context.func, &mut function_builder_context);
         let mut switch = Switch::new();
 
-        // let entry_block = {
-        //     let block = function_builder.create_block();
-
-        //     function_builder.append_block_params_for_function_params(block);
-
-        //     block
-        // };
-        let main_block = {
+        let entry_block = {
             let block = function_builder.create_block();
 
             function_builder.append_block_params_for_function_params(block);
 
             block
         };
+        let dispatch_block = function_builder.create_block();
+        let loop_block = function_builder.create_block();
+        let main_function_block = function_builder.create_block();
         let _function_blocks = {
             let mut blocks = Vec::with_capacity(self.program.prototypes.len() + 1);
 
-            for (function_index, function_reference) in function_references.into_iter().enumerate()
-            {
+            for function_index in 0..self.program.prototypes.len() {
                 let block = function_builder.create_block();
 
                 function_builder.switch_to_block(block);
-                function_builder.append_block_params_for_function_params(block);
-
-                let call_stack = function_builder.block_params(block)[0];
-                let call_stack_length = function_builder.block_params(block)[1];
-                let register_stack = function_builder.block_params(block)[2];
-                let return_register = function_builder.block_params(block)[3];
-                let return_type = function_builder.block_params(block)[4];
-
-                function_builder.ins().call(
-                    function_reference,
-                    &[
-                        call_stack,
-                        call_stack_length,
-                        register_stack,
-                        return_register,
-                        return_type,
-                    ],
-                );
-                function_builder.ins().return_(&[]);
                 blocks.push(block);
                 switch.set_entry(function_index as u128, block);
             }
@@ -276,35 +252,50 @@ impl<'a> JitCompiler<'a> {
             block
         };
 
-        // {
-        //     function_builder.switch_to_block(entry_block);
+        let (
+            call_stack_pointer,
+            call_stack_length_pointer,
+            register_stack_pointer,
+            return_register_pointer,
+            return_type_pointer,
+        ) = {
+            function_builder.switch_to_block(entry_block);
 
-        //     let call_stack = function_builder.block_params(entry_block)[0];
-        //     let call_stack_length = function_builder.block_params(entry_block)[1];
-        //     let register_stack = function_builder.block_params(entry_block)[2];
-        //     let return_register = function_builder.block_params(entry_block)[3];
-        //     let return_type = function_builder.block_params(entry_block)[4];
+            let call_stack_pointer = {
+                let argument = function_builder.block_params(entry_block)[0];
+                let variable = function_builder.declare_var(pointer_type);
 
-        //     function_builder.ins().jump(
-        //         main_block,
-        //         &[
-        //             call_stack.into(),
-        //             call_stack_length.into(),
-        //             register_stack.into(),
-        //             return_register.into(),
-        //             return_type.into(),
-        //         ],
-        //     );
-        // }
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let call_stack_length_pointer = {
+                let argument = function_builder.block_params(entry_block)[1];
+                let variable = function_builder.declare_var(pointer_type);
 
-        {
-            function_builder.switch_to_block(main_block);
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let register_stack_pointer = {
+                let argument = function_builder.block_params(entry_block)[2];
+                let variable = function_builder.declare_var(pointer_type);
 
-            let call_stack_pointer = function_builder.block_params(main_block)[0];
-            let call_stack_length_pointer = function_builder.block_params(main_block)[1];
-            let register_stack_pointer = function_builder.block_params(main_block)[2];
-            let return_register_pointer = function_builder.block_params(main_block)[3];
-            let return_type_pointer = function_builder.block_params(main_block)[4];
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let return_register_pointer = {
+                let argument = function_builder.block_params(entry_block)[3];
+                let variable = function_builder.declare_var(pointer_type);
+
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let return_type_pointer = {
+                let argument = function_builder.block_params(entry_block)[4];
+                let variable = function_builder.declare_var(pointer_type);
+
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
 
             let zero = function_builder.ins().iconst(I64, 0);
             let register_count = function_builder
@@ -313,6 +304,7 @@ impl<'a> JitCompiler<'a> {
             let no_op_instruction = function_builder
                 .ins()
                 .iconst(I64, Instruction::no_op().0 as i64);
+            let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
             let one = function_builder.ins().iconst(I64, 1);
             let call_stack_length =
                 function_builder
@@ -323,7 +315,7 @@ impl<'a> JitCompiler<'a> {
             new_call_frame(
                 zero,
                 zero,
-                zero,
+                null_function_index,
                 no_op_instruction,
                 zero,
                 register_count,
@@ -336,6 +328,71 @@ impl<'a> JitCompiler<'a> {
                 call_stack_length_pointer,
                 0,
             );
+
+            function_builder.ins().jump(dispatch_block, &[]);
+
+            (
+                call_stack_pointer,
+                call_stack_length_pointer,
+                register_stack_pointer,
+                return_register_pointer,
+                return_type_pointer,
+            )
+        };
+
+        {
+            function_builder.switch_to_block(dispatch_block);
+
+            let call_stack_length =
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let call_stack_is_empty =
+                function_builder
+                    .ins()
+                    .icmp_imm(IntCC::Equal, call_stack_length, 0);
+            let return_thread_status = function_builder
+                .ins()
+                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
+
+            function_builder.ins().brif(
+                call_stack_is_empty,
+                return_block,
+                &[return_thread_status.into()],
+                loop_block,
+                &[],
+            );
+        }
+
+        {
+            function_builder.switch_to_block(loop_block);
+
+            let top_call_frame_index = {
+                let call_stack_length =
+                    function_builder
+                        .ins()
+                        .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+                let one = function_builder.ins().iconst(I64, 1);
+
+                function_builder.ins().isub(call_stack_length, one)
+            };
+
+            let ip = get_frame_ip(
+                top_call_frame_index,
+                call_stack_pointer,
+                &mut function_builder,
+            );
+            let function_index = get_frame_function_index(
+                top_call_frame_index,
+                call_stack_pointer,
+                &mut function_builder,
+            );
+
+            switch.emit(&mut function_builder, function_index, main_function_block);
+        }
+
+        {
+            function_builder.switch_to_block(main_function_block);
             function_builder.ins().call(
                 main_function_reference,
                 &[
@@ -346,14 +403,7 @@ impl<'a> JitCompiler<'a> {
                     return_type_pointer,
                 ],
             );
-
-            let return_thread_status = function_builder
-                .ins()
-                .iconst(I32, ThreadStatus::Return as i64);
-
-            function_builder
-                .ins()
-                .jump(return_block, &[return_thread_status.into()]);
+            function_builder.ins().jump(dispatch_block, &[]);
         }
 
         {
@@ -489,11 +539,18 @@ impl<'a> JitCompiler<'a> {
 
             function_builder.ins().isub(call_stack_length, one)
         };
-
         let ip_value = get_frame_ip(
             top_call_frame_index,
             call_stack_pointer,
             &mut function_builder,
+        );
+        let new_call_stack_length = top_call_frame_index;
+
+        function_builder.ins().store(
+            MemFlags::new(),
+            new_call_stack_length,
+            call_stack_length_pointer,
+            0,
         );
 
         switch.emit(&mut function_builder, ip_value, unreachable_final_block);

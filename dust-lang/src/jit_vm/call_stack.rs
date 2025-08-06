@@ -15,6 +15,15 @@ use cranelift::{
     prelude::{FunctionBuilder, InstBuilder},
 };
 
+#[repr(C)]
+pub struct JitCallFrame {
+    pub ip: i64,
+    pub function_index: i64,
+    pub call_instruction: i64,
+    pub register_range_start: i64,
+    pub register_range_end: i64,
+}
+
 pub fn new_call_stack(length: usize) -> Vec<u8> {
     vec![0; length * CALL_FRAME_SIZE]
 }
@@ -126,7 +135,7 @@ pub fn get_frame_ip(
     builder.ins().load(types::I64, MemFlags::new(), address, 0)
 }
 
-pub fn _get_frame_function_index(
+pub fn get_frame_function_index(
     frame_index: Value,
     call_stack_ptr: Value,
     builder: &mut FunctionBuilder,
