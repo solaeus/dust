@@ -72,10 +72,10 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
         );
 
         match thread_status {
-            ThreadStatus::Error => todo!(),
+            ThreadStatus::Return => break,
             ThreadStatus::ResizeCallStack => todo!(),
             ThreadStatus::ResizeRegisterStack => todo!(),
-            ThreadStatus::Return => break,
+            ThreadStatus::ErrorFunctionIndexOutOfBounds => todo!(),
         }
     }
 
@@ -94,10 +94,10 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
 
 #[repr(C)]
 pub enum ThreadStatus {
-    Error = 0,
+    Return = 0,
     ResizeCallStack = 1,
     ResizeRegisterStack = 2,
-    Return = 3,
+    ErrorFunctionIndexOutOfBounds = 3,
 }
 
 impl ThreadStatus {

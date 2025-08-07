@@ -9,13 +9,13 @@ pub use jit_error::{JIT_ERROR_TEXT, JitError};
 use cranelift::{
     codegen::{
         CodegenError,
-        ir::{FuncRef, InstBuilder},
+        ir::{BlockArg, FuncRef, InstBuilder},
     },
     frontend::Switch,
     prelude::{
         AbiParam, Block, EntityRef, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags,
         Signature, Value as CraneliftValue,
-        types::{I8, I32, I64},
+        types::{I8, I64},
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -24,8 +24,8 @@ use tracing::{Level, info, trace};
 
 use crate::{
     Address, Chunk, Instruction, OperandType, Operation, Program, Register, ThreadStatus,
-    instruction::{Add, Jump, Load, MemoryKind, Return},
-    jit_vm::call_stack::{get_frame_function_index, get_frame_ip, new_call_frame},
+    instruction::{Add, Call, Jump, Load, MemoryKind, Return},
+    jit_vm::call_stack::{add_call_frame, get_call_frame, get_frame_function_index},
 };
 
 pub struct JitCompiler<'a> {
@@ -143,12 +143,12 @@ impl<'a> JitCompiler<'a> {
     }
 
     pub fn compile(&mut self) -> Result<JitLogic, JitError> {
-        let span = tracing::span!(Level::INFO, "JIT");
+        let span = tracing::span!(Level::INFO, "JIT_Compiler");
         let _enter = span.enter();
 
-        let trampoline_pointer = self.compile_loop()?;
+        let loop_pointer = self.compile_loop()?;
 
-        Ok(unsafe { transmute::<*const u8, JitLogic>(trampoline_pointer) })
+        Ok(unsafe { transmute::<*const u8, JitLogic>(loop_pointer) })
     }
 
     fn compile_loop(&mut self) -> Result<*const u8, JitError> {
@@ -226,31 +226,23 @@ impl<'a> JitCompiler<'a> {
 
             block
         };
-        let dispatch_block = function_builder.create_block();
+        let check_for_empty_call_stack_block = function_builder.create_block();
+        let check_for_error_function_index_out_of_bounds_block = function_builder.create_block();
         let loop_block = function_builder.create_block();
         let main_function_block = function_builder.create_block();
         let _function_blocks = {
-            let mut blocks = Vec::with_capacity(self.program.prototypes.len() + 1);
+            let mut blocks = Vec::with_capacity(self.program.prototypes.len());
 
-            for function_index in 0..self.program.prototypes.len() {
+            for index in 0..function_references.len() {
                 let block = function_builder.create_block();
 
-                function_builder.switch_to_block(block);
                 blocks.push(block);
-                switch.set_entry(function_index as u128, block);
+                switch.set_entry(index as u128, block);
             }
-
-            info!("Compiled {} function(s)", blocks.len());
 
             blocks
         };
-        let return_block = {
-            let block = function_builder.create_block();
-
-            function_builder.append_block_param(block, I32);
-
-            block
-        };
+        let return_block = function_builder.create_block();
 
         let (
             call_stack_pointer,
@@ -306,13 +298,20 @@ impl<'a> JitCompiler<'a> {
                 .iconst(I64, Instruction::no_op().0 as i64);
             let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
             let one = function_builder.ins().iconst(I64, 1);
-            let call_stack_length =
+            let old_call_stack_length =
                 function_builder
                     .ins()
                     .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
-            let new_call_stack_length = function_builder.ins().iadd(call_stack_length, one);
+            let new_call_stack_length = function_builder.ins().iadd(old_call_stack_length, one);
 
-            new_call_frame(
+            function_builder.ins().store(
+                MemFlags::new(),
+                new_call_stack_length,
+                call_stack_length_pointer,
+                0,
+            );
+
+            add_call_frame(
                 zero,
                 zero,
                 null_function_index,
@@ -329,7 +328,9 @@ impl<'a> JitCompiler<'a> {
                 0,
             );
 
-            function_builder.ins().jump(dispatch_block, &[]);
+            function_builder
+                .ins()
+                .jump(check_for_empty_call_stack_block, &[]);
 
             (
                 call_stack_pointer,
@@ -341,7 +342,7 @@ impl<'a> JitCompiler<'a> {
         };
 
         {
-            function_builder.switch_to_block(dispatch_block);
+            function_builder.switch_to_block(check_for_empty_call_stack_block);
 
             let call_stack_length =
                 function_builder
@@ -354,6 +355,31 @@ impl<'a> JitCompiler<'a> {
             let return_thread_status = function_builder
                 .ins()
                 .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
+
+            function_builder.ins().brif(
+                call_stack_is_empty,
+                return_block,
+                &[return_thread_status.into()],
+                check_for_error_function_index_out_of_bounds_block,
+                &[],
+            );
+        }
+
+        {
+            function_builder.switch_to_block(check_for_error_function_index_out_of_bounds_block);
+
+            let call_stack_length =
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let call_stack_is_empty =
+                function_builder
+                    .ins()
+                    .icmp_imm(IntCC::Equal, call_stack_length, 0);
+            let return_thread_status = function_builder.ins().iconst(
+                ThreadStatus::CRANELIFT_TYPE,
+                ThreadStatus::ErrorFunctionIndexOutOfBounds as i64,
+            );
 
             function_builder.ins().brif(
                 call_stack_is_empty,
@@ -376,12 +402,6 @@ impl<'a> JitCompiler<'a> {
 
                 function_builder.ins().isub(call_stack_length, one)
             };
-
-            let ip = get_frame_ip(
-                top_call_frame_index,
-                call_stack_pointer,
-                &mut function_builder,
-            );
             let function_index = get_frame_function_index(
                 top_call_frame_index,
                 call_stack_pointer,
@@ -403,15 +423,41 @@ impl<'a> JitCompiler<'a> {
                     return_type_pointer,
                 ],
             );
-            function_builder.ins().jump(dispatch_block, &[]);
+            function_builder
+                .ins()
+                .jump(check_for_empty_call_stack_block, &[]);
+        }
+
+        {
+            for (block, function_reference) in _function_blocks
+                .into_iter()
+                .zip(function_references.into_iter())
+            {
+                function_builder.switch_to_block(block);
+                function_builder.ins().call(
+                    function_reference,
+                    &[
+                        call_stack_pointer,
+                        call_stack_length_pointer,
+                        register_stack_pointer,
+                        return_register_pointer,
+                        return_type_pointer,
+                    ],
+                );
+                function_builder
+                    .ins()
+                    .jump(check_for_empty_call_stack_block, &[]);
+            }
         }
 
         {
             function_builder.switch_to_block(return_block);
+            function_builder.append_block_param(return_block, ThreadStatus::CRANELIFT_TYPE);
 
-            let return_value = function_builder.block_params(return_block)[0];
+            let return_thread_status = function_builder.block_params(return_block)[0];
 
-            function_builder.ins().return_(&[return_value]);
+            function_builder.ins().nop();
+            function_builder.ins().return_(&[return_thread_status]);
         }
 
         function_builder.seal_all_blocks();
@@ -495,15 +541,15 @@ impl<'a> JitCompiler<'a> {
             )?
         };
 
-        #[cfg(debug_assertions)]
-        let _log_value_function = {
-            let mut log_value_signature = Signature::new(self.module.isa().default_call_conv());
+        // #[cfg(debug_assertions)]
+        // let _log_value_function = {
+        //     let mut log_value_signature = Signature::new(self.module.isa().default_call_conv());
 
-            log_value_signature.params.push(AbiParam::new(I64));
-            log_value_signature.returns = vec![];
+        //     log_value_signature.params.push(AbiParam::new(I64));
+        //     log_value_signature.returns = vec![];
 
-            self.declare_imported_function(&mut function_builder, "log_value", log_value_signature)?
-        };
+        //     self.declare_imported_function(&mut function_builder, "log_value", log_value_signature)?
+        // };
 
         let bytecode_instructions = &chunk.instructions;
         let instruction_count = bytecode_instructions.len();
@@ -519,7 +565,7 @@ impl<'a> JitCompiler<'a> {
             switch.set_entry(ip as u128, block);
         }
 
-        let unreachable_final_block = function_builder.create_block();
+        let early_return_block = function_builder.create_block();
 
         function_builder.switch_to_block(function_entry_block);
         function_builder.append_block_params_for_function_params(function_entry_block);
@@ -530,30 +576,26 @@ impl<'a> JitCompiler<'a> {
         let return_register_pointer = function_builder.block_params(function_entry_block)[3];
         let return_type_pointer = function_builder.block_params(function_entry_block)[4];
 
-        let top_call_frame_index = {
-            let call_stack_length =
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
-            let one = function_builder.ins().iconst(I64, 1);
+        let call_stack_length =
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+        let one = function_builder.ins().iconst(I64, 1);
+        let top_call_frame_index = function_builder.ins().isub(call_stack_length, one);
 
-            function_builder.ins().isub(call_stack_length, one)
-        };
-        let ip_value = get_frame_ip(
+        let (
+            current_frame_ip,
+            current_frame_function_index,
+            current_frame_register_range_start,
+            current_frame_register_range_end,
+            current_frame_arguments_index,
+        ) = get_call_frame(
             top_call_frame_index,
             call_stack_pointer,
             &mut function_builder,
         );
-        let new_call_stack_length = top_call_frame_index;
 
-        function_builder.ins().store(
-            MemFlags::new(),
-            new_call_stack_length,
-            call_stack_length_pointer,
-            0,
-        );
-
-        switch.emit(&mut function_builder, ip_value, unreachable_final_block);
+        switch.emit(&mut function_builder, current_frame_ip, early_return_block);
 
         let instruction_count = instruction_blocks.len();
 
@@ -697,6 +739,55 @@ impl<'a> JitCompiler<'a> {
                         register_offset,
                     );
                 }
+                Operation::CALL => {
+                    let Call {
+                        destination,
+                        prototype_index,
+                        arguments_index,
+                        return_type,
+                    } = Call::from(*current_instruction);
+                    let zero = function_builder.ins().iconst(I64, 0);
+                    let function_index = function_builder.ins().iconst(I64, prototype_index as i64);
+                    let arguments_index =
+                        function_builder.ins().iconst(I64, arguments_index as i64);
+                    let register_range_start = current_frame_register_range_end;
+                    let register_range_end = function_builder
+                        .ins()
+                        .iadd_imm(register_range_start, chunk.register_tags.len() as i64);
+                    let next_ip = function_builder.ins().iconst(I64, (ip + 1) as i64);
+
+                    add_call_frame(
+                        top_call_frame_index,
+                        next_ip,
+                        current_frame_function_index,
+                        current_frame_register_range_start,
+                        current_frame_register_range_end,
+                        current_frame_arguments_index,
+                        call_stack_pointer,
+                        &mut function_builder,
+                    );
+                    add_call_frame(
+                        call_stack_length,
+                        zero,
+                        function_index,
+                        register_range_start,
+                        register_range_end,
+                        arguments_index,
+                        call_stack_pointer,
+                        &mut function_builder,
+                    );
+
+                    let new_call_stack_length =
+                        function_builder.ins().iadd_imm(call_stack_length, 1);
+
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        new_call_stack_length,
+                        call_stack_length_pointer,
+                        0,
+                    );
+                    function_builder.ins().return_(&[]);
+                }
                 Operation::JUMP => {
                     let Jump {
                         offset,
@@ -725,6 +816,14 @@ impl<'a> JitCompiler<'a> {
                         return_value_address,
                         r#type,
                     } = Return::from(*current_instruction);
+                    let new_call_stack_length = function_builder.ins().isub(call_stack_length, one);
+
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        new_call_stack_length,
+                        call_stack_length_pointer,
+                        0,
+                    );
 
                     if should_return_value != 0 {
                         let (value_to_return, return_type) = match r#type {
@@ -783,6 +882,7 @@ impl<'a> JitCompiler<'a> {
                 Operation::EQUAL
                     | Operation::LESS
                     | Operation::LESS_EQUAL
+                    | Operation::CALL
                     | Operation::JUMP
                     | Operation::RETURN
             ) {
@@ -792,7 +892,7 @@ impl<'a> JitCompiler<'a> {
 
         trace!("{instruction_count} instruction(s) compiled successfully");
 
-        function_builder.switch_to_block(unreachable_final_block);
+        function_builder.switch_to_block(early_return_block);
         function_builder.ins().return_(&[]);
         function_builder.seal_all_blocks();
 
@@ -820,12 +920,13 @@ impl<'a> JitCompiler<'a> {
                     }
                 }
             })?;
-        self.module.clear_context(&mut compilation_context);
 
         info!(
             "Finished compiling function {}",
-            chunk.name.as_ref().map_or("anonymous", |path| path.inner())
+            chunk.name.as_ref().map_or("anonymous", |path| path.inner()),
         );
+
+        self.module.clear_context(&mut compilation_context);
 
         Ok(compiled_function_id)
     }

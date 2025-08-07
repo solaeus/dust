@@ -2364,7 +2364,9 @@ impl<'a> ChunkCompiler<'a> {
 
         let arguments_index = self.argument_lists.len();
 
-        self.argument_lists.push(arguments);
+        if !arguments.is_empty() {
+            self.argument_lists.push(arguments);
+        }
 
         let end = self.current_position.1;
         let return_operand_type = return_type.as_operand_type();

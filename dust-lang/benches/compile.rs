@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{hint::black_box, time::Duration};
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use dust_lang::compile;
 
 const LOOP: &str = r"
