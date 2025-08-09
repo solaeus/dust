@@ -520,7 +520,14 @@ impl<'a> ChunkCompiler<'a> {
     fn create_register_tags(&self) -> Vec<OperandType> {
         self.instructions
             .iter()
-            .map(|instruction| instruction.operand_type())
+            .filter_map(|instruction| {
+                if instruction.yields_value() && instruction.a_memory_kind() == MemoryKind::REGISTER
+                {
+                    Some(instruction.operand_type().destination_type())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 

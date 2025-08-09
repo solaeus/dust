@@ -56,7 +56,7 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let jit_logic = jit.compile()?;
     let mut call_stack = new_call_stack(CALL_FRAME_SIZE * 10);
     let mut call_stack_len = 0;
-    let mut register_stack = vec![Register { empty: () }; 10];
+    let mut register_stack = vec![Register { empty: () }; 1024];
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
 
