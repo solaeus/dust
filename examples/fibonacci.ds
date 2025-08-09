@@ -8,4 +8,4 @@ fn fib (n: int) -> int {
     }
 }
 
-fib(25)
+fib(10)

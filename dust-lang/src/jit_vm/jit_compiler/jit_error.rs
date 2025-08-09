@@ -4,6 +4,11 @@ pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum JitError {
+    ArgumentsIndexOutOfBounds {
+        ip: usize,
+        arguments_index: usize,
+        total_argument_count: usize,
+    },
     JumpToSelf {
         ip: usize,
     },
@@ -54,6 +59,7 @@ impl AnnotatedError for JitError {
 
     fn description(&self) -> &'static str {
         match self {
+            JitError::ArgumentsIndexOutOfBounds { .. } => "Arguments index out of bounds",
             JitError::JumpToSelf { .. } => "Jump to self detected",
             JitError::JumpTargetOutOfBounds { .. } => "Jump target out of bounds",
             JitError::BranchTargetOutOfBounds { .. } => "Branch target out of bounds",
@@ -68,6 +74,16 @@ impl AnnotatedError for JitError {
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         vec![match self {
+            JitError::ArgumentsIndexOutOfBounds {
+                ip,
+                arguments_index,
+                total_argument_count,
+            } => (
+                format!(
+                    "Arguments index out of bounds at ip {ip}: index {arguments_index}, total arguments {total_argument_count}"
+                ),
+                Span(0, JIT_ERROR_TEXT.len()),
+            ),
             JitError::JumpToSelf { ip } => (
                 format!("Jump to self detected at ip {ip}"),
                 Span(0, JIT_ERROR_TEXT.len()),
