@@ -826,7 +826,8 @@ impl<'a> ChunkCompiler<'a> {
             | Operation::MULTIPLY
             | Operation::DIVIDE
             | Operation::MODULO
-            | Operation::NEGATE => (instruction.destination(), false),
+            | Operation::NEGATE
+            | Operation::NEW_LIST => (instruction.destination(), false),
             _ => (instruction.destination(), instruction.yields_value()),
         };
 
@@ -1596,57 +1597,59 @@ impl<'a> ChunkCompiler<'a> {
         self.advance()?;
 
         let mut item_type = Type::None;
-        let mut first_item_register = self.next_register_index();
-        let mut last_item_register = first_item_register;
-        let mut instructions_to_reorder = Vec::new();
+        let mut addresses = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
+            let Expression {
+                index,
+                r#type,
+                position,
+                ..
+            } = self.expressions.last().cloned().ok_or_else(|| {
+                CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                }
+            })?;
+
             if item_type == Type::None {
-                item_type = self
-                    .expressions
-                    .last()
-                    .ok_or_else(|| CompileError::ExpectedExpression {
-                        found: self.previous_token.to_owned(),
-                        position: self.previous_position,
-                    })?
-                    .r#type
-                    .clone();
-            } else {
-                // TODO: Check if the item type the same as the previous item type
+                item_type = r#type;
+            } else if item_type != r#type {
+                // TODO: Emit error for mismatched types in list.
             }
 
-            let end_item_register = self.next_register_index();
-            last_item_register = end_item_register;
+            let value_address = match index {
+                ExpressionIndex::Instruction(instruction_index) => {
+                    let instruction = self.instructions[instruction_index];
+                    let (value_address, should_remove) =
+                        self.handle_previous_instruction(instruction);
 
-            if self.instructions.last().unwrap().yields_value() {
-                let instruction_data = self.instructions.pop().unwrap();
+                    if should_remove {
+                        self.instructions.remove(instruction_index);
 
-                instructions_to_reorder.push(instruction_data);
-            }
-        }
+                        value_address
+                    } else if instruction.yields_value() {
+                        value_address
+                    } else {
+                        continue;
+                    }
+                }
+                ExpressionIndex::Function(prototype_index) => {
+                    Address::constant(prototype_index as u16)
+                }
+            };
 
-        let mut destination_register = last_item_register + 1;
-        let reordered_instructions_count = instructions_to_reorder.len() as u16;
-
-        for mut instruction in instructions_to_reorder {
-            let register_index = self.next_register_index();
-
-            instruction.set_a_field(register_index);
-
-            self.instructions.push(instruction);
-        }
-
-        if reordered_instructions_count > 0 {
-            first_item_register = self.next_register_index() - reordered_instructions_count;
-            last_item_register = first_item_register + reordered_instructions_count - 1;
-            destination_register = last_item_register + 1;
+            addresses.push((value_address, position));
         }
 
         let end = self.previous_position.1;
-        let operand_type = match item_type {
+        let list_destination = Address::register(self.next_register_index());
+        let length = addresses.len() as u16;
+        let item_operand_type = item_type.as_operand_type();
+        let list_operand_type = match item_type {
             Type::Boolean => OperandType::LIST_BOOLEAN,
             Type::Byte => OperandType::LIST_BYTE,
             Type::Character => OperandType::LIST_CHARACTER,
@@ -1657,19 +1660,22 @@ impl<'a> ChunkCompiler<'a> {
             Type::Function(_) => OperandType::LIST_FUNCTION,
             _ => todo!(),
         };
-        let list = Instruction::list(
-            Address::register(destination_register),
-            Address::register(first_item_register),
-            Address::register(last_item_register),
-            operand_type,
-        );
+        let list_type = Type::List(Box::new(item_type));
+        let new_list = Instruction::new_list(list_destination, length, list_operand_type);
 
         self.emit(
-            list,
+            new_list,
             ExpressionKind::List,
-            Type::List(Box::new(item_type)),
+            list_type.clone(),
             Span(start, end),
         );
+
+        for (index, (address, position)) in addresses.into_iter().enumerate() {
+            let set_list =
+                Instruction::set_list(list_destination, address, index as u16, item_operand_type);
+
+            self.emit(set_list, ExpressionKind::List, list_type.clone(), position);
+        }
 
         Ok(())
     }

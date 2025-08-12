@@ -24,15 +24,16 @@ mod equal;
 mod jump;
 mod less;
 mod less_equal;
-mod list;
 mod load;
 mod memory_kind;
 mod modulo;
 mod multiply;
 mod negate;
+mod new_list;
 mod operand_type;
 mod operation;
 mod r#return;
+mod set_list;
 mod subtract;
 mod test;
 
@@ -45,15 +46,16 @@ pub use equal::Equal;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use list::List;
 pub use load::Load;
 pub use memory_kind::MemoryKind;
 pub use modulo::Modulo;
 pub use multiply::Multiply;
 pub use negate::Negate;
+pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use r#return::Return;
+pub use set_list::SetList;
 pub use subtract::Subtract;
 pub use test::Test;
 
@@ -190,17 +192,25 @@ impl Instruction {
         })
     }
 
-    pub fn list(
-        destination: Address,
-        start: Address,
-        end: Address,
-        r#type: OperandType,
-    ) -> Instruction {
-        Instruction::from(List {
+    pub fn new_list(destination: Address, length: u16, list_type: OperandType) -> Instruction {
+        Instruction::from(NewList {
             destination,
-            start,
-            end,
-            r#type,
+            length,
+            list_type,
+        })
+    }
+
+    pub fn set_list(
+        destination_list: Address,
+        item_source: Address,
+        list_index: u16,
+        item_type: OperandType,
+    ) -> Instruction {
+        Instruction::from(SetList {
+            destination_list,
+            item_source,
+            list_index,
+            item_type,
         })
     }
 
@@ -387,7 +397,7 @@ impl Instruction {
     pub fn yields_value(&self) -> bool {
         match self.operation() {
             Operation::LOAD
-            | Operation::LIST
+            | Operation::NEW_LIST
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -406,7 +416,8 @@ impl Instruction {
             | Operation::TEST
             | Operation::JUMP
             | Operation::RETURN
-            | Operation::NO_OP => false,
+            | Operation::NO_OP
+            | Operation::SET_LIST => false,
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
@@ -416,7 +427,8 @@ impl Instruction {
 
         match operation {
             Operation::LOAD => Load::from(self).to_string(),
-            Operation::LIST => List::from(self).to_string(),
+            Operation::NEW_LIST => NewList::from(self).to_string(),
+            Operation::SET_LIST => SetList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),
@@ -432,7 +444,7 @@ impl Instruction {
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
             Operation::NO_OP => String::new(),
-            unknown => panic!("Unknown operation: {}", unknown.0),
+            unknown => format!("Unknown operation: {}", unknown.0),
         }
     }
 }

@@ -20,7 +20,6 @@ pub enum JitError {
         total_instruction_count: usize,
     },
     InvalidConstantType {
-        constant_index: usize,
         expected_type: OperandType,
     },
     UnsupportedOperandType {
@@ -110,11 +109,8 @@ impl AnnotatedError for JitError {
                 ),
                 Span::default(),
             ),
-            JitError::InvalidConstantType {
-                constant_index,
-                expected_type,
-            } => (
-                format!("Constant index {constant_index} expected type was {expected_type}."),
+            JitError::InvalidConstantType { expected_type } => (
+                format!("Constant expected type was {expected_type}."),
                 Span::default(),
             ),
             JitError::UnsupportedOperandType { operand_type } => (

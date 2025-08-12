@@ -36,8 +36,24 @@ impl Object {
         }
     }
 
+    pub fn as_mut_string(&mut self) -> Option<&mut String> {
+        if let ObjectValue::String(ref mut string) = self.value {
+            Some(string)
+        } else {
+            None
+        }
+    }
+
     pub fn as_list(&self) -> Option<&List> {
         if let ObjectValue::List(ref list) = self.value {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_mut_list(&mut self) -> Option<&mut List> {
+        if let ObjectValue::List(ref mut list) = self.value {
             Some(list)
         } else {
             None

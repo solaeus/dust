@@ -121,9 +121,23 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
             let string = object
                 .as_string()
                 .cloned()
-                .expect("Expected return register to contain a string");
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::STRING,
+                })?;
 
             Ok(Some(Value::String(string)))
+        }
+        OperandType::LIST_INTEGER => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let list = object
+                .as_list()
+                .cloned()
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_INTEGER,
+                })?;
+
+            Ok(Some(Value::List(list)))
         }
         _ => todo!(),
     }

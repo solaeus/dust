@@ -130,7 +130,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: operand_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -191,7 +190,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: left_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -215,7 +213,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: right_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -273,7 +270,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: left_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -297,7 +293,6 @@ pub fn compile_direct_function(
                                 Some(integer) => function_builder.ins().iconst(I64, integer),
                                 None => {
                                     return Err(JitError::InvalidConstantType {
-                                        constant_index: right_index,
                                         expected_type: OperandType::INTEGER,
                                     });
                                 }
@@ -346,7 +341,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: left_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -370,7 +364,6 @@ pub fn compile_direct_function(
                                 Some(integer) => function_builder.ins().iconst(I64, integer),
                                 None => {
                                     return Err(JitError::InvalidConstantType {
-                                        constant_index: right_index,
                                         expected_type: OperandType::INTEGER,
                                     });
                                 }
@@ -444,7 +437,6 @@ pub fn compile_direct_function(
                                         }
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                constant_index: address_index,
                                                 expected_type: OperandType::INTEGER,
                                             });
                                         }
@@ -523,7 +515,6 @@ pub fn compile_direct_function(
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: return_value_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }

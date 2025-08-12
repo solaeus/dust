@@ -1,5 +1,7 @@
+pub mod lists;
 pub mod strings;
 
+pub use lists::*;
 pub use strings::*;
 use tracing::trace;
 

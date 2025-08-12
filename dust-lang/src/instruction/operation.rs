@@ -13,33 +13,36 @@ impl Operation {
 
     // Memory manipulation
     pub const LOAD: Operation = Operation(1);
-    pub const LIST: Operation = Operation(2);
+
+    // List operations
+    pub const NEW_LIST: Operation = Operation(2);
+    pub const SET_LIST: Operation = Operation(3);
 
     // Arithmetic binary operations
-    pub const ADD: Operation = Operation(3);
-    pub const SUBTRACT: Operation = Operation(4);
-    pub const MULTIPLY: Operation = Operation(5);
-    pub const DIVIDE: Operation = Operation(6);
-    pub const MODULO: Operation = Operation(7);
+    pub const ADD: Operation = Operation(4);
+    pub const SUBTRACT: Operation = Operation(5);
+    pub const MULTIPLY: Operation = Operation(6);
+    pub const DIVIDE: Operation = Operation(7);
+    pub const MODULO: Operation = Operation(8);
 
     // Comparison binary operations
-    pub const EQUAL: Operation = Operation(8);
-    pub const LESS: Operation = Operation(9);
-    pub const LESS_EQUAL: Operation = Operation(10);
+    pub const EQUAL: Operation = Operation(9);
+    pub const LESS: Operation = Operation(10);
+    pub const LESS_EQUAL: Operation = Operation(11);
 
     // Logical AND/OR operations
-    pub const TEST: Operation = Operation(11);
+    pub const TEST: Operation = Operation(12);
 
     // Unary numeric negation and logical NOT
-    pub const NEGATE: Operation = Operation(12);
+    pub const NEGATE: Operation = Operation(13);
 
     // Function calls
-    pub const CALL: Operation = Operation(13);
-    pub const CALL_NATIVE: Operation = Operation(14);
+    pub const CALL: Operation = Operation(14);
+    pub const CALL_NATIVE: Operation = Operation(15);
 
     // Control flow
-    pub const JUMP: Operation = Operation(15);
-    pub const RETURN: Operation = Operation(16);
+    pub const JUMP: Operation = Operation(16);
+    pub const RETURN: Operation = Operation(17);
 }
 
 impl Operation {
@@ -47,7 +50,8 @@ impl Operation {
         match *self {
             Self::NO_OP => "NO_OP",
             Self::LOAD => "LOAD",
-            Self::LIST => "LIST",
+            Self::NEW_LIST => "NEW_LIST",
+            Self::SET_LIST => "SET_LIST",
             Self::ADD => "ADD",
             Self::SUBTRACT => "SUBTRACT",
             Self::MULTIPLY => "MULTIPLY",

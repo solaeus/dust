@@ -12,7 +12,7 @@ use tracing::info;
 
 use crate::{
     Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
-    instruction::{Add, Call, Jump, Load, Return, Subtract},
+    instruction::{Add, Call, Jump, Load, NewList, Return, SetList, Subtract},
     jit_vm::call_stack::get_call_frame,
 };
 
@@ -40,14 +40,49 @@ pub fn compile_stackless_function(
     let mut function_builder =
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
+    let allocate_list_function = {
+        let mut allocate_list_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        allocate_list_signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        allocate_list_signature.returns.push(AbiParam::new(I64)); // return value
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "allocate_list",
+            allocate_list_signature,
+        )?
+    };
+
+    let instert_into_list_function = {
+        let mut insert_into_list_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        insert_into_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+        ]);
+        insert_into_list_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "insert_into_list",
+            insert_into_list_signature,
+        )?
+    };
+
     let allocate_string_function = {
         let mut allocate_string_signature =
             Signature::new(compiler.module.isa().default_call_conv());
 
         allocate_string_signature.params.extend([
-            AbiParam::new(I64),          // string_pointer
-            AbiParam::new(I64),          // length
-            AbiParam::new(pointer_type), // object_pool_pointer
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
         ]);
         allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
 
@@ -150,203 +185,274 @@ pub fn compile_stackless_function(
 
         match operation {
             Operation::LOAD => {
-                {
-                    let Load {
-                        destination,
+                let Load {
+                    destination,
+                    operand,
+                    r#type,
+                    jump_next,
+                } = Load::from(*current_instruction);
+                let result_register = match r#type {
+                    OperandType::BOOLEAN => {
+                        get_boolean(operand, current_frame_base_address, &mut function_builder)?
+                    }
+                    OperandType::BYTE => {
+                        get_byte(operand, current_frame_base_address, &mut function_builder)?
+                    }
+                    OperandType::CHARACTER => get_character(
                         operand,
-                        r#type,
-                        jump_next,
-                    } = Load::from(*current_instruction);
-                    let result_register = match r#type {
-                        OperandType::BOOLEAN => {
-                            get_boolean(operand, current_frame_base_address, &mut function_builder)?
-                        }
-                        OperandType::BYTE => {
-                            get_byte(operand, current_frame_base_address, &mut function_builder)?
-                        }
-                        OperandType::CHARACTER => get_character(
-                            operand,
-                            current_frame_base_address,
-                            chunk,
-                            &mut function_builder,
-                        )?,
-                        OperandType::FLOAT => get_float(
-                            operand,
-                            current_frame_base_address,
-                            chunk,
-                            &mut function_builder,
-                        )?,
-                        OperandType::INTEGER => get_integer(
-                            operand,
-                            current_frame_base_address,
-                            chunk,
-                            &mut function_builder,
-                        )?,
-                        OperandType::STRING => get_string(
-                            operand,
-                            current_frame_base_address,
-                            chunk,
-                            object_pool_pointer,
-                            allocate_string_function,
-                            &mut function_builder,
-                        )?,
-                        _ => {
-                            return Err(JitError::UnsupportedOperandType {
-                                operand_type: r#type,
-                            });
-                        }
-                    };
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::FLOAT => get_float(
+                        operand,
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::INTEGER => get_integer(
+                        operand,
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::STRING => get_string(
+                        operand,
+                        current_frame_base_address,
+                        chunk,
+                        object_pool_pointer,
+                        allocate_string_function,
+                        &mut function_builder,
+                    )?,
+                    OperandType::LIST_INTEGER => {
+                        get_list(operand, current_frame_base_address, &mut function_builder)?
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
 
-                    compiler.set_register(
-                        destination.index as usize,
-                        result_register,
+                compiler.set_register(
+                    destination.index as usize,
+                    result_register,
+                    current_frame_base_address,
+                    &mut function_builder,
+                )?;
+
+                if jump_next {
+                    compiler.emit_jump(ip, 2, &mut function_builder, &[])?;
+                }
+            }
+            Operation::NEW_LIST => {
+                let NewList {
+                    destination,
+                    length,
+                    list_type,
+                } = NewList::from(*current_instruction);
+                let list_type = function_builder.ins().iconst(I8, list_type.0 as i64);
+                let list_length = function_builder.ins().iconst(I64, length as i64);
+                let call_allocate_list_instruction = function_builder.ins().call(
+                    allocate_list_function,
+                    &[list_type, list_length, object_pool_pointer],
+                );
+                let list_object_pointer =
+                    function_builder.inst_results(call_allocate_list_instruction)[0];
+
+                compiler.set_register(
+                    destination.index as usize,
+                    list_object_pointer,
+                    current_frame_base_address,
+                    &mut function_builder,
+                )?;
+            }
+            Operation::SET_LIST => {
+                let SetList {
+                    destination_list,
+                    item_source,
+                    list_index,
+                    item_type,
+                } = SetList::from(*current_instruction);
+                let list_pointer = get_list(
+                    destination_list,
+                    current_frame_base_address,
+                    &mut function_builder,
+                )?;
+                let item_value = match item_type {
+                    OperandType::INTEGER => get_integer(
+                        item_source,
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::BOOLEAN => get_boolean(
+                        item_source,
                         current_frame_base_address,
                         &mut function_builder,
-                    )?;
-
-                    if jump_next {
-                        compiler.emit_jump(ip, 2, &mut function_builder, &[])?;
+                    )?,
+                    OperandType::BYTE => get_byte(
+                        item_source,
+                        current_frame_base_address,
+                        &mut function_builder,
+                    )?,
+                    OperandType::CHARACTER => get_character(
+                        item_source,
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::FLOAT => get_float(
+                        item_source,
+                        current_frame_base_address,
+                        chunk,
+                        &mut function_builder,
+                    )?,
+                    OperandType::STRING => get_string(
+                        item_source,
+                        current_frame_base_address,
+                        chunk,
+                        object_pool_pointer,
+                        allocate_string_function,
+                        &mut function_builder,
+                    )?,
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: item_type,
+                        });
                     }
+                };
+                let list_index = function_builder.ins().iconst(I64, list_index as i64);
 
-                    Ok(())
-                }?;
+                function_builder.ins().call(
+                    instert_into_list_function,
+                    &[list_pointer, list_index, item_value],
+                );
             }
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
-                {
-                    let comparator = current_instruction.a_field();
-                    let left = current_instruction.b_address();
-                    let right = current_instruction.c_address();
-                    let r#type = current_instruction.operand_type();
-                    let operation = current_instruction.operation();
-                    let comparison = match (operation, comparator != 0) {
-                        (Operation::EQUAL, true) => IntCC::Equal,
-                        (Operation::EQUAL, false) => IntCC::NotEqual,
-                        (Operation::LESS, true) => IntCC::SignedLessThan,
-                        (Operation::LESS, false) => IntCC::SignedGreaterThanOrEqual,
-                        (Operation::LESS_EQUAL, true) => IntCC::SignedLessThanOrEqual,
-                        (Operation::LESS_EQUAL, false) => IntCC::SignedGreaterThan,
-                        _ => unreachable!(),
-                    };
-                    let comparison_result = match r#type {
-                        OperandType::INTEGER => {
-                            let left_value = get_integer(
-                                left,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
-                            let right_value = get_integer(
-                                right,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
+                let comparator = current_instruction.a_field();
+                let left = current_instruction.b_address();
+                let right = current_instruction.c_address();
+                let r#type = current_instruction.operand_type();
+                let operation = current_instruction.operation();
+                let comparison = match (operation, comparator != 0) {
+                    (Operation::EQUAL, true) => IntCC::Equal,
+                    (Operation::EQUAL, false) => IntCC::NotEqual,
+                    (Operation::LESS, true) => IntCC::SignedLessThan,
+                    (Operation::LESS, false) => IntCC::SignedGreaterThanOrEqual,
+                    (Operation::LESS_EQUAL, true) => IntCC::SignedLessThanOrEqual,
+                    (Operation::LESS_EQUAL, false) => IntCC::SignedGreaterThan,
+                    _ => unreachable!(),
+                };
+                let comparison_result = match r#type {
+                    OperandType::INTEGER => {
+                        let left_value = get_integer(
+                            left,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
 
-                            function_builder
-                                .ins()
-                                .icmp(comparison, left_value, right_value)
-                        }
-                        _ => {
-                            return Err(JitError::UnsupportedOperandType {
-                                operand_type: r#type,
-                            });
-                        }
-                    };
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
 
-                    function_builder.ins().brif(
-                        comparison_result,
-                        instruction_blocks[ip + 2],
-                        &[],
-                        instruction_blocks[ip + 1],
-                        &[],
-                    );
-
-                    Ok(())
-                }?;
+                function_builder.ins().brif(
+                    comparison_result,
+                    instruction_blocks[ip + 2],
+                    &[],
+                    instruction_blocks[ip + 1],
+                    &[],
+                );
             }
             Operation::ADD => {
-                {
-                    let Add {
-                        destination,
-                        left,
-                        right,
-                        r#type,
-                    } = Add::from(*current_instruction);
-                    let result_register = match r#type {
-                        OperandType::INTEGER => {
-                            let left_value = get_integer(
-                                left,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
-                            let right_value = get_integer(
-                                right,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
+                let Add {
+                    destination,
+                    left,
+                    right,
+                    r#type,
+                } = Add::from(*current_instruction);
+                let result_register = match r#type {
+                    OperandType::INTEGER => {
+                        let left_value = get_integer(
+                            left,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
 
-                            function_builder.ins().iadd(left_value, right_value)
-                        }
-                        _ => {
-                            return Err(JitError::UnsupportedOperandType {
-                                operand_type: r#type,
-                            });
-                        }
-                    };
+                        function_builder.ins().iadd(left_value, right_value)
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
 
-                    compiler.set_register(
-                        destination.index as usize,
-                        result_register,
-                        current_frame_base_address,
-                        &mut function_builder,
-                    )?;
-
-                    Ok(())
-                }?;
+                compiler.set_register(
+                    destination.index as usize,
+                    result_register,
+                    current_frame_base_address,
+                    &mut function_builder,
+                )?;
             }
             Operation::SUBTRACT => {
-                {
-                    let Subtract {
-                        destination,
-                        left,
-                        right,
-                        r#type,
-                    } = Subtract::from(*current_instruction);
-                    let result_register = match r#type {
-                        OperandType::INTEGER => {
-                            let left_value = get_integer(
-                                left,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
-                            let right_value = get_integer(
-                                right,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?;
+                let Subtract {
+                    destination,
+                    left,
+                    right,
+                    r#type,
+                } = Subtract::from(*current_instruction);
+                let result_register = match r#type {
+                    OperandType::INTEGER => {
+                        let left_value = get_integer(
+                            left,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
 
-                            function_builder.ins().isub(left_value, right_value)
-                        }
-                        _ => {
-                            return Err(JitError::UnsupportedOperandType {
-                                operand_type: r#type,
-                            });
-                        }
-                    };
+                        function_builder.ins().isub(left_value, right_value)
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
 
-                    compiler.set_register(
-                        destination.index as usize,
-                        result_register,
-                        current_frame_base_address,
-                        &mut function_builder,
-                    )?;
-
-                    Ok(())
-                }?;
+                compiler.set_register(
+                    destination.index as usize,
+                    result_register,
+                    current_frame_base_address,
+                    &mut function_builder,
+                )?;
             }
             Operation::CALL => {
                 let Call {
@@ -521,6 +627,18 @@ pub fn compile_stackless_function(
                                 .iconst(I8, OperandType::STRING.0 as i64);
 
                             (string_value, string_type)
+                        }
+                        OperandType::LIST_INTEGER => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_INTEGER.0 as i64);
+
+                            (list_value, list_type)
                         }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
@@ -710,7 +828,6 @@ fn get_character(
                 Some(character) => character,
                 None => {
                     return Err(JitError::InvalidConstantType {
-                        constant_index: address.index as usize,
                         expected_type: OperandType::CHARACTER,
                     });
                 }
@@ -759,7 +876,6 @@ fn get_float(
                     Some(float_value) => float_value,
                     None => {
                         return Err(JitError::InvalidConstantType {
-                            constant_index: address_index,
                             expected_type: OperandType::FLOAT,
                         });
                     }
@@ -808,7 +924,6 @@ fn get_integer(
                     Some(integer) => integer,
                     None => {
                         return Err(JitError::InvalidConstantType {
-                            constant_index: address_index,
                             expected_type: OperandType::INTEGER,
                         });
                     }
@@ -859,7 +974,6 @@ fn get_string(
                     Some(string) => string,
                     None => {
                         return Err(JitError::InvalidConstantType {
-                            constant_index: address_index,
                             expected_type: OperandType::STRING,
                         });
                     }
@@ -881,6 +995,33 @@ fn get_string(
                 });
             }
         };
+
+    Ok(jit_value)
+}
+
+fn get_list(
+    address: Address,
+    frame_base_address: CraneliftValue,
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => {
+            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+            let byte_offset = function_builder
+                .ins()
+                .imul_imm(relative_index, size_of::<Register>() as i64);
+            let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), address, 0)
+        }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
 
     Ok(jit_value)
 }

@@ -44,8 +44,12 @@ impl<'a> JitCompiler<'a> {
     pub fn new(program: &'a Program) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
+        builder.symbol("allocate_list", allocate_list as *const u8);
+        builder.symbol("insert_into_list", insert_into_list as *const u8);
+
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
+
         builder.symbol("log_operation", log_operation as *const u8);
         builder.symbol("log_value", log_value as *const u8);
         builder.symbol("log_call_frame", log_call_frame as *const u8);
