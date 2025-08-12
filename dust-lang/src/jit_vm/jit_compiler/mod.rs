@@ -68,7 +68,13 @@ impl<'a> JitCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut main_signature = Signature::new(self.module.isa().default_call_conv());
 
-        main_signature.returns.push(AbiParam::new(I64));
+        main_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
 
         self.main_function_id = self
             .module
@@ -122,7 +128,7 @@ impl<'a> JitCompiler<'a> {
                 .module
                 .declare_func_in_func(self.main_function_id, &mut context.func);
 
-            self.compile_direct_function(self.main_function_id, &self.program.main_chunk)?;
+            self.compile_stackless_function(self.main_function_id, &self.program.main_chunk, true)?;
 
             reference
         };
@@ -339,25 +345,19 @@ impl<'a> JitCompiler<'a> {
 
         {
             function_builder.switch_to_block(main_function_block);
-
-            let call_instruction = function_builder.ins().call(main_function_reference, &[]);
-            let return_value = function_builder.inst_results(call_instruction)[0];
-            let return_type = function_builder
-                .ins()
-                .iconst(I64, OperandType::INTEGER.0 as i64);
-            let return_thread_status = function_builder
-                .ins()
-                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
-
+            function_builder.ins().call(
+                main_function_reference,
+                &[
+                    call_stack_pointer,
+                    call_stack_length_pointer,
+                    register_stack_pointer,
+                    return_register_pointer,
+                    return_type_pointer,
+                ],
+            );
             function_builder
                 .ins()
-                .store(MemFlags::new(), return_value, return_register_pointer, 0);
-            function_builder
-                .ins()
-                .store(MemFlags::new(), return_type, return_type_pointer, 0);
-            function_builder
-                .ins()
-                .jump(return_block, &[return_thread_status.into()]);
+                .jump(check_for_empty_call_stack_block, &[]);
         }
 
         {
@@ -1321,49 +1321,38 @@ impl<'a> JitCompiler<'a> {
                         arguments_index,
                         return_type: _,
                     } = Call::from(*current_instruction);
+                    let callee_function_ids = self.function_ids.get(prototype_index).ok_or(
+                        JitError::FunctionIndexOutOfBounds {
+                            ip,
+                            function_index: prototype_index,
+                            total_function_count: self.function_ids.len(),
+                        },
+                    )?;
+                    let callee_function_reference = self
+                        .module
+                        .declare_func_in_func(callee_function_ids.direct, function_builder.func);
 
-                    let zero = function_builder.ins().iconst(I64, 0);
-                    let new_frame_function_index =
-                        function_builder.ins().iconst(I64, prototype_index as i64);
-                    let new_frame_arguments_index =
-                        function_builder.ins().iconst(I64, arguments_index as i64);
-                    let new_frame_register_range_start = current_frame_register_range_end;
-                    let new_frame_register_range_end = function_builder.ins().iadd_imm(
-                        new_frame_register_range_start,
-                        chunk.register_tags.len() as i64,
-                    );
-                    let relative_destination_index =
-                        function_builder.ins().iconst(I64, destination.index as i64);
-                    let new_frame_destination_index = function_builder.ins().iadd(
-                        current_frame_register_range_start,
-                        relative_destination_index,
-                    );
-                    let next_ip = function_builder.ins().iconst(I64, (ip + 1) as i64);
-
-                    let function_arguments_list = chunk
+                    let call_arguments_list = chunk
                         .call_argument_lists
                         .get(arguments_index)
                         .ok_or(JitError::ArgumentsIndexOutOfBounds {
                             arguments_index,
                             total_argument_count: chunk.call_argument_lists.len(),
                         })?;
-                    let new_frame_register_base_offset = function_builder
-                        .ins()
-                        .imul_imm(new_frame_register_range_start, size_of::<Register>() as i64);
-                    let new_frame_register_base_address = function_builder
-                        .ins()
-                        .iadd(register_stack_pointer, new_frame_register_base_offset);
+                    let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
 
-                    for (destination_index, (address, r#type)) in
-                        function_arguments_list.iter().enumerate()
-                    {
+                    for (address, r#type) in call_arguments_list {
                         let argument_value = match *r#type {
-                            OperandType::INTEGER => self.get_integer(
-                                *address,
-                                current_frame_base_address,
-                                chunk,
-                                &mut function_builder,
-                            )?,
+                            OperandType::INTEGER => {
+                                let integer_value = self.get_integer(
+                                    *address,
+                                    current_frame_base_address,
+                                    chunk,
+                                    &mut function_builder,
+                                )?;
+
+                                Ok(integer_value)
+                            }?,
                             _ => {
                                 return Err(JitError::UnsupportedOperandType {
                                     operand_type: *r#type,
@@ -1371,43 +1360,22 @@ impl<'a> JitCompiler<'a> {
                             }
                         };
 
-                        let relative_destination_index =
-                            function_builder.ins().iconst(I64, destination_index as i64);
-                        let register_offset = function_builder
-                            .ins()
-                            .imul_imm(relative_destination_index, size_of::<Register>() as i64);
-                        let destination_address = function_builder
-                            .ins()
-                            .iadd(new_frame_register_base_address, register_offset);
-
-                        function_builder.ins().store(
-                            MemFlags::new(),
-                            argument_value,
-                            destination_address,
-                            0,
-                        );
+                        arguments.push(argument_value);
                     }
 
-                    push_call_frame(
-                        call_stack_length,
-                        zero,
-                        new_frame_function_index,
-                        new_frame_register_range_start,
-                        new_frame_register_range_end,
-                        new_frame_arguments_index,
-                        new_frame_destination_index,
-                        call_stack_pointer,
-                        call_stack_length_pointer,
-                        &mut function_builder,
-                    );
-                    set_frame_ip(
-                        top_call_frame_index,
-                        next_ip,
-                        call_stack_pointer,
-                        &mut function_builder,
-                    );
+                    let call_instruction = function_builder
+                        .ins()
+                        .call(callee_function_reference, &arguments);
+                    let return_value = function_builder.inst_results(call_instruction)[0];
 
-                    function_builder.ins().return_(&[]);
+                    self.set_register(
+                        destination.index,
+                        return_value,
+                        current_frame_base_address,
+                        &mut function_builder,
+                    )?;
+
+                    function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 }
                 Operation::JUMP => {
                     let Jump {
