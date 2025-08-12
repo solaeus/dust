@@ -6,7 +6,7 @@ pub struct Load {
     pub destination: Address,
     pub operand: Address,
     pub r#type: OperandType,
-    pub jump_next: usize,
+    pub jump_next: bool,
 }
 
 impl From<Instruction> for Load {
@@ -14,7 +14,7 @@ impl From<Instruction> for Load {
         let destination = instruction.destination();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();
-        let jump_next = instruction.c_field();
+        let jump_next = instruction.c_field() != 0;
 
         Load {
             destination,
@@ -35,7 +35,7 @@ impl From<Load> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = load.operand;
-        let c_field = load.jump_next;
+        let c_field = load.jump_next as u16;
         let operand_type = load.r#type;
 
         InstructionFields {
@@ -65,7 +65,7 @@ impl Display for Load {
         write!(f, " = ")?;
         operand.display(f, *r#type)?;
 
-        if *jump_next != 0 {
+        if *jump_next {
             write!(f, " (jump +1)")?;
         }
 

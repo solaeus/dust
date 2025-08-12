@@ -158,7 +158,7 @@ pub fn get_frame_ip(
     builder.ins().load(types::I64, MemFlags::new(), address, 0)
 }
 
-pub fn set_frame_ip(
+pub fn _set_frame_ip(
     frame_index: Value,
     ip: Value,
     call_stack_pointer: Value,

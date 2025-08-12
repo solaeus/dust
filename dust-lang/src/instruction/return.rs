@@ -3,14 +3,14 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Return {
-    pub should_return_value: usize,
+    pub should_return_value: bool,
     pub return_value_address: Address,
     pub r#type: OperandType,
 }
 
 impl From<Instruction> for Return {
     fn from(instruction: Instruction) -> Self {
-        let should_return_value = instruction.a_field();
+        let should_return_value = instruction.a_field() != 0;
         let return_value_address = instruction.b_address();
         let r#type = instruction.operand_type();
 
@@ -25,7 +25,7 @@ impl From<Instruction> for Return {
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
         let operation = Operation::RETURN;
-        let a_field = r#return.should_return_value;
+        let a_field = r#return.should_return_value as u16;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -52,7 +52,7 @@ impl Display for Return {
             r#type,
         } = self;
 
-        if *should_return_value != 0 {
+        if *should_return_value {
             write!(f, "RETURN ")?;
             return_value_address.display(f, *r#type)?;
         } else {

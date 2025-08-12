@@ -4,8 +4,8 @@ use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Call {
     pub destination: Address,
-    pub prototype_index: usize,
-    pub arguments_index: usize,
+    pub prototype_index: u16,
+    pub arguments_index: u16,
     pub return_type: OperandType,
 }
 

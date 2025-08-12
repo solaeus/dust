@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct LessEqual {
-    pub comparator: usize,
+    pub comparator: bool,
     pub left: Address,
     pub right: Address,
     pub r#type: OperandType,
@@ -11,7 +11,7 @@ pub struct LessEqual {
 
 impl From<Instruction> for LessEqual {
     fn from(instruction: Instruction) -> Self {
-        let comparator = instruction.a_field();
+        let comparator = instruction.a_field() != 0;
         let left = instruction.b_address();
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
@@ -28,7 +28,7 @@ impl From<Instruction> for LessEqual {
 impl From<LessEqual> for Instruction {
     fn from(less_equal: LessEqual) -> Self {
         let operation = Operation::LESS_EQUAL;
-        let a_field = less_equal.comparator;
+        let a_field = less_equal.comparator as u16;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -61,7 +61,7 @@ impl Display for LessEqual {
             right,
             r#type,
         } = self;
-        let operator = if *comparator != 0 { "≤" } else { ">" };
+        let operator = if *comparator { "≤" } else { ">" };
 
         write!(f, "if ")?;
         left.display(f, *r#type)?;

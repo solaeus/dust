@@ -20,12 +20,12 @@ use cranelift::{
 };
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, ModuleError};
-use tracing::{Level, info, trace};
+use tracing::{Level, info};
 
 use crate::{
     Address, Chunk, OperandType, Operation, Program, Register, ThreadStatus,
     instruction::{Add, Call, Jump, Load, MemoryKind, Return, Subtract},
-    jit_vm::call_stack::{get_call_frame, get_frame_function_index, push_call_frame, set_frame_ip},
+    jit_vm::call_stack::{get_call_frame, get_frame_function_index, push_call_frame},
 };
 
 pub struct JitCompiler<'a> {
@@ -517,24 +517,26 @@ impl<'a> JitCompiler<'a> {
                         r#type,
                         jump_next,
                     } = Load::from(*current_instruction);
+                    let destination_index = destination.index as usize;
+                    let operand_index = operand.index as usize;
                     let value = match r#type {
                         OperandType::INTEGER => {
                             let jit_value = match operand.memory {
                                 MemoryKind::REGISTER => {
-                                    ssa_registers.get(operand.index).copied().ok_or(
+                                    ssa_registers.get(operand_index).copied().ok_or(
                                         JitError::RegisterIndexOutOfBounds {
-                                            register_index: destination.index,
+                                            register_index: destination_index,
                                             total_register_count: function_arguments.len(),
                                         },
                                     )?
                                 }
-                                MemoryKind::CONSTANT => match chunk.constants[operand.index]
+                                MemoryKind::CONSTANT => match chunk.constants[operand_index]
                                     .as_integer()
                                 {
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: operand.index,
+                                            constant_index: operand_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -555,9 +557,9 @@ impl<'a> JitCompiler<'a> {
                         }
                     };
 
-                    ssa_registers[destination.index] = value;
+                    ssa_registers[destination_index] = value;
 
-                    if jump_next != 0 {
+                    if jump_next {
                         self.emit_jump(ip, 2, &mut function_builder, &[])?;
                     }
 
@@ -566,7 +568,9 @@ impl<'a> JitCompiler<'a> {
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                     let comparator = current_instruction.a_field();
                     let left = current_instruction.b_address();
+                    let left_index = left.index as usize;
                     let right = current_instruction.c_address();
+                    let right_index = right.index as usize;
                     let r#type = current_instruction.operand_type();
                     let operation = current_instruction.operation();
                     let comparison = match (operation, comparator != 0) {
@@ -582,20 +586,20 @@ impl<'a> JitCompiler<'a> {
                         OperandType::INTEGER => {
                             let left_value = match left.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(left.index)
+                                    .get(left_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: left.index,
+                                        register_index: left_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
                                 MemoryKind::CONSTANT => {
-                                    match chunk.constants[left.index].as_integer() {
+                                    match chunk.constants[left_index].as_integer() {
                                         Some(integer) => {
                                             function_builder.ins().iconst(I64, integer)
                                         }
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                constant_index: left.index,
+                                                constant_index: left_index,
                                                 expected_type: OperandType::INTEGER,
                                             });
                                         }
@@ -609,20 +613,20 @@ impl<'a> JitCompiler<'a> {
                             };
                             let right_value = match right.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(right.index)
+                                    .get(right_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: right.index,
+                                        register_index: right_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
                                 MemoryKind::CONSTANT => {
-                                    match chunk.constants[right.index].as_integer() {
+                                    match chunk.constants[right_index].as_integer() {
                                         Some(integer) => {
                                             function_builder.ins().iconst(I64, integer)
                                         }
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                constant_index: right.index,
+                                                constant_index: right_index,
                                                 expected_type: OperandType::INTEGER,
                                             });
                                         }
@@ -663,24 +667,27 @@ impl<'a> JitCompiler<'a> {
                         right,
                         r#type,
                     } = Add::from(*current_instruction);
+                    let destination_index = destination.index as usize;
+                    let left_index = left.index as usize;
+                    let right_index = right.index as usize;
                     let sum = match r#type {
                         OperandType::INTEGER => {
                             let left_value = match left.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(left.index)
+                                    .get(left_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: left.index,
+                                        register_index: left_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
                                 MemoryKind::CONSTANT => {
-                                    match chunk.constants[left.index].as_integer() {
+                                    match chunk.constants[left_index].as_integer() {
                                         Some(integer) => {
                                             function_builder.ins().iconst(I64, integer)
                                         }
                                         None => {
                                             return Err(JitError::InvalidConstantType {
-                                                constant_index: left.index,
+                                                constant_index: left_index,
                                                 expected_type: OperandType::INTEGER,
                                             });
                                         }
@@ -694,19 +701,19 @@ impl<'a> JitCompiler<'a> {
                             };
                             let right_value = match right.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(right.index)
+                                    .get(right_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: right.index,
+                                        register_index: right_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
-                                MemoryKind::CONSTANT => match chunk.constants[right.index]
+                                MemoryKind::CONSTANT => match chunk.constants[right_index]
                                     .as_integer()
                                 {
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: right.index,
+                                            constant_index: right_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -727,7 +734,7 @@ impl<'a> JitCompiler<'a> {
                         }
                     };
 
-                    ssa_registers[destination.index] = sum;
+                    ssa_registers[destination_index] = sum;
 
                     Ok(())
                 }?,
@@ -738,23 +745,26 @@ impl<'a> JitCompiler<'a> {
                         right,
                         r#type,
                     } = Subtract::from(*current_instruction);
+                    let destination_index = destination.index as usize;
+                    let left_index = left.index as usize;
+                    let right_index = right.index as usize;
                     let difference = match r#type {
                         OperandType::INTEGER => {
                             let left_value = match left.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(left.index)
+                                    .get(left_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: left.index,
+                                        register_index: left_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
-                                MemoryKind::CONSTANT => match chunk.constants[left.index]
+                                MemoryKind::CONSTANT => match chunk.constants[left_index]
                                     .as_integer()
                                 {
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: left.index,
+                                            constant_index: left_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -767,19 +777,19 @@ impl<'a> JitCompiler<'a> {
                             };
                             let right_value = match right.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(right.index)
+                                    .get(right_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: right.index,
+                                        register_index: right_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
-                                MemoryKind::CONSTANT => match chunk.constants[right.index]
+                                MemoryKind::CONSTANT => match chunk.constants[right_index]
                                     .as_integer()
                                 {
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: right.index,
+                                            constant_index: right_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -800,7 +810,7 @@ impl<'a> JitCompiler<'a> {
                         }
                     };
 
-                    ssa_registers[destination.index] = difference;
+                    ssa_registers[destination_index] = difference;
 
                     Ok(())
                 }?,
@@ -811,6 +821,9 @@ impl<'a> JitCompiler<'a> {
                         arguments_index,
                         return_type: _,
                     } = Call::from(*current_instruction);
+                    let destination_index = destination.index as usize;
+                    let prototype_index = prototype_index as usize;
+                    let arguments_index = arguments_index as usize;
                     let callee_function_ids = self.function_ids.get(prototype_index).ok_or(
                         JitError::FunctionIndexOutOfBounds {
                             ip,
@@ -832,24 +845,25 @@ impl<'a> JitCompiler<'a> {
                     let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
 
                     for (address, r#type) in call_arguments_list {
+                        let address_index = address.index as usize;
                         let argument_value = match *r#type {
                             OperandType::INTEGER => {
                                 let integer_value = match address.memory {
                                     MemoryKind::REGISTER => ssa_registers
-                                        .get(address.index)
+                                        .get(address_index)
                                         .copied()
                                         .ok_or(JitError::RegisterIndexOutOfBounds {
-                                            register_index: address.index,
+                                            register_index: address_index,
                                             total_register_count: function_arguments.len(),
                                         })?,
                                     MemoryKind::CONSTANT => {
-                                        match chunk.constants[address.index].as_integer() {
+                                        match chunk.constants[address_index].as_integer() {
                                             Some(integer) => {
                                                 function_builder.ins().iconst(I64, integer)
                                             }
                                             None => {
                                                 return Err(JitError::InvalidConstantType {
-                                                    constant_index: address.index,
+                                                    constant_index: address_index,
                                                     expected_type: OperandType::INTEGER,
                                                 });
                                             }
@@ -879,7 +893,7 @@ impl<'a> JitCompiler<'a> {
                         .call(callee_function_reference, &arguments);
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
-                    ssa_registers[destination.index] = return_value;
+                    ssa_registers[destination_index] = return_value;
 
                     function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 }
@@ -889,7 +903,7 @@ impl<'a> JitCompiler<'a> {
                         is_positive,
                     } = Jump::from(*current_instruction);
 
-                    if is_positive != 0 {
+                    if is_positive {
                         self.emit_jump(
                             ip,
                             (offset + 1) as isize,
@@ -911,25 +925,25 @@ impl<'a> JitCompiler<'a> {
                         return_value_address,
                         r#type,
                     } = Return::from(*current_instruction);
+                    let return_value_index = return_value_address.index as usize;
 
-                    if should_return_value != 0 {
+                    if should_return_value {
                         let value_to_return = match r#type {
                             OperandType::INTEGER => match return_value_address.memory {
                                 MemoryKind::REGISTER => ssa_registers
-                                    .get(return_value_address.index)
+                                    .get(return_value_index)
                                     .copied()
                                     .ok_or(JitError::RegisterIndexOutOfBounds {
-                                        register_index: return_value_address.index,
+                                        register_index: return_value_index,
                                         total_register_count: function_arguments.len(),
                                     })?,
-                                MemoryKind::CONSTANT => match chunk.constants
-                                    [return_value_address.index]
+                                MemoryKind::CONSTANT => match chunk.constants[return_value_index]
                                     .as_integer()
                                 {
                                     Some(integer) => function_builder.ins().iconst(I64, integer),
                                     None => {
                                         return Err(JitError::InvalidConstantType {
-                                            constant_index: return_value_address.index,
+                                            constant_index: return_value_index,
                                             expected_type: OperandType::INTEGER,
                                         });
                                     }
@@ -1102,7 +1116,7 @@ impl<'a> JitCompiler<'a> {
             current_frame_ip,
             _current_frame_function_index,
             current_frame_register_range_start,
-            current_frame_register_range_end,
+            _current_frame_register_range_end,
             _current_frame_arguments_index,
             current_frame_destination_index,
         ) = get_call_frame(
@@ -1164,13 +1178,13 @@ impl<'a> JitCompiler<'a> {
                         };
 
                         self.set_register(
-                            destination.index,
+                            destination.index as usize,
                             result_register,
                             current_frame_base_address,
                             &mut function_builder,
                         )?;
 
-                        if jump_next != 0 {
+                        if jump_next {
                             self.emit_jump(ip, 2, &mut function_builder, &[])?;
                         }
 
@@ -1263,7 +1277,7 @@ impl<'a> JitCompiler<'a> {
                         };
 
                         self.set_register(
-                            destination.index,
+                            destination.index as usize,
                             result_register,
                             current_frame_base_address,
                             &mut function_builder,
@@ -1305,7 +1319,7 @@ impl<'a> JitCompiler<'a> {
                         };
 
                         self.set_register(
-                            destination.index,
+                            destination.index as usize,
                             result_register,
                             current_frame_base_address,
                             &mut function_builder,
@@ -1321,6 +1335,9 @@ impl<'a> JitCompiler<'a> {
                         arguments_index,
                         return_type: _,
                     } = Call::from(*current_instruction);
+                    let destination_index = destination.index as usize;
+                    let prototype_index = prototype_index as usize;
+                    let arguments_index = arguments_index as usize;
                     let callee_function_ids = self.function_ids.get(prototype_index).ok_or(
                         JitError::FunctionIndexOutOfBounds {
                             ip,
@@ -1369,7 +1386,7 @@ impl<'a> JitCompiler<'a> {
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
                     self.set_register(
-                        destination.index,
+                        destination_index,
                         return_value,
                         current_frame_base_address,
                         &mut function_builder,
@@ -1383,7 +1400,7 @@ impl<'a> JitCompiler<'a> {
                         is_positive,
                     } = Jump::from(*current_instruction);
 
-                    if is_positive != 0 {
+                    if is_positive {
                         self.emit_jump(
                             ip,
                             (offset + 1) as isize,
@@ -1406,7 +1423,7 @@ impl<'a> JitCompiler<'a> {
                         r#type,
                     } = Return::from(*current_instruction);
 
-                    if should_return_value != 0 {
+                    if should_return_value {
                         let (value_to_return, return_type) = match r#type {
                             OperandType::INTEGER => {
                                 let integer_value = self.get_integer(
@@ -1566,6 +1583,7 @@ impl<'a> JitCompiler<'a> {
         chunk: &Chunk,
         function_builder: &mut FunctionBuilder,
     ) -> Result<CraneliftValue, JitError> {
+        let address_index = address.index as usize;
         let jit_value = match address.memory {
             MemoryKind::REGISTER => {
                 let relative_index = function_builder.ins().iconst(I64, address.index as i64);
@@ -1578,11 +1596,11 @@ impl<'a> JitCompiler<'a> {
                     .ins()
                     .load(I64, MemFlags::new(), address, 0)
             }
-            MemoryKind::CONSTANT => match chunk.constants[address.index].as_integer() {
+            MemoryKind::CONSTANT => match chunk.constants[address_index].as_integer() {
                 Some(integer) => function_builder.ins().iconst(I64, integer),
                 None => {
                     return Err(JitError::InvalidConstantType {
-                        constant_index: address.index,
+                        constant_index: address_index,
                         expected_type: OperandType::INTEGER,
                     });
                 }

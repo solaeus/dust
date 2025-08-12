@@ -177,7 +177,7 @@ impl Compiler {
             locals,
             call_argument_lists: chunk_compiler.call_argument_lists,
             register_tags,
-            prototype_index: u32::MAX as usize,
+            prototype_index: u16::MAX,
         };
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
             .expect("Unnecessary clone of prototypes")
@@ -233,7 +233,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
-    minimum_register_index: usize,
+    minimum_register_index: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
     /// when a new block is entered.
@@ -249,7 +249,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     /// Index of the Chunk in its parent's prototype list. This is set to 0 for the main chunk but
     /// that value is never read because the main chunk is not a callable function.
-    prototype_index: usize,
+    prototype_index: u16,
 
     main_module: Rc<RefCell<Module>>,
 
@@ -324,8 +324,7 @@ impl<'a> ChunkCompiler<'a> {
         self.parse_implicit_return()?;
 
         if self.instructions.is_empty() {
-            let r#return =
-                Instruction::r#return(false as usize, Address::default(), OperandType::NONE);
+            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
             self.emit(
                 r#return,
@@ -344,7 +343,7 @@ impl<'a> ChunkCompiler<'a> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register_index(&self) -> usize {
+    fn next_register_index(&self) -> u16 {
         self.instructions
             .iter()
             .fold(self.minimum_register_index, |acc, instruction| {
@@ -433,20 +432,20 @@ impl<'a> ChunkCompiler<'a> {
         })
     }
 
-    fn push_constant_or_get_index(&mut self, constant: Value) -> usize {
+    fn push_constant_or_get_index(&mut self, constant: Value) -> u16 {
         let found_index = self
             .constants
             .iter()
             .position(|existing| existing == &constant);
 
         if let Some(index) = found_index {
-            index
+            index as u16
         } else {
             let index = self.constants.len();
 
             self.constants.push(constant);
 
-            index
+            index as u16
         }
     }
 
@@ -565,9 +564,8 @@ impl<'a> ChunkCompiler<'a> {
 
             let boolean = self.parse_boolean_value(text);
             let destination = Address::register(self.next_register_index());
-            let operand = Address::encoded(boolean as usize);
-            let load =
-                Instruction::load(destination, operand, OperandType::BOOLEAN, false as usize);
+            let operand = Address::encoded(boolean as u16);
+            let load = Instruction::load(destination, operand, OperandType::BOOLEAN, false);
 
             self.emit(load, ExpressionKind::Literal, Type::Boolean, position);
 
@@ -593,9 +591,8 @@ impl<'a> ChunkCompiler<'a> {
 
             let byte = self.parse_byte_value(text)?;
             let destination = Address::register(self.next_register_index());
-            let operand = Address::encoded(byte as usize);
-            let load_encoded =
-                Instruction::load(destination, operand, OperandType::BYTE, false as usize);
+            let operand = Address::encoded(byte as u16);
+            let load_encoded = Instruction::load(destination, operand, OperandType::BYTE, false);
 
             self.emit(load_encoded, ExpressionKind::Literal, Type::Byte, position);
 
@@ -626,7 +623,7 @@ impl<'a> ChunkCompiler<'a> {
             let constant_index = self.push_constant_or_get_index(Value::Character(character));
             let operand = Address::constant(constant_index);
             let load_encoded =
-                Instruction::load(destination, operand, OperandType::CHARACTER, false as usize);
+                Instruction::load(destination, operand, OperandType::CHARACTER, false);
 
             self.emit(
                 load_encoded,
@@ -658,7 +655,7 @@ impl<'a> ChunkCompiler<'a> {
                 destination,
                 Address::constant(constant_index),
                 OperandType::FLOAT,
-                false as usize,
+                false,
             );
 
             self.emit(
@@ -699,7 +696,7 @@ impl<'a> ChunkCompiler<'a> {
                 destination,
                 Address::constant(constant_index),
                 OperandType::INTEGER,
-                false as usize,
+                false,
             );
 
             self.emit(
@@ -757,7 +754,7 @@ impl<'a> ChunkCompiler<'a> {
                 destination,
                 Address::constant(constant_index),
                 OperandType::STRING,
-                false as usize,
+                false,
             );
 
             self.emit(
@@ -908,7 +905,7 @@ impl<'a> ChunkCompiler<'a> {
                         .iter()
                         .enumerate()
                         .find_map(|(i, (_, global))| {
-                            if i == operand.index {
+                            if i == operand.index as usize {
                                 Some(global.is_mutable)
                             } else {
                                 None
@@ -977,8 +974,12 @@ impl<'a> ChunkCompiler<'a> {
             && {
                 match right_type {
                     Type::Byte => right.index == 0,
-                    Type::Float => self.constants.get(right.index) == Some(&Value::Float(0.0)),
-                    Type::Integer => self.constants.get(right.index) == Some(&Value::Integer(0)),
+                    Type::Float => {
+                        self.constants.get(right.index as usize) == Some(&Value::Float(0.0))
+                    }
+                    Type::Integer => {
+                        self.constants.get(right.index as usize) == Some(&Value::Integer(0))
+                    }
                     _ => false,
                 }
             };
@@ -1170,12 +1171,12 @@ impl<'a> ChunkCompiler<'a> {
 
         let operand_type = left_type.as_operand_type();
         let comparison = match operator {
-            Token::DoubleEqual => Instruction::equal(true as usize, left, right, operand_type),
-            Token::BangEqual => Instruction::equal(false as usize, left, right, operand_type),
-            Token::Less => Instruction::less(true as usize, left, right, operand_type),
-            Token::LessEqual => Instruction::less_equal(true as usize, left, right, operand_type),
-            Token::Greater => Instruction::less_equal(false as usize, left, right, operand_type),
-            Token::GreaterEqual => Instruction::less(false as usize, left, right, operand_type),
+            Token::DoubleEqual => Instruction::equal(true, left, right, operand_type),
+            Token::BangEqual => Instruction::equal(false, left, right, operand_type),
+            Token::Less => Instruction::less(true, left, right, operand_type),
+            Token::LessEqual => Instruction::less_equal(true, left, right, operand_type),
+            Token::Greater => Instruction::less_equal(false, left, right, operand_type),
+            Token::GreaterEqual => Instruction::less(false, left, right, operand_type),
             _ => {
                 return Err(CompileError::ExpectedTokenMultiple {
                     expected: &[
@@ -1191,23 +1192,14 @@ impl<'a> ChunkCompiler<'a> {
                 });
             }
         };
-        let jump = Instruction::jump(1, true as usize);
+        let jump = Instruction::jump(1, true);
         let destination_index = self.next_register_index();
         let destination = Address::register(destination_index);
-        let true_as_address = Address::encoded(true as usize);
-        let load_true = Instruction::load(
-            destination,
-            true_as_address,
-            OperandType::BOOLEAN,
-            true as usize,
-        );
-        let false_as_address = Address::encoded(false as usize);
-        let load_false = Instruction::load(
-            destination,
-            false_as_address,
-            OperandType::BOOLEAN,
-            false as usize,
-        );
+        let true_as_address = Address::encoded(true as u16);
+        let load_true = Instruction::load(destination, true_as_address, OperandType::BOOLEAN, true);
+        let false_as_address = Address::encoded(false as u16);
+        let load_false =
+            Instruction::load(destination, false_as_address, OperandType::BOOLEAN, false);
         let comparison_position = Span(left_position.0, right_position.1);
 
         let comparison_instruction_index = self.emit(
@@ -1389,7 +1381,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let instructions_length = self.instructions.len();
         let jump_distance = instructions_length - jump_index;
-        let jump = Instruction::jump(jump_distance, true as usize);
+        let jump = Instruction::jump(jump_distance as u16, true);
 
         self.instructions.insert(jump_index, jump);
 
@@ -1403,7 +1395,7 @@ impl<'a> ChunkCompiler<'a> {
                 if comparator {
                     let new_distance = jump_distance + (instruction_count - start_slice - 4);
 
-                    instruction_slice[2].set_b_field(new_distance);
+                    instruction_slice[2].set_b_field(new_distance as u16);
                 }
 
                 instruction_slice[0].set_destination(left_destination);
@@ -1456,7 +1448,11 @@ impl<'a> ChunkCompiler<'a> {
             {
                 let Global { r#type, is_mutable } = global;
 
-                (Address::cell(cell_index), r#type.clone(), *is_mutable)
+                (
+                    Address::cell(cell_index as u16),
+                    r#type.clone(),
+                    *is_mutable,
+                )
             } else if let Ok((item, item_position)) = { self.clone_item(&variable_path) } {
                 let (local_address, item_type) =
                     self.bring_item_into_local_scope(variable_path, item, item_position);
@@ -1522,7 +1518,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let operand_type = variable_type.as_operand_type();
         let destination = Address::register(self.next_register_index());
-        let load = Instruction::load(destination, variable_address, operand_type, false as usize);
+        let load = Instruction::load(destination, variable_address, operand_type, false);
 
         self.emit(
             load,
@@ -1659,8 +1655,8 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        let mut destination_register = last_item_register + 1;
-        let reordered_instructions_count = instructions_to_reorder.len();
+        let mut destination_register = (last_item_register + 1) as u16;
+        let reordered_instructions_count = instructions_to_reorder.len() as u16;
 
         for mut instruction in instructions_to_reorder {
             let register_index = self.next_register_index();
@@ -1866,13 +1862,13 @@ impl<'a> ChunkCompiler<'a> {
                         load.destination(),
                         load.b_address(),
                         load.operand_type(),
-                        true as usize,
+                        true,
                     );
                 } else {
                     if_block_distance += 1;
                     let jump = Instruction::from(Jump {
-                        offset: jump_distance,
-                        is_positive: true as usize,
+                        offset: jump_distance as u16,
+                        is_positive: true,
                     });
 
                     self.instructions.insert(if_block_end, jump);
@@ -1881,15 +1877,15 @@ impl<'a> ChunkCompiler<'a> {
             2.. => {
                 if_block_distance += 1;
                 let jump = Instruction::from(Jump {
-                    offset: jump_distance,
-                    is_positive: true as usize,
+                    offset: jump_distance as u16,
+                    is_positive: true,
                 });
 
                 self.instructions.insert(if_block_end, jump);
             }
         }
 
-        let jump = Instruction::jump(if_block_distance, true as usize);
+        let jump = Instruction::jump(if_block_distance as u16, true);
 
         self.instructions.insert(if_block_start, jump);
 
@@ -1936,16 +1932,16 @@ impl<'a> ChunkCompiler<'a> {
         let block_end = self.instructions.len();
         let jump_distance = block_end - block_start + 1;
         let jump = Instruction::from(Jump {
-            offset: jump_distance,
-            is_positive: true as usize,
+            offset: jump_distance as u16,
+            is_positive: true,
         });
 
         self.instructions.insert(block_start, jump);
 
         let jump_back_distance = block_end - expression_start + 1;
         let jump_back = Instruction::from(Jump {
-            offset: jump_back_distance,
-            is_positive: false as usize,
+            offset: jump_back_distance as u16,
+            is_positive: false,
         });
 
         self.emit(
@@ -2009,8 +2005,7 @@ impl<'a> ChunkCompiler<'a> {
             let should_return_value = expression_type != Type::None;
             let (return_value_address, should_remove) =
                 self.handle_previous_instruction(load_instruction);
-            let r#return =
-                Instruction::r#return(should_return_value as usize, return_value_address, r#type);
+            let r#return = Instruction::r#return(should_return_value, return_value_address, r#type);
 
             if should_remove && should_return_value {
                 self.instructions.remove(instruction_index);
@@ -2031,8 +2026,7 @@ impl<'a> ChunkCompiler<'a> {
         {
             // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
-            let r#return =
-                Instruction::r#return(false as usize, Address::default(), OperandType::NONE);
+            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
             self.update_return_type(Type::None)?;
             self.emit(
@@ -2056,7 +2050,7 @@ impl<'a> ChunkCompiler<'a> {
                     let (return_value_address, should_remove) =
                         self.handle_previous_instruction(instruction);
                     let r#return = Instruction::r#return(
-                        should_return_value as usize,
+                        should_return_value,
                         return_value_address,
                         operand_type,
                     );
@@ -2074,12 +2068,9 @@ impl<'a> ChunkCompiler<'a> {
                     );
                 }
                 ExpressionIndex::Function(prototype_index) => {
-                    let return_value_address = Address::constant(prototype_index);
-                    let r#return = Instruction::r#return(
-                        true as usize,
-                        return_value_address,
-                        OperandType::FUNCTION,
-                    );
+                    let return_value_address = Address::constant(prototype_index as u16);
+                    let r#return =
+                        Instruction::r#return(true, return_value_address, OperandType::FUNCTION);
 
                     self.update_return_type(r#type.clone())?;
                     self.emit(r#return, ExpressionKind::Return, r#type, position);
@@ -2157,7 +2148,7 @@ impl<'a> ChunkCompiler<'a> {
         if is_cell {
             let cell_index = self.declare_global(path, r#type, is_mutable);
 
-            last_instruction.set_destination(Address::cell(cell_index));
+            last_instruction.set_destination(Address::cell(cell_index as u16));
         } else {
             self.declare_local(path, address, r#type, is_mutable, self.current_block_scope);
         }
@@ -2195,7 +2186,7 @@ impl<'a> ChunkCompiler<'a> {
                 self.prototypes.clone(),
             )?; // This will consume the parenthesis
 
-            compiler.prototype_index = self.prototypes.borrow().len();
+            compiler.prototype_index = self.prototypes.borrow().len() as u16;
             compiler.allow_native_functions = self.allow_native_functions;
 
             compiler
@@ -2304,7 +2295,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.advance()?;
 
-        let get_function_info = || -> Result<(Type, usize, usize), CompileError> {
+        let get_function_info = || -> Result<(Type, u16, usize), CompileError> {
             let prototypes = self.prototypes.borrow();
 
             if let Token::Identifier(identifier) = function_token {
@@ -2369,7 +2360,7 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        let arguments_index = self.call_argument_lists.len();
+        let arguments_index = self.call_argument_lists.len() as u16;
 
         if !arguments.is_empty() {
             self.call_argument_lists.push(arguments);
@@ -2416,6 +2407,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let argument_count = function.r#type().value_parameters.len();
         let mut argument_registers = Vec::with_capacity(argument_count);
+        let argument_count = argument_count as u16;
 
         while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
@@ -2715,11 +2707,9 @@ impl<'a> ChunkCompiler<'a> {
                 let destination = Address::register(self.next_register_index());
                 let (operand, expression_kind) = match value {
                     Value::Boolean(boolean) => {
-                        (Address::constant(boolean as usize), ExpressionKind::Literal)
+                        (Address::constant(boolean as u16), ExpressionKind::Literal)
                     }
-                    Value::Byte(byte) => {
-                        (Address::constant(byte as usize), ExpressionKind::Literal)
-                    }
+                    Value::Byte(byte) => (Address::constant(byte as u16), ExpressionKind::Literal),
                     Value::Character(character) => {
                         let value = Value::character(character);
                         let constant_index = self.push_constant_or_get_index(value);
@@ -2832,12 +2822,8 @@ impl<'a> ChunkCompiler<'a> {
                     },
                     _ => todo!("Handle other constant types in use statement"),
                 };
-                let instruction = Instruction::load(
-                    destination,
-                    operand,
-                    r#type.as_operand_type(),
-                    false as usize,
-                );
+                let instruction =
+                    Instruction::load(destination, operand, r#type.as_operand_type(), false);
 
                 self.emit(instruction, expression_kind, Type::None, item_position);
                 self.declare_local(
@@ -2857,7 +2843,7 @@ impl<'a> ChunkCompiler<'a> {
 
                     prototypes.insert(prototype)
                 };
-                let address = Address::constant(prototype_index);
+                let address = Address::constant(prototype_index as u16);
 
                 self.declare_local(
                     item_name,
@@ -2896,12 +2882,8 @@ impl<'a> ChunkCompiler<'a> {
                 let (variable_address, item_type) =
                     self.bring_item_into_local_scope(aliased_path, item, item_position);
                 let destination = Address::register(self.next_register_index());
-                let load = Instruction::load(
-                    destination,
-                    variable_address,
-                    OperandType::FUNCTION,
-                    false as usize,
-                );
+                let load =
+                    Instruction::load(destination, variable_address, OperandType::FUNCTION, false);
 
                 self.emit(
                     load,

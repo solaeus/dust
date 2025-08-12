@@ -13,13 +13,13 @@ macro_rules! define_native_function {
         /// See the [module-level documentation](index.html) for more information.
         #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub struct NativeFunction {
-            pub index: usize,
+            pub index: u16,
 
         }
 
         impl NativeFunction {
 
-            pub fn from_index(index: usize) -> Self {
+            pub fn from_index(index: u16) -> Self {
                 NativeFunction {
                     index,
                 }

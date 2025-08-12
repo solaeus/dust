@@ -347,7 +347,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
                 value_string
             };
-            let register_display = Address::constant(index).to_string(r#type);
+            let register_display = Address::constant(index as u16).to_string(r#type);
             let constant_display =
                 format!("│{register_display:^9}│{type_display:^26}│{value_display:^26}│");
 

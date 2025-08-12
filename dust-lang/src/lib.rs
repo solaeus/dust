@@ -53,8 +53,8 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 pub use chunk::{Chunk, Disassembler};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Item, Local, Path, compile};
@@ -63,8 +63,8 @@ pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
 pub use jit_vm::{
-    Cell, JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic, JitVm, Object, Register, Thread, ThreadStatus,
-    run,
+    Cell, JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic, JitVm, Object, Register, Thread,
+    ThreadStatus, run,
 };
 pub use lexer::{LexError, Lexer, lex};
 pub use module::Module;

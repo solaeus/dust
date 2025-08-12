@@ -188,31 +188,31 @@ impl Instruction {
         OperandType(bits_11_to_15 as u8)
     }
 
-    pub fn a_field(&self) -> usize {
+    pub fn a_field(&self) -> u16 {
         let bits_16_to_31 = (self.0 >> 16) & 0xFFFF;
 
-        bits_16_to_31 as usize
+        bits_16_to_31 as u16
     }
 
-    pub fn b_field(&self) -> usize {
+    pub fn b_field(&self) -> u16 {
         let bits_32_to_47 = (self.0 >> 32) & 0xFFFF;
 
-        bits_32_to_47 as usize
+        bits_32_to_47 as u16
     }
 
-    pub fn c_field(&self) -> usize {
+    pub fn c_field(&self) -> u16 {
         let bits_48_to_63 = (self.0 >> 48) & 0xFFFF;
 
-        bits_48_to_63 as usize
+        bits_48_to_63 as u16
     }
 
-    pub fn set_a_field(&mut self, bits: usize) {
+    pub fn set_a_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = bits;
         *self = fields.build();
     }
 
-    pub fn set_b_field(&mut self, bits: usize) {
+    pub fn set_b_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.b_field = bits;
         *self = fields.build();
@@ -247,7 +247,7 @@ impl Instruction {
         destination: Address,
         operand: Address,
         r#type: OperandType,
-        jump_next: usize,
+        jump_next: bool,
     ) -> Instruction {
         Instruction::from(Load {
             destination,
@@ -342,7 +342,7 @@ impl Instruction {
     }
 
     pub fn equal(
-        comparator: usize,
+        comparator: bool,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -356,7 +356,7 @@ impl Instruction {
     }
 
     pub fn less(
-        comparator: usize,
+        comparator: bool,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -370,7 +370,7 @@ impl Instruction {
     }
 
     pub fn less_equal(
-        comparator: usize,
+        comparator: bool,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -398,7 +398,7 @@ impl Instruction {
         })
     }
 
-    pub fn jump(offset: usize, is_positive: usize) -> Instruction {
+    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
@@ -407,8 +407,8 @@ impl Instruction {
 
     pub fn call(
         destination: Address,
-        prototype_index: usize,
-        arguments_index: usize,
+        prototype_index: u16,
+        arguments_index: u16,
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
@@ -422,7 +422,7 @@ impl Instruction {
     pub fn call_native(
         destination: Address,
         function: NativeFunction,
-        arguments_index: usize,
+        arguments_index: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
@@ -432,7 +432,7 @@ impl Instruction {
     }
 
     pub fn r#return(
-        should_return_value: usize,
+        should_return_value: bool,
         return_address: Address,
         r#type: OperandType,
     ) -> Instruction {
@@ -523,9 +523,9 @@ pub struct InstructionFields {
     pub b_memory_kind: MemoryKind,
     pub c_memory_kind: MemoryKind,
     pub operand_type: OperandType,
-    pub a_field: usize,
-    pub b_field: usize,
-    pub c_field: usize,
+    pub a_field: u16,
+    pub b_field: u16,
+    pub c_field: u16,
 }
 
 impl InstructionFields {

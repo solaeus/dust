@@ -30,7 +30,7 @@ pub struct Chunk {
     pub(crate) call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) register_tags: Vec<OperandType>,
-    pub(crate) prototype_index: usize,
+    pub(crate) prototype_index: u16,
 }
 
 impl Display for Chunk {

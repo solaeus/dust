@@ -7,7 +7,7 @@ use super::{Address, Instruction, InstructionFields, Operation};
 pub struct CallNative {
     pub destination: Address,
     pub function: NativeFunction,
-    pub arguments_index: usize,
+    pub arguments_index: u16,
 }
 
 impl From<Instruction> for CallNative {
