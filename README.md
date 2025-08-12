@@ -88,7 +88,7 @@ The following benchmarks were run on a machine with the following specifications
 
 The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling directories for the code used.
 
-**Addictive Addition** adds the numbers from 1 to 100,000,000 using a loop and and addition operator.
+**Addictive Addition** adds the numbers from 1 to 10,000,000 using a loop and and addition operator.
 
 **Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
 
