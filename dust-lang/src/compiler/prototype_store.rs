@@ -16,6 +16,10 @@ impl PrototypeStore {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.chunks.len()
+    }
+
     pub fn insert(&mut self, chunk: Chunk) -> usize {
         let index = self.chunks.len();
 

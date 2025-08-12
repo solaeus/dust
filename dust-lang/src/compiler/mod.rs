@@ -175,9 +175,9 @@ impl Compiler {
             instructions: chunk_compiler.instructions,
             constants: chunk_compiler.constants,
             locals,
-            argument_lists: chunk_compiler.argument_lists,
+            call_argument_lists: chunk_compiler.call_argument_lists,
             register_tags,
-            prototype_index: 0,
+            prototype_index: u32::MAX as usize,
         };
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
             .expect("Unnecessary clone of prototypes")
@@ -231,7 +231,7 @@ pub(crate) struct ChunkCompiler<'a> {
     /// Block-local variables.
     locals: IndexMap<Path, Local>,
 
-    argument_lists: Vec<Vec<(Address, OperandType)>>,
+    call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
     minimum_register_index: usize,
 
@@ -283,7 +283,7 @@ impl<'a> ChunkCompiler<'a> {
             expressions: Vec::new(),
             constants: Vec::new(),
             locals: IndexMap::new(),
-            argument_lists: Vec::new(),
+            call_argument_lists: Vec::new(),
             lexer,
             minimum_register_index: 0,
             block_index: 0,
@@ -2195,7 +2195,7 @@ impl<'a> ChunkCompiler<'a> {
                 self.prototypes.clone(),
             )?; // This will consume the parenthesis
 
-            compiler.prototype_index = self.constants.len();
+            compiler.prototype_index = self.prototypes.borrow().len();
             compiler.allow_native_functions = self.allow_native_functions;
 
             compiler
@@ -2269,7 +2269,7 @@ impl<'a> ChunkCompiler<'a> {
             register_tags,
             r#type: function_compiler.r#type,
             constants: function_compiler.constants,
-            argument_lists: function_compiler.argument_lists,
+            call_argument_lists: function_compiler.call_argument_lists,
             prototype_index: function_compiler.prototype_index,
         };
         let prototype_address = Address::constant(chunk.prototype_index);
@@ -2369,10 +2369,10 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        let arguments_index = self.argument_lists.len();
+        let arguments_index = self.call_argument_lists.len();
 
         if !arguments.is_empty() {
-            self.argument_lists.push(arguments);
+            self.call_argument_lists.push(arguments);
         }
 
         let end = self.current_position.1;

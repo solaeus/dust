@@ -372,7 +372,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        for (index, addresses) in chunk.argument_lists.iter().enumerate() {
+        for (index, addresses) in chunk.call_argument_lists.iter().enumerate() {
             let arguments_display = addresses
                 .iter()
                 .map(|(address, r#type)| format!("({}: {type})", address.to_string(*r#type)))
@@ -447,7 +447,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             self.write_constant_section(chunk)?;
         }
 
-        if !chunk.argument_lists.is_empty() {
+        if !chunk.call_argument_lists.is_empty() {
             self.write_argument_lists_section(chunk)?;
         }
 

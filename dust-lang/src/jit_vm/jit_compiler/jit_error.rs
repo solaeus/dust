@@ -1,11 +1,10 @@
-use crate::{Instruction, MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
+use crate::{MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
 
 pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum JitError {
     ArgumentsIndexOutOfBounds {
-        ip: usize,
         arguments_index: usize,
         total_argument_count: usize,
     },
@@ -13,34 +12,24 @@ pub enum JitError {
         ip: usize,
     },
     JumpTargetOutOfBounds {
-        ip: usize,
         target_instruction_pointer: isize,
         total_instruction_count: usize,
     },
     BranchTargetOutOfBounds {
-        ip: usize,
         branch_target_instruction_pointer: usize,
         total_instruction_count: usize,
     },
     InvalidConstantType {
-        ip: usize,
-        instruction: Instruction,
         constant_index: usize,
         expected_type: OperandType,
     },
     UnsupportedOperandType {
-        ip: usize,
-        instruction: Instruction,
         operand_type: OperandType,
     },
     UnsupportedMemoryKind {
-        ip: usize,
-        instruction: Instruction,
         memory_kind: MemoryKind,
     },
     UnhandledOperation {
-        ip: usize,
-        instruction: Instruction,
         operation: Operation,
     },
     CraneliftModuleError {
@@ -49,6 +38,15 @@ pub enum JitError {
     FunctionCompilationError {
         message: String,
         cranelift_ir: String,
+    },
+    FunctionIndexOutOfBounds {
+        ip: usize,
+        function_index: usize,
+        total_function_count: usize,
+    },
+    RegisterIndexOutOfBounds {
+        register_index: usize,
+        total_register_count: usize,
     },
 }
 
@@ -69,89 +67,92 @@ impl AnnotatedError for JitError {
             JitError::UnhandledOperation { .. } => "Unhandled operation",
             JitError::CraneliftModuleError { .. } => "Cranelift module error",
             JitError::FunctionCompilationError { .. } => "Function compilation error",
+            JitError::FunctionIndexOutOfBounds { .. } => "Function index out of bounds",
+            JitError::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
         }
     }
 
     fn detail_snippets(&self) -> Vec<(String, Span)> {
         vec![match self {
             JitError::ArgumentsIndexOutOfBounds {
-                ip,
                 arguments_index,
                 total_argument_count,
             } => (
                 format!(
-                    "Arguments index out of bounds at ip {ip}: index {arguments_index}, total arguments {total_argument_count}"
+                    "Arguments index {arguments_index} is out of bounds for total argument count {total_argument_count}."
                 ),
-                Span(0, JIT_ERROR_TEXT.len()),
+                Span::default(),
             ),
             JitError::JumpToSelf { ip } => (
-                format!("Jump to self detected at ip {ip}"),
-                Span(0, JIT_ERROR_TEXT.len()),
+                format!("Jump to self detected at instruction pointer {ip}."),
+                Span::default(),
             ),
             JitError::JumpTargetOutOfBounds {
-                ip,
                 target_instruction_pointer,
                 total_instruction_count,
             } => (
                 format!(
-                    "Jump target out of bounds at ip {ip}, target {target_instruction_pointer}, total instructions {total_instruction_count}"
+                    "Jump target {target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
                 ),
-                Span(0, JIT_ERROR_TEXT.len()),
+                Span::default(),
             ),
             JitError::BranchTargetOutOfBounds {
-                ip,
                 branch_target_instruction_pointer,
                 total_instruction_count,
             } => (
                 format!(
-                    "Branch target out of bounds at ip {ip}, branch target {branch_target_instruction_pointer}, total instructions {total_instruction_count}"
+                    "Branch target {branch_target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
                 ),
-                Span(0, JIT_ERROR_TEXT.len()),
+                Span::default(),
             ),
             JitError::InvalidConstantType {
-                ip,
-                instruction,
                 constant_index,
                 expected_type,
             } => (
-                format!(
-                    "Invalid constant type at ip {ip} ({instruction}): index {constant_index}, expected {expected_type}"
-                ),
-                Span(0, JIT_ERROR_TEXT.len()),
+                format!("Constant index {constant_index} expected type was {expected_type}."),
+                Span::default(),
             ),
-            JitError::UnsupportedOperandType {
-                ip,
-                instruction,
-                operand_type,
-            } => (
-                format!("Unsupported operand type at ip {ip} ({instruction}): {operand_type}"),
-                Span(0, JIT_ERROR_TEXT.len()),
+            JitError::UnsupportedOperandType { operand_type } => (
+                format!("Unsupported operand type: {operand_type}."),
+                Span::default(),
             ),
-            JitError::UnsupportedMemoryKind {
-                ip,
-                instruction,
-                memory_kind,
-            } => (
-                format!("Unsupported memory kind at ip {ip} ({instruction}): {memory_kind}"),
-                Span(0, JIT_ERROR_TEXT.len()),
+            JitError::UnsupportedMemoryKind { memory_kind } => (
+                format!("Unsupported memory kind: {memory_kind}."),
+                Span::default(),
             ),
-            JitError::UnhandledOperation {
-                ip,
-                instruction,
-                operation,
-            } => (
-                format!("Unhandled operation at ip {ip} ({instruction}): {operation}"),
-                Span(0, JIT_ERROR_TEXT.len()),
+            JitError::UnhandledOperation { operation } => (
+                format!("Unhandled operation: {operation}."),
+                Span::default(),
             ),
-            JitError::CraneliftModuleError { message } => {
-                (message.clone(), Span(0, JIT_ERROR_TEXT.len()))
-            }
+            JitError::CraneliftModuleError { message } => (
+                format!("Cranelift module error: {message}."),
+                Span::default(),
+            ),
             JitError::FunctionCompilationError {
                 message,
                 cranelift_ir,
             } => (
-                format!("{message}\nCranelift IR:\n{cranelift_ir}"),
-                Span(0, JIT_ERROR_TEXT.len()),
+                format!("Function compilation error: {message}\nCranelift IR:\n{cranelift_ir}"),
+                Span::default(),
+            ),
+            JitError::FunctionIndexOutOfBounds {
+                ip,
+                function_index,
+                total_function_count,
+            } => (
+                format!(
+                    "Function index {function_index} at instruction pointer {ip} is out of bounds for total function count {total_function_count}."
+                ),
+                Span::default(),
+            ),
+            JitError::RegisterIndexOutOfBounds {
+                register_index,
+                total_register_count,
+            } => (
+                format!(
+                    "Register index {register_index} is out of bounds for total register count {total_register_count}."
+                ),
+                Span::default(),
             ),
         }]
     }

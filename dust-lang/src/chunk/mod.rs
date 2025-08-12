@@ -27,7 +27,7 @@ pub struct Chunk {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) constants: Vec<Value>,
     pub(crate) locals: Vec<(Path, Local)>,
-    pub(crate) argument_lists: Vec<Vec<(Address, OperandType)>>,
+    pub(crate) call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) register_tags: Vec<OperandType>,
     pub(crate) prototype_index: usize,

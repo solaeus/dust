@@ -25,3 +25,23 @@ pub extern "C" fn log_operation(op_code: i64) {
 pub extern "C" fn log_value(value: i64) {
     trace!("Value: {}", value);
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn log_call_frame(
+    ip: i64,
+    function_index: i64,
+    register_range_start: i64,
+    register_range_end: i64,
+    arguments_index: i64,
+    return_register_index: i64,
+) {
+    trace!(
+        "Call frame: ip: {}, function_index: {}, register_range: {}-{}, arguments_index: {}, return_register_index: {}",
+        ip,
+        function_index,
+        register_range_start,
+        register_range_end,
+        arguments_index,
+        return_register_index
+    );
+}

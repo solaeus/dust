@@ -131,12 +131,6 @@ pub fn push_call_frame(
         destination_register_address,
         0,
     );
-    builder.ins().store(
-        MemFlags::new(),
-        destination_register,
-        destination_register_address,
-        0,
-    );
 
     let call_stack_length =
         builder
@@ -162,6 +156,21 @@ pub fn get_frame_ip(
     let address = builder.ins().iadd(call_stack_pointer, total);
 
     builder.ins().load(types::I64, MemFlags::new(), address, 0)
+}
+
+pub fn set_frame_ip(
+    frame_index: Value,
+    ip: Value,
+    call_stack_pointer: Value,
+    builder: &mut FunctionBuilder,
+) {
+    let frame_size_value = builder.ins().iconst(types::I64, CALL_FRAME_SIZE as i64);
+    let field_offset = builder.ins().iconst(types::I64, IP_FIELD as i64);
+    let index_offset = builder.ins().imul(frame_index, frame_size_value);
+    let total_offset = builder.ins().iadd(index_offset, field_offset);
+    let address = builder.ins().iadd(call_stack_pointer, total_offset);
+
+    builder.ins().store(MemFlags::new(), ip, address, 0);
 }
 
 pub fn get_frame_function_index(
@@ -268,7 +277,7 @@ pub fn get_call_frame(
     )
 }
 
-pub fn pop_call_frame(
+pub fn _pop_call_frame(
     call_stack_pointer: Value,
     call_stack_length_pointer: Value,
     builder: &mut FunctionBuilder,
