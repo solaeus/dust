@@ -42,7 +42,6 @@ fib(25)
 
 Development is active and, while many aspects of the implementation are stable, research is ongoing into optimizations and performance improvements. JIT compilation is the latest feature to be added and is still being refined. Before a 1.0 release, the JIT VM needs to be fully implemented along with a bytecode interpreter for environments where JIT compilation is not possible.
 
-
 ## Overview
 
 This project's goal is to deliver a language with features that stand out due to a combination of design choices and a high-quality implementation, providing **correctness**, **performance** and **ease-of-use**.
@@ -86,9 +85,9 @@ The following benchmarks were run on a machine with the following specifications
 | Memory        | 32 GB                                 |
 | Rust Version  | 1.91.0-nightly                        |
 
-The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling directories for the code used.
+The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling` directories for the code used.
 
-**Addictive Addition** adds the numbers from 1 to 10,000,000 using a loop and and addition operator.
+**Addictive Addition** increments a counter from 0 to 10,000,000 using a loop and and addition operator.
 
 **Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
 
