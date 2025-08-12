@@ -1,21 +1,4 @@
 //! The Dust compiler and its accessories.
-//!
-//! This module provides two compilation options:
-//! - [`compile`] is a simple function that borrows a string and returns a chunk, handling
-//!   compilation and turning any resulting error into a [`DustError`], which can easily display a
-//!   detailed report.
-//! - [`Compiler`] is created with a [`Lexer`] and potentially emits a [`CompileError`] if the
-//!   input is invalid.
-//!
-//! # Errors
-//!
-//! The compiler can return errors due to:
-//!     - Lexing errors
-//!     - Parsing errors
-//!     - Type conflicts
-//!
-//! It is a logic error to call [`Compiler::finish`] on a compiler that has emitted an error and
-//! pass that chunk to the VM.
 #![macro_use]
 
 mod compile_error;
@@ -56,17 +39,7 @@ use crate::{
     r#type::ConcreteType,
 };
 
-/// Compiles the input and returns a chunk.
-///
-/// # Example
-///
-/// ```
-/// # use dust_lang::{compile, Chunk, FullChunk};
-/// let source = "40 + 2 == 42";
-/// let chunk = compile::<FullChunk>(source).unwrap();
-///
-/// assert_eq!(chunk.instructions().len(), 6);
-/// ```
+/// Compiles the input and returns a program.
 pub fn compile(source: &'_ str) -> Result<Program, DustError<'_>> {
     let compiler = Compiler::new();
 

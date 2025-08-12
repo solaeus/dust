@@ -1,4 +1,3 @@
-//! This VM never emits errors. Instead, errors are handled as panics.
 #[macro_use]
 mod call_stack;
 mod cell;
