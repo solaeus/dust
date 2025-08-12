@@ -83,6 +83,11 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
 
     match return_type {
         OperandType::NONE => Ok(None),
+        OperandType::BOOLEAN => {
+            let boolean = unsafe { return_register.boolean };
+
+            Ok(Some(Value::Boolean(boolean)))
+        }
         OperandType::INTEGER => {
             let integer = unsafe { return_register.integer };
 

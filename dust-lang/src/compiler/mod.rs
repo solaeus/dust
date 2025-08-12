@@ -1655,7 +1655,7 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        let mut destination_register = (last_item_register + 1) as u16;
+        let mut destination_register = last_item_register + 1;
         let reordered_instructions_count = instructions_to_reorder.len() as u16;
 
         for mut instruction in instructions_to_reorder {
