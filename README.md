@@ -2,14 +2,15 @@
 
 [![Build Status](https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg)](https://github.com/solaeus/dust/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Rust Version](https://img.shields.io/badge/rust-1.90.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
+[![Rust Version](https://img.shields.io/badge/rust-1.91.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
 
-**High-performance programming language focused on correctness, speed, and ease of use.**
+**High-performance programming language focused on correctness, performance and ease of use.**
 
 Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation, and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
 
+An interactive "Hello, world" using Dust's built-in I/O functions:
+
 ```rust
-// An interactive "Hello, world" using Dust's built-in I/O functions
 write_line("Enter your name...")
 
 let name = read_line()
@@ -17,8 +18,9 @@ let name = read_line()
 write_line("Hello " + name + "!")
 ```
 
+The classic, unoptimized Fibonacci sequence:
+
 ```rust
-// The classic, unoptimized Fibonacci sequence
 fn fib (n: int) -> int {
     if n <= 0 {
         0
@@ -29,50 +31,39 @@ fn fib (n: int) -> int {
     }
 }
 
-write_line(fib(25))
+fib(25)
 ```
+
+## Project Status
 
 > [!IMPORTANT]
 > 🧪 💡 ⚗️
-> Dust is still experimental. Currently, development is more focused on exploring ideas for optimization and performance than on stability or feature completeness.
+> Dust is still experimental.
 
-## Highlights
+Development is active and, while many aspects of the implementation are stable, research is ongoing into optimizations and performance improvements. JIT compilation is the latest feature to be added and is still being refined. Before a 1.0 release, the JIT VM needs to be fully implemented along with a bytecode interpreter for environments where JIT compilation is not possible.
 
-- Easy to read and write
-- Static typing with extensive type inference
-- Multi-threaded register-based virtual machine
-- JIT compilation for fast execution
-- Beautiful, helpful error messages from the compiler
-- Safe execution, runtime errors are treated as bugs
 
 ## Overview
 
-Dust's syntax, safety features and evaluation model are based on Rust. Its instruction set and compiler optimization strategies are based on Lua. Unlike Rust and other languages that compile ahead-of-time, Dust has a very low time to execution. Unlike Lua and most other interpreted languages, Dust enforces static typing to improve clarity and prevent bugs.
+This project's goal is to deliver a language with features that stand out due to a combination of design choices and a high-quality implementation, providing **correctness**, **performance** and **ease-of-use**.
 
-### Project Goals
-
-This project's goal is to deliver a language with features that stand out due to a combination of design choices and a high-quality implementation. As mentioned in the first sentence, Dust's general aspirations are to be **fast**, **safe** and **easy**.
-
-- **Fast** 🚀
-  - **Fast Compilation** Despite its compile-time abstractions, Dust should compile and start executing quickly. The compilation time should feel negligible to the user.
-  - **Fast Execution** Dust should be competitive with highly optimized, modern, register-based VM languages like Lua. Dust should be bench tested during development to inform decisions about performance.
-  - **Low Resource Usage** Memory and CPU power should be used conservatively and predictably.
-- **Safe** 🛡️
-  - **Static Types** Typing should prevent runtime errors and improve code quality, offering a superior development experience despite some additional constraints.
-  - **Null-Free** Dust has no "null" or "undefined" values. All values are initialized and have a type. This eliminates a whole class of bugs that are common in other languages.
-  - **Memory Safety** Dust should be free of memory bugs, using both safe Rust and sound, correct "unsafe" Rust to maximize performance. Dust should employ a concurrent mark-and-sweep garbage collecter, allowing other threads to continue executing instructions while the garbage collector looks for freeable memory.
-- **Easy** 🎂
-  - **Simple Syntax** Dust should be easier to learn than most programming languages. Its syntax should be familiar to users of other C-like languages to the point that even a new user can read Dust code and understand what it does. Rather than being held back by a lack of features, Dust should be powerful and elegant in its simplicity, seeking a maximum of capability with a minimum of complexity.
-  - **Practical Tooling** Shipped as a single binary, Dust should provide logging and tools for disassembly and tokenization that make the lexer, compiler and runtime as transparent as possible. Dust should also include an official formatter through the same binary. Additional tools such as a language server and linter should be adopted when possible.
-  - **Excellent Errors** Dust should provide helpful error messages that guide the user to the source of the problem and suggest a solution. Errors should be a helpful learning resource for users rather than a source of frustration.
-
-### Author
-
-I'm Jeff 🦀 and I started this project as a simple expession evaluator. Initially, the project used an external parser and a tree-walking interpreter. After several books, a few papers, countless articles and a lot of experimentation, Dust has evolved to an ambitious project that aims to implement lucrative features with a high-quality implementation that competes with established languages.
+- **Correctness**
+  - Statically typed with type inference
+  - No null or undefined values
+  - Potential runtime errors are caught at compile time
+- **Performance**
+  - JIT compilation with execution times that rival or exceed established languages
+  - Fast compilation for negligible startup times
+  - Low memory usage, especially at runtime
+- **Ease-of-use**
+  - Simple syntax that is easy to read and write and resembles other C-family languages
+  - Helpful error messages that guide users to correct syntax
+  - Batteries included in a standard library that is always available
 
 ## Usage
 
 **Dust is under active development and is not yet ready for general use.**
+
 The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at different levels and measure the time taken for compilation and execution.
 
 If not specified, the CLI will use the `run` command. This mode compiles and executes the Dust program, printing the return value to the console. You can also run Dust code directly from the command line using the `--eval` or `-e` flag.
@@ -89,36 +80,39 @@ dust -e 'let x = 42; x'
 
 The following benchmarks were run on a machine with the following specifications:
 
-|               |                                               |
-|---------------|-----------------------------------------------|
-| CPU           | AMD Ryzen 9 7900X3D 12-Core Processor         |
-| Memory        | 32 GB                                         |
-| Rust Version  | 1.90.0-nightly (ba7e63b63 2025-07-29)         |
+|               |                                       |
+|---------------|---------------------------------------|
+| CPU           | AMD Ryzen 9 7900X3D 12-Core Processor |
+| Memory        | 32 GB                                 |
+| Rust Version  | 1.91.0-nightly                        |
 
-The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file.
+The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling directories for the code used.
 
-### Addictive Addition
+**Addictive Addition** adds the numbers from 1 to 100,000,000 using a loop and and addition operator.
 
-See the `bench/addictive_addition` directory for the code used in this benchmark.
-This is a simple iterative loop that increments a counter by 1 until it reaches 10,000,000. The benchmark was taken from a similar benchmark used in a paper[^3] on stack-based and register-based virtual machines. This benchmark favors languages that have a fast startup time and efficient execution of simple loops.
+**Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
 
-| Language | Mean [ms] | Relative |
-|----------|-----------|----------|
-| dust     |     5.5   |  1.00    |
-| luajit   |     8.7   |  1.57    |
-| bun      |    12.5   |  2.26    |
-| pypy     |    21.2   |  3.83    |
-| php      |    41.7   |  7.54    |
-| lua      |    43.5   |  7.87    |
-| node     |    54.6   |  9.87    |
-| deno     |    84.8   |  15.34   |
-| julia    |   106.3   |  19.22   |
-| ruby     |   119.5   |  21.62   |
-| perl     |   192.3   |  34.78   |
-| java     |   210.9   |  38.15   |
-| Rscript  |   249.8   |  45.17   |
-| python   |   439.3   |  79.44   |
-| clojure  |   1283    |  232.06  |
+| Runtime | Addictive Addition (ms) | Addictive Calling (ms) |
+|---------|-------------------------|------------------------|
+| Dust    | 8.5                     | 14.4                   |
+| LuaJIT  | 8.7                     | 8.7                    |
+| Bun     | 12.6                    | 14.4                   |
+| PyPy    | 21.4                    | 22.0                   |
+| PHP     | 42.8                    | 98.6                   |
+| Lua     | 43.2                    | 149.9                  |
+| Node    | 55.3                    | 56.2                   |
+| Deno    | 87.6                    | 87.9                   |
+| Julia   | 103.8                   | 105.1                  |
+| Ruby    | 120.6                   | 245.9                  |
+| Perl    | 193.8                   | 647.0                  |
+| Java    | 210.2                   | 214.0                  |
+| R       | 250.6                   | 1533.0                 |
+| Python  | 461.2                   | 594.9                  |
+| Clojure | 1266.0                  | 1352.0                 |
+
+The results of this benchmark show that Dust is performing very well in simple arithmetic operations. Languages like LuaJIT and Bun are clearly using function inlining due to the nearly identical times for both benchmarks. Dust does not yet perform function inlining, hence the slower time for "Addictive Calling".
+
+As this project matures, more benchmarks will be added to cover a wider range of use cases.
 
 ## Inspiration
 
