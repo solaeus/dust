@@ -6,7 +6,7 @@ pub union Register {
     pub empty: (),
     pub boolean: bool,
     pub byte: u8,
-    pub char: char,
+    pub character: char,
     pub float: f64,
     pub integer: i64,
     pub prototype_index: usize,

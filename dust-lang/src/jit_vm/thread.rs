@@ -93,6 +93,16 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
 
             Ok(Some(Value::Byte(byte)))
         }
+        OperandType::CHARACTER => {
+            let character = unsafe { return_register.character };
+
+            Ok(Some(Value::Character(character)))
+        }
+        OperandType::FLOAT => {
+            let float = unsafe { return_register.float };
+
+            Ok(Some(Value::Float(float)))
+        }
         OperandType::INTEGER => {
             let integer = unsafe { return_register.integer };
 

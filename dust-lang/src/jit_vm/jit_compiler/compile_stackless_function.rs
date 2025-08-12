@@ -166,6 +166,18 @@ pub fn compile_stackless_function(
                         OperandType::BYTE => {
                             get_byte(operand, current_frame_base_address, &mut function_builder)?
                         }
+                        OperandType::CHARACTER => get_character(
+                            operand,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?,
+                        OperandType::FLOAT => get_float(
+                            operand,
+                            current_frame_base_address,
+                            chunk,
+                            &mut function_builder,
+                        )?,
                         OperandType::INTEGER => get_integer(
                             operand,
                             current_frame_base_address,
@@ -450,6 +462,32 @@ pub fn compile_stackless_function(
 
                             (byte_value, byte_type)
                         }
+                        OperandType::CHARACTER => {
+                            let character_value = get_character(
+                                return_value_address,
+                                current_frame_base_address,
+                                chunk,
+                                &mut function_builder,
+                            )?;
+                            let character_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::CHARACTER.0 as i64);
+
+                            (character_value, character_type)
+                        }
+                        OperandType::FLOAT => {
+                            let float_value = get_float(
+                                return_value_address,
+                                current_frame_base_address,
+                                chunk,
+                                &mut function_builder,
+                            )?;
+                            let float_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::FLOAT.0 as i64);
+
+                            (float_value, float_type)
+                        }
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 return_value_address,
@@ -624,13 +662,12 @@ fn get_byte(
     Ok(jit_value)
 }
 
-fn get_integer(
+fn get_character(
     address: Address,
     frame_base_address: CraneliftValue,
     chunk: &Chunk,
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
-    let address_index = address.index as usize;
     let jit_value = match address.memory {
         MemoryKind::REGISTER => {
             let relative_index = function_builder.ins().iconst(I64, address.index as i64);
@@ -639,25 +676,131 @@ fn get_integer(
                 .imul_imm(relative_index, size_of::<Register>() as i64);
             let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-            function_builder
-                .ins()
-                .load(I64, MemFlags::new(), address, 0)
+            function_builder.ins().load(I8, MemFlags::new(), address, 0)
         }
-        MemoryKind::CONSTANT => match chunk.constants[address_index].as_integer() {
-            Some(integer) => function_builder.ins().iconst(I64, integer),
-            None => {
-                return Err(JitError::InvalidConstantType {
-                    constant_index: address_index,
-                    expected_type: OperandType::INTEGER,
-                });
-            }
-        },
+        MemoryKind::CONSTANT => {
+            let constant = chunk.constants.get(address.index as usize).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index as usize,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+            let character = match constant.as_character() {
+                Some(character) => character,
+                None => {
+                    return Err(JitError::InvalidConstantType {
+                        constant_index: address.index as usize,
+                        expected_type: OperandType::CHARACTER,
+                    });
+                }
+            };
+
+            function_builder.ins().iconst(I8, character as i64)
+        }
         _ => {
             return Err(JitError::UnsupportedMemoryKind {
                 memory_kind: address.memory,
             });
         }
     };
+
+    Ok(jit_value)
+}
+
+fn get_float(
+    address: Address,
+    frame_base_address: CraneliftValue,
+    chunk: &Chunk,
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let address_index = address.index as usize;
+    let jit_value =
+        match address.memory {
+            MemoryKind::REGISTER => {
+                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+                let byte_offset = function_builder
+                    .ins()
+                    .imul_imm(relative_index, size_of::<Register>() as i64);
+                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), address, 0)
+            }
+            MemoryKind::CONSTANT => {
+                let constant = chunk.constants.get(address_index).ok_or(
+                    JitError::ConstantIndexOutOfBounds {
+                        constant_index: address_index,
+                        total_constant_count: chunk.constants.len(),
+                    },
+                )?;
+                let float = match constant.as_float() {
+                    Some(float_value) => float_value,
+                    None => {
+                        return Err(JitError::InvalidConstantType {
+                            constant_index: address_index,
+                            expected_type: OperandType::FLOAT,
+                        });
+                    }
+                };
+
+                function_builder.ins().iconst(I64, float.to_bits() as i64)
+            }
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                });
+            }
+        };
+
+    Ok(jit_value)
+}
+
+fn get_integer(
+    address: Address,
+    frame_base_address: CraneliftValue,
+    chunk: &Chunk,
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let address_index = address.index as usize;
+    let jit_value =
+        match address.memory {
+            MemoryKind::REGISTER => {
+                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+                let byte_offset = function_builder
+                    .ins()
+                    .imul_imm(relative_index, size_of::<Register>() as i64);
+                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), address, 0)
+            }
+            MemoryKind::CONSTANT => {
+                let constant = chunk.constants.get(address_index).ok_or(
+                    JitError::ConstantIndexOutOfBounds {
+                        constant_index: address_index,
+                        total_constant_count: chunk.constants.len(),
+                    },
+                )?;
+                let integer = match constant.as_integer() {
+                    Some(integer) => integer,
+                    None => {
+                        return Err(JitError::InvalidConstantType {
+                            constant_index: address_index,
+                            expected_type: OperandType::INTEGER,
+                        });
+                    }
+                };
+
+                function_builder.ins().iconst(I64, integer)
+            }
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                });
+            }
+        };
 
     Ok(jit_value)
 }

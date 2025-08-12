@@ -48,6 +48,10 @@ pub enum JitError {
         register_index: usize,
         total_register_count: usize,
     },
+    ConstantIndexOutOfBounds {
+        constant_index: usize,
+        total_constant_count: usize,
+    },
 }
 
 impl AnnotatedError for JitError {
@@ -69,6 +73,7 @@ impl AnnotatedError for JitError {
             JitError::FunctionCompilationError { .. } => "Function compilation error",
             JitError::FunctionIndexOutOfBounds { .. } => "Function index out of bounds",
             JitError::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
+            JitError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
         }
     }
 
@@ -151,6 +156,15 @@ impl AnnotatedError for JitError {
             } => (
                 format!(
                     "Register index {register_index} is out of bounds for total register count {total_register_count}."
+                ),
+                Span::default(),
+            ),
+            JitError::ConstantIndexOutOfBounds {
+                constant_index,
+                total_constant_count,
+            } => (
+                format!(
+                    "Constant index {constant_index} is out of bounds for total constant count {total_constant_count}."
                 ),
                 Span::default(),
             ),
