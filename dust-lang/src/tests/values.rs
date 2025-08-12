@@ -56,3 +56,30 @@ fn boolean_false() {
     );
     assert_eq!(return_value, Some(Value::Boolean(false)));
 }
+
+#[test]
+fn byte() {
+    let source = "0xFF";
+    let chunk = compile(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Program {
+            main_chunk: Chunk {
+                name: Some(Path::new("main").unwrap()),
+                r#type: FunctionType::new([], [], Type::Byte),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::encoded(255),
+                    OperandType::BYTE
+                )],
+                prototype_index: u16::MAX,
+                ..Default::default()
+            },
+            cell_count: 0,
+            prototypes: Vec::new(),
+        }
+    );
+    assert_eq!(return_value, Some(Value::Byte(255)));
+}

@@ -75,7 +75,7 @@ dust -e 'let x = 42; x'
 ## Benchmarks
 
 > [!IMPORTANT]
-> Anything shown here is a preliminary benchmark to guage the performance of Dust as it is being developed. Benchmarks at this point in development are not intended to be rigorous.
+> Anything shown here is a preliminary benchmark to guage the performance of Dust as it is being developed.
 
 The following benchmarks were run on a machine with the following specifications:
 
@@ -87,27 +87,27 @@ The following benchmarks were run on a machine with the following specifications
 
 The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling` directories for the code used.
 
-**Addictive Addition** increments a counter from 0 to 10,000,000 using a loop and and addition operator.
+**Addictive Addition** increments a counter from 0 to 10,000,000 using a loop and an operator.
 
 **Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
 
-| Runtime | Addictive Addition (ms) | Addictive Calling (ms) |
-|---------|-------------------------|------------------------|
-| Dust    | 8.5                     | 14.4                   |
-| LuaJIT  | 8.7                     | 8.7                    |
-| Bun     | 12.6                    | 14.4                   |
-| PyPy    | 21.4                    | 22.0                   |
-| PHP     | 42.8                    | 98.6                   |
-| Lua     | 43.2                    | 149.9                  |
-| Node    | 55.3                    | 56.2                   |
-| Deno    | 87.6                    | 87.9                   |
-| Julia   | 103.8                   | 105.1                  |
-| Ruby    | 120.6                   | 245.9                  |
-| Perl    | 193.8                   | 647.0                  |
-| Java    | 210.2                   | 214.0                  |
-| R       | 250.6                   | 1533.0                 |
-| Python  | 461.2                   | 594.9                  |
-| Clojure | 1266.0                  | 1352.0                 |
+|   Runtime   | Addictive Addition (ms) | Addictive Calling (ms) |
+|-------------|-------------------------|------------------------|
+| **Dust**    | **8.5**                 | **14.4**               |
+| LuaJIT      | 8.7                     | 8.7                    |
+| Bun         | 12.6                    | 14.4                   |
+| PyPy        | 21.4                    | 22.0                   |
+| PHP         | 42.8                    | 98.6                   |
+| Lua         | 43.2                    | 149.9                  |
+| Node        | 55.3                    | 56.2                   |
+| Deno        | 87.6                    | 87.9                   |
+| Julia       | 103.8                   | 105.1                  |
+| Ruby        | 120.6                   | 245.9                  |
+| Perl        | 193.8                   | 647.0                  |
+| Java        | 210.2                   | 214.0                  |
+| R           | 250.6                   | 1533.0                 |
+| Python      | 461.2                   | 594.9                  |
+| Clojure     | 1266.0                  | 1352.0                 |
 
 The results of this benchmark show that Dust is performing very well in simple arithmetic operations. Languages like LuaJIT and Bun are clearly using function inlining due to the nearly identical times for both benchmarks. Dust does not yet perform function inlining, hence the slower time for "Addictive Calling".
 

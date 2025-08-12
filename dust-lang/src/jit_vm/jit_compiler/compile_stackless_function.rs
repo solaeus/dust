@@ -163,6 +163,9 @@ pub fn compile_stackless_function(
                         OperandType::BOOLEAN => {
                             get_boolean(operand, current_frame_base_address, &mut function_builder)?
                         }
+                        OperandType::BYTE => {
+                            get_byte(operand, current_frame_base_address, &mut function_builder)?
+                        }
                         OperandType::INTEGER => get_integer(
                             operand,
                             current_frame_base_address,
@@ -435,6 +438,18 @@ pub fn compile_stackless_function(
 
                             (boolean_value, boolean_type)
                         }
+                        OperandType::BYTE => {
+                            let byte_value = get_byte(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let byte_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::BYTE.0 as i64);
+
+                            (byte_value, byte_type)
+                        }
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 return_value_address,
@@ -573,6 +588,32 @@ fn get_boolean(
 
             function_builder.ins().iconst(I8, boolean_value as i64)
         }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
+
+    Ok(jit_value)
+}
+
+fn get_byte(
+    address: Address,
+    frame_base_address: CraneliftValue,
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => {
+            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+            let byte_offset = function_builder
+                .ins()
+                .imul_imm(relative_index, size_of::<Register>() as i64);
+            let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+
+            function_builder.ins().load(I8, MemFlags::new(), address, 0)
+        }
+        MemoryKind::ENCODED => function_builder.ins().iconst(I8, address.index as i64),
         _ => {
             return Err(JitError::UnsupportedMemoryKind {
                 memory_kind: address.memory,
