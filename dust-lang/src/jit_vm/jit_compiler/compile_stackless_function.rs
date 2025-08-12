@@ -1,8 +1,8 @@
 use cranelift::{
-    codegen::CodegenError,
+    codegen::{CodegenError, ir::FuncRef},
     frontend::Switch,
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
         Value as CraneliftValue,
         types::{I8, I64},
     },
@@ -35,35 +35,31 @@ pub fn compile_stackless_function(
         .func
         .signature
         .params
-        .push(AbiParam::new(pointer_type));
-    compilation_context
-        .func
-        .signature
-        .params
-        .push(AbiParam::new(pointer_type));
-    compilation_context
-        .func
-        .signature
-        .params
-        .push(AbiParam::new(pointer_type));
-    compilation_context
-        .func
-        .signature
-        .params
-        .push(AbiParam::new(pointer_type));
-    compilation_context
-        .func
-        .signature
-        .params
-        .push(AbiParam::new(pointer_type));
+        .extend([AbiParam::new(pointer_type); 7]);
 
     let mut function_builder =
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
+    let allocate_string_function = {
+        let mut allocate_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        allocate_string_signature.params.extend([
+            AbiParam::new(I64),          // string_pointer
+            AbiParam::new(I64),          // length
+            AbiParam::new(pointer_type), // object_pool_pointer
+        ]);
+        allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "allocate_string",
+            allocate_string_signature,
+        )?
+    };
+
     #[cfg(debug_assertions)]
     let log_operation_function = {
-        use cranelift::prelude::{Signature, types::I8};
-
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
 
         log_operation_signature.params.push(AbiParam::new(I8));
@@ -97,8 +93,10 @@ pub fn compile_stackless_function(
     let call_stack_pointer = function_builder.block_params(function_entry_block)[0];
     let call_stack_length_pointer = function_builder.block_params(function_entry_block)[1];
     let register_stack_pointer = function_builder.block_params(function_entry_block)[2];
-    let return_register_pointer = function_builder.block_params(function_entry_block)[3];
-    let return_type_pointer = function_builder.block_params(function_entry_block)[4];
+    let _register_stack_length_pointer = function_builder.block_params(function_entry_block)[3];
+    let object_pool_pointer = function_builder.block_params(function_entry_block)[4];
+    let return_register_pointer = function_builder.block_params(function_entry_block)[5];
+    let return_type_pointer = function_builder.block_params(function_entry_block)[6];
 
     let call_stack_length =
         function_builder
@@ -182,6 +180,14 @@ pub fn compile_stackless_function(
                             operand,
                             current_frame_base_address,
                             chunk,
+                            &mut function_builder,
+                        )?,
+                        OperandType::STRING => get_string(
+                            operand,
+                            current_frame_base_address,
+                            chunk,
+                            object_pool_pointer,
+                            allocate_string_function,
                             &mut function_builder,
                         )?,
                         _ => {
@@ -501,6 +507,21 @@ pub fn compile_stackless_function(
 
                             (integer_value, integer_type)
                         }
+                        OperandType::STRING => {
+                            let string_value = get_string(
+                                return_value_address,
+                                current_frame_base_address,
+                                chunk,
+                                object_pool_pointer,
+                                allocate_string_function,
+                                &mut function_builder,
+                            )?;
+                            let string_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::STRING.0 as i64);
+
+                            (string_value, string_type)
+                        }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: r#type,
@@ -794,6 +815,65 @@ fn get_integer(
                 };
 
                 function_builder.ins().iconst(I64, integer)
+            }
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                });
+            }
+        };
+
+    Ok(jit_value)
+}
+
+fn get_string(
+    address: Address,
+    frame_base_address: CraneliftValue,
+    chunk: &Chunk,
+    object_pool_pointer: CraneliftValue,
+    allocate_string_function: FuncRef,
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let address_index = address.index as usize;
+    let jit_value =
+        match address.memory {
+            MemoryKind::REGISTER => {
+                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+                let byte_offset = function_builder
+                    .ins()
+                    .imul_imm(relative_index, size_of::<Register>() as i64);
+                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+
+                function_builder
+                    .ins()
+                    .load(I64, MemFlags::new(), address, 0)
+            }
+            MemoryKind::CONSTANT => {
+                let constant = chunk.constants.get(address_index).ok_or(
+                    JitError::ConstantIndexOutOfBounds {
+                        constant_index: address_index,
+                        total_constant_count: chunk.constants.len(),
+                    },
+                )?;
+                let string = match constant.as_string() {
+                    Some(string) => string,
+                    None => {
+                        return Err(JitError::InvalidConstantType {
+                            constant_index: address_index,
+                            expected_type: OperandType::STRING,
+                        });
+                    }
+                };
+                let string_pointer = function_builder
+                    .ins()
+                    .iconst(I64, string.as_ptr() as usize as i64);
+                let string_length = function_builder.ins().iconst(I64, string.len() as i64);
+                let call_allocate_string_instruction = function_builder.ins().call(
+                    allocate_string_function,
+                    &[string_pointer, string_length, object_pool_pointer],
+                );
+
+                function_builder.inst_results(call_allocate_string_instruction)[0]
             }
             _ => {
                 return Err(JitError::UnsupportedMemoryKind {

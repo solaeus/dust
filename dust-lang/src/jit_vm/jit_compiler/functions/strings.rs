@@ -1,4 +1,20 @@
-use crate::Thread;
+use std::slice;
+
+use crate::{Thread, jit_vm::ObjectPool};
+
+pub unsafe extern "C" fn allocate_string(
+    string_pointer: *const u8,
+    length: usize,
+    object_pool_pointer: *mut ObjectPool,
+) -> i64 {
+    let borrowed_slice = unsafe { slice::from_raw_parts(string_pointer, length) };
+    let string =
+        String::from_utf8(borrowed_slice.to_vec()).expect("Failed to convert raw bytes to String");
+    let object_pool = unsafe { &mut *object_pool_pointer };
+    let object_pointer = object_pool.allocate(crate::Object::string(string));
+
+    object_pointer as i64
+}
 
 /// # Safety
 /// All arguments are raw pointers and must be valid.

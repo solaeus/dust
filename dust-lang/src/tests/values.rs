@@ -139,3 +139,59 @@ fn float() {
     );
     assert_eq!(return_value, Some(Value::Float(42.0)));
 }
+
+#[test]
+fn integer() {
+    let source = "42";
+    let chunk = compile(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Program {
+            main_chunk: Chunk {
+                name: Some(Path::new("main").unwrap()),
+                r#type: FunctionType::new([], [], Type::Integer),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::constant(0),
+                    OperandType::INTEGER
+                )],
+                constants: vec![Value::Integer(42)],
+                prototype_index: u16::MAX,
+                ..Default::default()
+            },
+            cell_count: 0,
+            prototypes: Vec::new(),
+        }
+    );
+    assert_eq!(return_value, Some(Value::Integer(42)));
+}
+
+#[test]
+fn string() {
+    let source = "\"foobar\"";
+    let chunk = compile(source).unwrap();
+    let return_value = run(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Program {
+            main_chunk: Chunk {
+                name: Some(Path::new("main").unwrap()),
+                r#type: FunctionType::new([], [], Type::String),
+                instructions: vec![Instruction::r#return(
+                    true,
+                    Address::constant(0),
+                    OperandType::STRING
+                )],
+                constants: vec![Value::String("foobar".to_string())],
+                prototype_index: u16::MAX,
+                ..Default::default()
+            },
+            cell_count: 0,
+            prototypes: Vec::new(),
+        }
+    );
+    assert_eq!(return_value, Some(Value::String("foobar".to_string())));
+}

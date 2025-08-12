@@ -1,7 +1,8 @@
-use std::{pin::Pin, ptr};
+use std::pin::Pin;
 
 use crate::{Object, OperandType, Register};
 
+#[repr(C)]
 pub struct ObjectPool {
     objects: Vec<Pin<Box<Object>>>,
     objects_heap_size: usize,
@@ -63,13 +64,9 @@ impl ObjectPool {
             ) {
                 let register = &registers[index];
                 let pointer = unsafe { register.object_pointer };
+                let object = unsafe { &mut *pointer };
 
-                for object in &mut self.objects {
-                    if ptr::eq(&**object, pointer) {
-                        object.mark = true;
-                        break;
-                    }
-                }
+                object.mark = true;
             }
         }
 

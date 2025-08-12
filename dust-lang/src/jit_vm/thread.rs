@@ -12,7 +12,10 @@ use tracing::{Level, info, span, trace};
 use crate::{
     Program, Value,
     instruction::OperandType,
-    jit_vm::call_stack::{new_call_stack, sizes::CALL_FRAME_SIZE},
+    jit_vm::{
+        ObjectPool,
+        call_stack::{new_call_stack, sizes::CALL_FRAME_SIZE},
+    },
 };
 
 use super::{
@@ -57,6 +60,8 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let mut call_stack = new_call_stack(CALL_FRAME_SIZE * 10);
     let mut call_stack_len = 0;
     let mut register_stack = vec![Register { empty: () }; 1024];
+    let mut register_stack_len = 1024;
+    let mut object_pool = ObjectPool::new();
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
 
@@ -67,6 +72,8 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
             call_stack.as_mut_ptr(),
             &mut call_stack_len,
             register_stack.as_mut_ptr(),
+            &mut register_stack_len,
+            &mut object_pool,
             &mut return_register,
             &mut return_type,
         );
@@ -107,6 +114,16 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
             let integer = unsafe { return_register.integer };
 
             Ok(Some(Value::Integer(integer)))
+        }
+        OperandType::STRING => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let string = object
+                .as_string()
+                .cloned()
+                .expect("Expected return register to contain a string");
+
+            Ok(Some(Value::String(string)))
         }
         _ => todo!(),
     }

@@ -1,6 +1,6 @@
-pub mod string_manipulation;
+pub mod strings;
 
-pub use string_manipulation::*;
+pub use strings::*;
 use tracing::trace;
 
 use crate::Operation;

@@ -27,7 +27,10 @@ use tracing::Level;
 
 use crate::{
     OperandType, Program, Register, ThreadStatus,
-    jit_vm::call_stack::{get_frame_function_index, push_call_frame},
+    jit_vm::{
+        ObjectPool,
+        call_stack::{get_frame_function_index, push_call_frame},
+    },
 };
 
 pub struct JitCompiler<'a> {
@@ -41,6 +44,7 @@ impl<'a> JitCompiler<'a> {
     pub fn new(program: &'a Program) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
+        builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
         builder.symbol("log_operation", log_operation as *const u8);
         builder.symbol("log_value", log_value as *const u8);
@@ -68,28 +72,18 @@ impl<'a> JitCompiler<'a> {
     fn compile_loop(&mut self) -> Result<*const u8, JitError> {
         let mut context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
-        let mut main_signature = Signature::new(self.module.isa().default_call_conv());
-
-        main_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-
-        self.main_function_id = self
-            .module
-            .declare_function("main", Linkage::Local, &main_signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: error.to_string(),
-            })?;
-
         let mut stackless_signature = Signature::new(self.module.isa().default_call_conv());
 
         stackless_signature
             .params
-            .extend([AbiParam::new(pointer_type); 5]);
+            .extend([AbiParam::new(pointer_type); 7]);
+
+        self.main_function_id = self
+            .module
+            .declare_function("main", Linkage::Local, &stackless_signature)
+            .map_err(|error| JitError::CraneliftModuleError {
+                message: error.to_string(),
+            })?;
 
         for (index, chunk) in self.program.prototypes.iter().enumerate() {
             let name = chunk
@@ -208,6 +202,8 @@ impl<'a> JitCompiler<'a> {
             call_stack_pointer,
             call_stack_length_pointer,
             register_stack_pointer,
+            register_stack_length_pointer,
+            object_pool_pointer,
             return_register_pointer,
             return_type_pointer,
         ) = {
@@ -234,15 +230,29 @@ impl<'a> JitCompiler<'a> {
                 function_builder.def_var(variable, argument);
                 function_builder.use_var(variable)
             };
-            let return_register_pointer = {
+            let register_stack_length_pointer = {
                 let argument = function_builder.block_params(entry_block)[3];
                 let variable = function_builder.declare_var(pointer_type);
 
                 function_builder.def_var(variable, argument);
                 function_builder.use_var(variable)
             };
-            let return_type_pointer = {
+            let object_pool_pointer = {
                 let argument = function_builder.block_params(entry_block)[4];
+                let variable = function_builder.declare_var(pointer_type);
+
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let return_register_pointer = {
+                let argument = function_builder.block_params(entry_block)[5];
+                let variable = function_builder.declare_var(pointer_type);
+
+                function_builder.def_var(variable, argument);
+                function_builder.use_var(variable)
+            };
+            let return_type_pointer = {
+                let argument = function_builder.block_params(entry_block)[6];
                 let variable = function_builder.declare_var(pointer_type);
 
                 function_builder.def_var(variable, argument);
@@ -275,6 +285,8 @@ impl<'a> JitCompiler<'a> {
                 call_stack_pointer,
                 call_stack_length_pointer,
                 register_stack_pointer,
+                register_stack_length_pointer,
+                object_pool_pointer,
                 return_register_pointer,
                 return_type_pointer,
             )
@@ -358,6 +370,8 @@ impl<'a> JitCompiler<'a> {
                     call_stack_pointer,
                     call_stack_length_pointer,
                     register_stack_pointer,
+                    register_stack_length_pointer,
+                    object_pool_pointer,
                     return_register_pointer,
                     return_type_pointer,
                 ],
@@ -379,6 +393,8 @@ impl<'a> JitCompiler<'a> {
                         call_stack_pointer,
                         call_stack_length_pointer,
                         register_stack_pointer,
+                        register_stack_length_pointer,
+                        object_pool_pointer,
                         return_register_pointer,
                         return_type_pointer,
                     ],
@@ -509,6 +525,8 @@ pub type JitLogic = fn(
     call_stack: *mut u8,
     call_stack_length: *mut usize,
     register_stack: *mut Register,
+    register_stack_length: *mut usize,
+    object_pool: *mut ObjectPool,
     return_register: *mut Register,
     return_type: *mut OperandType,
 ) -> ThreadStatus;
