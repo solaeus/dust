@@ -57,10 +57,15 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
 
     let mut jit = JitCompiler::new(&program);
     let jit_logic = jit.compile()?;
-    let mut call_stack = new_call_stack(CALL_FRAME_SIZE * 10);
+
     let mut call_stack_len = 0;
-    let mut register_stack = vec![Register { empty: () }; 1024];
-    let mut register_stack_len = 1024;
+    let mut call_stack_capacity = 256;
+    let mut call_stack = new_call_stack(call_stack_capacity);
+
+    let mut register_stack_len = 0;
+    let mut register_stack_capacity = 256;
+    let mut register_stack = vec![Register { empty: () }; register_stack_capacity];
+
     let mut object_pool = ObjectPool::new();
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;

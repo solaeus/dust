@@ -370,7 +370,7 @@ impl<'a> ChunkCompiler<'a> {
             })
             .map(|instruction| instruction.a_field())
             .max()
-            .unwrap_or(self.minimum_register_index + 1)
+            .unwrap_or(self.minimum_register_index)
     }
 
     /// Returns the local with the given identifier.
@@ -2282,7 +2282,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.lexer.skip_to(self.current_position.1);
 
-        let register_count = function_compiler.next_register_index();
+        let register_count = function_compiler.get_register_count();
         let locals = function_compiler.locals.into_iter().collect();
         let chunk = Chunk {
             name: path.clone(),

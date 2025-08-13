@@ -4,7 +4,7 @@ use cranelift::{
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
         Value as CraneliftValue,
-        types::{I8, I64},
+        types::{I8, I32, I64},
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
@@ -815,7 +815,9 @@ fn get_character(
                 .imul_imm(relative_index, size_of::<Register>() as i64);
             let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-            function_builder.ins().load(I8, MemFlags::new(), address, 0)
+            function_builder
+                .ins()
+                .load(I32, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
             let constant = chunk.constants.get(address.index as usize).ok_or(
@@ -833,7 +835,7 @@ fn get_character(
                 }
             };
 
-            function_builder.ins().iconst(I8, character as i64)
+            function_builder.ins().iconst(I32, character as i64)
         }
         _ => {
             return Err(JitError::UnsupportedMemoryKind {

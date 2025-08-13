@@ -16,8 +16,8 @@ use cranelift::{
     prelude::{FunctionBuilder, InstBuilder},
 };
 
-pub fn new_call_stack(length: usize) -> Vec<u8> {
-    vec![0; length * CALL_FRAME_SIZE]
+pub fn new_call_stack(capacity: usize) -> Vec<u8> {
+    vec![0; capacity * CALL_FRAME_SIZE]
 }
 
 #[expect(clippy::too_many_arguments)]
