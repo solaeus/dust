@@ -76,8 +76,7 @@ pub fn compile_direct_function(
     function_builder.append_block_params_for_function_params(function_entry_block);
 
     let function_arguments = function_builder.block_params(function_entry_block).to_vec();
-    let register_count = function_arguments.len() + chunk.register_tags.len();
-    let mut ssa_registers = vec![CraneliftValue::from_u32(0); register_count];
+    let mut ssa_registers = vec![CraneliftValue::from_u32(0); chunk.register_count as usize];
 
     for (index, argument) in function_arguments.iter().enumerate() {
         ssa_registers[index] = *argument;

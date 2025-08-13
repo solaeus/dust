@@ -33,6 +33,7 @@ mod new_list;
 mod operand_type;
 mod operation;
 mod r#return;
+mod safepoint;
 mod set_list;
 mod subtract;
 mod test;
@@ -55,6 +56,7 @@ pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use r#return::Return;
+pub use safepoint::Safepoint;
 pub use set_list::SetList;
 pub use subtract::Subtract;
 pub use test::Test;
@@ -190,6 +192,10 @@ impl Instruction {
             r#type,
             jump_next,
         })
+    }
+
+    pub fn safepoint(safepoint_index: u16) -> Instruction {
+        Instruction::from(Safepoint { safepoint_index })
     }
 
     pub fn new_list(destination: Address, length: u16, list_type: OperandType) -> Instruction {
@@ -410,14 +416,15 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::EQUAL
+            Operation::SAFEPOINT
+            | Operation::SET_LIST
+            | Operation::EQUAL
             | Operation::LESS
             | Operation::LESS_EQUAL
             | Operation::TEST
             | Operation::JUMP
             | Operation::RETURN
-            | Operation::NO_OP
-            | Operation::SET_LIST => false,
+            | Operation::NO_OP => false,
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }
@@ -427,6 +434,7 @@ impl Instruction {
 
         match operation {
             Operation::LOAD => Load::from(self).to_string(),
+            Operation::SAFEPOINT => Safepoint::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),

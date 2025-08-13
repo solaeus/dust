@@ -140,7 +140,7 @@ impl Compiler {
         chunk_compiler.compile()?;
 
         let cell_count = chunk_compiler.globals.borrow().len() as u16;
-        let register_tags = chunk_compiler.create_register_tags();
+        let register_count = chunk_compiler.get_register_count();
         let locals = chunk_compiler.locals.into_iter().collect();
         let main_chunk = Chunk {
             name: Some(program_path),
@@ -149,7 +149,8 @@ impl Compiler {
             constants: chunk_compiler.constants,
             locals,
             call_argument_lists: chunk_compiler.call_argument_lists,
-            register_tags,
+            register_count,
+            safepoints: chunk_compiler.safepoint_registers,
             prototype_index: u16::MAX,
         };
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
@@ -206,6 +207,10 @@ pub(crate) struct ChunkCompiler<'a> {
 
     call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
+    safepoint_registers: Vec<Vec<u16>>,
+
+    reusable_registers: Vec<u16>,
+
     minimum_register_index: u16,
 
     /// Index of the current block. This is used to determine the scope of locals and is incremented
@@ -257,6 +262,8 @@ impl<'a> ChunkCompiler<'a> {
             constants: Vec::new(),
             locals: IndexMap::new(),
             call_argument_lists: Vec::new(),
+            safepoint_registers: Vec::new(),
+            reusable_registers: Vec::new(),
             lexer,
             minimum_register_index: 0,
             block_index: 0,
@@ -316,7 +323,11 @@ impl<'a> ChunkCompiler<'a> {
         matches!(self.current_token, Token::Eof)
     }
 
-    fn next_register_index(&self) -> u16 {
+    fn next_register_index(&mut self) -> u16 {
+        if let Some(register_index) = self.reusable_registers.pop() {
+            return register_index;
+        }
+
         self.instructions
             .iter()
             .fold(self.minimum_register_index, |acc, instruction| {
@@ -349,6 +360,17 @@ impl<'a> ChunkCompiler<'a> {
         self.previous_position = replace(&mut self.current_position, position);
 
         Ok(())
+    }
+
+    fn get_register_count(&self) -> u16 {
+        self.instructions
+            .iter()
+            .filter(|instruction| {
+                instruction.yields_value() && instruction.a_memory_kind() == MemoryKind::REGISTER
+            })
+            .map(|instruction| instruction.a_field())
+            .max()
+            .unwrap_or(self.minimum_register_index + 1)
     }
 
     /// Returns the local with the given identifier.
@@ -487,20 +509,6 @@ impl<'a> ChunkCompiler<'a> {
         self.r#type.return_type = new_return_type;
 
         Ok(())
-    }
-
-    fn create_register_tags(&self) -> Vec<OperandType> {
-        self.instructions
-            .iter()
-            .filter_map(|instruction| {
-                if instruction.yields_value() && instruction.a_memory_kind() == MemoryKind::REGISTER
-                {
-                    Some(instruction.operand_type().destination_type())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 
     fn emit(
@@ -1578,6 +1586,7 @@ impl<'a> ChunkCompiler<'a> {
         self.advance()?;
 
         let starting_block = self.current_block_scope.block_index;
+        let start_block_instructions = self.instructions.len();
 
         self.block_index += 1;
         self.current_block_scope.begin(self.block_index);
@@ -1587,6 +1596,44 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         self.current_block_scope.end(starting_block);
+
+        let end_block_instructions = self.instructions.len();
+
+        if end_block_instructions > start_block_instructions {
+            let block_instructions =
+                &self.instructions[start_block_instructions..end_block_instructions];
+            let safepoint_registers = block_instructions
+                .iter()
+                .filter_map(|instruction| {
+                    if instruction.yields_value() {
+                        self.reusable_registers.push(instruction.a_field());
+
+                        if matches!(
+                            instruction.operand_type(),
+                            OperandType::STRING
+                                | OperandType::LIST
+                                | OperandType::LIST_BOOLEAN
+                                | OperandType::LIST_BYTE
+                                | OperandType::LIST_CHARACTER
+                                | OperandType::LIST_FLOAT
+                                | OperandType::LIST_INTEGER
+                                | OperandType::LIST_STRING
+                                | OperandType::LIST_LIST
+                                | OperandType::LIST_FUNCTION
+                        ) {
+                            return Some(instruction.destination().index);
+                        }
+                    }
+
+                    None
+                })
+                .collect::<Vec<_>>();
+            let safepoint_registers_index = self.safepoint_registers.len() as u16;
+            let safepoint = Instruction::safepoint(safepoint_registers_index);
+
+            self.safepoint_registers.push(safepoint_registers);
+            self.instructions.push(safepoint);
+        }
 
         Ok(())
     }
@@ -2132,7 +2179,12 @@ impl<'a> ChunkCompiler<'a> {
             self.declare_local(path, address, r#type, is_mutable, self.current_block_scope);
         }
 
-        self.instructions.push(last_instruction);
+        self.emit(
+            last_instruction,
+            ExpressionKind::Variable,
+            Type::None,
+            last_instruction_position,
+        );
 
         Ok(())
     }
@@ -2230,16 +2282,17 @@ impl<'a> ChunkCompiler<'a> {
 
         self.lexer.skip_to(self.current_position.1);
 
-        let register_tags = function_compiler.create_register_tags();
+        let register_count = function_compiler.next_register_index();
         let locals = function_compiler.locals.into_iter().collect();
         let chunk = Chunk {
             name: path.clone(),
             locals,
             instructions: function_compiler.instructions,
-            register_tags,
             r#type: function_compiler.r#type,
             constants: function_compiler.constants,
             call_argument_lists: function_compiler.call_argument_lists,
+            register_count,
+            safepoints: function_compiler.safepoint_registers,
             prototype_index: function_compiler.prototype_index,
         };
         let prototype_address = Address::constant(chunk.prototype_index);

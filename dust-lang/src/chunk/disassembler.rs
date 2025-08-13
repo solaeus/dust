@@ -81,6 +81,13 @@ const ARGUMENT_LIST_BORDERS: [&str; 3] = [
     "╰─────┴──────────────────────────────────────────────╯",
 ];
 
+const SAFEPOINT_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 46)];
+const SAFEPOINT_BORDERS: [&str; 3] = [
+    "╭─────┬──────────────────────────────────────────────╮",
+    "├─────┼──────────────────────────────────────────────┤",
+    "╰─────┴──────────────────────────────────────────────╯",
+];
+
 const TOP_BORDER: [char; 3] = ['╭', '─', '╮'];
 const LEFT_BORDER: char = '│';
 const RIGHT_BORDER: char = '│';
@@ -388,6 +395,35 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
+    fn write_safepoint_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
+
+        for (column_name, width) in SAFEPOINT_COLUMNS {
+            column_name_line.push_str(&format!("│{column_name:^width$}"));
+        }
+
+        column_name_line.push('│');
+        self.write_center_border_bold("Safepoints")?;
+        self.write_center_border(SAFEPOINT_BORDERS[0])?;
+        self.write_center_border_bold(&column_name_line)?;
+        self.write_center_border(SAFEPOINT_BORDERS[1])?;
+
+        for (index, safepoint) in chunk.safepoints.iter().enumerate() {
+            let registers_display = safepoint
+                .iter()
+                .map(|index| format!("reg_{index}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let row = format!("│{index:^5}│{registers_display:^46}│");
+
+            self.write_center_border(&row)?;
+        }
+
+        self.write_center_border(SAFEPOINT_BORDERS[2])?;
+
+        Ok(())
+    }
+
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.disassemble_chunk(&self.program.main_chunk)?;
 
@@ -449,6 +485,10 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
         if !chunk.call_argument_lists.is_empty() {
             self.write_argument_lists_section(chunk)?;
+        }
+
+        if !chunk.safepoints.is_empty() {
+            self.write_safepoint_section(chunk)?;
         }
 
         self.write_page_border(BOTTOM_BORDER)

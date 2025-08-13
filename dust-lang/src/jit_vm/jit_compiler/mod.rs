@@ -266,7 +266,7 @@ impl<'a> JitCompiler<'a> {
             let zero = function_builder.ins().iconst(I64, 0);
             let register_count = function_builder
                 .ins()
-                .iconst(I64, self.program.main_chunk.register_tags.len() as i64);
+                .iconst(I64, self.program.main_chunk.register_count as i64);
             let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
 
             push_call_frame(

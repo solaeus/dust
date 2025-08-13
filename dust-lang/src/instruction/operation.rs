@@ -13,36 +13,37 @@ impl Operation {
 
     // Memory manipulation
     pub const LOAD: Operation = Operation(1);
+    pub const SAFEPOINT: Operation = Operation(2);
 
     // List operations
-    pub const NEW_LIST: Operation = Operation(2);
-    pub const SET_LIST: Operation = Operation(3);
+    pub const NEW_LIST: Operation = Operation(3);
+    pub const SET_LIST: Operation = Operation(4);
 
     // Arithmetic binary operations
-    pub const ADD: Operation = Operation(4);
-    pub const SUBTRACT: Operation = Operation(5);
-    pub const MULTIPLY: Operation = Operation(6);
-    pub const DIVIDE: Operation = Operation(7);
-    pub const MODULO: Operation = Operation(8);
+    pub const ADD: Operation = Operation(5);
+    pub const SUBTRACT: Operation = Operation(6);
+    pub const MULTIPLY: Operation = Operation(7);
+    pub const DIVIDE: Operation = Operation(8);
+    pub const MODULO: Operation = Operation(9);
 
     // Comparison binary operations
-    pub const EQUAL: Operation = Operation(9);
-    pub const LESS: Operation = Operation(10);
-    pub const LESS_EQUAL: Operation = Operation(11);
+    pub const EQUAL: Operation = Operation(10);
+    pub const LESS: Operation = Operation(11);
+    pub const LESS_EQUAL: Operation = Operation(12);
 
     // Logical AND/OR operations
-    pub const TEST: Operation = Operation(12);
+    pub const TEST: Operation = Operation(13);
 
     // Unary numeric negation and logical NOT
-    pub const NEGATE: Operation = Operation(13);
+    pub const NEGATE: Operation = Operation(14);
 
     // Function calls
-    pub const CALL: Operation = Operation(14);
-    pub const CALL_NATIVE: Operation = Operation(15);
+    pub const CALL: Operation = Operation(15);
+    pub const CALL_NATIVE: Operation = Operation(16);
 
     // Control flow
-    pub const JUMP: Operation = Operation(16);
-    pub const RETURN: Operation = Operation(17);
+    pub const JUMP: Operation = Operation(17);
+    pub const RETURN: Operation = Operation(18);
 }
 
 impl Operation {
@@ -50,6 +51,7 @@ impl Operation {
         match *self {
             Self::NO_OP => "NO_OP",
             Self::LOAD => "LOAD",
+            Self::SAFEPOINT => "SAFEPOINT",
             Self::NEW_LIST => "NEW_LIST",
             Self::SET_LIST => "SET_LIST",
             Self::ADD => "ADD",
