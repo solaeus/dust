@@ -29,40 +29,31 @@ both the design and implementation of the language.
 
 ## JIT Virtual Machine
 
-```mermaid
-stateDiagram-v2
-    Trampoline: Rust Trampoline Loop
-    state Trampoline {
-        Entry
-        Exit
-    }
+```dot
+digraph {
+  Entry [color="blue"]
+  Exit [label="Thread Return" color="green"]
+  Dispatch [label="Function Dispatch" shape="box"]
+  StackCheck [label="Is call stack empty?" shape="diamond"]
+  Yes
+  No
+  Stackless [label="Stackless JIT Function" shape="box"]
+  Direct [label="Direct JIT Function" shape="box"]
+  Instructions [label="Instruction Execution" shape="diamond"]
+  Call [label="Non-recursive CALL"]
+  ReturnOrRecurse [label="RETURN or Recursive CALL"]
 
-    JIT: JIT-Compiled Code
-    state JIT {
-        Checks: Pre-Call Checks
-        state Checks {
-            IsEmpty: Is Call Stack Empty?
-            Memory: Check VM Stacks and Object Pool Capacity
-        }
-
-        Dispatch: Function Dispatch
-        Stackless: Stackless Function Call
-        Direct: Direct Function Call
-        DeepDirect: Deeper Direct Call
-    }
-
-    IsEmpty --> Memory
-    IsEmpty --> Exit: Empty
-    Memory -->  Stackless: Available space is OK
-
-
-    Entry --> Dispatch
-    Dispatch --> IsEmpty
-    Stackless --> Dispatch: Recursion or return
-    Stackless --> Direct
-    Direct --> DeepDirect
-    Direct --> Dispatch: Recursion or return
-    DeepDirect --> Dispatch: Recursion or return
+  Entry -> Dispatch
+  Dispatch -> StackCheck
+  StackCheck -> No -> Stackless
+  StackCheck -> Yes -> Exit
+  Stackless -> Instructions
+  Instructions -> Call
+  Instructions -> ReturnOrRecurse
+  Call-> Direct
+  Direct-> Instructions
+  ReturnOrRecurse -> Dispatch
+}
 ```
 
 [^1]: [annotate-snippets](https://crates.io/crates/annotate-snippets)
