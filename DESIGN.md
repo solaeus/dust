@@ -30,39 +30,39 @@ both the design and implementation of the language.
 ## JIT Virtual Machine
 
 ```mermaid
----
-config:
-    flowchart:
-        defaultRenderer: "elk"
----
-flowchart TD
-    A[Entry]
-    subgraph JIT-Compiled
-    B[Call Stack Emptiness Check]
-    C[Function Dispatch]
-    subgraph System Call Stack
-    D[Pre-Call Checks]
-    E[Direct-Call JIT Functions]
-    end
-    subgraph Virtual Call Stack
-    F[Pre-Call Checks]
-    G[Stackless JIT Function]
-    end
-    end
-    H[Memory Management]
-    I[Valid Exit]
+stateDiagram-v2
+    Trampoline: Rust Trampoline Loop
+    state Trampoline {
+        Entry
+        Exit
+    }
 
-    A --> B
-    B --> C
-    B --> I
-    C --> D
-    D --> E
-    D --> H
-    E --> F
-    F --> G
-    F --> H
-    G --> B
-    H --> C
+    JIT: JIT-Compiled Code
+    state JIT {
+        Checks: Pre-Call Checks
+        state Checks {
+            IsEmpty: Is Call Stack Empty?
+            Memory: Check VM Stacks and Object Pool Capacity
+        }
+
+        Dispatch: Function Dispatch
+        Stackless: Stackless Function Call
+        Direct: Direct Function Call
+        DeepDirect: Deeper Direct Call
+    }
+
+    IsEmpty --> Memory
+    IsEmpty --> Exit: Empty
+    Memory -->  Stackless: Available space is OK
+
+
+    Entry --> Dispatch
+    Dispatch --> IsEmpty
+    Stackless --> Dispatch: Recursion or return
+    Stackless --> Direct
+    Direct --> DeepDirect
+    Direct --> Dispatch: Recursion or return
+    DeepDirect --> Dispatch: Recursion or return
 ```
 
 [^1]: [annotate-snippets](https://crates.io/crates/annotate-snippets)
