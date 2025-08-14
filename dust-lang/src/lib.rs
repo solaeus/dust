@@ -29,7 +29,7 @@ mod tests;
 
 pub use chunk::{Chunk, Disassembler};
 pub use compiler::{BlockScope, CompileError, Compiler, Global, Item, Local, Path, compile};
-pub use dust_error::{AnnotatedError, DustError};
+pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };

@@ -35,7 +35,7 @@ use crate::{
         expression::{ExpressionIndex, ExpressionKind},
         standard_library::apply_standard_library,
     },
-    instruction::{Jump, Load, MemoryKind, OperandType},
+    instruction::{Jump, Load, MemoryKind, OperandType, SetList},
     r#type::ConcreteType,
 };
 
@@ -235,6 +235,8 @@ pub(crate) struct ChunkCompiler<'a> {
 
     prototypes: Rc<RefCell<PrototypeStore>>,
 
+    next_expression_type: Option<Type>,
+
     current_token: Token<'a>,
     current_position: Span,
     previous_token: Token<'a>,
@@ -273,6 +275,7 @@ impl<'a> ChunkCompiler<'a> {
             main_module,
             globals,
             prototypes,
+            next_expression_type: None,
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -533,7 +536,7 @@ impl<'a> ChunkCompiler<'a> {
         self.instructions.push(instruction);
         self.expressions.push(Expression {
             index: ExpressionIndex::Instruction(instruction_index),
-            _kind: expression_kind,
+            kind: expression_kind,
             r#type,
             position,
         });
@@ -1652,7 +1655,11 @@ impl<'a> ChunkCompiler<'a> {
 
         self.advance()?;
 
-        let mut item_type = Type::None;
+        let mut item_type = self
+            .next_expression_type
+            .as_ref()
+            .cloned()
+            .unwrap_or(Type::None);
         let mut addresses = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
@@ -1663,7 +1670,7 @@ impl<'a> ChunkCompiler<'a> {
                 index,
                 r#type,
                 position,
-                ..
+                kind,
             } = self.expressions.last().cloned().ok_or_else(|| {
                 CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -1680,17 +1687,28 @@ impl<'a> ChunkCompiler<'a> {
             let value_address = match index {
                 ExpressionIndex::Instruction(instruction_index) => {
                     let instruction = self.instructions[instruction_index];
-                    let (value_address, should_remove) =
-                        self.handle_previous_instruction(instruction);
 
-                    if should_remove {
-                        self.instructions.remove(instruction_index);
+                    if instruction.operation() == Operation::SET_LIST
+                        && kind == ExpressionKind::ListCreation
+                    {
+                        let SetList {
+                            destination_list, ..
+                        } = SetList::from(instruction);
 
-                        value_address
-                    } else if instruction.yields_value() {
-                        value_address
+                        destination_list
                     } else {
-                        continue;
+                        let (value_address, should_remove) =
+                            self.handle_previous_instruction(instruction);
+
+                        if should_remove {
+                            self.instructions.remove(instruction_index);
+
+                            value_address
+                        } else if instruction.yields_value() {
+                            value_address
+                        } else {
+                            continue;
+                        }
                     }
                 }
                 ExpressionIndex::Function(prototype_index) => {
@@ -1706,6 +1724,11 @@ impl<'a> ChunkCompiler<'a> {
         let length = addresses.len() as u16;
         let item_operand_type = item_type.as_operand_type();
         let list_operand_type = match item_type {
+            Type::None => {
+                return Err(CompileError::ListTypeUnknown {
+                    position: Span(start, end),
+                });
+            }
             Type::Boolean => OperandType::LIST_BOOLEAN,
             Type::Byte => OperandType::LIST_BYTE,
             Type::Character => OperandType::LIST_CHARACTER,
@@ -1721,7 +1744,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.emit(
             new_list,
-            ExpressionKind::List,
+            ExpressionKind::ListCreation,
             list_type.clone(),
             Span(start, end),
         );
@@ -1730,7 +1753,12 @@ impl<'a> ChunkCompiler<'a> {
             let set_list =
                 Instruction::set_list(list_destination, address, index as u16, item_operand_type);
 
-            self.emit(set_list, ExpressionKind::List, list_type.clone(), position);
+            self.emit(
+                set_list,
+                ExpressionKind::ListCreation,
+                list_type.clone(),
+                position,
+            );
         }
 
         Ok(())
@@ -2136,6 +2164,7 @@ impl<'a> ChunkCompiler<'a> {
             let start = self.current_position.0;
             let r#type = self.parse_type()?;
             let end = self.current_position.1;
+            self.next_expression_type = Some(r#type.clone());
 
             Some((r#type, Span(start, end)))
         } else {
@@ -2145,6 +2174,8 @@ impl<'a> ChunkCompiler<'a> {
         self.expect(Token::Equal)?;
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
+
+        self.next_expression_type = None;
 
         let mut last_instruction =
             self.instructions
@@ -2322,7 +2353,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.expressions.push(Expression {
             index: ExpressionIndex::Function(prototype_index),
-            _kind: ExpressionKind::Function,
+            kind: ExpressionKind::Function,
             r#type: r#type.clone(),
             position: function_compiler.current_position,
         });
@@ -2794,7 +2825,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::Byte(bytes) => {
@@ -2803,7 +2834,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::Character(characters) => {
@@ -2812,7 +2843,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::Float(floats) => {
@@ -2821,7 +2852,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::Integer(integers) => {
@@ -2830,7 +2861,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::String(strings) => {
@@ -2839,7 +2870,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::List(lists) => {
@@ -2848,7 +2879,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                         List::Function(functions) => {
@@ -2857,7 +2888,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (
                                 Address::new(constant_index, MemoryKind::CONSTANT),
-                                ExpressionKind::List,
+                                ExpressionKind::ListCreation,
                             )
                         }
                     },

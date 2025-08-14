@@ -1,4 +1,4 @@
-use crate::{MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
+use crate::{ErrorMessage, MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
 
 pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
 
@@ -54,120 +54,155 @@ pub enum JitError {
 }
 
 impl AnnotatedError for JitError {
-    fn title(&self) -> &'static str {
-        "JIT Compilation Error"
-    }
+    fn annotated_error(&self) -> ErrorMessage {
+        let title = "JIT Compilation Error";
 
-    fn description(&self) -> &'static str {
-        match self {
-            JitError::ArgumentsIndexOutOfBounds { .. } => "Arguments index out of bounds",
-            JitError::JumpToSelf { .. } => "Jump to self detected",
-            JitError::JumpTargetOutOfBounds { .. } => "Jump target out of bounds",
-            JitError::BranchTargetOutOfBounds { .. } => "Branch target out of bounds",
-            JitError::InvalidConstantType { .. } => "Invalid constant type",
-            JitError::UnsupportedOperandType { .. } => "Unsupported operand type",
-            JitError::UnsupportedMemoryKind { .. } => "Unsupported memory kind",
-            JitError::UnhandledOperation { .. } => "Unhandled operation",
-            JitError::CraneliftModuleError { .. } => "Cranelift module error",
-            JitError::FunctionCompilationError { .. } => "Function compilation error",
-            JitError::FunctionIndexOutOfBounds { .. } => "Function index out of bounds",
-            JitError::RegisterIndexOutOfBounds { .. } => "Register index out of bounds",
-            JitError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
-        }
-    }
-
-    fn detail_snippets(&self) -> Vec<(String, Span)> {
-        vec![match self {
+        let (description, detail_snippets, help_snippet) = match self {
             JitError::ArgumentsIndexOutOfBounds {
                 arguments_index,
                 total_argument_count,
             } => (
-                format!(
-                    "Arguments index {arguments_index} is out of bounds for total argument count {total_argument_count}."
-                ),
-                Span::default(),
+                "Arguments index out of bounds",
+                vec![(
+                    format!(
+                        "Arguments index {arguments_index} is out of bounds for total argument count {total_argument_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::JumpToSelf { ip } => (
-                format!("Jump to self detected at instruction pointer {ip}."),
-                Span::default(),
+                "Jump to self detected",
+                vec![(
+                    format!("Jump to self detected at instruction pointer {ip}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::JumpTargetOutOfBounds {
                 target_instruction_pointer,
                 total_instruction_count,
             } => (
-                format!(
-                    "Jump target {target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
-                ),
-                Span::default(),
+                "Jump target out of bounds",
+                vec![(
+                    format!(
+                        "Jump target {target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::BranchTargetOutOfBounds {
                 branch_target_instruction_pointer,
                 total_instruction_count,
             } => (
-                format!(
-                    "Branch target {branch_target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
-                ),
-                Span::default(),
+                "Branch target out of bounds",
+                vec![(
+                    format!(
+                        "Branch target {branch_target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::InvalidConstantType { expected_type } => (
-                format!("Constant expected type was {expected_type}."),
-                Span::default(),
+                "Invalid constant type",
+                vec![(
+                    format!("Constant expected type was {expected_type}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::UnsupportedOperandType { operand_type } => (
-                format!("Unsupported operand type: {operand_type}."),
-                Span::default(),
+                "Unsupported operand type",
+                vec![(
+                    format!("Unsupported operand type: {operand_type}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::UnsupportedMemoryKind { memory_kind } => (
-                format!("Unsupported memory kind: {memory_kind}."),
-                Span::default(),
+                "Unsupported memory kind",
+                vec![(
+                    format!("Unsupported memory kind: {memory_kind}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::UnhandledOperation { operation } => (
-                format!("Unhandled operation: {operation}."),
-                Span::default(),
+                "Unhandled operation",
+                vec![(
+                    format!("Unhandled operation: {operation}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::CraneliftModuleError { message } => (
-                format!("Cranelift module error: {message}."),
-                Span::default(),
+                "Cranelift module error",
+                vec![(
+                    format!("Cranelift module error: {message}."),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::FunctionCompilationError {
                 message,
                 cranelift_ir,
             } => (
-                format!("Function compilation error: {message}\nCranelift IR:\n{cranelift_ir}"),
-                Span::default(),
+                "Function compilation error",
+                vec![(
+                    format!("Function compilation error: {message}\nCranelift IR:\n{cranelift_ir}"),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::FunctionIndexOutOfBounds {
                 ip,
                 function_index,
                 total_function_count,
             } => (
-                format!(
-                    "Function index {function_index} at instruction pointer {ip} is out of bounds for total function count {total_function_count}."
-                ),
-                Span::default(),
+                "Function index out of bounds",
+                vec![(
+                    format!(
+                        "Function index {function_index} at instruction pointer {ip} is out of bounds for total function count {total_function_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::RegisterIndexOutOfBounds {
                 register_index,
                 total_register_count,
             } => (
-                format!(
-                    "Register index {register_index} is out of bounds for total register count {total_register_count}."
-                ),
-                Span::default(),
+                "Register index out of bounds",
+                vec![(
+                    format!(
+                        "Register index {register_index} is out of bounds for total register count {total_register_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
             JitError::ConstantIndexOutOfBounds {
                 constant_index,
                 total_constant_count,
             } => (
-                format!(
-                    "Constant index {constant_index} is out of bounds for total constant count {total_constant_count}."
-                ),
-                Span::default(),
+                "Constant index out of bounds",
+                vec![(
+                    format!(
+                        "Constant index {constant_index} is out of bounds for total constant count {total_constant_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
             ),
-        }]
-    }
+        };
 
-    fn help_snippets(&self) -> Vec<(String, Span)> {
-        Vec::new()
+        ErrorMessage {
+            title,
+            description,
+            detail_snippets,
+            help_snippet,
+        }
     }
 }

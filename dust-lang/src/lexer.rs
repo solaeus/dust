@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use serde::{Deserialize, Serialize};
 
-use crate::{CompileError, DustError, Span, Token, dust_error::AnnotatedError};
+use crate::{CompileError, DustError, ErrorMessage, Span, Token, dust_error::AnnotatedError};
 
 /// Lexes the input and returns a vector of tokens and their positions.
 ///
@@ -745,103 +745,64 @@ pub enum LexError {
 }
 
 impl AnnotatedError for LexError {
-    fn title(&self) -> &'static str {
-        "Lex Error"
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            Self::ExpectedAsciiHexDigit { .. } => "Expected ASCII hex digit",
-            Self::ExpectedCharacter { .. } => "Expected character",
-            Self::ExpectedCharacterMultiple { .. } => "Expected one of multiple characters",
-            Self::UnexpectedCharacter { .. } => "Unexpected character",
-            Self::UnexpectedEndOfFile { .. } => "Unexpected end of file",
-        }
-    }
-
-    fn detail_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            Self::ExpectedAsciiHexDigit { actual, position } => {
+    fn annotated_error(&self) -> ErrorMessage {
+        let title = "Lexing Error";
+        let (description, detail_snippets, help_snippet) = match self {
+            LexError::ExpectedAsciiHexDigit { actual, position } => (
+                "Expected an ASCII hex digit",
                 vec![(
-                    format!(
-                        "Expected an ASCII hex digit (0-9, A-F, a-f), but found `{}`",
-                        actual.map_or("end of input".to_string(), |c| c.to_string())
-                    ),
+                    format!("Expected an ASCII hex digit, found '{actual:?}'"),
                     Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacter {
+                )],
+                None,
+            ),
+            LexError::ExpectedCharacter {
                 expected,
                 actual,
                 position,
-            } => {
+            } => (
+                "Expected a character",
                 vec![(
-                    format!("Expected character `{expected}`, but found `{actual}`"),
+                    format!("Expected '{expected}', found '{actual}'"),
                     Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacterMultiple {
+                )],
+                None,
+            ),
+            LexError::ExpectedCharacterMultiple {
                 expected,
                 actual,
                 position,
-            } => {
+            } => (
+                "Expected a character",
                 vec![(
-                    format!("Expected one of the characters `{expected:?}`, but found `{actual}`"),
+                    format!("Expected one of '{expected:?}', found '{actual}'"),
                     Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedCharacter { actual, position } => {
+                )],
+                None,
+            ),
+            LexError::UnexpectedCharacter { actual, position } => (
+                "Unexpected character",
                 vec![(
-                    format!("Unexpected character `{actual}`"),
+                    format!("Unexpected character '{actual}'"),
                     Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedEndOfFile { position } => {
+                )],
+                None,
+            ),
+            LexError::UnexpectedEndOfFile { position } => (
+                "Unexpected end of file",
                 vec![(
-                    "Unexpected end of file while lexing".to_string(),
+                    "Unexpected end of file".to_string(),
                     Span(*position, *position),
-                )]
-            }
-        }
-    }
+                )],
+                None,
+            ),
+        };
 
-    fn help_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            Self::ExpectedAsciiHexDigit { position, .. } => {
-                vec![(
-                    "Ensure the input contains valid hexadecimal digits (0-9, A-F, a-f)"
-                        .to_string(),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacter {
-                expected, position, ..
-            } => {
-                vec![(
-                    format!("Insert the expected character `{expected}` here"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::ExpectedCharacterMultiple {
-                expected, position, ..
-            } => {
-                vec![(
-                    format!("Insert one of the expected characters `{expected:?}` here"),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedCharacter { position, .. } => {
-                vec![(
-                    "Remove or replace the unexpected character".to_string(),
-                    Span(*position, *position + 1),
-                )]
-            }
-            Self::UnexpectedEndOfFile { position } => {
-                vec![(
-                    "Ensure the input is complete and properly terminated".to_string(),
-                    Span(*position, *position),
-                )]
-            }
+        ErrorMessage {
+            title,
+            description,
+            detail_snippets,
+            help_snippet,
         }
     }
 }

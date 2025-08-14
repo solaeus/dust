@@ -3,7 +3,7 @@ use crate::{Span, Type};
 #[derive(Clone, Debug)]
 pub struct Expression {
     pub index: ExpressionIndex,
-    pub _kind: ExpressionKind,
+    pub kind: ExpressionKind,
     pub r#type: Type,
     pub position: Span,
 }
@@ -14,13 +14,13 @@ pub enum ExpressionIndex {
     Function(usize),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExpressionKind {
     Binary,
     Call,
     ControlFlow,
     Function,
-    List,
+    ListCreation,
     Literal,
     Return,
     Unary,

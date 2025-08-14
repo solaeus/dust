@@ -6,7 +6,7 @@ use cranelift::{
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
         Value as CraneliftValue,
-        types::{I8, I32, I64},
+        types::{I8, I64},
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
@@ -681,6 +681,54 @@ pub fn compile_stackless_function(
 
                             (string_value, string_type)
                         }
+                        OperandType::LIST_BOOLEAN => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_BOOLEAN.0 as i64);
+
+                            (list_value, list_type)
+                        }
+                        OperandType::LIST_BYTE => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_BYTE.0 as i64);
+
+                            (list_value, list_type)
+                        }
+                        OperandType::LIST_CHARACTER => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_CHARACTER.0 as i64);
+
+                            (list_value, list_type)
+                        }
+                        OperandType::LIST_FLOAT => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_FLOAT.0 as i64);
+
+                            (list_value, list_type)
+                        }
                         OperandType::LIST_INTEGER => {
                             let list_value = get_list(
                                 return_value_address,
@@ -690,6 +738,30 @@ pub fn compile_stackless_function(
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_INTEGER.0 as i64);
+
+                            (list_value, list_type)
+                        }
+                        OperandType::LIST_STRING => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_STRING.0 as i64);
+
+                            (list_value, list_type)
+                        }
+                        OperandType::LIST_LIST => {
+                            let list_value = get_list(
+                                return_value_address,
+                                current_frame_base_address,
+                                &mut function_builder,
+                            )?;
+                            let list_type = function_builder
+                                .ins()
+                                .iconst(I8, OperandType::LIST_LIST.0 as i64);
 
                             (list_value, list_type)
                         }
@@ -813,12 +885,14 @@ fn get_boolean(
                 .imul_imm(relative_index, size_of::<Register>() as i64);
             let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-            function_builder.ins().load(I8, MemFlags::new(), address, 0)
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::ENCODED => {
             let boolean_value = address.index != 0;
 
-            function_builder.ins().iconst(I8, boolean_value as i64)
+            function_builder.ins().iconst(I64, boolean_value as i64)
         }
         _ => {
             return Err(JitError::UnsupportedMemoryKind {
@@ -843,9 +917,11 @@ fn get_byte(
                 .imul_imm(relative_index, size_of::<Register>() as i64);
             let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-            function_builder.ins().load(I8, MemFlags::new(), address, 0)
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), address, 0)
         }
-        MemoryKind::ENCODED => function_builder.ins().iconst(I8, address.index as i64),
+        MemoryKind::ENCODED => function_builder.ins().iconst(I64, address.index as i64),
         _ => {
             return Err(JitError::UnsupportedMemoryKind {
                 memory_kind: address.memory,
@@ -872,7 +948,7 @@ fn get_character(
 
             function_builder
                 .ins()
-                .load(I32, MemFlags::new(), address, 0)
+                .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
             let constant = chunk.constants.get(address.index as usize).ok_or(
@@ -890,7 +966,7 @@ fn get_character(
                 }
             };
 
-            function_builder.ins().iconst(I32, character as i64)
+            function_builder.ins().iconst(I64, character as i64)
         }
         _ => {
             return Err(JitError::UnsupportedMemoryKind {

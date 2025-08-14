@@ -129,8 +129,6 @@ As this project matures, more benchmarks will be added to cover a wider range of
 > Let me get straight to the point: a virtual machine is a computer built with software.
 > -- Thorsten Ball, *Writing a Compiler in Go*
 
-*Structure and Interpretation of Computer Programs, Second Edition*[^7] by Harold Abelson and Gerald Jay Sussman with Julie Sussman is a classic text on computer science. It encourages an abstract view of programming, sometimes using diagrams to explain programs as though they were physical devices. It requires more effort than the books that immediately show you how to write a program, but the takeaway is a deep understanding of the the process a computer (or a VM) goes through to execute a program.
-
 ## License
 
 Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` file for details.
@@ -140,6 +138,4 @@ Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` fi
 [^2]: [A No-Frills Introduction to Lua 5.1 VM Instructions](https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf)
 [^3]: [A Performance Survey on Stack-based and Register-based Virtual Machines](https://arxiv.org/abs/1611.00467)
 [^4]: [List of C-family programming languages](https://en.wikipedia.org/wiki/List_of_C-family_programming_languages)
-[^5]: [ripgrep is faster than {grep, ag, git grep, ucg, pt, sift}](https://blog.burntsushi.net/ripgrep/#mechanics)
 [^6]: [Writing a Compiler in Go](https://compilerbook.com/)
-[^7]: [Structure and Interpretation of Computer Programs, Second Edition](https://mitpress.mit.edu/9780262510875/structure-and-interpretation-of-computer-programs/)

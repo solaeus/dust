@@ -29,23 +29,24 @@ impl<'src> DustError<'src> {
     }
 
     pub fn report(&self) -> String {
-        let (title, description, detail_snippets, help_snippets) = (
-            self.error.title(),
-            self.error.description(),
-            self.error.detail_snippets(),
-            self.error.help_snippets(),
-        );
+        let ErrorMessage {
+            title,
+            description,
+            detail_snippets,
+            help_snippet,
+        } = self.error.annotated_error();
         let label = format!("{title}: {description}");
-        let message = Level::Error
+        let mut message = Level::Error
             .title(&label)
             .snippets(detail_snippets.iter().map(|(details, position)| {
                 Snippet::source(self.source)
-                    .annotation(Level::Info.span(position.0..position.1).label(details))
-            }))
-            .snippets(help_snippets.iter().map(|(help, position)| {
-                Snippet::source(self.source)
-                    .annotation(Level::Help.span(position.0..position.1).label(help))
+                    .annotation(Level::Error.span(position.0..position.1).label(details))
             }));
+
+        if let Some(help_snippet) = &help_snippet {
+            message = message.footer(Level::Help.title(help_snippet));
+        }
+
         let mut report = String::new();
         let renderer = Renderer::styled();
 
@@ -61,32 +62,11 @@ pub enum DustErrorKind {
     Jit(JitError),
 }
 
-impl DustErrorKind {
-    fn title(&self) -> &'static str {
+impl AnnotatedError for DustErrorKind {
+    fn annotated_error(&self) -> ErrorMessage {
         match self {
-            DustErrorKind::Compile(error) => error.title(),
-            DustErrorKind::Jit(error) => error.title(),
-        }
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            DustErrorKind::Compile(error) => error.description(),
-            DustErrorKind::Jit(error) => error.description(),
-        }
-    }
-
-    fn detail_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            DustErrorKind::Compile(error) => error.detail_snippets(),
-            DustErrorKind::Jit(error) => error.detail_snippets(),
-        }
-    }
-
-    fn help_snippets(&self) -> Vec<(String, Span)> {
-        match self {
-            DustErrorKind::Compile(error) => error.help_snippets(),
-            DustErrorKind::Jit(error) => error.help_snippets(),
+            DustErrorKind::Compile(error) => error.annotated_error(),
+            DustErrorKind::Jit(error) => error.annotated_error(),
         }
     }
 }
@@ -98,8 +78,12 @@ impl Display for DustError<'_> {
 }
 
 pub trait AnnotatedError {
-    fn title(&self) -> &'static str;
-    fn description(&self) -> &'static str;
-    fn detail_snippets(&self) -> Vec<(String, Span)>;
-    fn help_snippets(&self) -> Vec<(String, Span)>;
+    fn annotated_error(&self) -> ErrorMessage;
+}
+
+pub struct ErrorMessage {
+    pub title: &'static str,
+    pub description: &'static str,
+    pub detail_snippets: Vec<(String, Span)>,
+    pub help_snippet: Option<String>,
 }

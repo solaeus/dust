@@ -141,6 +141,54 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
 
             Ok(Some(Value::String(string)))
         }
+        OperandType::LIST_BOOLEAN => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let list = object
+                .as_list()
+                .cloned()
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_BOOLEAN,
+                })?;
+
+            Ok(Some(Value::List(list)))
+        }
+        OperandType::LIST_BYTE => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let list = object
+                .as_list()
+                .cloned()
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_BYTE,
+                })?;
+
+            Ok(Some(Value::List(list)))
+        }
+        OperandType::LIST_CHARACTER => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let list = object
+                .as_list()
+                .cloned()
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_CHARACTER,
+                })?;
+
+            Ok(Some(Value::List(list)))
+        }
+        OperandType::LIST_FLOAT => {
+            let object_pointer = unsafe { return_register.object_pointer };
+            let object = unsafe { &*object_pointer };
+            let list = object
+                .as_list()
+                .cloned()
+                .ok_or(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_FLOAT,
+                })?;
+
+            Ok(Some(Value::List(list)))
+        }
         OperandType::LIST_INTEGER => {
             let object_pointer = unsafe { return_register.object_pointer };
             let object = unsafe { &*object_pointer };
