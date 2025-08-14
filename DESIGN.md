@@ -3,24 +3,37 @@
 ## Virtual Machine
 
 ```mermaid
+---
+config:
+    flowchart:
+        defaultRenderer: "elk"
+---
 flowchart TD
-    A[JIT Entry]
-    B[Error Checks]
-    C[Function Dispatch Loop]
+    A[Entry]
+    subgraph JIT-Compiled
+    B[Call Stack Emptiness Check]
+    C[Function Dispatch]
     subgraph System Call Stack
-    D[Direct-Call JIT Function]
-    F[Another Direct-Call JIT Function]
+    D[Pre-Call Checks]
+    E[Direct-Call JIT Functions]
     end
     subgraph Virtual Call Stack
-    E[Stackless JIT Function]
+    F[Pre-Call Checks]
+    G[Stackless JIT Function]
     end
+    end
+    H[Memory Management]
+    I[Valid Exit]
+
     A --> B
     B --> C
+    B --> I
     C --> D
-    D --> |Return|C
-    D --> |Recursive Call|E
-    D --> |Non-Recursive Call|F
-    E --> |Return|B
-    E --> |Call| B
-    F --> |Recursive Call|E
+    D --> E
+    D --> H
+    E --> F
+    F --> G
+    F --> H
+    G --> B
+    H --> C
 ```
