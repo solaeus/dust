@@ -6,11 +6,11 @@ use crate::{
 #[test]
 fn boolean_true() {
     let source = "true";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -33,11 +33,11 @@ fn boolean_true() {
 #[test]
 fn boolean_false() {
     let source = "false";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -60,11 +60,11 @@ fn boolean_false() {
 #[test]
 fn byte() {
     let source = "0xFF";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -87,11 +87,11 @@ fn byte() {
 #[test]
 fn character() {
     let source = "'a'";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -115,11 +115,11 @@ fn character() {
 #[test]
 fn float() {
     let source = "42.0";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -143,11 +143,11 @@ fn float() {
 #[test]
 fn integer() {
     let source = "42";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),
@@ -171,11 +171,11 @@ fn integer() {
 #[test]
 fn string() {
     let source = "\"foobar\"";
-    let chunk = compile(source).unwrap();
+    let program = compile(source).unwrap();
     let return_value = run(source).unwrap();
 
     assert_eq!(
-        chunk,
+        program,
         Program {
             main_chunk: Chunk {
                 name: Some(Path::new("main").unwrap()),

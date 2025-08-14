@@ -6,7 +6,7 @@
 
 **High-performance programming language focused on correctness, performance and ease of use.**
 
-Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation, and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
+Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
 
 An interactive "Hello, world" using Dust's built-in I/O functions:
 
@@ -38,6 +38,7 @@ fib(25)
 
 > [!IMPORTANT]
 > 🧪 💡 ⚗️
+>
 > Dust is still experimental.
 
 Development is active and, while many aspects of the implementation are stable, research is ongoing into optimizations and performance improvements. JIT compilation is the latest feature to be added and is still being refined. Before a 1.0 release, the JIT VM needs to be fully implemented along with a bytecode interpreter for environments where JIT compilation is not possible.
@@ -91,23 +92,23 @@ The languages used in the benchmarks were chosen because they are invoked in a s
 
 **Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
 
-|   Runtime   | Addictive Addition (ms) | Addictive Calling (ms) |
-|-------------|-------------------------|------------------------|
-| **Dust**    | **8.5**                 | **14.4**               |
-| LuaJIT      | 8.7                     | 8.7                    |
-| Bun         | 12.6                    | 14.4                   |
-| PyPy        | 21.4                    | 22.0                   |
-| PHP         | 42.8                    | 98.6                   |
-| Lua         | 43.2                    | 149.9                  |
-| Node        | 55.3                    | 56.2                   |
-| Deno        | 87.6                    | 87.9                   |
-| Julia       | 103.8                   | 105.1                  |
-| Ruby        | 120.6                   | 245.9                  |
-| Perl        | 193.8                   | 647.0                  |
-| Java        | 210.2                   | 214.0                  |
-| R           | 250.6                   | 1533.0                 |
-| Python      | 461.2                   | 594.9                  |
-| Clojure     | 1266.0                  | 1352.0                 |
+|  Runtime  | Addictive Addition (ms) | Addictive Calling (ms) |
+|-----------|-------------------------|------------------------|
+| **Dust**  | **8.5**                 | **14.4**               |
+| LuaJIT    | 8.7                     | 8.7                    |
+| Bun       | 12.6                    | 14.4                   |
+| PyPy      | 21.4                    | 22.0                   |
+| PHP       | 42.8                    | 98.6                   |
+| Lua       | 43.2                    | 149.9                  |
+| Node      | 55.3                    | 56.2                   |
+| Deno      | 87.6                    | 87.9                   |
+| Julia     | 103.8                   | 105.1                  |
+| Ruby      | 120.6                   | 245.9                  |
+| Perl      | 193.8                   | 647.0                  |
+| Java      | 210.2                   | 214.0                  |
+| R         | 250.6                   | 1533.0                 |
+| Python    | 461.2                   | 594.9                  |
+| Clojure   | 1266.0                  | 1352.0                 |
 
 The results of this benchmark show that Dust is performing very well in simple arithmetic operations. Languages like LuaJIT and Bun are clearly using function inlining due to the nearly identical times for both benchmarks. Dust does not yet perform function inlining, hence the slower time for "Addictive Calling".
 

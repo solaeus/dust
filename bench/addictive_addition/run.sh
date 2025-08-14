@@ -18,4 +18,6 @@ hyperfine \
     'node bench/addictive_addition/addictive_addition.js' \
     'bun bench/addictive_addition/addictive_addition.js' \
     'deno bench/addictive_addition/addictive_addition.js' \
-    'clojure bench/addictive_addition/addictive_addition.clj'
+    'clojure bench/addictive_addition/addictive_addition.clj' \
+    'nu bench/addictive_addition/addictive_addition.nu' \
+    'rhai-run bench/addictive_addition/addictive_addition.rhai'

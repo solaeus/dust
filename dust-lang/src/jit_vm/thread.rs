@@ -12,10 +12,7 @@ use tracing::{Level, info, span, trace};
 use crate::{
     Program, Value,
     instruction::OperandType,
-    jit_vm::{
-        ObjectPool,
-        call_stack::{new_call_stack, sizes::CALL_FRAME_SIZE},
-    },
+    jit_vm::{ObjectPool, call_stack::new_call_stack},
 };
 
 use super::{
@@ -58,29 +55,41 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let mut jit = JitCompiler::new(&program);
     let jit_logic = jit.compile()?;
 
-    let mut call_stack_len = 0;
-    let mut call_stack_capacity = 256;
-    let mut call_stack = new_call_stack(call_stack_capacity);
+    let mut call_stack_used_length = 0;
+    let mut call_stack_allocated_length = 256;
+    let mut call_stack = new_call_stack(call_stack_allocated_length);
+    let mut call_stack_pointers = StackPointers {
+        stack: call_stack.as_mut_ptr(),
+        allocated_length: &mut call_stack_allocated_length,
+        used_length: &mut call_stack_used_length,
+    };
 
-    let mut register_stack_len = 0;
-    let mut register_stack_capacity = 256;
-    let mut register_stack = vec![Register { empty: () }; register_stack_capacity];
+    let mut register_stack_used_length = 0;
+    let mut register_stack_allocated_length = 256;
+    let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
+    let mut register_stack_pointers = StackPointers {
+        stack: register_stack.as_mut_ptr(),
+        allocated_length: &mut register_stack_allocated_length,
+        used_length: &mut register_stack_used_length,
+    };
 
     let mut object_pool = ObjectPool::new();
+
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
+    let mut return_pointers = ReturnPointers {
+        return_register: &mut return_register,
+        return_type: &mut return_type,
+    };
 
     trace!("JIT compiled successfully");
 
     loop {
         let thread_status = (jit_logic)(
-            call_stack.as_mut_ptr(),
-            &mut call_stack_len,
-            register_stack.as_mut_ptr(),
-            &mut register_stack_len,
+            &mut call_stack_pointers,
+            &mut register_stack_pointers,
             &mut object_pool,
-            &mut return_register,
-            &mut return_type,
+            &mut return_pointers,
         );
 
         match thread_status {
@@ -162,4 +171,17 @@ impl ThreadStatus {
         8 => I64,
         _ => panic!("Unsupported ThreadStatus size"),
     };
+}
+
+#[repr(C)]
+pub struct StackPointers<T> {
+    pub stack: *mut T,
+    pub allocated_length: *mut usize,
+    pub used_length: *mut usize,
+}
+
+#[repr(C)]
+pub struct ReturnPointers {
+    pub return_register: *mut Register,
+    pub return_type: *mut OperandType,
 }

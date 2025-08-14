@@ -365,12 +365,16 @@ impl<'a> ChunkCompiler<'a> {
     fn get_register_count(&self) -> u16 {
         self.instructions
             .iter()
-            .filter(|instruction| {
-                instruction.yields_value() && instruction.a_memory_kind() == MemoryKind::REGISTER
+            .fold(self.minimum_register_index, |acc, instruction| {
+                if instruction.yields_value()
+                    && instruction.a_field() >= acc
+                    && instruction.a_memory_kind() == MemoryKind::REGISTER
+                {
+                    instruction.a_field() + 1
+                } else {
+                    acc
+                }
             })
-            .map(|instruction| instruction.a_field())
-            .max()
-            .unwrap_or(self.minimum_register_index)
     }
 
     /// Returns the local with the given identifier.
@@ -1628,6 +1632,11 @@ impl<'a> ChunkCompiler<'a> {
                     None
                 })
                 .collect::<Vec<_>>();
+
+            if safepoint_registers.is_empty() {
+                return Ok(());
+            }
+
             let safepoint_registers_index = self.safepoint_registers.len() as u16;
             let safepoint = Instruction::safepoint(safepoint_registers_index);
 
