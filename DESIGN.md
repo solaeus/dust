@@ -29,31 +29,24 @@ both the design and implementation of the language.
 
 ## JIT Virtual Machine
 
-```dot
-digraph {
-  Entry [color="blue"]
-  Exit [label="Thread Return" color="green"]
-  Dispatch [label="Function Dispatch" shape="box"]
-  StackCheck [label="Is call stack empty?" shape="diamond"]
-  Yes
-  No
-  Stackless [label="Stackless JIT Function" shape="box"]
-  Direct [label="Direct JIT Function" shape="box"]
-  Instructions [label="Instruction Execution" shape="diamond"]
-  Call [label="Non-recursive CALL"]
-  ReturnOrRecurse [label="RETURN or Recursive CALL"]
+```mermaid
+stateDiagram-v2
+    Exit: Thread Return
 
-  Entry -> Dispatch
-  Dispatch -> StackCheck
-  StackCheck -> No -> Stackless
-  StackCheck -> Yes -> Exit
-  Stackless -> Instructions
-  Instructions -> Call
-  Instructions -> ReturnOrRecurse
-  Call-> Direct
-  Direct-> Instructions
-  ReturnOrRecurse -> Dispatch
-}
+    JIT: JIT-Compiled Code
+    state JIT {
+        Dispatch: Function Dispatch
+        Stackless: Stackless Function Call
+        Direct: Direct Function Call
+        Instructions: Instruction Execution
+    }
+
+    Dispatch --> Exit: Call stack is empty
+    Dispatch --> Stackless
+    Stackless --> Instructions
+    Direct --> Instructions
+    Instructions --> Stackless: RETURN or recursive CALL
+    Instructions --> Direct: Non-recursive CALL
 ```
 
 [^1]: [annotate-snippets](https://crates.io/crates/annotate-snippets)
