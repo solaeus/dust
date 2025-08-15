@@ -12,7 +12,7 @@ pub use jit_compiler::{JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::Register;
-pub use thread::{Thread, ThreadStatus};
+pub use thread::{Thread, ThreadResult};
 
 use std::sync::{Arc, RwLock};
 

@@ -5,26 +5,16 @@ use crate::{Object, OperandType, Register};
 #[repr(C)]
 pub struct ObjectPool {
     objects: Vec<Pin<Box<Object>>>,
-    objects_heap_size: usize,
 }
 
 impl ObjectPool {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
-            objects_heap_size: 0,
         }
     }
 
-    pub fn pool_size(&self) -> usize {
-        let pointer_buffer_size = self.objects.capacity() * size_of::<Pin<Box<Object>>>();
-
-        pointer_buffer_size + self.objects_heap_size
-    }
-
     pub fn allocate(&mut self, object: Object) -> *mut Object {
-        self.objects_heap_size += object.size();
-
         let mut pinned = Box::pin(object);
         let pointer = &mut *pinned as *mut Object;
 
@@ -70,17 +60,14 @@ impl ObjectPool {
             }
         }
 
-        self.objects_heap_size = 0;
-
         self.objects.retain_mut(|object| {
-            if object.mark {
-                self.objects_heap_size += object.size();
-                object.mark = false;
+            let keep = object.mark;
 
-                true
-            } else {
-                false
+            if keep {
+                object.mark = false;
             }
+
+            keep
         });
     }
 }

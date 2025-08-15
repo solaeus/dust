@@ -15,10 +15,7 @@ use tracing::info;
 use crate::{
     Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
     instruction::{Add, Call, Jump, Load, NewList, Return, SetList, Subtract},
-    jit_vm::{
-        call_stack::get_call_frame,
-        thread::{ReturnPointers, StackPointers},
-    },
+    jit_vm::{call_stack::get_call_frame, thread::ThreadContext},
 };
 
 pub fn compile_stackless_function(
@@ -40,7 +37,7 @@ pub fn compile_stackless_function(
         .func
         .signature
         .params
-        .extend([AbiParam::new(pointer_type); 4]);
+        .push(AbiParam::new(pointer_type));
 
     let mut function_builder =
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
@@ -53,7 +50,7 @@ pub fn compile_stackless_function(
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
         ]);
-        allocate_list_signature.returns.push(AbiParam::new(I64)); // return value
+        allocate_list_signature.returns.push(AbiParam::new(I64));
 
         compiler.declare_imported_function(
             &mut function_builder,
@@ -130,68 +127,38 @@ pub fn compile_stackless_function(
     function_builder.switch_to_block(function_entry_block);
     function_builder.append_block_params_for_function_params(function_entry_block);
 
-    let call_stack_pointers = function_builder.block_params(function_entry_block)[0];
-    let call_stack_pointer = function_builder.ins().load(
+    let one = function_builder.ins().iconst(I64, 1);
+
+    let thread_context = function_builder.block_params(function_entry_block)[0];
+    let call_stack_buffer_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
-        call_stack_pointers,
-        offset_of!(StackPointers<u8>, stack) as i32,
-    );
-    let _call_stack_allocated_length_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        call_stack_pointers,
-        offset_of!(StackPointers<u8>, allocated_length) as i32,
+        thread_context,
+        offset_of!(ThreadContext, call_stack_buffer_pointer) as i32,
     );
     let call_stack_used_length_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
-        call_stack_pointers,
-        offset_of!(StackPointers<u8>, used_length) as i32,
+        thread_context,
+        offset_of!(ThreadContext, call_stack_used_length_pointer) as i32,
     );
-
-    let register_stack_pointers = function_builder.block_params(function_entry_block)[1];
-    let register_stack_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        register_stack_pointers,
-        offset_of!(StackPointers<Register>, stack) as i32,
-    );
-    let _register_stack_allocated_length_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        register_stack_pointers,
-        offset_of!(StackPointers<Register>, allocated_length) as i32,
-    );
-    let _register_stack_used_length_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        register_stack_pointers,
-        offset_of!(StackPointers<Register>, used_length) as i32,
-    );
-
-    let object_pool_pointer = function_builder.block_params(function_entry_block)[2];
-
-    let return_pointers = function_builder.block_params(function_entry_block)[3];
-    let return_register_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        return_pointers,
-        offset_of!(ReturnPointers, return_register) as i32,
-    );
-    let return_type_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        return_pointers,
-        offset_of!(ReturnPointers, return_type) as i32,
-    );
-
-    let call_stack_length =
+    let call_stack_used_length =
         function_builder
             .ins()
             .load(I64, MemFlags::new(), call_stack_used_length_pointer, 0);
-    let one = function_builder.ins().iconst(I64, 1);
-    let top_call_frame_index = function_builder.ins().isub(call_stack_length, one);
+    let top_call_frame_index = function_builder.ins().isub(call_stack_used_length, one);
+    let register_stack_buffer_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, register_stack_buffer_pointer) as i32,
+    );
+    let object_pool_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, object_pool_pointer) as i32,
+    );
 
     let (
         current_frame_ip,
@@ -202,7 +169,7 @@ pub fn compile_stackless_function(
         current_frame_destination_index,
     ) = get_call_frame(
         top_call_frame_index,
-        call_stack_pointer,
+        call_stack_buffer_pointer,
         &mut function_builder,
     );
 
@@ -210,9 +177,22 @@ pub fn compile_stackless_function(
         current_frame_register_range_start,
         size_of::<Register>() as i64,
     );
-    let current_frame_base_address = function_builder
-        .ins()
-        .iadd(register_stack_pointer, current_frame_register_base_offset);
+    let current_frame_base_address = function_builder.ins().iadd(
+        register_stack_buffer_pointer,
+        current_frame_register_base_offset,
+    );
+    let return_register_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, return_register_pointer) as i32,
+    );
+    let return_type_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, return_type_pointer) as i32,
+    );
 
     switch.emit(&mut function_builder, current_frame_ip, return_block);
 
@@ -792,7 +772,7 @@ pub fn compile_stackless_function(
                         );
                         let destination_address = function_builder
                             .ins()
-                            .iadd(register_stack_pointer, byte_offset);
+                            .iadd(register_stack_buffer_pointer, byte_offset);
 
                         function_builder.ins().store(
                             MemFlags::new(),

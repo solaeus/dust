@@ -35,7 +35,7 @@ pub use instruction::{
 };
 pub use jit_vm::{
     Cell, JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic, JitVm, Object, Register, Thread,
-    ThreadStatus, run,
+    ThreadResult, run,
 };
 pub use lexer::{LexError, Lexer, lex};
 pub use module::Module;

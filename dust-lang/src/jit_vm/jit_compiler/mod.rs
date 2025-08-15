@@ -26,11 +26,10 @@ use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use tracing::Level;
 
 use crate::{
-    Program, Register, ThreadStatus,
+    Program, Register, ThreadResult,
     jit_vm::{
-        ObjectPool,
         call_stack::{get_frame_function_index, push_call_frame},
-        thread::{ReturnPointers, StackPointers},
+        thread::ThreadContext,
     },
 };
 
@@ -79,9 +78,7 @@ impl<'a> JitCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut stackless_signature = Signature::new(self.module.isa().default_call_conv());
 
-        stackless_signature
-            .params
-            .extend([AbiParam::new(pointer_type); 4]);
+        stackless_signature.params.push(AbiParam::new(pointer_type));
 
         self.main_function_id = self
             .module
@@ -165,7 +162,7 @@ impl<'a> JitCompiler<'a> {
             .func
             .signature
             .returns
-            .push(AbiParam::new(ThreadStatus::CRANELIFT_TYPE));
+            .push(AbiParam::new(ThreadResult::CRANELIFT_TYPE));
 
         let loop_function_id = self
             .module
@@ -203,74 +200,22 @@ impl<'a> JitCompiler<'a> {
         };
         let return_block = function_builder.create_block();
 
-        let (
-            call_stack_pointers,
-            call_stack_pointer,
-            call_stack_length_pointer,
-            register_stack_pointers,
-            _register_stack_pointer,
-            _register_stack_length_pointer,
-            object_pool_pointer,
-            return_pointers,
-            _return_register_pointer,
-            _return_type_pointer,
-        ) = {
+        let (thread_context_pointer, call_stack_buffer_pointer, call_stack_used_length_pointer) = {
             function_builder.switch_to_block(entry_block);
 
-            let call_stack_pointers = function_builder.block_params(entry_block)[0];
-            let call_stack_pointer = function_builder.ins().load(
+            let thread_context = function_builder.block_params(entry_block)[0];
+
+            let call_stack_buffer_pointer = function_builder.ins().load(
                 pointer_type,
                 MemFlags::new(),
-                call_stack_pointers,
-                offset_of!(StackPointers<u8>, stack) as i32,
-            );
-            let _call_stack_allocated_length_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                call_stack_pointers,
-                offset_of!(StackPointers<u8>, allocated_length) as i32,
+                thread_context,
+                offset_of!(ThreadContext, call_stack_buffer_pointer) as i32,
             );
             let call_stack_used_length_pointer = function_builder.ins().load(
-                pointer_type,
+                I64,
                 MemFlags::new(),
-                call_stack_pointers,
-                offset_of!(StackPointers<u8>, used_length) as i32,
-            );
-
-            let register_stack_pointers = function_builder.block_params(entry_block)[1];
-            let register_stack_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                register_stack_pointers,
-                offset_of!(StackPointers<Register>, stack) as i32,
-            );
-            let _register_stack_allocated_length_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                register_stack_pointers,
-                offset_of!(StackPointers<Register>, allocated_length) as i32,
-            );
-            let register_stack_used_length_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                register_stack_pointers,
-                offset_of!(StackPointers<Register>, used_length) as i32,
-            );
-
-            let object_pool_pointer = function_builder.block_params(entry_block)[2];
-
-            let return_pointers = function_builder.block_params(entry_block)[3];
-            let return_register_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                return_pointers,
-                offset_of!(ReturnPointers, return_register) as i32,
-            );
-            let return_type_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                return_pointers,
-                offset_of!(ReturnPointers, return_type) as i32,
+                thread_context,
+                offset_of!(ThreadContext, call_stack_used_length_pointer) as i32,
             );
 
             let zero = function_builder.ins().iconst(I64, 0);
@@ -287,7 +232,7 @@ impl<'a> JitCompiler<'a> {
                 register_count,
                 zero,
                 zero,
-                call_stack_pointer,
+                call_stack_buffer_pointer,
                 call_stack_used_length_pointer,
                 &mut function_builder,
             );
@@ -296,33 +241,28 @@ impl<'a> JitCompiler<'a> {
                 .jump(check_for_empty_call_stack_block, &[]);
 
             (
-                call_stack_pointers,
-                call_stack_pointer,
+                thread_context,
+                call_stack_buffer_pointer,
                 call_stack_used_length_pointer,
-                register_stack_pointers,
-                register_stack_pointer,
-                register_stack_used_length_pointer,
-                object_pool_pointer,
-                return_pointers,
-                return_register_pointer,
-                return_type_pointer,
             )
         };
 
         {
             function_builder.switch_to_block(check_for_empty_call_stack_block);
 
-            let call_stack_length =
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let call_stack_length = function_builder.ins().load(
+                I64,
+                MemFlags::new(),
+                call_stack_used_length_pointer,
+                0,
+            );
             let call_stack_is_empty =
                 function_builder
                     .ins()
                     .icmp_imm(IntCC::Equal, call_stack_length, 0);
             let return_thread_status = function_builder
                 .ins()
-                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
+                .iconst(ThreadResult::CRANELIFT_TYPE, ThreadResult::Return as i64);
 
             function_builder.ins().brif(
                 call_stack_is_empty,
@@ -336,17 +276,19 @@ impl<'a> JitCompiler<'a> {
         {
             function_builder.switch_to_block(check_for_error_function_index_out_of_bounds_block);
 
-            let call_stack_length =
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+            let call_stack_length = function_builder.ins().load(
+                I64,
+                MemFlags::new(),
+                call_stack_used_length_pointer,
+                0,
+            );
             let call_stack_is_empty =
                 function_builder
                     .ins()
                     .icmp_imm(IntCC::Equal, call_stack_length, 0);
             let return_thread_status = function_builder.ins().iconst(
-                ThreadStatus::CRANELIFT_TYPE,
-                ThreadStatus::ErrorFunctionIndexOutOfBounds as i64,
+                ThreadResult::CRANELIFT_TYPE,
+                ThreadResult::ErrorFunctionIndexOutOfBounds as i64,
             );
 
             function_builder.ins().brif(
@@ -362,17 +304,19 @@ impl<'a> JitCompiler<'a> {
             function_builder.switch_to_block(loop_block);
 
             let top_call_frame_index = {
-                let call_stack_length =
-                    function_builder
-                        .ins()
-                        .load(I64, MemFlags::new(), call_stack_length_pointer, 0);
+                let call_stack_length = function_builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    call_stack_used_length_pointer,
+                    0,
+                );
                 let one = function_builder.ins().iconst(I64, 1);
 
                 function_builder.ins().isub(call_stack_length, one)
             };
             let function_index = get_frame_function_index(
                 top_call_frame_index,
-                call_stack_pointer,
+                call_stack_buffer_pointer,
                 &mut function_builder,
             );
 
@@ -381,15 +325,9 @@ impl<'a> JitCompiler<'a> {
 
         {
             function_builder.switch_to_block(main_function_block);
-            function_builder.ins().call(
-                main_function_reference,
-                &[
-                    call_stack_pointers,
-                    register_stack_pointers,
-                    object_pool_pointer,
-                    return_pointers,
-                ],
-            );
+            function_builder
+                .ins()
+                .call(main_function_reference, &[thread_context_pointer]);
             function_builder
                 .ins()
                 .jump(check_for_empty_call_stack_block, &[]);
@@ -401,15 +339,9 @@ impl<'a> JitCompiler<'a> {
                 .zip(function_references.into_iter())
             {
                 function_builder.switch_to_block(block);
-                function_builder.ins().call(
-                    stackless,
-                    &[
-                        call_stack_pointers,
-                        register_stack_pointers,
-                        object_pool_pointer,
-                        return_pointers,
-                    ],
-                );
+                function_builder
+                    .ins()
+                    .call(stackless, &[thread_context_pointer]);
                 function_builder
                     .ins()
                     .jump(check_for_empty_call_stack_block, &[]);
@@ -418,7 +350,7 @@ impl<'a> JitCompiler<'a> {
 
         {
             function_builder.switch_to_block(return_block);
-            function_builder.append_block_param(return_block, ThreadStatus::CRANELIFT_TYPE);
+            function_builder.append_block_param(return_block, ThreadResult::CRANELIFT_TYPE);
 
             let return_thread_status = function_builder.block_params(return_block)[0];
 
@@ -532,9 +464,4 @@ struct FunctionIds {
     stackless: FuncId,
 }
 
-pub type JitLogic = fn(
-    call_stack_pointers: *mut StackPointers<u8>,
-    register_stack_pointers: *mut StackPointers<Register>,
-    object_pool: *mut ObjectPool,
-    return_pointers: *mut ReturnPointers,
-) -> ThreadStatus;
+pub type JitLogic = fn(&mut ThreadContext) -> ThreadResult;

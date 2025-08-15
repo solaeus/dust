@@ -1,4 +1,7 @@
-use crate::{List, Object, OperandType, jit_vm::ObjectPool};
+use crate::{
+    Object, OperandType,
+    jit_vm::{ObjectPool, object::ObjectValue},
+};
 
 /// # Safety
 /// This function dereferences a raw pointer to an `ObjectPool`.
@@ -8,21 +11,23 @@ pub unsafe extern "C" fn allocate_list(
     object_pool: *mut ObjectPool,
 ) -> i64 {
     let object_pool = unsafe { &mut *object_pool };
-    let list = match OperandType(list_type as u8) {
-        OperandType::LIST_BOOLEAN => List::boolean(Vec::with_capacity(length as usize)),
-        OperandType::LIST_BYTE => List::byte(Vec::with_capacity(length as usize)),
-        OperandType::LIST_CHARACTER => List::character(Vec::with_capacity(length as usize)),
-        OperandType::LIST_FLOAT => List::float(Vec::with_capacity(length as usize)),
-        OperandType::LIST_INTEGER => List::integer(Vec::with_capacity(length as usize)),
-        OperandType::LIST_STRING => List::string(Vec::with_capacity(length as usize)),
-        OperandType::LIST_LIST => List::list(Vec::with_capacity(length as usize)),
+    let object = match OperandType(list_type as u8) {
+        OperandType::LIST_BOOLEAN => Object::boolean_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_BYTE => Object::byte_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_CHARACTER => Object::character_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_FLOAT => Object::float_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_INTEGER => Object::integer_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_FUNCTION => Object::function_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_STRING | OperandType::LIST_LIST => {
+            Object::object_list(Vec::with_capacity(length as usize))
+        }
+
         _ => panic!(
             "Unsupported type for list allocation: {}",
             OperandType(list_type as u8)
         ),
     };
-    let list_object = Object::list(list);
-    let object_pointer = object_pool.allocate(list_object);
+    let object_pointer = object_pool.allocate(object);
 
     object_pointer as i64
 }
@@ -31,66 +36,82 @@ pub unsafe extern "C" fn insert_into_list(list_pointer: i64, index: i64, item: i
     let object = unsafe { &mut *(list_pointer as *mut Object) };
     let index = index as usize;
 
-    if let Some(list) = object.as_mut_list() {
-        match list {
-            List::Boolean(boolean_list) => {
-                let boolean = item != 0;
+    match &mut object.value {
+        ObjectValue::BooleanList(booleans) => {
+            let boolean = item != 0;
 
-                if index == boolean_list.len() {
-                    boolean_list.push(boolean);
-                } else if index < boolean_list.len() {
-                    boolean_list[index] = boolean;
-                } else {
-                    panic!("Index out of bounds for list insertion");
-                }
+            if index == booleans.len() {
+                booleans.push(boolean);
+            } else if index < booleans.len() {
+                booleans[index] = boolean;
+            } else {
+                panic!("Index out of bounds for list insertion");
             }
-            List::Byte(byte_list) => {
-                let byte = item as u8;
-
-                if index == byte_list.len() {
-                    byte_list.push(byte);
-                } else if index < byte_list.len() {
-                    byte_list[index] = byte;
-                } else {
-                    panic!("Index out of bounds for list insertion");
-                }
-            }
-            List::Character(character_list) => {
-                let character = char::from_u32(item as u32).unwrap_or_default();
-
-                if index == character_list.len() {
-                    character_list.push(character);
-                } else if index < character_list.len() {
-                    character_list[index] = character;
-                } else {
-                    panic!("Index out of bounds for list insertion");
-                }
-            }
-            List::Float(float_list) => {
-                let float = f64::from_bits(item as u64);
-
-                if index == float_list.len() {
-                    float_list.push(float);
-                } else if index < float_list.len() {
-                    float_list[index] = float;
-                } else {
-                    panic!("Index out of bounds for list insertion");
-                }
-            }
-            List::Integer(integer_list) => {
-                if index == integer_list.len() {
-                    integer_list.push(item);
-                } else if index < integer_list.len() {
-                    integer_list[index] = item;
-                } else {
-                    panic!("Index out of bounds for list insertion");
-                }
-            }
-            List::String(string_list) => todo!(),
-            List::List(list_list) => todo!(),
-            List::Function(function_list) => todo!(),
         }
-    } else {
-        panic!("Object is not a list");
+        ObjectValue::ByteList(bytes) => {
+            let byte = item as u8;
+
+            if index == bytes.len() {
+                bytes.push(byte);
+            } else if index < bytes.len() {
+                bytes[index] = byte;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        ObjectValue::CharacterList(characters) => {
+            let character = char::from_u32(item as u32).unwrap_or_default();
+
+            if index == characters.len() {
+                characters.push(character);
+            } else if index < characters.len() {
+                characters[index] = character;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        ObjectValue::FloatList(floats) => {
+            let float = f64::from_bits(item as u64);
+
+            if index == floats.len() {
+                floats.push(float);
+            } else if index < floats.len() {
+                floats[index] = float;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        ObjectValue::IntegerList(integers) => {
+            if index == integers.len() {
+                integers.push(item);
+            } else if index < integers.len() {
+                integers[index] = item;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        ObjectValue::ObjectList(object_pointers) => {
+            let object_pointer = item as *mut Object;
+
+            if index == object_pointers.len() {
+                object_pointers.push(object_pointer);
+            } else if index < object_pointers.len() {
+                object_pointers[index] = object_pointer;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        ObjectValue::FunctionList(function_index) => {
+            let function_pointer = item as usize;
+
+            if index == function_index.len() {
+                function_index.push(function_pointer);
+            } else if index < function_index.len() {
+                function_index[index] = function_pointer;
+            } else {
+                panic!("Index out of bounds for list insertion");
+            }
+        }
+        _ => panic!("Object is not a list"),
     }
 }

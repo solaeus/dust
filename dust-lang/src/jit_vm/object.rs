@@ -1,6 +1,4 @@
-use crate::List;
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug)]
 pub struct Object {
     pub value: ObjectValue,
     pub mark: bool,
@@ -21,9 +19,51 @@ impl Object {
         }
     }
 
-    pub fn list(list: List) -> Self {
+    pub fn boolean_list<T: Into<Vec<bool>>>(booleans: T) -> Self {
         Object {
-            value: ObjectValue::List(list),
+            value: ObjectValue::BooleanList(booleans.into()),
+            mark: false,
+        }
+    }
+
+    pub fn byte_list<T: Into<Vec<u8>>>(bytes: T) -> Self {
+        Object {
+            value: ObjectValue::ByteList(bytes.into()),
+            mark: false,
+        }
+    }
+
+    pub fn character_list<T: Into<Vec<char>>>(characters: T) -> Self {
+        Object {
+            value: ObjectValue::CharacterList(characters.into()),
+            mark: false,
+        }
+    }
+
+    pub fn float_list<T: Into<Vec<f64>>>(floats: T) -> Self {
+        Object {
+            value: ObjectValue::FloatList(floats.into()),
+            mark: false,
+        }
+    }
+
+    pub fn integer_list<T: Into<Vec<i64>>>(integers: T) -> Self {
+        Object {
+            value: ObjectValue::IntegerList(integers.into()),
+            mark: false,
+        }
+    }
+
+    pub fn function_list<T: Into<Vec<usize>>>(functions: T) -> Self {
+        Object {
+            value: ObjectValue::FunctionList(functions.into()),
+            mark: false,
+        }
+    }
+
+    pub fn object_list<T: Into<Vec<*const Object>>>(objects: T) -> Self {
+        Object {
+            value: ObjectValue::ObjectList(objects.into()),
             mark: false,
         }
     }
@@ -35,49 +75,17 @@ impl Object {
             None
         }
     }
-
-    pub fn as_mut_string(&mut self) -> Option<&mut String> {
-        if let ObjectValue::String(ref mut string) = self.value {
-            Some(string)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_list(&self) -> Option<&List> {
-        if let ObjectValue::List(ref list) = self.value {
-            Some(list)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_mut_list(&mut self) -> Option<&mut List> {
-        if let ObjectValue::List(ref mut list) = self.value {
-            Some(list)
-        } else {
-            None
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        size_of::<Object>() + self.value.heap_size()
-    }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug)]
 pub enum ObjectValue {
     Empty,
-    List(List),
+    BooleanList(Vec<bool>),
+    ByteList(Vec<u8>),
+    CharacterList(Vec<char>),
+    FloatList(Vec<f64>),
+    IntegerList(Vec<i64>),
+    FunctionList(Vec<usize>),
+    ObjectList(Vec<*const Object>),
     String(String),
-}
-
-impl ObjectValue {
-    fn heap_size(&self) -> usize {
-        match self {
-            ObjectValue::Empty => 0,
-            ObjectValue::List(list) => size_of::<List>() + list.heap_size(),
-            ObjectValue::String(string) => size_of::<String>() + string.capacity(),
-        }
-    }
 }
