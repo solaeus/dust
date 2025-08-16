@@ -73,7 +73,7 @@ stateDiagram-v2
     Dispatch --> Stackless
     Stackless --> Instructions
     Direct --> Instructions
-    Instructions --> Stackless: RETURN or recursive CALL
+    Instructions --> Dispatch: RETURN or recursive CALL
     Instructions --> Direct: Non-recursive CALL
 ```
 
