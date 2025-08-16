@@ -257,7 +257,14 @@ pub fn compile_stackless_function(
                         allocate_string_function,
                         &mut function_builder,
                     )?,
-                    OperandType::LIST_INTEGER => {
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING
+                    | OperandType::LIST_LIST
+                    | OperandType::LIST_FUNCTION => {
                         get_list(operand, current_frame_base_address, &mut function_builder)?
                     }
                     _ => {
@@ -347,6 +354,18 @@ pub fn compile_stackless_function(
                         chunk,
                         object_pool_pointer,
                         allocate_string_function,
+                        &mut function_builder,
+                    )?,
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING
+                    | OperandType::LIST_LIST
+                    | OperandType::LIST_FUNCTION => get_list(
+                        item_source,
+                        current_frame_base_address,
                         &mut function_builder,
                     )?,
                     _ => {

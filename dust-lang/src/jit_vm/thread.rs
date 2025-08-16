@@ -4,13 +4,13 @@ use std::{
 };
 
 use cranelift::prelude::{
-    Type,
+    Type as CraneliftType,
     types::{I32, I64},
 };
 use tracing::{Level, info, span, trace};
 
 use crate::{
-    List, Program, Value,
+    List, Program, Type, Value,
     instruction::OperandType,
     jit_vm::{ObjectPool, call_stack::new_call_stack, object::ObjectValue},
 };
@@ -98,131 +98,47 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     match return_type {
         OperandType::NONE => Ok(None),
         OperandType::BOOLEAN => {
-            let boolean = unsafe { return_register.boolean };
+            let boolean = get_boolean_from_register(return_register);
 
             Ok(Some(Value::Boolean(boolean)))
         }
         OperandType::BYTE => {
-            let byte = unsafe { return_register.byte };
+            let byte = get_byte_from_register(return_register);
 
             Ok(Some(Value::Byte(byte)))
         }
         OperandType::CHARACTER => {
-            let character = unsafe { return_register.character };
+            let character = get_character_from_register(return_register);
 
             Ok(Some(Value::Character(character)))
         }
         OperandType::FLOAT => {
-            let float = unsafe { return_register.float };
+            let float = get_float_from_register(return_register);
 
             Ok(Some(Value::Float(float)))
         }
         OperandType::INTEGER => {
-            let integer = unsafe { return_register.integer };
+            let integer = get_integer_from_register(return_register);
 
             Ok(Some(Value::Integer(integer)))
         }
         OperandType::STRING => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let string = object
-                .as_string()
-                .cloned()
-                .ok_or(JitError::InvalidConstantType {
-                    expected_type: OperandType::STRING,
-                })?;
+            let string = get_string_from_register(return_register)?;
 
             Ok(Some(Value::String(string)))
         }
-        OperandType::LIST_BOOLEAN => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let booleans = if let ObjectValue::BooleanList(booleans) = &object.value {
-                booleans.clone()
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_BOOLEAN,
-                });
-            };
+        OperandType::LIST_BOOLEAN
+        | OperandType::LIST_BYTE
+        | OperandType::LIST_CHARACTER
+        | OperandType::LIST_FLOAT
+        | OperandType::LIST_INTEGER
+        | OperandType::LIST_STRING
+        | OperandType::LIST_LIST
+        | OperandType::LIST_FUNCTION => {
+            let full_type = program.main_chunk.r#type.return_type;
+            let list = get_list_from_register(return_register, &full_type)?;
 
-            Ok(Some(Value::List(List::Boolean(booleans))))
-        }
-        OperandType::LIST_BYTE => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let bytes = if let ObjectValue::ByteList(bytes) = &object.value {
-                bytes.clone()
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_BYTE,
-                });
-            };
-
-            Ok(Some(Value::List(List::Byte(bytes))))
-        }
-        OperandType::LIST_CHARACTER => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let characters = if let ObjectValue::CharacterList(characters) = &object.value {
-                characters.clone()
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_CHARACTER,
-                });
-            };
-
-            Ok(Some(Value::List(List::Character(characters))))
-        }
-        OperandType::LIST_FLOAT => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let floats = if let ObjectValue::FloatList(floats) = &object.value {
-                floats.clone()
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_FLOAT,
-                });
-            };
-
-            Ok(Some(Value::List(List::Float(floats))))
-        }
-        OperandType::LIST_INTEGER => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let integers = if let ObjectValue::IntegerList(integers) = &object.value {
-                integers.clone()
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_INTEGER,
-                });
-            };
-
-            Ok(Some(Value::List(List::Integer(integers))))
-        }
-        OperandType::LIST_STRING => {
-            let object_pointer = unsafe { return_register.object_pointer };
-            let object = unsafe { &*object_pointer };
-            let strings = if let ObjectValue::ObjectList(objects) = &object.value {
-                objects
-                    .iter()
-                    .map(|object_pointer| {
-                        let object = unsafe { &**object_pointer };
-
-                        object
-                            .as_string()
-                            .cloned()
-                            .ok_or(JitError::InvalidConstantType {
-                                expected_type: OperandType::STRING,
-                            })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            } else {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_STRING,
-                });
-            };
-
-            Ok(Some(Value::List(List::String(strings))))
+            Ok(Some(Value::List(list)))
         }
         _ => todo!(),
     }
@@ -235,7 +151,7 @@ pub enum ThreadResult {
 }
 
 impl ThreadResult {
-    pub const CRANELIFT_TYPE: Type = match size_of::<ThreadResult>() {
+    pub const CRANELIFT_TYPE: CraneliftType = match size_of::<ThreadResult>() {
         4 => I32,
         8 => I64,
         _ => panic!("Unsupported ThreadStatus size"),
@@ -258,4 +174,122 @@ pub struct ThreadContext {
 
     pub return_register_pointer: *mut Register,
     pub return_type_pointer: *mut OperandType,
+}
+
+fn get_boolean_from_register(register: Register) -> bool {
+    unsafe { register.boolean }
+}
+
+fn get_byte_from_register(register: Register) -> u8 {
+    unsafe { register.byte }
+}
+
+fn get_character_from_register(register: Register) -> char {
+    unsafe { register.character }
+}
+
+fn get_float_from_register(register: Register) -> f64 {
+    unsafe { register.float }
+}
+
+fn get_integer_from_register(register: Register) -> i64 {
+    unsafe { register.integer }
+}
+
+fn get_string_from_register(register: Register) -> Result<String, JitError> {
+    let object_pointer = unsafe { register.object_pointer };
+    let object = unsafe { &*object_pointer };
+
+    object
+        .as_string()
+        .cloned()
+        .ok_or(JitError::InvalidConstantType {
+            expected_type: OperandType::STRING,
+        })
+}
+
+fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, JitError> {
+    let object_pointer = unsafe { register.object_pointer };
+    let object = unsafe { &*object_pointer };
+
+    match &object.value {
+        ObjectValue::BooleanList(booleans) => Ok(List::Boolean(booleans.clone())),
+        ObjectValue::ByteList(bytes) => Ok(List::Byte(bytes.clone())),
+        ObjectValue::CharacterList(characters) => Ok(List::Character(characters.clone())),
+        ObjectValue::FloatList(floats) => Ok(List::Float(floats.clone())),
+        ObjectValue::IntegerList(integers) => Ok(List::Integer(integers.clone())),
+        ObjectValue::ObjectList(objects) => {
+            let item_type = if let Type::List(item_type) = full_type {
+                item_type.as_ref()
+            } else {
+                return Err(JitError::InvalidConstantType {
+                    expected_type: OperandType::LIST_LIST,
+                });
+            };
+
+            if item_type == &Type::String {
+                let mut strings = Vec::with_capacity(objects.len());
+
+                for object_pointer in objects {
+                    let object = unsafe { &**object_pointer };
+                    let string = match &object.value {
+                        ObjectValue::String(string) => string.clone(),
+                        _ => {
+                            return Err(JitError::InvalidConstantType {
+                                expected_type: OperandType::LIST_STRING,
+                            });
+                        }
+                    };
+
+                    strings.push(string);
+                }
+
+                return Ok(List::String(strings));
+            }
+
+            let mut items = Vec::with_capacity(objects.len());
+
+            for object_pointer in objects {
+                let object = unsafe { &**object_pointer };
+                let value = match &object.value {
+                    ObjectValue::BooleanList(boolean_list) => List::Boolean(boolean_list.clone()),
+                    ObjectValue::ByteList(byte_list) => List::Byte(byte_list.clone()),
+                    ObjectValue::CharacterList(character_list) => {
+                        List::Character(character_list.clone())
+                    }
+                    ObjectValue::FloatList(float_list) => List::Float(float_list.clone()),
+                    ObjectValue::IntegerList(integer_list) => List::Integer(integer_list.clone()),
+                    ObjectValue::ObjectList(object_list) => {
+                        let mut inner_lists = Vec::with_capacity(object_list.len());
+
+                        for inner_object_pointer in object_list {
+                            let inner_list = get_list_from_register(
+                                Register {
+                                    object_pointer: *inner_object_pointer as *mut _,
+                                },
+                                item_type,
+                            )?;
+
+                            inner_lists.push(inner_list);
+                        }
+
+                        List::List(inner_lists)
+                    }
+
+                    _ => {
+                        return Err(JitError::InvalidConstantType {
+                            expected_type: OperandType::LIST_LIST,
+                        });
+                    }
+                };
+
+                items.push(value);
+            }
+
+            Ok(List::List(items))
+        }
+        _ => Err(JitError::InvalidConstantType {
+            expected_type: OperandType::LIST_BOOLEAN,
+        }),
+    }
 }

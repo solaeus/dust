@@ -425,112 +425,114 @@ fn integer_list() {
     assert_eq!(return_value, Some(Value::List(List::integer([1, 2, 3]))));
 }
 
-// #[test]
-// fn string_list() {
-//     let source = "[\"foo\", \"bar\"]";
-//     let program = compile(source).unwrap();
-//     let return_value = run(source).unwrap();
+#[test]
+fn string_list() {
+    let source = "[\"foo\", \"bar\"]";
+    let program = compile(source).unwrap();
+    let return_value = run(source).unwrap();
 
-//     assert_eq!(
-//         program,
-//         Program {
-//             main_chunk: Chunk {
-//                 name: Some(Path::new("main").unwrap()),
-//                 r#type: FunctionType::new([], [], Type::List(Box::new(Type::String))),
-//                 instructions: vec![
-//                     Instruction::new_list(Address::register(0), 2, OperandType::STRING),
-//                     Instruction::set_list(
-//                         Address::register(0),
-//                         Address::constant(0),
-//                         0,
-//                         OperandType::STRING
-//                     ),
-//                     Instruction::set_list(
-//                         Address::register(0),
-//                         Address::constant(1),
-//                         1,
-//                         OperandType::STRING
-//                     ),
-//                     Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING)
-//                 ],
-//                 constants: vec![
-//                     Value::String("foo".to_string()),
-//                     Value::String("bar".to_string())
-//                 ],
-//                 prototype_index: u16::MAX,
-//                 ..Default::default()
-//             },
-//             cell_count: 0,
-//             prototypes: Vec::new(),
-//         }
-//     );
-//     assert_eq!(
-//         return_value,
-//         Some(Value::List(List::string(vec![
-//             "foo".to_string(),
-//             "bar".to_string()
-//         ])))
-//     );
-// }
+    assert_eq!(
+        program,
+        Program {
+            main_chunk: Chunk {
+                name: Some(Path::new("main").unwrap()),
+                r#type: FunctionType::new([], [], Type::List(Box::new(Type::String))),
+                instructions: vec![
+                    Instruction::new_list(Address::register(0), 2, OperandType::LIST_STRING),
+                    Instruction::set_list(
+                        Address::register(0),
+                        Address::constant(0),
+                        0,
+                        OperandType::STRING
+                    ),
+                    Instruction::set_list(
+                        Address::register(0),
+                        Address::constant(1),
+                        1,
+                        OperandType::STRING
+                    ),
+                    Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING)
+                ],
+                constants: vec![
+                    Value::String("foo".to_string()),
+                    Value::String("bar".to_string())
+                ],
+                register_count: 1,
+                prototype_index: u16::MAX,
+                ..Default::default()
+            },
+            cell_count: 0,
+            prototypes: Vec::new(),
+        }
+    );
+    assert_eq!(
+        return_value,
+        Some(Value::List(List::string(vec![
+            "foo".to_string(),
+            "bar".to_string()
+        ])))
+    );
+}
 
-// #[test]
-// fn list_list() {
-//     let source = "[[true], [false]]";
-//     let program = compile(source).unwrap();
-//     let return_value = run(source).unwrap();
+#[test]
+fn list_list() {
+    let source = "[[true], [false]]";
+    let program = compile(source).unwrap();
+    let return_value = run(source).unwrap();
 
-//     assert_eq!(
-//         program,
-//         Program {
-//             main_chunk: Chunk {
-//                 name: Some(Path::new("main").unwrap()),
-//                 r#type: FunctionType::new(
-//                     [],
-//                     [],
-//                     Type::List(Box::new(Type::List(Box::new(Type::Boolean))))
-//                 ),
-//                 instructions: vec![
-//                     Instruction::new_list(Address::register(0), 2, OperandType::LIST_BOOLEAN),
-//                     Instruction::new_list(Address::register(1), 1, OperandType::BOOLEAN),
-//                     Instruction::set_list(
-//                         Address::register(1),
-//                         Address::encoded(0),
-//                         0,
-//                         OperandType::BOOLEAN
-//                     ),
-//                     Instruction::set_list(
-//                         Address::register(0),
-//                         Address::register(1),
-//                         0,
-//                         OperandType::LIST_BOOLEAN
-//                     ),
-//                     Instruction::new_list(Address::register(1), 1, OperandType::BOOLEAN),
-//                     Instruction::set_list(
-//                         Address::register(1),
-//                         Address::encoded(1),
-//                         0,
-//                         OperandType::BOOLEAN
-//                     ),
-//                     Instruction::set_list(
-//                         Address::register(0),
-//                         Address::register(1),
-//                         1,
-//                         OperandType::LIST_BOOLEAN
-//                     ),
-//                     Instruction::r#return(true, Address::register(0), OperandType::LIST_LIST)
-//                 ],
-//                 prototype_index: u16::MAX,
-//                 ..Default::default()
-//             },
-//             cell_count: 0,
-//             prototypes: Vec::new(),
-//         }
-//     );
-//     assert_eq!(
-//         return_value,
-//         Some(Value::List(List::list(vec![
-//             List::boolean([true]),
-//             List::boolean([false])
-//         ])))
-//     );
-// }
+    assert_eq!(
+        program,
+        Program {
+            main_chunk: Chunk {
+                name: Some(Path::new("main").unwrap()),
+                r#type: FunctionType::new(
+                    [],
+                    [],
+                    Type::List(Box::new(Type::List(Box::new(Type::Boolean))))
+                ),
+                instructions: vec![
+                    Instruction::new_list(Address::register(0), 2, OperandType::LIST_BOOLEAN),
+                    Instruction::new_list(Address::register(1), 1, OperandType::LIST_BOOLEAN),
+                    Instruction::set_list(
+                        Address::register(1),
+                        Address::encoded(0),
+                        0,
+                        OperandType::BOOLEAN
+                    ),
+                    Instruction::set_list(
+                        Address::register(0),
+                        Address::register(1),
+                        0,
+                        OperandType::BOOLEAN
+                    ),
+                    Instruction::new_list(Address::register(1), 1, OperandType::LIST_BOOLEAN),
+                    Instruction::set_list(
+                        Address::register(1),
+                        Address::encoded(1),
+                        0,
+                        OperandType::BOOLEAN
+                    ),
+                    Instruction::set_list(
+                        Address::register(0),
+                        Address::register(1),
+                        1,
+                        OperandType::BOOLEAN
+                    ),
+                    Instruction::r#return(true, Address::register(0), OperandType::LIST_LIST)
+                ],
+                register_count: 2,
+                prototype_index: u16::MAX,
+                ..Default::default()
+            },
+            cell_count: 0,
+            prototypes: Vec::new(),
+        }
+    );
+    assert_eq!(
+        return_value,
+        Some(Value::List(List::list(vec![
+            List::boolean([true]),
+            List::boolean([false])
+        ])))
+    );
+}

@@ -21,7 +21,6 @@ pub unsafe extern "C" fn allocate_list(
         OperandType::LIST_STRING | OperandType::LIST_LIST => {
             Object::object_list(Vec::with_capacity(length as usize))
         }
-
         _ => panic!(
             "Unsupported type for list allocation: {}",
             OperandType(list_type as u8)
