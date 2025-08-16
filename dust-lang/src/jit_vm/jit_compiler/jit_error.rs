@@ -51,6 +51,10 @@ pub enum JitError {
         constant_index: usize,
         total_constant_count: usize,
     },
+    SafepointIndexOutOfBounds {
+        safepoint_index: usize,
+        total_safepoint_count: usize,
+    },
 }
 
 impl AnnotatedError for JitError {
@@ -191,6 +195,19 @@ impl AnnotatedError for JitError {
                 vec![(
                     format!(
                         "Constant index {constant_index} is out of bounds for total constant count {total_constant_count}."
+                    ),
+                    Span::default(),
+                )],
+                None,
+            ),
+            JitError::SafepointIndexOutOfBounds {
+                safepoint_index,
+                total_safepoint_count,
+            } => (
+                "Safepoint index out of bounds",
+                vec![(
+                    format!(
+                        "Safepoint index {safepoint_index} is out of bounds for total safepoint count {total_safepoint_count}."
                     ),
                     Span::default(),
                 )],

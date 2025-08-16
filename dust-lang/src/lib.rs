@@ -1,5 +1,6 @@
 //! The Dust programming language library.
 #![feature(
+    allocator_api,
     formatting_options,
     hash_set_entry,
     new_range_api,
@@ -48,6 +49,14 @@ pub use value::{List, Value};
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "global-mimalloc")]
+mod allocator {
+    use mimalloc::MiMalloc;
+
+    #[global_allocator]
+    static GLOBAL: MiMalloc = MiMalloc;
+}
 
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,

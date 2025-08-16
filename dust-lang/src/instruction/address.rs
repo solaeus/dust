@@ -55,14 +55,16 @@ impl Address {
     }
 
     pub fn display(&self, f: &mut Formatter<'_>, r#type: OperandType) -> fmt::Result {
-        if r#type == OperandType::FUNCTION {
-            if self.index == u16::MAX {
-                write!(f, "self")
-            } else {
-                write!(f, "proto_{}", self.index)
+        match r#type {
+            OperandType::BOOLEAN => write!(f, "{}", self.index != 0),
+            OperandType::FUNCTION => {
+                if self.index == u16::MAX {
+                    write!(f, "self")
+                } else {
+                    write!(f, "proto_{}", self.index)
+                }
             }
-        } else {
-            write!(f, "{}_{}", self.memory, self.index)
+            _ => write!(f, "{}_{}", self.memory, self.index),
         }
     }
 

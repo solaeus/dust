@@ -491,36 +491,36 @@ fn list_list() {
                     Type::List(Box::new(Type::List(Box::new(Type::Boolean))))
                 ),
                 instructions: vec![
-                    Instruction::new_list(Address::register(0), 2, OperandType::LIST_BOOLEAN),
-                    Instruction::new_list(Address::register(1), 1, OperandType::LIST_BOOLEAN),
-                    Instruction::set_list(
-                        Address::register(1),
-                        Address::encoded(0),
-                        0,
-                        OperandType::BOOLEAN
-                    ),
+                    Instruction::new_list(Address::register(0), 1, OperandType::LIST_BOOLEAN),
                     Instruction::set_list(
                         Address::register(0),
-                        Address::register(1),
+                        Address::encoded(true as u16),
                         0,
                         OperandType::BOOLEAN
                     ),
                     Instruction::new_list(Address::register(1), 1, OperandType::LIST_BOOLEAN),
                     Instruction::set_list(
                         Address::register(1),
-                        Address::encoded(1),
+                        Address::encoded(false as u16),
                         0,
                         OperandType::BOOLEAN
                     ),
+                    Instruction::new_list(Address::register(2), 2, OperandType::LIST_LIST),
                     Instruction::set_list(
+                        Address::register(2),
                         Address::register(0),
+                        0,
+                        OperandType::LIST_BOOLEAN
+                    ),
+                    Instruction::set_list(
+                        Address::register(2),
                         Address::register(1),
                         1,
-                        OperandType::BOOLEAN
+                        OperandType::LIST_BOOLEAN
                     ),
-                    Instruction::r#return(true, Address::register(0), OperandType::LIST_LIST)
+                    Instruction::r#return(true, Address::register(2), OperandType::LIST_LIST)
                 ],
-                register_count: 2,
+                register_count: 3,
                 prototype_index: u16::MAX,
                 ..Default::default()
             },

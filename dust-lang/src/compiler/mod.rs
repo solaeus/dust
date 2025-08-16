@@ -150,7 +150,7 @@ impl Compiler {
             locals,
             call_argument_lists: chunk_compiler.call_argument_lists,
             register_count,
-            safepoints: chunk_compiler.safepoint_registers,
+            safepoints: chunk_compiler.safepoints,
             prototype_index: u16::MAX,
         };
         let prototypes = Rc::into_inner(chunk_compiler.prototypes)
@@ -207,7 +207,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
-    safepoint_registers: Vec<Vec<u16>>,
+    safepoints: Vec<Vec<u16>>,
 
     reusable_registers: Vec<u16>,
 
@@ -264,7 +264,7 @@ impl<'a> ChunkCompiler<'a> {
             constants: Vec::new(),
             locals: IndexMap::new(),
             call_argument_lists: Vec::new(),
-            safepoint_registers: Vec::new(),
+            safepoints: Vec::new(),
             reusable_registers: Vec::new(),
             lexer,
             minimum_register_index: 0,
@@ -1593,6 +1593,7 @@ impl<'a> ChunkCompiler<'a> {
         self.advance()?;
 
         let starting_block = self.current_block_scope.block_index;
+        let starting_block_scope = self.current_block_scope;
         let start_block_instructions = self.instructions.len();
 
         self.block_index += 1;
@@ -1606,46 +1607,36 @@ impl<'a> ChunkCompiler<'a> {
 
         let end_block_instructions = self.instructions.len();
 
-        if end_block_instructions > start_block_instructions {
-            let block_instructions =
-                &self.instructions[start_block_instructions..end_block_instructions];
-            let safepoint_registers = block_instructions
-                .iter()
-                .filter_map(|instruction| {
-                    if instruction.yields_value() {
-                        self.reusable_registers.push(instruction.a_field());
-
-                        if matches!(
-                            instruction.operand_type(),
-                            OperandType::STRING
-                                | OperandType::LIST
-                                | OperandType::LIST_BOOLEAN
-                                | OperandType::LIST_BYTE
-                                | OperandType::LIST_CHARACTER
-                                | OperandType::LIST_FLOAT
-                                | OperandType::LIST_INTEGER
-                                | OperandType::LIST_STRING
-                                | OperandType::LIST_LIST
-                                | OperandType::LIST_FUNCTION
-                        ) {
-                            return Some(instruction.destination().index);
-                        }
-                    }
-
+        let safepoint_registers = self
+            .locals
+            .iter()
+            .filter_map(|(_, local)| {
+                if starting_block_scope.contains(&local.scope)
+                    && matches!(local.r#type, Type::String | Type::List(_))
+                {
+                    Some(local.address.index)
+                } else {
                     None
-                })
-                .collect::<Vec<_>>();
+                }
+            })
+            .collect::<Vec<u16>>();
 
-            if safepoint_registers.is_empty() {
-                return Ok(());
+        for index in start_block_instructions..end_block_instructions {
+            let instruction = self.instructions[index];
+            let destination_index = instruction.a_field();
+
+            if instruction.yields_value() && !safepoint_registers.contains(&destination_index) {
+                self.reusable_registers.push(destination_index);
             }
-
-            let safepoint_registers_index = self.safepoint_registers.len() as u16;
-            let safepoint = Instruction::safepoint(safepoint_registers_index);
-
-            self.safepoint_registers.push(safepoint_registers);
-            self.instructions.push(safepoint);
         }
+
+        if !safepoint_registers.is_empty() {
+            let safepoint_index = self.safepoints.len() as u16;
+            let safepoint_instruction = Instruction::safepoint(safepoint_index);
+
+            self.safepoints.push(safepoint_registers);
+            self.instructions.push(safepoint_instruction);
+        };
 
         Ok(())
     }
@@ -2001,7 +1992,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.instructions.insert(block_start, jump);
 
-        let jump_back_distance = block_end - expression_start + 1;
+        let jump_back_distance = block_end - expression_start;
         let jump_back = Instruction::from(Jump {
             offset: jump_back_distance as u16,
             is_positive: false,
@@ -2044,7 +2035,9 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if matches!(self.get_last_operation(), Some(Operation::LOAD)) {
+        if self.get_last_operation() == Some(Operation::RETURN) {
+            return Ok(());
+        } else if matches!(self.get_last_operation(), Some(Operation::LOAD)) {
             let Expression {
                 index: kind,
                 r#type: expression_type,
@@ -2063,11 +2056,13 @@ impl<'a> ChunkCompiler<'a> {
                     position: self.previous_position,
                 });
             };
+
             let load_instruction = self.instructions[instruction_index];
+            println!("{}", load_instruction);
             let Load { r#type, .. } = Load::from(load_instruction);
             let should_return_value = expression_type != Type::None;
-            let (return_value_address, should_remove) =
-                self.handle_previous_instruction(load_instruction);
+            let (_, should_remove) = self.handle_previous_instruction(load_instruction);
+            let return_value_address = load_instruction.destination();
             let r#return = Instruction::r#return(should_return_value, return_value_address, r#type);
 
             if should_remove && should_return_value {
@@ -2081,13 +2076,6 @@ impl<'a> ChunkCompiler<'a> {
                 expression_type,
                 self.current_position,
             );
-        } else if matches!(self.get_last_operation(), Some(Operation::RETURN))
-            || matches!(
-                self.get_last_operations(),
-                Some([Operation::RETURN, Operation::JUMP])
-            )
-        {
-            // Do nothing if the last instruction is a return or a return followed by a jump
         } else if self.allow(Token::Semicolon)? {
             let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
 
@@ -2332,7 +2320,7 @@ impl<'a> ChunkCompiler<'a> {
             constants: function_compiler.constants,
             call_argument_lists: function_compiler.call_argument_lists,
             register_count,
-            safepoints: function_compiler.safepoint_registers,
+            safepoints: function_compiler.safepoints,
             prototype_index: function_compiler.prototype_index,
         };
         let prototype_address = Address::constant(chunk.prototype_index);
@@ -2397,6 +2385,20 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         let (return_type, prototype_index, argument_count) = get_function_info()?;
+        let mut safepoint_registers = self
+            .locals
+            .iter()
+            .filter_map(|(_, local)| {
+                if matches!(local.r#type, Type::String | Type::List(_))
+                    && (local.scope == self.current_block_scope
+                        || self.current_block_scope.contains(&local.scope))
+                {
+                    Some(local.address.index)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<u16>>();
 
         let mut arguments = Vec::with_capacity(argument_count);
 
@@ -2405,23 +2407,26 @@ impl<'a> ChunkCompiler<'a> {
             self.allow(Token::Comma)?;
 
             let Expression { index, r#type, .. } =
-                self.expressions
-                    .last()
-                    .ok_or_else(|| CompileError::ExpectedExpression {
+                self.expressions.last().cloned().ok_or_else(|| {
+                    CompileError::ExpectedExpression {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,
-                    })?;
+                    }
+                })?;
 
-            match *index {
+            match index {
                 ExpressionIndex::Instruction(instruction_index) => {
                     let last_instruction = self.instructions[instruction_index];
-
                     let argument_type = r#type.as_operand_type();
                     let (argument_address, should_remove) =
                         self.handle_previous_instruction(last_instruction);
 
                     if should_remove {
                         self.instructions.remove(instruction_index);
+                    } else if last_instruction.yields_value()
+                        && matches!(r#type, Type::String | Type::List(_))
+                    {
+                        safepoint_registers.push(last_instruction.a_field());
                     }
 
                     arguments.push((argument_address, argument_type));
@@ -2432,13 +2437,27 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
+        let end = self.current_position.1;
+
+        let safepoint_index = if safepoint_registers.is_empty() {
+            u16::MAX
+        } else {
+            let index = self.safepoints.len() as u16;
+
+            self.safepoints.push(safepoint_registers);
+
+            index
+        };
+        let safepoint_instruction = Instruction::safepoint(safepoint_index);
+
+        self.instructions.push(safepoint_instruction);
+
         let arguments_index = self.call_argument_lists.len() as u16;
 
         if !arguments.is_empty() {
             self.call_argument_lists.push(arguments);
         }
 
-        let end = self.current_position.1;
         let return_operand_type = return_type.as_operand_type();
         let destination = Address::register(self.next_register_index());
         let call = Instruction::call(

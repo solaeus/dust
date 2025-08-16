@@ -62,7 +62,7 @@ impl Display for SetList {
             item_type,
         } = self;
 
-        destination_list.display(f, *item_type)?;
+        destination_list.display(f, item_type.list_type())?;
         write!(f, "[{list_index}] = ")?;
         item_source.display(f, *item_type)
     }

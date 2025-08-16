@@ -30,6 +30,10 @@ impl From<Safepoint> for Instruction {
 
 impl Display for Safepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "sp_{}", self.safepoint_index)
+        if self.safepoint_index == u16::MAX {
+            Ok(())
+        } else {
+            write!(f, "safepoint_{}", self.safepoint_index)
+        }
     }
 }

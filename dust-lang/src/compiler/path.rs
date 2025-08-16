@@ -7,7 +7,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use smartstring::{LazyCompact, SmartString};
 
 use crate::{CompileError, Span};
 
@@ -18,7 +17,7 @@ fn cache_path(path: Path) -> Path {
 }
 
 /// A correctly formatted relative or absolute path to a module or value.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Path {
     inner: Arc<String>,
 }
@@ -126,16 +125,6 @@ impl AsRef<str> for Path {
 impl Borrow<str> for Path {
     fn borrow(&self) -> &str {
         &self.inner
-    }
-}
-
-impl<'de> Deserialize<'de> for Path {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Self::new(SmartString::<LazyCompact>::deserialize(deserializer)?)
-            .ok_or(serde::de::Error::custom("Not a valid path"))
     }
 }
 

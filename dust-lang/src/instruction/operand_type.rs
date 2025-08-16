@@ -52,6 +52,21 @@ impl OperandType {
         )
     }
 
+    pub fn list_type(&self) -> Self {
+        match *self {
+            Self::BOOLEAN => Self::LIST_BOOLEAN,
+            Self::BYTE => Self::LIST_BYTE,
+            Self::CHARACTER => Self::LIST_CHARACTER,
+            Self::FLOAT => Self::LIST_FLOAT,
+            Self::INTEGER => Self::LIST_INTEGER,
+            Self::STRING => Self::LIST_STRING,
+            Self::LIST => Self::LIST_LIST,
+            Self::MAP => Self::LIST_MAP,
+            Self::FUNCTION => Self::LIST_FUNCTION,
+            _ => *self,
+        }
+    }
+
     pub fn list_item_type(&self) -> Option<Self> {
         match *self {
             Self::LIST_BOOLEAN => Some(Self::BOOLEAN),

@@ -50,9 +50,8 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
 
+        #[cfg(debug_assertions)]
         builder.symbol("log_operation", log_operation as *const u8);
-        builder.symbol("log_value", log_value as *const u8);
-        builder.symbol("log_call_frame", log_call_frame as *const u8);
 
         let module = JITModule::new(builder);
 

@@ -8,22 +8,23 @@ readme.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[features]
+global-mimalloc = []
+
 [dependencies]
 annotate-snippets = "0.11.5"
 colored = "3.0.0"
 rand = "0.9.2"
 serde = { version = "1.0.217", features = ["derive", "rc"] }
 serde_json = "1.0.138"
-getrandom = "0.3" # Indirect dependency, for WASM builds
-smartstring = { version = "1.0.1", features = [
-    "serde",
-], default-features = false }
+getrandom = "0.3"                                            # Indirect dependency, for WASM builds
 tracing = "0.1.41"
 crossbeam-channel = "0.5.14"
 indexmap = { version = "2.9.0", features = ["serde"] }
 cranelift = "0.122"
 cranelift-jit = "0.122"
 cranelift-module = "0.122"
+mimalloc = "0.1.47"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }

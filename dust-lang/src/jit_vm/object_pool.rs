@@ -1,32 +1,67 @@
 use std::pin::Pin;
 
-use crate::{Object, OperandType, Register};
+use tracing::trace;
+
+use crate::Object;
+
+const MINIMUM_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
+    1024
+} else {
+    1024 * 1024
+};
+const DEFAULT_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
+    1024 * 1024
+} else {
+    1024 * 1024 * 4
+};
 
 #[repr(C)]
 pub struct ObjectPool {
     objects: Vec<Pin<Box<Object>>>,
+    pub allocated: usize,
+    pub next_sweep_threshold: usize,
 }
 
 impl ObjectPool {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
+            allocated: 0,
+            next_sweep_threshold: DEFAULT_SWEEP_THRESHOLD,
         }
     }
 
     pub fn allocate(&mut self, object: Object) -> *mut Object {
+        let size = object.size();
+        self.allocated += size;
+
+        trace!("Allocating object with {} bytes", size);
+
+        if self.allocated >= self.next_sweep_threshold {
+            trace!(
+                "Sweeping object pool: {} objects, {} bytes",
+                self.objects.len(),
+                self.allocated
+            );
+
+            self.sweep();
+
+            self.next_sweep_threshold =
+                (self.allocated + MINIMUM_SWEEP_THRESHOLD).max(DEFAULT_SWEEP_THRESHOLD);
+
+            trace!(
+                "Swept object pool: {} retained objects, {} bytes",
+                self.objects.len(),
+                self.allocated
+            );
+        }
+
         let mut pinned = Box::pin(object);
         let pointer = &mut *pinned as *mut Object;
 
         self.objects.push(pinned);
 
         pointer
-    }
-
-    pub fn mark(&mut self, key: usize) {
-        if let Some(object) = self.objects.get_mut(key) {
-            object.mark = true;
-        }
     }
 
     pub fn get(&self, key: usize) -> Option<&Object> {
@@ -37,33 +72,14 @@ impl ObjectPool {
         self.objects.get_mut(key).map(|object| &mut **object)
     }
 
-    fn _collect_garbage(&mut self, registers: &[Register], register_tags: &[OperandType]) {
-        for (index, tag) in register_tags.iter().enumerate() {
-            if matches!(
-                *tag,
-                OperandType::STRING
-                    | OperandType::LIST
-                    | OperandType::LIST_BOOLEAN
-                    | OperandType::LIST_BYTE
-                    | OperandType::LIST_CHARACTER
-                    | OperandType::LIST_FLOAT
-                    | OperandType::LIST_INTEGER
-                    | OperandType::LIST_STRING
-                    | OperandType::LIST_LIST
-                    | OperandType::LIST_FUNCTION
-            ) {
-                let register = &registers[index];
-                let pointer = unsafe { register.object_pointer };
-                let object = unsafe { &mut *pointer };
-
-                object.mark = true;
-            }
-        }
+    fn sweep(&mut self) {
+        self.allocated = 0;
 
         self.objects.retain_mut(|object| {
             let keep = object.mark;
 
             if keep {
+                self.allocated += object.size();
                 object.mark = false;
             }
 

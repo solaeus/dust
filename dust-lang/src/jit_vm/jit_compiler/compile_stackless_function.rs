@@ -13,8 +13,8 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
-    instruction::{Add, Call, Jump, Load, NewList, Return, SetList, Subtract},
+    Address, Chunk, JitCompiler, JitError, MemoryKind, Object, OperandType, Operation, Register,
+    instruction::{Add, Call, Jump, Load, NewList, Return, Safepoint, SetList, Subtract},
     jit_vm::{call_stack::get_call_frame, thread::ThreadContext},
 };
 
@@ -283,6 +283,44 @@ pub fn compile_stackless_function(
 
                 if jump_next {
                     compiler.emit_jump(ip, 2, &mut function_builder, &[])?;
+                }
+            }
+            Operation::SAFEPOINT => {
+                let Safepoint { safepoint_index } = Safepoint::from(*current_instruction);
+
+                if safepoint_index == u16::MAX {
+                    compiler.emit_jump(ip, 1, &mut function_builder, &instruction_blocks)?;
+
+                    continue;
+                }
+
+                let safepoint_registers = chunk.safepoints.get(safepoint_index as usize).ok_or(
+                    JitError::SafepointIndexOutOfBounds {
+                        safepoint_index: safepoint_index as usize,
+                        total_safepoint_count: chunk.safepoints.len(),
+                    },
+                )?;
+
+                for register_index in safepoint_registers {
+                    let register_index = function_builder.ins().iconst(I64, *register_index as i64);
+                    let byte_offset = function_builder
+                        .ins()
+                        .imul_imm(register_index, size_of::<Register>() as i64);
+                    let register_address = function_builder
+                        .ins()
+                        .iadd(current_frame_base_address, byte_offset);
+                    let object_register_value =
+                        function_builder
+                            .ins()
+                            .load(I64, MemFlags::new(), register_address, 0);
+                    let object_mark_offset = offset_of!(Object, mark) as i32;
+
+                    function_builder.ins().store(
+                        MemFlags::new(),
+                        one,
+                        object_register_value,
+                        object_mark_offset,
+                    );
                 }
             }
             Operation::NEW_LIST => {
@@ -576,11 +614,12 @@ pub fn compile_stackless_function(
                     offset,
                     is_positive,
                 } = Jump::from(*current_instruction);
+                let offset = offset + 1;
 
                 if is_positive {
                     compiler.emit_jump(
                         ip,
-                        (offset + 1) as isize,
+                        offset as isize,
                         &mut function_builder,
                         &instruction_blocks,
                     )?;

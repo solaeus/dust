@@ -4,7 +4,7 @@
 >
 > This document is a work in progress.
 
-Dust is a personal project whose aspiration has grown from learning about programming language design to delivering a new language with a unique set of features. This document outlines those features and the designs that were chosen to achieve them. It covers the parsing and compilation strategy, the instruction set, the intermediate representation and the virtual machine architecture.
+Dust is a personal project whose aspiration has grown from learning about programming language design to delivering a new language with a unique set of features. This document outlines those features and the designs that were chosen to achieve them. It covers the parsing and compilation strategy, the intermediate representation, the instruction set and the virtual machine architecture.
 
 ## Features
 
@@ -30,6 +30,8 @@ especially compared to tokenizing the entire source code before parsing it or co
 
 ### Instruction Emission
 
+## Dust's Intermediate Representation
+
 ## Instruction Set
 
 Most of the available literature on writing programming languages focuses on stack-based virtual machines, but Dust is a register-based language. There is an excellent guide[^2] to the Lua instruction set that was used as a reference for Dust's. However, as Dust has evolved, its instruction set has diverged from Lua's, mosty notably by using 64 bits instead of 32 and encoding more information on the operands, such as whether they are constants or registers as well as their type.
@@ -53,7 +55,6 @@ Bits  | Description
 32-47 | B field (unsigned 16-bit integer), usually an operand index
 48-63 | C field (unsigned 16-bit integer), usually an operand index
 
-## Dust's Intermediate Representation
 
 ## JIT Virtual Machine
 

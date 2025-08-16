@@ -1,4 +1,5 @@
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub struct Object {
     pub value: ObjectValue,
     pub mark: bool,
@@ -73,6 +74,20 @@ impl Object {
             Some(string)
         } else {
             None
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        match &self.value {
+            ObjectValue::Empty => 0,
+            ObjectValue::BooleanList(booleans) => booleans.capacity() * size_of::<bool>(),
+            ObjectValue::ByteList(bytes) => bytes.capacity() * size_of::<u8>(),
+            ObjectValue::CharacterList(characters) => characters.capacity() * size_of::<char>(),
+            ObjectValue::FloatList(floats) => floats.capacity() * size_of::<f64>(),
+            ObjectValue::IntegerList(integers) => integers.capacity() * size_of::<i64>(),
+            ObjectValue::FunctionList(functions) => functions.capacity() * size_of::<usize>(),
+            ObjectValue::ObjectList(objects) => objects.capacity() * size_of::<*const Object>(),
+            ObjectValue::String(string) => string.capacity() * size_of::<u8>(),
         }
     }
 }
