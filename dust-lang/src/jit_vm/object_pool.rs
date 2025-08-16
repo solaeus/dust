@@ -5,12 +5,12 @@ use tracing::trace;
 use crate::Object;
 
 const MINIMUM_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    1024
+    1
 } else {
     1024 * 1024
 };
 const DEFAULT_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    1024 * 1024
+    4
 } else {
     1024 * 1024 * 4
 };

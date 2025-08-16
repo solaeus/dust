@@ -235,8 +235,6 @@ pub(crate) struct ChunkCompiler<'a> {
 
     prototypes: Rc<RefCell<PrototypeStore>>,
 
-    next_expression_type: Option<Type>,
-
     current_token: Token<'a>,
     current_position: Span,
     previous_token: Token<'a>,
@@ -275,7 +273,6 @@ impl<'a> ChunkCompiler<'a> {
             main_module,
             globals,
             prototypes,
-            next_expression_type: None,
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -408,17 +405,6 @@ impl<'a> ChunkCompiler<'a> {
             .insert(identifier, Local::new(address, r#type, is_mutable, scope));
     }
 
-    fn declare_global(&mut self, identifier: Path, r#type: Type, is_mutable: bool) -> usize {
-        trace!("Declaring global {identifier}");
-
-        let mut globals = self.globals.borrow_mut();
-        let cell_index = globals.len();
-
-        globals.insert(identifier, Global::new(r#type, is_mutable));
-
-        cell_index
-    }
-
     fn clone_item(&self, item_path: &Path) -> Result<(Item, Span), CompileError> {
         if let CompileMode::Module { module, .. } = &self.mode {
             if let Some(found) = module.find_item(item_path) {
@@ -473,7 +459,7 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    fn get_last_operation(&self) -> Option<Operation> {
+    fn get_last_expression_operation(&self) -> Option<Operation> {
         if let Some(last_expression) = self.expressions.last()
             && let ExpressionIndex::Instruction(instruction_index) = last_expression.index
             && let Some(instruction) = self.instructions.get(instruction_index)
@@ -484,7 +470,7 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    fn get_last_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
+    fn get_last_instruction_operations<const COUNT: usize>(&self) -> Option<[Operation; COUNT]> {
         let mut n_operations = [Operation::RETURN; COUNT];
 
         for (nth, operation) in n_operations.iter_mut().rev().zip(
@@ -538,6 +524,7 @@ impl<'a> ChunkCompiler<'a> {
             index: ExpressionIndex::Instruction(instruction_index),
             kind: expression_kind,
             r#type,
+            ends_statement: false,
             position,
         });
 
@@ -1080,7 +1067,7 @@ impl<'a> ChunkCompiler<'a> {
                 _,
                 _,
             ],
-        ) = self.get_last_operations()
+        ) = self.get_last_instruction_operations()
             && matches!(
                 self.previous_token,
                 Token::DoubleEqual
@@ -1232,7 +1219,7 @@ impl<'a> ChunkCompiler<'a> {
 
     fn parse_logical_binary(&mut self) -> Result<(), CompileError> {
         let is_logic_chain = matches!(
-            self.get_last_operations(),
+            self.get_last_instruction_operations(),
             Some([Operation::TEST, Operation::JUMP, Operation::LOAD])
         );
 
@@ -1291,7 +1278,7 @@ impl<'a> ChunkCompiler<'a> {
         self.parse_sub_expression(&rule.precedence)?;
 
         if matches!(
-            self.get_last_operations(),
+            self.get_last_instruction_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
@@ -1593,11 +1580,12 @@ impl<'a> ChunkCompiler<'a> {
         self.advance()?;
 
         let starting_block = self.current_block_scope.block_index;
-        let starting_block_scope = self.current_block_scope;
-        let start_block_instructions = self.instructions.len();
+        let start_block_expressions = self.expressions.len();
 
         self.block_index += 1;
         self.current_block_scope.begin(self.block_index);
+
+        let block_scope = self.current_block_scope;
 
         while !self.allow(Token::RightBrace)? && !self.is_eof() {
             self.parse(Precedence::None)?;
@@ -1605,13 +1593,13 @@ impl<'a> ChunkCompiler<'a> {
 
         self.current_block_scope.end(starting_block);
 
-        let end_block_instructions = self.instructions.len();
+        let end_block_expressions = self.expressions.len();
 
-        let safepoint_registers = self
+        let mut safepoint_registers = self
             .locals
             .iter()
             .filter_map(|(_, local)| {
-                if starting_block_scope.contains(&local.scope)
+                if local.scope == block_scope
                     && matches!(local.r#type, Type::String | Type::List(_))
                 {
                     Some(local.address.index)
@@ -1621,12 +1609,45 @@ impl<'a> ChunkCompiler<'a> {
             })
             .collect::<Vec<u16>>();
 
-        for index in start_block_instructions..end_block_instructions {
-            let instruction = self.instructions[index];
+        println!("{safepoint_registers:?}");
+
+        for expression_index in start_block_expressions..end_block_expressions {
+            let Expression {
+                index,
+                ends_statement,
+                r#type,
+                kind,
+                ..
+            } = &self.expressions[expression_index];
+            let instruction = match index {
+                ExpressionIndex::Instruction(instruction_index) => {
+                    self.instructions[*instruction_index]
+                }
+                ExpressionIndex::Function(_) => continue,
+            };
+
+            if expression_index == end_block_expressions - 1 && !*ends_statement {
+                // Last expression in the block does not end the statement, so its register must not
+                // be considered reusable, i.e. the value outlives the block.
+                break;
+            }
+
             let destination_index = instruction.a_field();
 
-            if instruction.yields_value() && !safepoint_registers.contains(&destination_index) {
-                self.reusable_registers.push(destination_index);
+            if kind != &ExpressionKind::Variable {
+                if let Err(insertion_index) =
+                    self.reusable_registers.binary_search(&destination_index)
+                {
+                    self.reusable_registers
+                        .insert(insertion_index, destination_index);
+                }
+
+                if matches!(r#type, Type::String | Type::List(_))
+                    && let Err(insertion_index) =
+                        safepoint_registers.binary_search(&destination_index)
+                {
+                    safepoint_registers.insert(insertion_index, destination_index);
+                }
             }
         }
 
@@ -1646,11 +1667,7 @@ impl<'a> ChunkCompiler<'a> {
 
         self.advance()?;
 
-        let mut item_type = self
-            .next_expression_type
-            .as_ref()
-            .cloned()
-            .unwrap_or(Type::None);
+        let mut item_type = Type::None;
         let mut addresses = Vec::new();
 
         while !self.allow(Token::RightBracket)? {
@@ -1662,6 +1679,7 @@ impl<'a> ChunkCompiler<'a> {
                 r#type,
                 position,
                 kind,
+                ..
             } = self.expressions.last().cloned().ok_or_else(|| {
                 CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
@@ -1766,7 +1784,7 @@ impl<'a> ChunkCompiler<'a> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_operations(),
+            self.get_last_instruction_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
@@ -1908,7 +1926,7 @@ impl<'a> ChunkCompiler<'a> {
         match jump_distance {
             0 => {}
             1 => {
-                if let Some([Operation::LOAD, _]) = self.get_last_operations() {
+                if let Some([Operation::LOAD, _]) = self.get_last_instruction_operations() {
                     let load_index = self.instructions.len() - 2;
                     let load = self.instructions.get_mut(load_index).unwrap();
 
@@ -1954,7 +1972,7 @@ impl<'a> ChunkCompiler<'a> {
         self.parse_expression()?;
 
         if matches!(
-            self.get_last_operations(),
+            self.get_last_instruction_operations(),
             Some([
                 Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL,
                 Operation::JUMP,
@@ -2035,97 +2053,56 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_implicit_return(&mut self) -> Result<(), CompileError> {
-        if self.get_last_operation() == Some(Operation::RETURN) {
+        if self.get_last_expression_operation() == Some(Operation::RETURN) {
             return Ok(());
-        } else if matches!(self.get_last_operation(), Some(Operation::LOAD)) {
-            let Expression {
-                index: kind,
-                r#type: expression_type,
-                ..
-            } = self.expressions.last().cloned().ok_or_else(|| {
-                CompileError::ExpectedExpression {
+        }
+
+        let last_expression =
+            self.expressions
+                .last()
+                .cloned()
+                .ok_or_else(|| CompileError::ExpectedExpression {
                     found: self.previous_token.to_owned(),
                     position: self.previous_position,
-                }
-            })?;
-            let instruction_index = if let ExpressionIndex::Instruction(instruction_index) = kind {
-                instruction_index
-            } else {
-                return Err(CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                });
-            };
+                })?;
 
-            let load_instruction = self.instructions[instruction_index];
-            println!("{}", load_instruction);
-            let Load { r#type, .. } = Load::from(load_instruction);
-            let should_return_value = expression_type != Type::None;
-            let (_, should_remove) = self.handle_previous_instruction(load_instruction);
-            let return_value_address = load_instruction.destination();
-            let r#return = Instruction::r#return(should_return_value, return_value_address, r#type);
-
-            if should_remove && should_return_value {
-                self.instructions.remove(instruction_index);
-            }
-
-            self.update_return_type(expression_type.clone())?;
-            self.emit(
-                r#return,
-                ExpressionKind::Return,
-                expression_type,
-                self.current_position,
-            );
-        } else if self.allow(Token::Semicolon)? {
-            let r#return = Instruction::r#return(false, Address::default(), OperandType::NONE);
-
-            self.update_return_type(Type::None)?;
-            self.emit(
-                r#return,
-                ExpressionKind::Return,
-                Type::None,
-                self.current_position,
-            );
-        } else if let Some(Expression {
+        let Expression {
             index,
             r#type,
             position,
+            ends_statement,
             ..
-        }) = self.expressions.last().cloned()
-        {
-            match index {
-                ExpressionIndex::Instruction(instruction_index) => {
-                    let instruction = self.instructions[instruction_index];
-                    let operand_type = r#type.as_operand_type();
-                    let should_return_value = operand_type != OperandType::NONE;
-                    let (return_value_address, should_remove) =
-                        self.handle_previous_instruction(instruction);
-                    let r#return = Instruction::r#return(
-                        should_return_value,
-                        return_value_address,
-                        operand_type,
-                    );
+        } = last_expression;
 
-                    if should_remove {
-                        self.instructions.remove(instruction_index);
-                    }
+        match index {
+            ExpressionIndex::Instruction(instruction_index) => {
+                let instruction = self.instructions[instruction_index];
+                let operand_type = r#type.as_operand_type();
+                let should_return_value = operand_type != OperandType::NONE || ends_statement;
+                let (return_value_address, should_remove) =
+                    self.handle_previous_instruction(instruction);
+                let r#return =
+                    Instruction::r#return(should_return_value, return_value_address, operand_type);
 
-                    self.update_return_type(r#type.clone())?;
-                    self.emit(
-                        r#return,
-                        ExpressionKind::Return,
-                        r#type,
-                        self.current_position,
-                    );
+                if should_remove {
+                    self.instructions.remove(instruction_index);
                 }
-                ExpressionIndex::Function(prototype_index) => {
-                    let return_value_address = Address::constant(prototype_index as u16);
-                    let r#return =
-                        Instruction::r#return(true, return_value_address, OperandType::FUNCTION);
 
-                    self.update_return_type(r#type.clone())?;
-                    self.emit(r#return, ExpressionKind::Return, r#type, position);
-                }
+                self.update_return_type(r#type.clone())?;
+                self.emit(
+                    r#return,
+                    ExpressionKind::Return,
+                    r#type,
+                    self.current_position,
+                );
+            }
+            ExpressionIndex::Function(prototype_index) => {
+                let return_value_address = Address::constant(prototype_index as u16);
+                let r#return =
+                    Instruction::r#return(true, return_value_address, OperandType::FUNCTION);
+
+                self.update_return_type(r#type.clone())?;
+                self.emit(r#return, ExpressionKind::Return, r#type, position);
             }
         }
 
@@ -2136,7 +2113,6 @@ impl<'a> ChunkCompiler<'a> {
         self.advance()?;
 
         let is_mutable = self.allow(Token::Mut)?;
-        let is_cell = self.allow(Token::Cell)?;
         let path = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
 
@@ -2149,12 +2125,10 @@ impl<'a> ChunkCompiler<'a> {
             });
         };
         let explicit_type_and_position = if self.allow(Token::Colon)? {
-            let start = self.current_position.0;
+            let position = self.current_position;
             let r#type = self.parse_type()?;
-            let end = self.current_position.1;
-            self.next_expression_type = Some(r#type.clone());
 
-            Some((r#type, Span(start, end)))
+            Some((r#type, position))
         } else {
             None
         };
@@ -2163,16 +2137,8 @@ impl<'a> ChunkCompiler<'a> {
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
 
-        self.next_expression_type = None;
-
-        let mut last_instruction =
-            self.instructions
-                .pop()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
         let Expression {
+            index,
             r#type: last_instruction_type,
             position: last_instruction_position,
             ..
@@ -2197,22 +2163,14 @@ impl<'a> ChunkCompiler<'a> {
         } else {
             last_instruction_type.clone()
         };
-        let address = last_instruction.destination();
+        let address = match index {
+            ExpressionIndex::Instruction(instruction_index) => {
+                self.instructions[instruction_index].destination()
+            }
+            ExpressionIndex::Function(prototype_index) => Address::constant(prototype_index as u16),
+        };
 
-        if is_cell {
-            let cell_index = self.declare_global(path, r#type, is_mutable);
-
-            last_instruction.set_destination(Address::cell(cell_index as u16));
-        } else {
-            self.declare_local(path, address, r#type, is_mutable, self.current_block_scope);
-        }
-
-        self.emit(
-            last_instruction,
-            ExpressionKind::Variable,
-            Type::None,
-            last_instruction_position,
-        );
+        self.declare_local(path, address, r#type, is_mutable, self.current_block_scope);
 
         Ok(())
     }
@@ -2325,6 +2283,7 @@ impl<'a> ChunkCompiler<'a> {
         };
         let prototype_address = Address::constant(chunk.prototype_index);
         let r#type = Type::Function(Box::new(chunk.r#type.clone()));
+        let ends_statement = path.is_some();
 
         if let Some(identifier) = path {
             self.declare_local(
@@ -2343,6 +2302,7 @@ impl<'a> ChunkCompiler<'a> {
             index: ExpressionIndex::Function(prototype_index),
             kind: ExpressionKind::Function,
             r#type: r#type.clone(),
+            ends_statement,
             position: function_compiler.current_position,
         });
 
@@ -2389,9 +2349,8 @@ impl<'a> ChunkCompiler<'a> {
             .locals
             .iter()
             .filter_map(|(_, local)| {
-                if matches!(local.r#type, Type::String | Type::List(_))
-                    && (local.scope == self.current_block_scope
-                        || self.current_block_scope.contains(&local.scope))
+                if self.current_block_scope.block_depth < local.scope.block_depth
+                    && matches!(local.r#type, Type::String | Type::List(_))
                 {
                     Some(local.address.index)
                 } else {
@@ -2439,18 +2398,18 @@ impl<'a> ChunkCompiler<'a> {
 
         let end = self.current_position.1;
 
-        let safepoint_index = if safepoint_registers.is_empty() {
-            u16::MAX
-        } else {
-            let index = self.safepoints.len() as u16;
+        if !safepoint_registers.is_empty() {
+            if self.get_last_instruction_operations() == Some([Operation::SAFEPOINT]) {
+                self.instructions.pop();
+                self.safepoints.pop();
+            }
+
+            let safepoint_index = self.safepoints.len() as u16;
+            let safepoint_instruction = Instruction::safepoint(safepoint_index);
 
             self.safepoints.push(safepoint_registers);
-
-            index
+            self.instructions.push(safepoint_instruction);
         };
-        let safepoint_instruction = Instruction::safepoint(safepoint_index);
-
-        self.instructions.push(safepoint_instruction);
 
         let arguments_index = self.call_argument_lists.len() as u16;
 
@@ -2536,22 +2495,17 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_semicolon(&mut self) -> Result<(), CompileError> {
-        self.advance()?;
+        let Expression { ends_statement, .. } =
+            self.expressions
+                .last_mut()
+                .ok_or_else(|| CompileError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })?;
 
-        let Expression {
-            r#type: last_expression_type,
-            ..
-        } = self
-            .expressions
-            .last_mut()
-            .ok_or_else(|| CompileError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            })?;
+        *ends_statement = true;
 
-        *last_expression_type = Type::None;
-
-        Ok(())
+        self.advance()
     }
 
     fn parse_mod(&mut self) -> Result<(), CompileError> {

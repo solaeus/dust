@@ -4,6 +4,7 @@ use crate::{Span, Type};
 pub struct Expression {
     pub index: ExpressionIndex,
     pub kind: ExpressionKind,
+    pub ends_statement: bool,
     pub r#type: Type,
     pub position: Span,
 }

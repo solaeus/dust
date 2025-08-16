@@ -288,12 +288,6 @@ pub fn compile_stackless_function(
             Operation::SAFEPOINT => {
                 let Safepoint { safepoint_index } = Safepoint::from(*current_instruction);
 
-                if safepoint_index == u16::MAX {
-                    compiler.emit_jump(ip, 1, &mut function_builder, &instruction_blocks)?;
-
-                    continue;
-                }
-
                 let safepoint_registers = chunk.safepoints.get(safepoint_index as usize).ok_or(
                     JitError::SafepointIndexOutOfBounds {
                         safepoint_index: safepoint_index as usize,
