@@ -1,9 +1,6 @@
 use std::slice;
 
-use crate::{
-    Object, Register,
-    jit_vm::{ObjectPool, RegisterTag, thread::ThreadContext},
-};
+use crate::{Object, jit_vm::thread::ThreadContext};
 
 pub unsafe extern "C" fn allocate_string(
     string_pointer: *const u8,
