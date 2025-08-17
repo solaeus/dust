@@ -26,8 +26,9 @@ use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use tracing::Level;
 
 use crate::{
-    Program, Register, ThreadResult,
+    OperandType, Program, Register, ThreadResult,
     jit_vm::{
+        RegisterTag,
         call_stack::{get_frame_function_index, push_call_frame},
         thread::ThreadContext,
     },
@@ -421,18 +422,58 @@ impl<'a> JitCompiler<'a> {
         &self,
         register_index: usize,
         value: CraneliftValue,
-        frame_base_address: CraneliftValue,
+        r#type: OperandType,
+        frame_base_register_address: CraneliftValue,
+        frame_base_tag_address: CraneliftValue,
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         let relative_index = function_builder.ins().iconst(I64, register_index as i64);
-        let byte_offset = function_builder
+        let register_offset = function_builder
             .ins()
             .imul_imm(relative_index, size_of::<Register>() as i64);
-        let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+        let register_address = function_builder
+            .ins()
+            .iadd(frame_base_register_address, register_offset);
 
         function_builder
             .ins()
-            .store(MemFlags::new(), value, address, 0);
+            .store(MemFlags::new(), value, register_address, 0);
+
+        let tag = match r#type {
+            OperandType::BOOLEAN
+            | OperandType::BYTE
+            | OperandType::CHARACTER
+            | OperandType::FLOAT
+            | OperandType::INTEGER
+            | OperandType::FUNCTION => RegisterTag::SCALAR,
+            OperandType::STRING
+            | OperandType::LIST_BOOLEAN
+            | OperandType::LIST_BYTE
+            | OperandType::LIST_CHARACTER
+            | OperandType::LIST_FLOAT
+            | OperandType::LIST_INTEGER
+            | OperandType::LIST_FUNCTION
+            | OperandType::LIST_STRING
+            | OperandType::LIST_LIST => RegisterTag::OBJECT,
+            _ => {
+                return Err(JitError::UnsupportedOperandType {
+                    operand_type: r#type,
+                });
+            }
+        };
+        let tag_value = function_builder
+            .ins()
+            .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
+        let tag_offset = function_builder
+            .ins()
+            .imul_imm(relative_index, size_of::<RegisterTag>() as i64);
+        let tag_address = function_builder
+            .ins()
+            .iadd(frame_base_tag_address, tag_offset);
+
+        function_builder
+            .ins()
+            .store(MemFlags::new(), tag_value, tag_address, 0);
 
         Ok(())
     }

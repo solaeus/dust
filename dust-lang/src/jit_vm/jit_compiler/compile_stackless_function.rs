@@ -13,9 +13,9 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, JitCompiler, JitError, MemoryKind, Object, OperandType, Operation, Register,
+    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
     instruction::{Add, Call, Jump, Load, NewList, Return, Safepoint, SetList, Subtract},
-    jit_vm::{call_stack::get_call_frame, thread::ThreadContext},
+    jit_vm::{RegisterTag, call_stack::get_call_frame, thread::ThreadContext},
 };
 
 pub fn compile_stackless_function(
@@ -47,6 +47,9 @@ pub fn compile_stackless_function(
 
         allocate_list_signature.params.extend([
             AbiParam::new(I8),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
         ]);
@@ -83,6 +86,9 @@ pub fn compile_stackless_function(
 
         allocate_string_signature.params.extend([
             AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
         ]);
@@ -153,6 +159,18 @@ pub fn compile_stackless_function(
         thread_context,
         offset_of!(ThreadContext, register_stack_buffer_pointer) as i32,
     );
+    let _register_tags_vec_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, register_tags_vec_pointer) as i32,
+    );
+    let register_tags_buffer_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, register_tags_buffer_pointer) as i32,
+    );
     let object_pool_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
@@ -164,7 +182,7 @@ pub fn compile_stackless_function(
         current_frame_ip,
         _current_frame_function_index,
         current_frame_register_range_start,
-        _current_frame_register_range_end,
+        current_frame_register_range_end,
         _current_frame_arguments_index,
         current_frame_destination_index,
     ) = get_call_frame(
@@ -173,14 +191,28 @@ pub fn compile_stackless_function(
         &mut function_builder,
     );
 
-    let current_frame_register_base_offset = function_builder.ins().imul_imm(
+    let current_frame_register_range_length = function_builder.ins().isub(
+        current_frame_register_range_end,
+        current_frame_register_range_start,
+    );
+
+    let current_frame_base_register_offset = function_builder.ins().imul_imm(
         current_frame_register_range_start,
         size_of::<Register>() as i64,
     );
-    let current_frame_base_address = function_builder.ins().iadd(
+    let current_frame_base_register_address = function_builder.ins().iadd(
         register_stack_buffer_pointer,
-        current_frame_register_base_offset,
+        current_frame_base_register_offset,
     );
+
+    let current_frame_base_tag_offset = function_builder.ins().imul_imm(
+        current_frame_register_range_start,
+        size_of::<RegisterTag>() as i64,
+    );
+    let current_frame_base_tag_address = function_builder
+        .ins()
+        .iadd(register_tags_buffer_pointer, current_frame_base_tag_offset);
+
     let return_register_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
@@ -225,36 +257,42 @@ pub fn compile_stackless_function(
                     jump_next,
                 } = Load::from(*current_instruction);
                 let result_register = match r#type {
-                    OperandType::BOOLEAN => {
-                        get_boolean(operand, current_frame_base_address, &mut function_builder)?
-                    }
-                    OperandType::BYTE => {
-                        get_byte(operand, current_frame_base_address, &mut function_builder)?
-                    }
+                    OperandType::BOOLEAN => get_boolean(
+                        operand,
+                        current_frame_base_register_address,
+                        &mut function_builder,
+                    )?,
+                    OperandType::BYTE => get_byte(
+                        operand,
+                        current_frame_base_register_address,
+                        &mut function_builder,
+                    )?,
                     OperandType::CHARACTER => get_character(
                         operand,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         operand,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::INTEGER => get_integer(
                         operand,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
                         operand,
-                        current_frame_base_address,
                         chunk,
                         object_pool_pointer,
                         allocate_string_function,
+                        current_frame_base_register_address,
+                        current_frame_register_range_length,
+                        current_frame_base_tag_address,
                         &mut function_builder,
                     )?,
                     OperandType::LIST_BOOLEAN
@@ -264,9 +302,11 @@ pub fn compile_stackless_function(
                     | OperandType::LIST_INTEGER
                     | OperandType::LIST_STRING
                     | OperandType::LIST_LIST
-                    | OperandType::LIST_FUNCTION => {
-                        get_list(operand, current_frame_base_address, &mut function_builder)?
-                    }
+                    | OperandType::LIST_FUNCTION => get_list(
+                        operand,
+                        current_frame_base_register_address,
+                        &mut function_builder,
+                    )?,
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -277,7 +317,9 @@ pub fn compile_stackless_function(
                 compiler.set_register(
                     destination.index as usize,
                     result_register,
-                    current_frame_base_address,
+                    r#type,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
 
@@ -296,25 +338,21 @@ pub fn compile_stackless_function(
                 )?;
 
                 for register_index in safepoint_registers {
-                    let register_index = function_builder.ins().iconst(I64, *register_index as i64);
-                    let byte_offset = function_builder
+                    let register_index_value =
+                        function_builder.ins().iconst(I64, *register_index as i64);
+                    let empty_tag_value = function_builder
                         .ins()
-                        .imul_imm(register_index, size_of::<Register>() as i64);
-                    let register_address = function_builder
+                        .iconst(RegisterTag::CRANELIFT_TYPE, RegisterTag::EMPTY.0 as i64);
+                    let tag_offset = function_builder
                         .ins()
-                        .iadd(current_frame_base_address, byte_offset);
-                    let object_register_value =
-                        function_builder
-                            .ins()
-                            .load(I64, MemFlags::new(), register_address, 0);
-                    let object_mark_offset = offset_of!(Object, mark) as i32;
+                        .imul_imm(register_index_value, size_of::<RegisterTag>() as i64);
+                    let tag_address = function_builder
+                        .ins()
+                        .iadd(current_frame_base_tag_address, tag_offset);
 
-                    function_builder.ins().store(
-                        MemFlags::new(),
-                        one,
-                        object_register_value,
-                        object_mark_offset,
-                    );
+                    function_builder
+                        .ins()
+                        .store(MemFlags::new(), empty_tag_value, tag_address, 0);
                 }
             }
             Operation::NEW_LIST => {
@@ -323,11 +361,18 @@ pub fn compile_stackless_function(
                     length,
                     list_type,
                 } = NewList::from(*current_instruction);
-                let list_type = function_builder.ins().iconst(I8, list_type.0 as i64);
-                let list_length = function_builder.ins().iconst(I64, length as i64);
+                let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
+                let list_length_value = function_builder.ins().iconst(I64, length as i64);
                 let call_allocate_list_instruction = function_builder.ins().call(
                     allocate_list_function,
-                    &[list_type, list_length, object_pool_pointer],
+                    &[
+                        list_type_value,
+                        list_length_value,
+                        object_pool_pointer,
+                        current_frame_base_register_address,
+                        current_frame_register_range_length,
+                        current_frame_base_tag_address,
+                    ],
                 );
                 let list_object_pointer =
                     function_builder.inst_results(call_allocate_list_instruction)[0];
@@ -335,7 +380,9 @@ pub fn compile_stackless_function(
                 compiler.set_register(
                     destination.index as usize,
                     list_object_pointer,
-                    current_frame_base_address,
+                    list_type,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
             }
@@ -348,44 +395,46 @@ pub fn compile_stackless_function(
                 } = SetList::from(*current_instruction);
                 let list_pointer = get_list(
                     destination_list,
-                    current_frame_base_address,
+                    current_frame_base_register_address,
                     &mut function_builder,
                 )?;
                 let item_value = match item_type {
                     OperandType::INTEGER => get_integer(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::BOOLEAN => get_boolean(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         &mut function_builder,
                     )?,
                     OperandType::BYTE => get_byte(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         &mut function_builder,
                     )?,
                     OperandType::CHARACTER => get_character(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         chunk,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
                         item_source,
-                        current_frame_base_address,
                         chunk,
                         object_pool_pointer,
                         allocate_string_function,
+                        current_frame_base_register_address,
+                        current_frame_register_range_length,
+                        current_frame_base_tag_address,
                         &mut function_builder,
                     )?,
                     OperandType::LIST_BOOLEAN
@@ -397,7 +446,7 @@ pub fn compile_stackless_function(
                     | OperandType::LIST_LIST
                     | OperandType::LIST_FUNCTION => get_list(
                         item_source,
-                        current_frame_base_address,
+                        current_frame_base_register_address,
                         &mut function_builder,
                     )?,
                     _ => {
@@ -432,13 +481,13 @@ pub fn compile_stackless_function(
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
@@ -473,13 +522,13 @@ pub fn compile_stackless_function(
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
@@ -496,7 +545,9 @@ pub fn compile_stackless_function(
                 compiler.set_register(
                     destination.index as usize,
                     result_register,
-                    current_frame_base_address,
+                    r#type.destination_type(),
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
             }
@@ -511,13 +562,13 @@ pub fn compile_stackless_function(
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
-                            current_frame_base_address,
+                            current_frame_base_register_address,
                             chunk,
                             &mut function_builder,
                         )?;
@@ -534,7 +585,9 @@ pub fn compile_stackless_function(
                 compiler.set_register(
                     destination.index as usize,
                     result_register,
-                    current_frame_base_address,
+                    r#type.destination_type(),
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
             }
@@ -543,7 +596,7 @@ pub fn compile_stackless_function(
                     destination,
                     prototype_index,
                     arguments_index,
-                    return_type: _,
+                    return_type,
                 } = Call::from(*current_instruction);
                 let destination_index = destination.index as usize;
                 let prototype_index = prototype_index as usize;
@@ -572,7 +625,7 @@ pub fn compile_stackless_function(
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 *address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 chunk,
                                 &mut function_builder,
                             )?;
@@ -597,7 +650,9 @@ pub fn compile_stackless_function(
                 compiler.set_register(
                     destination_index,
                     return_value,
-                    current_frame_base_address,
+                    return_type,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
 
@@ -638,7 +693,7 @@ pub fn compile_stackless_function(
                         OperandType::BOOLEAN => {
                             let boolean_value = get_boolean(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let boolean_type = function_builder
@@ -650,7 +705,7 @@ pub fn compile_stackless_function(
                         OperandType::BYTE => {
                             let byte_value = get_byte(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let byte_type = function_builder
@@ -662,7 +717,7 @@ pub fn compile_stackless_function(
                         OperandType::CHARACTER => {
                             let character_value = get_character(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 chunk,
                                 &mut function_builder,
                             )?;
@@ -675,7 +730,7 @@ pub fn compile_stackless_function(
                         OperandType::FLOAT => {
                             let float_value = get_float(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 chunk,
                                 &mut function_builder,
                             )?;
@@ -688,7 +743,7 @@ pub fn compile_stackless_function(
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 chunk,
                                 &mut function_builder,
                             )?;
@@ -701,10 +756,12 @@ pub fn compile_stackless_function(
                         OperandType::STRING => {
                             let string_value = get_string(
                                 return_value_address,
-                                current_frame_base_address,
                                 chunk,
                                 object_pool_pointer,
                                 allocate_string_function,
+                                current_frame_base_register_address,
+                                current_frame_register_range_length,
+                                current_frame_base_tag_address,
                                 &mut function_builder,
                             )?;
                             let string_type = function_builder
@@ -716,7 +773,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_BOOLEAN => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -728,7 +785,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_BYTE => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -740,7 +797,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_CHARACTER => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -752,7 +809,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_FLOAT => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -764,7 +821,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_INTEGER => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -776,7 +833,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_STRING => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -788,7 +845,7 @@ pub fn compile_stackless_function(
                         OperandType::LIST_LIST => {
                             let list_value = get_list(
                                 return_value_address,
-                                current_frame_base_address,
+                                current_frame_base_register_address,
                                 &mut function_builder,
                             )?;
                             let list_type = function_builder
@@ -1108,10 +1165,12 @@ fn get_integer(
 
 fn get_string(
     address: Address,
-    frame_base_address: CraneliftValue,
     chunk: &Chunk,
     object_pool_pointer: CraneliftValue,
     allocate_string_function: FuncRef,
+    current_frame_base_register_address: CraneliftValue,
+    current_frame_register_range_length: CraneliftValue,
+    current_frame_base_tag_address: CraneliftValue,
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let address_index = address.index as usize;
@@ -1122,7 +1181,9 @@ fn get_string(
                 let byte_offset = function_builder
                     .ins()
                     .imul_imm(relative_index, size_of::<Register>() as i64);
-                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+                let address = function_builder
+                    .ins()
+                    .iadd(current_frame_base_register_address, byte_offset);
 
                 function_builder
                     .ins()
@@ -1149,7 +1210,14 @@ fn get_string(
                 let string_length = function_builder.ins().iconst(I64, string.len() as i64);
                 let call_allocate_string_instruction = function_builder.ins().call(
                     allocate_string_function,
-                    &[string_pointer, string_length, object_pool_pointer],
+                    &[
+                        string_pointer,
+                        string_length,
+                        object_pool_pointer,
+                        current_frame_base_register_address,
+                        current_frame_register_range_length,
+                        current_frame_base_tag_address,
+                    ],
                 );
 
                 function_builder.inst_results(call_allocate_string_instruction)[0]

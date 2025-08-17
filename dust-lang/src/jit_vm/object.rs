@@ -62,7 +62,7 @@ impl Object {
         }
     }
 
-    pub fn object_list<T: Into<Vec<*const Object>>>(objects: T) -> Self {
+    pub fn object_list<T: Into<Vec<*mut Object>>>(objects: T) -> Self {
         Object {
             value: ObjectValue::ObjectList(objects.into()),
             mark: false,
@@ -101,6 +101,6 @@ pub enum ObjectValue {
     FloatList(Vec<f64>),
     IntegerList(Vec<i64>),
     FunctionList(Vec<usize>),
-    ObjectList(Vec<*const Object>),
+    ObjectList(Vec<*mut Object>),
     String(String),
 }

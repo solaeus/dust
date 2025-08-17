@@ -12,7 +12,7 @@ while i < 10_000_000 {
 ";
 
 fn addictive_addition(source: &str) {
-    run(source).unwrap();
+    run(source, false).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

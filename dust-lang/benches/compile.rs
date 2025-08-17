@@ -22,7 +22,7 @@ fn addictive_addition() {
 ";
 
 fn compile_bench(source: &str) {
-    compile(source).unwrap();
+    compile(source, false).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -67,15 +67,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("compile 10,000 functions", |b| {
-        b.iter(|| compile_bench(black_box(&source)))
-    });
-
-    for _ in 0..90000 {
-        source.push_str(FUNCTION);
-        source.push('\n');
-    }
-
-    group.bench_function("compile 100,000 functions", |b| {
         b.iter(|| compile_bench(black_box(&source)))
     });
 }

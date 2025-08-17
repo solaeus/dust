@@ -80,6 +80,10 @@ struct SharedOptions {
     #[arg(long)]
     no_output: bool,
 
+    /// Disable the standard library, defaults to false
+    #[arg(long)]
+    no_std: bool,
+
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     name: Option<String>,
@@ -146,6 +150,7 @@ fn main() {
                 pretty_log,
                 time,
                 no_output,
+                no_std,
                 name,
                 source: Source { eval, stdin, file },
             },
@@ -162,7 +167,7 @@ fn main() {
             Format::Dust => {
                 let compiler = Compiler::new();
 
-                match compiler.compile_program(source_name, &source) {
+                match compiler.compile_program(source_name, &source, !no_std) {
                     Ok(chunk) => chunk,
                     Err(error) => {
                         handle_compile_error(error, &source);
@@ -228,6 +233,7 @@ fn main() {
                 pretty_log,
                 time,
                 no_output,
+                no_std,
                 name,
                 source: Source { eval, stdin, file },
             },
@@ -244,7 +250,7 @@ fn main() {
 
         let compiler = Compiler::new();
 
-        let dust_crate = match compiler.compile_program(source_name, &source) {
+        let dust_crate = match compiler.compile_program(source_name, &source, !no_std) {
             Ok(dust_crate) => dust_crate,
             Err(error) => {
                 handle_compile_error(error, &source);

@@ -1,6 +1,8 @@
+use std::slice;
+
 use crate::{
-    Object, OperandType,
-    jit_vm::{ObjectPool, object::ObjectValue},
+    Object, OperandType, Register,
+    jit_vm::{ObjectPool, RegisterTag, object::ObjectValue},
 };
 
 /// # Safety
@@ -9,6 +11,9 @@ pub unsafe extern "C" fn allocate_list(
     list_type: i8,
     length: i64,
     object_pool: *mut ObjectPool,
+    registers: *const Register,
+    registers_length: usize,
+    register_tags: *const RegisterTag,
 ) -> i64 {
     let object_pool = unsafe { &mut *object_pool };
     let object = match OperandType(list_type as u8) {
@@ -26,7 +31,9 @@ pub unsafe extern "C" fn allocate_list(
             OperandType(list_type as u8)
         ),
     };
-    let object_pointer = object_pool.allocate(object);
+    let registers = unsafe { slice::from_raw_parts(registers, registers_length) };
+    let register_tags = unsafe { slice::from_raw_parts(register_tags, registers_length) };
+    let object_pointer = object_pool.allocate(object, registers, register_tags);
 
     object_pointer as i64
 }

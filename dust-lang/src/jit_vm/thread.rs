@@ -12,7 +12,7 @@ use tracing::{Level, info, span, trace};
 use crate::{
     List, Program, Type, Value,
     instruction::OperandType,
-    jit_vm::{ObjectPool, call_stack::new_call_stack, object::ObjectValue},
+    jit_vm::{ObjectPool, RegisterTag, call_stack::new_call_stack, object::ObjectValue},
 };
 
 use super::{
@@ -63,6 +63,8 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let mut register_stack_allocated_length = 256;
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
 
+    let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
+
     let mut object_pool = ObjectPool::new();
 
     let mut return_register = Register { empty: () };
@@ -77,6 +79,8 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
         register_stack_buffer_pointer: register_stack.as_mut_ptr(),
         register_stack_allocated_length_pointer: &mut register_stack_allocated_length,
         register_stack_used_length_pointer: &mut register_stack_used_length,
+        register_tags_vec_pointer: &mut register_tags,
+        register_tags_buffer_pointer: register_tags.as_mut_ptr(),
         object_pool_pointer: &mut object_pool,
         return_register_pointer: &mut return_register,
         return_type_pointer: &mut return_type,
@@ -170,6 +174,9 @@ pub struct ThreadContext {
     pub register_stack_allocated_length_pointer: *mut usize,
     pub register_stack_used_length_pointer: *mut usize,
 
+    pub register_tags_vec_pointer: *mut Vec<RegisterTag>,
+    pub register_tags_buffer_pointer: *mut RegisterTag,
+
     pub object_pool_pointer: *mut ObjectPool,
 
     pub return_register_pointer: *mut Register,
@@ -223,7 +230,7 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
                 item_type.as_ref()
             } else {
                 return Err(JitError::InvalidConstantType {
-                    expected_type: OperandType::LIST_LIST,
+                    expected_type: full_type.as_operand_type(),
                 });
             };
 
@@ -263,11 +270,19 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
                         let mut inner_lists = Vec::with_capacity(object_list.len());
 
                         for inner_object_pointer in object_list {
+                            let inner_list_type = if let Type::List(inner_item_type) = item_type {
+                                inner_item_type.as_ref()
+                            } else {
+                                return Err(JitError::InvalidConstantType {
+                                    expected_type: item_type.as_operand_type(),
+                                });
+                            };
+
                             let inner_list = get_list_from_register(
                                 Register {
                                     object_pointer: *inner_object_pointer as *mut _,
                                 },
-                                item_type,
+                                inner_list_type,
                             )?;
 
                             inner_lists.push(inner_list);
@@ -275,10 +290,9 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
 
                         List::List(inner_lists)
                     }
-
                     _ => {
                         return Err(JitError::InvalidConstantType {
-                            expected_type: OperandType::LIST_LIST,
+                            expected_type: item_type.as_operand_type(),
                         });
                     }
                 };

@@ -2,7 +2,10 @@ use std::pin::Pin;
 
 use tracing::trace;
 
-use crate::Object;
+use crate::{
+    Object, Register,
+    jit_vm::{RegisterTag, object::ObjectValue},
+};
 
 const MINIMUM_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
     1
@@ -31,7 +34,12 @@ impl ObjectPool {
         }
     }
 
-    pub fn allocate(&mut self, object: Object) -> *mut Object {
+    pub fn allocate(
+        &mut self,
+        object: Object,
+        registers: &[Register],
+        register_tags: &[RegisterTag],
+    ) -> *mut Object {
         let size = object.size();
         self.allocated += size;
 
@@ -39,18 +47,19 @@ impl ObjectPool {
 
         if self.allocated >= self.next_sweep_threshold {
             trace!(
-                "Sweeping object pool: {} objects, {} bytes",
+                "Collecting garbage: {} objects, {} bytes",
                 self.objects.len(),
                 self.allocated
             );
 
+            Self::mark(registers, register_tags);
             self.sweep();
 
             self.next_sweep_threshold =
                 (self.allocated + MINIMUM_SWEEP_THRESHOLD).max(DEFAULT_SWEEP_THRESHOLD);
 
             trace!(
-                "Swept object pool: {} retained objects, {} bytes",
+                "Collected garbage: {} retained objects, {} bytes",
                 self.objects.len(),
                 self.allocated
             );
@@ -70,6 +79,29 @@ impl ObjectPool {
 
     pub fn get_mut(&mut self, key: usize) -> Option<&mut Object> {
         self.objects.get_mut(key).map(|object| &mut **object)
+    }
+
+    fn mark(registers: &[Register], register_tags: &[RegisterTag]) {
+        for (register, tag) in registers.iter().zip(register_tags.iter()) {
+            if *tag == RegisterTag::OBJECT {
+                let object_pointer = unsafe { register.object_pointer };
+                let object = unsafe { &mut *object_pointer };
+
+                Self::mark_object(object);
+            }
+        }
+    }
+
+    fn mark_object(object: &mut Object) {
+        object.mark = true;
+
+        if let ObjectValue::ObjectList(object_pointers) = &object.value {
+            for object_pointer in object_pointers {
+                let object = unsafe { &mut **object_pointer };
+
+                Self::mark_object(object);
+            }
+        }
     }
 
     fn sweep(&mut self) {

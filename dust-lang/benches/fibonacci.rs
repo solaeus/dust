@@ -18,7 +18,7 @@ const SOURCE: &str = r"
 ";
 
 fn fibonacci(source: &str) {
-    run(source).unwrap();
+    run(source, false).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

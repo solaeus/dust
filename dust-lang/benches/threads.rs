@@ -20,7 +20,7 @@ const SOURCE: &str = r#"
 "#;
 
 fn threads(source: &str) {
-    run(source).unwrap();
+    run(source, false).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

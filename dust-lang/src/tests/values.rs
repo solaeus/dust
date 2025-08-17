@@ -6,8 +6,8 @@ use crate::{
 #[test]
 fn boolean_true() {
     let source = "true";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -33,8 +33,8 @@ fn boolean_true() {
 #[test]
 fn boolean_false() {
     let source = "false";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -60,8 +60,8 @@ fn boolean_false() {
 #[test]
 fn byte() {
     let source = "0xFF";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -87,8 +87,8 @@ fn byte() {
 #[test]
 fn character() {
     let source = "'a'";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -115,8 +115,8 @@ fn character() {
 #[test]
 fn float() {
     let source = "42.0";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -143,8 +143,8 @@ fn float() {
 #[test]
 fn integer() {
     let source = "42";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -171,8 +171,8 @@ fn integer() {
 #[test]
 fn string() {
     let source = "\"foobar\"";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -199,8 +199,8 @@ fn string() {
 #[test]
 fn boolean_list() {
     let source = "[true, false]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -241,8 +241,8 @@ fn boolean_list() {
 #[test]
 fn byte_list() {
     let source = "[0x00, 0xFF]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -280,8 +280,8 @@ fn byte_list() {
 #[test]
 fn character_list() {
     let source = "['a', 'b', 'c']";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -333,8 +333,8 @@ fn character_list() {
 #[test]
 fn float_list() {
     let source = "[1.0, 2.0, 3.0]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -382,8 +382,8 @@ fn float_list() {
 #[test]
 fn integer_list() {
     let source = "[1, 2, 3]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -428,8 +428,8 @@ fn integer_list() {
 #[test]
 fn string_list() {
     let source = "[\"foo\", \"bar\"]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,
@@ -477,8 +477,8 @@ fn string_list() {
 #[test]
 fn list_list() {
     let source = "[[true], [false]]";
-    let program = compile(source).unwrap();
-    let return_value = run(source).unwrap();
+    let program = compile(source, false).unwrap();
+    let return_value = run(source, false).unwrap();
 
     assert_eq!(
         program,

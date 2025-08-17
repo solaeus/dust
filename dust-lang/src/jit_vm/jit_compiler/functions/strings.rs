@@ -1,17 +1,25 @@
 use std::slice;
 
-use crate::{Thread, jit_vm::ObjectPool};
+use crate::{
+    Object, Register, Thread,
+    jit_vm::{ObjectPool, RegisterTag},
+};
 
 pub unsafe extern "C" fn allocate_string(
     string_pointer: *const u8,
     length: usize,
     object_pool_pointer: *mut ObjectPool,
+    registers: *const Register,
+    registers_length: usize,
+    register_tags: *const RegisterTag,
 ) -> i64 {
     let borrowed_slice = unsafe { slice::from_raw_parts(string_pointer, length) };
-    let string =
-        String::from_utf8(borrowed_slice.to_vec()).expect("Failed to convert raw bytes to String");
+    let string = unsafe { String::from_utf8_unchecked(borrowed_slice.to_vec()) };
+    let object = Object::string(string);
     let object_pool = unsafe { &mut *object_pool_pointer };
-    let object_pointer = object_pool.allocate(crate::Object::string(string));
+    let registers = unsafe { slice::from_raw_parts(registers, registers_length) };
+    let register_tags = unsafe { slice::from_raw_parts(register_tags, registers_length) };
+    let object_pointer = object_pool.allocate(object, registers, register_tags);
 
     object_pointer as i64
 }

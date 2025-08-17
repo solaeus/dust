@@ -11,7 +11,7 @@ pub use cell::{Cell, CellValue};
 pub use jit_compiler::{JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
-pub use register::Register;
+pub use register::{Register, RegisterTag};
 pub use thread::{Thread, ThreadResult};
 
 use std::sync::{Arc, RwLock};
@@ -20,8 +20,8 @@ use crate::{DustError, Program, Value, compile};
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
-pub fn run(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
-    let program = compile(source)?;
+pub fn run(source: &'_ str, use_standard_library: bool) -> Result<Option<Value>, DustError<'_>> {
+    let program = compile(source, use_standard_library)?;
     let vm = JitVm::new();
 
     vm.run(program)

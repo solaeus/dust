@@ -40,18 +40,14 @@ use crate::{
 };
 
 /// Compiles the input and returns a program.
-pub fn compile(source: &'_ str) -> Result<Program, DustError<'_>> {
+pub fn compile(source: &'_ str, use_standard_library: bool) -> Result<Program, DustError<'_>> {
     let compiler = Compiler::new();
 
     compiler
-        .compile_program(None, source)
+        .compile_program(None, source, use_standard_library)
         .map_err(|error| DustError::compile(error, source))
 }
 
-/// The Dust compiler assembles a [`Chunk`] for the Dust VM. Any unrecognized symbols, disallowed
-/// syntax or conflicting type usage will result in an error.
-///
-/// See the [`compile`] function an example of how to create and use a Compiler.
 #[derive(Debug)]
 pub struct Compiler {
     allow_native_functions: bool,
@@ -113,6 +109,7 @@ impl Compiler {
         &self,
         program_name: Option<&str>,
         source: &str,
+        use_standard_library: bool,
     ) -> Result<Program, CompileError> {
         let logging = span!(Level::INFO, "Compile_Program");
         let _enter = logging.enter();
@@ -129,7 +126,7 @@ impl Compiler {
         let globals = Rc::new(RefCell::new(IndexMap::new()));
         let prototypes = Rc::new(RefCell::new(PrototypeStore::new()));
 
-        if !self.allow_native_functions {
+        if use_standard_library {
             apply_standard_library(&mut main_module.borrow_mut());
         }
 
@@ -1577,72 +1574,45 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_block(&mut self) -> Result<(), CompileError> {
-        self.advance()?;
+        self.expect(Token::LeftBrace)?;
 
         let starting_block = self.current_block_scope.block_index;
-        let start_block_expressions = self.expressions.len();
+        let starting_expression_count = self.expressions.len();
 
         self.block_index += 1;
         self.current_block_scope.begin(self.block_index);
 
-        let block_scope = self.current_block_scope;
-
-        while !self.allow(Token::RightBrace)? && !self.is_eof() {
-            self.parse(Precedence::None)?;
+        while !self.allow(Token::RightBrace)? {
+            self.parse_expression()?;
         }
 
         self.current_block_scope.end(starting_block);
 
-        let end_block_expressions = self.expressions.len();
+        let end_expression_count = self.expressions.len();
+        let mut safepoint_registers = Vec::new();
 
-        let mut safepoint_registers = self
-            .locals
-            .iter()
-            .filter_map(|(_, local)| {
-                if local.scope == block_scope
-                    && matches!(local.r#type, Type::String | Type::List(_))
-                {
-                    Some(local.address.index)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<u16>>();
-
-        println!("{safepoint_registers:?}");
-
-        for expression_index in start_block_expressions..end_block_expressions {
+        for expression_index in starting_expression_count..end_expression_count {
             let Expression {
                 index,
-                ends_statement,
                 r#type,
-                kind,
+                ends_statement,
                 ..
             } = &self.expressions[expression_index];
-            let instruction = match index {
-                ExpressionIndex::Instruction(instruction_index) => {
-                    self.instructions[*instruction_index]
-                }
-                ExpressionIndex::Function(_) => continue,
-            };
 
-            if expression_index == end_block_expressions - 1 && !*ends_statement {
-                // Last expression in the block does not end the statement, so its register must not
-                // be considered reusable, i.e. the value outlives the block.
-                break;
+            if !matches!(r#type, Type::String | Type::List(_)) {
+                continue;
             }
 
-            let destination_index = instruction.a_field();
+            if expression_index == end_expression_count - 1 && !ends_statement {
+                // In this case, the value escapes the block scope, so it stays alive.
+                continue;
+            }
 
-            if kind != &ExpressionKind::Variable {
-                if let Err(insertion_index) =
-                    self.reusable_registers.binary_search(&destination_index)
-                {
-                    self.reusable_registers
-                        .insert(insertion_index, destination_index);
-                }
+            if let ExpressionIndex::Instruction(instruction_index) = index {
+                let instruction = &self.instructions[*instruction_index];
+                let destination_index = instruction.a_field();
 
-                if matches!(r#type, Type::String | Type::List(_))
+                if instruction.yields_value()
                     && let Err(insertion_index) =
                         safepoint_registers.binary_search(&destination_index)
                 {
@@ -1652,12 +1622,24 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         if !safepoint_registers.is_empty() {
+            if self.get_last_instruction_operations() == Some([Operation::SAFEPOINT]) {
+                self.instructions.pop();
+
+                if let Some(registers) = self.safepoints.pop() {
+                    for register in registers {
+                        if let Err(insertion_index) = safepoint_registers.binary_search(&register) {
+                            safepoint_registers.insert(insertion_index, register);
+                        }
+                    }
+                }
+            }
+
             let safepoint_index = self.safepoints.len() as u16;
-            let safepoint_instruction = Instruction::safepoint(safepoint_index);
+            let safepoint = Instruction::safepoint(safepoint_index);
 
             self.safepoints.push(safepoint_registers);
-            self.instructions.push(safepoint_instruction);
-        };
+            self.instructions.push(safepoint);
+        }
 
         Ok(())
     }
@@ -2027,9 +2009,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<(), CompileError> {
-        self.parse(Precedence::None)?;
-
-        Ok(())
+        self.parse(Precedence::None)
     }
 
     fn parse_sub_expression(&mut self, precedence: &Precedence) -> Result<(), CompileError> {
@@ -2345,20 +2325,6 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         let (return_type, prototype_index, argument_count) = get_function_info()?;
-        let mut safepoint_registers = self
-            .locals
-            .iter()
-            .filter_map(|(_, local)| {
-                if self.current_block_scope.block_depth < local.scope.block_depth
-                    && matches!(local.r#type, Type::String | Type::List(_))
-                {
-                    Some(local.address.index)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<u16>>();
-
         let mut arguments = Vec::with_capacity(argument_count);
 
         while !self.allow(Token::RightParenthesis)? {
@@ -2382,10 +2348,6 @@ impl<'a> ChunkCompiler<'a> {
 
                     if should_remove {
                         self.instructions.remove(instruction_index);
-                    } else if last_instruction.yields_value()
-                        && matches!(r#type, Type::String | Type::List(_))
-                    {
-                        safepoint_registers.push(last_instruction.a_field());
                     }
 
                     arguments.push((argument_address, argument_type));
@@ -2397,20 +2359,6 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let end = self.current_position.1;
-
-        if !safepoint_registers.is_empty() {
-            if self.get_last_instruction_operations() == Some([Operation::SAFEPOINT]) {
-                self.instructions.pop();
-                self.safepoints.pop();
-            }
-
-            let safepoint_index = self.safepoints.len() as u16;
-            let safepoint_instruction = Instruction::safepoint(safepoint_index);
-
-            self.safepoints.push(safepoint_registers);
-            self.instructions.push(safepoint_instruction);
-        };
-
         let arguments_index = self.call_argument_lists.len() as u16;
 
         if !arguments.is_empty() {
