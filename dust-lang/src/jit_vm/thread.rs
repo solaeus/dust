@@ -71,7 +71,6 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
                 .sum::<usize>()
     };
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
-
     let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
 
     let mut object_pool = ObjectPool::new();

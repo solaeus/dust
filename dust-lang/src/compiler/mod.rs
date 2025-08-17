@@ -584,7 +584,7 @@ impl<'a> ChunkCompiler<'a> {
                 load_encoded,
                 ExpressionKind::Literal,
                 Type::Byte,
-                false,
+                true,
                 position,
             );
 
@@ -2155,13 +2155,15 @@ impl<'a> ChunkCompiler<'a> {
         match index {
             ExpressionIndex::Instruction(instruction_index) => {
                 let instruction = self.instructions[instruction_index];
+                let (address, should_remove) = self.handle_previous_instruction(instruction);
+
+                if should_remove {
+                    self.instructions.remove(instruction_index);
+                }
 
                 if ends_with_value {
-                    let r#return = Instruction::r#return(
-                        true,
-                        instruction.destination(),
-                        expression_type.as_operand_type(),
-                    );
+                    let r#return =
+                        Instruction::r#return(true, address, expression_type.as_operand_type());
 
                     self.emit(
                         r#return,

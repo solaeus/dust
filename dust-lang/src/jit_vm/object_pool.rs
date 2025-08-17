@@ -21,8 +21,8 @@ const DEFAULT_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
 #[repr(C)]
 pub struct ObjectPool {
     objects: Vec<Pin<Box<Object>>>,
-    pub allocated: usize,
-    pub next_sweep_threshold: usize,
+    allocated: usize,
+    next_sweep_threshold: usize,
 }
 
 impl ObjectPool {

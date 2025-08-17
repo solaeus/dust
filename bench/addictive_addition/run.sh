@@ -6,7 +6,7 @@ hyperfine \
     --shell none \
     --prepare 'sync' \
     --warmup 5 \
-    'target/release/dust --no-std bench/addictive_addition/addictive_addition.ds' \
+    'target/release/dust bench/addictive_addition/addictive_addition.ds' \
     'luajit bench/addictive_addition/addictive_addition.lua' \
     'bun bench/addictive_addition/addictive_addition.js' \
     'lua bench/addictive_addition/addictive_addition.lua' \

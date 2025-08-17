@@ -18,7 +18,7 @@ use cranelift::{
     frontend::Switch,
     prelude::{
         AbiParam, Block, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags, Signature,
-        Value as CraneliftValue, types::I64,
+        Value as CraneliftValue, Variable, types::I64,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -420,17 +420,24 @@ impl<'a> JitCompiler<'a> {
     }
 
     fn set_register(
-        &self,
-        relative_index: CraneliftValue,
+        destination_index: u16,
         value: CraneliftValue,
         r#type: OperandType,
         frame_base_register_address: CraneliftValue,
         frame_base_tag_address: CraneliftValue,
+        hot_registers: &[Variable],
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
+        if r#type.is_scalar()
+            && let Some(variable) = hot_registers.get(destination_index as usize)
+        {
+            function_builder.def_var(*variable, value);
+        }
+
+        let destination_index_value = function_builder.ins().iconst(I64, destination_index as i64);
         let register_offset = function_builder
             .ins()
-            .imul_imm(relative_index, size_of::<Register>() as i64);
+            .imul_imm(destination_index_value, size_of::<Register>() as i64);
         let register_address = function_builder
             .ins()
             .iadd(frame_base_register_address, register_offset);
@@ -439,8 +446,8 @@ impl<'a> JitCompiler<'a> {
             .ins()
             .store(MemFlags::new(), value, register_address, 0);
 
-        self.set_register_tag(
-            relative_index,
+        Self::set_register_tag(
+            destination_index_value,
             r#type,
             frame_base_tag_address,
             function_builder,
@@ -448,7 +455,6 @@ impl<'a> JitCompiler<'a> {
     }
 
     fn set_register_tag(
-        &self,
         relative_index: CraneliftValue,
         r#type: OperandType,
         frame_base_tag_address: CraneliftValue,

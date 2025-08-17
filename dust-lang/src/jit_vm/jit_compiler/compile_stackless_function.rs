@@ -1,11 +1,11 @@
-use std::mem::offset_of;
+use std::{array, mem::offset_of};
 
 use cranelift::{
     codegen::{CodegenError, ir::FuncRef},
     frontend::Switch,
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
-        Value as CraneliftValue,
+        Value as CraneliftValue, Variable,
         types::{I8, I64},
     },
 };
@@ -87,8 +87,6 @@ pub fn compile_stackless_function(
             AbiParam::new(pointer_type),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
         ]);
         allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
 
@@ -107,8 +105,6 @@ pub fn compile_stackless_function(
             AbiParam::new(pointer_type),
             AbiParam::new(pointer_type),
             AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
         ]);
         concatenate_strings_signature
             .returns
@@ -139,7 +135,6 @@ pub fn compile_stackless_function(
     let instruction_count = bytecode_instructions.len();
 
     let function_entry_block = function_builder.create_block();
-    let header_block = function_builder.create_block();
     let mut instruction_blocks = Vec::with_capacity(instruction_count);
     let return_block = function_builder.create_block();
     let mut switch = Switch::new();
@@ -236,18 +231,9 @@ pub fn compile_stackless_function(
         offset_of!(ThreadContext, return_type_pointer) as i32,
     );
 
-    function_builder
-        .ins()
-        .jump(header_block, &[current_frame_ip.into()]);
+    let hot_registers: [Variable; 8] = array::from_fn(|_| function_builder.declare_var(I64));
 
-    {
-        function_builder.append_block_param(header_block, I64);
-        function_builder.switch_to_block(header_block);
-
-        let current_frame_ip = function_builder.block_params(header_block)[0];
-
-        switch.emit(&mut function_builder, current_frame_ip, return_block);
-    }
+    switch.emit(&mut function_builder, current_frame_ip, return_block);
 
     for ip in 0..instruction_count {
         let current_instruction = &bytecode_instructions[ip];
@@ -255,8 +241,6 @@ pub fn compile_stackless_function(
         let instruction_block = instruction_blocks[ip];
 
         function_builder.switch_to_block(instruction_block);
-
-        let ip_value = function_builder.ins().iconst(I64, ip as i64);
 
         info!("Compiling {operation} at IP {ip}");
 
@@ -277,8 +261,6 @@ pub fn compile_stackless_function(
                     r#type,
                     jump_next,
                 } = Load::from(*current_instruction);
-                let destination_index =
-                    function_builder.ins().iconst(I64, destination.index as i64);
                 let result_register = match r#type {
                     OperandType::BOOLEAN => get_boolean(
                         operand,
@@ -306,6 +288,7 @@ pub fn compile_stackless_function(
                         operand,
                         current_frame_base_register_address,
                         chunk,
+                        &hot_registers,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
@@ -315,10 +298,6 @@ pub fn compile_stackless_function(
                         &mut function_builder,
                         thread_context,
                         current_frame_base_register_address,
-                        (
-                            current_frame_register_range_start,
-                            current_frame_register_range_end,
-                        ),
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -339,22 +318,21 @@ pub fn compile_stackless_function(
                     }
                 };
 
-                compiler.set_register(
-                    destination_index,
+                JitCompiler::set_register(
+                    destination.index,
                     result_register,
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
-                let next_ip = if jump_next {
-                    function_builder.ins().iadd_imm(ip_value, 2)
+                if jump_next {
+                    function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
                 } else {
-                    function_builder.ins().iadd_imm(ip_value, 1)
+                    function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 };
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::DROP => {
                 let Drop { drop_list_index } = Drop::from(*current_instruction);
@@ -384,9 +362,7 @@ pub fn compile_stackless_function(
                         .store(MemFlags::new(), empty_tag_value, tag_address, 0);
                 }
 
-                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::NEW_LIST => {
                 let NewList {
@@ -394,9 +370,6 @@ pub fn compile_stackless_function(
                     length,
                     list_type,
                 } = NewList::from(*current_instruction);
-                let destination_index =
-                    function_builder.ins().iconst(I64, destination.index as i64);
-
                 let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
                 let list_length_value = function_builder.ins().iconst(I64, length as i64);
                 let call_allocate_list_instruction = function_builder.ins().call(
@@ -412,18 +385,17 @@ pub fn compile_stackless_function(
                 let list_object_pointer =
                     function_builder.inst_results(call_allocate_list_instruction)[0];
 
-                compiler.set_register(
-                    destination_index,
+                JitCompiler::set_register(
+                    destination.index,
                     list_object_pointer,
                     list_type,
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
-                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::SET_LIST => {
                 let SetList {
@@ -442,6 +414,7 @@ pub fn compile_stackless_function(
                         item_source,
                         current_frame_base_register_address,
                         chunk,
+                        &hot_registers,
                         &mut function_builder,
                     )?,
                     OperandType::BOOLEAN => get_boolean(
@@ -473,10 +446,6 @@ pub fn compile_stackless_function(
                         &mut function_builder,
                         thread_context,
                         current_frame_base_register_address,
-                        (
-                            current_frame_register_range_start,
-                            current_frame_register_range_end,
-                        ),
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -503,9 +472,7 @@ pub fn compile_stackless_function(
                     &[list_pointer, list_index, item_value],
                 );
 
-                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 let comparator = current_instruction.a_field();
@@ -528,12 +495,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             chunk,
+                            &hot_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
                             chunk,
+                            &hot_registers,
                             &mut function_builder,
                         )?;
 
@@ -603,12 +572,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             chunk,
+                            &hot_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
                             chunk,
+                            &hot_registers,
                             &mut function_builder,
                         )?;
 
@@ -671,8 +642,6 @@ pub fn compile_stackless_function(
                             return Err(JitError::UnhandledOperation { operation });
                         }
 
-                        // match (left.memory, right.memory) {
-                        //     (MemoryKind::REGISTER, MemoryKind::REGISTER) => {
                         let left_string_register = get_string(
                             left,
                             chunk,
@@ -680,11 +649,19 @@ pub fn compile_stackless_function(
                             &mut function_builder,
                             thread_context,
                             current_frame_base_register_address,
-                            (
-                                current_frame_register_range_start,
-                                current_frame_register_range_end,
-                            ),
                         )?;
+
+                        if left.memory == MemoryKind::CONSTANT {
+                            JitCompiler::set_register(
+                                destination.index,
+                                left_string_register,
+                                r#type,
+                                current_frame_base_register_address,
+                                current_frame_base_tag_address,
+                                &hot_registers,
+                                &mut function_builder,
+                            )?;
+                        }
 
                         let right_string_register = get_string(
                             right,
@@ -693,70 +670,13 @@ pub fn compile_stackless_function(
                             &mut function_builder,
                             thread_context,
                             current_frame_base_register_address,
-                            (
-                                current_frame_register_range_start,
-                                current_frame_register_range_end,
-                            ),
                         )?;
                         let call_instruction = function_builder.ins().call(
                             concatenate_strings_function,
-                            &[
-                                left_string_register,
-                                right_string_register,
-                                thread_context,
-                                current_frame_register_range_start,
-                                current_frame_register_range_end,
-                            ],
+                            &[left_string_register, right_string_register, thread_context],
                         );
 
                         function_builder.inst_results(call_instruction)[0]
-                        // }
-                        // (MemoryKind::CONSTANT, MemoryKind::CONSTANT) => {
-                        //     let left_string = chunk
-                        //         .constants
-                        //         .get(left.index as usize)
-                        //         .and_then(|value| value.as_string())
-                        //         .ok_or(JitError::InvalidConstantType {
-                        //             expected_type: OperandType::STRING,
-                        //         })?;
-                        //     let right_string = chunk
-                        //         .constants
-                        //         .get(right.index as usize)
-                        //         .and_then(|value| value.as_string())
-                        //         .ok_or(JitError::InvalidConstantType {
-                        //             expected_type: OperandType::STRING,
-                        //         })?;
-                        //     let mut concatenated_string =
-                        //         String::with_capacity(left_string.len() + right_string.len());
-
-                        //     concatenated_string.push_str(left_string);
-                        //     concatenated_string.push_str(right_string);
-
-                        //     let string_pointer = function_builder
-                        //         .ins()
-                        //         .iconst(I64, concatenated_string.as_ptr() as usize as i64);
-                        //     let string_length = function_builder
-                        //         .ins()
-                        //         .iconst(I64, concatenated_string.len() as i64);
-                        //     let call_allocate_string_instruction = function_builder.ins().call(
-                        //         allocate_string_function,
-                        //         &[
-                        //             string_pointer,
-                        //             string_length,
-                        //             thread_context,
-                        //             current_frame_register_range_start,
-                        //             current_frame_register_range_end,
-                        //         ],
-                        //     );
-
-                        //     function_builder.inst_results(call_allocate_string_instruction)[0]
-                        // }
-                        // _ => {
-                        //     return Err(JitError::UnsupportedMemoryKind {
-                        //         memory_kind: left.memory,
-                        //     });
-                        // }
-                        // }
                     }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
@@ -764,21 +684,18 @@ pub fn compile_stackless_function(
                         });
                     }
                 };
-                let destination_index =
-                    function_builder.ins().iconst(I64, destination.index as i64);
 
-                compiler.set_register(
-                    destination_index,
+                JitCompiler::set_register(
+                    destination.index,
                     result_register,
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
-                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::CALL => {
                 let Call {
@@ -787,9 +704,6 @@ pub fn compile_stackless_function(
                     arguments_index,
                     return_type,
                 } = Call::from(*current_instruction);
-                let destination_index =
-                    function_builder.ins().iconst(I64, destination.index as i64);
-
                 let callee_function_ids = compiler
                     .function_ids
                     .get(prototype_index as usize)
@@ -817,6 +731,7 @@ pub fn compile_stackless_function(
                                 *address,
                                 current_frame_base_register_address,
                                 chunk,
+                                &hot_registers,
                                 &mut function_builder,
                             )?;
 
@@ -837,33 +752,33 @@ pub fn compile_stackless_function(
                     .call(callee_function_reference, &arguments);
                 let return_value = function_builder.inst_results(call_instruction)[0];
 
-                compiler.set_register(
-                    destination_index,
+                JitCompiler::set_register(
+                    destination.index,
                     return_value,
                     return_type,
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
-                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
-
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::JUMP => {
                 let Jump {
                     offset,
                     is_positive,
                 } = Jump::from(*current_instruction);
-                let offset = offset + 1;
-                let offset_value = function_builder.ins().iconst(I64, offset as i64);
+                let offset = offset as usize + 1;
                 let next_ip = if is_positive {
-                    function_builder.ins().iadd(ip_value, offset_value)
+                    ip + offset
                 } else {
-                    function_builder.ins().isub(ip_value, offset_value)
+                    ip - offset
                 };
 
-                function_builder.ins().jump(header_block, &[next_ip.into()]);
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[next_ip], &[]);
             }
             Operation::RETURN => {
                 let Return {
@@ -929,6 +844,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 chunk,
+                                &hot_registers,
                                 &mut function_builder,
                             )?;
                             let integer_type = function_builder
@@ -945,10 +861,6 @@ pub fn compile_stackless_function(
                                 &mut function_builder,
                                 thread_context,
                                 current_frame_base_register_address,
-                                (
-                                    current_frame_register_range_start,
-                                    current_frame_register_range_end,
-                                ),
                             )?;
                             let string_type = function_builder
                                 .ins()
@@ -1293,46 +1205,49 @@ fn get_integer(
     address: Address,
     frame_base_address: CraneliftValue,
     chunk: &Chunk,
+    hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
-    let address_index = address.index as usize;
-    let jit_value =
-        match address.memory {
-            MemoryKind::REGISTER => {
-                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
-                let byte_offset = function_builder
-                    .ins()
-                    .imul_imm(relative_index, size_of::<Register>() as i64);
-                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => {
+            if let Some(variable) = hot_registers.get(address.index as usize) {
+                return Ok(function_builder.use_var(*variable));
+            }
 
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), address, 0)
-            }
-            MemoryKind::CONSTANT => {
-                let constant = chunk.constants.get(address_index).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
-                        constant_index: address_index,
-                        total_constant_count: chunk.constants.len(),
-                    },
-                )?;
-                let integer = match constant.as_integer() {
-                    Some(integer) => integer,
-                    None => {
-                        return Err(JitError::InvalidConstantType {
-                            expected_type: OperandType::INTEGER,
-                        });
-                    }
-                };
+            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+            let byte_offset = function_builder
+                .ins()
+                .imul_imm(relative_index, size_of::<Register>() as i64);
+            let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-                function_builder.ins().iconst(I64, integer)
-            }
-            _ => {
-                return Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                });
-            }
-        };
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), address, 0)
+        }
+        MemoryKind::CONSTANT => {
+            let constant = chunk.constants.get(address.index as usize).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index as usize,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+            let integer = match constant.as_integer() {
+                Some(integer) => integer,
+                None => {
+                    return Err(JitError::InvalidConstantType {
+                        expected_type: OperandType::INTEGER,
+                    });
+                }
+            };
+
+            function_builder.ins().iconst(I64, integer)
+        }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
 
     Ok(jit_value)
 }
@@ -1344,7 +1259,6 @@ fn get_string(
     function_builder: &mut FunctionBuilder,
     thread_conxtext_pointer: CraneliftValue,
     current_frame_base_register_address: CraneliftValue,
-    register_range: (CraneliftValue, CraneliftValue),
 ) -> Result<CraneliftValue, JitError> {
     let register_value = match address.memory {
         MemoryKind::REGISTER => {
@@ -1382,13 +1296,7 @@ fn get_string(
             let string_length = function_builder.ins().iconst(I64, string.len() as i64);
             let call_allocate_string_instruction = function_builder.ins().call(
                 allocate_string_function,
-                &[
-                    string_pointer,
-                    string_length,
-                    thread_conxtext_pointer,
-                    register_range.0,
-                    register_range.1,
-                ],
+                &[string_pointer, string_length, thread_conxtext_pointer],
             );
 
             function_builder.inst_results(call_allocate_string_instruction)[0]
