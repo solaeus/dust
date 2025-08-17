@@ -77,6 +77,14 @@ impl Object {
         }
     }
 
+    pub fn as_mut_string(&mut self) -> Option<&mut String> {
+        if let ObjectValue::String(ref mut string) = self.value {
+            Some(string)
+        } else {
+            None
+        }
+    }
+
     pub fn size(&self) -> usize {
         match &self.value {
             ObjectValue::Empty => 0,
@@ -92,7 +100,7 @@ impl Object {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ObjectValue {
     Empty,
     BooleanList(Vec<bool>),

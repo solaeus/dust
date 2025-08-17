@@ -26,7 +26,7 @@ use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use tracing::Level;
 
 use crate::{
-    OperandType, Program, Register, ThreadResult,
+    OperandType, Program, Register, ThreadResult, Value,
     jit_vm::{
         RegisterTag,
         call_stack::{get_frame_function_index, push_call_frame},
@@ -49,7 +49,7 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("insert_into_list", insert_into_list as *const u8);
 
         builder.symbol("allocate_string", allocate_string as *const u8);
-        // builder.symbol("concatenate_strings", concatenate_strings as *const u8);
+        builder.symbol("concatenate_strings", concatenate_strings as *const u8);
 
         #[cfg(debug_assertions)]
         builder.symbol("log_operation", log_operation as *const u8);
@@ -68,12 +68,10 @@ impl<'a> JitCompiler<'a> {
         let span = tracing::span!(Level::INFO, "JIT_Compiler");
         let _enter = span.enter();
 
-        let loop_pointer = self.compile_loop()?;
-
-        Ok(unsafe { transmute::<*const u8, JitLogic>(loop_pointer) })
+        self.compile_loop()
     }
 
-    fn compile_loop(&mut self) -> Result<*const u8, JitError> {
+    fn compile_loop(&mut self) -> Result<JitLogic, JitError> {
         let mut context = self.module.make_context();
         let pointer_type = self.module.isa().pointer_type();
         let mut stackless_signature = Signature::new(self.module.isa().default_call_conv());
@@ -122,15 +120,17 @@ impl<'a> JitCompiler<'a> {
         }
 
         let main_function_reference = {
+            let constant_list_index = self.program.main_chunk.constants.len();
+
             let reference = self
                 .module
                 .declare_func_in_func(self.main_function_id, &mut context.func);
 
             compile_stackless_function(
-                self,
                 self.main_function_id,
                 &self.program.main_chunk,
                 true,
+                self,
             )?;
 
             reference
@@ -151,7 +151,7 @@ impl<'a> JitCompiler<'a> {
                 let chunk = &self.program.prototypes[index];
 
                 compile_direct_function(self, direct, chunk)?;
-                compile_stackless_function(self, stackless, chunk, false)?;
+                compile_stackless_function(stackless, chunk, false, self)?;
             }
 
             references
@@ -383,7 +383,11 @@ impl<'a> JitCompiler<'a> {
                 message: error.to_string(),
             })?;
 
-        Ok(self.module.get_finalized_function(loop_function_id))
+        let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
+        let jit_logic =
+            unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer as *const u8) };
+
+        Ok(jit_logic)
     }
 
     fn emit_jump(
@@ -420,14 +424,13 @@ impl<'a> JitCompiler<'a> {
 
     fn set_register(
         &self,
-        register_index: usize,
+        relative_index: CraneliftValue,
         value: CraneliftValue,
         r#type: OperandType,
         frame_base_register_address: CraneliftValue,
         frame_base_tag_address: CraneliftValue,
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
-        let relative_index = function_builder.ins().iconst(I64, register_index as i64);
         let register_offset = function_builder
             .ins()
             .imul_imm(relative_index, size_of::<Register>() as i64);
@@ -439,6 +442,52 @@ impl<'a> JitCompiler<'a> {
             .ins()
             .store(MemFlags::new(), value, register_address, 0);
 
+        let tag = match r#type {
+            OperandType::BOOLEAN
+            | OperandType::BYTE
+            | OperandType::CHARACTER
+            | OperandType::FLOAT
+            | OperandType::INTEGER
+            | OperandType::FUNCTION => RegisterTag::SCALAR,
+            OperandType::STRING
+            | OperandType::LIST_BOOLEAN
+            | OperandType::LIST_BYTE
+            | OperandType::LIST_CHARACTER
+            | OperandType::LIST_FLOAT
+            | OperandType::LIST_INTEGER
+            | OperandType::LIST_FUNCTION
+            | OperandType::LIST_STRING
+            | OperandType::LIST_LIST => RegisterTag::OBJECT,
+            _ => {
+                return Err(JitError::UnsupportedOperandType {
+                    operand_type: r#type,
+                });
+            }
+        };
+        let tag_value = function_builder
+            .ins()
+            .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
+        let tag_offset = function_builder
+            .ins()
+            .imul_imm(relative_index, size_of::<RegisterTag>() as i64);
+        let tag_address = function_builder
+            .ins()
+            .iadd(frame_base_tag_address, tag_offset);
+
+        function_builder
+            .ins()
+            .store(MemFlags::new(), tag_value, tag_address, 0);
+
+        Ok(())
+    }
+
+    fn set_register_tag(
+        &self,
+        relative_index: CraneliftValue,
+        r#type: OperandType,
+        frame_base_tag_address: CraneliftValue,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
         let tag = match r#type {
             OperandType::BOOLEAN
             | OperandType::BYTE

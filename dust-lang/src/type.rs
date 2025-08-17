@@ -77,7 +77,7 @@ impl Type {
                 Type::List(_) | Type::Range(_) => OperandType::LIST_LIST,
                 Type::Map(_) => OperandType::LIST_MAP,
                 Type::Function(_) | Type::FunctionSelf => OperandType::LIST_FUNCTION,
-                Type::None => OperandType::LIST,
+                Type::None => panic!("A list's item type must be known, even if it is empty"),
             },
             Type::Map(_) => OperandType::MAP,
             Type::Range(range_type) => match range_type.as_ref() {

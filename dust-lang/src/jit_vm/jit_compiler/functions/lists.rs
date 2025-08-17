@@ -1,39 +1,39 @@
-use std::slice;
-
 use crate::{
-    Object, OperandType, Register,
-    jit_vm::{ObjectPool, RegisterTag, object::ObjectValue},
+    Object, OperandType,
+    jit_vm::{object::ObjectValue, thread::ThreadContext},
 };
 
 /// # Safety
 /// This function dereferences a raw pointer to an `ObjectPool`.
 pub unsafe extern "C" fn allocate_list(
     list_type: i8,
-    length: i64,
-    object_pool: *mut ObjectPool,
-    registers: *const Register,
-    registers_length: usize,
-    register_tags: *const RegisterTag,
+    list_length: usize,
+    thread_context: *mut ThreadContext,
+    register_range_start: usize,
+    register_range_end: usize,
 ) -> i64 {
-    let object_pool = unsafe { &mut *object_pool };
+    let thread_context = unsafe { &mut *thread_context };
+    let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
+    let registers = unsafe { &mut *thread_context.register_stack_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
+    let register_window = &mut registers[register_range_start..register_range_end];
+    let register_tags_window = &mut register_tags[register_range_start..register_range_end];
     let object = match OperandType(list_type as u8) {
-        OperandType::LIST_BOOLEAN => Object::boolean_list(Vec::with_capacity(length as usize)),
-        OperandType::LIST_BYTE => Object::byte_list(Vec::with_capacity(length as usize)),
-        OperandType::LIST_CHARACTER => Object::character_list(Vec::with_capacity(length as usize)),
-        OperandType::LIST_FLOAT => Object::float_list(Vec::with_capacity(length as usize)),
-        OperandType::LIST_INTEGER => Object::integer_list(Vec::with_capacity(length as usize)),
-        OperandType::LIST_FUNCTION => Object::function_list(Vec::with_capacity(length as usize)),
+        OperandType::LIST_BOOLEAN => Object::boolean_list(Vec::with_capacity(list_length)),
+        OperandType::LIST_BYTE => Object::byte_list(Vec::with_capacity(list_length)),
+        OperandType::LIST_CHARACTER => Object::character_list(Vec::with_capacity(list_length)),
+        OperandType::LIST_FLOAT => Object::float_list(Vec::with_capacity(list_length)),
+        OperandType::LIST_INTEGER => Object::integer_list(Vec::with_capacity(list_length)),
+        OperandType::LIST_FUNCTION => Object::function_list(Vec::with_capacity(list_length)),
         OperandType::LIST_STRING | OperandType::LIST_LIST => {
-            Object::object_list(Vec::with_capacity(length as usize))
+            Object::object_list(Vec::with_capacity(list_length))
         }
         _ => panic!(
             "Unsupported type for list allocation: {}",
             OperandType(list_type as u8)
         ),
     };
-    let registers = unsafe { slice::from_raw_parts(registers, registers_length) };
-    let register_tags = unsafe { slice::from_raw_parts(register_tags, registers_length) };
-    let object_pointer = object_pool.allocate(object, registers, register_tags);
+    let object_pointer = object_pool.allocate(object, register_window, register_tags_window);
 
     object_pointer as i64
 }

@@ -13,16 +13,17 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
-    instruction::{Add, Call, Jump, Load, NewList, Return, Safepoint, SetList, Subtract},
+    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Path, Register,
+    Value,
+    instruction::{Call, Jump, Load, NewList, Return, Safepoint, SetList},
     jit_vm::{RegisterTag, call_stack::get_call_frame, thread::ThreadContext},
 };
 
 pub fn compile_stackless_function(
-    compiler: &mut JitCompiler,
     function_id: FuncId,
     chunk: &Chunk,
     is_main: bool,
+    compiler: &mut JitCompiler,
 ) -> Result<(), JitError> {
     info!(
         "Compiling stackless function {}",
@@ -97,6 +98,28 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "allocate_string",
             allocate_string_signature,
+        )?
+    };
+
+    let concatenate_strings_function = {
+        let mut concatenate_strings_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_strings_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+        ]);
+        concatenate_strings_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_strings",
+            concatenate_strings_signature,
         )?
     };
 
@@ -253,6 +276,8 @@ pub fn compile_stackless_function(
                     r#type,
                     jump_next,
                 } = Load::from(*current_instruction);
+                let destination_index =
+                    function_builder.ins().iconst(I64, destination.index as i64);
                 let result_register = match r#type {
                     OperandType::BOOLEAN => get_boolean(
                         operand,
@@ -288,8 +313,11 @@ pub fn compile_stackless_function(
                         allocate_string_function,
                         &mut function_builder,
                         thread_context,
-                        current_frame_register_range_start,
-                        current_frame_register_range_end,
+                        current_frame_base_register_address,
+                        (
+                            current_frame_register_range_start,
+                            current_frame_register_range_end,
+                        ),
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -311,10 +339,16 @@ pub fn compile_stackless_function(
                 };
 
                 compiler.set_register(
-                    destination.index as usize,
+                    destination_index,
                     result_register,
-                    r#type,
+                    r#type.destination_type(),
                     current_frame_base_register_address,
+                    current_frame_base_tag_address,
+                    &mut function_builder,
+                )?;
+                compiler.set_register_tag(
+                    destination_index,
+                    r#type.destination_type(),
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
@@ -357,6 +391,9 @@ pub fn compile_stackless_function(
                     length,
                     list_type,
                 } = NewList::from(*current_instruction);
+                let destination_index =
+                    function_builder.ins().iconst(I64, destination.index as i64);
+
                 let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
                 let list_length_value = function_builder.ins().iconst(I64, length as i64);
                 let call_allocate_list_instruction = function_builder.ins().call(
@@ -364,20 +401,25 @@ pub fn compile_stackless_function(
                     &[
                         list_type_value,
                         list_length_value,
-                        object_pool_pointer,
-                        current_frame_base_register_address,
-                        current_frame_register_range_length,
-                        current_frame_base_tag_address,
+                        thread_context,
+                        current_frame_register_range_start,
+                        current_frame_register_range_end,
                     ],
                 );
                 let list_object_pointer =
                     function_builder.inst_results(call_allocate_list_instruction)[0];
 
                 compiler.set_register(
-                    destination.index as usize,
+                    destination_index,
                     list_object_pointer,
                     list_type,
                     current_frame_base_register_address,
+                    current_frame_base_tag_address,
+                    &mut function_builder,
+                )?;
+                compiler.set_register_tag(
+                    destination_index,
+                    list_type,
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
@@ -429,8 +471,11 @@ pub fn compile_stackless_function(
                         allocate_string_function,
                         &mut function_builder,
                         thread_context,
-                        current_frame_register_range_start,
-                        current_frame_register_range_end,
+                        current_frame_base_register_address,
+                        (
+                            current_frame_register_range_start,
+                            current_frame_register_range_end,
+                        ),
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -506,14 +551,48 @@ pub fn compile_stackless_function(
                     &[],
                 );
             }
-            Operation::ADD => {
-                let Add {
-                    destination,
-                    left,
-                    right,
-                    r#type,
-                } = Add::from(*current_instruction);
+            Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO => {
+                let destination = current_instruction.destination();
+                let left = current_instruction.b_address();
+                let right = current_instruction.c_address();
+                let r#type = current_instruction.operand_type();
+
                 let result_register = match r#type {
+                    OperandType::BYTE => {
+                        let left_value = get_byte(
+                            left,
+                            current_frame_base_register_address,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_byte(
+                            right,
+                            current_frame_base_register_address,
+                            &mut function_builder,
+                        )?;
+
+                        match operation {
+                            Operation::ADD => function_builder.ins().iadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().isub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().imul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                function_builder.ins().udiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                function_builder.ins().urem(left_value, right_value)
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
+                    }
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
@@ -528,7 +607,151 @@ pub fn compile_stackless_function(
                             &mut function_builder,
                         )?;
 
-                        function_builder.ins().iadd(left_value, right_value)
+                        match operation {
+                            Operation::ADD => function_builder.ins().iadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().isub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().imul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                function_builder.ins().udiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                function_builder.ins().urem(left_value, right_value)
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
+                    }
+                    OperandType::FLOAT => {
+                        let left_value = get_float(
+                            left,
+                            current_frame_base_register_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_float(
+                            right,
+                            current_frame_base_register_address,
+                            chunk,
+                            &mut function_builder,
+                        )?;
+
+                        match operation {
+                            Operation::ADD => function_builder.ins().fadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().fsub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().fmul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                function_builder.ins().fdiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                return Err(JitError::UnsupportedOperandType {
+                                    operand_type: r#type,
+                                });
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
+                    }
+                    OperandType::STRING => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        // match (left.memory, right.memory) {
+                        //     (MemoryKind::REGISTER, MemoryKind::REGISTER) => {
+                        let left_string_register = get_string(
+                            left,
+                            chunk,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                            (
+                                current_frame_register_range_start,
+                                current_frame_register_range_end,
+                            ),
+                        )?;
+
+                        let right_string_register = get_string(
+                            right,
+                            chunk,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                            (
+                                current_frame_register_range_start,
+                                current_frame_register_range_end,
+                            ),
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_strings_function,
+                            &[
+                                left_string_register,
+                                right_string_register,
+                                thread_context,
+                                current_frame_register_range_start,
+                                current_frame_register_range_end,
+                            ],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                        // }
+                        // (MemoryKind::CONSTANT, MemoryKind::CONSTANT) => {
+                        //     let left_string = chunk
+                        //         .constants
+                        //         .get(left.index as usize)
+                        //         .and_then(|value| value.as_string())
+                        //         .ok_or(JitError::InvalidConstantType {
+                        //             expected_type: OperandType::STRING,
+                        //         })?;
+                        //     let right_string = chunk
+                        //         .constants
+                        //         .get(right.index as usize)
+                        //         .and_then(|value| value.as_string())
+                        //         .ok_or(JitError::InvalidConstantType {
+                        //             expected_type: OperandType::STRING,
+                        //         })?;
+                        //     let mut concatenated_string =
+                        //         String::with_capacity(left_string.len() + right_string.len());
+
+                        //     concatenated_string.push_str(left_string);
+                        //     concatenated_string.push_str(right_string);
+
+                        //     let string_pointer = function_builder
+                        //         .ins()
+                        //         .iconst(I64, concatenated_string.as_ptr() as usize as i64);
+                        //     let string_length = function_builder
+                        //         .ins()
+                        //         .iconst(I64, concatenated_string.len() as i64);
+                        //     let call_allocate_string_instruction = function_builder.ins().call(
+                        //         allocate_string_function,
+                        //         &[
+                        //             string_pointer,
+                        //             string_length,
+                        //             thread_context,
+                        //             current_frame_register_range_start,
+                        //             current_frame_register_range_end,
+                        //         ],
+                        //     );
+
+                        //     function_builder.inst_results(call_allocate_string_instruction)[0]
+                        // }
+                        // _ => {
+                        //     return Err(JitError::UnsupportedMemoryKind {
+                        //         memory_kind: left.memory,
+                        //     });
+                        // }
+                        // }
                     }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
@@ -536,52 +759,20 @@ pub fn compile_stackless_function(
                         });
                     }
                 };
+                let destination_index =
+                    function_builder.ins().iconst(I64, destination.index as i64);
 
                 compiler.set_register(
-                    destination.index as usize,
+                    destination_index,
                     result_register,
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-            }
-            Operation::SUBTRACT => {
-                let Subtract {
-                    destination,
-                    left,
-                    right,
-                    r#type,
-                } = Subtract::from(*current_instruction);
-                let result_register = match r#type {
-                    OperandType::INTEGER => {
-                        let left_value = get_integer(
-                            left,
-                            current_frame_base_register_address,
-                            chunk,
-                            &mut function_builder,
-                        )?;
-                        let right_value = get_integer(
-                            right,
-                            current_frame_base_register_address,
-                            chunk,
-                            &mut function_builder,
-                        )?;
-
-                        function_builder.ins().isub(left_value, right_value)
-                    }
-                    _ => {
-                        return Err(JitError::UnsupportedOperandType {
-                            operand_type: r#type,
-                        });
-                    }
-                };
-
-                compiler.set_register(
-                    destination.index as usize,
-                    result_register,
+                compiler.set_register_tag(
+                    destination_index,
                     r#type.destination_type(),
-                    current_frame_base_register_address,
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
@@ -593,26 +784,27 @@ pub fn compile_stackless_function(
                     arguments_index,
                     return_type,
                 } = Call::from(*current_instruction);
-                let destination_index = destination.index as usize;
-                let prototype_index = prototype_index as usize;
-                let arguments_index = arguments_index as usize;
-                let callee_function_ids = compiler.function_ids.get(prototype_index).ok_or(
-                    JitError::FunctionIndexOutOfBounds {
+                let destination_index =
+                    function_builder.ins().iconst(I64, destination.index as i64);
+
+                let callee_function_ids = compiler
+                    .function_ids
+                    .get(prototype_index as usize)
+                    .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
-                        function_index: prototype_index,
+                        function_index: prototype_index as usize,
                         total_function_count: compiler.function_ids.len(),
-                    },
-                )?;
+                    })?;
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(callee_function_ids.direct, function_builder.func);
-
-                let call_arguments_list = chunk.call_argument_lists.get(arguments_index).ok_or(
-                    JitError::ArgumentsIndexOutOfBounds {
-                        arguments_index,
-                        total_argument_count: chunk.call_argument_lists.len(),
-                    },
-                )?;
+                let call_arguments_list = chunk
+                    .call_argument_lists
+                    .get(arguments_index as usize)
+                    .ok_or(JitError::ArgumentsIndexOutOfBounds {
+                    arguments_index: arguments_index as usize,
+                    total_argument_count: chunk.call_argument_lists.len(),
+                })?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
 
                 for (address, r#type) in call_arguments_list {
@@ -650,7 +842,12 @@ pub fn compile_stackless_function(
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-
+                compiler.set_register_tag(
+                    destination_index,
+                    return_type,
+                    current_frame_base_tag_address,
+                    &mut function_builder,
+                )?;
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::JUMP => {
@@ -755,8 +952,11 @@ pub fn compile_stackless_function(
                                 allocate_string_function,
                                 &mut function_builder,
                                 thread_context,
-                                current_frame_register_range_start,
-                                current_frame_register_range_end,
+                                current_frame_base_register_address,
+                                (
+                                    current_frame_register_range_start,
+                                    current_frame_register_range_end,
+                                ),
                             )?;
                             let string_type = function_builder
                                 .ins()
@@ -1163,79 +1363,64 @@ fn get_string(
     allocate_string_function: FuncRef,
     function_builder: &mut FunctionBuilder,
     thread_conxtext_pointer: CraneliftValue,
-    register_range_start: CraneliftValue,
-    register_range_end: CraneliftValue,
+    current_frame_base_register_address: CraneliftValue,
+    register_range: (CraneliftValue, CraneliftValue),
 ) -> Result<CraneliftValue, JitError> {
-    let address_index = address.index as usize;
-    let jit_value =
-        match address.memory {
-            MemoryKind::REGISTER => {
-                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
-                let relative_register_offset = function_builder
-                    .ins()
-                    .imul_imm(relative_index, size_of::<Register>() as i64);
-                let current_frame_base_register_offset = function_builder
-                    .ins()
-                    .imul_imm(register_range_start, size_of::<Register>() as i64);
-                let register_stack_buffer_pointer = function_builder.ins().load(
-                    I64,
-                    MemFlags::new(),
+    let register_value = match address.memory {
+        MemoryKind::REGISTER => {
+            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+            let relative_register_offset = function_builder
+                .ins()
+                .imul_imm(relative_index, size_of::<Register>() as i64);
+            let register_address = function_builder.ins().iadd(
+                current_frame_base_register_address,
+                relative_register_offset,
+            );
+
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), register_address, 0)
+        }
+        MemoryKind::CONSTANT => {
+            let constant = chunk.constants.get(address.index as usize).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index as usize,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+            let string = match constant.as_string() {
+                Some(string) => string,
+                None => {
+                    return Err(JitError::InvalidConstantType {
+                        expected_type: OperandType::STRING,
+                    });
+                }
+            };
+            let string_pointer = function_builder
+                .ins()
+                .iconst(I64, string.as_ptr() as usize as i64);
+            let string_length = function_builder.ins().iconst(I64, string.len() as i64);
+            let call_allocate_string_instruction = function_builder.ins().call(
+                allocate_string_function,
+                &[
+                    string_pointer,
+                    string_length,
                     thread_conxtext_pointer,
-                    offset_of!(ThreadContext, register_stack_vec_pointer) as i32,
-                );
-                let current_frame_base_register_address = function_builder.ins().iadd(
-                    register_stack_buffer_pointer,
-                    current_frame_base_register_offset,
-                );
-                let address = function_builder.ins().iadd(
-                    current_frame_base_register_address,
-                    relative_register_offset,
-                );
+                    register_range.0,
+                    register_range.1,
+                ],
+            );
 
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), address, 0)
-            }
-            MemoryKind::CONSTANT => {
-                let constant = chunk.constants.get(address_index).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
-                        constant_index: address_index,
-                        total_constant_count: chunk.constants.len(),
-                    },
-                )?;
-                let string = match constant.as_string() {
-                    Some(string) => string,
-                    None => {
-                        return Err(JitError::InvalidConstantType {
-                            expected_type: OperandType::STRING,
-                        });
-                    }
-                };
-                let string_pointer = function_builder
-                    .ins()
-                    .iconst(I64, string.as_ptr() as usize as i64);
-                let string_length = function_builder.ins().iconst(I64, string.len() as i64);
-                let call_allocate_string_instruction = function_builder.ins().call(
-                    allocate_string_function,
-                    &[
-                        string_pointer,
-                        string_length,
-                        thread_conxtext_pointer,
-                        register_range_start,
-                        register_range_end,
-                    ],
-                );
+            function_builder.inst_results(call_allocate_string_instruction)[0]
+        }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
 
-                function_builder.inst_results(call_allocate_string_instruction)[0]
-            }
-            _ => {
-                return Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                });
-            }
-        };
-
-    Ok(jit_value)
+    Ok(register_value)
 }
 
 fn get_list(

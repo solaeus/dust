@@ -51,10 +51,17 @@ impl Display for NewList {
             length,
             list_type,
         } = self;
-        let item_type = list_type
-            .list_item_type()
-            .map(|item_type| item_type.to_string())
-            .unwrap_or_else(|| "error".to_string());
+        let item_type = match *list_type {
+            OperandType::LIST_BOOLEAN => OperandType::BOOLEAN.to_string(),
+            OperandType::LIST_BYTE => OperandType::BYTE.to_string(),
+            OperandType::LIST_CHARACTER => OperandType::CHARACTER.to_string(),
+            OperandType::LIST_FLOAT => OperandType::FLOAT.to_string(),
+            OperandType::LIST_INTEGER => OperandType::INTEGER.to_string(),
+            OperandType::LIST_STRING => OperandType::STRING.to_string(),
+            OperandType::LIST_LIST => "[]".to_string(),
+            OperandType::LIST_FUNCTION => OperandType::FUNCTION.to_string(),
+            _ => "error".to_string(),
+        };
 
         destination.display(f, *list_type)?;
         write!(f, " = [{item_type}; {length}]")

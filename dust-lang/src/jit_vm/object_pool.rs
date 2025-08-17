@@ -8,12 +8,12 @@ use crate::{
 };
 
 const MINIMUM_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    1
+    4
 } else {
     1024 * 1024
 };
 const DEFAULT_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    4
+    8
 } else {
     1024 * 1024 * 4
 };
@@ -37,8 +37,8 @@ impl ObjectPool {
     pub fn allocate(
         &mut self,
         object: Object,
-        registers: &[Register],
-        register_tags: &[RegisterTag],
+        registers: &mut [Register],
+        register_tags: &mut [RegisterTag],
     ) -> *mut Object {
         let size = object.size();
         self.allocated += size;
@@ -81,11 +81,25 @@ impl ObjectPool {
         self.objects.get_mut(key).map(|object| &mut **object)
     }
 
+    fn sweep(&mut self) {
+        self.allocated = 0;
+
+        self.objects.retain_mut(|object| {
+            let keep = object.mark;
+
+            if keep {
+                self.allocated += object.size();
+                object.mark = false;
+            }
+
+            keep
+        });
+    }
+
     fn mark(registers: &[Register], register_tags: &[RegisterTag]) {
         for (register, tag) in registers.iter().zip(register_tags.iter()) {
             if *tag == RegisterTag::OBJECT {
-                let object_pointer = unsafe { register.object_pointer };
-                let object = unsafe { &mut *object_pointer };
+                let object = unsafe { &mut *register.object_pointer };
 
                 Self::mark_object(object);
             }
@@ -102,21 +116,6 @@ impl ObjectPool {
                 Self::mark_object(object);
             }
         }
-    }
-
-    fn sweep(&mut self) {
-        self.allocated = 0;
-
-        self.objects.retain_mut(|object| {
-            let keep = object.mark;
-
-            if keep {
-                self.allocated += object.size();
-                object.mark = false;
-            }
-
-            keep
-        });
     }
 }
 
