@@ -85,12 +85,11 @@ pub fn compile_stackless_function(
             Signature::new(compiler.module.isa().default_call_conv());
 
         allocate_string_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
             AbiParam::new(pointer_type),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
         ]);
         allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
 
@@ -239,8 +238,6 @@ pub fn compile_stackless_function(
 
         #[cfg(debug_assertions)]
         {
-            use cranelift::prelude::types::I8;
-
             let operation_code_instruction = function_builder.ins().iconst(I8, operation.0 as i64);
 
             function_builder
@@ -288,12 +285,11 @@ pub fn compile_stackless_function(
                     OperandType::STRING => get_string(
                         operand,
                         chunk,
-                        object_pool_pointer,
                         allocate_string_function,
-                        current_frame_base_register_address,
-                        current_frame_register_range_length,
-                        current_frame_base_tag_address,
                         &mut function_builder,
+                        thread_context,
+                        current_frame_register_range_start,
+                        current_frame_register_range_end,
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -430,12 +426,11 @@ pub fn compile_stackless_function(
                     OperandType::STRING => get_string(
                         item_source,
                         chunk,
-                        object_pool_pointer,
                         allocate_string_function,
-                        current_frame_base_register_address,
-                        current_frame_register_range_length,
-                        current_frame_base_tag_address,
                         &mut function_builder,
+                        thread_context,
+                        current_frame_register_range_start,
+                        current_frame_register_range_end,
                     )?,
                     OperandType::LIST_BOOLEAN
                     | OperandType::LIST_BYTE
@@ -757,12 +752,11 @@ pub fn compile_stackless_function(
                             let string_value = get_string(
                                 return_value_address,
                                 chunk,
-                                object_pool_pointer,
                                 allocate_string_function,
-                                current_frame_base_register_address,
-                                current_frame_register_range_length,
-                                current_frame_base_tag_address,
                                 &mut function_builder,
+                                thread_context,
+                                current_frame_register_range_start,
+                                current_frame_register_range_end,
                             )?;
                             let string_type = function_builder
                                 .ins()
@@ -1166,24 +1160,37 @@ fn get_integer(
 fn get_string(
     address: Address,
     chunk: &Chunk,
-    object_pool_pointer: CraneliftValue,
     allocate_string_function: FuncRef,
-    current_frame_base_register_address: CraneliftValue,
-    current_frame_register_range_length: CraneliftValue,
-    current_frame_base_tag_address: CraneliftValue,
     function_builder: &mut FunctionBuilder,
+    thread_conxtext_pointer: CraneliftValue,
+    register_range_start: CraneliftValue,
+    register_range_end: CraneliftValue,
 ) -> Result<CraneliftValue, JitError> {
     let address_index = address.index as usize;
     let jit_value =
         match address.memory {
             MemoryKind::REGISTER => {
                 let relative_index = function_builder.ins().iconst(I64, address.index as i64);
-                let byte_offset = function_builder
+                let relative_register_offset = function_builder
                     .ins()
                     .imul_imm(relative_index, size_of::<Register>() as i64);
-                let address = function_builder
+                let current_frame_base_register_offset = function_builder
                     .ins()
-                    .iadd(current_frame_base_register_address, byte_offset);
+                    .imul_imm(register_range_start, size_of::<Register>() as i64);
+                let register_stack_buffer_pointer = function_builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    thread_conxtext_pointer,
+                    offset_of!(ThreadContext, register_stack_vec_pointer) as i32,
+                );
+                let current_frame_base_register_address = function_builder.ins().iadd(
+                    register_stack_buffer_pointer,
+                    current_frame_base_register_offset,
+                );
+                let address = function_builder.ins().iadd(
+                    current_frame_base_register_address,
+                    relative_register_offset,
+                );
 
                 function_builder
                     .ins()
@@ -1213,10 +1220,9 @@ fn get_string(
                     &[
                         string_pointer,
                         string_length,
-                        object_pool_pointer,
-                        current_frame_base_register_address,
-                        current_frame_register_range_length,
-                        current_frame_base_tag_address,
+                        thread_conxtext_pointer,
+                        register_range_start,
+                        register_range_end,
                     ],
                 );
 

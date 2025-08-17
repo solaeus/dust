@@ -17,11 +17,17 @@ opt-level = 1
 opt-level = 3
 
 [profile.release]
-codegen-units = 1
+opt-level = 3
+debug = false
+split-debuginfo = "off"
+strip = "symbols"
+debug-assertions = false
+overflow-checks = false
 lto = "fat"
-panic = "abort"
-strip = true
-target-cpu = "native"
+panic = "unwind"
+incremental = true
+codegen-units = 1
+rpath = false
 
 [profile.perf]
 inherits = "release"

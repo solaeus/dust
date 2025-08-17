@@ -14,7 +14,6 @@
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
 //! 32-47 | B field (unsigned 16-bit integer), usually an operand index
 //! 48-63 | C field (unsigned 16-bit integer), usually an operand index
-//! ```
 mod add;
 mod address;
 mod call;

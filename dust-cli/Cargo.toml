@@ -12,6 +12,9 @@ version.workspace = true
 name = "dust"
 path = "src/main.rs"
 
+[features]
+global-mimalloc = ["dust-lang/global-mimalloc"]
+
 [dependencies]
 clap = { version = "4.5.29", features = [
     "cargo",
@@ -21,7 +24,7 @@ clap = { version = "4.5.29", features = [
     "wrap_help",
 ] }
 colored = "3.0.0"
-dust-lang = { path = "../dust-lang", features = ["global-mimalloc"] }
+dust-lang = { path = "../dust-lang" }
 postcard = { version = "1.1.1", default-features = false }
 ron = "0.10.1"
 serde_json = "1.0.138"
