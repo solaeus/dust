@@ -1,8 +1,7 @@
 use std::num::{ParseFloatError, ParseIntError};
 
 use crate::{
-    AnnotatedError, BlockScope, ErrorMessage, LexError, Span, TokenKind, TokenOwned, Type,
-    TypeConflict,
+    AnnotatedError, ErrorMessage, LexError, Scope, Span, TokenKind, TokenOwned, Type, TypeConflict,
 };
 
 /// Compilation errors
@@ -88,8 +87,8 @@ pub enum CompileError {
     },
     VariableOutOfScope {
         identifier: String,
-        variable_scope: BlockScope,
-        access_scope: BlockScope,
+        variable_scope: Scope,
+        access_scope: Scope,
         position: Span,
     },
 

@@ -1,4 +1,4 @@
-use crate::{BlockScope, Span, Type};
+use crate::{Scope, Span, Type};
 
 #[derive(Clone, Debug)]
 pub struct Expression {
@@ -6,7 +6,7 @@ pub struct Expression {
     pub kind: ExpressionKind,
     pub ends_with_value: bool,
     pub r#type: Type,
-    pub scope: BlockScope,
+    pub scope: Scope,
     pub position: Span,
 }
 

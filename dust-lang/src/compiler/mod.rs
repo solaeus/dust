@@ -10,6 +10,7 @@ mod local;
 mod parse_rule;
 mod path;
 mod prototype_store;
+mod scope;
 mod standard_library;
 mod type_checks;
 
@@ -19,10 +20,11 @@ use expression::Expression;
 pub use global::Global;
 use indexmap::IndexMap;
 pub use item::Item;
-pub use local::{BlockScope, Local};
+pub use local::Local;
 use parse_rule::{ParseRule, Precedence};
 pub use path::Path;
 use prototype_store::PrototypeStore;
+pub use scope::Scope;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
@@ -213,7 +215,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
-    drop_lists: Vec<(BlockScope, Vec<u16>)>,
+    drop_lists: Vec<(Scope, Vec<u16>)>,
 
     reusable_registers: VecDeque<u16>,
 
@@ -225,7 +227,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     /// This is mutated during compilation to match the current block and is used to test if a local
     /// variable is in scope.
-    current_block_scope: BlockScope,
+    current_block_scope: Scope,
 
     /// This is mutated during compilation as items are brought into scope by `use` statements or
     /// are invoked by their full path. It is used to test if an item is in scope.
@@ -273,7 +275,7 @@ impl<'a> ChunkCompiler<'a> {
             lexer,
             minimum_register_index: 0,
             block_index: 0,
-            current_block_scope: BlockScope::default(),
+            current_block_scope: Scope::default(),
             current_item_scope: item_scope,
             prototype_index: 0,
             main_module,
@@ -397,7 +399,7 @@ impl<'a> ChunkCompiler<'a> {
         address: Address,
         r#type: Type,
         is_mutable: bool,
-        scope: BlockScope,
+        scope: Scope,
     ) {
         trace!(
             "Declaring local {identifier} at {}",
@@ -1664,12 +1666,11 @@ impl<'a> ChunkCompiler<'a> {
                 }
             })
             .collect::<Vec<u16>>();
-
-        let nested_drops = self
+        let previously_dropped = self
             .drop_lists
             .iter()
             .filter_map(|(drop_scope, drop_list)| {
-                if drop_scope.block_depth >= block_scope.block_depth {
+                if drop_scope.depth >= block_scope.depth {
                     Some(drop_list)
                 } else {
                     None
@@ -1718,7 +1719,7 @@ impl<'a> ChunkCompiler<'a> {
                 continue;
             }
 
-            if nested_drops.contains(&destination_register) {
+            if previously_dropped.contains(&destination_register) {
                 continue;
             }
 
