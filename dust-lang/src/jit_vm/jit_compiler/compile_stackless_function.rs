@@ -13,8 +13,7 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Path, Register,
-    Value,
+    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
     instruction::{Call, Jump, Load, NewList, Return, Safepoint, SetList},
     jit_vm::{RegisterTag, call_stack::get_call_frame, thread::ThreadContext},
 };
@@ -50,9 +49,8 @@ pub fn compile_stackless_function(
             AbiParam::new(I8),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
             AbiParam::new(I64),
-            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
         ]);
         allocate_list_signature.returns.push(AbiParam::new(I64));
 
@@ -193,12 +191,6 @@ pub fn compile_stackless_function(
         thread_context,
         offset_of!(ThreadContext, register_tags_buffer_pointer) as i32,
     );
-    let object_pool_pointer = function_builder.ins().load(
-        pointer_type,
-        MemFlags::new(),
-        thread_context,
-        offset_of!(ThreadContext, object_pool_pointer) as i32,
-    );
 
     let (
         current_frame_ip,
@@ -211,11 +203,6 @@ pub fn compile_stackless_function(
         top_call_frame_index,
         call_stack_buffer_pointer,
         &mut function_builder,
-    );
-
-    let current_frame_register_range_length = function_builder.ins().isub(
-        current_frame_register_range_end,
-        current_frame_register_range_start,
     );
 
     let current_frame_base_register_offset = function_builder.ins().imul_imm(

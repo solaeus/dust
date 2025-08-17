@@ -26,7 +26,7 @@ use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use tracing::Level;
 
 use crate::{
-    OperandType, Program, Register, ThreadResult, Value,
+    OperandType, Program, Register, ThreadResult,
     jit_vm::{
         RegisterTag,
         call_stack::{get_frame_function_index, push_call_frame},
@@ -120,8 +120,6 @@ impl<'a> JitCompiler<'a> {
         }
 
         let main_function_reference = {
-            let constant_list_index = self.program.main_chunk.constants.len();
-
             let reference = self
                 .module
                 .declare_func_in_func(self.main_function_id, &mut context.func);
@@ -384,8 +382,7 @@ impl<'a> JitCompiler<'a> {
             })?;
 
         let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
-        let jit_logic =
-            unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer as *const u8) };
+        let jit_logic = unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer) };
 
         Ok(jit_logic)
     }
