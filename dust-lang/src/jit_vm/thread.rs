@@ -56,11 +56,20 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let jit_logic = jit.compile()?;
 
     let mut call_stack_used_length = 0;
-    let mut call_stack_allocated_length = 256;
+    let mut call_stack_allocated_length = 64;
     let mut call_stack = new_call_stack(call_stack_allocated_length);
 
     let mut register_stack_used_length = 0;
-    let mut register_stack_allocated_length = 256;
+    let mut register_stack_allocated_length = if program.prototypes.is_empty() {
+        program.main_chunk.register_count as usize
+    } else {
+        program.main_chunk.register_count as usize
+            + program
+                .prototypes
+                .iter()
+                .map(|chunk| chunk.register_count as usize)
+                .sum::<usize>()
+    };
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
 
     let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];

@@ -36,6 +36,18 @@ impl OperandType {
 }
 
 impl OperandType {
+    pub fn is_scalar(&self) -> bool {
+        matches!(
+            *self,
+            Self::BOOLEAN
+                | Self::BYTE
+                | Self::CHARACTER
+                | Self::FLOAT
+                | Self::INTEGER
+                | Self::FUNCTION
+        )
+    }
+
     pub fn is_list(&self) -> bool {
         matches!(
             *self,

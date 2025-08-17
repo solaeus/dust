@@ -19,6 +19,7 @@ mod address;
 mod call;
 mod call_native;
 mod divide;
+mod drop;
 mod equal;
 mod jump;
 mod less;
@@ -32,7 +33,6 @@ mod new_list;
 mod operand_type;
 mod operation;
 mod r#return;
-mod safepoint;
 mod set_list;
 mod subtract;
 mod test;
@@ -42,6 +42,7 @@ pub use address::Address;
 pub use call::Call;
 pub use call_native::CallNative;
 pub use divide::Divide;
+pub use drop::Drop;
 pub use equal::Equal;
 pub use jump::Jump;
 pub use less::Less;
@@ -55,7 +56,6 @@ pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use r#return::Return;
-pub use safepoint::Safepoint;
 pub use set_list::SetList;
 pub use subtract::Subtract;
 pub use test::Test;
@@ -193,8 +193,8 @@ impl Instruction {
         })
     }
 
-    pub fn safepoint(safepoint_index: u16) -> Instruction {
-        Instruction::from(Safepoint { safepoint_index })
+    pub fn drop(drop_list_index: u16) -> Instruction {
+        Instruction::from(Drop { drop_list_index })
     }
 
     pub fn new_list(destination: Address, length: u16, list_type: OperandType) -> Instruction {
@@ -415,7 +415,7 @@ impl Instruction {
 
                 function.returns_value()
             }
-            Operation::SAFEPOINT
+            Operation::DROP
             | Operation::SET_LIST
             | Operation::EQUAL
             | Operation::LESS
@@ -433,7 +433,7 @@ impl Instruction {
 
         match operation {
             Operation::LOAD => Load::from(self).to_string(),
-            Operation::SAFEPOINT => Safepoint::from(self).to_string(),
+            Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),

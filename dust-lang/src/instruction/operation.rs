@@ -13,7 +13,7 @@ impl Operation {
 
     // Memory manipulation
     pub const LOAD: Operation = Operation(1);
-    pub const SAFEPOINT: Operation = Operation(2);
+    pub const DROP: Operation = Operation(2);
 
     // List operations
     pub const NEW_LIST: Operation = Operation(3);
@@ -51,7 +51,7 @@ impl Operation {
         match *self {
             Self::NO_OP => "NO_OP",
             Self::LOAD => "LOAD",
-            Self::SAFEPOINT => "SAFEPOINT",
+            Self::DROP => "DROP",
             Self::NEW_LIST => "NEW_LIST",
             Self::SET_LIST => "SET_LIST",
             Self::ADD => "ADD",

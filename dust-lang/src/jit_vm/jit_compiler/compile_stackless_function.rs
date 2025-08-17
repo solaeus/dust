@@ -14,7 +14,7 @@ use tracing::info;
 
 use crate::{
     Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
-    instruction::{Call, Jump, Load, NewList, Return, Safepoint, SetList},
+    instruction::{Call, Drop, Jump, Load, NewList, Return, SetList},
     jit_vm::{RegisterTag, call_stack::get_call_frame, thread::ThreadContext},
 };
 
@@ -139,6 +139,7 @@ pub fn compile_stackless_function(
     let instruction_count = bytecode_instructions.len();
 
     let function_entry_block = function_builder.create_block();
+    let header_block = function_builder.create_block();
     let mut instruction_blocks = Vec::with_capacity(instruction_count);
     let return_block = function_builder.create_block();
     let mut switch = Switch::new();
@@ -235,7 +236,18 @@ pub fn compile_stackless_function(
         offset_of!(ThreadContext, return_type_pointer) as i32,
     );
 
-    switch.emit(&mut function_builder, current_frame_ip, return_block);
+    function_builder
+        .ins()
+        .jump(header_block, &[current_frame_ip.into()]);
+
+    {
+        function_builder.append_block_param(header_block, I64);
+        function_builder.switch_to_block(header_block);
+
+        let current_frame_ip = function_builder.block_params(header_block)[0];
+
+        switch.emit(&mut function_builder, current_frame_ip, return_block);
+    }
 
     for ip in 0..instruction_count {
         let current_instruction = &bytecode_instructions[ip];
@@ -243,6 +255,8 @@ pub fn compile_stackless_function(
         let instruction_block = instruction_blocks[ip];
 
         function_builder.switch_to_block(instruction_block);
+
+        let ip_value = function_builder.ins().iconst(I64, ip as i64);
 
         info!("Compiling {operation} at IP {ip}");
 
@@ -333,24 +347,22 @@ pub fn compile_stackless_function(
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-                compiler.set_register_tag(
-                    destination_index,
-                    r#type.destination_type(),
-                    current_frame_base_tag_address,
-                    &mut function_builder,
-                )?;
 
-                if jump_next {
-                    compiler.emit_jump(ip, 2, &mut function_builder, &[])?;
-                }
+                let next_ip = if jump_next {
+                    function_builder.ins().iadd_imm(ip_value, 2)
+                } else {
+                    function_builder.ins().iadd_imm(ip_value, 1)
+                };
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
-            Operation::SAFEPOINT => {
-                let Safepoint { safepoint_index } = Safepoint::from(*current_instruction);
+            Operation::DROP => {
+                let Drop { drop_list_index } = Drop::from(*current_instruction);
 
-                let safepoint_registers = chunk.safepoints.get(safepoint_index as usize).ok_or(
+                let safepoint_registers = chunk.drop_lists.get(drop_list_index as usize).ok_or(
                     JitError::SafepointIndexOutOfBounds {
-                        safepoint_index: safepoint_index as usize,
-                        total_safepoint_count: chunk.safepoints.len(),
+                        safepoint_index: drop_list_index as usize,
+                        total_safepoint_count: chunk.drop_lists.len(),
                     },
                 )?;
 
@@ -371,6 +383,10 @@ pub fn compile_stackless_function(
                         .ins()
                         .store(MemFlags::new(), empty_tag_value, tag_address, 0);
                 }
+
+                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::NEW_LIST => {
                 let NewList {
@@ -404,12 +420,10 @@ pub fn compile_stackless_function(
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-                compiler.set_register_tag(
-                    destination_index,
-                    list_type,
-                    current_frame_base_tag_address,
-                    &mut function_builder,
-                )?;
+
+                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::SET_LIST => {
                 let SetList {
@@ -488,6 +502,10 @@ pub fn compile_stackless_function(
                     instert_into_list_function,
                     &[list_pointer, list_index, item_value],
                 );
+
+                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 let comparator = current_instruction.a_field();
@@ -757,12 +775,10 @@ pub fn compile_stackless_function(
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-                compiler.set_register_tag(
-                    destination_index,
-                    r#type.destination_type(),
-                    current_frame_base_tag_address,
-                    &mut function_builder,
-                )?;
+
+                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::CALL => {
                 let Call {
@@ -829,13 +845,10 @@ pub fn compile_stackless_function(
                     current_frame_base_tag_address,
                     &mut function_builder,
                 )?;
-                compiler.set_register_tag(
-                    destination_index,
-                    return_type,
-                    current_frame_base_tag_address,
-                    &mut function_builder,
-                )?;
-                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+
+                let next_ip = function_builder.ins().iadd_imm(ip_value, 1);
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::JUMP => {
                 let Jump {
@@ -843,22 +856,14 @@ pub fn compile_stackless_function(
                     is_positive,
                 } = Jump::from(*current_instruction);
                 let offset = offset + 1;
-
-                if is_positive {
-                    compiler.emit_jump(
-                        ip,
-                        offset as isize,
-                        &mut function_builder,
-                        &instruction_blocks,
-                    )?;
+                let offset_value = function_builder.ins().iconst(I64, offset as i64);
+                let next_ip = if is_positive {
+                    function_builder.ins().iadd(ip_value, offset_value)
                 } else {
-                    compiler.emit_jump(
-                        ip,
-                        -(offset as isize),
-                        &mut function_builder,
-                        &instruction_blocks,
-                    )?;
-                }
+                    function_builder.ins().isub(ip_value, offset_value)
+                };
+
+                function_builder.ins().jump(header_block, &[next_ip.into()]);
             }
             Operation::RETURN => {
                 let Return {
@@ -1094,18 +1099,6 @@ pub fn compile_stackless_function(
             _ => {
                 return Err(JitError::UnhandledOperation { operation });
             }
-        }
-
-        if !matches!(
-            operation,
-            Operation::EQUAL
-                | Operation::LESS
-                | Operation::LESS_EQUAL
-                | Operation::CALL
-                | Operation::JUMP
-                | Operation::RETURN
-        ) {
-            compiler.emit_jump(ip, 1, &mut function_builder, &instruction_blocks)?;
         }
     }
 

@@ -30,7 +30,7 @@ pub struct Chunk {
     pub(crate) call_argument_lists: Vec<Vec<(Address, OperandType)>>,
 
     pub(crate) register_count: u16,
-    pub(crate) safepoints: Vec<Vec<u16>>,
+    pub(crate) drop_lists: Vec<Vec<u16>>,
     pub(crate) prototype_index: u16,
 }
 

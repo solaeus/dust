@@ -46,11 +46,11 @@ use colored::{ColoredString, Colorize};
 
 use crate::{Address, Chunk, Local, Program};
 
-const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 17), ("INFO", 41)];
+const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 13), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
-    "╭─────┬─────────────────┬─────────────────────────────────────────╮",
-    "├─────┼─────────────────┼─────────────────────────────────────────┤",
-    "╰─────┴─────────────────┴─────────────────────────────────────────╯",
+    "╭─────┬─────────────┬─────────────────────────────────────────╮",
+    "├─────┼─────────────┼─────────────────────────────────────────┤",
+    "╰─────┴─────────────┴─────────────────────────────────────────╯",
 ];
 
 const LOCAL_COLUMNS: [(&str, usize); 6] = [
@@ -81,8 +81,8 @@ const ARGUMENT_LIST_BORDERS: [&str; 3] = [
     "╰─────┴──────────────────────────────────────────────╯",
 ];
 
-const SAFEPOINT_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 46)];
-const SAFEPOINT_BORDERS: [&str; 3] = [
+const DROP_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 46)];
+const DROP_LIST_BORDERS: [&str; 3] = [
     "╭─────┬──────────────────────────────────────────────╮",
     "├─────┼──────────────────────────────────────────────┤",
     "╰─────┴──────────────────────────────────────────────╯",
@@ -162,12 +162,14 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         add_border: bool,
     ) -> Result<(), io::Error> {
         let (line_content, overflow) = {
-            if text.len() > WIDTH {
+            let character_count = text.chars().count();
+
+            if character_count > WIDTH {
                 let split_index = text
                     .char_indices()
                     .nth(WIDTH)
                     .map(|(index, _)| index)
-                    .unwrap_or_else(|| text.len());
+                    .unwrap_or_else(|| character_count);
 
                 text.split_at(split_index)
             } else {
@@ -264,7 +266,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         for (index, instruction) in chunk.instructions.iter().enumerate() {
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
-            let row = format!("│{index:^5}│{operation:^17}│{info:^41}│");
+            let row = format!("│{index:^5}│{operation:^13}│{info:^41}│");
 
             self.write_center_border(&row)?;
         }
@@ -302,9 +304,10 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         {
             let identifier = {
                 let mut identifier = identifier.to_string();
+                let identifier_length = identifier.chars().count();
 
-                if identifier.len() > 16 {
-                    identifier = format!("...{}", &identifier[identifier.len() - 13..]);
+                if identifier_length > 16 {
+                    identifier = format!("...{}", &identifier[identifier_length - 13..]);
                 }
 
                 identifier
@@ -348,7 +351,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
                     &self.program.prototypes,
                 );
 
-                if value_string.len() > 26 {
+                if value_string.chars().count() > 26 {
                     value_string = format!("{value_string:.23}...");
                 }
 
@@ -395,21 +398,21 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_safepoint_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
 
-        for (column_name, width) in SAFEPOINT_COLUMNS {
+        for (column_name, width) in DROP_LIST_COLUMNS {
             column_name_line.push_str(&format!("│{column_name:^width$}"));
         }
 
         column_name_line.push('│');
-        self.write_center_border_bold("Safepoints")?;
-        self.write_center_border(SAFEPOINT_BORDERS[0])?;
+        self.write_center_border_bold("Drop Lists")?;
+        self.write_center_border(DROP_LIST_BORDERS[0])?;
         self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(SAFEPOINT_BORDERS[1])?;
+        self.write_center_border(DROP_LIST_BORDERS[1])?;
 
-        for (index, safepoint) in chunk.safepoints.iter().enumerate() {
-            let registers_display = safepoint
+        for (index, drop_list) in chunk.drop_lists.iter().enumerate() {
+            let registers_display = drop_list
                 .iter()
                 .map(|index| format!("reg_{index}"))
                 .collect::<Vec<_>>()
@@ -419,7 +422,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             self.write_center_border(&row)?;
         }
 
-        self.write_center_border(SAFEPOINT_BORDERS[2])?;
+        self.write_center_border(DROP_LIST_BORDERS[2])?;
 
         Ok(())
     }
@@ -487,8 +490,8 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             self.write_argument_lists_section(chunk)?;
         }
 
-        if !chunk.safepoints.is_empty() {
-            self.write_safepoint_section(chunk)?;
+        if !chunk.drop_lists.is_empty() {
+            self.write_drop_list_section(chunk)?;
         }
 
         self.write_page_border(BOTTOM_BORDER)
