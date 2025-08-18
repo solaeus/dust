@@ -4,7 +4,7 @@ use cranelift::prelude::{
     Type as CraneliftType,
     types::{I32, I64},
 };
-use tracing::{Level, info, span, trace};
+use tracing::{Level, debug, info, span};
 
 use crate::{
     List, Program, Type, Value,
@@ -56,6 +56,8 @@ fn run(
     let mut jit = JitCompiler::new(&program);
     let jit_logic = jit.compile()?;
 
+    info!("JIT compilation complete");
+
     let mut call_stack_used_length = 0;
     let mut call_stack_allocated_length = if program.prototypes.is_empty() { 1 } else { 64 };
     let mut call_stack = new_call_stack(call_stack_allocated_length);
@@ -94,8 +96,6 @@ fn run(
         return_type_pointer: &mut return_type,
     };
 
-    trace!("JIT compiled successfully");
-
     loop {
         let thread_status = (jit_logic)(&mut thread_context);
 
@@ -105,7 +105,8 @@ fn run(
         }
     }
 
-    trace!("JIT execution completed with type {return_type}");
+    info!("JIT execution completed with type {return_type}");
+    debug!("{}", object_pool.report());
 
     match return_type {
         OperandType::NONE => Ok(None),

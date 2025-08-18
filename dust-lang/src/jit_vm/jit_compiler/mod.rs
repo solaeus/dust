@@ -34,6 +34,8 @@ use crate::{
     },
 };
 
+const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
+
 pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
@@ -52,7 +54,7 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
 
         #[cfg(debug_assertions)]
-        builder.symbol("log_operation", log_operation as *const u8);
+        builder.symbol("log_operation_and_ip", log_operation_and_ip as *const u8);
 
         let module = JITModule::new(builder);
 

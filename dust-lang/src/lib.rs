@@ -8,6 +8,7 @@
     offset_of_enum,
     once_cell_get_mut,
     pattern,
+    pointer_try_cast_aligned,
     new_zeroed_alloc
 )]
 
@@ -29,7 +30,7 @@ pub mod value;
 mod tests;
 
 pub use chunk::{Chunk, Disassembler};
-pub use compiler::{Scope, CompileError, Compiler, Global, Item, Local, Path, compile};
+pub use compiler::{CompileError, Compiler, Global, Item, Local, Path, Scope, compile};
 pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,

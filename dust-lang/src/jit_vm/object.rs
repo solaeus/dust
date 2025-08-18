@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct Object {
@@ -100,9 +102,16 @@ impl Object {
     }
 }
 
+impl Display for Object {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ObjectValue {
     Empty,
+    String(String),
     BooleanList(Vec<bool>),
     ByteList(Vec<u8>),
     CharacterList(Vec<char>),
@@ -110,5 +119,34 @@ pub enum ObjectValue {
     IntegerList(Vec<i64>),
     FunctionList(Vec<usize>),
     ObjectList(Vec<*mut Object>),
-    String(String),
+}
+
+impl Display for ObjectValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match &self {
+            ObjectValue::Empty => write!(f, "(empty)"),
+            ObjectValue::String(string) => write!(f, "{string}"),
+            ObjectValue::BooleanList(booleans) => write!(f, "{booleans:?}"),
+            ObjectValue::ByteList(bytes) => write!(f, "{bytes:?}"),
+            ObjectValue::CharacterList(characters) => write!(f, "{characters:?}"),
+            ObjectValue::FloatList(floats) => write!(f, "{floats:?}"),
+            ObjectValue::IntegerList(integers) => write!(f, "{integers:?}"),
+            ObjectValue::FunctionList(functions) => write!(f, "{functions:?}"),
+            ObjectValue::ObjectList(objects) => {
+                write!(f, "[")?;
+
+                for (index, object_pointer) in objects.iter().enumerate() {
+                    let object_string = unsafe { &**object_pointer }.to_string();
+
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{object_string}")?;
+                }
+
+                write!(f, "]")
+            }
+        }
+    }
 }

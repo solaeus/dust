@@ -19,12 +19,12 @@ use std::sync::{Arc, RwLock};
 use crate::{DustError, Program, Value, compile};
 
 pub const MINIMUM_OBJECT_HEAP_DEFAULT: usize = if cfg!(debug_assertions) {
-    16
+    1024
 } else {
     1024 * 1024 * 4
 };
 pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
-    4
+    256
 } else {
     1024 * 1024
 };

@@ -1,6 +1,6 @@
-use std::pin::Pin;
+use std::{pin::Pin, time::Instant};
 
-use tracing::trace;
+use tracing::{debug, trace};
 
 use crate::{
     Object, Register,
@@ -16,6 +16,15 @@ pub struct ObjectPool {
 
     minimum_sweep_threshold: usize,
     minimum_heap_size: usize,
+
+    total_objects_allocated: usize,
+    total_bytes_allocated: usize,
+
+    total_objects_deallocated: usize,
+    total_bytes_deallocated: usize,
+
+    total_collection_time: u128,
+    total_collections: usize,
 }
 
 impl ObjectPool {
@@ -26,39 +35,52 @@ impl ObjectPool {
             next_sweep_threshold: minimum_heap_size,
             minimum_sweep_threshold,
             minimum_heap_size,
+            total_objects_allocated: 0,
+            total_bytes_allocated: 0,
+            total_objects_deallocated: 0,
+            total_bytes_deallocated: 0,
+            total_collection_time: 0,
+            total_collections: 0,
         }
     }
 
     pub fn allocate(
         &mut self,
         object: Object,
-        registers: &mut [Register],
-        register_tags: &mut [RegisterTag],
+        registers: &[Register],
+        register_tags: &[RegisterTag],
     ) -> *mut Object {
-        let size = object.size();
-        self.allocated += size;
-
-        trace!("Allocating object with {} bytes", size);
-
         if self.allocated >= self.next_sweep_threshold {
-            trace!(
-                "Collecting garbage: {} objects, {} bytes",
-                self.objects.len(),
-                self.allocated
-            );
+            let length = self.objects.len();
+            let allocated = self.allocated;
+            let start = Instant::now();
 
             Self::mark(registers, register_tags);
             self.sweep();
 
+            let collected = length - self.objects.len();
+            let deallocated = allocated - self.allocated;
+            let elapsed = start.elapsed().as_nanos();
             self.next_sweep_threshold =
                 (self.allocated + self.minimum_sweep_threshold).max(self.minimum_heap_size);
 
-            trace!(
-                "Collected garbage: {} retained objects, {} bytes",
-                self.objects.len(),
-                self.allocated
+            debug!(
+                "Collected {collected} objects, deallocated {deallocated} bytes in {}ns",
+                elapsed
             );
+
+            self.total_objects_deallocated += collected;
+            self.total_bytes_deallocated += deallocated;
+            self.total_collection_time += elapsed;
+            self.total_collections += 1;
         }
+
+        let size = object.size();
+        self.allocated += size;
+        self.total_bytes_allocated += size;
+        self.total_objects_allocated += 1;
+
+        trace!("Allocating object with {size} bytes: {object}");
 
         let mut pinned = Box::pin(object);
         let pointer = &mut *pinned as *mut Object;
@@ -111,5 +133,23 @@ impl ObjectPool {
                 Self::mark_object(object);
             }
         }
+    }
+
+    pub fn report(&self) -> String {
+        format!(
+            "ObjectPool Report:\n\
+             Allocated: {} bytes\n\
+             Total Bytes Deallocated: {}\n\
+             Total Objects Allocated: {}\n\
+             Total Bytes Allocated: {}\n\
+             Total Collection Time: {} ms\n\
+             Total Collections: {}",
+            self.allocated,
+            self.total_bytes_deallocated,
+            self.total_objects_allocated,
+            self.total_bytes_allocated,
+            self.total_collection_time / 1_000,
+            self.total_collections
+        )
     }
 }

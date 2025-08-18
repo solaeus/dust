@@ -9,15 +9,14 @@ pub unsafe extern "C" fn allocate_list(
     list_type: i8,
     list_length: usize,
     thread_context: *mut ThreadContext,
-    register_range_start: usize,
-    register_range_end: usize,
 ) -> i64 {
     let thread_context = unsafe { &mut *thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let registers = unsafe { &mut *thread_context.register_stack_vec_pointer };
+    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
     let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_window = &mut registers[register_range_start..register_range_end];
-    let register_tags_window = &mut register_tags[register_range_start..register_range_end];
+    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
+    let register_window = &register_stack[0..register_stack_used_length];
+    let register_tags_window = &register_tags[0..register_stack_used_length];
     let object = match OperandType(list_type as u8) {
         OperandType::LIST_BOOLEAN => Object::boolean_list(Vec::with_capacity(list_length)),
         OperandType::LIST_BYTE => Object::byte_list(Vec::with_capacity(list_length)),

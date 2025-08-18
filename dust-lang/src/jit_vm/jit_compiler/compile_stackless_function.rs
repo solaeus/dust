@@ -118,15 +118,16 @@ pub fn compile_stackless_function(
     };
 
     #[cfg(debug_assertions)]
-    let log_operation_function = {
+    let log_operation_and_ip_function = {
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
 
         log_operation_signature.params.push(AbiParam::new(I8));
+        log_operation_signature.params.push(AbiParam::new(I64));
         log_operation_signature.returns = vec![];
 
         compiler.declare_imported_function(
             &mut function_builder,
-            "log_operation",
+            "log_operation_and_ip",
             log_operation_signature,
         )?
     };
@@ -175,6 +176,16 @@ pub fn compile_stackless_function(
         thread_context,
         offset_of!(ThreadContext, register_stack_buffer_pointer) as i32,
     );
+    let register_stack_used_length_pointer = function_builder.ins().load(
+        pointer_type,
+        MemFlags::new(),
+        thread_context,
+        offset_of!(ThreadContext, register_stack_used_length_pointer) as i32,
+    );
+    let register_stack_used_length =
+        function_builder
+            .ins()
+            .load(I64, MemFlags::new(), register_stack_used_length_pointer, 0);
     let _register_tags_vec_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
@@ -246,11 +257,12 @@ pub fn compile_stackless_function(
 
         #[cfg(debug_assertions)]
         {
-            let operation_code_instruction = function_builder.ins().iconst(I8, operation.0 as i64);
+            let op_code_value = function_builder.ins().iconst(I8, operation.0 as i64);
+            let ip_value = function_builder.ins().iconst(I64, ip as i64);
 
             function_builder
                 .ins()
-                .call(log_operation_function, &[operation_code_instruction]);
+                .call(log_operation_and_ip_function, &[op_code_value, ip_value]);
         }
 
         match operation {
@@ -1038,18 +1050,42 @@ pub fn compile_stackless_function(
                             0,
                         );
                     } else {
-                        let byte_offset = function_builder.ins().imul_imm(
+                        let return_destination_offset = function_builder.ins().imul_imm(
                             current_frame_destination_index,
                             size_of::<Register>() as i64,
                         );
-                        let destination_address = function_builder
+                        let return_destination_address = function_builder
                             .ins()
-                            .iadd(register_stack_buffer_pointer, byte_offset);
+                            .iadd(register_stack_buffer_pointer, return_destination_offset);
 
                         function_builder.ins().store(
                             MemFlags::new(),
                             value_to_return,
-                            destination_address,
+                            return_destination_address,
+                            0,
+                        );
+
+                        let return_tag_offset = function_builder.ins().imul_imm(
+                            current_frame_destination_index,
+                            size_of::<RegisterTag>() as i64,
+                        );
+                        let return_tag_address = function_builder
+                            .ins()
+                            .iadd(register_tags_buffer_pointer, return_tag_offset);
+                        let return_tag = if r#type.is_scalar() {
+                            function_builder
+                                .ins()
+                                .iconst(I8, RegisterTag::SCALAR.0 as i64)
+                        } else {
+                            function_builder
+                                .ins()
+                                .iconst(I8, RegisterTag::OBJECT.0 as i64)
+                        };
+
+                        function_builder.ins().store(
+                            MemFlags::new(),
+                            return_tag,
+                            return_tag_address,
                             0,
                         );
                     }
@@ -1067,6 +1103,22 @@ pub fn compile_stackless_function(
                     MemFlags::new(),
                     new_length,
                     call_stack_used_length_pointer,
+                    0,
+                );
+
+                let current_frame_register_window_length = function_builder.ins().isub(
+                    current_frame_register_range_end,
+                    current_frame_register_range_start,
+                );
+                let new_register_stack_length = function_builder.ins().isub(
+                    register_stack_used_length,
+                    current_frame_register_window_length,
+                );
+
+                function_builder.ins().store(
+                    MemFlags::new(),
+                    new_register_stack_length,
+                    register_stack_used_length_pointer,
                     0,
                 );
 
