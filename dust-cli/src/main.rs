@@ -15,7 +15,10 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{CompileError, Compiler, Disassembler, DustError, JitVm};
+use dust_lang::{
+    CompileError, Compiler, Disassembler, DustError, JitVm,
+    jit_vm::{MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
+};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -43,7 +46,7 @@ struct Cli {
     mode: Option<Mode>,
 
     #[command(flatten)]
-    options: SharedOptions,
+    run_options: RunOptions,
 }
 
 #[derive(Args)]
@@ -96,14 +99,7 @@ struct SharedOptions {
 enum Mode {
     /// Compile and run the program (default)
     #[command(alias = "r")]
-    Run {
-        #[command(flatten)]
-        options: SharedOptions,
-
-        /// Input format
-        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-        input: Format,
-    },
+    Run(RunOptions),
 
     /// Compile and output the compiled program
     #[command(alias = "c")]
@@ -125,6 +121,24 @@ enum Mode {
     Tokenize,
 }
 
+#[derive(Args)]
+struct RunOptions {
+    #[command(flatten)]
+    options: SharedOptions,
+
+    /// Input format
+    #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
+    input: Format,
+
+    /// Minimum heap size garbage collection is triggered
+    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
+    min_heap: Option<usize>,
+
+    /// Minimum bytes allocated between garbage collections
+    #[arg(long, value_name = "BYTES", requires = "min_heap")]
+    min_sweep: Option<usize>,
+}
+
 #[derive(ValueEnum, Clone, Copy)]
 enum Format {
     Dust,
@@ -136,26 +150,26 @@ enum Format {
 
 fn main() {
     let start_time = Instant::now();
-    let Cli { mode, options } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run {
-        input: Format::Dust,
-        options,
-    });
+    let Cli { mode, run_options } = Cli::parse();
+    let mode = mode.unwrap_or(Mode::Run(run_options));
 
-    if let Mode::Run {
+    if let Mode::Run(RunOptions {
         input,
-        options:
-            SharedOptions {
-                log,
-                pretty_log,
-                time,
-                no_output,
-                no_std,
-                name,
-                source: Source { eval, stdin, file },
-            },
-    } = mode
+        min_heap,
+        min_sweep,
+        options,
+    }) = mode
     {
+        let SharedOptions {
+            log,
+            pretty_log,
+            time,
+            no_output,
+            no_std,
+            name,
+            source: Source { eval, stdin, file },
+        } = options;
+
         if let Some(log_level) = log {
             start_logging(log_level, pretty_log, start_time);
         }
@@ -192,7 +206,9 @@ fn main() {
         let compile_time = start_time.elapsed();
         let prototypes = dust_program.prototypes.clone();
         let vm = JitVm::new();
-        let run_result = vm.run(dust_program);
+        let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
+        let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
+        let run_result = vm.run(dust_program, min_heap, min_sweep);
         let run_time = start_time.elapsed() - compile_time;
 
         let return_value = match run_result {

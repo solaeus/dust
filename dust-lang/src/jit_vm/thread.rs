@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, RwLock},
-    thread::{Builder as ThreadBuilder, JoinHandle},
-};
+use std::thread::{Builder as ThreadBuilder, JoinHandle};
 
 use cranelift::prelude::{
     Type as CraneliftType,
@@ -16,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    Cell, Register,
+    Register,
     jit_compiler::{JitCompiler, JitError},
 };
 
@@ -27,8 +24,8 @@ pub struct Thread {
 impl Thread {
     pub fn spawn(
         program: Program,
-        _cells: Arc<RwLock<Vec<Cell>>>,
-        _threads: Arc<RwLock<Vec<Thread>>>,
+        minimum_object_heap: usize,
+        minimum_object_sweep: usize,
     ) -> Result<Self, JitError> {
         let name = program
             .main_chunk
@@ -41,14 +38,18 @@ impl Thread {
 
         let handle = ThreadBuilder::new()
             .name(name)
-            .spawn(|| run(program))
+            .spawn(move || run(program, minimum_object_sweep, minimum_object_heap))
             .expect("Failed to spawn thread");
 
         Ok(Thread { handle })
     }
 }
 
-fn run(program: Program) -> Result<Option<Value>, JitError> {
+fn run(
+    program: Program,
+    minimum_object_heap: usize,
+    minimum_object_sweep: usize,
+) -> Result<Option<Value>, JitError> {
     let span = span!(Level::TRACE, "Thread");
     let _enter = span.enter();
 
@@ -56,24 +57,19 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
     let jit_logic = jit.compile()?;
 
     let mut call_stack_used_length = 0;
-    let mut call_stack_allocated_length = 64;
+    let mut call_stack_allocated_length = if program.prototypes.is_empty() { 1 } else { 64 };
     let mut call_stack = new_call_stack(call_stack_allocated_length);
 
     let mut register_stack_used_length = 0;
     let mut register_stack_allocated_length = if program.prototypes.is_empty() {
         program.main_chunk.register_count as usize
     } else {
-        program.main_chunk.register_count as usize
-            + program
-                .prototypes
-                .iter()
-                .map(|chunk| chunk.register_count as usize)
-                .sum::<usize>()
+        1024 * 1024 * 4
     };
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
     let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
 
-    let mut object_pool = ObjectPool::new();
+    let mut object_pool = ObjectPool::new(minimum_object_sweep, minimum_object_heap);
 
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
@@ -83,13 +79,17 @@ fn run(program: Program) -> Result<Option<Value>, JitError> {
         call_stack_buffer_pointer: call_stack.as_mut_ptr(),
         call_stack_allocated_length_pointer: &mut call_stack_allocated_length,
         call_stack_used_length_pointer: &mut call_stack_used_length,
+
         register_stack_vec_pointer: &mut register_stack,
         register_stack_buffer_pointer: register_stack.as_mut_ptr(),
         register_stack_allocated_length_pointer: &mut register_stack_allocated_length,
         register_stack_used_length_pointer: &mut register_stack_used_length,
+
         register_tags_vec_pointer: &mut register_tags,
         register_tags_buffer_pointer: register_tags.as_mut_ptr(),
+
         object_pool_pointer: &mut object_pool,
+
         return_register_pointer: &mut return_register,
         return_type_pointer: &mut return_type,
     };

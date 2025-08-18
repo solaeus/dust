@@ -642,38 +642,103 @@ pub fn compile_stackless_function(
                             return Err(JitError::UnhandledOperation { operation });
                         }
 
-                        let left_string_register = get_string(
-                            left,
-                            chunk,
-                            allocate_string_function,
-                            &mut function_builder,
-                            thread_context,
-                            current_frame_base_register_address,
-                        )?;
+                        let (left_object_pointer, right_object_pointer) =
+                            match (left.memory, right.memory) {
+                                (MemoryKind::REGISTER, MemoryKind::REGISTER) => {
+                                    let left_pointer = get_string(
+                                        left,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
+                                    let right_pointer = get_string(
+                                        right,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
 
-                        if left.memory == MemoryKind::CONSTANT {
-                            JitCompiler::set_register(
-                                destination.index,
-                                left_string_register,
-                                r#type,
-                                current_frame_base_register_address,
-                                current_frame_base_tag_address,
-                                &hot_registers,
-                                &mut function_builder,
-                            )?;
-                        }
+                                    (left_pointer, right_pointer)
+                                }
+                                (
+                                    MemoryKind::CONSTANT,
+                                    MemoryKind::CONSTANT | MemoryKind::REGISTER,
+                                ) => {
+                                    let left_pointer = get_string(
+                                        left,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
 
-                        let right_string_register = get_string(
-                            right,
-                            chunk,
-                            allocate_string_function,
-                            &mut function_builder,
-                            thread_context,
-                            current_frame_base_register_address,
-                        )?;
+                                    JitCompiler::set_register(
+                                        destination.index,
+                                        left_pointer,
+                                        OperandType::STRING,
+                                        current_frame_base_register_address,
+                                        current_frame_base_tag_address,
+                                        &hot_registers,
+                                        &mut function_builder,
+                                    )?;
+
+                                    let right_pointer = get_string(
+                                        right,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
+
+                                    (left_pointer, right_pointer)
+                                }
+                                (MemoryKind::REGISTER, MemoryKind::CONSTANT) => {
+                                    let right_pointer = get_string(
+                                        right,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
+
+                                    JitCompiler::set_register(
+                                        destination.index,
+                                        right_pointer,
+                                        OperandType::STRING,
+                                        current_frame_base_register_address,
+                                        current_frame_base_tag_address,
+                                        &hot_registers,
+                                        &mut function_builder,
+                                    )?;
+
+                                    let left_pointer = get_string(
+                                        left,
+                                        chunk,
+                                        allocate_string_function,
+                                        &mut function_builder,
+                                        thread_context,
+                                        current_frame_base_register_address,
+                                    )?;
+
+                                    (left_pointer, right_pointer)
+                                }
+                                _ => {
+                                    return Err(JitError::UnsupportedMemoryKind {
+                                        memory_kind: left.memory,
+                                    });
+                                }
+                            };
+
                         let call_instruction = function_builder.ins().call(
                             concatenate_strings_function,
-                            &[left_string_register, right_string_register, thread_context],
+                            &[left_object_pointer, right_object_pointer, thread_context],
                         );
 
                         function_builder.inst_results(call_instruction)[0]

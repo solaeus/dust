@@ -28,12 +28,7 @@ pub use scope::Scope;
 use tracing::{Level, debug, info, span, trace};
 use type_checks::{check_math_type, check_math_types};
 
-use std::{
-    cell::RefCell,
-    collections::{HashSet, VecDeque},
-    mem::replace,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashSet, mem::replace, rc::Rc};
 
 use crate::{
     Address, Chunk, DustError, FunctionType, Instruction, Lexer, List, Module, NativeFunction,
@@ -217,7 +212,7 @@ pub(crate) struct ChunkCompiler<'a> {
 
     drop_lists: Vec<(Scope, Vec<u16>)>,
 
-    reusable_registers: VecDeque<u16>,
+    reusable_registers: Vec<u16>,
 
     minimum_register_index: u16,
 
@@ -271,7 +266,7 @@ impl<'a> ChunkCompiler<'a> {
             locals: IndexMap::new(),
             call_argument_lists: Vec::new(),
             drop_lists: Vec::new(),
-            reusable_registers: VecDeque::new(),
+            reusable_registers: Vec::new(),
             lexer,
             minimum_register_index: 0,
             block_index: 0,
@@ -333,7 +328,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn next_register_index(&mut self) -> u16 {
-        if let Some(register_index) = self.reusable_registers.pop_front() {
+        if let Some(register_index) = self.reusable_registers.pop() {
             return register_index;
         }
 
@@ -1711,8 +1706,12 @@ impl<'a> ChunkCompiler<'a> {
                 continue;
             };
 
-            if !self.reusable_registers.contains(&destination_register) {
-                self.reusable_registers.push_back(destination_register);
+            if let Err(insertion_index) = self
+                .reusable_registers
+                .binary_search_by(|register| register.cmp(&destination_register).reverse())
+            {
+                self.reusable_registers
+                    .insert(insertion_index, destination_register);
             }
 
             if instruction.operand_type().is_scalar() {

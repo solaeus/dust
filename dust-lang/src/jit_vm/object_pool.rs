@@ -7,30 +7,25 @@ use crate::{
     jit_vm::{RegisterTag, object::ObjectValue},
 };
 
-const MINIMUM_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    4
-} else {
-    1024 * 1024
-};
-const DEFAULT_SWEEP_THRESHOLD: usize = if cfg!(debug_assertions) {
-    8
-} else {
-    1024 * 1024 * 4
-};
-
 #[repr(C)]
 pub struct ObjectPool {
     objects: Vec<Pin<Box<Object>>>,
+
     allocated: usize,
     next_sweep_threshold: usize,
+
+    minimum_sweep_threshold: usize,
+    minimum_heap_size: usize,
 }
 
 impl ObjectPool {
-    pub fn new() -> Self {
+    pub fn new(minimum_sweep_threshold: usize, minimum_heap_size: usize) -> Self {
         Self {
             objects: Vec::new(),
             allocated: 0,
-            next_sweep_threshold: DEFAULT_SWEEP_THRESHOLD,
+            next_sweep_threshold: minimum_heap_size,
+            minimum_sweep_threshold,
+            minimum_heap_size,
         }
     }
 
@@ -56,7 +51,7 @@ impl ObjectPool {
             self.sweep();
 
             self.next_sweep_threshold =
-                (self.allocated + MINIMUM_SWEEP_THRESHOLD).max(DEFAULT_SWEEP_THRESHOLD);
+                (self.allocated + self.minimum_sweep_threshold).max(self.minimum_heap_size);
 
             trace!(
                 "Collected garbage: {} retained objects, {} bytes",
@@ -116,11 +111,5 @@ impl ObjectPool {
                 Self::mark_object(object);
             }
         }
-    }
-}
-
-impl Default for ObjectPool {
-    fn default() -> Self {
-        Self::new()
     }
 }
