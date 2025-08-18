@@ -136,18 +136,26 @@ impl ObjectPool {
     }
 
     pub fn report(&self) -> String {
+        const INDENT: &str = "    ";
+
         format!(
-            "ObjectPool Report:\n\
-             Allocated: {} bytes\n\
-             Total Bytes Deallocated: {}\n\
-             Total Objects Allocated: {}\n\
-             Total Bytes Allocated: {}\n\
-             Total Collection Time: {} ms\n\
-             Total Collections: {}",
+            "Object Pool Report:\n\
+             {INDENT}- Current Allocations:\n\
+             {INDENT}    - {} objects\n\
+             {INDENT}    - {} bytes\n\
+             {INDENT}- Runtime Allocations:\n\
+             {INDENT}    - {} objects\n\
+             {INDENT}    - {} bytes\n\
+             {INDENT}- Runtime Deallocations:\n\
+             {INDENT}    - {} objects\n\
+             {INDENT}    - {} bytes\n\
+             {INDENT}Spent {}ms on {} collections",
+            self.objects.len(),
             self.allocated,
-            self.total_bytes_deallocated,
             self.total_objects_allocated,
             self.total_bytes_allocated,
+            self.total_objects_deallocated,
+            self.total_bytes_deallocated,
             self.total_collection_time / 1_000,
             self.total_collections
         )

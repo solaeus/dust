@@ -276,6 +276,7 @@ impl<'src> Lexer<'src> {
             "if" => Token::If,
             "int" => Token::Int,
             "let" => Token::Let,
+            "list" => Token::List,
             "loop" => Token::Loop,
             "map" => Token::Map,
             "mod" => Token::Mod,

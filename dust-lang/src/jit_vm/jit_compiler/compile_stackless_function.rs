@@ -379,11 +379,11 @@ pub fn compile_stackless_function(
             Operation::NEW_LIST => {
                 let NewList {
                     destination,
-                    length,
+                    initial_length,
                     list_type,
                 } = NewList::from(*current_instruction);
                 let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
-                let list_length_value = function_builder.ins().iconst(I64, length as i64);
+                let list_length_value = function_builder.ins().iconst(I64, initial_length as i64);
                 let call_allocate_list_instruction = function_builder.ins().call(
                     allocate_list_function,
                     &[

@@ -23,16 +23,29 @@ impl OperandType {
     pub const CHARACTER_STRING: OperandType = OperandType(10);
     pub const STRING_CHARACTER: OperandType = OperandType(11);
 
+    // Array operands
+    pub const ARRAY_BOOLEAN: OperandType = OperandType(12);
+    pub const ARRAY_BYTE: OperandType = OperandType(13);
+    pub const ARRAY_CHARACTER: OperandType = OperandType(14);
+    pub const ARRAY_FLOAT: OperandType = OperandType(15);
+    pub const ARRAY_INTEGER: OperandType = OperandType(16);
+    pub const ARRAY_STRING: OperandType = OperandType(17);
+    pub const ARRAY_LIST: OperandType = OperandType(18);
+    pub const ARRAY_MAP: OperandType = OperandType(19);
+    pub const ARRAY_FUNCTION: OperandType = OperandType(20);
+    pub const ARRAY_ARRAY: OperandType = OperandType(31);
+
     // List operands
-    pub const LIST_BOOLEAN: OperandType = OperandType(12);
-    pub const LIST_BYTE: OperandType = OperandType(13);
-    pub const LIST_CHARACTER: OperandType = OperandType(14);
-    pub const LIST_FLOAT: OperandType = OperandType(15);
-    pub const LIST_INTEGER: OperandType = OperandType(16);
-    pub const LIST_STRING: OperandType = OperandType(17);
-    pub const LIST_LIST: OperandType = OperandType(18);
-    pub const LIST_MAP: OperandType = OperandType(19);
-    pub const LIST_FUNCTION: OperandType = OperandType(20);
+    pub const LIST_BOOLEAN: OperandType = OperandType(21);
+    pub const LIST_BYTE: OperandType = OperandType(22);
+    pub const LIST_CHARACTER: OperandType = OperandType(23);
+    pub const LIST_FLOAT: OperandType = OperandType(24);
+    pub const LIST_INTEGER: OperandType = OperandType(25);
+    pub const LIST_STRING: OperandType = OperandType(26);
+    pub const LIST_LIST: OperandType = OperandType(27);
+    pub const LIST_MAP: OperandType = OperandType(28);
+    pub const LIST_FUNCTION: OperandType = OperandType(29);
+    pub const LIST_ARRAY: OperandType = OperandType(30);
 }
 
 impl OperandType {

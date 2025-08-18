@@ -150,3 +150,23 @@ impl Display for ObjectValue {
         }
     }
 }
+
+pub enum StringRope {
+    Leaf {
+        bytes: Vec<u8>,
+    },
+    SmallLeaf {
+        bytes: [u8; 32],
+    },
+    Concatenated {
+        length: usize,
+        left: *mut Object,
+        right: *mut Object,
+    },
+    Slice {
+        length: usize,
+        base: *mut Object,
+        start: usize,
+        end: usize,
+    },
+}

@@ -127,7 +127,7 @@ impl List {
     }
 
     pub fn display(&self, f: &mut Formatter, prototypes: &[Chunk]) -> fmt::Result {
-        write!(f, "[")?;
+        write!(f, "list(")?;
 
         match self {
             List::Boolean(booleans) => {
@@ -199,8 +199,8 @@ impl List {
                         write!(f, ", ")?;
                     }
 
-                    if let Some(function) = prototypes.get(*function_index) {
-                        write!(f, "{}", function.r#type)?;
+                    if let Some(chunk) = prototypes.get(*function_index) {
+                        write!(f, "{}", chunk.r#type)?;
                     } else {
                         write!(f, "<unknown>")?;
                     }
@@ -208,7 +208,7 @@ impl List {
             }
         }
 
-        write!(f, "]")
+        write!(f, ")")
     }
 }
 

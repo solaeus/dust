@@ -16,13 +16,16 @@ pub enum Type {
     Byte,
     Character,
     Float,
-    Function(Box<FunctionType>),
     Integer,
-    List(Box<Type>),
-    Map(Vec<Type>),
-    Range(Box<Type>),
-    FunctionSelf,
+
     String,
+    Array(Box<Type>, usize),
+    List(Box<Type>),
+    Map,
+    Range(Box<Type>),
+
+    Function(Box<FunctionType>),
+    FunctionSelf,
 }
 
 impl Type {
@@ -42,22 +45,6 @@ impl Type {
         Type::List(Box::new(item_type))
     }
 
-    pub fn as_concrete_type(&self) -> ConcreteType {
-        match self {
-            Type::Boolean => ConcreteType::Boolean,
-            Type::Byte => ConcreteType::Byte,
-            Type::Character => ConcreteType::Character,
-            Type::Float => ConcreteType::Float,
-            Type::Function(_) => ConcreteType::Function,
-            Type::Integer => ConcreteType::Integer,
-            Type::List(_) => ConcreteType::List,
-            Type::None => ConcreteType::None,
-            Type::FunctionSelf => ConcreteType::FunctionSelf,
-            Type::String => ConcreteType::String,
-            Type::Map(_) | Type::Range(_) => ConcreteType::List,
-        }
-    }
-
     pub fn as_operand_type(&self) -> OperandType {
         match self {
             Type::None => OperandType::NONE,
@@ -75,11 +62,12 @@ impl Type {
                 Type::Integer => OperandType::LIST_INTEGER,
                 Type::String => OperandType::LIST_STRING,
                 Type::List(_) | Type::Range(_) => OperandType::LIST_LIST,
-                Type::Map(_) => OperandType::LIST_MAP,
+                Type::Map => OperandType::LIST_MAP,
                 Type::Function(_) | Type::FunctionSelf => OperandType::LIST_FUNCTION,
+                Type::Array(_, _) => OperandType::LIST_ARRAY,
                 Type::None => panic!("A list's item type must be known, even if it is empty"),
             },
-            Type::Map(_) => OperandType::MAP,
+            Type::Map => OperandType::MAP,
             Type::Range(range_type) => match range_type.as_ref() {
                 Type::Byte => OperandType::LIST_BYTE,
                 Type::Character => OperandType::LIST_CHARACTER,
@@ -90,6 +78,21 @@ impl Type {
                 }
             },
             Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
+            Type::Array(item_type, _) => match item_type.as_ref() {
+                Type::Boolean => OperandType::ARRAY_BOOLEAN,
+                Type::Byte => OperandType::ARRAY_BYTE,
+                Type::Character => OperandType::ARRAY_CHARACTER,
+                Type::Float => OperandType::ARRAY_FLOAT,
+                Type::Integer => OperandType::ARRAY_INTEGER,
+                Type::String => OperandType::ARRAY_STRING,
+                Type::List(_) | Type::Range(_) => OperandType::ARRAY_LIST,
+                Type::Map => OperandType::ARRAY_MAP,
+                Type::Function(_) | Type::FunctionSelf => OperandType::ARRAY_FUNCTION,
+                Type::Array(_, _) => OperandType::ARRAY_ARRAY,
+                Type::None => {
+                    panic!("An array's item type must be known, even if it is empty")
+                }
+            },
         }
     }
 
@@ -147,26 +150,13 @@ impl Display for Type {
             Type::Float => write!(f, "float"),
             Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Integer => write!(f, "int"),
-            Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map(pairs) => {
-                write!(f, "map ")?;
-
-                write!(f, "{{")?;
-
-                for (index, r#type) in pairs.iter().enumerate() {
-                    write!(f, "???: {type}")?;
-
-                    if index != pairs.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, "}}")
-            }
+            Type::List(item_type) => write!(f, "List<{item_type}>"),
+            Type::Map => write!(f, "map"),
             Type::None => write!(f, "none"),
-            Type::Range(r#type) => write!(f, "{type} range"),
+            Type::Range(r#type) => write!(f, "Range<{type}>"),
             Type::FunctionSelf => write!(f, "self"),
             Type::String => write!(f, "str"),
+            Type::Array(item_type, length) => write!(f, "[{item_type}; {length}]"),
         }
     }
 }
@@ -192,8 +182,11 @@ pub enum ConcreteType {
     Integer,
     String,
 
+    Array,
     List,
     Map,
+    Range,
+
     Function,
     FunctionSelf,
 }

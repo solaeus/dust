@@ -53,6 +53,7 @@ define_tokens! {
     If,
     Int,
     Let,
+    List,
     Loop,
     Map,
     Mod,
@@ -99,74 +100,6 @@ define_tokens! {
 }
 
 impl Token<'_> {
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
-        match self {
-            Token::Eof => 3,
-            Token::Boolean(text) => text.len(),
-            Token::Byte(_) => 3,
-            Token::Character(_) => 3,
-            Token::Float(text) => text.len(),
-            Token::Identifier(text) => text.len(),
-            Token::Integer(text) => text.len(),
-            Token::String(text) => text.len() + 2,
-            Token::Any => 3,
-            Token::Async => 5,
-            Token::ArrowThin => 2,
-            Token::Bool => 4,
-            Token::Break => 5,
-            Token::ByteKeyword => 4,
-            Token::Cell => 4,
-            Token::Const => 5,
-            Token::Else => 4,
-            Token::FloatKeyword => 5,
-            Token::Fn => 2,
-            Token::If => 2,
-            Token::Int => 3,
-            Token::Let => 3,
-            Token::Loop => 4,
-            Token::Map => 3,
-            Token::Mod => 3,
-            Token::Mut => 3,
-            Token::Str => 3,
-            Token::Struct => 6,
-            Token::Use => 3,
-            Token::While => 5,
-            Token::BangEqual => 2,
-            Token::Bang => 1,
-            Token::Colon => 1,
-            Token::Comma => 1,
-            Token::Dot => 1,
-            Token::DoubleAmpersand => 2,
-            Token::DoubleDot => 2,
-            Token::DoubleEqual => 2,
-            Token::DoublePipe => 2,
-            Token::Equal => 1,
-            Token::Greater => 1,
-            Token::GreaterEqual => 2,
-            Token::LeftBrace => 1,
-            Token::LeftParenthesis => 1,
-            Token::LeftBracket => 1,
-            Token::Less => 1,
-            Token::LessEqual => 2,
-            Token::Minus => 1,
-            Token::MinusEqual => 2,
-            Token::Percent => 1,
-            Token::PercentEqual => 2,
-            Token::Plus => 1,
-            Token::PlusEqual => 2,
-            Token::Return => 6,
-            Token::RightBrace => 1,
-            Token::RightParenthesis => 1,
-            Token::RightBracket => 1,
-            Token::Semicolon => 1,
-            Token::Slash => 1,
-            Token::SlashEqual => 2,
-            Token::Star => 1,
-            Token::StarEqual => 2,
-        }
-    }
-
     pub fn as_str(&self) -> &str {
         match self {
             Token::Eof => "EOF",
@@ -191,6 +124,7 @@ impl Token<'_> {
             Token::If => "if",
             Token::Int => "int",
             Token::Let => "let",
+            Token::List => "list",
             Token::Loop => "loop",
             Token::Map => "map",
             Token::Mod => "mod",
@@ -274,6 +208,7 @@ impl Token<'_> {
             Token::Let => TokenOwned::Let,
             Token::Less => TokenOwned::Less,
             Token::LessEqual => TokenOwned::LessEqual,
+            Self::List => TokenOwned::List,
             Token::Loop => TokenOwned::Loop,
             Token::Map => TokenOwned::Map,
             Token::Minus => TokenOwned::Minus,
@@ -341,6 +276,7 @@ impl Token<'_> {
             Token::Let => TokenKind::Let,
             Token::Less => TokenKind::Less,
             Token::LessEqual => TokenKind::LessEqual,
+            Token::List => TokenKind::List,
             Token::Loop => TokenKind::Loop,
             Token::Map => TokenKind::Map,
             Token::Minus => TokenKind::Minus,
@@ -366,48 +302,6 @@ impl Token<'_> {
             Token::Use => TokenKind::Use,
             Token::While => TokenKind::While,
         }
-    }
-
-    /// Returns true if the token yields a value, begins an expression or is an expression operator.
-    pub fn is_expression(&self) -> bool {
-        matches!(
-            self,
-            Token::Boolean(_)
-                | Token::Byte(_)
-                | Token::Character(_)
-                | Token::Float(_)
-                | Token::Identifier(_)
-                | Token::Integer(_)
-                | Token::String(_)
-                | Token::Break
-                | Token::If
-                | Token::Return
-                | Token::Map
-                | Token::Loop
-                | Token::Struct
-                | Token::BangEqual
-                | Token::DoubleAmpersand
-                | Token::DoubleEqual
-                | Token::DoublePipe
-                | Token::Equal
-                | Token::Greater
-                | Token::GreaterEqual
-                | Token::LeftBrace
-                | Token::LeftParenthesis
-                | Token::LeftBracket
-                | Token::Less
-                | Token::LessEqual
-                | Token::Minus
-                | Token::MinusEqual
-                | Token::Percent
-                | Token::PercentEqual
-                | Token::Plus
-                | Token::PlusEqual
-                | Token::Slash
-                | Token::SlashEqual
-                | Token::Star
-                | Token::StarEqual
-        )
     }
 }
 
@@ -469,6 +363,7 @@ impl Display for TokenKind {
             TokenKind::Let => Token::Let.fmt(f),
             TokenKind::Less => Token::Less.fmt(f),
             TokenKind::LessEqual => Token::LessEqual.fmt(f),
+            TokenKind::List => Token::List.fmt(f),
             TokenKind::Loop => Token::Loop.fmt(f),
             TokenKind::Map => Token::Map.fmt(f),
             TokenKind::Minus => Token::Minus.fmt(f),
@@ -527,6 +422,7 @@ pub enum TokenOwned {
     If,
     Int,
     Let,
+    List,
     Loop,
     Map,
     Mod,
@@ -615,6 +511,7 @@ impl Display for TokenOwned {
             TokenOwned::Let => Token::Let.fmt(f),
             TokenOwned::Less => Token::Less.fmt(f),
             TokenOwned::LessEqual => Token::LessEqual.fmt(f),
+            TokenOwned::List => Token::List.fmt(f),
             TokenOwned::Loop => Token::Loop.fmt(f),
             TokenOwned::Map => Token::Map.fmt(f),
             TokenOwned::Minus => Token::Minus.fmt(f),

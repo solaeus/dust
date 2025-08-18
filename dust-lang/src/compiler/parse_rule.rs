@@ -184,7 +184,7 @@ impl From<Token<'_>> for ParseRule<'_> {
                 precedence: Precedence::Call,
             },
             Token::LeftBracket => ParseRule {
-                prefix: Some(ChunkCompiler::parse_list),
+                prefix: Some(ChunkCompiler::parse_array),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -202,6 +202,11 @@ impl From<Token<'_>> for ParseRule<'_> {
                 prefix: Some(ChunkCompiler::parse_let),
                 infix: None,
                 precedence: Precedence::Assignment,
+            },
+            Token::List => ParseRule {
+                prefix: Some(ChunkCompiler::parse_list),
+                infix: None,
+                precedence: Precedence::None,
             },
             Token::Loop => todo!(),
             Token::Map => todo!(),

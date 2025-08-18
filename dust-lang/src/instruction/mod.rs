@@ -197,10 +197,14 @@ impl Instruction {
         Instruction::from(Drop { drop_list_index })
     }
 
-    pub fn new_list(destination: Address, length: u16, list_type: OperandType) -> Instruction {
+    pub fn new_list(
+        destination: Address,
+        initial_length: u16,
+        list_type: OperandType,
+    ) -> Instruction {
         Instruction::from(NewList {
             destination,
-            length,
+            initial_length,
             list_type,
         })
     }

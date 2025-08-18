@@ -4,19 +4,19 @@ use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct NewList {
     pub destination: Address,
-    pub length: u16,
+    pub initial_length: u16,
     pub list_type: OperandType,
 }
 
 impl From<Instruction> for NewList {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
-        let length = instruction.b_field();
+        let initial_length = instruction.b_field();
         let list_type = instruction.operand_type();
 
         NewList {
             destination,
-            length,
+            initial_length,
             list_type,
         }
     }
@@ -29,7 +29,7 @@ impl From<NewList> for Instruction {
             index: a_field,
             memory: a_memory_kind,
         } = list.destination;
-        let b_field = list.length;
+        let b_field = list.initial_length;
         let operand_type = list.list_type;
 
         InstructionFields {
@@ -48,8 +48,8 @@ impl Display for NewList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let NewList {
             destination,
-            length,
             list_type,
+            ..
         } = self;
         let item_type = match *list_type {
             OperandType::LIST_BOOLEAN => OperandType::BOOLEAN.to_string(),
@@ -58,12 +58,12 @@ impl Display for NewList {
             OperandType::LIST_FLOAT => OperandType::FLOAT.to_string(),
             OperandType::LIST_INTEGER => OperandType::INTEGER.to_string(),
             OperandType::LIST_STRING => OperandType::STRING.to_string(),
-            OperandType::LIST_LIST => "[]".to_string(),
+            OperandType::LIST_LIST => "List<List>".to_string(),
             OperandType::LIST_FUNCTION => OperandType::FUNCTION.to_string(),
             _ => "error".to_string(),
         };
 
         destination.display(f, *list_type)?;
-        write!(f, " = [{item_type}; {length}]")
+        write!(f, " = List<{item_type}>")
     }
 }

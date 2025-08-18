@@ -38,7 +38,6 @@ use crate::{
         standard_library::apply_standard_library,
     },
     instruction::{Jump, Load, MemoryKind, OperandType, SetList},
-    r#type::ConcreteType,
 };
 
 /// Compiles the input and returns a program.
@@ -992,7 +991,6 @@ impl<'a> ChunkCompiler<'a> {
             &right_position,
         )?;
 
-        let right_type_kind = right_type.as_concrete_type();
         let r#type = if is_assignment {
             Type::None
         } else if left_type == Type::Character {
@@ -1007,19 +1005,19 @@ impl<'a> ChunkCompiler<'a> {
         };
         let operand_type = match left_type {
             Type::Byte => OperandType::BYTE,
-            Type::Character => match right_type_kind {
-                ConcreteType::Character => OperandType::CHARACTER,
-                ConcreteType::String => OperandType::CHARACTER_STRING,
-                _ => unreachable!(),
+            Type::Character => match right_type {
+                Type::Character => OperandType::CHARACTER,
+                Type::String => OperandType::CHARACTER_STRING,
+                _ => unreachable!("Type checking failed"),
             },
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
-            Type::String => match right_type_kind {
-                ConcreteType::Character => OperandType::STRING_CHARACTER,
-                ConcreteType::String => OperandType::STRING,
-                _ => unreachable!(),
+            Type::String => match right_type {
+                Type::Character => OperandType::STRING_CHARACTER,
+                Type::String => OperandType::STRING,
+                _ => unreachable!("Type checking failed"),
             },
-            _ => unreachable!(),
+            _ => unreachable!("Type checking failed"),
         };
         let instruction = match operator {
             Token::Plus | Token::PlusEqual => {
@@ -1443,7 +1441,7 @@ impl<'a> ChunkCompiler<'a> {
                     });
                 }
 
-                if matches!(local.r#type, Type::Function(_) | Type::FunctionSelf) {
+                if matches!(local.r#type, Type::Function(_)) {
                     return Ok(());
                 }
 
@@ -1736,15 +1734,20 @@ impl<'a> ChunkCompiler<'a> {
         Ok(())
     }
 
+    fn parse_array(&mut self) -> Result<(), CompileError> {
+        todo!()
+    }
+
     fn parse_list(&mut self) -> Result<(), CompileError> {
         let start = self.current_position.0;
 
         self.advance()?;
+        self.expect(Token::LeftParenthesis)?;
 
         let mut item_type = Type::None;
         let mut addresses = Vec::new();
 
-        while !self.allow(Token::RightBracket)? {
+        while !self.allow(Token::RightParenthesis)? {
             self.parse_expression()?;
             self.allow(Token::Comma)?;
 
@@ -2696,8 +2699,8 @@ impl<'a> ChunkCompiler<'a> {
 
         self.expect(Token::Equal)?;
 
-        let value = match r#type.as_concrete_type() {
-            ConcreteType::Boolean => {
+        let value = match r#type {
+            Type::Boolean => {
                 let boolean = if let Token::Boolean(text) = self.current_token {
                     self.advance()?;
                     self.parse_boolean_value(text)
@@ -2711,7 +2714,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 Value::boolean(boolean)
             }
-            ConcreteType::Byte => {
+            Type::Byte => {
                 let byte = if let Token::Byte(text) = self.current_token {
                     self.advance()?;
                     self.parse_byte_value(text)?
@@ -2725,7 +2728,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 Value::byte(byte)
             }
-            ConcreteType::Character => {
+            Type::Character => {
                 let character = if let Token::Character(character) = self.current_token {
                     self.advance()?;
 
@@ -2740,7 +2743,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 Value::character(character)
             }
-            ConcreteType::Float => {
+            Type::Float => {
                 let float = if let Token::Float(text) = self.current_token {
                     self.advance()?;
                     self.parse_float_value(text)?
@@ -2754,7 +2757,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 Value::float(float)
             }
-            ConcreteType::Integer => {
+            Type::Integer => {
                 let integer = if let Token::Integer(text) = self.current_token {
                     self.advance()?;
                     self.parse_integer_value(text)
@@ -2768,7 +2771,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 Value::integer(integer)
             }
-            ConcreteType::String => {
+            Type::String => {
                 let string = if let Token::String(text) = self.current_token {
                     self.advance()?;
 
