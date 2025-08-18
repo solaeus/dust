@@ -1,7 +1,5 @@
 #!/bin/sh
 
-cargo build --release
-
 hyperfine \
     --shell none \
     --prepare 'sync' \

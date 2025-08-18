@@ -198,7 +198,7 @@ fn string() {
 
 #[test]
 fn boolean_list() {
-    let source = "[true, false]";
+    let source = "list(true, false)";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -240,7 +240,7 @@ fn boolean_list() {
 
 #[test]
 fn byte_list() {
-    let source = "[0x00, 0xFF]";
+    let source = "list(0x00, 0xFF)";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -279,7 +279,7 @@ fn byte_list() {
 
 #[test]
 fn character_list() {
-    let source = "['a', 'b', 'c']";
+    let source = "list('a', 'b', 'c')";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -332,7 +332,7 @@ fn character_list() {
 
 #[test]
 fn float_list() {
-    let source = "[1.0, 2.0, 3.0]";
+    let source = "list(1.0, 2.0, 3.0)";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -381,7 +381,7 @@ fn float_list() {
 
 #[test]
 fn integer_list() {
-    let source = "[1, 2, 3]";
+    let source = "list(1, 2, 3)";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -427,7 +427,7 @@ fn integer_list() {
 
 #[test]
 fn string_list() {
-    let source = "[\"foo\", \"bar\"]";
+    let source = "list(\"foo\", \"bar\")";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 
@@ -476,7 +476,7 @@ fn string_list() {
 
 #[test]
 fn list_list() {
-    let source = "[[true], [false]]";
+    let source = "+[+[true], +[false]]";
     let program = compile(source, false).unwrap();
     let return_value = run(source, false).unwrap();
 

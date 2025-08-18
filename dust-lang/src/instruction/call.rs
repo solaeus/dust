@@ -63,6 +63,10 @@ impl Display for Call {
             write!(f, " = ")?;
         }
 
-        write!(f, "proto_{prototype_index}(args_{arguments_index})")
+        if *arguments_index == u16::MAX {
+            write!(f, "proto_{prototype_index}()")
+        } else {
+            write!(f, "proto_{prototype_index}(args_{arguments_index})")
+        }
     }
 }

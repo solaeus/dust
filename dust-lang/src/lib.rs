@@ -3,13 +3,14 @@
     allocator_api,
     formatting_options,
     hash_set_entry,
+    iter_intersperse,
     new_range_api,
     never_type,
+    new_zeroed_alloc,
     offset_of_enum,
     once_cell_get_mut,
     pattern,
-    pointer_try_cast_aligned,
-    new_zeroed_alloc
+    pointer_try_cast_aligned
 )]
 
 pub mod chunk;
@@ -29,7 +30,7 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use chunk::{Chunk, Disassembler};
+pub use chunk::{Chunk, Disassembler, TuiDisassembler};
 pub use compiler::{CompileError, Compiler, Global, Item, Local, Path, Scope, compile};
 pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{

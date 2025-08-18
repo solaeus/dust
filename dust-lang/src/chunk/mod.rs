@@ -8,9 +8,11 @@
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
 mod disassembler;
+mod tui_disassembler;
 
 pub use disassembler::Disassembler;
 use serde::{Deserialize, Serialize};
+pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::{Debug, Display};
 
@@ -28,9 +30,9 @@ pub struct Chunk {
     pub(crate) constants: Vec<Value>,
     pub(crate) locals: Vec<(Path, Local)>,
     pub(crate) call_argument_lists: Vec<Vec<(Address, OperandType)>>,
+    pub(crate) drop_lists: Vec<Vec<u16>>,
 
     pub(crate) register_count: u16,
-    pub(crate) drop_lists: Vec<Vec<u16>>,
     pub(crate) prototype_index: u16,
 }
 

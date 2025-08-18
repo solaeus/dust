@@ -300,7 +300,7 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         while !matches!(self.current_token, Token::Eof | Token::RightBrace) {
-            self.parse(Precedence::None)?;
+            self.parse_expression()?;
         }
 
         self.parse_implicit_return()?;
@@ -2137,14 +2137,9 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(());
         }
 
-        let last_expression =
-            self.expressions
-                .last()
-                .cloned()
-                .ok_or_else(|| CompileError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                })?;
+        let Some(last_expression) = self.expressions.last().cloned() else {
+            return Ok(());
+        };
 
         let Expression {
             index,
@@ -2326,7 +2321,7 @@ impl<'a> ChunkCompiler<'a> {
                 position: self.current_position,
             });
         };
-        let mut value_parameters = Vec::with_capacity(3);
+        let mut value_parameters = Vec::new();
 
         while !function_compiler.allow(Token::RightParenthesis)? {
             let is_mutable = function_compiler.allow(Token::Mut)?;
@@ -2496,19 +2491,21 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let end = self.current_position.1;
-        let arguments_index = self.call_argument_lists.len() as u16;
+        let arguments_index = if !arguments.is_empty() {
+            let index = self.call_argument_lists.len() as u16;
 
-        if !arguments.is_empty() {
             self.call_argument_lists.push(arguments);
-        }
 
-        let return_operand_type = return_type.as_operand_type();
+            index
+        } else {
+            u16::MAX
+        };
         let destination = Address::register(self.next_register_index());
         let call = Instruction::call(
             destination,
             prototype_index,
             arguments_index,
-            return_operand_type,
+            return_type.as_operand_type(),
         );
         let ends_with_value = return_type != Type::None;
 

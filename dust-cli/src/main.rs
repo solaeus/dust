@@ -16,7 +16,7 @@ use clap::{
 };
 use colored::{Color, Colorize};
 use dust_lang::{
-    CompileError, Compiler, Disassembler, DustError, JitVm,
+    CompileError, Compiler, Disassembler, DustError, JitVm, TuiDisassembler,
     jit_vm::{MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
 };
 use ron::ser::PrettyConfig;
@@ -266,7 +266,7 @@ fn main() {
 
         let compiler = Compiler::new();
 
-        let dust_crate = match compiler.compile_program(source_name, &source, !no_std) {
+        let dust_program = match compiler.compile_program(source_name, &source, !no_std) {
             Ok(dust_crate) => dust_crate,
             Err(error) => {
                 handle_compile_error(error, &source);
@@ -278,39 +278,44 @@ fn main() {
 
         match output {
             Format::Dust => {
-                let mut stdout = stdout().lock();
-                let mut disassembler = Disassembler::new(&dust_crate, &mut stdout);
+                let disassembler = TuiDisassembler::new(&dust_program, Some(&source));
 
                 disassembler
-                    .source(&source)
-                    .style(style)
-                    .show_type(true)
                     .disassemble()
-                    .expect("Failed to write disassembly to stdout");
+                    .expect("Failed to display disassembly");
+
+                // disassembler
+                //     .source(&source)
+                //     .style(style)
+                //     .show_type(true)
+                //     .disassemble()
+                //     .expect("Failed to write disassembly to stdout");
             }
             Format::Json => {
-                let json = serde_json::to_string_pretty(&dust_crate)
+                let json = serde_json::to_string_pretty(&dust_program)
                     .expect("Failed to serialize chunk to JSON");
 
                 println!("{json}");
             }
             Format::Postcard => {
                 let mut buffer = Vec::new();
-                let postcard = postcard::to_slice_cobs(&dust_crate, &mut buffer)
+                let postcard = postcard::to_slice_cobs(&dust_program, &mut buffer)
                     .expect("Failed to serialize chunk to Postcard");
 
                 println!("{postcard:?}");
             }
             Format::Ron => {
-                let ron =
-                    ron::ser::to_string_pretty(&dust_crate, PrettyConfig::new().struct_names(true))
-                        .expect("Failed to serialize chunk to RON");
+                let ron = ron::ser::to_string_pretty(
+                    &dust_program,
+                    PrettyConfig::new().struct_names(true),
+                )
+                .expect("Failed to serialize chunk to RON");
 
                 println!("{ron}");
             }
             Format::Yaml => {
-                let yaml =
-                    serde_yaml::to_string(&dust_crate).expect("Failed to serialize chunk to YAML");
+                let yaml = serde_yaml::to_string(&dust_program)
+                    .expect("Failed to serialize chunk to YAML");
 
                 println!("{yaml}");
             }
