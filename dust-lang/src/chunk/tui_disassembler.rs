@@ -1,7 +1,4 @@
-use std::{
-    io::{self, Stdout, stdout},
-    time::Duration,
-};
+use std::io;
 
 use ratatui::{
     buffer::Buffer,
@@ -89,10 +86,10 @@ impl<'a> TuiDisassembler<'a> {
 
         let inner_area = block.inner(area);
         let areas = Layout::vertical([
-            Constraint::Length(1), // Prototype address
-            Constraint::Length(1), // Info
-            Constraint::Length(1), // Function type
-            Constraint::Min(1),    // Instructions
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(1),
         ]);
         let [prototype_area, info_area, type_area, instruction_area] = areas.areas(inner_area);
 
