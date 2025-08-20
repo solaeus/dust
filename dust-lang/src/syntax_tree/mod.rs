@@ -113,92 +113,80 @@ impl SyntaxTree {
         let main_node = self.nodes[0];
 
         output.push_str("Syntax Tree:\n");
-        output.push_str(&main_node.kind.to_string());
-
-        let children_start = main_node.child as usize;
-        let children_end = children_start + main_node.payload as usize;
-        let children = &self.children[children_start..children_end];
-
-        for &child_index in children {
-            let child = self.nodes[child_index as usize];
-
-            self.display_node(child, 1, &mut output);
-        }
+        self.display_node(main_node, 0, &mut output);
 
         output
     }
 
     pub fn display_node(&self, node: SyntaxNode, depth: usize, output: &mut String) {
-        let indent = "    ".repeat(depth);
+        let indent = "   ".repeat(depth.saturating_sub(1));
+        let node_display = format!("{}- {}", indent, node.kind);
 
         output.push('\n');
+        output.push_str(&node_display);
 
         match node.kind {
-            SyntaxKind::MainFunctionStatement => {}
+            SyntaxKind::MainFunctionStatement => {
+                let children_start = node.child as usize;
+                let children_end = children_start + node.payload as usize;
+                let children = &self.children[children_start..children_end];
+
+                for &child_index in children {
+                    let child = self.nodes[child_index as usize];
+
+                    self.display_node(child, 1, output);
+                }
+            }
             SyntaxKind::LetStatement => {
                 let expression = self.nodes[node.child as usize];
-                let node_display = format!("{}let <identifier> = {}", indent, expression.kind,);
 
-                output.push_str(&node_display);
                 self.display_node(expression, depth + 1, output);
             }
             SyntaxKind::IntegerExpression => {
                 let constant_index = node.payload as usize;
                 let constant = &self.constants[constant_index];
-                let node_display = format!("{indent}integer: {constant}");
+                let integer_display = format!(": {constant}");
 
-                output.push_str(&node_display);
+                output.push_str(&integer_display);
             }
             SyntaxKind::AdditionExpression => {
                 let left = self.nodes[node.child as usize];
                 let right = self.nodes[node.payload as usize];
-                let node_display = format!("{}{} + {}", indent, left.kind, right.kind);
 
-                output.push_str(&node_display);
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
             SyntaxKind::SubtractionExpression => {
                 let left = self.nodes[node.child as usize];
                 let right = self.nodes[node.payload as usize];
-                let node_display = format!("{}{} - {}", indent, left.kind, right.kind);
 
-                output.push_str(&node_display);
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
             SyntaxKind::MultiplicationExpression => {
                 let left = self.nodes[node.child as usize];
                 let right = self.nodes[node.payload as usize];
-                let node_display = format!("{}{} * {}", indent, left.kind, right.kind);
 
-                output.push_str(&node_display);
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
             SyntaxKind::DivisionExpression => {
                 let left = self.nodes[node.child as usize];
                 let right = self.nodes[node.payload as usize];
-                let node_display = format!("{}{} / {}", indent, left.kind, right.kind);
 
-                output.push_str(&node_display);
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
             SyntaxKind::ModuloExpression => {
                 let left = self.nodes[node.child as usize];
                 let right = self.nodes[node.payload as usize];
-                let node_display = format!("{}{} % {}", indent, left.kind, right.kind);
 
-                output.push_str(&node_display);
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
             SyntaxKind::GroupedExpression => {
                 let expression = self.nodes[node.child as usize];
-                let node_display = format!("{}({})", indent, expression.kind);
 
-                output.push_str(&node_display);
                 self.display_node(expression, depth + 1, output);
             }
             _ => {
