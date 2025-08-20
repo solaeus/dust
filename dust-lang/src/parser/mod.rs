@@ -5,19 +5,26 @@ use std::{
     mem::replace,
 };
 
-use tracing::{Level, debug, error, span};
+use tracing::{Level, debug, error, info, span, warn};
 
 use crate::{
     LexError, Lexer, Span, Token, Value,
+    dust_error::{AnnotatedError, DustError, ErrorMessage},
     parser::parse_rule::{ParseRule, Precedence},
     syntax_tree::{Local, Scope, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
-pub fn parse(source: &str) -> SyntaxTree {
+pub fn parse(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
     let lexer = Lexer::new(source);
     let parser = Parser::new(lexer);
+    let (syntax_tree, errors) = parser.parse();
+    let dust_error = if errors.is_empty() {
+        None
+    } else {
+        Some(DustError::parse(errors, source))
+    };
 
-    parser.parse_main()
+    (syntax_tree, dust_error)
 }
 
 pub struct Parser<'src> {
@@ -27,6 +34,7 @@ pub struct Parser<'src> {
 
     current_token: Token,
     current_position: Span,
+    previous_token: Token,
     previous_position: Span,
 
     current_scope: Scope,
@@ -49,13 +57,14 @@ impl<'src> Parser<'src> {
             syntax_tree: SyntaxTree::new(),
             current_token,
             current_position,
+            previous_token: Token::Eof,
             previous_position: Span::default(),
             current_scope: Scope::default(),
             errors,
         }
     }
 
-    pub fn parse_main(mut self) -> SyntaxTree {
+    pub fn parse(mut self) -> (SyntaxTree, Vec<ParseError>) {
         let span = span!(Level::INFO, "Parsing");
         let _enter = span.enter();
 
@@ -91,7 +100,7 @@ impl<'src> Parser<'src> {
 
         self.syntax_tree.children.extend(children);
 
-        self.syntax_tree
+        (self.syntax_tree, self.errors)
     }
 
     fn pratt(&mut self, precedence: Precedence) -> Result<(), ParseError> {
@@ -130,10 +139,10 @@ impl<'src> Parser<'src> {
             .next_token()
             .map_err(|error| ParseError::LexError { error })?;
 
-        self.current_token = next_token;
+        self.previous_token = replace(&mut self.current_token, next_token);
         self.previous_position = replace(&mut self.current_position, next_position);
 
-        debug!("{} at {}", self.current_token, self.current_position);
+        info!("{} at {}", self.current_token, self.current_position);
 
         Ok(())
     }
@@ -143,20 +152,25 @@ impl<'src> Parser<'src> {
 
         self.errors.push(error);
 
-        loop {
-            match self.current_token {
-                Token::Eof => break,
-                Token::Semicolon => {
-                    self.advance().unwrap();
+        if self.previous_token == Token::Semicolon {
+            warn!("Error recovery is continuing without skipping tokens");
 
-                    break;
-                }
-                _ => {
-                    if let Err(err) = self.advance() {
-                        error!("{err}");
-                    }
-                }
+            return;
+        }
+
+        while !matches!(self.current_token, Token::Semicolon | Token::Eof) {
+            if let Err(err) = self.advance() {
+                error!("{err}");
             }
+        }
+
+        warn!(
+            "Error recovery has skipped to {} at {}",
+            self.current_token, self.current_position
+        );
+
+        if self.current_token == Token::Semicolon {
+            let _ = self.advance();
         }
     }
 
@@ -174,7 +188,7 @@ impl<'src> Parser<'src> {
         if self.current_token != expected {
             return Err(ParseError::ExpectedToken {
                 expected,
-                found: self.current_token,
+                actual: self.current_token,
                 position: self.current_position,
             });
         }
@@ -188,7 +202,7 @@ impl<'src> Parser<'src> {
         if self.current_token != expected {
             return Err(ParseError::ExpectedToken {
                 expected,
-                found: self.current_token,
+                actual: self.current_token,
                 position: self.current_position,
             });
         }
@@ -209,11 +223,11 @@ impl<'src> Parser<'src> {
 
         match self.syntax_tree.last_node() {
             Some(node) if !node.kind.is_expression() => Err(ParseError::ExpectedExpression {
-                found: node.kind,
-                position: self.current_position,
+                actual: node.kind,
+                position: node.span,
             }),
             None => Err(ParseError::UnexpectedToken {
-                found: self.current_token,
+                actual: self.current_token,
                 position: self.current_position,
             }),
             _ => Ok(()),
@@ -225,11 +239,11 @@ impl<'src> Parser<'src> {
 
         match self.syntax_tree.last_node() {
             Some(node) if !node.kind.is_expression() => Err(ParseError::ExpectedExpression {
-                found: node.kind,
+                actual: node.kind,
                 position: self.current_position,
             }),
             None => Err(ParseError::UnexpectedToken {
-                found: self.current_token,
+                actual: self.current_token,
                 position: self.current_position,
             }),
             _ => Ok(()),
@@ -238,7 +252,7 @@ impl<'src> Parser<'src> {
 
     fn parse_unexpected(&mut self) -> Result<(), ParseError> {
         Err(ParseError::UnexpectedToken {
-            found: self.current_token,
+            actual: self.current_token,
             position: self.current_position,
         })
     }
@@ -387,7 +401,7 @@ impl<'src> Parser<'src> {
                         Token::Slash,
                         Token::Percent,
                     ],
-                    found: self.current_token,
+                    actual: self.current_token,
                     position: self.current_position,
                 });
             }
@@ -420,7 +434,24 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_grouped(&mut self) -> Result<(), ParseError> {
-        todo!()
+        let start = self.current_position.0;
+
+        self.advance()?;
+        self.parse_expression()?;
+        self.expect(Token::RightParenthesis)?;
+
+        let end = self.previous_position.1;
+        let expression_index = self.syntax_tree.node_count() - 1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::GroupedExpression,
+            span: Span(start, end),
+            child: expression_index,
+            payload: 0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_function(&mut self) -> Result<(), ParseError> {
@@ -491,7 +522,7 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let Some(last_node_kind) = self.syntax_tree.last_node().map(|node| node.kind) else {
             return Err(ParseError::UnexpectedToken {
-                found: self.current_token,
+                actual: self.current_token,
                 position: self.current_position,
             });
         };
@@ -520,21 +551,21 @@ pub enum ParseError {
         identifier_position: Span,
     },
     ExpectedExpression {
-        found: SyntaxKind,
+        actual: SyntaxKind,
         position: Span,
     },
     ExpectedToken {
+        actual: Token,
         expected: Token,
-        found: Token,
         position: Span,
     },
     ExpectedMultipleTokens {
+        actual: Token,
         expected: Vec<Token>,
-        found: Token,
         position: Span,
     },
     UnexpectedToken {
-        found: Token,
+        actual: Token,
         position: Span,
     },
     LexError {
@@ -557,34 +588,112 @@ impl Display for ParseError {
                     "Duplicate local at index {local_index} at {identifier_position}"
                 )
             }
-            ParseError::ExpectedExpression { found, position } => {
+            ParseError::ExpectedExpression {
+                actual: found,
+                position,
+            } => {
                 write!(f, "Expected expression, found {found} at {position}")
             }
             ParseError::ExpectedToken {
+                actual,
                 expected,
-                found,
-                position,
-            } => {
-                write!(f, "Expected token {expected}, found {found} at {position}")
-            }
-            ParseError::ExpectedMultipleTokens {
-                expected,
-                found,
                 position,
             } => {
                 write!(
                     f,
-                    "Expected one of {:?}, found {found} at {position}",
-                    expected
+                    "Found '{expected}' at {position} but expected '{actual}'",
                 )
             }
-            ParseError::UnexpectedToken { found, position } => {
+            ParseError::ExpectedMultipleTokens {
+                expected,
+                actual,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Found \"{actual}\" at {position} but expected one of the following: ",
+                )?;
+
+                for (i, expected_token) in expected.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    } else if i == expected.len() - 1 {
+                        write!(f, "or ")?;
+                    }
+
+                    write!(f, "\"{expected_token}\"")?;
+                }
+
+                write!(f, ".")
+            }
+            ParseError::UnexpectedToken {
+                actual: found,
+                position,
+            } => {
                 write!(f, "Unexpected token {found} at {position}")
             }
             ParseError::LexError { error } => write!(f, "{error}"),
             ParseError::UndeclaredVariable { position } => {
                 write!(f, "Undeclared variable at {position}")
             }
+        }
+    }
+}
+
+impl AnnotatedError for ParseError {
+    fn annotated_error(&self) -> ErrorMessage {
+        let title = "Parsing Error";
+
+        match self {
+            ParseError::DuplicateLocal {
+                identifier_position,
+                ..
+            } => ErrorMessage {
+                title,
+                description: "Duplicate variable declaration",
+                detail_snippets: vec![(
+                    "This variable already exists in this scope.".to_string(),
+                    *identifier_position,
+                )],
+                help_snippet: None,
+            },
+            ParseError::ExpectedExpression {
+                actual: found,
+                position,
+            } => ErrorMessage {
+                title,
+                description: "Expected an expression",
+                detail_snippets: vec![(
+                    format!("This is a {found}, which cannot be used here."),
+                    *position,
+                )],
+                help_snippet: None,
+            },
+            ParseError::ExpectedToken { position, .. } => ErrorMessage {
+                title,
+                description: "Expected a specific token",
+                detail_snippets: vec![(self.to_string(), *position)],
+                help_snippet: None,
+            },
+            ParseError::ExpectedMultipleTokens { position, .. } => ErrorMessage {
+                title: "Expected Multiple Tokens",
+                description: "Expected one of several tokens",
+                detail_snippets: vec![(self.to_string(), *position)],
+                help_snippet: None,
+            },
+            ParseError::UnexpectedToken { position, .. } => ErrorMessage {
+                title: "Unexpected Token",
+                description: "Unexpected token",
+                detail_snippets: vec![("Found here".to_string(), *position)],
+                help_snippet: None,
+            },
+            ParseError::LexError { error } => error.annotated_error(),
+            ParseError::UndeclaredVariable { position } => ErrorMessage {
+                title: "Undeclared Variable",
+                description: "Variable used before declaration",
+                detail_snippets: vec![("Variable used here".to_string(), *position)],
+                help_snippet: None,
+            },
         }
     }
 }

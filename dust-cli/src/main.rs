@@ -319,10 +319,16 @@ fn main() {
         }
 
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let syntax_tree = parse(&source);
+        let (syntax_tree, error) = parse(&source);
 
         println!("{syntax_tree:#?}");
         println!("{}", syntax_tree.display_node_tree());
+
+        if let Some(error) = error
+            && !no_output
+        {
+            eprintln!("{}", error.report());
+        }
 
         return;
     }
@@ -349,9 +355,10 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let chunk = compile(&source).unwrap();
-
-        println!("{chunk:#?}");
+        match compile(&source) {
+            Ok(chunk) => println!("{chunk:#?}"),
+            Err(error) => eprintln!("{}", error.report()),
+        }
 
         // let dust_program = match compiler.compile_program(source_name, &source, !no_std) {
         //     Ok(dust_crate) => dust_crate,

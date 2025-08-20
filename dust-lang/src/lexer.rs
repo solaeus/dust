@@ -7,7 +7,10 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Span, Token};
+use crate::{
+    Span, Token,
+    dust_error::{AnnotatedError, ErrorMessage},
+};
 
 /// Lexes the input and returns a vector of tokens and their positions.
 ///
@@ -152,13 +155,21 @@ impl<'src> Lexer<'src> {
                     (Some('0'..='9' | 'A'..='f'), erroneous) => {
                         self.advance();
 
-                        return Err(LexError::ExpectedAsciiHexDigit {
+                        return Err(LexError::ExpectedMultipleCharacters {
+                            expected: &[
+                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
+                                'D', 'E', 'F',
+                            ],
                             actual: erroneous,
-                            position: self.position,
+                            position: self.position + 1,
                         });
                     }
                     (erroneous, _) => {
-                        return Err(LexError::ExpectedAsciiHexDigit {
+                        return Err(LexError::ExpectedMultipleCharacters {
+                            expected: &[
+                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
+                                'D', 'E', 'F',
+                            ],
                             actual: erroneous,
                             position: self.position,
                         });
@@ -299,7 +310,7 @@ impl<'src> Lexer<'src> {
         } else {
             return Err(LexError::ExpectedCharacter {
                 expected: '\'',
-                actual: self.peek_char().unwrap_or('\0'),
+                actual: self.peek_char(),
                 position: self.position,
             });
         }
@@ -356,7 +367,7 @@ impl<'src> Lexer<'src> {
         Ok((Token::Minus, Span::new(start_position, self.position)))
     }
 
-    fn lex_star(&mut self) -> Result<(Token, Span), LexError> {
+    fn lex_asterisk(&mut self) -> Result<(Token, Span), LexError> {
         let start_position = self.position;
 
         self.advance();
@@ -402,7 +413,7 @@ impl<'src> Lexer<'src> {
     }
 
     fn lex_unexpected(&mut self) -> Result<(Token, Span), LexError> {
-        Err(LexError::UnexpectedCharacter {
+        Err(LexError::UnsupportedCharacter {
             actual: self.peek_char().unwrap_or('\0'),
             position: self.position,
         })
@@ -481,12 +492,9 @@ impl<'src> Lexer<'src> {
                     Span::new(start_position, self.position),
                 ))
             }
-            None => Err(LexError::UnexpectedEndOfFile {
-                position: self.position,
-            }),
             _ => Err(LexError::ExpectedCharacter {
                 expected: '&',
-                actual: self.peek_char().unwrap(),
+                actual: self.peek_char(),
                 position: self.position,
             }),
         }
@@ -503,14 +511,10 @@ impl<'src> Lexer<'src> {
             self.advance();
 
             Ok((Token::DoublePipe, Span::new(start_position, self.position)))
-        } else if peek_char.is_none() {
-            Err(LexError::UnexpectedEndOfFile {
-                position: self.position,
-            })
         } else {
             Err(LexError::ExpectedCharacter {
                 expected: '|',
-                actual: self.peek_char().unwrap(),
+                actual: self.peek_char(),
                 position: self.position,
             })
         }
@@ -643,7 +647,7 @@ impl From<&char> for LexRule<'_> {
                 lex_logic: Lexer::lex_minus,
             },
             '*' => LexRule {
-                lex_logic: Lexer::lex_star,
+                lex_logic: Lexer::lex_asterisk,
             },
             '/' => LexRule {
                 lex_logic: Lexer::lex_slash,
@@ -708,25 +712,18 @@ impl From<&char> for LexRule<'_> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    ExpectedAsciiHexDigit {
+    ExpectedCharacter {
+        expected: char,
         actual: Option<char>,
         position: usize,
     },
-    ExpectedCharacter {
-        expected: char,
-        actual: char,
-        position: usize,
-    },
-    ExpectedCharacterMultiple {
+    ExpectedMultipleCharacters {
         expected: &'static [char],
-        actual: char,
+        actual: Option<char>,
         position: usize,
     },
-    UnexpectedCharacter {
+    UnsupportedCharacter {
         actual: char,
-        position: usize,
-    },
-    UnexpectedEndOfFile {
         position: usize,
     },
 }
@@ -734,13 +731,6 @@ pub enum LexError {
 impl Display for LexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LexError::ExpectedAsciiHexDigit { actual, position } => {
-                write!(
-                    f,
-                    "Expected an ASCII hex digit at position {}: found '{:?}'",
-                    position, actual
-                )
-            }
             LexError::ExpectedCharacter {
                 expected,
                 actual,
@@ -748,97 +738,83 @@ impl Display for LexError {
             } => {
                 write!(
                     f,
-                    "Expected character '{}' at position {}: found '{}'",
-                    expected, position, actual
+                    "Found '{expected}' at {position} but expected '{}'",
+                    actual
+                        .map(|char| char.to_string())
+                        .unwrap_or_else(|| "EOF".to_string())
                 )
             }
-            LexError::ExpectedCharacterMultiple {
+            LexError::ExpectedMultipleCharacters {
                 expected,
                 actual,
                 position,
             } => {
                 write!(
                     f,
-                    "Expected one of '{:?}' at position {}: found '{}'",
-                    expected, position, actual
-                )
+                    "Found \"{}\" at {position} but expected one of the following: ",
+                    actual
+                        .map(|char| char.to_string())
+                        .unwrap_or_else(|| "EOF".to_string())
+                )?;
+
+                for (i, expected) in expected.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "\"{expected}\"")?;
+                }
+
+                write!(f, ".")
             }
-            LexError::UnexpectedCharacter { actual, position } => {
-                write!(
-                    f,
-                    "Unexpected character '{}' at position {}",
-                    actual, position
-                )
-            }
-            LexError::UnexpectedEndOfFile { position } => {
-                write!(f, "Unexpected end of file at position {}", position)
+            LexError::UnsupportedCharacter { actual, position } => {
+                write!(f, "Unexpected character \"{actual}\" at {position}",)
             }
         }
     }
 }
 
-// impl AnnotatedError for LexError {
-//     fn annotated_error(&self) -> ErrorMessage {
-//         let title = "Lexing Error";
-//         let (description, detail_snippets, help_snippet) = match self {
-//             LexError::ExpectedAsciiHexDigit { actual, position } => (
-//                 "Expected an ASCII hex digit",
-//                 vec![(
-//                     format!("Expected an ASCII hex digit, found '{actual:?}'"),
-//                     Span(*position, *position + 1),
-//                 )],
-//                 None,
-//             ),
-//             LexError::ExpectedCharacter {
-//                 expected,
-//                 actual,
-//                 position,
-//             } => (
-//                 "Expected a character",
-//                 vec![(
-//                     format!("Expected '{expected}', found '{actual}'"),
-//                     Span(*position, *position + 1),
-//                 )],
-//                 None,
-//             ),
-//             LexError::ExpectedCharacterMultiple {
-//                 expected,
-//                 actual,
-//                 position,
-//             } => (
-//                 "Expected a character",
-//                 vec![(
-//                     format!("Expected one of '{expected:?}', found '{actual}'"),
-//                     Span(*position, *position + 1),
-//                 )],
-//                 None,
-//             ),
-//             LexError::UnexpectedCharacter { actual, position } => (
-//                 "Unexpected character",
-//                 vec![(
-//                     format!("Unexpected character '{actual}'"),
-//                     Span(*position, *position + 1),
-//                 )],
-//                 None,
-//             ),
-//             LexError::UnexpectedEndOfFile { position } => (
-//                 "Unexpected end of file",
-//                 vec![(
-//                     "Unexpected end of file".to_string(),
-//                     Span(*position, *position),
-//                 )],
-//                 None,
-//             ),
-//         };
+impl AnnotatedError for LexError {
+    fn annotated_error(&self) -> ErrorMessage {
+        let title = "Lexing Error";
 
-//         ErrorMessage {
-//             title,
-//             description,
-//             detail_snippets,
-//             help_snippet,
-//         }
-//     }
-// }
+        match self {
+            LexError::ExpectedCharacter {
+                position,
+                ..
+            } => ErrorMessage {
+                title,
+                description: "Expected a specific character",
+                detail_snippets: vec![(
+                    self.to_string(),
+                    Span::new(*position, *position + 1),
+                )],
+                help_snippet: None,
+            },
+            LexError::ExpectedMultipleCharacters {
+                position,
+                ..
+            } => ErrorMessage {
+                title,
+                description: "Expected one of several characters",
+                detail_snippets: vec![(
+                    self.to_string(),
+                    Span::new(*position, *position + 1),
+                )],
+                help_snippet: None,
+            },
+            LexError::UnsupportedCharacter {  position, .. } => ErrorMessage {
+                title,
+                description: "Unexpected character",
+                detail_snippets: vec![(
+                    self.to_string(),
+                    Span::new(*position, *position + 1),
+                )],
+                help_snippet: Some("This character is not supported by Dust and cannot be used in the source code.".to_string()),
+            },
+        }
+    }
+}
 
 // #[cfg(test)]
 // mod tests {

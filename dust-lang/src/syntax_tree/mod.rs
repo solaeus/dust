@@ -176,6 +176,31 @@ impl SyntaxTree {
                 self.display_node(left, depth + 1, output);
                 self.display_node(right, depth + 1, output);
             }
+            SyntaxKind::DivisionExpression => {
+                let left = self.nodes[node.child as usize];
+                let right = self.nodes[node.payload as usize];
+                let node_display = format!("{}{} / {}", indent, left.kind, right.kind);
+
+                output.push_str(&node_display);
+                self.display_node(left, depth + 1, output);
+                self.display_node(right, depth + 1, output);
+            }
+            SyntaxKind::ModuloExpression => {
+                let left = self.nodes[node.child as usize];
+                let right = self.nodes[node.payload as usize];
+                let node_display = format!("{}{} % {}", indent, left.kind, right.kind);
+
+                output.push_str(&node_display);
+                self.display_node(left, depth + 1, output);
+                self.display_node(right, depth + 1, output);
+            }
+            SyntaxKind::GroupedExpression => {
+                let expression = self.nodes[node.child as usize];
+                let node_display = format!("{}({})", indent, expression.kind);
+
+                output.push_str(&node_display);
+                self.display_node(expression, depth + 1, output);
+            }
             _ => {
                 output.push_str(&indent);
                 output.push_str("<todo>")
