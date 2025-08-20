@@ -15,42 +15,48 @@
 
 pub mod chunk;
 pub mod compiler;
-pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
-pub mod jit_vm;
+// pub mod jit_vm;
 pub mod lexer;
-pub mod module;
 pub mod native_function;
+pub mod parser;
 pub mod program;
+pub mod span;
+pub mod syntax_tree;
 pub mod token;
 pub mod r#type;
 pub mod value;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 pub use chunk::{Chunk, Disassembler, TuiDisassembler};
-pub use compiler::{CompileError, Compiler, Global, Item, Local, Path, Scope, compile};
-pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
+pub use compiler::{CompileError, Compiler, compile};
+// pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
-pub use jit_vm::{
-    Cell, JIT_ERROR_TEXT, JitCompiler, JitError, JitLogic, JitVm, Object, Register, Thread,
-    ThreadResult, run,
-};
-pub use lexer::{LexError, Lexer, lex};
-pub use module::Module;
+// pub use jit_vm::{
+//     Cell,
+//     JIT_ERROR_TEXT,
+//     JitCompiler,
+//     JitError,
+//     JitLogic,
+//     JitVm,
+//     Object,
+//     Register,
+//     Thread,
+//     ThreadResult,
+//     // run,
+// };
+pub use lexer::{LexError, Lexer};
 pub use native_function::NativeFunction;
 pub use program::Program;
-pub use token::{Token, TokenKind, TokenOwned};
+pub use span::Span;
+pub use token::Token;
 pub use r#type::{FunctionType, Type, TypeConflict};
 pub use value::{List, Value};
-
-use std::fmt::Display;
-
-use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "global-mimalloc")]
 mod allocator {
@@ -58,15 +64,4 @@ mod allocator {
 
     #[global_allocator]
     static GLOBAL: MiMalloc = MiMalloc;
-}
-
-#[derive(
-    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-pub struct Span(pub usize, pub usize);
-
-impl Display for Span {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.0, self.1)
-    }
 }

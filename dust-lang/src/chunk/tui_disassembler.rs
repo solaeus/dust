@@ -102,15 +102,15 @@ impl<'a> TuiDisassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(prototype_area, buffer);
 
-        Paragraph::new(format!(
-            "{} instructions, {} constants, {} locals",
-            chunk.instructions.len(),
-            chunk.constants.len(),
-            chunk.locals.len(),
-        ))
-        .centered()
-        .wrap(Wrap { trim: true })
-        .render(info_area, buffer);
+        // Paragraph::new(format!(
+        //     "{} instructions, {} constants, {} locals",
+        //     chunk.instructions.len(),
+        //     chunk.constants.len(),
+        //     chunk.locals.len(),
+        // ))
+        // .centered()
+        // .wrap(Wrap { trim: true })
+        // .render(info_area, buffer);
 
         Paragraph::new(format!("{}", chunk.r#type))
             .centered()

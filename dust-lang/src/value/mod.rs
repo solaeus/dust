@@ -2,7 +2,7 @@ mod list;
 
 use std::{
     cmp::Ordering,
-    fmt::{self, Formatter},
+    fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
 };
 
@@ -21,7 +21,7 @@ pub enum Value {
     Integer(i64),
     String(String),
     List(List),
-    Function(usize),
+    Function(Box<Chunk>),
 }
 
 impl Value {
@@ -145,13 +145,13 @@ impl Value {
         }
     }
 
-    pub fn function(prototype_index: usize) -> Self {
-        Value::Function(prototype_index)
+    pub fn function(chunk: Chunk) -> Self {
+        Value::Function(Box::new(chunk))
     }
 
-    pub fn as_function(&self) -> Option<usize> {
-        if let Value::Function(index) = self {
-            Some(*index)
+    pub fn as_function(&self) -> Option<&Chunk> {
+        if let Value::Function(chunk) = self {
+            Some(chunk)
         } else {
             None
         }
@@ -169,23 +169,19 @@ impl Value {
             Value::Function(_) => OperandType::FUNCTION,
         }
     }
+}
 
-    pub fn display(&self, f: &mut Formatter, prototypes: &[Chunk]) -> fmt::Result {
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
-            Value::Byte(byte) => write!(f, "{byte:#04X}"),
+            Value::Byte(byte) => write!(f, "{byte}"),
             Value::Character(character) => write!(f, "{character}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
-            Value::String(string) => write!(f, "{string}"),
-            Value::List(list) => list.display(f, prototypes),
-            Value::Function(function) => {
-                if let Some(chunk) = prototypes.get(*function) {
-                    write!(f, "{}", chunk.r#type)
-                } else {
-                    write!(f, "<unknown>")
-                }
-            }
+            Value::String(string) => write!(f, "{string}",),
+            Value::List(list) => write!(f, "{list}"),
+            Value::Function(chunk) => write!(f, "{chunk}"),
         }
     }
 }

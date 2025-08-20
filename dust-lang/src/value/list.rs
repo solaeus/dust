@@ -1,12 +1,12 @@
 use std::{
     cmp::Ordering,
-    fmt::{self, Formatter},
+    fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{OperandType, chunk::Chunk};
+use crate::OperandType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
@@ -125,8 +125,10 @@ impl List {
             }
         }
     }
+}
 
-    pub fn display(&self, f: &mut Formatter, prototypes: &[Chunk]) -> fmt::Result {
+impl Display for List {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "list(")?;
 
         match self {
@@ -190,20 +192,16 @@ impl List {
                         write!(f, ", ")?;
                     }
 
-                    list.display(f, prototypes)?;
+                    write!(f, "{list}")?;
                 }
             }
             List::Function(functions) => {
-                for (index, function_index) in functions.iter().enumerate() {
+                for (index, chunk) in functions.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
 
-                    if let Some(chunk) = prototypes.get(*function_index) {
-                        write!(f, "{}", chunk.r#type)?;
-                    } else {
-                        write!(f, "<unknown>")?;
-                    }
+                    write!(f, "{chunk}")?;
                 }
             }
         }

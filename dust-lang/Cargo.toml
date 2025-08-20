@@ -30,17 +30,17 @@ ratatui = "0.29.0"
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
 
-[[bench]]
-name = "addictive_addition"
-harness = false
+# [[bench]]
+# name = "addictive_addition"
+# harness = false
 
-[[bench]]
-name = "addictive_calling"
-harness = false
+# [[bench]]
+# name = "addictive_calling"
+# harness = false
 
-[[bench]]
-name = "compile"
-harness = false
+# [[bench]]
+# name = "compile"
+# harness = false
 
 # [[bench]]
 # name = "fibonacci"

@@ -44,7 +44,7 @@ use std::{
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Address, Chunk, Local, Program};
+use crate::{Address, Chunk, Program};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 13), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -276,56 +276,56 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_local_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
-        let mut column_name_line = String::new();
+    // fn write_local_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    //     let mut column_name_line = String::new();
 
-        for (column_name, width) in LOCAL_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}"));
-        }
+    //     for (column_name, width) in LOCAL_COLUMNS {
+    //         column_name_line.push_str(&format!("│{column_name:^width$}"));
+    //     }
 
-        column_name_line.push('│');
-        self.write_center_border_bold("Locals")?;
-        self.write_center_border(LOCAL_BORDERS[0])?;
-        self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(LOCAL_BORDERS[1])?;
+    //     column_name_line.push('│');
+    //     self.write_center_border_bold("Locals")?;
+    //     self.write_center_border(LOCAL_BORDERS[0])?;
+    //     self.write_center_border_bold(&column_name_line)?;
+    //     self.write_center_border(LOCAL_BORDERS[1])?;
 
-        for (
-            index,
-            (
-                identifier,
-                Local {
-                    address,
-                    r#type,
-                    scope,
-                    is_mutable,
-                },
-            ),
-        ) in chunk.locals.iter().enumerate()
-        {
-            let identifier = {
-                let mut identifier = identifier.to_string();
-                let identifier_length = identifier.chars().count();
+    //     for (
+    //         index,
+    //         (
+    //             identifier,
+    //             Local {
+    //                 address,
+    //                 r#type,
+    //                 scope,
+    //                 is_mutable,
+    //             },
+    //         ),
+    //     ) in chunk.locals.iter().enumerate()
+    //     {
+    //         let identifier = {
+    //             let mut identifier = identifier.to_string();
+    //             let identifier_length = identifier.chars().count();
 
-                if identifier_length > 16 {
-                    identifier = format!("...{}", &identifier[identifier_length - 13..]);
-                }
+    //             if identifier_length > 16 {
+    //                 identifier = format!("...{}", &identifier[identifier_length - 13..]);
+    //             }
 
-                identifier
-            };
-            let address = address.to_string(r#type.as_operand_type());
-            let r#type = r#type.to_string();
-            let scope = scope.to_string();
-            let row = format!(
-                "│{index:^5}│{identifier:^16}│{type:^26}│{address:^12}│{scope:^7}│{is_mutable:^7}│"
-            );
+    //             identifier
+    //         };
+    //         let address = address.to_string(r#type.as_operand_type());
+    //         let r#type = r#type.to_string();
+    //         let scope = scope.to_string();
+    //         let row = format!(
+    //             "│{index:^5}│{identifier:^16}│{type:^26}│{address:^12}│{scope:^7}│{is_mutable:^7}│"
+    //         );
 
-            self.write_center_border(&row)?;
-        }
+    //         self.write_center_border(&row)?;
+    //     }
 
-        self.write_center_border(LOCAL_BORDERS[2])?;
+    //     self.write_center_border(LOCAL_BORDERS[2])?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     fn write_constant_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
@@ -344,12 +344,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             let r#type = value.operand_type();
             let type_display = r#type.to_string();
             let value_display = {
-                let mut value_string = String::new();
-
-                let _ = value.display(
-                    &mut Formatter::new(&mut value_string, FormattingOptions::default()),
-                    &self.program.prototypes,
-                );
+                let mut value_string = value.to_string();
 
                 if value_string.chars().count() > 26 {
                     value_string = format!("{value_string:.23}...");
@@ -369,63 +364,63 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_argument_lists_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
-        let mut column_name_line = String::new();
+    // fn write_argument_lists_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    //     let mut column_name_line = String::new();
 
-        for (column_name, width) in ARGUMENT_LIST_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}"));
-        }
+    //     for (column_name, width) in ARGUMENT_LIST_COLUMNS {
+    //         column_name_line.push_str(&format!("│{column_name:^width$}"));
+    //     }
 
-        column_name_line.push('│');
-        self.write_center_border_bold("Argument Lists")?;
-        self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
-        self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
+    //     column_name_line.push('│');
+    //     self.write_center_border_bold("Argument Lists")?;
+    //     self.write_center_border(ARGUMENT_LIST_BORDERS[0])?;
+    //     self.write_center_border_bold(&column_name_line)?;
+    //     self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        for (index, addresses) in chunk.call_argument_lists.iter().enumerate() {
-            let arguments_display = addresses
-                .iter()
-                .map(|(address, r#type)| format!("({}: {type})", address.to_string(*r#type)))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let row = format!("│{index:^5}│{arguments_display:^46}│");
+    //     for (index, addresses) in chunk.call_argument_lists.iter().enumerate() {
+    //         let arguments_display = addresses
+    //             .iter()
+    //             .map(|(address, r#type)| format!("({}: {type})", address.to_string(*r#type)))
+    //             .collect::<Vec<_>>()
+    //             .join(", ");
+    //         let row = format!("│{index:^5}│{arguments_display:^46}│");
 
-            self.write_center_border(&row)?;
-        }
+    //         self.write_center_border(&row)?;
+    //     }
 
-        self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
+    //     self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
-        let mut column_name_line = String::new();
+    // fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    //     let mut column_name_line = String::new();
 
-        for (column_name, width) in DROP_LIST_COLUMNS {
-            column_name_line.push_str(&format!("│{column_name:^width$}"));
-        }
+    //     for (column_name, width) in DROP_LIST_COLUMNS {
+    //         column_name_line.push_str(&format!("│{column_name:^width$}"));
+    //     }
 
-        column_name_line.push('│');
-        self.write_center_border_bold("Drop Lists")?;
-        self.write_center_border(DROP_LIST_BORDERS[0])?;
-        self.write_center_border_bold(&column_name_line)?;
-        self.write_center_border(DROP_LIST_BORDERS[1])?;
+    //     column_name_line.push('│');
+    //     self.write_center_border_bold("Drop Lists")?;
+    //     self.write_center_border(DROP_LIST_BORDERS[0])?;
+    //     self.write_center_border_bold(&column_name_line)?;
+    //     self.write_center_border(DROP_LIST_BORDERS[1])?;
 
-        for (index, drop_list) in chunk.drop_lists.iter().enumerate() {
-            let registers_display = drop_list
-                .iter()
-                .map(|index| format!("reg_{index}"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let row = format!("│{index:^5}│{registers_display:^46}│");
+    //     for (index, drop_list) in chunk.drop_lists.iter().enumerate() {
+    //         let registers_display = drop_list
+    //             .iter()
+    //             .map(|index| format!("reg_{index}"))
+    //             .collect::<Vec<_>>()
+    //             .join(", ");
+    //         let row = format!("│{index:^5}│{registers_display:^46}│");
 
-            self.write_center_border(&row)?;
-        }
+    //         self.write_center_border(&row)?;
+    //     }
 
-        self.write_center_border(DROP_LIST_BORDERS[2])?;
+    //     self.write_center_border(DROP_LIST_BORDERS[2])?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.disassemble_chunk(&self.program.main_chunk)?;
@@ -463,36 +458,36 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             self.write_center_border("")?;
         }
 
-        let info_line = format!(
-            "{} instructions, {} constants, {} locals, returns {}",
-            chunk.instructions.len(),
-            chunk.constants.len(),
-            chunk.locals.len(),
-            chunk.r#type.return_type
-        );
+        // let info_line = format!(
+        //     "{} instructions, {} constants, {} locals, returns {}",
+        //     chunk.instructions.len(),
+        //     chunk.constants.len(),
+        //     // chunk.locals.len(),
+        //     chunk.r#type.return_type
+        // );
 
-        self.write_center_border_dim(&info_line)?;
+        // self.write_center_border_dim(&info_line)?;
         self.write_center_border("")?;
 
         if !chunk.instructions.is_empty() {
             self.write_instruction_section(chunk)?;
         }
 
-        if !chunk.locals.is_empty() {
-            self.write_local_section(chunk)?;
-        }
+        // if !chunk.locals.is_empty() {
+        //     self.write_local_section(chunk)?;
+        // }
 
         if !chunk.constants.is_empty() {
             self.write_constant_section(chunk)?;
         }
 
-        if !chunk.call_argument_lists.is_empty() {
-            self.write_argument_lists_section(chunk)?;
-        }
+        // if !chunk.call_argument_lists.is_empty() {
+        //     self.write_argument_lists_section(chunk)?;
+        // }
 
-        if !chunk.drop_lists.is_empty() {
-            self.write_drop_list_section(chunk)?;
-        }
+        // if !chunk.drop_lists.is_empty() {
+        //     self.write_drop_list_section(chunk)?;
+        // }
 
         self.write_page_border(BOTTOM_BORDER)
     }

@@ -1,33 +1,33 @@
-use std::{hint::black_box, time::Duration};
+// use std::{hint::black_box, time::Duration};
 
-use criterion::{Criterion, criterion_group, criterion_main};
-use dust_lang::run;
+// use criterion::{Criterion, criterion_group, criterion_main};
+// use dust_lang::run;
 
-const SOURCE: &str = r"
-    fn fib (n: int) -> int {
-        if n <= 0 {
-            0
-        } else if n == 1 {
-            1
-        } else {
-            fib(n - 1) + fib(n - 2)
-        }
-    }
+// const SOURCE: &str = r"
+//     fn fib (n: int) -> int {
+//         if n <= 0 {
+//             0
+//         } else if n == 1 {
+//             1
+//         } else {
+//             fib(n - 1) + fib(n - 2)
+//         }
+//     }
 
-    fib(25)
-";
+//     fib(25)
+// ";
 
-fn fibonacci(source: &str) {
-    run(source, false).unwrap();
-}
+// fn fibonacci(source: &str) {
+//     run(source, false).unwrap();
+// }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("fibonacci");
+// fn criterion_benchmark(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("fibonacci");
 
-    group.measurement_time(Duration::from_secs(15));
-    group.bench_function("fibonacci", |b| b.iter(|| fibonacci(black_box(SOURCE))));
-    group.finish();
-}
+//     group.measurement_time(Duration::from_secs(15));
+//     group.bench_function("fibonacci", |b| b.iter(|| fibonacci(black_box(SOURCE))));
+//     group.finish();
+// }
 
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+// criterion_group!(benches, criterion_benchmark);
+// criterion_main!(benches);

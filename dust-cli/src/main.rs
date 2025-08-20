@@ -15,10 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{
-    CompileError, Compiler, Disassembler, DustError, JitVm, TuiDisassembler,
-    jit_vm::{MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
-};
+use dust_lang::{Disassembler, TuiDisassembler, compile, parser::parse};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -47,21 +44,6 @@ struct Cli {
 
     #[command(flatten)]
     run_options: RunOptions,
-}
-
-#[derive(Args)]
-#[group(required = false, multiple = false)]
-pub struct Source {
-    /// Source code to run instead of a file
-    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
-    eval: Option<String>,
-
-    /// Read source code from stdin
-    #[arg(long)]
-    stdin: bool,
-
-    /// Path to a source code file
-    file: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -95,8 +77,32 @@ struct SharedOptions {
     source: Source,
 }
 
+impl SharedOptions {
+    fn intersect(self, other: Self) -> Self {
+        Self {
+            log: self.log.or(other.log),
+            pretty_log: self.pretty_log || other.pretty_log,
+            time: self.time || other.time,
+            no_output: self.no_output || other.no_output,
+            no_std: self.no_std || other.no_std,
+            name: self.name.or(other.name),
+            source: Source {
+                eval: self.source.eval.or(other.source.eval),
+                stdin: self.source.stdin || other.source.stdin,
+                file: self.source.file.or(other.source.file),
+            },
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Mode {
+    #[command(alias = "p")]
+    Parse {
+        #[command(flatten)]
+        shared_options: SharedOptions,
+    },
+
     /// Compile and run the program (default)
     #[command(alias = "r")]
     Run(RunOptions),
@@ -105,7 +111,7 @@ enum Mode {
     #[command(alias = "c")]
     Compile {
         #[command(flatten)]
-        options: SharedOptions,
+        shared_options: SharedOptions,
 
         /// Defaults to "dust", which is the disassembly output
         #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
@@ -124,7 +130,7 @@ enum Mode {
 #[derive(Args)]
 struct RunOptions {
     #[command(flatten)]
-    options: SharedOptions,
+    shared_options: SharedOptions,
 
     /// Input format
     #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
@@ -139,7 +145,37 @@ struct RunOptions {
     min_sweep: Option<usize>,
 }
 
-#[derive(ValueEnum, Clone, Copy)]
+impl RunOptions {
+    fn intersect(self, other: Self) -> Self {
+        Self {
+            shared_options: self.shared_options.intersect(other.shared_options),
+            input: if self.input != Format::Dust {
+                self.input
+            } else {
+                other.input
+            },
+            min_heap: self.min_heap.or(other.min_heap),
+            min_sweep: self.min_sweep.or(other.min_sweep),
+        }
+    }
+}
+
+#[derive(Args)]
+#[group(required = false, multiple = false)]
+pub struct Source {
+    /// Source code to run instead of a file
+    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
+    eval: Option<String>,
+
+    /// Read source code from stdin
+    #[arg(long)]
+    stdin: bool,
+
+    /// Path to a source code file
+    file: Option<PathBuf>,
+}
+
+#[derive(ValueEnum, Clone, Copy, PartialEq)]
 enum Format {
     Dust,
     Json,
@@ -150,16 +186,124 @@ enum Format {
 
 fn main() {
     let start_time = Instant::now();
-    let Cli { mode, run_options } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run(run_options));
+    let Cli {
+        mode,
+        run_options: options_before_command,
+    } = Cli::parse();
+    let mode = match mode {
+        Some(Mode::Run(run_mode_options)) => {
+            Mode::Run(options_before_command.intersect(run_mode_options))
+        }
+        Some(Mode::Parse { shared_options }) => Mode::Parse {
+            shared_options: options_before_command
+                .shared_options
+                .intersect(shared_options),
+        },
+        Some(Mode::Compile {
+            shared_options,
+            output,
+            style,
+        }) => Mode::Compile {
+            shared_options: options_before_command
+                .shared_options
+                .intersect(shared_options),
+            output,
+            style,
+        },
+        Some(Mode::Tokenize) => Mode::Tokenize,
+        None => Mode::Run(options_before_command),
+    };
 
-    if let Mode::Run(RunOptions {
-        input,
-        min_heap,
-        min_sweep,
-        options,
-    }) = mode
-    {
+    // if let Mode::Run(RunOptions {
+    //     input,
+    //     min_heap,
+    //     min_sweep,
+    //     shared_options: options,
+    // }) = mode
+    // {
+    //     let SharedOptions {
+    //         log,
+    //         pretty_log,
+    //         time,
+    //         no_output,
+    //         no_std,
+    //         name,
+    //         source: Source { eval, stdin, file },
+    //     } = options;
+
+    //     if let Some(log_level) = log {
+    //         start_logging(log_level, pretty_log, start_time);
+    //     }
+
+    //     let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+    //     let source_name = source_name.as_deref();
+
+    //     let dust_program = match input {
+    //         Format::Dust => {
+    //             let compiler = Compiler::new();
+
+    //             match compiler.compile_program(source_name, &source, !no_std) {
+    //                 Ok(chunk) => chunk,
+    //                 Err(error) => {
+    //                     handle_compile_error(error, &source);
+
+    //                     return;
+    //                 }
+    //             }
+    //         }
+    //         Format::Json => {
+    //             serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
+    //         }
+    //         Format::Postcard => {
+    //             todo!()
+    //         }
+    //         Format::Ron => {
+    //             ron::de::from_str(&source).expect("Failed to deserialize RON into chunk")
+    //         }
+    //         Format::Yaml => {
+    //             serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
+    //         }
+    //     };
+    //     let compile_time = start_time.elapsed();
+    //     let prototypes = dust_program.prototypes.clone();
+    //     let vm = JitVm::new();
+    //     let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
+    //     let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
+    //     let run_result = vm.run(dust_program, min_heap, min_sweep);
+    //     let run_time = start_time.elapsed() - compile_time;
+
+    //     let return_value = match run_result {
+    //         Ok(value) => value,
+    //         Err(dust_error) => {
+    //             let report = dust_error.report();
+
+    //             if !no_output {
+    //                 eprintln!("{report}");
+    //             }
+
+    //             return;
+    //         }
+    //     };
+
+    //     if !no_output && let Some(return_value) = return_value {
+    //         let mut buffer = String::new();
+
+    //         let _ = return_value.display(
+    //             &mut Formatter::new(&mut buffer, FormattingOptions::default()),
+    //             &prototypes,
+    //         );
+
+    //         println!("{buffer}");
+    //     }
+
+    //     if time && !no_output {
+    //         print_times(&[(source_name, compile_time, Some(run_time))]);
+    //     }
+
+    //     return;
+    // }
+
+    if let Mode::Parse { shared_options } = mode {
         let SharedOptions {
             log,
             pretty_log,
@@ -168,82 +312,23 @@ fn main() {
             no_std,
             name,
             source: Source { eval, stdin, file },
-        } = options;
+        } = shared_options;
 
         if let Some(log_level) = log {
             start_logging(log_level, pretty_log, start_time);
         }
 
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref();
+        let syntax_tree = parse(&source);
 
-        let dust_program = match input {
-            Format::Dust => {
-                let compiler = Compiler::new();
-
-                match compiler.compile_program(source_name, &source, !no_std) {
-                    Ok(chunk) => chunk,
-                    Err(error) => {
-                        handle_compile_error(error, &source);
-
-                        return;
-                    }
-                }
-            }
-            Format::Json => {
-                serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
-            }
-            Format::Postcard => {
-                todo!()
-            }
-            Format::Ron => {
-                ron::de::from_str(&source).expect("Failed to deserialize RON into chunk")
-            }
-            Format::Yaml => {
-                serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
-            }
-        };
-        let compile_time = start_time.elapsed();
-        let prototypes = dust_program.prototypes.clone();
-        let vm = JitVm::new();
-        let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
-        let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
-        let run_result = vm.run(dust_program, min_heap, min_sweep);
-        let run_time = start_time.elapsed() - compile_time;
-
-        let return_value = match run_result {
-            Ok(value) => value,
-            Err(dust_error) => {
-                let report = dust_error.report();
-
-                if !no_output {
-                    eprintln!("{report}");
-                }
-
-                return;
-            }
-        };
-
-        if !no_output && let Some(return_value) = return_value {
-            let mut buffer = String::new();
-
-            let _ = return_value.display(
-                &mut Formatter::new(&mut buffer, FormattingOptions::default()),
-                &prototypes,
-            );
-
-            println!("{buffer}");
-        }
-
-        if time && !no_output {
-            print_times(&[(source_name, compile_time, Some(run_time))]);
-        }
+        println!("{syntax_tree:#?}");
+        println!("{}", syntax_tree.display_node_tree());
 
         return;
     }
 
     if let Mode::Compile {
-        options:
+        shared_options:
             SharedOptions {
                 log,
                 pretty_log,
@@ -264,62 +349,64 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
 
-        let compiler = Compiler::new();
+        let chunk = compile(&source).unwrap();
 
-        let dust_program = match compiler.compile_program(source_name, &source, !no_std) {
-            Ok(dust_crate) => dust_crate,
-            Err(error) => {
-                handle_compile_error(error, &source);
+        println!("{chunk:#?}");
 
-                return;
-            }
-        };
+        // let dust_program = match compiler.compile_program(source_name, &source, !no_std) {
+        //     Ok(dust_crate) => dust_crate,
+        //     Err(error) => {
+        //         todo!("Handle compile error: {error}");
+
+        //         return;
+        //     }
+        // };
         let compile_time = start_time.elapsed();
 
-        match output {
-            Format::Dust => {
-                let disassembler = TuiDisassembler::new(&dust_program, Some(&source));
+        // match output {
+        //     Format::Dust => {
+        //         let disassembler = TuiDisassembler::new(&dust_program, Some(&source));
 
-                disassembler
-                    .disassemble()
-                    .expect("Failed to display disassembly");
+        //         disassembler
+        //             .disassemble()
+        //             .expect("Failed to display disassembly");
 
-                // disassembler
-                //     .source(&source)
-                //     .style(style)
-                //     .show_type(true)
-                //     .disassemble()
-                //     .expect("Failed to write disassembly to stdout");
-            }
-            Format::Json => {
-                let json = serde_json::to_string_pretty(&dust_program)
-                    .expect("Failed to serialize chunk to JSON");
+        //         // disassembler
+        //         //     .source(&source)
+        //         //     .style(style)
+        //         //     .show_type(true)
+        //         //     .disassemble()
+        //         //     .expect("Failed to write disassembly to stdout");
+        //     }
+        //     Format::Json => {
+        //         let json = serde_json::to_string_pretty(&dust_program)
+        //             .expect("Failed to serialize chunk to JSON");
 
-                println!("{json}");
-            }
-            Format::Postcard => {
-                let mut buffer = Vec::new();
-                let postcard = postcard::to_slice_cobs(&dust_program, &mut buffer)
-                    .expect("Failed to serialize chunk to Postcard");
+        //         println!("{json}");
+        //     }
+        //     Format::Postcard => {
+        //         let mut buffer = Vec::new();
+        //         let postcard = postcard::to_slice_cobs(&dust_program, &mut buffer)
+        //             .expect("Failed to serialize chunk to Postcard");
 
-                println!("{postcard:?}");
-            }
-            Format::Ron => {
-                let ron = ron::ser::to_string_pretty(
-                    &dust_program,
-                    PrettyConfig::new().struct_names(true),
-                )
-                .expect("Failed to serialize chunk to RON");
+        //         println!("{postcard:?}");
+        //     }
+        //     Format::Ron => {
+        //         let ron = ron::ser::to_string_pretty(
+        //             &dust_program,
+        //             PrettyConfig::new().struct_names(true),
+        //         )
+        //         .expect("Failed to serialize chunk to RON");
 
-                println!("{ron}");
-            }
-            Format::Yaml => {
-                let yaml = serde_yaml::to_string(&dust_program)
-                    .expect("Failed to serialize chunk to YAML");
+        //         println!("{ron}");
+        //     }
+        //     Format::Yaml => {
+        //         let yaml = serde_yaml::to_string(&dust_program)
+        //             .expect("Failed to serialize chunk to YAML");
 
-                println!("{yaml}");
-            }
-        }
+        //         println!("{yaml}");
+        //     }
+        // }
 
         if time && !no_output {
             print_times(&[(source_name, compile_time, None)]);
@@ -552,12 +639,12 @@ fn print_times(times: &[(Option<&str>, Duration, Option<Duration>)]) {
     }
 }
 
-fn handle_compile_error(error: CompileError, source: &str) {
-    let dust_error = DustError::compile(error, source);
-    let report = dust_error.report();
+// fn handle_compile_error(error: CompileError, source: &str) {
+//     let dust_error = DustError::compile(error, source);
+//     let report = dust_error.report();
 
-    eprintln!("{report}");
-}
+//     eprintln!("{report}");
+// }
 
 #[cfg(test)]
 mod tests {
