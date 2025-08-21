@@ -1,60 +1,32 @@
-//! Lexing tools and errors
-//!
-//! This module provides two lexing options:
-//! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
-//! - [`Lexer`], which lexes the input a token at a time
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Span, Token,
-    dust_error::{AnnotatedError, ErrorMessage},
+    dust_error::{AnnotatedError, DustError, ErrorMessage},
 };
 
-/// Lexes the input and returns a vector of tokens and their positions.
-///
-/// # Examples
-/// ```
-/// # use dust_lang::*;
-/// let input = "x = 1 + 2";
-/// let tokens = lex(input).unwrap();
-///
-/// assert_eq!(
-///     tokens,
-///     [
-///         (Token::Identifier("x"), Span(0, 1)),
-///         (Token::Equal, Span(2, 3)),
-///         (Token::Integer("1"), Span(4, 5)),
-///         (Token::Plus, Span(6, 7)),
-///         (Token::Integer("2"), Span(8, 9)),
-///         (Token::Eof, Span(9, 9)),
-///     ]
-/// );
-/// ```
-// pub fn lex<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>> {
-//     let mut lexer = Lexer::new(source);
-//     let mut tokens = Vec::new();
+pub fn lex<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>> {
+    let mut lexer = Lexer::new(source);
+    let mut tokens = Vec::new();
 
-//     loop {
-//         let (token, span) = lexer
-//             .next_token()
-//             .map_err(|error| DustError::compile(CompileError::Lex(error), source))?;
+    loop {
+        let (token, span) = lexer
+            .next_token()
+            .map_err(|error| DustError::lex(error, source))?;
 
-//         tokens.push((token, span));
+        tokens.push((token, span));
 
-//         if token == Token::Eof {
-//             break;
-//         }
-//     }
+        if token == Token::Eof {
+            break;
+        }
+    }
 
-//     Ok(tokens)
-// }
+    Ok(tokens)
+}
 
-/// Tool for lexing a single token at a time.
-///
-/// See the [`lex`] function for an example of how to create and use a Lexer.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,

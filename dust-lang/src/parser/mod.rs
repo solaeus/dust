@@ -54,7 +54,7 @@ impl<'src> Parser<'src> {
 
         Self {
             lexer,
-            syntax_tree: SyntaxTree::new(),
+            syntax_tree: SyntaxTree::default(),
             current_token,
             current_position,
             previous_token: Token::Eof,
@@ -86,6 +86,19 @@ impl<'src> Parser<'src> {
                 let child_index = self.syntax_tree.node_count() - 1;
 
                 children.push(child_index);
+            }
+        }
+
+        if let Some(last_child) = self.syntax_tree.last_node()
+            && last_child.kind == SyntaxKind::ExpressionStatement
+        {
+            let expression_index = last_child.child;
+
+            if let Some(index_in_children) = children
+                .iter()
+                .rposition(|child| *child == expression_index)
+            {
+                children.remove(index_in_children);
             }
         }
 
@@ -198,22 +211,6 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn expect_source(&mut self, expected: Token) -> Result<&'src str, ParseError> {
-        if self.current_token != expected {
-            return Err(ParseError::ExpectedToken {
-                expected,
-                actual: self.current_token,
-                position: self.current_position,
-            });
-        }
-
-        let source = self.current_source();
-
-        self.advance()?;
-
-        Ok(source)
-    }
-
     fn current_source(&self) -> &'src str {
         &self.lexer.source()[self.current_position.as_usize_range()]
     }
@@ -275,7 +272,10 @@ impl<'src> Parser<'src> {
 
     fn parse_integer_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let integer_text = self.expect_source(Token::Integer)?;
+        let integer_text = self.current_source();
+
+        self.advance()?;
+
         let end = self.previous_position.1;
         let integer = self.parse_integer(integer_text);
         let integer_index = self.syntax_tree.push_constant(Value::integer(integer));
@@ -384,8 +384,9 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
         let left = self.syntax_tree.node_count() - 1;
+        let left_node = self.syntax_tree.get_node(left);
+        let start = left_node.map(|node| node.span).unwrap_or_default().0;
         let node_kind = match self.current_token {
             Token::Plus => SyntaxKind::AdditionExpression,
             Token::Minus => SyntaxKind::SubtractionExpression,
@@ -480,7 +481,10 @@ impl<'src> Parser<'src> {
 
     fn parse_identifier(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let identifier_text = self.expect_source(Token::Identifier)?;
+        let identifier_text = self.current_source();
+
+        self.advance()?;
+
         let end = self.previous_position.1;
 
         let local_index = self
@@ -520,18 +524,30 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let end = self.previous_position.1;
-        let Some(last_node_kind) = self.syntax_tree.last_node().map(|node| node.kind) else {
+        let Some(last_node) = self.syntax_tree.last_node() else {
             return Err(ParseError::UnexpectedToken {
                 actual: self.current_token,
                 position: self.current_position,
             });
         };
-        let is_optional = last_node_kind.has_block();
-        let node = SyntaxNode {
-            kind: SyntaxKind::SemicolonStatement,
-            span: Span(start, end),
-            child: 0,
-            payload: is_optional as u32,
+        let is_optional = last_node.kind.has_block();
+
+        let node = if is_optional {
+            SyntaxNode {
+                kind: SyntaxKind::SemicolonStatement,
+                span: Span(start, end),
+                child: 0,
+                payload: is_optional as u32,
+            }
+        } else {
+            let span = Span(last_node.span.0, end);
+
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                span,
+                child: self.syntax_tree.node_count() - 1,
+                payload: 0,
+            }
         };
 
         self.syntax_tree.push_node(node);

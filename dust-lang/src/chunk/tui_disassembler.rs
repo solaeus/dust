@@ -162,16 +162,24 @@ impl Widget for &TuiDisassembler<'_> {
             chunks_tabs_content_area,
         ] = frame_areas.areas(area);
 
+        let Some(main_chunk) = self.program.prototypes.last() else {
+            Paragraph::new("No main chunk found")
+                .centered()
+                .wrap(Wrap { trim: true })
+                .render(program_info_area, buf);
+
+            return;
+        };
+
         Paragraph::new(format!(
             "\"{}\" has {} declared functions and type {}",
-            self.program
-                .main_chunk
+            main_chunk
                 .name
                 .as_ref()
                 .map(|path| path.to_string())
                 .unwrap_or_else(|| "anonymous".to_string()),
-            self.program.prototypes.len(),
-            self.program.main_chunk.r#type
+            self.program.prototypes.len() - 1,
+            main_chunk.r#type
         ))
         .centered()
         .wrap(Wrap { trim: true })
@@ -208,7 +216,7 @@ impl Widget for &TuiDisassembler<'_> {
 
         match self.selected_tab {
             0 => {
-                self.draw_chunk_tab(&self.program.main_chunk, chunks_tabs_content_area, buf);
+                self.draw_chunk_tab(main_chunk, chunks_tabs_content_area, buf);
             }
             _ => {
                 if let Some(chunk) = self.program.prototypes.get(self.selected_tab - 1) {

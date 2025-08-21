@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{Disassembler, TuiDisassembler, compile, parser::parse};
+use dust_lang::{Disassembler, Program, TuiDisassembler, compile, parser::parse};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -320,6 +320,7 @@ fn main() {
 
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let (syntax_tree, error) = parse(&source);
+        let parse_time = start_time.elapsed();
 
         println!("{syntax_tree:#?}");
         println!("{}", syntax_tree.display_node_tree());
@@ -328,6 +329,10 @@ fn main() {
             && !no_output
         {
             eprintln!("{}", error.report());
+        }
+
+        if time && !no_output {
+            print_times(&[(source_name.as_deref(), parse_time, None)]);
         }
 
         return;
@@ -354,9 +359,21 @@ fn main() {
 
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
+        let compile_result = compile(&source);
+        let compile_time = start_time.elapsed();
 
-        match compile(&source) {
-            Ok(chunk) => println!("{chunk:#?}"),
+        match compile_result {
+            Ok(chunk) => {
+                let program = Program {
+                    prototypes: vec![chunk],
+                    cell_count: 0,
+                };
+                let mut stdout = stdout();
+
+                let mut disassembler = Disassembler::new(&program, &mut stdout);
+
+                disassembler.disassemble().unwrap();
+            }
             Err(error) => eprintln!("{}", error.report()),
         }
 
@@ -368,7 +385,6 @@ fn main() {
         //         return;
         //     }
         // };
-        let compile_time = start_time.elapsed();
 
         // match output {
         //     Format::Dust => {
@@ -499,17 +515,16 @@ where
     ) -> fmt::Result {
         use colored::Colorize;
 
-        let elapsed = self.start_time.elapsed().as_secs_f64();
+        let elapsed = self.start_time.elapsed().as_millis_f64();
         let level = event.metadata().level();
         let scopes = context
             .event_scope()
             .map(|scope| scope.from_root().collect::<Vec<_>>())
             .unwrap_or_default();
 
-        // Choose color and emoji based on log level
         let (emoji, colorized_level) = match *level {
             Level::ERROR => ("🕱", "ERROR".red().bold()),
-            Level::WARN => ("⚠️", "WARN".yellow().bold()),
+            Level::WARN => ("⚠", "WARN".yellow().bold()),
             Level::INFO => ("🛈", "INFO".blue().bold()),
             Level::DEBUG => ("🕷", "DEBUG".green().bold()),
             Level::TRACE => ("🖙", "TRACE".cyan().bold()),
@@ -518,7 +533,7 @@ where
         write!(
             writer,
             "{} {}  {:5}",
-            format!("{elapsed:.5}s").dimmed(),
+            format!("{elapsed:.5}ms").dimmed(),
             emoji,
             colorized_level,
         )?;

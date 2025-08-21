@@ -10,7 +10,8 @@
     offset_of_enum,
     once_cell_get_mut,
     pattern,
-    pointer_try_cast_aligned
+    pointer_try_cast_aligned,
+    result_option_map_or_default
 )]
 
 pub mod chunk;
@@ -32,7 +33,7 @@ pub mod value;
 // mod tests;
 
 pub use chunk::{Chunk, Disassembler, TuiDisassembler};
-pub use compiler::{CompileError, Compiler, compile};
+pub use compiler::{ChunkCompiler, CompileError, compile};
 // pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,

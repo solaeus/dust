@@ -7,7 +7,7 @@ use std::{
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
-use crate::{CompileError, Span, parser::ParseError};
+use crate::{CompileError, LexError, Span, parser::ParseError};
 
 // use crate::{JIT_ERROR_TEXT, JitError, Span};
 
@@ -19,6 +19,13 @@ pub struct DustError<'src> {
 }
 
 impl<'src> DustError<'src> {
+    pub fn lex(error: LexError, source: &'src str) -> Self {
+        DustError {
+            error: DustErrorKind::Lex(error),
+            source,
+        }
+    }
+
     pub fn parse(errors: Vec<ParseError>, source: &'src str) -> Self {
         DustError {
             error: DustErrorKind::Parse(errors),
@@ -71,6 +78,11 @@ impl<'src> DustError<'src> {
         let mut report = String::new();
 
         match &self.error {
+            DustErrorKind::Lex(error) => {
+                let message = error.annotated_error();
+
+                push_to_report(message, &mut report, self.source);
+            }
             DustErrorKind::Parse(errors) => {
                 for error in errors {
                     let message = error.annotated_error();
@@ -91,6 +103,7 @@ impl<'src> DustError<'src> {
 
 #[derive(Debug)]
 pub enum DustErrorKind {
+    Lex(LexError),
     Parse(Vec<ParseError>),
     Compile(CompileError),
     // Jit(JitError),

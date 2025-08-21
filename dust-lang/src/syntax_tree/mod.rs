@@ -8,7 +8,7 @@ pub use syntax_node::{SyntaxKind, SyntaxNode};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Value;
+use crate::{Type, Value};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SyntaxTree {
@@ -28,15 +28,6 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new() -> Self {
-        Self {
-            nodes: Vec::new(),
-            children: Vec::new(),
-            constants: Vec::new(),
-            locals: Vec::new(),
-        }
-    }
-
     pub fn node_count(&self) -> u32 {
         self.nodes.len() as u32
     }
@@ -108,6 +99,28 @@ impl SyntaxTree {
             .map(|index| index as u32)
     }
 
+    pub fn resolve_type(&self, node_index: u32) -> Type {
+        let Some(node) = self.get_node(node_index) else {
+            return Type::None;
+        };
+
+        match node.kind {
+            SyntaxKind::BooleanExpression => Type::Boolean,
+            SyntaxKind::ByteExpression => Type::Byte,
+            SyntaxKind::FloatExpression => Type::Float,
+            SyntaxKind::IntegerExpression => Type::Integer,
+            SyntaxKind::StringExpression => Type::String,
+            SyntaxKind::AdditionExpression
+            | SyntaxKind::SubtractionExpression
+            | SyntaxKind::MultiplicationExpression
+            | SyntaxKind::DivisionExpression
+            | SyntaxKind::ModuloExpression => self.resolve_type(node.child),
+            SyntaxKind::GroupedExpression => self.resolve_type(node.child),
+            SyntaxKind::LetStatement => Type::None,
+            _ => todo!(),
+        }
+    }
+
     pub fn display_node_tree(&self) -> String {
         let mut output = String::new();
         let main_node = self.nodes[0];
@@ -119,8 +132,12 @@ impl SyntaxTree {
     }
 
     pub fn display_node(&self, node: SyntaxNode, depth: usize, output: &mut String) {
-        let indent = "   ".repeat(depth.saturating_sub(1));
-        let node_display = format!("{}- {}", indent, node.kind);
+        let indent = "  ".repeat(depth);
+        let node_display = if depth == 0 {
+            format!("{}", node.kind)
+        } else {
+            format!("{}- {}", indent, node.kind)
+        };
 
         output.push('\n');
         output.push_str(&node_display);
@@ -136,6 +153,11 @@ impl SyntaxTree {
 
                     self.display_node(child, 1, output);
                 }
+            }
+            SyntaxKind::ExpressionStatement => {
+                let expression = self.nodes[node.child as usize];
+
+                self.display_node(expression, depth + 1, output);
             }
             SyntaxKind::LetStatement => {
                 let expression = self.nodes[node.child as usize];
