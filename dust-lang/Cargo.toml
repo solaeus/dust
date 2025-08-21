@@ -26,9 +26,14 @@ cranelift-jit = "0.122"
 cranelift-module = "0.122"
 mimalloc = "0.1.47"
 ratatui = "0.29.0"
+lexical-core = { version = "1.0.5", features = ["format"] }
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
+
+[[bench]]
+name = "tokenize"
+harness = false
 
 # [[bench]]
 # name = "addictive_addition"

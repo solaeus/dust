@@ -1,15 +1,10 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::{
-    fmt::{self, Display, Formatter},
-    iter,
-};
+use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Level, Renderer, Snippet};
 
 use crate::{CompileError, LexError, Span, parser::ParseError};
-
-// use crate::{JIT_ERROR_TEXT, JitError, Span};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug)]

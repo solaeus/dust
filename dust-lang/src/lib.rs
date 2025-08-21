@@ -3,6 +3,7 @@
     allocator_api,
     formatting_options,
     hash_set_entry,
+    int_from_ascii,
     iter_intersperse,
     new_range_api,
     never_type,
@@ -51,7 +52,7 @@ pub use instruction::{
 //     ThreadResult,
 //     // run,
 // };
-pub use lexer::{LexError, Lexer};
+pub use lexer::{LexError, Lexer, tokenize};
 pub use native_function::NativeFunction;
 pub use program::Program;
 pub use span::Span;

@@ -5,6 +5,7 @@ use std::{
     mem::replace,
 };
 
+use lexical_core::{ParseFloatOptions, format::RUST_LITERAL, parse_with_options};
 use tracing::{Level, debug, error, info, span, warn};
 
 use crate::{
@@ -92,14 +93,7 @@ impl<'src> Parser<'src> {
         if let Some(last_child) = self.syntax_tree.last_node()
             && last_child.kind == SyntaxKind::ExpressionStatement
         {
-            let expression_index = last_child.child;
-
-            if let Some(index_in_children) = children
-                .iter()
-                .rposition(|child| *child == expression_index)
-            {
-                children.remove(index_in_children);
-            }
+            children.pop();
         }
 
         let first_child = self.syntax_tree.children.len();
@@ -254,20 +248,97 @@ impl<'src> Parser<'src> {
         })
     }
 
-    fn parse_boolean(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let boolean_payload = match self.current_token {
+            Token::True => true as u32,
+            Token::False => false as u32,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: vec![Token::True, Token::False],
+                    actual: self.current_token,
+                    position: self.current_position,
+                });
+            }
+        };
+        let node = SyntaxNode {
+            kind: SyntaxKind::BooleanExpression,
+            span: Span(start, end),
+            child: 0,
+            payload: boolean_payload,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
-    fn parse_byte(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_byte_expression(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let byte_text_utf8 = &self.current_source().as_bytes()[2..]; // Skip the "0x" prefix
+        let byte_payload = u8::from_ascii_radix(byte_text_utf8, 16).unwrap_or_default() as u32;
+        let node = SyntaxNode {
+            kind: SyntaxKind::ByteExpression,
+            span: Span(start, end),
+            child: 0,
+            payload: byte_payload,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
-    fn parse_character(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_character_expression(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let character_payload = self.current_source().chars().next().unwrap_or_default() as u32;
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::CharacterExpression,
+            span: Span(start, end),
+            child: 0,
+            payload: character_payload,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
-    fn parse_float(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_float_expression(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let float_text = self.current_source();
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let float = parse_with_options::<f64, RUST_LITERAL>(
+            float_text.as_bytes(),
+            &ParseFloatOptions::new(),
+        )
+        .unwrap_or_default();
+        let float_index = self.syntax_tree.push_constant(Value::float(float));
+        let node = SyntaxNode {
+            kind: SyntaxKind::FloatExpression,
+            span: Span(start, end),
+            child: 0,
+            payload: float_index,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_integer_expression(&mut self) -> Result<(), ParseError> {
@@ -303,15 +374,20 @@ impl<'src> Parser<'src> {
             true
         };
 
-        for (index, digit) in chars.enumerate() {
-            let Some(digit) = digit.to_digit(10) else {
+        let mut digit_index = 0;
+
+        for character in chars {
+            let Some(digit) = character.to_digit(10) else {
                 continue;
             };
-            let digit_place = text.len() - index - 1;
+
+            digit_index += 1;
+
+            let digit_place = text.len() - digit_index - 1;
             let place_value = 10_i64.pow(digit_place as u32);
             let digit_value = digit as i64 * place_value;
 
-            integer += digit_value;
+            integer = integer.saturating_add(digit_value);
         }
 
         if is_positive { integer } else { -integer }
@@ -352,10 +428,12 @@ impl<'src> Parser<'src> {
 
         let end = self.previous_position.1;
         let expression_index = self.syntax_tree.node_count() - 1;
+        let r#type = self.syntax_tree.resolve_type(expression_index);
         let local = Local {
             identifier_position,
             is_mutable,
             scope: self.current_scope,
+            r#type,
         };
         let local_index = self.syntax_tree.push_local(local).map_err(|local_index| {
             ParseError::DuplicateLocal {
@@ -486,14 +564,12 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let end = self.previous_position.1;
-
         let local_index = self
             .syntax_tree
             .find_local_index(identifier_text, self.lexer.source())
             .ok_or_else(|| ParseError::UndeclaredVariable {
                 position: Span::new(start, end),
             })?;
-
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             span: Span(start, end),
@@ -560,7 +636,7 @@ impl<'src> Parser<'src> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
     DuplicateLocal {
         local_index: u32,

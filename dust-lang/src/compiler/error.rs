@@ -1,0 +1,94 @@
+use crate::{
+    Span,
+    dust_error::{AnnotatedError, ErrorMessage},
+    syntax_tree::SyntaxKind,
+};
+
+const INVALID_TREE: &str = "The syntax tree is invalid, this is a bug in the parser.";
+
+#[derive(Debug, Clone)]
+pub enum CompileError {
+    DivisionByZero {
+        node_kind: SyntaxKind,
+        position: Span,
+    },
+    ExpectedExpression {
+        node_kind: SyntaxKind,
+        position: Span,
+    },
+    ExpectedStatement {
+        node_kind: SyntaxKind,
+        position: Span,
+    },
+    MissingChild {
+        parent_kind: SyntaxKind,
+        child_index: u32,
+    },
+    MissingConstant {
+        constant_index: u32,
+    },
+    MissingLocal {
+        node_kind: SyntaxKind,
+        local_index: u32,
+    },
+    MissingSyntaxNode {
+        node_index: u32,
+    },
+}
+
+impl AnnotatedError for CompileError {
+    fn annotated_error(&self) -> ErrorMessage {
+        let title = "Compilation Error";
+
+        match self {
+            CompileError::DivisionByZero { position, .. } => ErrorMessage {
+                title,
+                description: "Dividing by zero is mathematically undefined for integers. Dust does not allow it.",
+                detail_snippets: vec![("This value is zero.".to_string(), *position)],
+                help_snippet: Some("This is a compile-time error caused by hard-coded values. Check your math for errors. If you absolutely must divide by zero, floats allow it but the result is always Infinity or NaN.".to_string()),
+            },
+            CompileError::ExpectedExpression { node_kind, position } => ErrorMessage {
+                title,
+                description: "The syntax tree contains a statement where an expression was expected.",
+                detail_snippets: vec![(node_kind.to_string(), *position)],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::ExpectedStatement { node_kind, position } => ErrorMessage {
+                title,
+                description: "The syntax tree contains an expression where a statement was expected.",
+                detail_snippets: vec![(node_kind.to_string(), *position)],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingChild {
+                parent_kind,
+                child_index,
+            } => ErrorMessage {
+                title,
+                description: "The syntax tree is missing a child index.",
+                detail_snippets: vec![(format!("Parent node kind {parent_kind}, child index {child_index}"), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingConstant { constant_index } => ErrorMessage {
+                title,
+                description: "The syntax tree is missing a constant that is required for compilation.",
+                detail_snippets: vec![(format!("Constant index {constant_index}"), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingLocal {
+                node_kind,
+                local_index,
+            } => ErrorMessage {
+                title,
+                description: "The syntax tree is missing a local variable.",
+                detail_snippets: vec![(format!("Node kind {node_kind}, local index {local_index}"), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingSyntaxNode { node_index } => ErrorMessage {
+                title,
+                description: "The syntax tree is missing a node that is required for compilation.",
+                detail_snippets: vec![(format!("Node index {node_index}"), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+        }
+    }
+}

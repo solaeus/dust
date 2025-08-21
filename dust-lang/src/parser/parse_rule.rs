@@ -60,14 +60,19 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Boolean => ParseRule {
-                prefix: Some(Parser::parse_boolean),
+            Token::False => ParseRule {
+                prefix: Some(Parser::parse_boolean_expression),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::True => ParseRule {
+                prefix: Some(Parser::parse_boolean_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Break => todo!(),
             Token::Byte => ParseRule {
-                prefix: Some(Parser::parse_byte),
+                prefix: Some(Parser::parse_byte_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -82,7 +87,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Character => ParseRule {
-                prefix: Some(Parser::parse_character),
+                prefix: Some(Parser::parse_character_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -142,7 +147,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Float => ParseRule {
-                prefix: Some(Parser::parse_float),
+                prefix: Some(Parser::parse_float_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -314,6 +319,11 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Struct => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::Unknown => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,

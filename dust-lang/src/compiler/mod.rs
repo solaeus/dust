@@ -1,9 +1,14 @@
+mod error;
+mod fold_constants;
+
+pub use error::CompileError;
+use fold_constants::fold_constants;
+
 use tracing::{Level, info, span, trace};
 
 use crate::{
-    Address, Chunk, FunctionType, Instruction, Lexer, OperandType, Operation, Program, Span, Type,
-    Value,
-    dust_error::{AnnotatedError, DustError, ErrorMessage},
+    Address, Chunk, FunctionType, Instruction, Lexer, OperandType, Operation, Type, Value,
+    dust_error::DustError,
     parser::Parser,
     syntax_tree::{SyntaxKind, SyntaxNode, SyntaxTree},
 };
@@ -103,7 +108,7 @@ impl ChunkCompiler {
             .nodes
             .first()
             .copied()
-            .ok_or(CompileError::MissingMainFunction)?;
+            .ok_or(CompileError::MissingSyntaxNode { node_index: 0 })?;
 
         self.compile_statement(main_function_node)?;
 
@@ -133,10 +138,11 @@ impl ChunkCompiler {
         if let Some(register) = self.reusable_registers.pop() {
             register
         } else {
-            let next_register = self.next_unused_register;
-            self.next_unused_register += 1;
-
-            next_register
+            self.instructions
+                .iter()
+                .map(|instruction| instruction.a_field() + 1)
+                .max()
+                .unwrap_or_default()
         }
     }
 
@@ -172,7 +178,10 @@ impl ChunkCompiler {
 
     fn fold_expression(&mut self, node: SyntaxNode) -> Result<Option<usize>, CompileError> {
         match node.kind {
-            SyntaxKind::IntegerExpression => {
+            SyntaxKind::CharacterExpression
+            | SyntaxKind::FloatExpression
+            | SyntaxKind::IntegerExpression
+            | SyntaxKind::StringExpression => {
                 let constant_index = node.payload as usize;
 
                 Ok(Some(constant_index))
@@ -216,51 +225,20 @@ impl ChunkCompiler {
                     },
                 )?;
 
-                let folded_constant = match (left_constant, right_constant, node.kind) {
-                    (
-                        Value::Integer(left),
-                        Value::Integer(right),
-                        SyntaxKind::SubtractionExpression,
-                    ) => Value::Integer(left.saturating_sub(*right)),
-                    (
-                        Value::Integer(left),
-                        Value::Integer(right),
-                        SyntaxKind::AdditionExpression,
-                    ) => Value::Integer(left.saturating_add(*right)),
-                    (
-                        Value::Integer(left),
-                        Value::Integer(right),
-                        SyntaxKind::MultiplicationExpression,
-                    ) => Value::Integer(left.saturating_mul(*right)),
-                    (
-                        Value::Integer(left),
-                        Value::Integer(right),
-                        SyntaxKind::DivisionExpression,
-                    ) => {
-                        if *right == 0 {
-                            return Err(CompileError::DivisionByZero {
-                                node_kind: node.kind,
-                                position: right_node.span,
-                            });
-                        }
-                        Value::Integer(left.saturating_div(*right))
-                    }
-                    (Value::Integer(left), Value::Integer(right), SyntaxKind::ModuloExpression) => {
-                        if *right == 0 {
-                            return Err(CompileError::DivisionByZero {
-                                node_kind: node.kind,
-                                position: right_node.span,
-                            });
-                        }
-                        Value::Integer(left % *right)
-                    }
-                    _ => return Ok(None),
+                let Some(folded_constant) = fold_constants(
+                    &left_node,
+                    left_constant,
+                    &right_node,
+                    right_constant,
+                    &node,
+                )?
+                else {
+                    return Ok(None);
                 };
 
                 trace!(
-                    "Folding expression: {left} {operator} {right} = {folded_constant}",
-                    left = left_constant,
-                    right = right_constant,
+                    "Folding {kind}: {left_constant} {operator} {right_constant} -> {folded_constant}",
+                    kind = node.kind,
                     operator = match node.kind {
                         SyntaxKind::AdditionExpression => "+",
                         SyntaxKind::SubtractionExpression => "-",
@@ -310,13 +288,17 @@ impl ChunkCompiler {
         info!("{}", node.kind);
 
         match node.kind {
-            SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
+            SyntaxKind::CharacterExpression
+            | SyntaxKind::FloatExpression
+            | SyntaxKind::IntegerExpression
+            | SyntaxKind::StringExpression => self.compile_constant_value_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression => self.compile_binary_expression(node),
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node),
+            SyntaxKind::PathExpression => self.parse_path_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.span,
@@ -387,7 +369,7 @@ impl ChunkCompiler {
         Ok(())
     }
 
-    fn compile_integer_expression(
+    fn compile_constant_value_expression(
         &mut self,
         node: SyntaxNode,
     ) -> Result<Instruction, CompileError> {
@@ -496,6 +478,29 @@ impl ChunkCompiler {
         }
     }
 
+    fn parse_path_expression(&mut self, node: SyntaxNode) -> Result<Instruction, CompileError> {
+        let local_index = node.payload as usize;
+        let destination = Address::register(self.get_next_register());
+        let local = self
+            .syntax_tree
+            .locals
+            .get(local_index)
+            .ok_or(CompileError::MissingLocal {
+                node_kind: node.kind,
+                local_index: local_index as u32,
+            })?;
+        let local_register = self.local_registers[local_index];
+        let local_address = Address::register(local_register);
+        let load = Instruction::load(
+            destination,
+            local_address,
+            local.r#type.as_operand_type(),
+            false,
+        );
+
+        Ok(load)
+    }
+
     fn compile_implicit_return(&mut self, expression_node_index: u32) -> Result<(), CompileError> {
         let expression_type = self.syntax_tree.resolve_type(expression_node_index);
         let expression_node = self
@@ -526,79 +531,5 @@ impl ChunkCompiler {
         self.instructions.push(r#return);
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum CompileError {
-    DivisionByZero {
-        node_kind: SyntaxKind,
-        position: Span,
-    },
-    ExpectedExpression {
-        node_kind: SyntaxKind,
-        position: Span,
-    },
-    ExpectedStatement {
-        node_kind: SyntaxKind,
-        position: Span,
-    },
-    MissingChild {
-        parent_kind: SyntaxKind,
-        child_index: u32,
-    },
-    MissingConstant {
-        constant_index: u32,
-    },
-    MissingMainFunction,
-    MissingLocal {
-        node_kind: SyntaxKind,
-        local_index: u32,
-    },
-    MissingSyntaxNode {
-        node_index: u32,
-    },
-}
-
-impl AnnotatedError for CompileError {
-    fn annotated_error(&self) -> ErrorMessage {
-        let title = "Compilation Error";
-
-        match self {
-            CompileError::DivisionByZero { position, .. } => ErrorMessage {
-                title,
-                description: "Dividing by zero is mathematically undefined for integers. Dust does not allow it.",
-                detail_snippets: vec![("This value is zero.".to_string(), *position)],
-                help_snippet: Some("This is a compile-time error caused by hard-coded values. Check your math for errors. If you absolutely must divide by zero, floats allow it but the result is always Infinity or NaN.".to_string()),
-            },
-            CompileError::ExpectedExpression { node_kind, position } => ErrorMessage {
-                title,
-                description: "The syntax tree contains a statement where an expression was expected.",
-                detail_snippets: vec![(node_kind.to_string(), *position)],
-                help_snippet: Some("This a bug in the parser.".to_string()),
-            },
-            CompileError::ExpectedStatement { node_kind, position } => ErrorMessage {
-                title,
-                description: "The syntax tree contains an expression where a statement was expected.",
-                detail_snippets: vec![(node_kind.to_string(), *position)],
-                help_snippet: Some("This a bug in the parser.".to_string()),
-            },
-            CompileError::MissingChild {
-                parent_kind,
-                child_index,
-            } => todo!(),
-            CompileError::MissingConstant { constant_index } => todo!(),
-            CompileError::MissingMainFunction => todo!(),
-            CompileError::MissingLocal {
-                node_kind,
-                local_index,
-            } => todo!(),
-            CompileError::MissingSyntaxNode { node_index } => ErrorMessage {
-                title,
-                description: "The syntax tree is missing a node that is required for compilation.",
-                detail_snippets: vec![(format!("Node index {node_index}"), Span::default())],
-                help_snippet: Some("This is a bug in the parser.".to_string()),
-            },
-        }
     }
 }

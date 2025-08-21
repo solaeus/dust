@@ -117,6 +117,14 @@ impl SyntaxTree {
             | SyntaxKind::ModuloExpression => self.resolve_type(node.child),
             SyntaxKind::GroupedExpression => self.resolve_type(node.child),
             SyntaxKind::LetStatement => Type::None,
+            SyntaxKind::PathExpression => {
+                let local_index = node.payload;
+                let Some(local) = self.get_local(local_index) else {
+                    return Type::None;
+                };
+
+                local.r#type.clone()
+            }
             _ => todo!(),
         }
     }
@@ -164,7 +172,22 @@ impl SyntaxTree {
 
                 self.display_node(expression, depth + 1, output);
             }
-            SyntaxKind::IntegerExpression => {
+            SyntaxKind::BooleanExpression => {
+                let boolean = node.payload != 0;
+                let boolean_display = format!(": {boolean}");
+
+                output.push_str(&boolean_display);
+            }
+            SyntaxKind::ByteExpression => {
+                let byte = node.payload as u8;
+                let byte_display = format!(": {byte:02x}");
+
+                output.push_str(&byte_display);
+            }
+            SyntaxKind::CharacterExpression
+            | SyntaxKind::FloatExpression
+            | SyntaxKind::IntegerExpression
+            | SyntaxKind::StringExpression => {
                 let constant_index = node.payload as usize;
                 let constant = &self.constants[constant_index];
                 let integer_display = format!(": {constant}");
@@ -210,6 +233,19 @@ impl SyntaxTree {
                 let expression = self.nodes[node.child as usize];
 
                 self.display_node(expression, depth + 1, output);
+            }
+            SyntaxKind::PathExpression => {
+                let local_index = node.payload;
+                let Some(local) = self.get_local(local_index) else {
+                    output.push_str("<error: local not found>");
+                    return;
+                };
+
+                let local_display = format!(
+                    " (Type: {}, Scope: {}, Mutable: {})",
+                    local.r#type, local.scope, local.is_mutable
+                );
+                output.push_str(&local_display);
             }
             _ => {
                 output.push_str(&indent);

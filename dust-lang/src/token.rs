@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Token {
     Eof,
+    Unknown,
 
     // Hard-coded values
-    Boolean,
+    True,
+    False,
     Byte,
     Character,
     Float,

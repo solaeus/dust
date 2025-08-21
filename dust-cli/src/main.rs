@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{Disassembler, Program, TuiDisassembler, compile, parser::parse};
+use dust_lang::{Disassembler, Program, TuiDisassembler, compile, parser::parse, tokenize};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -44,19 +44,66 @@ struct Cli {
 
     #[command(flatten)]
     run_options: RunOptions,
-}
 
-#[derive(Args)]
-#[group(required = false, multiple = true)]
-struct SharedOptions {
-    /// Possible log levels: error, warn, info, debug, trace
+    /// Set the log level
     #[arg(short, long, value_name = "LEVEL")]
     log: Option<LevelFilter>,
 
-    /// Use the pretty formatter for logging, defaults to false
-    #[arg(short, long, default_value = "false")]
-    pretty_log: bool,
+    /// Display the time taken for each operation
+    #[arg(short, long)]
+    time: bool,
 
+    /// Disable all output
+    #[arg(long)]
+    no_output: bool,
+
+    /// Disable the standard library
+    #[arg(long)]
+    no_std: bool,
+
+    /// Custom program name, overrides the file name
+    #[arg(short, long)]
+    name: Option<String>,
+
+    /// Format for the output, defaults to a simple text format
+    #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
+    output: OutputOptions,
+}
+
+#[derive(Subcommand)]
+enum Mode {
+    #[command(alias = "p")]
+    Parse(InputOptions),
+
+    /// Compile and run the program (default)
+    #[command(alias = "r")]
+    Run(RunOptions),
+
+    /// Compile and output the compiled program
+    #[command(alias = "c")]
+    Compile(CompileOptions),
+
+    /// Lex the source code and print the tokens
+    #[command(alias = "t")]
+    Tokenize(InputOptions),
+}
+
+#[derive(Args)]
+struct RunOptions {
+    #[command(flatten)]
+    input: InputOptions,
+
+    /// Minimum heap size garbage collection is triggered
+    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
+    min_heap: Option<usize>,
+
+    /// Minimum bytes allocated between garbage collections
+    #[arg(long, value_name = "BYTES", requires = "min_heap")]
+    min_sweep: Option<usize>,
+}
+
+#[derive(Args)]
+struct CompileOptions {
     /// Print the time taken for compilation and execution, defaults to false
     #[arg(short, long)]
     time: bool,
@@ -74,95 +121,15 @@ struct SharedOptions {
     name: Option<String>,
 
     #[command(flatten)]
-    source: Source,
-}
+    input: InputOptions,
 
-impl SharedOptions {
-    fn intersect(self, other: Self) -> Self {
-        Self {
-            log: self.log.or(other.log),
-            pretty_log: self.pretty_log || other.pretty_log,
-            time: self.time || other.time,
-            no_output: self.no_output || other.no_output,
-            no_std: self.no_std || other.no_std,
-            name: self.name.or(other.name),
-            source: Source {
-                eval: self.source.eval.or(other.source.eval),
-                stdin: self.source.stdin || other.source.stdin,
-                file: self.source.file.or(other.source.file),
-            },
-        }
-    }
-}
-
-#[derive(Subcommand)]
-enum Mode {
-    #[command(alias = "p")]
-    Parse {
-        #[command(flatten)]
-        shared_options: SharedOptions,
-    },
-
-    /// Compile and run the program (default)
-    #[command(alias = "r")]
-    Run(RunOptions),
-
-    /// Compile and output the compiled program
-    #[command(alias = "c")]
-    Compile {
-        #[command(flatten)]
-        shared_options: SharedOptions,
-
-        /// Defaults to "dust", which is the disassembly output
-        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-        output: Format,
-
-        /// Style disassembly output, defaults to true
-        #[arg(short, long, default_value = "true")]
-        style: bool,
-    },
-
-    /// Lex the source code and print the tokens
-    #[command(alias = "t")]
-    Tokenize,
+    /// Style disassembly output, defaults to true
+    #[arg(short, long, default_value = "true")]
+    style: bool,
 }
 
 #[derive(Args)]
-struct RunOptions {
-    #[command(flatten)]
-    shared_options: SharedOptions,
-
-    /// Input format
-    #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-    input: Format,
-
-    /// Minimum heap size garbage collection is triggered
-    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
-    min_heap: Option<usize>,
-
-    /// Minimum bytes allocated between garbage collections
-    #[arg(long, value_name = "BYTES", requires = "min_heap")]
-    min_sweep: Option<usize>,
-}
-
-impl RunOptions {
-    fn intersect(self, other: Self) -> Self {
-        Self {
-            shared_options: self.shared_options.intersect(other.shared_options),
-            input: if self.input != Format::Dust {
-                self.input
-            } else {
-                other.input
-            },
-            min_heap: self.min_heap.or(other.min_heap),
-            min_sweep: self.min_sweep.or(other.min_sweep),
-        }
-    }
-}
-
-#[derive(Args)]
-#[group(required = false, multiple = false)]
-pub struct Source {
+pub struct InputOptions {
     /// Source code to run instead of a file
     #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
     eval: Option<String>,
@@ -176,7 +143,7 @@ pub struct Source {
 }
 
 #[derive(ValueEnum, Clone, Copy, PartialEq)]
-enum Format {
+enum OutputOptions {
     Dust,
     Json,
     Ron,
@@ -188,31 +155,23 @@ fn main() {
     let start_time = Instant::now();
     let Cli {
         mode,
-        run_options: options_before_command,
+        run_options,
+        log,
+        time,
+        no_output,
+        no_std,
+        name,
+        output: output_format,
     } = Cli::parse();
-    let mode = match mode {
-        Some(Mode::Run(run_mode_options)) => {
-            Mode::Run(options_before_command.intersect(run_mode_options))
-        }
-        Some(Mode::Parse { shared_options }) => Mode::Parse {
-            shared_options: options_before_command
-                .shared_options
-                .intersect(shared_options),
-        },
-        Some(Mode::Compile {
-            shared_options,
-            output,
-            style,
-        }) => Mode::Compile {
-            shared_options: options_before_command
-                .shared_options
-                .intersect(shared_options),
-            output,
-            style,
-        },
-        Some(Mode::Tokenize) => Mode::Tokenize,
-        None => Mode::Run(options_before_command),
-    };
+    let mode = mode.unwrap_or(Mode::Run(RunOptions {
+        input: run_options.input,
+        min_heap: run_options.min_heap,
+        min_sweep: run_options.min_sweep,
+    }));
+
+    if let Some(log_level) = log {
+        start_logging(log_level, start_time);
+    }
 
     // if let Mode::Run(RunOptions {
     //     input,
@@ -303,21 +262,7 @@ fn main() {
     //     return;
     // }
 
-    if let Mode::Parse { shared_options } = mode {
-        let SharedOptions {
-            log,
-            pretty_log,
-            time,
-            no_output,
-            no_std,
-            name,
-            source: Source { eval, stdin, file },
-        } = shared_options;
-
-        if let Some(log_level) = log {
-            start_logging(log_level, pretty_log, start_time);
-        }
-
+    if let Mode::Parse(InputOptions { eval, stdin, file }) = mode {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let (syntax_tree, error) = parse(&source);
         let parse_time = start_time.elapsed();
@@ -338,25 +283,15 @@ fn main() {
         return;
     }
 
-    if let Mode::Compile {
-        shared_options:
-            SharedOptions {
-                log,
-                pretty_log,
-                time,
-                no_output,
-                no_std,
-                name,
-                source: Source { eval, stdin, file },
-            },
-        output,
+    if let Mode::Compile(CompileOptions {
+        time,
+        no_output,
+        no_std,
+        name,
+        input: InputOptions { eval, stdin, file },
         style,
-    } = mode
+    }) = mode
     {
-        if let Some(log_level) = log {
-            start_logging(log_level, pretty_log, start_time);
-        }
-
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref();
         let compile_result = compile(&source);
@@ -438,8 +373,47 @@ fn main() {
         return;
     }
 
-    if let Mode::Tokenize = mode {
-        todo!()
+    if let Mode::Tokenize(InputOptions { eval, stdin, file }) = mode {
+        let (source, _) = get_source_and_name(file, name, stdin, eval);
+        let tokens = tokenize(&source).expect("Failed to tokenize the source code");
+        let tokenize_time = start_time.elapsed();
+
+        match output_format {
+            OutputOptions::Dust => {
+                for (token, span) in tokens {
+                    println!("{token} at {span}");
+                }
+            }
+            OutputOptions::Json => {
+                let json = serde_json::to_string_pretty(&tokens)
+                    .expect("Failed to serialize tokens to JSON");
+
+                println!("{json}");
+            }
+            OutputOptions::Postcard => {
+                let mut buffer = Vec::new();
+                postcard::to_slice_cobs(&tokens, &mut buffer)
+                    .expect("Failed to serialize tokens to Postcard");
+
+                println!("{buffer:?}");
+            }
+            OutputOptions::Ron => {
+                let ron = ron::ser::to_string_pretty(&tokens, PrettyConfig::new())
+                    .expect("Failed to serialize tokens to RON");
+
+                println!("{ron}");
+            }
+            OutputOptions::Yaml => {
+                let yaml =
+                    serde_yaml::to_string(&tokens).expect("Failed to serialize tokens to YAML");
+
+                println!("{yaml}");
+            }
+        }
+
+        if time && !no_output {
+            print_times(&[(None, tokenize_time, None)]);
+        }
     }
 }
 
@@ -484,25 +458,18 @@ fn get_source_and_name(
     }
 }
 
-fn start_logging(level: LevelFilter, use_pretty: bool, start_time: Instant) {
-    if use_pretty {
-        tracing_subscriber::fmt()
-            .with_env_filter(format!("none,dust_lang={level}"))
-            .event_format(PrettyLogFormatter { start_time })
-            .init();
-    } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(format!("none,dust_lang={level}"))
-            .event_format(SimpleLogFormatter { start_time })
-            .init();
-    }
+fn start_logging(level: LevelFilter, start_time: Instant) {
+    tracing_subscriber::fmt()
+        .with_env_filter(format!("none,dust_lang={level}"))
+        .event_format(LogFormatter { start_time })
+        .init();
 }
 
-struct SimpleLogFormatter {
+struct LogFormatter {
     start_time: Instant,
 }
 
-impl<S, N> FormatEvent<S, N> for SimpleLogFormatter
+impl<S, N> FormatEvent<S, N> for LogFormatter
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
     N: for<'a> FormatFields<'a> + 'static,
