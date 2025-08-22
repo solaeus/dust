@@ -204,9 +204,9 @@ impl<'src> Lexer<'src> {
         }
 
         if is_float {
-            Ok((Token::Float, Span::new(start, self.position)))
+            Ok((Token::FloatValue, Span::new(start, self.position)))
         } else {
-            Ok((Token::Integer, Span::new(start, self.position)))
+            Ok((Token::IntegerValue, Span::new(start, self.position)))
         }
     }
 
@@ -226,8 +226,8 @@ impl<'src> Lexer<'src> {
 
         let string = &self.source[start..self.position];
         let token = match string {
-            "Infinity" => Token::Float,
-            "NaN" => Token::Float,
+            "Infinity" => Token::FloatValue,
+            "NaN" => Token::FloatValue,
             "any" => Token::Any,
             "async" => Token::Async,
             "bool" => Token::Bool,
@@ -235,8 +235,8 @@ impl<'src> Lexer<'src> {
             "cell" => Token::Cell,
             "const" => Token::Const,
             "else" => Token::Else,
-            "false" => Token::False,
-            "float" => Token::FloatKeyword,
+            "false" => Token::FalseValue,
+            "float" => Token::Float,
             "fn" => Token::Fn,
             "if" => Token::If,
             "int" => Token::Int,
@@ -249,7 +249,7 @@ impl<'src> Lexer<'src> {
             "return" => Token::Return,
             "str" => Token::Str,
             "struct" => Token::Struct,
-            "true" => Token::True,
+            "true" => Token::TrueValue,
             "use" => Token::Use,
             "while" => Token::While,
             _ => Token::Identifier,
@@ -273,7 +273,7 @@ impl<'src> Lexer<'src> {
 
         self.advance(); // Consume the closing quote
 
-        Ok((Token::String, Span::new(start, end)))
+        Ok((Token::StringValue, Span::new(start, end)))
     }
 
     fn lex_character(&mut self) -> Result<(Token, Span), LexError> {
@@ -292,7 +292,7 @@ impl<'src> Lexer<'src> {
             });
         }
 
-        Ok((Token::Character, Span::new(start, self.position)))
+        Ok((Token::CharacterValue, Span::new(start, self.position)))
     }
 
     fn lex_plus(&mut self) -> Result<(Token, Span), LexError> {
@@ -338,7 +338,7 @@ impl<'src> Lexer<'src> {
         if self.peek_chars(8).eq("Infinity".chars()) {
             self.position += 8;
 
-            return Ok((Token::Float, Span::new(start, self.position)));
+            return Ok((Token::FloatValue, Span::new(start, self.position)));
         }
 
         Ok((Token::Minus, Span::new(start, self.position)))
@@ -510,7 +510,7 @@ impl<'src> Lexer<'src> {
 
         self.advance();
 
-        Ok((Token::LeftBracket, Span::new(start, self.position)))
+        Ok((Token::LeftSquareBracket, Span::new(start, self.position)))
     }
 
     fn lex_right_bracket(&mut self) -> Result<(Token, Span), LexError> {
@@ -518,7 +518,7 @@ impl<'src> Lexer<'src> {
 
         self.advance();
 
-        Ok((Token::RightBracket, Span::new(start, self.position)))
+        Ok((Token::RightSquareBracket, Span::new(start, self.position)))
     }
 
     fn lex_left_brace(&mut self) -> Result<(Token, Span), LexError> {
@@ -526,7 +526,7 @@ impl<'src> Lexer<'src> {
 
         self.advance();
 
-        Ok((Token::LeftBrace, Span::new(start, self.position)))
+        Ok((Token::LeftCurlyBrace, Span::new(start, self.position)))
     }
 
     fn lex_right_brace(&mut self) -> Result<(Token, Span), LexError> {
@@ -534,7 +534,7 @@ impl<'src> Lexer<'src> {
 
         self.advance();
 
-        Ok((Token::RightBrace, Span::new(start, self.position)))
+        Ok((Token::RightCurlyBrace, Span::new(start, self.position)))
     }
 
     fn lex_semicolon(&mut self) -> Result<(Token, Span), LexError> {

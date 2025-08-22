@@ -57,7 +57,7 @@ pub use native_function::NativeFunction;
 pub use program::Program;
 pub use span::Span;
 pub use token::Token;
-pub use r#type::{FunctionType, Type, TypeConflict};
+pub use r#type::{FunctionType, Type};
 pub use value::{List, Value};
 
 #[cfg(feature = "global-mimalloc")]

@@ -60,23 +60,27 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::False => ParseRule {
+            Token::FalseValue => ParseRule {
                 prefix: Some(Parser::parse_boolean_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::True => ParseRule {
+            Token::TrueValue => ParseRule {
                 prefix: Some(Parser::parse_boolean_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Break => todo!(),
-            Token::Byte => ParseRule {
+            Token::Break => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::ByteValue => ParseRule {
                 prefix: Some(Parser::parse_byte_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::ByteKeyword => ParseRule {
+            Token::Byte => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,
@@ -86,7 +90,12 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Character => ParseRule {
+            Token::Char => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::CharacterValue => ParseRule {
                 prefix: Some(Parser::parse_character_expression),
                 infix: None,
                 precedence: Precedence::None,
@@ -146,18 +155,18 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Float => ParseRule {
+            Token::FloatValue => ParseRule {
                 prefix: Some(Parser::parse_float_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::FloatKeyword => ParseRule {
+            Token::Float => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,
             },
             Token::Fn => ParseRule {
-                prefix: Some(Parser::parse_function),
+                prefix: Some(Parser::parse_function_statement_or_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -186,12 +195,12 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Integer => ParseRule {
+            Token::IntegerValue => ParseRule {
                 prefix: Some(Parser::parse_integer_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::LeftBrace => ParseRule {
+            Token::LeftCurlyBrace => ParseRule {
                 prefix: Some(Parser::parse_block),
                 infix: None,
                 precedence: Precedence::None,
@@ -201,7 +210,7 @@ impl From<Token> for ParseRule<'_> {
                 infix: Some(Parser::parse_call),
                 precedence: Precedence::Call,
             },
-            Token::LeftBracket => ParseRule {
+            Token::LeftSquareBracket => ParseRule {
                 prefix: Some(Parser::parse_array),
                 infix: None,
                 precedence: Precedence::None,
@@ -226,8 +235,16 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::Loop => todo!(),
-            Token::Map => todo!(),
+            Token::Loop => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::Map => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Minus => ParseRule {
                 prefix: Some(Parser::parse_unary),
                 infix: Some(Parser::parse_math_binary),
@@ -273,7 +290,7 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::RightBrace => ParseRule {
+            Token::RightCurlyBrace => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,
@@ -283,7 +300,7 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::RightBracket => ParseRule {
+            Token::RightSquareBracket => ParseRule {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
@@ -313,7 +330,7 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::String => ParseRule {
+            Token::StringValue => ParseRule {
                 prefix: Some(Parser::parse_string_expression),
                 infix: None,
                 precedence: Precedence::None,

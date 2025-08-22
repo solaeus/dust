@@ -1,12 +1,9 @@
-//! Value types and conflict handling.
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
-use crate::instruction::OperandType;
+use crate::OperandType;
 
-/// Description of a kind of value.
 #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
     #[default]
@@ -22,7 +19,6 @@ pub enum Type {
     Array(Box<Type>, usize),
     List(Box<Type>),
     Map,
-    Range(Box<Type>),
 
     Function(Box<FunctionType>),
     FunctionSelf,
@@ -54,30 +50,6 @@ impl Type {
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
             Type::String => OperandType::STRING,
-            Type::List(item_type) => match item_type.as_ref() {
-                Type::Boolean => OperandType::LIST_BOOLEAN,
-                Type::Byte => OperandType::LIST_BYTE,
-                Type::Character => OperandType::LIST_CHARACTER,
-                Type::Float => OperandType::LIST_FLOAT,
-                Type::Integer => OperandType::LIST_INTEGER,
-                Type::String => OperandType::LIST_STRING,
-                Type::List(_) | Type::Range(_) => OperandType::LIST_LIST,
-                Type::Map => OperandType::LIST_MAP,
-                Type::Function(_) | Type::FunctionSelf => OperandType::LIST_FUNCTION,
-                Type::Array(_, _) => OperandType::LIST_ARRAY,
-                Type::None => panic!("A list's item type must be known, even if it is empty"),
-            },
-            Type::Map => OperandType::MAP,
-            Type::Range(range_type) => match range_type.as_ref() {
-                Type::Byte => OperandType::LIST_BYTE,
-                Type::Character => OperandType::LIST_CHARACTER,
-                Type::Float => OperandType::LIST_FLOAT,
-                Type::Integer => OperandType::LIST_INTEGER,
-                _ => {
-                    unreachable!("A range must have a numeric or character type, got: {range_type}")
-                }
-            },
-            Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
             Type::Array(item_type, _) => match item_type.as_ref() {
                 Type::Boolean => OperandType::ARRAY_BOOLEAN,
                 Type::Byte => OperandType::ARRAY_BYTE,
@@ -85,14 +57,29 @@ impl Type {
                 Type::Float => OperandType::ARRAY_FLOAT,
                 Type::Integer => OperandType::ARRAY_INTEGER,
                 Type::String => OperandType::ARRAY_STRING,
-                Type::List(_) | Type::Range(_) => OperandType::ARRAY_LIST,
                 Type::Map => OperandType::ARRAY_MAP,
                 Type::Function(_) | Type::FunctionSelf => OperandType::ARRAY_FUNCTION,
                 Type::Array(_, _) => OperandType::ARRAY_ARRAY,
+                Type::List(_) => OperandType::ARRAY_LIST,
                 Type::None => {
                     panic!("An array's item type must be known, even if it is empty")
                 }
             },
+            Type::List(item_type) => match item_type.as_ref() {
+                Type::Boolean => OperandType::LIST_BOOLEAN,
+                Type::Byte => OperandType::LIST_BYTE,
+                Type::Character => OperandType::LIST_CHARACTER,
+                Type::Float => OperandType::LIST_FLOAT,
+                Type::Integer => OperandType::LIST_INTEGER,
+                Type::String => OperandType::LIST_STRING,
+                Type::Map => OperandType::LIST_MAP,
+                Type::Function(_) | Type::FunctionSelf => OperandType::LIST_FUNCTION,
+                Type::Array(_, _) => OperandType::LIST_ARRAY,
+                Type::List(_) => OperandType::LIST_LIST,
+                Type::None => panic!("A list's item type must be known, even if it is empty"),
+            },
+            Type::Map => OperandType::MAP,
+            Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
         }
     }
 
@@ -126,11 +113,6 @@ impl Type {
 
                 return Ok(());
             }
-            (Type::Range(left_type), Type::Range(right_type)) => {
-                if left_type == right_type {
-                    return Ok(());
-                }
-            }
             _ => {}
         }
 
@@ -153,51 +135,10 @@ impl Display for Type {
             Type::List(item_type) => write!(f, "List<{item_type}>"),
             Type::Map => write!(f, "map"),
             Type::None => write!(f, "none"),
-            Type::Range(r#type) => write!(f, "Range<{type}>"),
             Type::FunctionSelf => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Array(item_type, length) => write!(f, "[{item_type}; {length}]"),
         }
-    }
-}
-
-/// An opaque representation of a value's type that does not hold of a type's details.
-///
-/// For primitive types (i.e. `bool`, `byte`, `char`, `float`, `int`, `str`, `[]` and `fn`) the
-/// TypeKind is identitcal to the [`Type`]. But for `Generic` and all the compound types, none of
-/// the type details are available. Therefore a `TypeKind` can represent a list but cannot convey
-/// that it is a list of integers. This makes `TypeKind` much smaller (1 byte v.s. 32 bytes), which
-/// is useful for performance.
-#[derive(
-    Clone, Copy, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize,
-)]
-pub enum ConcreteType {
-    #[default]
-    None,
-
-    Boolean,
-    Byte,
-    Character,
-    Float,
-    Integer,
-    String,
-
-    Array,
-    List,
-    Map,
-    Range,
-
-    Function,
-    FunctionSelf,
-}
-
-impl ConcreteType {
-    pub fn write_invalid(&self, f: &mut Formatter) -> fmt::Result {
-        error!(
-            "Invalid type used: {:?}, writing \"INVALID\" instead.",
-            self
-        );
-        write!(f, "INVALID")
     }
 }
 

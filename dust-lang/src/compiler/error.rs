@@ -1,13 +1,18 @@
 use crate::{
     Span,
     dust_error::{AnnotatedError, ErrorMessage},
-    syntax_tree::SyntaxKind,
+    syntax_tree::{SyntaxId, SyntaxKind},
 };
 
 const INVALID_TREE: &str = "The syntax tree is invalid, this is a bug in the parser.";
 
 #[derive(Debug, Clone)]
 pub enum CompileError {
+    InvalidEncodedConstant {
+        node_kind: SyntaxKind,
+        position: Span,
+        payload: (u32, u32),
+    },
     DivisionByZero {
         node_kind: SyntaxKind,
         position: Span,
@@ -25,14 +30,14 @@ pub enum CompileError {
         child_index: u32,
     },
     MissingConstant {
-        constant_index: u32,
+        constant_index: u16,
     },
     MissingLocal {
         node_kind: SyntaxKind,
         local_index: u32,
     },
     MissingSyntaxNode {
-        node_index: u32,
+        id: SyntaxId,
     },
 }
 
@@ -59,6 +64,19 @@ impl AnnotatedError for CompileError {
                 detail_snippets: vec![(node_kind.to_string(), *position)],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
+            CompileError::InvalidEncodedConstant {
+                node_kind,
+                position,
+                payload,
+            } => ErrorMessage {
+                title,
+                description: "The syntax tree contains an encoded constant that is invalid.",
+                detail_snippets: vec![
+                    (node_kind.to_string(), *position),
+                    (format!("Payload: {:?}", payload), *position),
+                ],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
             CompileError::MissingChild {
                 parent_kind,
                 child_index,
@@ -83,10 +101,10 @@ impl AnnotatedError for CompileError {
                 detail_snippets: vec![(format!("Node kind {node_kind}, local index {local_index}"), Span::default())],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
-            CompileError::MissingSyntaxNode { node_index } => ErrorMessage {
+            CompileError::MissingSyntaxNode { id } => ErrorMessage {
                 title,
                 description: "The syntax tree is missing a node that is required for compilation.",
-                detail_snippets: vec![(format!("Node index {node_index}"), Span::default())],
+                detail_snippets: vec![(format!("Node id: {}", id.0), Span::default())],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
         }

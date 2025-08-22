@@ -24,7 +24,7 @@ pub fn fold_constants(
             if *right == 0.0 {
                 return Err(CompileError::DivisionByZero {
                     node_kind: parent_node.kind,
-                    position: right_node.span,
+                    position: right_node.position,
                 });
             }
 
@@ -34,7 +34,7 @@ pub fn fold_constants(
             if *right == 0.0 {
                 return Err(CompileError::DivisionByZero {
                     node_kind: parent_node.kind,
-                    position: right_node.span,
+                    position: right_node.position,
                 });
             }
 
@@ -53,7 +53,7 @@ pub fn fold_constants(
             if *right == 0 {
                 return Err(CompileError::DivisionByZero {
                     node_kind: parent_node.kind,
-                    position: right_node.span,
+                    position: right_node.position,
                 });
             }
             Value::Integer(left.saturating_div(*right))
@@ -62,7 +62,7 @@ pub fn fold_constants(
             if *right == 0 {
                 return Err(CompileError::DivisionByZero {
                     node_kind: parent_node.kind,
-                    position: right_node.span,
+                    position: right_node.position,
                 });
             }
             Value::Integer(left % *right)

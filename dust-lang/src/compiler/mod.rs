@@ -1,23 +1,33 @@
+mod abstract_constant;
 mod error;
 mod fold_constants;
+mod local;
+mod path_resolver;
+mod scope;
+mod type_resolver;
 
+pub use abstract_constant::AbstractConstant;
 pub use error::CompileError;
-use fold_constants::fold_constants;
+pub use local::Local;
+use path_resolver::PathResolver;
+pub use scope::Scope;
+use type_resolver::TypeResolver;
 
 use tracing::{Level, info, span, trace};
 
 use crate::{
-    Address, Chunk, FunctionType, Instruction, Lexer, OperandType, Operation, Type, Value,
+    Address, Chunk, FunctionType, Instruction, Lexer, OperandType, Operation, Type,
+    chunk::ConstantTable,
     dust_error::DustError,
     parser::Parser,
-    syntax_tree::{SyntaxKind, SyntaxNode, SyntaxTree},
+    syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
     let lexer = Lexer::new(source);
     let parser = Parser::new(lexer);
-    let (syntax_tree, _errors) = parser.parse();
-    let compiler = ChunkCompiler::new(syntax_tree);
+    let (syntax_tree, _errors) = parser.parse(true);
+    let compiler = ChunkCompiler::new(&syntax_tree, source);
 
     compiler
         .compile()
@@ -39,19 +49,24 @@ impl Compiler {
 }
 
 #[derive(Debug)]
-pub struct ChunkCompiler {
+pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
-    ///
-    /// The tree is owned because it is mutated in a way that makes it invalid.
-    syntax_tree: SyntaxTree,
+    syntax_tree: &'a SyntaxTree,
+
+    /// Source code being compiled.
+    source: &'a str,
+
+    /// Dependency graph of modules that is progressively filled as one module imports another.
+    module_graph: PathResolver,
+
+    /// Type resolver that assigns types to nodes in the syntax tree.
+    type_table: TypeResolver,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
 
-    /// Deduplicated and sorted list of constants (by their index in the syntax tree) that are used
-    /// in the final program. Instructions that use constants will refer to them by their index in
-    /// this list.
-    stable_constants: Vec<u16>,
+    /// Directed acyclic graph of expressions that will
+    constants: Vec<AbstractConstant>,
 
     /// Concatenated list of arguments referenced by CALL instructions.
     call_arguments: Vec<(Address, OperandType)>,
@@ -79,23 +94,27 @@ pub struct ChunkCompiler {
     /// value has gone out of scope. Register indexes are always popped from this list if available
     /// before allocating a new register.
     reusable_registers: Vec<u16>,
+
+    current_scope: Scope,
 }
 
-impl ChunkCompiler {
-    pub fn new(syntax_tree: SyntaxTree) -> Self {
-        let local_registers = vec![0; syntax_tree.locals.len()];
-
+impl<'a> ChunkCompiler<'a> {
+    pub fn new(syntax_tree: &'a SyntaxTree, source: &'a str) -> Self {
         Self {
             syntax_tree,
+            source,
+            module_graph: PathResolver::new(),
+            type_table: TypeResolver::new(syntax_tree),
             instructions: Vec::new(),
-            stable_constants: Vec::new(),
+            constants: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             return_type: Type::None,
             prototype_index: 0,
-            local_registers,
+            local_registers: Vec::new(),
             next_unused_register: 0,
             reusable_registers: Vec::new(),
+            current_scope: Scope::default(),
         }
     }
 
@@ -108,19 +127,11 @@ impl ChunkCompiler {
             .nodes
             .first()
             .copied()
-            .ok_or(CompileError::MissingSyntaxNode { node_index: 0 })?;
+            .ok_or(CompileError::MissingSyntaxNode { id: SyntaxId(0) })?;
 
         self.compile_statement(main_function_node)?;
 
-        let mut constants = Vec::with_capacity(self.stable_constants.len());
-
-        for index in self.stable_constants {
-            self.syntax_tree.constants.push(Value::Boolean(false));
-
-            let constant = self.syntax_tree.constants.swap_remove(index as usize);
-
-            constants.push(constant);
-        }
+        let constants = self.materialize_constant_table()?;
 
         Ok(Chunk {
             name: Some("main".to_string()),
@@ -132,6 +143,48 @@ impl ChunkCompiler {
             register_count: self.next_unused_register,
             prototype_index: self.prototype_index,
         })
+    }
+
+    fn materialize_constant_table(&self) -> Result<ConstantTable, CompileError> {
+        let mut constants = ConstantTable::new(0, 0);
+
+        for constant in &self.constants {
+            match constant {
+                AbstractConstant::Raw { expression } => {
+                    let expession_node = self
+                        .syntax_tree
+                        .get_node(*expression)
+                        .ok_or(CompileError::MissingSyntaxNode { id: *expression })?;
+
+                    self.materialize_constant(expession_node, &mut constants)?;
+                }
+                _ => todo!(),
+            }
+        }
+
+        Ok(constants)
+    }
+
+    fn materialize_constant(
+        &self,
+        node: &SyntaxNode,
+        constants: &mut ConstantTable,
+    ) -> Result<(), CompileError> {
+        match node.kind {
+            SyntaxKind::IntegerExpression => {
+                let mut bytes = [0; 8];
+
+                bytes[0..4].copy_from_slice(&node.payload.0.to_le_bytes());
+                bytes[4..8].copy_from_slice(&node.payload.1.to_le_bytes());
+
+                let integer = i64::from_le_bytes(bytes);
+
+                constants.add_integer(integer);
+            }
+            _ => todo!(),
+        }
+
+        Ok(())
     }
 
     fn get_next_register(&mut self) -> u16 {
@@ -166,23 +219,30 @@ impl ChunkCompiler {
         }
     }
 
-    fn push_stable_constant(&mut self, constant_index: u16) -> u16 {
-        let stable_index = self.stable_constants.len() as u16;
+    fn push_constant(&mut self, stable_constant: AbstractConstant) -> u16 {
+        let stable_index = self.constants.len() as u16;
 
-        if !self.stable_constants.contains(&constant_index) {
-            self.stable_constants.push(constant_index);
+        if !self.constants.contains(&stable_constant) {
+            self.constants.push(stable_constant);
         }
 
         stable_index
     }
 
-    fn fold_expression(&mut self, node: SyntaxNode) -> Result<Option<usize>, CompileError> {
+    fn fold_expression(&mut self, expression: SyntaxId) -> Result<Option<u16>, CompileError> {
+        let node = self
+            .syntax_tree
+            .get_node(expression)
+            .copied()
+            .ok_or(CompileError::MissingSyntaxNode { id: expression })?;
+
         match node.kind {
             SyntaxKind::CharacterExpression
             | SyntaxKind::FloatExpression
             | SyntaxKind::IntegerExpression
             | SyntaxKind::StringExpression => {
-                let constant_index = node.payload as usize;
+                let constant = AbstractConstant::Raw { expression };
+                let constant_index = self.push_constant(constant);
 
                 Ok(Some(constant_index))
             }
@@ -191,53 +251,32 @@ impl ChunkCompiler {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression => {
-                let left_index = node.child as usize;
-                let right_index = node.payload as usize;
+                let (left_index, right_index) =
+                    (SyntaxId(node.payload.0), SyntaxId(node.payload.1));
 
-                let left_node = self.syntax_tree.nodes.get(left_index).copied().ok_or(
-                    CompileError::MissingChild {
-                        parent_kind: node.kind,
-                        child_index: node.child,
-                    },
-                )?;
-                let right_node = self.syntax_tree.nodes.get(right_index).copied().ok_or(
-                    CompileError::MissingChild {
-                        parent_kind: node.kind,
-                        child_index: node.payload,
-                    },
-                )?;
-
-                let Some(left_constant_index) = self.fold_expression(left_node)? else {
+                let Some(left_constant_index) = self.fold_expression(left_index)? else {
                     return Ok(None);
                 };
-                let Some(right_constant_index) = self.fold_expression(right_node)? else {
+                let Some(right_constant_index) = self.fold_expression(right_index)? else {
                     return Ok(None);
                 };
 
-                let left_constant = self.syntax_tree.constants.get(left_constant_index).ok_or(
+                let left_constant = *self.constants.get(left_constant_index as usize).ok_or(
                     CompileError::MissingConstant {
-                        constant_index: left_constant_index as u32,
+                        constant_index: left_constant_index,
                     },
                 )?;
-                let right_constant = self.syntax_tree.constants.get(right_constant_index).ok_or(
+                let right_constant = *self.constants.get(right_constant_index as usize).ok_or(
                     CompileError::MissingConstant {
-                        constant_index: right_constant_index as u32,
+                        constant_index: right_constant_index,
                     },
                 )?;
 
-                let Some(folded_constant) = fold_constants(
-                    &left_node,
-                    left_constant,
-                    &right_node,
-                    right_constant,
-                    &node,
-                )?
-                else {
-                    return Ok(None);
-                };
+                let folded_constant = left_constant.fold(right_constant);
+                let folded_stable_index = self.push_constant(folded_constant);
 
                 trace!(
-                    "Folding {kind}: {left_constant} {operator} {right_constant} -> {folded_constant}",
+                    "Folding {kind}: {left_constant:?} {operator} {right_constant:?} -> {folded_constant:?}",
                     kind = node.kind,
                     operator = match node.kind {
                         SyntaxKind::AdditionExpression => "+",
@@ -246,24 +285,12 @@ impl ChunkCompiler {
                         SyntaxKind::DivisionExpression => "/",
                         SyntaxKind::ModuloExpression => "%",
                         _ => unreachable!("Expected binary expression, found: {}", node.kind),
-                    }
+                    },
                 );
 
-                let folded_constant_index = self.syntax_tree.push_constant(folded_constant) as u16;
-
-                Ok(Some(folded_constant_index as usize))
+                Ok(Some(folded_stable_index))
             }
-            SyntaxKind::GroupedExpression => {
-                let child_index = node.child as usize;
-                let child_node = self.syntax_tree.nodes.get(child_index).copied().ok_or(
-                    CompileError::MissingChild {
-                        parent_kind: node.kind,
-                        child_index: node.child,
-                    },
-                )?;
-
-                self.fold_expression(child_node)
-            }
+            SyntaxKind::GroupedExpression => self.fold_expression(SyntaxId(node.payload.0)),
             _ => Ok(None),
         }
     }
@@ -272,14 +299,14 @@ impl ChunkCompiler {
         info!("{}", node.kind);
 
         match node.kind {
-            SyntaxKind::MainFunctionStatement => self.compile_main_function_statement(node),
+            SyntaxKind::MainFunctionItem => self.compile_main_function_statement(node),
             SyntaxKind::LetStatement => self.compile_let_statement(node),
             SyntaxKind::FunctionStatement => todo!("Compile function statement"),
             SyntaxKind::ExpressionStatement => todo!("Compile expression statement"),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
-                position: node.span,
+                position: node.position,
             }),
         }
     }
@@ -288,10 +315,7 @@ impl ChunkCompiler {
         info!("{}", node.kind);
 
         match node.kind {
-            SyntaxKind::CharacterExpression
-            | SyntaxKind::FloatExpression
-            | SyntaxKind::IntegerExpression
-            | SyntaxKind::StringExpression => self.compile_constant_value_expression(node),
+            SyntaxKind::CharacterExpression => self.compile_character_value_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -301,14 +325,13 @@ impl ChunkCompiler {
             SyntaxKind::PathExpression => self.parse_path_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
-                position: node.span,
+                position: node.position,
             }),
         }
     }
 
     fn compile_main_function_statement(&mut self, node: SyntaxNode) -> Result<(), CompileError> {
-        let start_children = node.child as usize;
-        let child_count = node.payload as usize;
+        let (start_children, child_count) = (node.payload.0 as usize, node.payload.1 as usize);
         let end_children = start_children + child_count;
 
         let mut current_child_index = start_children;
@@ -327,7 +350,7 @@ impl ChunkCompiler {
                 .syntax_tree
                 .get_node(node_index)
                 .copied()
-                .ok_or(CompileError::MissingSyntaxNode { node_index })?;
+                .ok_or(CompileError::MissingSyntaxNode { id: node_index })?;
 
             match self.compile_statement(child_node) {
                 Ok(()) => {}
@@ -348,33 +371,22 @@ impl ChunkCompiler {
     }
 
     fn compile_let_statement(&mut self, node: SyntaxNode) -> Result<(), CompileError> {
-        let local_index = node.payload as usize;
-        let expression_node_index = node.child as usize;
-        let expression_node = self
-            .syntax_tree
-            .nodes
-            .get(expression_node_index)
-            .copied()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind,
-                child_index: node.child,
-            })?;
-        let value_instruction = self.compile_expression(expression_node)?;
-        let local_address = value_instruction.a_field();
+        let (children_start, child_count) = (node.payload.0, node.payload.1);
+        let identifier_index = children_start as usize;
 
-        self.local_registers[local_index] = local_address;
-
-        self.instructions.push(value_instruction);
-
-        Ok(())
+        self.type_table.Ok(())
     }
 
-    fn compile_constant_value_expression(
+    fn compile_character_value_expression(
         &mut self,
         node: SyntaxNode,
     ) -> Result<Instruction, CompileError> {
-        let constant_index = node.payload;
-        let stable_constant_index = self.push_stable_constant(constant_index as u16);
+        let character_value = char::from_u32(node.payload.0).unwrap_or_default();
+
+        let constant = AbstractConstant::Raw {
+            expression: constant_index,
+        };
+        let stable_constant_index = self.push_constant(constant);
         let address = Address::constant(stable_constant_index);
         let destination = Address::register(self.get_next_register());
         let load = Instruction::load(destination, address, OperandType::INTEGER, false);
@@ -383,8 +395,7 @@ impl ChunkCompiler {
     }
 
     fn compile_binary_expression(&mut self, node: SyntaxNode) -> Result<Instruction, CompileError> {
-        if let Some(constant_index) = self.fold_expression(node)? {
-            let stable_constant_index = self.push_stable_constant(constant_index as u16);
+        if let Some(stable_constant_index) = self.fold_expression(node)? {
             let address = Address::constant(stable_constant_index);
             let destination = Address::register(self.get_next_register());
             let load = Instruction::load(destination, address, OperandType::INTEGER, false);
@@ -466,8 +477,7 @@ impl ChunkCompiler {
                     child_index: node.child,
                 })?;
 
-        if let Some(constant_index) = self.fold_expression(node)? {
-            let stable_constant_index = self.push_stable_constant(constant_index as u16);
+        if let Some(stable_constant_index) = self.fold_expression(node)? {
             let address = Address::constant(stable_constant_index);
             let destination = Address::register(self.get_next_register());
             let load = Instruction::load(destination, address, OperandType::INTEGER, false);
@@ -501,17 +511,17 @@ impl ChunkCompiler {
         Ok(load)
     }
 
-    fn compile_implicit_return(&mut self, expression_node_index: u32) -> Result<(), CompileError> {
-        let expression_type = self.syntax_tree.resolve_type(expression_node_index);
-        let expression_node = self
-            .syntax_tree
-            .nodes
-            .get(expression_node_index as usize)
-            .copied()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: SyntaxKind::MainFunctionStatement,
-                child_index: expression_node_index,
-            })?;
+    fn compile_implicit_return(&mut self, expression: SyntaxId) -> Result<(), CompileError> {
+        let definition = self.module_graph.get_definition();
+        let expression_type = self.syntax_tree.resolve_type(expression);
+        let expression_node =
+            self.syntax_tree
+                .get_node(expression)
+                .copied()
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: SyntaxKind::MainFunctionItem,
+                    child_index: expression,
+                })?;
         let expression_instruction = self.compile_expression(expression_node)?;
         let (returns_value, value_address) = if expression_type == Type::None {
             self.instructions.push(expression_instruction);

@@ -268,7 +268,7 @@ fn main() {
         let parse_time = start_time.elapsed();
 
         println!("{syntax_tree:#?}");
-        println!("{}", syntax_tree.display_node_tree());
+        println!("{}", syntax_tree.display());
 
         if let Some(error) = error
             && !no_output

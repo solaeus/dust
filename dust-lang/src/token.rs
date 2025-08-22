@@ -4,29 +4,35 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Token {
+    // End of file
     Eof,
+
+    // Represents characrers that cannot be used in Dust source code
     Unknown,
 
     // Hard-coded values
-    True,
-    False,
-    Byte,
-    Character,
-    Float,
+    TrueValue,
+    FalseValue,
+    ByteValue,
+    CharacterValue,
+    FloatValue,
+    IntegerValue,
+    StringValue,
+
+    // Paths to declared items or variables
     Identifier,
-    Integer,
-    String,
 
     // Keywords
     Any,
     Async,
     Bool,
     Break,
-    ByteKeyword,
+    Byte,
     Cell,
+    Char,
     Const,
     Else,
-    FloatKeyword,
+    Float,
     Fn,
     If,
     Int,
@@ -42,7 +48,7 @@ pub enum Token {
     Use,
     While,
 
-    // Symbols
+    // Symbols (operators and punctuation)
     ArrowThin,
     Asterisk,
     BangEqual,
@@ -57,8 +63,8 @@ pub enum Token {
     Equal,
     Greater,
     GreaterEqual,
-    LeftBrace,
-    LeftBracket,
+    LeftCurlyBrace,
+    LeftSquareBracket,
     LeftParenthesis,
     Less,
     LessEqual,
@@ -68,13 +74,28 @@ pub enum Token {
     PercentEqual,
     Plus,
     PlusEqual,
-    RightBrace,
-    RightBracket,
+    RightCurlyBrace,
+    RightSquareBracket,
     RightParenthesis,
     Semicolon,
     Slash,
     SlashEqual,
     StarEqual,
+}
+
+impl Token {
+    pub fn is_type(&self) -> bool {
+        matches!(
+            self,
+            Token::TrueValue
+                | Token::FalseValue
+                | Token::ByteValue
+                | Token::CharacterValue
+                | Token::FloatValue
+                | Token::IntegerValue
+                | Token::StringValue
+        )
+    }
 }
 
 impl Display for Token {

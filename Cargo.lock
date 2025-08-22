@@ -620,6 +620,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "smallvec",
  "tracing",
 ]
 

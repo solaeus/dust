@@ -6,19 +6,20 @@ use std::{
 };
 
 use lexical_core::{ParseFloatOptions, format::RUST_LITERAL, parse_with_options};
+use smallvec::SmallVec;
 use tracing::{Level, debug, error, info, span, warn};
 
 use crate::{
-    LexError, Lexer, Span, Token, Value,
+    LexError, Lexer, Span, Token,
     dust_error::{AnnotatedError, DustError, ErrorMessage},
     parser::parse_rule::{ParseRule, Precedence},
-    syntax_tree::{Local, Scope, SyntaxKind, SyntaxNode, SyntaxTree},
+    syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
-pub fn parse(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
+pub fn parse(source: &'_ str, is_main: bool) -> (SyntaxTree, Option<DustError<'_>>) {
     let lexer = Lexer::new(source);
     let parser = Parser::new(lexer);
-    let (syntax_tree, errors) = parser.parse();
+    let (syntax_tree, errors) = parser.parse(is_main);
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -37,8 +38,6 @@ pub struct Parser<'src> {
     current_position: Span,
     previous_token: Token,
     previous_position: Span,
-
-    current_scope: Scope,
 
     errors: Vec<ParseError>,
 }
@@ -60,54 +59,22 @@ impl<'src> Parser<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span::default(),
-            current_scope: Scope::default(),
             errors,
         }
     }
 
-    pub fn parse(mut self) -> (SyntaxTree, Vec<ParseError>) {
-        let span = span!(Level::INFO, "Parsing");
-        let _enter = span.enter();
-
-        let placeholder_node = SyntaxNode {
-            kind: SyntaxKind::MainFunctionStatement,
-            span: Span::default(),
-            child: 0,
-            payload: 0,
-        };
-
-        self.syntax_tree.push_node(placeholder_node);
-
-        let mut children = Vec::new();
-
-        while self.current_token != Token::Eof {
-            if let Err(error) = self.pratt(Precedence::None) {
-                self.recover(error);
-            } else {
-                let child_index = self.syntax_tree.node_count() - 1;
-
-                children.push(child_index);
-            }
+    pub fn parse(mut self, is_main: bool) -> (SyntaxTree, Vec<ParseError>) {
+        if is_main {
+            self.parse_main_function_item();
+        } else {
+            self.parse_module_item();
         }
-
-        if let Some(last_child) = self.syntax_tree.last_node()
-            && last_child.kind == SyntaxKind::ExpressionStatement
-        {
-            children.pop();
-        }
-
-        let first_child = self.syntax_tree.children.len();
-
-        self.syntax_tree.nodes[0] = SyntaxNode {
-            kind: SyntaxKind::MainFunctionStatement,
-            span: Span(0, self.current_position.1),
-            child: first_child as u32,
-            payload: children.len() as u32,
-        };
-
-        self.syntax_tree.children.extend(children);
 
         (self.syntax_tree, self.errors)
+    }
+
+    fn new_child_buffer() -> SmallVec<[SyntaxId; 4]> {
+        SmallVec::<[SyntaxId; 4]>::new()
     }
 
     fn pratt(&mut self, precedence: Precedence) -> Result<(), ParseError> {
@@ -165,10 +132,11 @@ impl<'src> Parser<'src> {
             return;
         }
 
-        while !matches!(self.current_token, Token::Semicolon | Token::Eof) {
-            if let Err(err) = self.advance() {
-                error!("{err}");
-            }
+        while !matches!(
+            self.current_token,
+            Token::Semicolon | Token::RightCurlyBrace | Token::Eof
+        ) {
+            self.advance().map_err(|error| self.recover(error));
         }
 
         warn!(
@@ -177,7 +145,7 @@ impl<'src> Parser<'src> {
         );
 
         if self.current_token == Token::Semicolon {
-            let _ = self.advance();
+            self.advance().map_err(|error| self.recover(error));
         }
     }
 
@@ -209,35 +177,63 @@ impl<'src> Parser<'src> {
         &self.lexer.source()[self.current_position.as_usize_range()]
     }
 
+    fn parse_item(&mut self) -> Result<(), ParseError> {
+        self.pratt(Precedence::None)?;
+
+        if let Some(node) = self.syntax_tree.last_node()
+            && !node.kind.is_item()
+        {
+            Err(ParseError::ExpectedItem {
+                actual: node.kind,
+                position: node.position,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    fn parse_statement(&mut self) -> Result<(), ParseError> {
+        self.pratt(Precedence::None)?;
+
+        if let Some(node) = self.syntax_tree.last_node()
+            && !node.kind.is_statement()
+        {
+            Err(ParseError::ExpectedStatement {
+                actual: node.kind,
+                position: node.position,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     fn parse_expression(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
-        match self.syntax_tree.last_node() {
-            Some(node) if !node.kind.is_expression() => Err(ParseError::ExpectedExpression {
+        if let Some(node) = self.syntax_tree.last_node()
+            && !node.kind.is_expression()
+        {
+            Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: node.span,
-            }),
-            None => Err(ParseError::UnexpectedToken {
-                actual: self.current_token,
-                position: self.current_position,
-            }),
-            _ => Ok(()),
+                position: node.position,
+            })
+        } else {
+            Ok(())
         }
     }
 
     fn parse_sub_expression(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         self.pratt(precedence.increment())?;
 
-        match self.syntax_tree.last_node() {
-            Some(node) if !node.kind.is_expression() => Err(ParseError::ExpectedExpression {
+        if let Some(node) = self.syntax_tree.last_node()
+            && !node.kind.is_expression()
+        {
+            Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: self.current_position,
-            }),
-            None => Err(ParseError::UnexpectedToken {
-                actual: self.current_token,
-                position: self.current_position,
-            }),
-            _ => Ok(()),
+                position: node.position,
+            })
+        } else {
+            Ok(())
         }
     }
 
@@ -248,6 +244,306 @@ impl<'src> Parser<'src> {
         })
     }
 
+    pub fn parse_main_function_item(&mut self) {
+        let span = span!(Level::INFO, "Parsing Main");
+        let _enter = span.enter();
+
+        let placeholder_node = SyntaxNode {
+            kind: SyntaxKind::MainFunctionItem,
+            position: Span::default(),
+            payload: (0, 0),
+        };
+
+        self.syntax_tree.push_node(placeholder_node);
+
+        let mut children = Self::new_child_buffer();
+
+        while self.current_token != Token::Eof {
+            if let Err(error) = self.pratt(Precedence::None) {
+                self.recover(error);
+            } else {
+                let child_id = self.syntax_tree.last_node_id();
+
+                children.push(child_id);
+            }
+        }
+
+        if let Some(last_child) = self.syntax_tree.last_node()
+            && last_child.kind == SyntaxKind::ExpressionStatement
+        {
+            children.pop();
+        }
+
+        let first_child = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+
+        self.syntax_tree.nodes[0] = SyntaxNode {
+            kind: SyntaxKind::MainFunctionItem,
+            position: Span(0, self.current_position.1),
+            payload: (first_child, child_count),
+        };
+
+        self.syntax_tree.children.extend(children);
+    }
+
+    pub fn parse_module_item(&mut self) {
+        let span = span!(Level::INFO, "Parsing Module");
+        let _enter = span.enter();
+
+        let end_token = if self.current_token == Token::Mod {
+            self.advance().map_err(|error| self.recover(error));
+            self.expect(Token::LeftCurlyBrace)
+                .map_err(|error| self.recover(error));
+
+            Token::RightCurlyBrace
+        } else {
+            Token::Eof
+        };
+
+        let node_index = self.syntax_tree.nodes.len();
+        let placeholder_node = SyntaxNode {
+            kind: SyntaxKind::MainFunctionItem,
+            position: Span::default(),
+            payload: (0, 0),
+        };
+
+        self.syntax_tree.push_node(placeholder_node);
+
+        let mut children = Self::new_child_buffer();
+
+        while self.current_token != end_token {
+            self.parse_item().map_err(|error| self.recover(error));
+            children.push(self.syntax_tree.last_node_id());
+        }
+
+        let first_child = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+
+        self.syntax_tree.nodes[node_index] = SyntaxNode {
+            kind: SyntaxKind::MainFunctionItem,
+            position: Span(0, self.current_position.1),
+            payload: (first_child, child_count),
+        };
+
+        self.syntax_tree.children.extend(children);
+    }
+
+    fn parse_function_statement_or_expression(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        self.advance()?;
+
+        let function_kind = match self.current_token {
+            Token::Identifier => SyntaxKind::FunctionStatement,
+            Token::LeftParenthesis => SyntaxKind::FunctionExpression,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: &[Token::Identifier, Token::LeftParenthesis],
+                    actual: self.current_token,
+                    position: self.current_position,
+                });
+            }
+        };
+
+        self.parse_function_signature()?;
+
+        let function_signature_id = self.syntax_tree.last_node_id();
+
+        if self.current_token != Token::LeftCurlyBrace {
+            return Err(ParseError::ExpectedToken {
+                expected: Token::LeftCurlyBrace,
+                actual: self.current_token,
+                position: self.current_position,
+            });
+        }
+
+        self.parse_block()?;
+
+        let block_id = self.syntax_tree.last_node_id();
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: function_kind,
+            position: Span(start, end),
+            payload: (function_signature_id.0, block_id.0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_function_signature(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let mut children = Self::new_child_buffer();
+
+        if self.current_token == Token::Identifier {
+            self.parse_identifier()?;
+            children.push(self.syntax_tree.last_node_id());
+        }
+
+        self.expect(Token::LeftParenthesis)?;
+
+        while !self.allow(Token::RightParenthesis)? {
+            self.parse_function_parameter()?;
+            children.push(self.syntax_tree.last_node_id());
+        }
+
+        if self.current_token.is_type() {
+            self.parse_type()?;
+            children.push(self.syntax_tree.last_node_id());
+        }
+
+        let end = self.previous_position.1;
+        let first_child = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+        let node = SyntaxNode {
+            kind: SyntaxKind::FunctionSignature,
+            position: Span(start, end),
+            payload: (first_child, child_count),
+        };
+
+        self.syntax_tree.children.extend(children);
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_function_parameter(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        if let Token::Identifier = self.current_token {
+            self.parse_identifier()?;
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: Token::Identifier,
+                actual: self.current_token,
+                position: self.current_position,
+            });
+        }
+
+        let identifier_id = self.syntax_tree.last_node_id();
+
+        self.expect(Token::Colon)?;
+
+        if !self.current_token.is_type() {
+            return Err(ParseError::ExpectedMultipleTokens {
+                expected: &[
+                    Token::Bool,
+                    Token::ByteValue,
+                    Token::CharacterValue,
+                    Token::FloatValue,
+                    Token::IntegerValue,
+                    Token::StringValue,
+                ],
+                actual: self.current_token,
+                position: self.current_position,
+            });
+        }
+
+        self.parse_type()?;
+
+        let type_id = self.syntax_tree.last_node_id();
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::FunctionParameter,
+            position: Span(start, end),
+            payload: (identifier_id.0, type_id.0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_type(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        let node_kind = match self.current_token {
+            Token::Bool => SyntaxKind::BooleanType,
+            Token::Byte => SyntaxKind::ByteType,
+            Token::Char => SyntaxKind::CharacterType,
+            Token::Float => SyntaxKind::FloatType,
+            Token::Int => SyntaxKind::IntegerType,
+            Token::Str => SyntaxKind::StringType,
+            Token::Identifier => SyntaxKind::TypePath,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: &[
+                        Token::Bool,
+                        Token::Byte,
+                        Token::Char,
+                        Token::Float,
+                        Token::Int,
+                        Token::Str,
+                    ],
+                    actual: self.current_token,
+                    position: self.current_position,
+                });
+            }
+        };
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: node_kind,
+            position: Span(start, end),
+            payload: (0, 0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_let_statement(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let mut children = Self::new_child_buffer();
+
+        self.advance()?;
+
+        let kind = if self.allow(Token::Mut)? {
+            SyntaxKind::LetMutStatement
+        } else {
+            SyntaxKind::LetStatement
+        };
+
+        if self.current_token != Token::Identifier {
+            return Err(ParseError::ExpectedToken {
+                expected: Token::Identifier,
+                actual: self.current_token,
+                position: self.current_position,
+            });
+        }
+
+        self.parse_identifier()?;
+        children.push(self.syntax_tree.last_node_id());
+
+        if self.allow(Token::Colon)? {
+            self.parse_type()?;
+            children.push(self.syntax_tree.last_node_id());
+        }
+
+        self.expect(Token::Equal)?;
+        self.parse_expression()?;
+        self.allow(Token::Semicolon)?;
+        children.push(self.syntax_tree.last_node_id());
+
+        let end = self.previous_position.1;
+        let children_start = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+        let node = SyntaxNode {
+            kind,
+            position: Span(start, end),
+            payload: (children_start, child_count),
+        };
+
+        self.syntax_tree.push_node(node);
+        self.syntax_tree.children.extend(children);
+
+        Ok(())
+    }
+
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
 
@@ -255,11 +551,11 @@ impl<'src> Parser<'src> {
 
         let end = self.previous_position.1;
         let boolean_payload = match self.current_token {
-            Token::True => true as u32,
-            Token::False => false as u32,
+            Token::TrueValue => true as u32,
+            Token::FalseValue => false as u32,
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
-                    expected: vec![Token::True, Token::False],
+                    expected: &[Token::TrueValue, Token::FalseValue],
                     actual: self.current_token,
                     position: self.current_position,
                 });
@@ -267,9 +563,8 @@ impl<'src> Parser<'src> {
         };
         let node = SyntaxNode {
             kind: SyntaxKind::BooleanExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: boolean_payload,
+            position: Span(start, end),
+            payload: (boolean_payload, 0),
         };
 
         self.syntax_tree.push_node(node);
@@ -287,9 +582,8 @@ impl<'src> Parser<'src> {
         let byte_payload = u8::from_ascii_radix(byte_text_utf8, 16).unwrap_or_default() as u32;
         let node = SyntaxNode {
             kind: SyntaxKind::ByteExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: byte_payload,
+            position: Span(start, end),
+            payload: (byte_payload, 0),
         };
 
         self.syntax_tree.push_node(node);
@@ -299,16 +593,16 @@ impl<'src> Parser<'src> {
 
     fn parse_character_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let character_payload = self.current_source().chars().next().unwrap_or_default() as u32;
+        let character_text = self.current_source();
 
         self.advance()?;
 
         let end = self.previous_position.1;
+        let character_payload = character_text.chars().next().unwrap_or_default() as u32;
         let node = SyntaxNode {
             kind: SyntaxKind::CharacterExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: character_payload,
+            position: Span(start, end),
+            payload: (character_payload, 0),
         };
 
         self.syntax_tree.push_node(node);
@@ -325,15 +619,26 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let float = parse_with_options::<f64, RUST_LITERAL>(
             float_text.as_bytes(),
-            &ParseFloatOptions::new(),
+            &ParseFloatOptions::default(),
         )
         .unwrap_or_default();
-        let float_index = self.syntax_tree.push_constant(Value::float(float));
+        let float_bytes = float.to_le_bytes();
+        let left_payload = u32::from_le_bytes([
+            float_bytes[0],
+            float_bytes[1],
+            float_bytes[2],
+            float_bytes[3],
+        ]);
+        let right_payload = u32::from_le_bytes([
+            float_bytes[4],
+            float_bytes[5],
+            float_bytes[6],
+            float_bytes[7],
+        ]);
         let node = SyntaxNode {
             kind: SyntaxKind::FloatExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: float_index,
+            position: Span(start, end),
+            payload: (left_payload, right_payload),
         };
 
         self.syntax_tree.push_node(node);
@@ -348,13 +653,24 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let end = self.previous_position.1;
-        let integer = self.parse_integer(integer_text);
-        let integer_index = self.syntax_tree.push_constant(Value::integer(integer));
+        let integer = Self::parse_integer(integer_text);
+        let integer_bytes = integer.to_le_bytes();
+        let left_payload = u32::from_le_bytes([
+            integer_bytes[0],
+            integer_bytes[1],
+            integer_bytes[2],
+            integer_bytes[3],
+        ]);
+        let right_payload = u32::from_le_bytes([
+            integer_bytes[4],
+            integer_bytes[5],
+            integer_bytes[6],
+            integer_bytes[7],
+        ]);
         let node = SyntaxNode {
             kind: SyntaxKind::IntegerExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: integer_index,
+            position: Span(start, end),
+            payload: (left_payload, right_payload),
         };
 
         self.syntax_tree.push_node(node);
@@ -362,7 +678,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_integer(&mut self, text: &str) -> i64 {
+    fn parse_integer(text: &str) -> i64 {
         let mut integer = 0_i64;
         let mut chars = text.chars().peekable();
 
@@ -374,18 +690,16 @@ impl<'src> Parser<'src> {
             true
         };
 
-        let mut digit_index = 0;
+        let mut digit_place = 0;
 
-        for character in chars {
+        for character in chars.rev() {
             let Some(digit) = character.to_digit(10) else {
                 continue;
             };
 
-            digit_index += 1;
-
-            let digit_place = text.len() - digit_index - 1;
-            let place_value = 10_i64.pow(digit_place as u32);
+            let place_value = 10_i64.pow(digit_place);
             let digit_value = digit as i64 * place_value;
+            digit_place += 1;
 
             integer = integer.saturating_add(digit_value);
         }
@@ -395,57 +709,14 @@ impl<'src> Parser<'src> {
 
     fn parse_string_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let text = self.current_source();
 
         self.advance()?;
 
         let end = self.previous_position.1;
-        let string_index = self.syntax_tree.push_constant(Value::string(text));
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: string_index,
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
-    }
-
-    fn parse_let_statement(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-
-        self.advance()?;
-
-        let is_mutable = self.allow(Token::Mut)?;
-        let identifier_position = self.current_position;
-
-        self.expect(Token::Identifier)?;
-        self.expect(Token::Equal)?;
-        self.parse_expression()?;
-        self.allow(Token::Semicolon)?;
-
-        let end = self.previous_position.1;
-        let expression_index = self.syntax_tree.node_count() - 1;
-        let r#type = self.syntax_tree.resolve_type(expression_index);
-        let local = Local {
-            identifier_position,
-            is_mutable,
-            scope: self.current_scope,
-            r#type,
-        };
-        let local_index = self.syntax_tree.push_local(local).map_err(|local_index| {
-            ParseError::DuplicateLocal {
-                local_index,
-                identifier_position,
-            }
-        })?;
-        let node = SyntaxNode {
-            kind: SyntaxKind::LetStatement,
-            span: Span(start, end),
-            child: expression_index,
-            payload: local_index,
+            position: Span(start, end),
+            payload: (0, 0),
         };
 
         self.syntax_tree.push_node(node);
@@ -462,9 +733,9 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
-        let left = self.syntax_tree.node_count() - 1;
+        let left = self.syntax_tree.last_node_id();
         let left_node = self.syntax_tree.get_node(left);
-        let start = left_node.map(|node| node.span).unwrap_or_default().0;
+        let start = left_node.map(|node| node.position).unwrap_or_default().0;
         let node_kind = match self.current_token {
             Token::Plus => SyntaxKind::AdditionExpression,
             Token::Minus => SyntaxKind::SubtractionExpression,
@@ -473,7 +744,7 @@ impl<'src> Parser<'src> {
             Token::Percent => SyntaxKind::ModuloExpression,
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
-                    expected: vec![
+                    expected: &[
                         Token::Plus,
                         Token::Minus,
                         Token::Asterisk,
@@ -490,13 +761,12 @@ impl<'src> Parser<'src> {
         self.advance()?;
         self.parse_sub_expression(operator_precedence)?;
 
-        let right = self.syntax_tree.node_count() - 1;
+        let right = self.syntax_tree.last_node_id();
         let end = self.current_position.0;
         let node = SyntaxNode {
             kind: node_kind,
-            span: Span(start, end),
-            child: left,
-            payload: right,
+            position: Span(start, end),
+            payload: (left.0, right.0),
         };
 
         self.syntax_tree.push_node(node);
@@ -520,21 +790,16 @@ impl<'src> Parser<'src> {
         self.expect(Token::RightParenthesis)?;
 
         let end = self.previous_position.1;
-        let expression_index = self.syntax_tree.node_count() - 1;
+        let expression_id = self.syntax_tree.last_node_id();
         let node = SyntaxNode {
             kind: SyntaxKind::GroupedExpression,
-            span: Span(start, end),
-            child: expression_index,
-            payload: 0,
+            position: Span(start, end),
+            payload: (expression_id.0, 0),
         };
 
         self.syntax_tree.push_node(node);
 
         Ok(())
-    }
-
-    fn parse_function(&mut self) -> Result<(), ParseError> {
-        todo!()
     }
 
     fn parse_if(&mut self) -> Result<(), ParseError> {
@@ -559,22 +824,14 @@ impl<'src> Parser<'src> {
 
     fn parse_identifier(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let identifier_text = self.current_source();
 
         self.advance()?;
 
         let end = self.previous_position.1;
-        let local_index = self
-            .syntax_tree
-            .find_local_index(identifier_text, self.lexer.source())
-            .ok_or_else(|| ParseError::UndeclaredVariable {
-                position: Span::new(start, end),
-            })?;
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
-            span: Span(start, end),
-            child: 0,
-            payload: local_index,
+            position: Span(start, end),
+            payload: (0, 0),
         };
 
         self.syntax_tree.push_node(node);
@@ -611,18 +868,17 @@ impl<'src> Parser<'src> {
         let node = if is_optional {
             SyntaxNode {
                 kind: SyntaxKind::SemicolonStatement,
-                span: Span(start, end),
-                child: 0,
-                payload: is_optional as u32,
+                position: Span(start, end),
+                payload: (is_optional as u32, 0),
             }
         } else {
-            let span = Span(last_node.span.0, end);
+            let span = Span(last_node.position.0, end);
+            let expression_id = self.syntax_tree.last_node_id();
 
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                span,
-                child: self.syntax_tree.node_count() - 1,
-                payload: 0,
+                position: span,
+                payload: (expression_id.0, 0),
             }
         };
 
@@ -638,14 +894,19 @@ impl<'src> Parser<'src> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
-    DuplicateLocal {
-        local_index: u32,
-        identifier_position: Span,
+    ExpectedItem {
+        actual: SyntaxKind,
+        position: Span,
+    },
+    ExpectedStatement {
+        actual: SyntaxKind,
+        position: Span,
     },
     ExpectedExpression {
         actual: SyntaxKind,
         position: Span,
     },
+
     ExpectedToken {
         actual: Token,
         expected: Token,
@@ -653,32 +914,27 @@ pub enum ParseError {
     },
     ExpectedMultipleTokens {
         actual: Token,
-        expected: Vec<Token>,
+        expected: &'static [Token],
         position: Span,
     },
     UnexpectedToken {
         actual: Token,
         position: Span,
     },
+
     LexError {
         error: LexError,
-    },
-    UndeclaredVariable {
-        position: Span,
     },
 }
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ParseError::DuplicateLocal {
-                local_index,
-                identifier_position,
-            } => {
-                write!(
-                    f,
-                    "Duplicate local at index {local_index} at {identifier_position}"
-                )
+            ParseError::ExpectedItem { actual, position } => {
+                write!(f, "Expected item, found {actual} at {position}")
+            }
+            ParseError::ExpectedStatement { actual, position } => {
+                write!(f, "Expected statement, found {actual} at {position}")
             }
             ParseError::ExpectedExpression {
                 actual: found,
@@ -725,9 +981,6 @@ impl Display for ParseError {
                 write!(f, "Unexpected token {found} at {position}")
             }
             ParseError::LexError { error } => write!(f, "{error}"),
-            ParseError::UndeclaredVariable { position } => {
-                write!(f, "Undeclared variable at {position}")
-            }
         }
     }
 }
@@ -737,15 +990,21 @@ impl AnnotatedError for ParseError {
         let title = "Parsing Error";
 
         match self {
-            ParseError::DuplicateLocal {
-                identifier_position,
-                ..
-            } => ErrorMessage {
+            ParseError::ExpectedItem { actual, position } => ErrorMessage {
                 title,
-                description: "Duplicate variable declaration",
+                description: "Expected an item",
                 detail_snippets: vec![(
-                    "This variable already exists in this scope.".to_string(),
-                    *identifier_position,
+                    format!("This is a {actual}, which cannot be used here."),
+                    *position,
+                )],
+                help_snippet: None,
+            },
+            ParseError::ExpectedStatement { actual, position } => ErrorMessage {
+                title,
+                description: "Expected a statement",
+                detail_snippets: vec![(
+                    format!("This is a {actual}, which cannot be used here."),
+                    *position,
                 )],
                 help_snippet: None,
             },
@@ -780,12 +1039,6 @@ impl AnnotatedError for ParseError {
                 help_snippet: None,
             },
             ParseError::LexError { error } => error.annotated_error(),
-            ParseError::UndeclaredVariable { position } => ErrorMessage {
-                title: "Undeclared Variable",
-                description: "Variable used before declaration",
-                detail_snippets: vec![("Variable used here".to_string(), *position)],
-                help_snippet: None,
-            },
         }
     }
 }
