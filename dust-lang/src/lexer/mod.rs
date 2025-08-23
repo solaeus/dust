@@ -1,19 +1,14 @@
-mod error;
-
-pub use error::LexError;
-
 use serde::{Deserialize, Serialize};
+use tracing::trace;
 
 use crate::{Span, Token, dust_error::DustError};
 
 pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>> {
-    let mut lexer = Lexer::new(source);
+    let mut lexer = Lexer::with_source(source);
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer
-            .next_token()
-            .map_err(|error| DustError::lex(error, source))?;
+        let (token, span) = lexer.next_token();
 
         tokens.push((token, span));
 
@@ -25,83 +20,94 @@ pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>
     Ok(tokens)
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,
+    line_indexes: Vec<u32>,
 }
 
 impl<'src> Lexer<'src> {
-    /// Create a new lexer for the given input.
-    pub fn new(source: &'src str) -> Self {
+    pub fn new() -> Self {
         Lexer {
-            source,
+            source: "",
             position: 0,
+            line_indexes: Vec::new(),
         }
     }
 
-    pub fn reset(&mut self, source: &'src str) {
-        *self = Lexer::new(source);
+    pub fn with_source(source: &'src str) -> Self {
+        Lexer {
+            source,
+            position: 0,
+            line_indexes: Vec::new(),
+        }
     }
 
-    /// Get the source code being lexed.
+    pub fn initialize(&mut self, source: &'src str, offset: usize) -> (Token, Span) {
+        self.source = source;
+        self.position = offset;
+
+        self.line_indexes.clear();
+        self.next_token()
+    }
+
     pub fn source(&self) -> &'src str {
         self.source
     }
 
     /// Produce the next token.
-    pub fn next_token(&mut self) -> Result<(Token, Span), LexError> {
-        self.skip_whitespace();
-
-        let (token, span) = if let Some(character) = self.peek_char() {
-            match character {
-                '0'..='9' => self.lex_numeric()?,
-                'a'..='z' | 'A'..='Z' | '_' => self.lex_keyword_or_identifier()?,
-                '"' => self.lex_string()?,
-                '\'' => self.lex_character()?,
-                '+' => self.lex_plus()?,
-                '-' => self.lex_minus()?,
-                '*' => self.lex_asterisk()?,
-                '/' => self.lex_slash()?,
-                '%' => self.lex_percent()?,
-                '!' => self.lex_exclamation_mark()?,
-                '=' => self.lex_equal()?,
-                '<' => self.lex_less_than()?,
-                '>' => self.lex_greater_than()?,
-                '&' => self.lex_ampersand()?,
-                '|' => self.lex_pipe()?,
-                '(' => self.lex_left_parenthesis()?,
-                ')' => self.lex_right_parenthesis()?,
-                '[' => self.lex_left_bracket()?,
-                ']' => self.lex_right_bracket()?,
-                '{' => self.lex_left_brace()?,
-                '}' => self.lex_right_brace()?,
-                ';' => self.lex_semicolon()?,
-                ':' => self.lex_colon()?,
-                ',' => self.lex_comma()?,
-                '.' => self.lex_dot()?,
-                _ => self.lex_unknown()?,
-            }
-        } else {
-            (Token::Eof, Span::new(self.position, self.position))
+    pub fn next_token(&mut self) -> (Token, Span) {
+        let Some(character) = self.peek_char() else {
+            return (Token::Eof, Span::new(self.position, self.position));
         };
 
-        Ok((token, span))
+        let (token, span) = match character {
+            '0'..='9' => self.lex_numeric(),
+            'a'..='z' | 'A'..='Z' | '_' => self.lex_keyword_or_identifier(),
+            '"' => self.lex_string(),
+            '\'' => self.lex_character(),
+            '+' => self.lex_plus(),
+            '-' => self.lex_minus(),
+            '*' => self.lex_asterisk(),
+            '/' => self.lex_slash(),
+            '%' => self.lex_percent(),
+            '!' => self.lex_exclamation_mark(),
+            '=' => self.lex_equal(),
+            '<' => self.lex_less_than(),
+            '>' => self.lex_greater_than(),
+            '&' => self.lex_ampersand(),
+            '|' => self.lex_pipe(),
+            '.' => self.lex_dot(),
+            ':' => self.lex_colon(),
+            '(' => self.emit(Token::LeftParenthesis),
+            ')' => self.emit(Token::RightParenthesis),
+            '[' => self.emit(Token::LeftSquareBracket),
+            ']' => self.emit(Token::RightSquareBracket),
+            '{' => self.emit(Token::LeftCurlyBrace),
+            '}' => self.emit(Token::RightCurlyBrace),
+            ';' => self.emit(Token::Semicolon),
+            ',' => self.emit(Token::Comma),
+            ' ' => self.emit(Token::Space),
+            '\t' => self.emit(Token::Tab),
+            '\r' => self.lex_carriage_return(),
+            '\n' => {
+                let (token, position) = self.emit(Token::Newline);
+
+                self.line_indexes.push(position.1);
+
+                (token, position)
+            }
+            _ => self.emit(Token::Unknown),
+        };
+
+        (token, span)
     }
 
     /// Progress to the next character.
     fn advance(&mut self) {
         if let Some(c) = self.source[self.position..].chars().next() {
             self.position += c.len_utf8();
-        }
-    }
-
-    /// Skip whitespace characters.
-    fn skip_whitespace(&mut self) {
-        while let Some(character) = self.peek_char()
-            && character.is_whitespace()
-        {
-            self.advance();
         }
     }
 
@@ -120,7 +126,16 @@ impl<'src> Lexer<'src> {
         self.source[self.position..].chars().take(n)
     }
 
-    fn lex_numeric(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn emit(&mut self, token: Token) -> (Token, Span) {
+        let start = self.position;
+
+        self.advance();
+
+        (token, Span::new(start, self.position))
+    }
+
+    fn lex_numeric(&mut self) -> (Token, Span) {
         let start = self.position;
         let mut is_float = false;
         let peek_char = self.peek_char();
@@ -139,14 +154,7 @@ impl<'src> Lexer<'src> {
                     if character.is_ascii_hexdigit() {
                         self.advance();
                     } else {
-                        return Err(LexError::ExpectedMultipleCharacters {
-                            expected: &[
-                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
-                                'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f',
-                            ],
-                            actual: Some(character),
-                            position: self.position,
-                        });
+                        return (Token::Unknown, Span::new(start, self.position));
                     }
                 }
             }
@@ -204,28 +212,25 @@ impl<'src> Lexer<'src> {
         }
 
         if is_float {
-            Ok((Token::FloatValue, Span::new(start, self.position)))
+            (Token::FloatValue, Span::new(start, self.position))
         } else {
-            Ok((Token::IntegerValue, Span::new(start, self.position)))
+            (Token::IntegerValue, Span::new(start, self.position))
         }
     }
 
-    fn lex_keyword_or_identifier(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_keyword_or_identifier(&mut self) -> (Token, Span) {
         let start = self.position;
 
-        while let Some(c) = self.peek_char() {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                self.advance();
-            } else if c == ':' && self.peek_second_char() == Some(':') {
-                self.advance();
+        while let Some(char) = self.peek_char() {
+            if char.is_ascii_alphanumeric() || char == '_' {
                 self.advance();
             } else {
                 break;
             }
         }
 
-        let string = &self.source[start..self.position];
-        let token = match string {
+        let token = match &self.source[start..self.position] {
             "Infinity" => Token::FloatValue,
             "NaN" => Token::FloatValue,
             "any" => Token::Any,
@@ -255,10 +260,11 @@ impl<'src> Lexer<'src> {
             _ => Token::Identifier,
         };
 
-        Ok((token, Span::new(start, self.position)))
+        (token, Span::new(start, self.position))
     }
 
-    fn lex_string(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_string(&mut self) -> (Token, Span) {
         self.advance(); // Consume the opening quote
 
         let start = self.position;
@@ -273,10 +279,11 @@ impl<'src> Lexer<'src> {
 
         self.advance(); // Consume the closing quote
 
-        Ok((Token::StringValue, Span::new(start, end)))
+        (Token::StringValue, Span::new(start, end))
     }
 
-    fn lex_character(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_character(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -284,18 +291,15 @@ impl<'src> Lexer<'src> {
 
         if self.peek_char() == Some('\'') {
             self.advance();
-        } else {
-            return Err(LexError::ExpectedCharacter {
-                expected: '\'',
-                actual: self.peek_char(),
-                position: self.position,
-            });
-        }
 
-        Ok((Token::CharacterValue, Span::new(start, self.position)))
+            (Token::CharacterValue, Span::new(start, self.position))
+        } else {
+            (Token::Unknown, Span::new(start, self.position))
+        }
     }
 
-    fn lex_plus(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_plus(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -303,13 +307,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::PlusEqual, Span::new(start, self.position)))
+            (Token::PlusEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Plus, Span::new(start, self.position)))
+            (Token::Plus, Span::new(start, self.position))
         }
     }
 
-    fn lex_minus(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_minus(&mut self) -> (Token, Span) {
         let start = self.position;
 
         if self
@@ -325,12 +330,12 @@ impl<'src> Lexer<'src> {
             Some('=') => {
                 self.advance();
 
-                return Ok((Token::MinusEqual, Span::new(start, self.position)));
+                return (Token::MinusEqual, Span::new(start, self.position));
             }
             Some('>') => {
                 self.advance();
 
-                return Ok((Token::ArrowThin, Span::new(start, self.position)));
+                return (Token::ArrowThin, Span::new(start, self.position));
             }
             _ => {}
         }
@@ -338,13 +343,14 @@ impl<'src> Lexer<'src> {
         if self.peek_chars(8).eq("Infinity".chars()) {
             self.position += 8;
 
-            return Ok((Token::FloatValue, Span::new(start, self.position)));
+            return (Token::FloatValue, Span::new(start, self.position));
         }
 
-        Ok((Token::Minus, Span::new(start, self.position)))
+        (Token::Minus, Span::new(start, self.position))
     }
 
-    fn lex_asterisk(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_asterisk(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -352,13 +358,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::StarEqual, Span::new(start, self.position)))
+            (Token::StarEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Asterisk, Span::new(start, self.position)))
+            (Token::Asterisk, Span::new(start, self.position))
         }
     }
 
-    fn lex_slash(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_slash(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -366,13 +373,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::SlashEqual, Span::new(start, self.position)))
+            (Token::SlashEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Slash, Span::new(start, self.position)))
+            (Token::Slash, Span::new(start, self.position))
         }
     }
 
-    fn lex_percent(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_percent(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -380,21 +388,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::PercentEqual, Span::new(start, self.position)))
+            (Token::PercentEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Percent, Span::new(start, self.position)))
+            (Token::Percent, Span::new(start, self.position))
         }
     }
 
-    fn lex_unknown(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::Unknown, Span::new(start, self.position)))
-    }
-
-    fn lex_exclamation_mark(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_exclamation_mark(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -402,13 +403,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::BangEqual, Span::new(start, self.position)))
+            (Token::BangEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Bang, Span::new(start, self.position)))
+            (Token::Bang, Span::new(start, self.position))
         }
     }
 
-    fn lex_equal(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_equal(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -416,13 +418,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::DoubleEqual, Span::new(start, self.position)))
+            (Token::DoubleEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Equal, Span::new(start, self.position)))
+            (Token::Equal, Span::new(start, self.position))
         }
     }
 
-    fn lex_less_than(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_less_than(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -430,13 +433,14 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::LessEqual, Span::new(start, self.position)))
+            (Token::LessEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Less, Span::new(start, self.position)))
+            (Token::Less, Span::new(start, self.position))
         }
     }
 
-    fn lex_greater_than(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_greater_than(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -444,124 +448,46 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            Ok((Token::GreaterEqual, Span::new(start, self.position)))
+            (Token::GreaterEqual, Span::new(start, self.position))
         } else {
-            Ok((Token::Greater, Span::new(start, self.position)))
+            (Token::Greater, Span::new(start, self.position))
         }
     }
 
-    fn lex_ampersand(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_ampersand(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
 
-        match self.peek_char() {
-            Some('&') => {
-                self.advance();
+        if self.peek_char() == Some('&') {
+            self.advance();
 
-                Ok((Token::DoubleAmpersand, Span::new(start, self.position)))
-            }
-            _ => Err(LexError::ExpectedCharacter {
-                expected: '&',
-                actual: self.peek_char(),
-                position: self.position,
-            }),
+            (Token::DoubleAmpersand, Span::new(start, self.position))
+        } else {
+            (Token::Unknown, Span::new(start, self.position))
         }
     }
 
-    fn lex_pipe(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_pipe(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
 
         let peek_char = self.peek_char();
 
-        if peek_char == Some('|') {
+        if let Some('|') = peek_char {
             self.advance();
 
-            Ok((Token::DoublePipe, Span::new(start, self.position)))
+            (Token::DoublePipe, Span::new(start, self.position))
         } else {
-            Err(LexError::ExpectedCharacter {
-                expected: '|',
-                actual: self.peek_char(),
-                position: self.position,
-            })
+            (Token::Unknown, Span::new(start, self.position))
         }
     }
 
-    fn lex_left_parenthesis(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::LeftParenthesis, Span::new(start, self.position)))
-    }
-
-    fn lex_right_parenthesis(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::RightParenthesis, Span::new(start, self.position)))
-    }
-
-    fn lex_left_bracket(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::LeftSquareBracket, Span::new(start, self.position)))
-    }
-
-    fn lex_right_bracket(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::RightSquareBracket, Span::new(start, self.position)))
-    }
-
-    fn lex_left_brace(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::LeftCurlyBrace, Span::new(start, self.position)))
-    }
-
-    fn lex_right_brace(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::RightCurlyBrace, Span::new(start, self.position)))
-    }
-
-    fn lex_semicolon(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::Semicolon, Span::new(start, self.position)))
-    }
-
-    fn lex_colon(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::Colon, Span::new(start, self.position)))
-    }
-
-    fn lex_comma(&mut self) -> Result<(Token, Span), LexError> {
-        let start = self.position;
-
-        self.advance();
-
-        Ok((Token::Comma, Span::new(start, self.position)))
-    }
-
-    fn lex_dot(&mut self) -> Result<(Token, Span), LexError> {
+    #[inline]
+    fn lex_dot(&mut self) -> (Token, Span) {
         let start = self.position;
 
         self.advance();
@@ -569,10 +495,40 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('.') {
             self.advance();
 
-            Ok((Token::DoubleDot, Span::new(start, self.position)))
+            (Token::DoubleDot, Span::new(start, self.position))
         } else {
-            Ok((Token::Dot, Span::new(start, self.position)))
+            (Token::Dot, Span::new(start, self.position))
         }
+    }
+
+    #[inline]
+    fn lex_colon(&mut self) -> (Token, Span) {
+        let start = self.position;
+
+        self.advance();
+
+        if self.peek_char() == Some(':') {
+            self.advance();
+
+            (Token::DoubleColon, Span::new(start, self.position))
+        } else {
+            (Token::Colon, Span::new(start, self.position))
+        }
+    }
+
+    #[inline]
+    fn lex_carriage_return(&mut self) -> (Token, Span) {
+        let start = self.position;
+
+        self.advance();
+
+        if self.peek_char() == Some('\n') {
+            self.advance();
+        }
+
+        self.line_indexes.push(self.position as u32);
+
+        (Token::Newline, Span::new(start, self.position))
     }
 }
 

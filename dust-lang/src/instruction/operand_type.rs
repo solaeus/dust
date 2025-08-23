@@ -1,7 +1,25 @@
+/// One-byte representation of a value type.
 use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
+enum Yo {
+    X,
+    Y,
+    Z,
+}
+
+const X: u8 = Yo::X as u8;
+
+/// One-byte representation of a value type.
+///
+/// This type is primarily used for encoding the types of operands in instructions, but it is also
+/// useful whenever a compact representation of a type is needed. However, it can only represent
+/// None, scalar types and shallow composite types. Instead, the user-facing API uses [Type][] and
+/// the compiler uses [TypeResolver][].
+///
+/// [Type]: crate::r#type::Type
+/// [TypeResolver]: crate::compiler::type_resolver::TypeResolver
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub u8);
 
@@ -30,10 +48,10 @@ impl OperandType {
     pub const ARRAY_FLOAT: OperandType = OperandType(15);
     pub const ARRAY_INTEGER: OperandType = OperandType(16);
     pub const ARRAY_STRING: OperandType = OperandType(17);
-    pub const ARRAY_LIST: OperandType = OperandType(18);
-    pub const ARRAY_MAP: OperandType = OperandType(19);
     pub const ARRAY_FUNCTION: OperandType = OperandType(20);
     pub const ARRAY_ARRAY: OperandType = OperandType(31);
+    pub const ARRAY_LIST: OperandType = OperandType(18);
+    pub const ARRAY_MAP: OperandType = OperandType(19);
 
     // List operands
     pub const LIST_BOOLEAN: OperandType = OperandType(21);
@@ -42,10 +60,10 @@ impl OperandType {
     pub const LIST_FLOAT: OperandType = OperandType(24);
     pub const LIST_INTEGER: OperandType = OperandType(25);
     pub const LIST_STRING: OperandType = OperandType(26);
-    pub const LIST_LIST: OperandType = OperandType(27);
-    pub const LIST_MAP: OperandType = OperandType(28);
     pub const LIST_FUNCTION: OperandType = OperandType(29);
     pub const LIST_ARRAY: OperandType = OperandType(30);
+    pub const LIST_MAP: OperandType = OperandType(28);
+    pub const LIST_LIST: OperandType = OperandType(27);
 }
 
 impl OperandType {
@@ -127,14 +145,20 @@ impl Display for OperandType {
             Self::FUNCTION => write!(f, "fn"),
             Self::CHARACTER_STRING => write!(f, "char_str"),
             Self::STRING_CHARACTER => write!(f, "str_char"),
-            Self::LIST_BOOLEAN => write!(f, "[bool]"),
-            Self::LIST_BYTE => write!(f, "[byte]"),
-            Self::LIST_CHARACTER => write!(f, "[char]"),
-            Self::LIST_FLOAT => write!(f, "[float]"),
-            Self::LIST_INTEGER => write!(f, "[int]"),
-            Self::LIST_STRING => write!(f, "[str]"),
-            Self::LIST_LIST => write!(f, "[[]]"),
-            Self::LIST_FUNCTION => write!(f, "[fn]"),
+            Self::ARRAY_BOOLEAN => write!(f, "[bool]"),
+            Self::ARRAY_BYTE => write!(f, "[byte]"),
+            Self::ARRAY_CHARACTER => write!(f, "[char]"),
+            Self::ARRAY_FLOAT => write!(f, "[float]"),
+            Self::ARRAY_INTEGER => write!(f, "[int]"),
+            Self::ARRAY_STRING => write!(f, "[str]"),
+            Self::ARRAY_FUNCTION => write!(f, "[fn]"),
+            Self::LIST_BOOLEAN => write!(f, "+[bool]"),
+            Self::LIST_BYTE => write!(f, "+[byte]"),
+            Self::LIST_CHARACTER => write!(f, "+[char]"),
+            Self::LIST_FLOAT => write!(f, "+[float]"),
+            Self::LIST_INTEGER => write!(f, "+[int]"),
+            Self::LIST_STRING => write!(f, "+[str]"),
+            Self::LIST_FUNCTION => write!(f, "+[fn]"),
             invalid => write!(f, "INVALID_OPERAND_TYPE({})", invalid.0),
         }
     }

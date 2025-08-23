@@ -125,6 +125,11 @@ impl From<Token> for ParseRule<'_> {
                 infix: Some(Parser::parse_logical_binary),
                 precedence: Precedence::Logic,
             },
+            Token::DoubleColon => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_comparison_binary),
@@ -265,6 +270,11 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
+            Token::Newline => ParseRule {
+                prefix: Some(Parser::advance),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::Percent => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
@@ -320,6 +330,11 @@ impl From<Token> for ParseRule<'_> {
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::Assignment,
             },
+            Token::Space => ParseRule {
+                prefix: Some(Parser::advance),
+                infix: None,
+                precedence: Precedence::None,
+            },
             Token::StarEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_math_binary),
@@ -337,6 +352,11 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Struct => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Token::Tab => ParseRule {
+                prefix: Some(Parser::advance),
                 infix: None,
                 precedence: Precedence::None,
             },

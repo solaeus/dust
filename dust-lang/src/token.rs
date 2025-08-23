@@ -57,6 +57,7 @@ pub enum Token {
     Comma,
     Dot,
     DoubleAmpersand,
+    DoubleColon,
     DoubleDot,
     DoubleEqual,
     DoublePipe,
@@ -81,6 +82,11 @@ pub enum Token {
     Slash,
     SlashEqual,
     StarEqual,
+
+    // Whitespace
+    Newline,
+    Space,
+    Tab,
 }
 
 impl Token {
@@ -95,6 +101,10 @@ impl Token {
                 | Token::IntegerValue
                 | Token::StringValue
         )
+    }
+
+    pub fn is_whitespace(&self) -> bool {
+        matches!(self, Token::Newline | Token::Space | Token::Tab)
     }
 }
 

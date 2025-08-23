@@ -33,7 +33,7 @@ pub mod value;
 // #[cfg(test)]
 // mod tests;
 
-pub use chunk::{Chunk, Disassembler, TuiDisassembler};
+pub use chunk::{Chunk, Disassembler};
 pub use compiler::{ChunkCompiler, CompileError, compile};
 // pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
@@ -52,7 +52,7 @@ pub use instruction::{
 //     ThreadResult,
 //     // run,
 // };
-pub use lexer::{LexError, Lexer, tokenize};
+pub use lexer::{Lexer, tokenize};
 pub use native_function::NativeFunction;
 pub use program::Program;
 pub use span::Span;

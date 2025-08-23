@@ -46,6 +46,41 @@ impl SyntaxNode {
 
         f64::from_le_bytes(float_bytes)
     }
+
+    pub fn encode_integer(integer: i64) -> (u32, u32) {
+        let integer_bytes = integer.to_le_bytes();
+        let left_payload = u32::from_le_bytes([
+            integer_bytes[0],
+            integer_bytes[1],
+            integer_bytes[2],
+            integer_bytes[3],
+        ]);
+        let right_payload = u32::from_le_bytes([
+            integer_bytes[4],
+            integer_bytes[5],
+            integer_bytes[6],
+            integer_bytes[7],
+        ]);
+
+        (left_payload, right_payload)
+    }
+
+    pub fn decode_integer(payload: (u32, u32)) -> i64 {
+        let left_bytes = payload.0.to_le_bytes();
+        let right_bytes = payload.1.to_le_bytes();
+        let integer_bytes = [
+            left_bytes[0],
+            left_bytes[1],
+            left_bytes[2],
+            left_bytes[3],
+            right_bytes[0],
+            right_bytes[1],
+            right_bytes[2],
+            right_bytes[3],
+        ];
+
+        i64::from_le_bytes(integer_bytes)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +88,7 @@ pub enum SyntaxKind {
     // Items
     MainFunctionItem,
     ModuleItem,
+    UseItem,
 
     // Statements
     ExpressionStatement,
@@ -93,7 +129,7 @@ pub enum SyntaxKind {
     FunctionSignature,
     FunctionParameters,
     FunctionParameter,
-    TypePath,
+    Identifier,
 
     // Types
     BooleanType,
@@ -102,6 +138,7 @@ pub enum SyntaxKind {
     FloatType,
     IntegerType,
     StringType,
+    TypePath,
 }
 
 impl SyntaxKind {
@@ -121,7 +158,30 @@ impl SyntaxKind {
     }
 
     pub fn is_expression(&self) -> bool {
-        !self.is_item() && !self.is_statement()
+        matches!(
+            self,
+            SyntaxKind::BooleanExpression
+                | SyntaxKind::ByteExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+                | SyntaxKind::AdditionExpression
+                | SyntaxKind::SubtractionExpression
+                | SyntaxKind::MultiplicationExpression
+                | SyntaxKind::DivisionExpression
+                | SyntaxKind::ModuloExpression
+                | SyntaxKind::ArrayExpression
+                | SyntaxKind::ArrayIndexExpression
+                | SyntaxKind::BlockExpression
+                | SyntaxKind::CallExpression
+                | SyntaxKind::FunctionExpression
+                | SyntaxKind::GroupedExpression
+                | SyntaxKind::IfExpression
+                | SyntaxKind::PathExpression
+                | SyntaxKind::PredicateLoopExpression
+                | SyntaxKind::ReturnExpression
+        )
     }
 
     pub fn has_block(self) -> bool {

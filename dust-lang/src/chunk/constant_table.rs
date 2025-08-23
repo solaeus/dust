@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::OperandType;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ConstantId(pub u16);
+use crate::{OperandType, Value};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ConstantTable {
@@ -13,15 +10,42 @@ pub struct ConstantTable {
 }
 
 impl ConstantTable {
-    pub fn new(constant_count: usize, total_string_length: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            payloads: Vec::with_capacity(constant_count),
-            tags: Vec::with_capacity(constant_count),
-            string_pool: String::with_capacity(total_string_length),
+            payloads: Vec::new(),
+            tags: Vec::new(),
+            string_pool: String::new(),
         }
     }
 
-    pub fn add_integer(&mut self, integer: i64) -> ConstantId {
+    pub fn len(&self) -> usize {
+        self.payloads.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.payloads.is_empty()
+    }
+
+    pub fn iter(&self) -> ConstatntTableIterator {
+        ConstatntTableIterator {
+            table: self,
+            index: 0,
+        }
+    }
+
+    pub fn add_character(&mut self, character: char) -> u16 {
+        self.verify_table_length();
+
+        let payload = character as u64;
+        let index = self.payloads.len() as u16;
+
+        self.payloads.push(payload);
+        self.tags.push(OperandType::CHARACTER);
+
+        index
+    }
+
+    pub fn add_integer(&mut self, integer: i64) -> u16 {
         self.verify_table_length();
 
         let payload = integer as u64;
@@ -30,10 +54,10 @@ impl ConstantTable {
         self.payloads.push(payload);
         self.tags.push(OperandType::INTEGER);
 
-        ConstantId(index)
+        index
     }
 
-    pub fn add_string(&mut self, string: &str) -> ConstantId {
+    pub fn add_string(&mut self, string: &str) -> u16 {
         self.verify_table_length();
         self.verify_string_pool_length(string);
 
@@ -48,7 +72,7 @@ impl ConstantTable {
         self.payloads.push(payload);
         self.tags.push(OperandType::STRING);
 
-        ConstantId(index)
+        index
     }
 
     fn verify_string_pool_length(&self, new_string: &str) {
@@ -69,5 +93,40 @@ impl ConstantTable {
                 u16::MAX
             );
         }
+    }
+}
+
+pub struct ConstatntTableIterator<'a> {
+    table: &'a ConstantTable,
+    index: usize,
+}
+
+impl Iterator for ConstatntTableIterator<'_> {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.table.payloads.len() {
+            return None;
+        }
+
+        let tag = self.table.tags[self.index];
+        let payload = self.table.payloads[self.index];
+        let value = match tag {
+            OperandType::CHARACTER => Value::Character(std::char::from_u32(payload as u32)?),
+            OperandType::INTEGER => Value::Integer(payload as i64),
+            OperandType::STRING => {
+                let start = (payload >> 32) as usize;
+                let end = (payload & 0xFFFFFFFF) as usize;
+
+                let string = self.table.string_pool.get(start..end)?;
+
+                Value::String(string.to_string())
+            }
+            _ => todo!(),
+        };
+
+        self.index += 1;
+
+        Some(value)
     }
 }

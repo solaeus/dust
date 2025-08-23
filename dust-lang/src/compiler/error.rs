@@ -17,11 +17,15 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Span,
     },
-    ExpectedExpression {
+    ExpectedItem {
         node_kind: SyntaxKind,
         position: Span,
     },
     ExpectedStatement {
+        node_kind: SyntaxKind,
+        position: Span,
+    },
+    ExpectedExpression {
         node_kind: SyntaxKind,
         position: Span,
     },
@@ -52,15 +56,21 @@ impl AnnotatedError for CompileError {
                 detail_snippets: vec![("This value is zero.".to_string(), *position)],
                 help_snippet: Some("This is a compile-time error caused by hard-coded values. Check your math for errors. If you absolutely must divide by zero, floats allow it but the result is always Infinity or NaN.".to_string()),
             },
-            CompileError::ExpectedExpression { node_kind, position } => ErrorMessage {
+            CompileError::ExpectedItem { node_kind, position } => ErrorMessage {
                 title,
-                description: "The syntax tree contains a statement where an expression was expected.",
+                description: "Expected an item.",
                 detail_snippets: vec![(node_kind.to_string(), *position)],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
             CompileError::ExpectedStatement { node_kind, position } => ErrorMessage {
                 title,
-                description: "The syntax tree contains an expression where a statement was expected.",
+                description: "Expected a statement.",
+                detail_snippets: vec![(node_kind.to_string(), *position)],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::ExpectedExpression { node_kind, position } => ErrorMessage {
+                title,
+                description: "Expected an expression.",
                 detail_snippets: vec![(node_kind.to_string(), *position)],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },

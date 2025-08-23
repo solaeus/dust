@@ -41,7 +41,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Address, Chunk, Program};
+use crate::{Address, Chunk};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 13), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -96,7 +96,7 @@ const WIDTH: usize = 80;
 ///
 /// See the [module-level documentation](index.html) for more information.
 pub struct Disassembler<'a, 'w, W> {
-    program: &'a Program,
+    chunk: &'a Chunk,
     writer: &'w mut W,
     source: Option<&'a str>,
 
@@ -106,9 +106,9 @@ pub struct Disassembler<'a, 'w, W> {
 }
 
 impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
-    pub fn new(program: &'a Program, writer: &'w mut W) -> Self {
+    pub fn new(chunk: &'a Chunk, writer: &'w mut W) -> Self {
         Self {
-            program,
+            chunk,
             writer,
             source: None,
             style: false,
@@ -132,6 +132,61 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.show_type = show_type;
 
         self
+    }
+
+    pub fn disassemble(&mut self) -> Result<(), io::Error> {
+        self.write_page_border(TOP_BORDER)?;
+
+        let name = self.chunk.name.as_ref().map(|path| path.to_string());
+
+        if let Some(name) = name {
+            self.write_center_border_bold(name.as_ref())?;
+        }
+
+        if self.show_type {
+            let type_display = self.chunk.r#type.to_string();
+
+            self.write_center_border(&type_display)?;
+        }
+
+        if let Some(source) = self.source {
+            let lazily_formatted = source.split_whitespace().collect::<Vec<&str>>().join(" ");
+
+            if self.chunk.name.is_some() {
+                self.write_center_border("")?;
+            }
+
+            self.write_center_border(&lazily_formatted)?;
+            self.write_center_border("")?;
+        }
+
+        let info_line = format!(
+            "{} instructions, {} constants, returns {}",
+            self.chunk.instructions.len(),
+            self.chunk.constants.len(),
+            self.chunk.r#type.return_type
+        );
+
+        self.write_center_border_dim(&info_line)?;
+        self.write_center_border("")?;
+
+        if !self.chunk.instructions.is_empty() {
+            self.write_instruction_section(self.chunk)?;
+        }
+
+        if !self.chunk.constants.is_empty() {
+            self.write_constant_section(self.chunk)?;
+        }
+
+        if !self.chunk.call_arguments.is_empty() {
+            self.write_call_arguments_section(self.chunk)?;
+        }
+
+        // if !chunk.drop_lists.is_empty() {
+        //     self.write_drop_list_section(chunk)?;
+        // }
+
+        self.write_page_border(BOTTOM_BORDER)
     }
 
     fn line_length(&self) -> usize {
@@ -356,71 +411,4 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
     //     Ok(())
     // }
-
-    pub fn disassemble(&mut self) -> Result<(), io::Error> {
-        if let Some(main_chunk) = self.program.prototypes.last() {
-            self.disassemble_chunk(main_chunk)?;
-        }
-
-        for chunk in &self.program.prototypes[..self.program.prototypes.len() - 1] {
-            self.disassemble_chunk(chunk)?;
-        }
-
-        Ok(())
-    }
-
-    fn disassemble_chunk(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
-        self.write_page_border(TOP_BORDER)?;
-
-        let name = chunk.name.as_ref().map(|path| path.to_string());
-
-        if let Some(name) = name {
-            self.write_center_border_bold(name.as_ref())?;
-        }
-
-        if self.show_type {
-            let type_display = chunk.r#type.to_string();
-
-            self.write_center_border(&type_display)?;
-        }
-
-        if let Some(source) = self.source {
-            let lazily_formatted = source.split_whitespace().collect::<Vec<&str>>().join(" ");
-
-            if chunk.name.is_some() {
-                self.write_center_border("")?;
-            }
-
-            self.write_center_border(&lazily_formatted)?;
-            self.write_center_border("")?;
-        }
-
-        let info_line = format!(
-            "{} instructions, {} constants, returns {}",
-            chunk.instructions.len(),
-            chunk.constants.len(),
-            chunk.r#type.return_type
-        );
-
-        self.write_center_border_dim(&info_line)?;
-        self.write_center_border("")?;
-
-        if !chunk.instructions.is_empty() {
-            self.write_instruction_section(chunk)?;
-        }
-
-        if !chunk.constants.is_empty() {
-            self.write_constant_section(chunk)?;
-        }
-
-        if !chunk.call_arguments.is_empty() {
-            self.write_call_arguments_section(chunk)?;
-        }
-
-        // if !chunk.drop_lists.is_empty() {
-        //     self.write_drop_list_section(chunk)?;
-        // }
-
-        self.write_page_border(BOTTOM_BORDER)
-    }
 }

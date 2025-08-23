@@ -50,17 +50,26 @@ impl SyntaxTree {
         SyntaxId(index)
     }
 
+    pub fn top_node(&self) -> Option<&SyntaxNode> {
+        self.nodes.first()
+    }
+
     pub fn get_node(&self, id: SyntaxId) -> Option<&SyntaxNode> {
         self.nodes.get(id.0 as usize)
     }
 
-    pub fn top_node(&self) -> Option<&SyntaxNode> {
-        self.nodes.first()
+    pub fn get_children(&self, start_index: u32, count: u32) -> Option<&[SyntaxId]> {
+        let start_index = start_index as usize;
+        let count = count as usize;
+
+        self.children.get(start_index..start_index + count)
     }
 
     pub fn last_node(&self) -> Option<&SyntaxNode> {
         self.nodes.last()
     }
+
+    pub fn patch(&mut self, other: &SyntaxTree) {}
 
     pub fn display(&self) -> String {
         let mut output = String::new();

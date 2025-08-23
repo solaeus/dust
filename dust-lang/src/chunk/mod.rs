@@ -9,12 +9,12 @@
 //! parameters and the type of the return value are statically known.
 mod constant_table;
 mod disassembler;
-mod tui_disassembler;
+// mod tui_disassembler;
 
-pub use constant_table::{ConstantId, ConstantTable};
+pub use constant_table::ConstantTable;
 pub use disassembler::Disassembler;
 use serde::{Deserialize, Serialize};
-pub use tui_disassembler::TuiDisassembler;
+// pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::{Debug, Display};
 

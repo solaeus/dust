@@ -2,7 +2,7 @@ mod parse_rule;
 
 use std::{
     fmt::{self, Display, Formatter},
-    mem::replace,
+    mem::{replace, take},
 };
 
 use lexical_core::{ParseFloatOptions, format::RUST_LITERAL, parse_with_options};
@@ -10,16 +10,15 @@ use smallvec::SmallVec;
 use tracing::{Level, debug, error, info, span, warn};
 
 use crate::{
-    LexError, Lexer, Span, Token,
+    Lexer, Span, Token,
     dust_error::{AnnotatedError, DustError, ErrorMessage},
     parser::parse_rule::{ParseRule, Precedence},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub fn parse(source: &'_ str, is_main: bool) -> (SyntaxTree, Option<DustError<'_>>) {
-    let lexer = Lexer::new(source);
-    let parser = Parser::new(lexer);
-    let (syntax_tree, errors) = parser.parse(is_main);
+    let parser = Parser::new();
+    let (syntax_tree, errors) = parser.parse_file_once(source, is_main);
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -43,27 +42,30 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(mut lexer: Lexer<'src>) -> Self {
-        let mut errors = Vec::new();
-
-        let (current_token, current_position) = lexer.next_token().unwrap_or_else(|error| {
-            errors.push(ParseError::LexError { error });
-
-            (Token::Eof, Span::default())
-        });
-
+    pub fn new() -> Self {
         Self {
-            lexer,
+            lexer: Lexer::new(),
             syntax_tree: SyntaxTree::default(),
-            current_token,
-            current_position,
+            current_token: Token::Eof,
+            current_position: Span::default(),
             previous_token: Token::Eof,
             previous_position: Span::default(),
-            errors,
+            errors: Vec::new(),
         }
     }
 
-    pub fn parse(mut self, is_main: bool) -> (SyntaxTree, Vec<ParseError>) {
+    /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
+    /// The parser is consumed and cannot be reused.
+    pub fn parse_file_once(
+        mut self,
+        source: &'src str,
+        is_main: bool,
+    ) -> (SyntaxTree, Vec<ParseError>) {
+        let (token, span) = self.lexer.initialize(source, 0);
+
+        self.current_token = token;
+        self.current_position = span;
+
         if is_main {
             self.parse_main_function_item();
         } else {
@@ -71,6 +73,64 @@ impl<'src> Parser<'src> {
         }
 
         (self.syntax_tree, self.errors)
+    }
+
+    /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
+    /// Afterwards, the parser is reset and can be reused.
+    pub fn parse_file(
+        &mut self,
+        source: &'src str,
+        is_main: bool,
+    ) -> (SyntaxTree, Vec<ParseError>) {
+        let (token, span) = self.lexer.initialize(source, 0);
+
+        self.current_token = token;
+        self.current_position = span;
+
+        if is_main {
+            self.parse_main_function_item();
+        } else {
+            self.parse_module_item();
+        }
+
+        let syntax_tree = take(&mut self.syntax_tree);
+        let errors = take(&mut self.errors);
+
+        (syntax_tree, errors)
+    }
+
+    /// Parses a source string, allowing it to be a subtree of a larger syntax tree. Afterwards, the
+    /// parser is reset and can be reused.
+    pub fn parse_subtree(
+        &mut self,
+        source: &'src str,
+        offset: usize,
+    ) -> (SyntaxTree, Vec<ParseError>) {
+        let (token, span) = self.lexer.initialize(source, offset);
+
+        self.current_token = token;
+        self.current_position = span;
+
+        let placeholder_node = SyntaxNode {
+            kind: SyntaxKind::MainFunctionItem,
+            position: Span::default(),
+            payload: (0, 0),
+        };
+
+        self.syntax_tree.push_node(placeholder_node);
+
+        while self.current_token != Token::Eof {
+            let _ = self
+                .pratt(Precedence::None)
+                .map_err(|error| self.recover(error));
+        }
+
+        self.syntax_tree.nodes.swap_remove(0);
+
+        let syntax_tree = take(&mut self.syntax_tree);
+        let errors = take(&mut self.errors);
+
+        (syntax_tree, errors)
     }
 
     fn new_child_buffer() -> SmallVec<[SyntaxId; 4]> {
@@ -108,10 +168,11 @@ impl<'src> Parser<'src> {
     }
 
     fn advance(&mut self) -> Result<(), ParseError> {
-        let (next_token, next_position) = self
-            .lexer
-            .next_token()
-            .map_err(|error| ParseError::LexError { error })?;
+        let (next_token, next_position) = self.lexer.next_token();
+
+        if next_token.is_whitespace() {
+            return self.advance();
+        }
 
         self.previous_token = replace(&mut self.current_token, next_token);
         self.previous_position = replace(&mut self.current_position, next_position);
@@ -127,7 +188,7 @@ impl<'src> Parser<'src> {
         self.errors.push(error);
 
         if self.previous_token == Token::Semicolon {
-            warn!("Error recovery is continuing without skipping tokens");
+            warn!("Error recovery is continuing after a semicolon");
 
             return;
         }
@@ -136,7 +197,7 @@ impl<'src> Parser<'src> {
             self.current_token,
             Token::Semicolon | Token::RightCurlyBrace | Token::Eof
         ) {
-            self.advance().map_err(|error| self.recover(error));
+            let _ = self.advance().map_err(|error| self.recover(error));
         }
 
         warn!(
@@ -145,7 +206,7 @@ impl<'src> Parser<'src> {
         );
 
         if self.current_token == Token::Semicolon {
-            self.advance().map_err(|error| self.recover(error));
+            let _ = self.advance().map_err(|error| self.recover(error));
         }
     }
 
@@ -291,8 +352,9 @@ impl<'src> Parser<'src> {
         let _enter = span.enter();
 
         let end_token = if self.current_token == Token::Mod {
-            self.advance().map_err(|error| self.recover(error));
-            self.expect(Token::LeftCurlyBrace)
+            let _ = self.advance().map_err(|error| self.recover(error));
+            let _ = self
+                .expect(Token::LeftCurlyBrace)
                 .map_err(|error| self.recover(error));
 
             Token::RightCurlyBrace
@@ -312,7 +374,7 @@ impl<'src> Parser<'src> {
         let mut children = Self::new_child_buffer();
 
         while self.current_token != end_token {
-            self.parse_item().map_err(|error| self.recover(error));
+            let _ = self.parse_item().map_err(|error| self.recover(error));
             children.push(self.syntax_tree.last_node_id());
         }
 
@@ -654,19 +716,7 @@ impl<'src> Parser<'src> {
 
         let end = self.previous_position.1;
         let integer = Self::parse_integer(integer_text);
-        let integer_bytes = integer.to_le_bytes();
-        let left_payload = u32::from_le_bytes([
-            integer_bytes[0],
-            integer_bytes[1],
-            integer_bytes[2],
-            integer_bytes[3],
-        ]);
-        let right_payload = u32::from_le_bytes([
-            integer_bytes[4],
-            integer_bytes[5],
-            integer_bytes[6],
-            integer_bytes[7],
-        ]);
+        let (left_payload, right_payload) = SyntaxNode::encode_integer(integer);
         let node = SyntaxNode {
             kind: SyntaxKind::IntegerExpression,
             position: Span(start, end),
@@ -762,7 +812,7 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(operator_precedence)?;
 
         let right = self.syntax_tree.last_node_id();
-        let end = self.current_position.0;
+        let end = self.previous_position.1;
         let node = SyntaxNode {
             kind: node_kind,
             position: Span(start, end),
@@ -892,6 +942,12 @@ impl<'src> Parser<'src> {
     }
 }
 
+impl<'src> Default for Parser<'src> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
     ExpectedItem {
@@ -920,10 +976,6 @@ pub enum ParseError {
     UnexpectedToken {
         actual: Token,
         position: Span,
-    },
-
-    LexError {
-        error: LexError,
     },
 }
 
@@ -980,7 +1032,6 @@ impl Display for ParseError {
             } => {
                 write!(f, "Unexpected token {found} at {position}")
             }
-            ParseError::LexError { error } => write!(f, "{error}"),
         }
     }
 }
@@ -1038,7 +1089,6 @@ impl AnnotatedError for ParseError {
                 detail_snippets: vec![("Found here".to_string(), *position)],
                 help_snippet: None,
             },
-            ParseError::LexError { error } => error.annotated_error(),
         }
     }
 }

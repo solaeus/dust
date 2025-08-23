@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{Disassembler, Program, TuiDisassembler, compile, parser::parse, tokenize};
+use dust_lang::{Disassembler, Program, compile, parser::parse, tokenize};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -264,7 +264,7 @@ fn main() {
 
     if let Mode::Parse(InputOptions { eval, stdin, file }) = mode {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let (syntax_tree, error) = parse(&source);
+        let (syntax_tree, error) = parse(&source, true);
         let parse_time = start_time.elapsed();
 
         println!("{syntax_tree:#?}");
@@ -299,13 +299,9 @@ fn main() {
 
         match compile_result {
             Ok(chunk) => {
-                let program = Program {
-                    prototypes: vec![chunk],
-                    cell_count: 0,
-                };
                 let mut stdout = stdout();
 
-                let mut disassembler = Disassembler::new(&program, &mut stdout);
+                let mut disassembler = Disassembler::new(&chunk, &mut stdout);
 
                 disassembler.disassemble().unwrap();
             }
@@ -516,97 +512,6 @@ where
         write!(writer, " ")?;
         context.format_fields(writer.by_ref(), event)?;
         writeln!(writer)
-    }
-}
-
-struct PrettyLogFormatter {
-    start_time: Instant,
-}
-
-impl<S, N> FormatEvent<S, N> for PrettyLogFormatter
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-    N: for<'a> FormatFields<'a> + 'static,
-{
-    fn format_event(
-        &self,
-
-        context: &FmtContext<'_, S, N>,
-
-        mut writer: Writer<'_>,
-
-        event: &Event<'_>,
-    ) -> fmt::Result {
-        let level = event.metadata().level();
-        let level_color = match *level {
-            Level::ERROR => Color::Red,
-            Level::WARN => Color::Yellow,
-            Level::INFO => Color::White,
-            Level::DEBUG => Color::Green,
-            Level::TRACE => Color::Blue,
-        };
-        let level_display = level.as_str();
-        let thread_display = thread::current().name().unwrap_or("anonymous").to_string();
-        let scopes = context
-            .event_scope()
-            .map(|scope| scope.from_root())
-            .unwrap()
-            .map(|span| span.metadata().name())
-            .collect::<Vec<_>>();
-        let time = self.start_time.elapsed();
-        let time_display = format!(
-            "s: {}, ms: {}, ns: {}",
-            time.as_secs(),
-            time.subsec_millis(),
-            time.subsec_nanos()
-        );
-
-        writeln!(
-            writer,
-            "{}",
-            "╭───────┬──────────────────────────────────────────────────────────────────────╮"
-                .color(level_color)
-        )?;
-        writeln!(
-            writer,
-            "{left_aligned:<20} {scopes:40} {right_aligned:>32}",
-            left_aligned = format!(
-                "{border}{:^7}{border}{}",
-                level_display,
-                thread_display,
-                border = "│".color(level_color),
-            ),
-            scopes = scopes
-                .iter()
-                .map(|scope| scope.to_string())
-                .collect::<Vec<_>>()
-                .join("->")
-                .to_string(),
-            right_aligned = format!("{} {}", time_display.to_string(), "│".color(level_color),)
-        )?;
-        writeln!(
-            writer,
-            "{border}       {border}{border:>71}",
-            border = "│".color(level_color),
-        )?;
-
-        let mut message = String::new();
-
-        context.format_fields(Writer::new(&mut message), event)?;
-        writeln!(
-            writer,
-            "{border}       {border}{message:len$}{border}",
-            border = "│".color(level_color),
-            len = message.len().max(70),
-        )?;
-        writeln!(
-            writer,
-            "{}",
-            "╰───────┴──────────────────────────────────────────────────────────────────────╯"
-                .color(level_color)
-        )?;
-
-        Ok(())
     }
 }
 
