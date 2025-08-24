@@ -186,7 +186,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::Comparison,
             },
             Token::Identifier => ParseRule {
-                prefix: Some(Parser::parse_identifier),
+                prefix: Some(Parser::parse_path_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

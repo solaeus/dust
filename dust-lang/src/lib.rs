@@ -23,7 +23,7 @@ pub mod instruction;
 pub mod lexer;
 pub mod native_function;
 pub mod parser;
-pub mod program;
+pub mod resolver;
 pub mod span;
 pub mod syntax_tree;
 pub mod token;
@@ -54,7 +54,7 @@ pub use instruction::{
 // };
 pub use lexer::{Lexer, tokenize};
 pub use native_function::NativeFunction;
-pub use program::Program;
+pub use resolver::Resolver;
 pub use span::Span;
 pub use token::Token;
 pub use r#type::{FunctionType, Type};

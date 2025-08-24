@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SyntaxId(pub u32);
 
-/// Concrete syntax tree representing a Dust source code file.
-#[derive(Debug, Default, Serialize, Deserialize)]
+/// Lossless abstract syntax tree representing a Dust source code file.
+#[derive(Debug, Default)]
 pub struct SyntaxTree {
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
     /// used by the parser.
@@ -30,6 +30,15 @@ impl SyntaxTree {
         self.nodes
             .first()
             .is_some_and(|node| node.kind == SyntaxKind::ModuleItem)
+    }
+
+    pub fn is_subtree(&self) -> bool {
+        self.nodes.first().is_some_and(|node| {
+            !matches!(
+                node.kind,
+                SyntaxKind::MainFunctionItem | SyntaxKind::ModuleItem
+            )
+        })
     }
 
     pub fn node_count(&self) -> usize {
@@ -68,8 +77,6 @@ impl SyntaxTree {
     pub fn last_node(&self) -> Option<&SyntaxNode> {
         self.nodes.last()
     }
-
-    pub fn patch(&mut self, other: &SyntaxTree) {}
 
     pub fn display(&self) -> String {
         let mut output = String::new();

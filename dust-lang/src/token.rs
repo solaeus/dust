@@ -90,19 +90,6 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn is_type(&self) -> bool {
-        matches!(
-            self,
-            Token::TrueValue
-                | Token::FalseValue
-                | Token::ByteValue
-                | Token::CharacterValue
-                | Token::FloatValue
-                | Token::IntegerValue
-                | Token::StringValue
-        )
-    }
-
     pub fn is_whitespace(&self) -> bool {
         matches!(self, Token::Newline | Token::Space | Token::Tab)
     }

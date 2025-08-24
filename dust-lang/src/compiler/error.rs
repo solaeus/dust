@@ -1,6 +1,7 @@
 use crate::{
     Span,
     dust_error::{AnnotatedError, ErrorMessage},
+    resolver::TypeId,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -36,12 +37,11 @@ pub enum CompileError {
     MissingConstant {
         constant_index: u16,
     },
-    MissingLocal {
-        node_kind: SyntaxKind,
-        local_index: u32,
-    },
     MissingSyntaxNode {
         id: SyntaxId,
+    },
+    MissingType {
+        type_id: TypeId,
     },
 }
 
@@ -102,19 +102,16 @@ impl AnnotatedError for CompileError {
                 detail_snippets: vec![(format!("Constant index {constant_index}"), Span::default())],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
-            CompileError::MissingLocal {
-                node_kind,
-                local_index,
-            } => ErrorMessage {
-                title,
-                description: "The syntax tree is missing a local variable.",
-                detail_snippets: vec![(format!("Node kind {node_kind}, local index {local_index}"), Span::default())],
-                help_snippet: Some(INVALID_TREE.to_string()),
-            },
             CompileError::MissingSyntaxNode { id } => ErrorMessage {
                 title,
                 description: "The syntax tree is missing a node that is required for compilation.",
                 detail_snippets: vec![(format!("Node id: {}", id.0), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingType { type_id } => ErrorMessage {
+                title,
+                description: "A type required for compilation is missing from the resolver.",
+                detail_snippets: vec![(format!("Type id: {}", type_id.0), Span::default())],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
         }

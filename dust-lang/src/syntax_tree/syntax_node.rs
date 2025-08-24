@@ -2,13 +2,14 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Span;
+use crate::{Span, resolver::TypeId};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub payload: (u32, u32),
     pub position: Span,
+    pub r#type: TypeId,
 }
 
 impl SyntaxNode {

@@ -1,6 +1,3 @@
-use serde::{Deserialize, Serialize};
-use tracing::trace;
-
 use crate::{Span, Token, dust_error::DustError};
 
 pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>> {
@@ -20,11 +17,11 @@ pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>
     Ok(tokens)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct Lexer<'src> {
     source: &'src str,
     position: usize,
-    line_indexes: Vec<u32>,
+    line_breaks: Vec<u32>,
 }
 
 impl<'src> Lexer<'src> {
@@ -32,7 +29,7 @@ impl<'src> Lexer<'src> {
         Lexer {
             source: "",
             position: 0,
-            line_indexes: Vec::new(),
+            line_breaks: Vec::new(),
         }
     }
 
@@ -40,15 +37,19 @@ impl<'src> Lexer<'src> {
         Lexer {
             source,
             position: 0,
-            line_indexes: Vec::new(),
+            line_breaks: Vec::new(),
         }
+    }
+
+    pub fn into_line_breaks(self) -> Vec<u32> {
+        self.line_breaks
     }
 
     pub fn initialize(&mut self, source: &'src str, offset: usize) -> (Token, Span) {
         self.source = source;
         self.position = offset;
 
-        self.line_indexes.clear();
+        self.line_breaks.clear();
         self.next_token()
     }
 
@@ -94,7 +95,7 @@ impl<'src> Lexer<'src> {
             '\n' => {
                 let (token, position) = self.emit(Token::Newline);
 
-                self.line_indexes.push(position.1);
+                self.line_breaks.push(position.1);
 
                 (token, position)
             }
@@ -526,7 +527,7 @@ impl<'src> Lexer<'src> {
             self.advance();
         }
 
-        self.line_indexes.push(self.position as u32);
+        self.line_breaks.push(self.position as u32);
 
         (Token::Newline, Span::new(start, self.position))
     }

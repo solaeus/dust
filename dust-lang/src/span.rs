@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 const OVERFLOW_ERROR_TEXT: &str =
     "The source code position is out of bounds because the source file is too large.";
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct Span(pub u32, pub u32);
 
 impl Span {

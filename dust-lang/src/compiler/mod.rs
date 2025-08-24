@@ -1,31 +1,32 @@
 mod error;
-mod fold_constants;
-mod local;
-mod scope;
+// mod fold_constants;
 
 pub use error::CompileError;
-pub use local::Local;
-pub use scope::Scope;
 
 use tracing::{Level, info, span, trace};
 
 use crate::{
-    Address, Chunk, FunctionType, Instruction, Lexer, OperandType, Operation, Type, Value,
+    Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver, Value,
     chunk::ConstantTable,
     dust_error::DustError,
-    parser::Parser,
+    parser::{ParseResult, Parser},
+    resolver::TypeId,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
     let parser = Parser::new();
-    let (syntax_tree, errors) = parser.parse_file_once(source, true);
+    let ParseResult {
+        syntax_tree,
+        resolver,
+        errors,
+    } = parser.parse_file_once(source, true);
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
     }
 
-    let compiler = ChunkCompiler::new(&syntax_tree);
+    let compiler = ChunkCompiler::new(&syntax_tree, &resolver);
 
     compiler
         .compile()
@@ -56,8 +57,8 @@ pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
     syntax_tree: &'a SyntaxTree,
 
-    /// Type table that maps syntax tree nodes to their resolved types.
-    // type_table: Vec<TypeId>,
+    /// Context for modules, types and declarations provided by the parser.
+    resolver: &'a Resolver,
 
     /// Runtime constant table that is filled during compilation.
     constant_table: ConstantTable,
@@ -73,15 +74,14 @@ pub struct ChunkCompiler<'a> {
 
     /// Apparent return type of the function being compiled. This field is modified during compilation
     /// to reflect the actual return type of the function
-    return_type: Type,
+    return_type: TypeId,
 
     /// Index of the the chunk being compiled in the program's prototype list. For the main function,
     /// this is 0 as a default but the main chunk is actually the last one in the list.
     prototype_index: u16,
 
-    /// Registers used by local variables in the function being compiled. Each entry in this list
-    /// corresponds to a local in the syntax tree at the same index.
-    local_registers: Vec<u16>,
+    /// Number of registers that are used by local variables.
+    local_registers: u16,
 
     /// Counter that tracks the available register. Every block resets this counter to its value at
     /// the start of the block, allowing the compiler to reuse registers.
@@ -89,25 +89,23 @@ pub struct ChunkCompiler<'a> {
 
     /// The highest register index that has been used so far.
     used_regisers: u16,
-
-    current_scope: Scope,
 }
 
 impl<'a> ChunkCompiler<'a> {
-    pub fn new(syntax_tree: &'a SyntaxTree) -> Self {
+    pub fn new(syntax_tree: &'a SyntaxTree, resolver: &'a Resolver) -> Self {
         Self {
             syntax_tree,
+            resolver,
             constant_table: ConstantTable::new(),
             // type_table: Vec::new(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
-            return_type: Type::None,
+            return_type: TypeId::NONE,
             prototype_index: 0,
-            local_registers: Vec::new(),
+            local_registers: 0,
             next_register: 0,
             used_regisers: 0,
-            current_scope: Scope::default(),
         }
     }
 
@@ -117,9 +115,16 @@ impl<'a> ChunkCompiler<'a> {
 
         self.compile_item(SyntaxId(0))?;
 
+        let return_type =
+            self.resolver
+                .resolve_type(self.return_type)
+                .ok_or(CompileError::MissingType {
+                    type_id: self.return_type,
+                })?;
+
         Ok(Chunk {
             name: Some("main".to_string()),
-            r#type: FunctionType::new([], [], self.return_type),
+            r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
             constants: self.constant_table,
             call_arguments: self.call_arguments,

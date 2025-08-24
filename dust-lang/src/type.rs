@@ -25,7 +25,15 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn function<T: Into<Vec<u16>>, U: Into<Vec<Type>>>(
+    pub fn array(element_type: Type, length: usize) -> Self {
+        Type::Array(Box::new(element_type), length)
+    }
+
+    pub fn list(element_type: Type) -> Self {
+        Type::List(Box::new(element_type))
+    }
+
+    pub fn function<T: Into<Vec<Type>>, U: Into<Vec<Type>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,
@@ -35,10 +43,6 @@ impl Type {
             value_parameters: value_parameters.into(),
             return_type,
         }))
-    }
-
-    pub fn list(item_type: Type) -> Self {
-        Type::List(Box::new(item_type))
     }
 
     pub fn as_operand_type(&self) -> OperandType {
@@ -144,13 +148,13 @@ impl Display for Type {
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Vec<u16>,
+    pub type_parameters: Vec<Type>,
     pub value_parameters: Vec<Type>,
     pub return_type: Type,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<Vec<u16>>, U: Into<Vec<Type>>>(
+    pub fn new<T: Into<Vec<Type>>, U: Into<Vec<Type>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,

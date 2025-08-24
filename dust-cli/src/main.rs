@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{Disassembler, Program, compile, parser::parse, tokenize};
+use dust_lang::{Disassembler, Resolver, compile, parser::parse, tokenize};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{

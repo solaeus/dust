@@ -14,12 +14,13 @@ const X: u8 = Yo::X as u8;
 /// One-byte representation of a value type.
 ///
 /// This type is primarily used for encoding the types of operands in instructions, but it is also
-/// useful whenever a compact representation of a type is needed. However, it can only represent
-/// None, scalar types and shallow composite types. Instead, the user-facing API uses [Type][] and
-/// the compiler uses [TypeResolver][].
+/// useful whenever a compact representation of a type is needed. However, it is too small to
+/// represent .
+///
+/// Instead, the user-facing API uses [Type][] and the compiler uses [TypeId][].
 ///
 /// [Type]: crate::r#type::Type
-/// [TypeResolver]: crate::compiler::type_resolver::TypeResolver
+/// [TypeResolver]: crate::resolver::TypeId
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub u8);
 
