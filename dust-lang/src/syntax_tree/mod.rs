@@ -1,6 +1,5 @@
 mod syntax_node;
 
-use serde_json::de;
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 
 use serde::{Deserialize, Serialize};
@@ -127,9 +126,14 @@ impl SyntaxTree {
                     }
                 }
             }
-            SyntaxKind::LetStatement
-            | SyntaxKind::ExpressionStatement
-            | SyntaxKind::GroupedExpression => {
+            SyntaxKind::ExpressionStatement | SyntaxKind::GroupedExpression => {
+                if let Some(expression) = self.nodes.get(node.payload.0 as usize) {
+                    self.display_node(expression, depth + 1, output);
+                } else {
+                    push_error(output);
+                }
+            }
+            SyntaxKind::LetStatement => {
                 if let Some(expression) = self.nodes.get(node.payload.1 as usize) {
                     self.display_node(expression, depth + 1, output);
                 } else {
@@ -149,19 +153,14 @@ impl SyntaxTree {
                 output.push_str(&byte_display);
             }
             SyntaxKind::CharacterExpression => {
-                let character_display = char::from_u32(node.payload.0)
-                    .map(|character| format!(": '{character}'"))
-                    .unwrap_or_else(|| "<error: invalid character>".to_string());
+                let character = SyntaxNode::decode_character(node.payload);
+                let character_display = format!(": '{character}'");
 
                 output.push_str(&character_display);
             }
             SyntaxKind::FloatExpression => {
-                let mut bytes = [0u8; 8];
-
-                bytes.copy_from_slice(&node.payload.0.to_le_bytes());
-                bytes.copy_from_slice(&node.payload.1.to_le_bytes());
-
-                let float_display = SyntaxNode::decode_float(node.payload).to_string();
+                let float = SyntaxNode::decode_float(node.payload).to_string();
+                let float_display = format!(": {float}", float = float);
 
                 output.push_str(&float_display);
             }

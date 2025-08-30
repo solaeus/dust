@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    range::Range,
+    ops::Range,
 };
 
 use serde::{Deserialize, Serialize};

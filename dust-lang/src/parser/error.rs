@@ -1,8 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
+use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
+
 use crate::{
     Span, Token, Type,
-    dust_error::{AnnotatedError, ErrorMessage},
+    dust_error::AnnotatedError,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -72,176 +74,105 @@ pub enum ParseError {
     },
 }
 
-impl Display for ParseError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl AnnotatedError for ParseError {
+    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
-            ParseError::ExpectedItem { actual, position } => {
-                write!(f, "Expected item, found {actual} at {position}")
-            }
-            ParseError::ExpectedStatement { actual, position } => {
-                write!(f, "Expected statement, found {actual} at {position}")
-            }
-            ParseError::ExpectedExpression {
-                actual: found,
-                position,
-            } => {
-                write!(f, "Expected expression, found {found} at {position}")
-            }
             ParseError::ExpectedToken {
                 actual,
                 expected,
                 position,
             } => {
-                write!(
-                    f,
-                    "Found '{expected}' at {position} but expected '{actual}'",
+                let title = "Expected a different token".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("Found {actual} but expected {expected} here")),
+                    ),
                 )
             }
             ParseError::ExpectedMultipleTokens {
-                expected,
                 actual,
+                expected,
                 position,
             } => {
-                write!(
-                    f,
-                    "Found \"{actual}\" at {position} but expected one of the following: ",
-                )?;
+                let title = "Expected a different token".to_string();
+                let expected_list = expected
+                    .iter()
+                    .map(|token| format!("{token}"))
+                    .collect::<Vec<String>>()
+                    .join(", ");
 
-                for (i, expected_token) in expected.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    } else if i == expected.len() - 1 {
-                        write!(f, "or ")?;
-                    }
-
-                    write!(f, "\"{expected_token}\"")?;
-                }
-
-                write!(f, ".")
-            }
-            ParseError::UnexpectedToken {
-                actual: found,
-                position,
-            } => {
-                write!(f, "Unexpected token {found} at {position}")
-            }
-
-            ParseError::AdditionTypeMismatch {
-                left_type,
-                right_type,
-                ..
-            } => {
-                write!(f, "Cannot add {left_type} and {right_type}")
-            }
-            ParseError::OperandTypeMismatch {
-                operator,
-                left_type,
-                right_type,
-                ..
-            } => {
-                write!(
-                    f,
-                    "The '{operator}' requires two values of the same type, found: {left_type} {operator} {right_type}"
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!(
+                                "Found {actual} but expected one of: {expected_list} here"
+                            )),
+                    ),
                 )
             }
+            ParseError::UnexpectedToken { position, .. } => {
+                let title = "Unexpected token".to_string();
 
-            ParseError::UndeclaredVariable { identifier, .. } => {
-                write!(f, "Undeclared variable \"{identifier}\"")
-            }
-            ParseError::DeclarationConflict { identifier, .. } => {
-                write!(
-                    f,
-                    "Variable \"{identifier}\" is already declared in this scope"
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label("This token was not expected here"),
+                    ),
                 )
             }
+            ParseError::ExpectedItem { actual, position } => {
+                let title = "Expected an item".to_string();
 
-            ParseError::MissingNode { id } => {
-                write!(f, "Internal Error: Missing node with ID {}", id.0)
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
             }
-        }
-    }
-}
+            ParseError::ExpectedStatement { actual, position } => {
+                let title = "Expected a statement".to_string();
 
-impl AnnotatedError for ParseError {
-    fn annotated_error(&self) -> ErrorMessage {
-        let title = "Parsing Error";
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
+            ParseError::ExpectedExpression { actual, position } => {
+                let title = "Expected an expression".to_string();
 
-        match self {
-            ParseError::ExpectedToken { position, .. } => ErrorMessage {
-                title,
-                description: "Expected a specific token",
-                detail_snippets: vec![(self.to_string(), *position)],
-                help_snippet: None,
-            },
-            ParseError::ExpectedMultipleTokens { position, .. } => ErrorMessage {
-                title: "Expected Multiple Tokens",
-                description: "Expected one of several tokens",
-                detail_snippets: vec![(self.to_string(), *position)],
-                help_snippet: None,
-            },
-            ParseError::UnexpectedToken { position, .. } => ErrorMessage {
-                title: "Unexpected Token",
-                description: "Unexpected token",
-                detail_snippets: vec![("Found here".to_string(), *position)],
-                help_snippet: None,
-            },
-
-            ParseError::ExpectedItem { actual, position } => ErrorMessage {
-                title,
-                description: "Expected an item",
-                detail_snippets: vec![(
-                    format!("This is a {actual}, which cannot be used here."),
-                    *position,
-                )],
-                help_snippet: None,
-            },
-            ParseError::ExpectedStatement { actual, position } => ErrorMessage {
-                title,
-                description: "Expected a statement",
-                detail_snippets: vec![(
-                    format!("This is a {actual}, which cannot be used here."),
-                    *position,
-                )],
-                help_snippet: None,
-            },
-            ParseError::ExpectedExpression {
-                actual: found,
-                position,
-            } => ErrorMessage {
-                title,
-                description: "Expected an expression",
-                detail_snippets: vec![(
-                    format!("This is a {found}, which cannot be used here."),
-                    *position,
-                )],
-                help_snippet: None,
-            },
-
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
             ParseError::AdditionTypeMismatch {
                 left_type,
                 left_position,
                 right_type,
                 right_position,
                 position,
-            } => ErrorMessage {
-                title,
-                description: "Cannot add these two types together",
-                detail_snippets: vec![
-                    (
-                        "The '+' operator requires both sides to be numbers of the same type or strings/characters.".to_string(),
-                        *position,
-                    ),
-                    (
-                        format!("The left side has type {left_type}"),
-                        *left_position,
-                    ),
-                    (
-                        format!("The right side has type {right_type}"),
-                        *right_position,
-                    ),
-                ],
-                help_snippet: None,
-            },
+            } => {
+                let title = format!("Cannot add type {left_type} to type {right_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(left_position.as_usize_range())
+                                .label(format!("Left operand is of type {left_type}")),
+                        )
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(right_position.as_usize_range())
+                                .label(format!("Right operand is of type {right_type}")),
+                        ),
+                )
+            }
             ParseError::OperandTypeMismatch {
                 operator,
                 left_type,
@@ -249,64 +180,17 @@ impl AnnotatedError for ParseError {
                 right_type,
                 right_position,
                 position,
-            } => ErrorMessage {
-                title,
-                description: "Type conflict",
-                detail_snippets: vec![
-                    (
-                        format!("The '{operator}' operator requires both sides to be of the same type."),
-                        *position,
-                    ),
-                    (
-                        format!("The left side has type {left_type}"),
-                        *left_position,
-                    ),
-                    (
-                        format!("The right side has type {right_type}"),
-                        *right_position,
-                    ),
-                ],
-                help_snippet: None,
-            },
-
-            ParseError::UndeclaredVariable { identifier, position } => ErrorMessage {
-                title,
-                description: "Use of undeclared variable",
-                detail_snippets: vec![(
-                    format!("The variable \"{identifier}\" is used here but has not been declared."),
-                    *position,
-                )],
-                help_snippet: None,
-            },
+            } => todo!(),
+            ParseError::UndeclaredVariable {
+                identifier,
+                position,
+            } => todo!(),
             ParseError::DeclarationConflict {
                 identifier,
                 first_declaration,
                 second_declaration,
-            } => ErrorMessage {
-                title,
-                description: "Variable declaration conflict",
-                detail_snippets: vec![
-                    (
-                        format!("\"{identifier}\" is first declared here."),
-                        *first_declaration,
-                    ),
-                    (
-                        format!("\"{identifier}\" is redeclared here, in the same scope."),
-                        *second_declaration,
-                    ),
-                ],
-                help_snippet: None,
-            },
-
-            ParseError::MissingNode { id } => ErrorMessage {
-                title,
-                description: "A node was expected but is missing from the syntax tree.",
-                detail_snippets: vec![(
-                    format!("Node with ID {} is missing.", id.0),
-                    Span::default(),
-                )],
-                help_snippet: Some("This is a bug in the parser".to_string()),
-            },
+            } => todo!(),
+            ParseError::MissingNode { id } => todo!(),
         }
     }
 }

@@ -2,7 +2,7 @@
 //! annotations.
 use std::fmt::{self, Display, Formatter};
 
-use annotate_snippets::{Level, Renderer, Snippet};
+use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet};
 
 use crate::{CompileError, Span, parser::ParseError};
 
@@ -36,51 +36,27 @@ impl<'src> DustError<'src> {
     // }
 
     pub fn report(&self) -> String {
-        fn push_to_report(message: ErrorMessage, report: &mut String, source: &str) {
-            let ErrorMessage {
-                title,
-                description,
-                detail_snippets,
-                help_snippet,
-            } = message;
-
-            let label = format!("{title}: {description}");
-            let mut message = Level::Error
-                .title(&label)
-                .snippets(detail_snippets.iter().map(|(details, position)| {
-                    Snippet::source(source).annotation(
-                        Level::Error
-                            .span(position.0 as usize..position.1 as usize)
-                            .label(details),
-                    )
-                }));
-
-            if let Some(help_snippet) = &help_snippet {
-                message = message.footer(Level::Help.title(help_snippet));
-            }
-
-            let renderer = Renderer::styled();
-            report.push_str(&renderer.render(message).to_string());
-        }
-
-        let mut report = String::new();
-
         match &self.error {
-            DustErrorKind::Parse(errors) => {
-                for error in errors {
-                    let message = error.annotated_error();
+            DustErrorKind::Parse(parse_errors) => {
+                let mut report = Vec::new();
 
-                    push_to_report(message, &mut report, self.source);
+                for parse_error in parse_errors {
+                    let group = parse_error.annotated_error(self.source);
+
+                    report.push(group);
                 }
-            }
-            DustErrorKind::Compile(error) => {
-                let message = error.annotated_error();
 
-                push_to_report(message, &mut report, self.source);
+                let renderer = Renderer::styled();
+
+                renderer.render(&report)
+            }
+            DustErrorKind::Compile(compile_error) => {
+                let report = [compile_error.annotated_error(self.source)];
+                let renderer = Renderer::styled();
+
+                renderer.render(&report)
             }
         }
-
-        report
     }
 }
 
@@ -98,12 +74,5 @@ impl Display for DustError<'_> {
 }
 
 pub trait AnnotatedError {
-    fn annotated_error(&self) -> ErrorMessage;
-}
-
-pub struct ErrorMessage {
-    pub title: &'static str,
-    pub description: &'static str,
-    pub detail_snippets: Vec<(String, Span)>,
-    pub help_snippet: Option<String>,
+    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a>;
 }

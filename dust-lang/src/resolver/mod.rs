@@ -51,7 +51,7 @@ impl Resolver {
         id
     }
 
-    pub fn get_declaration(&mut self, identifier: &str, scope: &ScopeId) -> Option<&Declaration> {
+    pub fn get_declaration(&mut self, identifier: &str, scope: ScopeId) -> Option<&Declaration> {
         let hash = {
             let mut hasher = FxHasher::default();
 

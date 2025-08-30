@@ -210,7 +210,7 @@ impl<'src> Parser<'src> {
     }
 
     fn recover(&mut self, error: ParseError) {
-        error!("{error}");
+        error!("{error:?}");
 
         self.errors.push(error);
 
@@ -527,8 +527,11 @@ impl<'src> Parser<'src> {
         };
 
         let identifier_text = if self.current_token == Token::Identifier {
+            let text = self.current_source();
+
             self.advance()?;
-            self.current_source()
+
+            text
         } else {
             return Err(ParseError::ExpectedToken {
                 expected: Token::Identifier,
@@ -626,7 +629,7 @@ impl<'src> Parser<'src> {
         self.advance()?;
 
         let end = self.previous_position.1;
-        let character_payload = character_text.chars().next().unwrap_or_default() as u32;
+        let character_payload = character_text.chars().nth(1).unwrap_or_default() as u32;
         let node = SyntaxNode {
             kind: SyntaxKind::CharacterExpression,
             position: Span(start, end),
@@ -905,7 +908,7 @@ impl<'src> Parser<'src> {
 
         let Some(declaration) = self
             .resolver
-            .get_declaration(identifier_text, &self.current_scope)
+            .get_declaration(identifier_text, self.current_scope)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),

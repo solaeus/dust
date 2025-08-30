@@ -1,11 +1,10 @@
 #![feature(duration_millis_float, formatting_options, iter_intersperse)]
 
 use std::{
-    fmt::{self, Formatter, FormattingOptions},
+    fmt::{self},
     fs::OpenOptions,
     io::{self, Read, stdout},
     path::PathBuf,
-    thread::{self},
     time::{Duration, Instant},
 };
 
@@ -14,8 +13,7 @@ use clap::{
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
-use colored::{Color, Colorize};
-use dust_lang::{Disassembler, Resolver, compile, parser::parse_main, tokenize};
+use dust_lang::{Disassembler, compile, parser::parse_main, tokenize};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -267,7 +265,6 @@ fn main() {
         let (syntax_tree, error) = parse_main(&source);
         let parse_time = start_time.elapsed();
 
-        println!("{syntax_tree:#?}");
         println!("{}", syntax_tree.display());
 
         if let Some(error) = error
