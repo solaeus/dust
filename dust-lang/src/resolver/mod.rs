@@ -2,8 +2,6 @@ mod scope;
 
 use std::hash::{Hash, Hasher};
 
-pub use scope::Scope;
-
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
@@ -14,35 +12,27 @@ use crate::{Span, Type};
 pub struct Resolver {
     declarations: IndexMap<u64, Declaration, FxBuildHasher>,
 
+    scopes: Vec<Scope>,
+
     types: IndexSet<TypeNode, FxBuildHasher>,
 
-    type_references: Vec<TypeId>,
-
-    modules: Vec<Module>,
-
-    imports: Vec<ModuleId>,
+    type_members: Vec<TypeId>,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         Self {
             declarations: IndexMap::default(),
-            types: IndexSet::default(),
-            type_references: Vec::new(),
-            modules: Vec::new(),
-            imports: Vec::new(),
+            scopes: Vec::new(),
+            r#types: IndexSet::default(),
+            type_members: Vec::new(),
         }
     }
 
-    pub fn get_declaration(&self, identifier: &str) -> Option<&Declaration> {
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        self.declarations.get(&hash)
+    pub fn get_declaration_from_id(&self, id: DeclarationId) -> Option<&Declaration> {
+        self.declarations
+            .get_index(id.0 as usize)
+            .map(|(_, declaration)| declaration)
     }
 
     pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
@@ -50,6 +40,7 @@ impl Resolver {
             let mut hasher = FxHasher::default();
 
             identifier.hash(&mut hasher);
+            declaration.scope.hash(&mut hasher);
             hasher.finish()
         };
 
@@ -60,16 +51,16 @@ impl Resolver {
         id
     }
 
-    pub fn get_module(&self, id: ModuleId) -> Option<&Module> {
-        self.modules.get(id.0 as usize)
-    }
+    pub fn get_declaration(&mut self, identifier: &str, scope: &ScopeId) -> Option<&Declaration> {
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-    pub fn add_module(&mut self, module: Module) -> ModuleId {
-        let id = ModuleId(self.modules.len() as u32);
+            identifier.hash(&mut hasher);
+            scope.hash(&mut hasher);
+            hasher.finish()
+        };
 
-        self.modules.push(module);
-
-        id
+        self.declarations.get(&hash)
     }
 
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
@@ -100,12 +91,12 @@ impl Resolver {
                         value_arguments: (value_args_start, value_args_end),
                         return_type,
                     } => {
-                        let type_arguments = self.type_references
+                        let type_arguments = self.type_members
                             [*type_args_start as usize..*type_args_end as usize]
                             .iter()
                             .map(|id| self.resolve_type(*id))
                             .collect::<Option<Vec<Type>>>()?;
-                        let value_arguments = self.type_references
+                        let value_arguments = self.type_members
                             [*value_args_start as usize..*value_args_end as usize]
                             .iter()
                             .map(|id| self.resolve_type(*id))
@@ -130,6 +121,16 @@ impl Resolver {
             id
         }
     }
+
+    pub fn push_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
+        let start = self.type_members.len() as u32;
+
+        self.type_members.extend_from_slice(members);
+
+        let end = self.type_members.len() as u32;
+
+        (start, end)
+    }
 }
 
 impl Default for Resolver {
@@ -138,31 +139,40 @@ impl Default for Resolver {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ScopeId(pub u32);
+
+impl ScopeId {
+    pub const MAIN: Self = ScopeId(u32::MAX);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Scope {
+    pub parent: ScopeId,
+    pub imports: (u32, u32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DeclarationId(pub u32);
+
+impl DeclarationId {
+    pub const MAIN: Self = DeclarationId(u32::MAX);
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
     pub kind: DeclarationKind,
-    pub module: ModuleId,
-    pub block_scope: Scope,
+    pub scope: ScopeId,
     pub r#type: TypeId,
-    pub position: Span,
+    pub identifier_position: Span,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
     Function,
-    PublicFunction,
-
     Local,
-    MutableLocal,
-
     Module,
-    PublicModule,
-
     Type,
-    PublicType,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -188,13 +198,3 @@ pub enum TypeNode {
         return_type: TypeId,
     },
 }
-
-#[derive(Debug)]
-pub struct Module {
-    pub declaration: DeclarationId,
-    pub scope: Scope,
-    pub imports: (u32, u32),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleId(pub u32);

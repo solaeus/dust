@@ -15,7 +15,7 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use colored::{Color, Colorize};
-use dust_lang::{Disassembler, Resolver, compile, parser::parse, tokenize};
+use dust_lang::{Disassembler, Resolver, compile, parser::parse_main, tokenize};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -264,7 +264,7 @@ fn main() {
 
     if let Mode::Parse(InputOptions { eval, stdin, file }) = mode {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let (syntax_tree, error) = parse(&source, true);
+        let (syntax_tree, error) = parse_main(&source);
         let parse_time = start_time.elapsed();
 
         println!("{syntax_tree:#?}");

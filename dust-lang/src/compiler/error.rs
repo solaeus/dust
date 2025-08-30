@@ -1,7 +1,7 @@
 use crate::{
     Span,
     dust_error::{AnnotatedError, ErrorMessage},
-    resolver::TypeId,
+    resolver::{DeclarationId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -36,6 +36,9 @@ pub enum CompileError {
     },
     MissingConstant {
         constant_index: u16,
+    },
+    MissingDeclaration {
+        id: DeclarationId,
     },
     MissingSyntaxNode {
         id: SyntaxId,
@@ -100,6 +103,12 @@ impl AnnotatedError for CompileError {
                 title,
                 description: "The syntax tree is missing a constant that is required for compilation.",
                 detail_snippets: vec![(format!("Constant index {constant_index}"), Span::default())],
+                help_snippet: Some(INVALID_TREE.to_string()),
+            },
+            CompileError::MissingDeclaration { id } => ErrorMessage {
+                title,
+                description: "A declaration required for compilation is missing from the resolver.",
+                detail_snippets: vec![(format!("Declaration id: {}", id.0), Span::default())],
                 help_snippet: Some(INVALID_TREE.to_string()),
             },
             CompileError::MissingSyntaxNode { id } => ErrorMessage {

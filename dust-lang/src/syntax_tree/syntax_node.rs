@@ -128,8 +128,9 @@ pub enum SyntaxKind {
 
     // Sub-Syntax
     FunctionSignature,
-    FunctionParameters,
+    FunctionParameterList,
     FunctionParameter,
+    FunctionReturnType,
     Identifier,
 
     // Types

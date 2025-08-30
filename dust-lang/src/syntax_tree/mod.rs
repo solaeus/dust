@@ -1,5 +1,6 @@
 mod syntax_node;
 
+use serde_json::de;
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 
 use serde::{Deserialize, Serialize};
@@ -83,7 +84,6 @@ impl SyntaxTree {
 
         if let Some(top_node) = self.top_node() {
             output.push_str("Syntax Tree:\n");
-
             self.display_node(top_node, 0, &mut output);
         } else {
             output.push_str(" <empty>");
@@ -109,6 +109,12 @@ impl SyntaxTree {
 
         match node.kind {
             SyntaxKind::MainFunctionItem => {
+                if depth != 0 {
+                    output.push_str(" <error: main function must be root node>");
+
+                    return;
+                }
+
                 let children_start = node.payload.0 as usize;
                 let children_end = children_start + node.payload.1 as usize;
                 let children = &self.children[children_start..children_end];
@@ -124,7 +130,7 @@ impl SyntaxTree {
             SyntaxKind::LetStatement
             | SyntaxKind::ExpressionStatement
             | SyntaxKind::GroupedExpression => {
-                if let Some(expression) = self.nodes.get(node.payload.0 as usize) {
+                if let Some(expression) = self.nodes.get(node.payload.1 as usize) {
                     self.display_node(expression, depth + 1, output);
                 } else {
                     push_error(output);

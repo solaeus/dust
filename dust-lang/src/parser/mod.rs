@@ -13,17 +13,17 @@ use crate::{
     Lexer, Resolver, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::TypeId,
+    resolver::{Declaration, DeclarationKind, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
-pub fn parse(source: &'_ str, is_main: bool) -> (SyntaxTree, Option<DustError<'_>>) {
+pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
     let parser = Parser::new();
     let ParseResult {
         syntax_tree,
         errors,
         ..
-    } = parser.parse_file_once(source, is_main);
+    } = parser.parse_once(source, ScopeId::MAIN);
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -50,6 +50,8 @@ pub struct Parser<'src> {
     previous_token: Token,
     previous_position: Span,
 
+    current_scope: ScopeId,
+
     errors: Vec<ParseError>,
 }
 
@@ -63,19 +65,21 @@ impl<'src> Parser<'src> {
             current_position: Span::default(),
             previous_token: Token::Eof,
             previous_position: Span::default(),
+            current_scope: ScopeId::MAIN,
             errors: Vec::new(),
         }
     }
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse_file_once(mut self, source: &'src str, is_main: bool) -> ParseResult {
+    pub fn parse_once(mut self, source: &'src str, scope: ScopeId) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, 0);
 
         self.current_token = token;
         self.current_position = span;
+        self.current_scope = scope;
 
-        if is_main {
+        if scope == ScopeId::MAIN {
             self.parse_main_function_item();
         } else {
             self.parse_module_item();
@@ -90,13 +94,14 @@ impl<'src> Parser<'src> {
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// Afterwards, the parser is reset and can be reused.
-    pub fn parse_file(&mut self, source: &'src str, is_main: bool) -> ParseResult {
+    pub fn parse(&mut self, source: &'src str, scope: ScopeId) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, 0);
 
         self.current_token = token;
         self.current_position = span;
+        self.current_scope = scope;
 
-        if is_main {
+        if scope == ScopeId::MAIN {
             self.parse_main_function_item();
         } else {
             self.parse_module_item();
@@ -115,11 +120,17 @@ impl<'src> Parser<'src> {
 
     /// Parses a source string, allowing it to be a subtree of a larger syntax tree. Afterwards, the
     /// parser is reset and can be reused.
-    pub fn parse_subtree(&mut self, source: &'src str, offset: usize) -> ParseResult {
+    pub fn parse_subtree(
+        &mut self,
+        source: &'src str,
+        offset: usize,
+        scope: ScopeId,
+    ) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, offset);
 
         self.current_token = token;
         self.current_position = span;
+        self.current_scope = scope;
 
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
@@ -324,7 +335,6 @@ impl<'src> Parser<'src> {
     pub fn parse_main_function_item(&mut self) {
         let span = span!(Level::INFO, "Parsing Main");
         let _enter = span.enter();
-
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             position: Span::default(),
@@ -346,11 +356,12 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let r#type = self
+        let last_node_type = self
             .syntax_tree
             .last_node()
             .map(|node| node.r#type)
             .unwrap_or(TypeId::NONE);
+
         let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
 
@@ -358,7 +369,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::MainFunctionItem,
             position: Span(0, self.current_position.1),
             payload: (first_child, child_count),
-            r#type,
+            r#type: last_node_type,
         };
 
         self.syntax_tree.children.extend(children);
@@ -414,120 +425,49 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let function_kind = match self.current_token {
-            Token::Identifier => SyntaxKind::FunctionStatement,
-            Token::LeftParenthesis => SyntaxKind::FunctionExpression,
-            _ => {
-                return Err(ParseError::ExpectedMultipleTokens {
-                    expected: &[Token::Identifier, Token::LeftParenthesis],
-                    actual: self.current_token,
-                    position: self.current_position,
-                });
+        match self.current_token {
+            Token::Identifier => {
+                let identifier_position = self.current_position;
+                let identifier_text = self.current_source();
+
+                self.advance()?;
+                self.parse_function_expression()?;
+
+                let end = self.previous_position.1;
+                let declaration = Declaration {
+                    kind: DeclarationKind::Function,
+                    scope: self.current_scope,
+                    r#type: TypeId::NONE,
+                    identifier_position,
+                };
+                let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
+                let function_expression_id = self.syntax_tree.last_node_id();
+                let node = SyntaxNode {
+                    kind: SyntaxKind::FunctionStatement,
+                    position: Span(start, end),
+                    payload: (declaration_id.0, function_expression_id.0),
+                    r#type: TypeId::NONE,
+                };
+
+                self.syntax_tree.push_node(node);
+
+                Ok(())
             }
-        };
+            Token::LeftParenthesis => {
+                self.parse_function_expression()?;
 
-        let explicit_return_type = self.parse_function_signature()?;
-
-        let function_signature_id = self.syntax_tree.last_node_id();
-
-        if self.current_token != Token::LeftCurlyBrace {
-            return Err(ParseError::ExpectedToken {
-                expected: Token::LeftCurlyBrace,
+                Ok(())
+            }
+            _ => Err(ParseError::ExpectedMultipleTokens {
+                expected: &[Token::Identifier, Token::LeftParenthesis],
                 actual: self.current_token,
                 position: self.current_position,
-            });
+            }),
         }
-
-        self.parse_block()?;
-
-        let block_id = self.syntax_tree.last_node_id();
-        let block_type = self
-            .syntax_tree
-            .get_node(block_id)
-            .map(|node| node.r#type)
-            .unwrap_or(TypeId::NONE);
-
-        if block_type != explicit_return_type {
-            todo!("Type error");
-        }
-
-        let end = self.previous_position.1;
-        let node = SyntaxNode {
-            kind: function_kind,
-            position: Span(start, end),
-            payload: (function_signature_id.0, block_id.0),
-            r#type: block_type,
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
     }
 
-    fn parse_function_signature(&mut self) -> Result<TypeId, ParseError> {
-        let start = self.current_position.0;
-        let mut children = Self::new_child_buffer();
-
-        if self.current_token == Token::Identifier {
-            self.parse_identifier()?;
-            children.push(self.syntax_tree.last_node_id());
-        }
-
-        self.expect(Token::LeftParenthesis)?;
-
-        while !self.allow(Token::RightParenthesis)? {
-            self.parse_function_parameter()?;
-            children.push(self.syntax_tree.last_node_id());
-        }
-
-        let r#type = if self.allow(Token::ArrowThin)? {
-            let r#type = self.parse_type()?;
-
-            children.push(self.syntax_tree.last_node_id());
-
-            r#type
-        } else {
-            TypeId::NONE
-        };
-
-        let end = self.previous_position.1;
-        let first_child = self.syntax_tree.children.len() as u32;
-        let child_count = children.len() as u32;
-        let node = SyntaxNode {
-            kind: SyntaxKind::FunctionSignature,
-            position: Span(start, end),
-            payload: (first_child, child_count),
-            r#type: TypeId::NONE,
-        };
-
-        self.syntax_tree.children.extend(children);
-        self.syntax_tree.push_node(node);
-
-        Ok(r#type)
-    }
-
-    fn parse_function_parameter(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-
-        self.parse_identifier()?;
-
-        let identifier_id = self.syntax_tree.last_node_id();
-
-        self.expect(Token::Colon)?;
-        self.parse_type()?;
-
-        let type_node_id = self.syntax_tree.last_node_id();
-        let end = self.previous_position.1;
-        let node = SyntaxNode {
-            kind: SyntaxKind::FunctionParameter,
-            position: Span(start, end),
-            payload: (identifier_id.0, type_node_id.0),
-            r#type: TypeId::NONE,
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
+    fn parse_function_expression(&mut self) -> Result<(), ParseError> {
+        todo!()
     }
 
     fn parse_type(&mut self) -> Result<TypeId, ParseError> {
@@ -541,13 +481,7 @@ impl<'src> Parser<'src> {
             Token::Int => (SyntaxKind::IntegerType, TypeId::INTEGER),
             Token::Str => (SyntaxKind::StringType, TypeId::STRING),
             Token::Identifier => {
-                let text = self.current_source();
-                let declaration = self
-                    .resolver
-                    .get_declaration(text)
-                    .unwrap_or_else(|| todo!());
-
-                (SyntaxKind::TypePath, declaration.r#type)
+                todo!()
             }
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
@@ -558,6 +492,7 @@ impl<'src> Parser<'src> {
                         Token::Float,
                         Token::Int,
                         Token::Str,
+                        Token::Identifier,
                     ],
                     actual: self.current_token,
                     position: self.current_position,
@@ -582,7 +517,6 @@ impl<'src> Parser<'src> {
 
     fn parse_let_statement(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let mut children = Self::new_child_buffer();
 
         self.advance()?;
 
@@ -592,49 +526,56 @@ impl<'src> Parser<'src> {
             SyntaxKind::LetStatement
         };
 
-        if self.current_token != Token::Identifier {
+        let identifier_text = if self.current_token == Token::Identifier {
+            self.advance()?;
+            self.current_source()
+        } else {
             return Err(ParseError::ExpectedToken {
                 expected: Token::Identifier,
                 actual: self.current_token,
                 position: self.current_position,
             });
-        }
-
-        self.parse_identifier()?;
-        children.push(self.syntax_tree.last_node_id());
+        };
 
         if self.allow(Token::Colon)? {
             self.parse_type()?;
-            children.push(self.syntax_tree.last_node_id());
         }
 
         self.expect(Token::Equal)?;
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
-        children.push(self.syntax_tree.last_node_id());
 
+        let expression_id = self.syntax_tree.last_node_id();
+        let expression_type = self
+            .syntax_tree
+            .get_node(expression_id)
+            .map(|node| node.r#type)
+            .ok_or(ParseError::MissingNode { id: expression_id })?;
         let end = self.previous_position.1;
-        let children_start = self.syntax_tree.children.len() as u32;
-        let child_count = children.len() as u32;
+        let declaration = Declaration {
+            kind: DeclarationKind::Local,
+            scope: self.current_scope,
+            r#type: expression_type,
+            identifier_position: self.current_position,
+        };
+        let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
         let node = SyntaxNode {
             kind,
             position: Span(start, end),
-            payload: (children_start, child_count),
-            r#type: TypeId::NONE,
+            payload: (declaration_id.0, expression_id.0),
+            r#type: expression_type,
         };
 
         self.syntax_tree.push_node(node);
-        self.syntax_tree.children.extend(children);
 
         Ok(())
     }
 
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
+        let position = self.current_position;
 
         self.advance()?;
 
-        let end = self.previous_position.1;
         let boolean_payload = match self.current_token {
             Token::TrueValue => true as u32,
             Token::FalseValue => false as u32,
@@ -648,7 +589,7 @@ impl<'src> Parser<'src> {
         };
         let node = SyntaxNode {
             kind: SyntaxKind::BooleanExpression,
-            position: Span(start, end),
+            position,
             payload: (boolean_payload, 0),
             r#type: TypeId::BOOLEAN,
         };
@@ -957,46 +898,25 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_path_expression(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
+        let position = self.current_position;
         let identifier_text = self.current_source();
 
         self.advance()?;
 
-        let end = self.previous_position.1;
-        let r#type = self
+        let Some(declaration) = self
             .resolver
-            .get_declaration(identifier_text)
-            .map(|declaration| declaration.r#type)
-            .unwrap_or(TypeId::NONE);
-        let node = SyntaxNode {
-            kind: SyntaxKind::PathExpression,
-            position: Span(start, end),
-            payload: (0, 0),
-            r#type,
+            .get_declaration(identifier_text, &self.current_scope)
+        else {
+            return Err(ParseError::UndeclaredVariable {
+                identifier: identifier_text.to_string(),
+                position,
+            });
         };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
-    }
-
-    fn parse_identifier(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-        let identifier_text = self.current_source();
-
-        self.advance()?;
-
-        let end = self.previous_position.1;
-        let r#type = self
-            .resolver
-            .get_declaration(identifier_text)
-            .map(|declaration| declaration.r#type)
-            .unwrap_or(TypeId::NONE);
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
-            position: Span(start, end),
+            position,
             payload: (0, 0),
-            r#type,
+            r#type: declaration.r#type,
         };
 
         self.syntax_tree.push_node(node);

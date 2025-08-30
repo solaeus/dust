@@ -13,7 +13,7 @@ pub struct Scope {
     /// Level of block nesting.
     pub depth: u8,
 
-    /// Index of the block in the chunk.
+    /// Index of the scope in its parent scope.
     pub index: u8,
 }
 

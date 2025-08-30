@@ -1,7 +1,9 @@
 mod error;
+mod local;
 // mod fold_constants;
 
 pub use error::CompileError;
+use local::Local;
 
 use tracing::{Level, info, span, trace};
 
@@ -10,7 +12,7 @@ use crate::{
     chunk::ConstantTable,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::TypeId,
+    resolver::{DeclarationId, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -20,7 +22,7 @@ pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
         syntax_tree,
         resolver,
         errors,
-    } = parser.parse_file_once(source, true);
+    } = parser.parse_once(source, ScopeId::MAIN);
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
@@ -81,7 +83,7 @@ pub struct ChunkCompiler<'a> {
     prototype_index: u16,
 
     /// Number of registers that are used by local variables.
-    local_registers: u16,
+    locals: Vec<Local>,
 
     /// Counter that tracks the available register. Every block resets this counter to its value at
     /// the start of the block, allowing the compiler to reuse registers.
@@ -97,13 +99,12 @@ impl<'a> ChunkCompiler<'a> {
             syntax_tree,
             resolver,
             constant_table: ConstantTable::new(),
-            // type_table: Vec::new(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             return_type: TypeId::NONE,
             prototype_index: 0,
-            local_registers: 0,
+            locals: Vec::new(),
             next_register: 0,
             used_regisers: 0,
         }
@@ -223,28 +224,6 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    fn compile_expression(
-        &mut self,
-        node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
-        match node.kind {
-            SyntaxKind::CharacterExpression => self.compile_character_expression(node_id, node),
-            SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
-            SyntaxKind::AdditionExpression
-            | SyntaxKind::SubtractionExpression
-            | SyntaxKind::MultiplicationExpression
-            | SyntaxKind::DivisionExpression
-            | SyntaxKind::ModuloExpression => self.compile_binary_expression(node_id, node),
-            SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
-            SyntaxKind::PathExpression => self.parse_path_expression(node_id, node),
-            _ => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind,
-                position: node.position,
-            }),
-        }
-    }
-
     fn compile_main_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         let (start_children, child_count) = (node.payload.0 as usize, node.payload.1 as usize);
         let end_children = start_children + child_count;
@@ -298,10 +277,68 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
-        let (children_start, child_count) = (node.payload.0, node.payload.1);
-        let identifier_index = children_start as usize;
+        let declaration_id = DeclarationId(node.payload.0);
+        let expression_id = SyntaxId(node.payload.1);
 
-        todo!()
+        let declaration = self
+            .resolver
+            .get_declaration_from_id(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
+        let expression_node = self
+            .syntax_tree
+            .get_node(expression_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
+        let expression_emission = self.compile_expression(expression_id, expression_node)?;
+        let destination_register = match expression_emission {
+            Emission::Instruction(instruction) => {
+                let destination_register = instruction.destination().index;
+
+                self.instructions.push(instruction);
+
+                destination_register
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let constant_index = self.add_constant(constant);
+                let destination = Address::register(self.get_next_register());
+                let address = Address::constant(constant_index);
+                let instruction = Instruction::load(destination, address, r#type, false);
+
+                self.instructions.push(instruction);
+
+                destination.index
+            }
+        };
+        let local = Local {
+            register: destination_register,
+            r#type: declaration.r#type,
+        };
+
+        self.locals.push(local);
+
+        Ok(())
+    }
+
+    fn compile_expression(
+        &mut self,
+        node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        match node.kind {
+            SyntaxKind::CharacterExpression => self.compile_character_expression(node_id, node),
+            SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
+            SyntaxKind::AdditionExpression
+            | SyntaxKind::SubtractionExpression
+            | SyntaxKind::MultiplicationExpression
+            | SyntaxKind::DivisionExpression
+            | SyntaxKind::ModuloExpression => self.compile_binary_expression(node_id, node),
+            SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
+            SyntaxKind::PathExpression => self.parse_path_expression(node_id, node),
+            _ => Err(CompileError::ExpectedExpression {
+                node_kind: node.kind,
+                position: node.position,
+            }),
+        }
     }
 
     fn compile_character_expression(
