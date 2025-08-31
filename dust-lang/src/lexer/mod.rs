@@ -158,6 +158,8 @@ impl<'src> Lexer<'src> {
                         return (Token::Unknown, Span::new(start, self.position));
                     }
                 }
+
+                return (Token::ByteValue, Span::new(start, self.position));
             }
         }
 
@@ -266,9 +268,9 @@ impl<'src> Lexer<'src> {
 
     #[inline]
     fn lex_string(&mut self) -> (Token, Span) {
-        self.advance(); // Consume the opening quote
-
         let start = self.position;
+
+        self.advance();
 
         while let Some(c) = self.peek_char()
             && c != '"'
@@ -276,9 +278,9 @@ impl<'src> Lexer<'src> {
             self.advance();
         }
 
-        let end = self.position;
+        self.advance();
 
-        self.advance(); // Consume the closing quote
+        let end = self.position;
 
         (Token::StringValue, Span::new(start, end))
     }

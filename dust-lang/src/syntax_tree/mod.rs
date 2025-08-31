@@ -2,9 +2,7 @@ mod syntax_node;
 
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
 
 /// Lossless abstract syntax tree representing a Dust source code file.
@@ -76,6 +74,14 @@ impl SyntaxTree {
 
     pub fn last_node(&self) -> Option<&SyntaxNode> {
         self.nodes.last()
+    }
+
+    pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
+        let mut nodes = self.nodes.clone();
+
+        nodes.sort_by_key(|node| node.position);
+
+        nodes
     }
 
     pub fn display(&self) -> String {

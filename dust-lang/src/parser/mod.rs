@@ -575,10 +575,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
-        let position = self.current_position;
-
-        self.advance()?;
-
         let boolean_payload = match self.current_token {
             Token::TrueValue => true as u32,
             Token::FalseValue => false as u32,
@@ -592,27 +588,27 @@ impl<'src> Parser<'src> {
         };
         let node = SyntaxNode {
             kind: SyntaxKind::BooleanExpression,
-            position,
+            position: self.current_position,
             payload: (boolean_payload, 0),
             r#type: TypeId::BOOLEAN,
         };
 
+        self.advance()?;
         self.syntax_tree.push_node(node);
 
         Ok(())
     }
 
     fn parse_byte_expression(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
+        let position = self.current_position;
+        let byte_text_utf8 = &self.current_source().as_bytes()[2..]; // Skip the "0x" prefix
 
         self.advance()?;
 
-        let end = self.previous_position.1;
-        let byte_text_utf8 = &self.current_source().as_bytes()[2..]; // Skip the "0x" prefix
         let byte_payload = u8::from_ascii_radix(byte_text_utf8, 16).unwrap_or_default() as u32;
         let node = SyntaxNode {
             kind: SyntaxKind::ByteExpression,
-            position: Span(start, end),
+            position,
             payload: (byte_payload, 0),
             r#type: TypeId::BYTE,
         };
@@ -718,15 +714,20 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_string_expression(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
+        let position = self.current_position;
+        let string_text = {
+            let token_text = self.current_source();
+
+            &token_text[1..token_text.len() - 1]
+        };
+        let payload = self.resolver.constants.add_string(string_text) as u32;
 
         self.advance()?;
 
-        let end = self.previous_position.1;
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
-            position: Span(start, end),
-            payload: (0, 0),
+            position,
+            payload: (payload, 0),
             r#type: TypeId::STRING,
         };
 

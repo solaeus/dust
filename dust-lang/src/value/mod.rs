@@ -12,7 +12,7 @@ pub use list::List;
 
 use crate::{Chunk, OperandType};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Boolean(bool),
     Byte(u8),
@@ -233,17 +233,17 @@ impl Ord for Value {
     }
 }
 
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Value::Boolean(value) => value.hash(state),
-            Value::Byte(value) => value.hash(state),
-            Value::Character(value) => value.hash(state),
-            Value::Float(value) => value.to_bits().hash(state),
-            Value::Integer(value) => value.hash(state),
-            Value::String(value) => value.hash(state),
-            Value::List(value) => value.hash(state),
-            Value::Function(value) => value.hash(state),
-        }
-    }
-}
+// impl Hash for Value {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         match self {
+//             Value::Boolean(value) => value.hash(state),
+//             Value::Byte(value) => value.hash(state),
+//             Value::Character(value) => value.hash(state),
+//             Value::Float(value) => value.to_bits().hash(state),
+//             Value::Integer(value) => value.hash(state),
+//             Value::String(value) => value.hash(state),
+//             Value::List(value) => value.hash(state),
+//             Value::Function(value) => value.hash(state),
+//         }
+//     }
+// }

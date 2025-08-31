@@ -2,9 +2,9 @@
 //! annotations.
 use std::fmt::{self, Display, Formatter};
 
-use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet};
+use annotate_snippets::{Group, Renderer};
 
-use crate::{CompileError, Span, parser::ParseError};
+use crate::{CompileError, parser::ParseError};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug)]

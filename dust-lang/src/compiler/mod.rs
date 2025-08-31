@@ -5,11 +5,11 @@ mod local;
 pub use error::CompileError;
 use local::Local;
 
-use tracing::{Level, info, span, trace};
+use tracing::{Level, span};
 
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver, Value,
-    chunk::ConstantTable,
+    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Operation, Resolver,
+    Value,
     dust_error::DustError,
     parser::{ParseResult, Parser},
     resolver::{DeclarationId, ScopeId, TypeId},

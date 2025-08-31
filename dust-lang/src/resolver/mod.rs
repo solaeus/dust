@@ -6,10 +6,12 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{Span, Type};
+use crate::{ConstantTable, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
+    pub constants: ConstantTable,
+
     declarations: IndexMap<u64, Declaration, FxBuildHasher>,
 
     scopes: Vec<Scope>,
@@ -22,6 +24,7 @@ pub struct Resolver {
 impl Resolver {
     pub fn new() -> Self {
         Self {
+            constants: ConstantTable::new(),
             declarations: IndexMap::default(),
             scopes: Vec::new(),
             r#types: IndexSet::default(),

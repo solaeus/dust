@@ -20,6 +20,7 @@ pub mod compiler;
 pub mod dust_error;
 pub mod instruction;
 // pub mod jit_vm;
+pub mod constant_table;
 pub mod lexer;
 pub mod native_function;
 pub mod parser;
@@ -30,11 +31,12 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 pub use chunk::{Chunk, Disassembler};
 pub use compiler::{ChunkCompiler, CompileError, compile};
+pub use constant_table::ConstantTable;
 // pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
