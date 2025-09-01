@@ -1,4 +1,4 @@
-use annotate_snippets::Group;
+use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     Span,
@@ -51,7 +51,7 @@ pub enum CompileError {
 }
 
 impl AnnotatedError for CompileError {
-    fn annotated_error<'a>(&'a self, _source: &str) -> Group<'a> {
+    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
             CompileError::InvalidEncodedConstant {
                 node_kind: _,
@@ -71,9 +71,19 @@ impl AnnotatedError for CompileError {
                 position: _,
             } => todo!(),
             CompileError::ExpectedExpression {
-                node_kind: _,
-                position: _,
-            } => todo!(),
+                node_kind,
+                position,
+            } => {
+                let title = "Expected an expression".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("Found {node_kind} but expected an expression here")),
+                    ),
+                )
+            }
             CompileError::MissingChild {
                 parent_kind: _,
                 child_index: _,

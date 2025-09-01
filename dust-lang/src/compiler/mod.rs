@@ -8,7 +8,7 @@ mod tests;
 pub use error::CompileError;
 use local::Local;
 
-use tracing::{Level, span};
+use tracing::{Level, debug, info, span};
 
 use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver,
@@ -154,6 +154,11 @@ impl<'a> ChunkCompiler<'a> {
         right: Constant,
         operation: SyntaxKind,
     ) -> Result<Constant, CompileError> {
+        debug!(
+            "Combining constants: {:?} {:?} {:?}",
+            left, right, operation
+        );
+
         let combined = match (left, right) {
             (Constant::Byte(left), Constant::Byte(right)) => {
                 let combined = match operation {
@@ -240,7 +245,7 @@ impl<'a> ChunkCompiler<'a> {
         match node.kind {
             SyntaxKind::LetStatement => self.compile_let_statement(&node),
             SyntaxKind::FunctionStatement => todo!("Compile function statement"),
-            SyntaxKind::ExpressionStatement => todo!("Compile expression statement"),
+            SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
@@ -250,6 +255,8 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_main_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling main function");
+
         let (start_children, child_count) = (node.payload.0 as usize, node.payload.1 as usize);
         let end_children = start_children + child_count;
 
@@ -272,8 +279,18 @@ impl<'a> ChunkCompiler<'a> {
 
                 if child_node.kind.is_item() {
                     self.compile_item(child_id)?;
+
+                    let return_instruction =
+                        Instruction::r#return(false, Address::default(), OperandType::NONE);
+
+                    self.instructions.push(return_instruction);
                 } else if child_node.kind.is_statement() {
                     self.compile_statement(child_id)?;
+
+                    let return_instruction =
+                        Instruction::r#return(false, Address::default(), OperandType::NONE);
+
+                    self.instructions.push(return_instruction);
                 } else {
                     let return_emission = self.compile_expression(child_id, child_node)?;
                     let (return_operand, return_type) = match return_emission {
@@ -318,7 +335,36 @@ impl<'a> ChunkCompiler<'a> {
         Ok(())
     }
 
+    fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling expression statement");
+
+        let expression_id = SyntaxId(node.payload.0);
+        let expression_node = self
+            .syntax_tree
+            .get_node(expression_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
+        let expression_emission = self.compile_expression(expression_id, expression_node)?;
+
+        match expression_emission {
+            Emission::Instruction(instruction) => {
+                self.instructions.push(instruction);
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(constant);
+                let destination = Address::register(self.get_next_register());
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                self.instructions.push(load_instruction);
+            }
+        }
+
+        Ok(())
+    }
+
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling let statement");
+
         let declaration_id = DeclarationId(node.payload.0);
         let expression_id = SyntaxId(node.payload.1);
 
@@ -389,10 +435,14 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_boolean_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling boolean expression");
+
         Ok(Emission::Constant(Constant::Boolean(node.payload.0 != 0)))
     }
 
     fn compile_byte_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling byte expression");
+
         Ok(Emission::Constant(Constant::Byte(node.payload.0 as u8)))
     }
 
@@ -401,24 +451,32 @@ impl<'a> ChunkCompiler<'a> {
         _node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
+        info!("Compiling character expression");
+
         let character = char::from_u32(node.payload.0).unwrap_or_default();
 
         Ok(Emission::Constant(Constant::Character(character)))
     }
 
     fn compile_float_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling float expression");
+
         let float = SyntaxNode::decode_float(node.payload);
 
         Ok(Emission::Constant(Constant::Float(float)))
     }
 
     fn compile_integer_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling integer expression");
+
         let integer = SyntaxNode::decode_integer(node.payload);
 
         Ok(Emission::Constant(Constant::Integer(integer)))
     }
 
     fn compile_string_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling string expression");
+
         let string_index = node.payload.0 as u16;
 
         Ok(Emission::Constant(Constant::String(string_index)))
@@ -429,6 +487,8 @@ impl<'a> ChunkCompiler<'a> {
         _node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
+        info!("Compiling binary expression");
+
         let left_index = SyntaxId(node.payload.0);
         let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
@@ -509,6 +569,8 @@ impl<'a> ChunkCompiler<'a> {
         node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
+        info!("Compiling grouped expression");
+
         let child_id = SyntaxId(node.payload.0);
         let child_node = self
             .syntax_tree
@@ -526,6 +588,8 @@ impl<'a> ChunkCompiler<'a> {
         _node_id: SyntaxId,
         _node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
+        info!("Compiling path expression");
+
         todo!()
     }
 
@@ -562,11 +626,13 @@ impl<'a> ChunkCompiler<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Emission {
     Instruction(Instruction),
     Constant(Constant),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Constant {
     Boolean(bool),
     Byte(u8),

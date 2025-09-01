@@ -316,8 +316,8 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Parser::parse_semicolon),
-                infix: None,
+                prefix: None,
+                infix: Some(Parser::parse_semicolon),
                 precedence: Precedence::None,
             },
             Token::Slash => ParseRule {
