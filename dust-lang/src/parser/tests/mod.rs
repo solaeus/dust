@@ -149,7 +149,7 @@ fn string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: (0, 0),
+                payload: (0, 6),
                 position: Span(0, 8),
                 r#type: TypeId::STRING,
             }
@@ -618,7 +618,7 @@ fn constant_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: (0, 0),
+                payload: (0, 3),
                 position: Span(0, 5),
                 r#type: TypeId::STRING,
             },
@@ -630,7 +630,7 @@ fn constant_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: (1, 0),
+                payload: (3, 6),
                 position: Span(8, 13),
                 r#type: TypeId::STRING,
             }
@@ -692,7 +692,7 @@ fn constant_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: (0, 0),
+                payload: (0, 3),
                 position: Span(0, 5),
                 r#type: TypeId::STRING,
             },
@@ -741,7 +741,7 @@ fn constant_character_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: (0, 0),
+                payload: (0, 3),
                 position: Span(6, 11),
                 r#type: TypeId::STRING,
             }

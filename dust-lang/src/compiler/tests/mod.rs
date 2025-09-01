@@ -435,9 +435,7 @@ fn constant_string_concatenation() {
     let chunk = compile(source).unwrap();
     let mut constants = ConstantTable::new();
 
-    constants.add_string("foo");
-    constants.add_string("bar");
-    constants.concatenate_strings(0, 1);
+    constants.add_string("foobar");
 
     assert_eq!(
         chunk,
@@ -446,7 +444,7 @@ fn constant_string_concatenation() {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
-                Address::constant(2),
+                Address::constant(0),
                 OperandType::STRING
             )],
             register_count: 1,
