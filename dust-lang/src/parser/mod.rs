@@ -788,6 +788,7 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let r#type = match operator {
             Token::Plus => match (left_node.r#type, right_node.r#type) {
+                (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
                 (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
                 (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
                 (TypeId::CHARACTER, TypeId::CHARACTER) => TypeId::STRING,
@@ -814,6 +815,7 @@ impl<'src> Parser<'src> {
                 }
             },
             _ => match (left_node.r#type, right_node.r#type) {
+                (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
                 (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
                 (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
                 _ => {

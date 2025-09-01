@@ -1,8 +1,16 @@
 pub mod cases {
     pub const BOOLEAN: &str = "true";
-    pub const BYTE: &str = "0xFF";
+    pub const BYTE: &str = "0x2A";
     pub const CHARACTER: &str = "'q'";
     pub const FLOAT: &str = "42.0";
     pub const INTEGER: &str = "42";
     pub const STRING: &str = "\"foobar\"";
+
+    pub const CONSTANT_BYTE_ADDITION: &str = "0x28 + 0x02";
+    pub const CONSTANT_FLOAT_ADDITION: &str = "40.0 + 2.0";
+    pub const CONSTANT_INTEGER_ADDITION: &str = "40 + 2";
+
+    pub const CONSTANT_BYTE_SUBTRACTION: &str = "0x2C - 0x02";
+    pub const CONSTANT_FLOAT_SUBTRACTION: &str = "44.0 - 2.0";
+    pub const CONSTANT_INTEGER_SUBTRACTION: &str = "44 - 2";
 }

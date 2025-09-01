@@ -11,7 +11,7 @@ use local::Local;
 use tracing::{Level, span};
 
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Operation, Resolver,
+    Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver,
     dust_error::DustError,
     parser::{ParseResult, Parser},
     resolver::{DeclarationId, ScopeId, TypeId},

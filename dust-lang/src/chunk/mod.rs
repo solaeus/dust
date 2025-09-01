@@ -11,7 +11,6 @@ mod disassembler;
 // mod tui_disassembler;
 
 pub use disassembler::Disassembler;
-use serde::{Deserialize, Serialize};
 // pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::{Debug, Display};

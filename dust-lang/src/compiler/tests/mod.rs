@@ -37,7 +37,7 @@ fn byte() {
             r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::load(
                 Address::register(0),
-                Address::encoded(255),
+                Address::encoded(42),
                 OperandType::BYTE,
                 false
             )],

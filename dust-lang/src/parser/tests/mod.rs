@@ -49,7 +49,7 @@ fn byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                payload: (255, 0),
+                payload: (42, 0),
                 position: Span(0, 4),
                 r#type: TypeId::BYTE,
             }
@@ -152,6 +152,80 @@ fn string() {
                 payload: (0, 0),
                 position: Span(0, 8),
                 r#type: TypeId::STRING,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_byte_addition() {
+    let source = cases::CONSTANT_BYTE_ADDITION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 11),
+                r#type: TypeId::BYTE,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                payload: (40, 0),
+                position: Span(0, 4),
+                r#type: TypeId::BYTE,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 11),
+                r#type: TypeId::BYTE,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                payload: (2, 0),
+                position: Span(7, 11),
+                r#type: TypeId::BYTE,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_float_addition() {
+    let source = cases::CONSTANT_FLOAT_ADDITION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 10),
+                r#type: TypeId::FLOAT,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                payload: SyntaxNode::encode_float(40.0),
+                position: Span(0, 4),
+                r#type: TypeId::FLOAT,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 10),
+                r#type: TypeId::FLOAT,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                payload: SyntaxNode::encode_float(2.0),
+                position: Span(7, 10),
+                r#type: TypeId::FLOAT,
             }
         ]
     );

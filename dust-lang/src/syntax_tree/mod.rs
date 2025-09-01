@@ -79,7 +79,7 @@ impl SyntaxTree {
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         let mut nodes = self.nodes.clone();
 
-        nodes.sort_by_key(|node| node.position);
+        nodes.sort_by_key(|node| node.position.0);
 
         nodes
     }
