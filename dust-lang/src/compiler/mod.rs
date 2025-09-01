@@ -191,6 +191,14 @@ impl<'a> ChunkCompiler<'a> {
 
                 Constant::Integer(combined)
             }
+            (Constant::String(left_index), Constant::String(right_index)) => {
+                let concatenated = self
+                    .resolver
+                    .constants
+                    .concatenate_strings(left_index, right_index);
+
+                Constant::String(concatenated)
+            }
             _ => todo!(),
         };
 

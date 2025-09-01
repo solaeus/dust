@@ -600,3 +600,151 @@ fn constant_integer_division() {
         ]
     );
 }
+
+#[test]
+fn constant_string_concatenation() {
+    let source = cases::CONSTANT_STRING_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 13),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                payload: (0, 0),
+                position: Span(0, 5),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 13),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                payload: (1, 0),
+                position: Span(8, 13),
+                r#type: TypeId::STRING,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_character_concatenation() {
+    let source = cases::CONSTANT_CHARACTER_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 9),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CharacterExpression,
+                payload: (113, 0),
+                position: Span(0, 3),
+                r#type: TypeId::CHARACTER,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 9),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CharacterExpression,
+                payload: (113, 0),
+                position: Span(6, 9),
+                r#type: TypeId::CHARACTER,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_string_character_concatenation() {
+    let source = cases::CONSTANT_STRING_CHARACTER_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 11),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                payload: (0, 0),
+                position: Span(0, 5),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 11),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CharacterExpression,
+                payload: (113, 0),
+                position: Span(8, 11),
+                r#type: TypeId::CHARACTER,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_character_string_concatenation() {
+    let source = cases::CONSTANT_CHARACTER_STRING_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                payload: (0, 1),
+                position: Span(0, 11),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CharacterExpression,
+                payload: (113, 0),
+                position: Span(0, 3),
+                r#type: TypeId::CHARACTER,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                payload: (1, 2),
+                position: Span(0, 11),
+                r#type: TypeId::STRING,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                payload: (0, 0),
+                position: Span(6, 11),
+                r#type: TypeId::STRING,
+            }
+        ]
+    );
+}

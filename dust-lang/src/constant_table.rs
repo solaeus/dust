@@ -87,6 +87,32 @@ impl ConstantTable {
         index
     }
 
+    pub fn concatenate_strings(&mut self, left_index: u16, right_index: u16) -> u16 {
+        if left_index + 1 == right_index {
+            let start = self.payloads[left_index as usize] >> 32;
+            let end = self.payloads[right_index as usize] & 0xFFFFFFFF;
+            let payload = (start << 32) | end;
+            let index = self.payloads.len() as u16;
+
+            self.payloads.push(payload);
+            self.tags.push(OperandType::STRING);
+
+            index
+        } else {
+            let left_payload = self.payloads[left_index as usize];
+            let right_payload = self.payloads[right_index as usize];
+            let left_start = (left_payload >> 32) as usize;
+            let left_end = (left_payload & 0xFFFFFFFF) as usize;
+            let right_start = (right_payload >> 32) as usize;
+            let right_end = (right_payload & 0xFFFFFFFF) as usize;
+            let left_string = &self.string_pool[left_start..left_end];
+            let right_string = &self.string_pool[right_start..right_end];
+            let concatenated_string = format!("{}{}", left_string, right_string);
+
+            self.add_string(&concatenated_string)
+        }
+    }
+
     fn verify_string_pool_length(&self, new_string: &str) {
         let distance_to_max = u32::MAX as usize - self.string_pool.len();
 

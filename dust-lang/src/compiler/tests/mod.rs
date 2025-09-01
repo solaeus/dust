@@ -428,3 +428,30 @@ fn constant_integer_division() {
         }
     );
 }
+
+#[test]
+fn constant_string_concatenation() {
+    let source = cases::CONSTANT_STRING_CONCATENATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_string("foo");
+    constants.add_string("bar");
+    constants.concatenate_strings(0, 1);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::String),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(2),
+                OperandType::STRING
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}

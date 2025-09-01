@@ -21,4 +21,9 @@ pub mod cases {
     pub const CONSTANT_BYTE_DIVISION: &str = "0x54 / 0x02";
     pub const CONSTANT_FLOAT_DIVISION: &str = "84.0 / 2.0";
     pub const CONSTANT_INTEGER_DIVISION: &str = "84 / 2";
+
+    pub const CONSTANT_STRING_CONCATENATION: &str = "\"foo\" + \"bar\"";
+    pub const CONSTANT_CHARACTER_CONCATENATION: &str = "'q' + 'q'";
+    pub const CONSTANT_STRING_CHARACTER_CONCATENATION: &str = "\"foo\" + 'q'";
+    pub const CONSTANT_CHARACTER_STRING_CONCATENATION: &str = "'q' + \"foo\"";
 }
