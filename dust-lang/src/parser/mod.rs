@@ -723,14 +723,14 @@ impl<'src> Parser<'src> {
 
             &token_text[1..token_text.len() - 1]
         };
-        let payload = self.resolver.constants.add_string(string_text) as u32;
+        let payload = self.resolver.constants.add_to_string_pool(string_text);
 
         self.advance()?;
 
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
             position,
-            payload: (payload, 0),
+            payload,
             r#type: TypeId::STRING,
         };
 

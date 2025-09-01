@@ -87,6 +87,30 @@ impl ConstantTable {
         index
     }
 
+    pub fn add_to_string_pool(&mut self, string: &str) -> (u32, u32) {
+        self.verify_string_pool_length(string);
+
+        let start = self.string_pool.len() as u32;
+
+        self.string_pool.push_str(string);
+
+        let end = self.string_pool.len() as u32;
+
+        (start, end)
+    }
+
+    pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
+        self.verify_table_length();
+
+        let payload = (start as u64) << 32 | (end as u64);
+        let index = self.payloads.len() as u16;
+
+        self.payloads.push(payload);
+        self.tags.push(OperandType::STRING);
+
+        index
+    }
+
     pub fn concatenate_strings(&mut self, left_index: u16, right_index: u16) -> u16 {
         if left_index + 1 == right_index {
             let start = self.payloads[left_index as usize] >> 32;

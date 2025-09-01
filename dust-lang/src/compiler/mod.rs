@@ -142,7 +142,13 @@ impl<'a> ChunkCompiler<'a> {
             Constant::Character(character) => self.resolver.constants.add_character(character),
             Constant::Float(float) => self.resolver.constants.add_float(float),
             Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
-            Constant::String(string_index) => string_index,
+            Constant::String {
+                pool_start,
+                pool_end,
+            } => self
+                .resolver
+                .constants
+                .add_pooled_string(pool_start, pool_end),
         };
 
         Address::constant(index)
@@ -196,14 +202,19 @@ impl<'a> ChunkCompiler<'a> {
 
                 Constant::Integer(combined)
             }
-            (Constant::String(left_index), Constant::String(right_index)) => {
-                let concatenated = self
-                    .resolver
-                    .constants
-                    .concatenate_strings(left_index, right_index);
-
-                Constant::String(concatenated)
-            }
+            (
+                Constant::String {
+                    pool_start: left_pool_start,
+                    pool_end: _,
+                },
+                Constant::String {
+                    pool_start: _,
+                    pool_end: right_pool_end,
+                },
+            ) => Constant::String {
+                pool_start: left_pool_start,
+                pool_end: right_pool_end,
+            },
             _ => todo!(),
         };
 
@@ -477,9 +488,10 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_string_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling string expression");
 
-        let string_index = node.payload.0 as u16;
-
-        Ok(Emission::Constant(Constant::String(string_index)))
+        Ok(Emission::Constant(Constant::String {
+            pool_start: node.payload.0,
+            pool_end: node.payload.1,
+        }))
     }
 
     fn compile_binary_expression(
@@ -639,7 +651,7 @@ pub enum Constant {
     Character(char),
     Float(f64),
     Integer(i64),
-    String(u16),
+    String { pool_start: u32, pool_end: u32 },
 }
 
 impl Constant {
@@ -650,7 +662,7 @@ impl Constant {
             Constant::Character(_) => OperandType::CHARACTER,
             Constant::Float(_) => OperandType::FLOAT,
             Constant::Integer(_) => OperandType::INTEGER,
-            Constant::String(_) => OperandType::STRING,
+            Constant::String { .. } => OperandType::STRING,
         }
     }
 }
