@@ -2,6 +2,9 @@ mod error;
 mod local;
 // mod fold_constants;
 
+#[cfg(test)]
+mod tests;
+
 pub use error::CompileError;
 use local::Local;
 
@@ -251,10 +254,11 @@ impl<'a> ChunkCompiler<'a> {
                     self.compile_statement(child_id)?;
                 } else {
                     let return_emission = self.compile_expression(child_id, child_node)?;
-
-                    match return_emission {
+                    let return_type = match return_emission {
                         Emission::Instruction(instruction) => {
                             self.instructions.push(instruction);
+
+                            instruction.operand_type()
                         }
                         Emission::Constant(constant) => {
                             let r#type = constant.operand_type();
@@ -265,7 +269,14 @@ impl<'a> ChunkCompiler<'a> {
                                 Instruction::load(destination, address, r#type, false);
 
                             self.instructions.push(instruction);
+
+                            r#type
                         }
+                    };
+
+                    match return_type {
+                        OperandType::BOOLEAN => self.return_type = TypeId::BOOLEAN,
+                        _ => todo!(),
                     }
                 }
             } else {
@@ -310,6 +321,7 @@ impl<'a> ChunkCompiler<'a> {
             }
         };
         let local = Local {
+            declaration_id,
             register: destination_register,
             r#type: declaration.r#type,
         };
@@ -325,6 +337,7 @@ impl<'a> ChunkCompiler<'a> {
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         match node.kind {
+            SyntaxKind::BooleanExpression => self.compile_boolean_expression(node),
             SyntaxKind::CharacterExpression => self.compile_character_expression(node_id, node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::AdditionExpression
@@ -339,6 +352,20 @@ impl<'a> ChunkCompiler<'a> {
                 position: node.position,
             }),
         }
+    }
+
+    fn compile_boolean_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        let boolean = node.payload.0 != 0;
+        let destination = Address::register(self.get_next_register());
+        let operand = Address::encoded(boolean as u16);
+        let r#type = OperandType::BOOLEAN;
+
+        Ok(Emission::Instruction(Instruction::load(
+            destination,
+            operand,
+            r#type,
+            false,
+        )))
     }
 
     fn compile_character_expression(
@@ -396,27 +423,26 @@ impl<'a> ChunkCompiler<'a> {
 
                 (left_instruction, right_instruction)
             }
-            (Emission::Constant(constant), Emission::Instruction(instruction)) => {
+            (Emission::Constant(constant), Emission::Instruction(right_instruction)) => {
                 let r#type = constant.operand_type();
                 let constant_index = self.add_constant(constant);
                 let destination = Address::register(self.get_next_register());
                 let left_address = Address::constant(constant_index);
                 let left_instruction = Instruction::load(destination, left_address, r#type, false);
 
-                (left_instruction, instruction)
+                (left_instruction, right_instruction)
             }
         };
+
         let left_address = self.handle_operand(left_instruction);
         let right_address = self.handle_operand(right_instruction);
         let combined_type = match (
             left_instruction.operand_type(),
             right_instruction.operand_type(),
         ) {
-            (OperandType::INTEGER, OperandType::INTEGER) => OperandType::INTEGER,
-            (OperandType::CHARACTER, OperandType::CHARACTER) => OperandType::CHARACTER,
-            _ => todo!(),
+            (OperandType::CHARACTER, OperandType::CHARACTER) => OperandType::STRING,
+            (left_type, _) => left_type,
         };
-
         let destination = Address::register(self.get_next_register());
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
