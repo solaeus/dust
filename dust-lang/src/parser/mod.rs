@@ -723,7 +723,7 @@ impl<'src> Parser<'src> {
 
             &token_text[1..token_text.len() - 1]
         };
-        let payload = self.resolver.constants.add_to_string_pool(string_text);
+        let payload = self.resolver.constants.push_str_to_string_pool(string_text);
 
         self.advance()?;
 

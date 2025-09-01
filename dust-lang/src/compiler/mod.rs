@@ -201,19 +201,114 @@ impl<'a> ChunkCompiler<'a> {
 
                 Constant::Integer(combined)
             }
+            (Constant::Character(left), Constant::Character(right)) => {
+                let mut string = String::with_capacity(2);
+
+                string.push(left);
+                string.push(right);
+
+                let combined = match operation {
+                    SyntaxKind::AdditionExpression => {
+                        self.resolver.constants.push_str_to_string_pool(&string)
+                    }
+                    _ => todo!("Error"),
+                };
+
+                Constant::String {
+                    pool_start: combined.0,
+                    pool_end: combined.1,
+                }
+            }
             (
                 Constant::String {
                     pool_start: left_pool_start,
-                    pool_end: _,
+                    pool_end: left_pool_end,
                 },
                 Constant::String {
-                    pool_start: _,
+                    pool_start: right_pool_start,
                     pool_end: right_pool_end,
                 },
-            ) => Constant::String {
-                pool_start: left_pool_start,
-                pool_end: right_pool_end,
-            },
+            ) => {
+                if operation != SyntaxKind::AdditionExpression {
+                    todo!("Error");
+                }
+
+                let left = self
+                    .resolver
+                    .constants
+                    .get_string_pool(left_pool_start as usize..left_pool_end as usize);
+                let right = self
+                    .resolver
+                    .constants
+                    .get_string_pool(right_pool_start as usize..right_pool_end as usize);
+                let mut string = String::with_capacity(left.len() + right.len());
+
+                string.push_str(left);
+                string.push_str(right);
+
+                let combined = self.resolver.constants.push_str_to_string_pool(&string);
+
+                Constant::String {
+                    pool_start: combined.0,
+                    pool_end: combined.1,
+                }
+            }
+            (
+                Constant::Character(left),
+                Constant::String {
+                    pool_start,
+                    pool_end,
+                },
+            ) => {
+                let right = self
+                    .resolver
+                    .constants
+                    .get_string_pool(pool_start as usize..pool_end as usize);
+                let mut string = String::with_capacity(1 + right.len());
+
+                string.push(left);
+                string.push_str(right);
+
+                let combined = match operation {
+                    SyntaxKind::AdditionExpression => {
+                        self.resolver.constants.push_str_to_string_pool(&string)
+                    }
+                    _ => todo!("Error"),
+                };
+
+                Constant::String {
+                    pool_start: combined.0,
+                    pool_end: combined.1,
+                }
+            }
+            (
+                Constant::String {
+                    pool_start,
+                    pool_end,
+                },
+                Constant::Character(right),
+            ) => {
+                let left = self
+                    .resolver
+                    .constants
+                    .get_string_pool(pool_start as usize..pool_end as usize);
+                let mut string = String::with_capacity(left.len() + 1);
+
+                string.push_str(left);
+                string.push(right);
+
+                let combined = match operation {
+                    SyntaxKind::AdditionExpression => {
+                        self.resolver.constants.push_str_to_string_pool(&string)
+                    }
+                    _ => todo!("Error"),
+                };
+
+                Constant::String {
+                    pool_start: combined.0,
+                    pool_end: combined.1,
+                }
+            }
             _ => todo!(),
         };
 

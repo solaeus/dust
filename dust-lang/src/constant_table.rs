@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    hash::{Hash, Hasher},
+    ops::{Index, Range},
+};
 
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
@@ -37,9 +40,11 @@ impl ConstantTable {
         }
     }
 
-    pub fn add_character(&mut self, character: char) -> u16 {
-        self.verify_table_length();
+    pub fn get_string_pool(&self, range: Range<usize>) -> &str {
+        &self.string_pool[range]
+    }
 
+    pub fn add_character(&mut self, character: char) -> u16 {
         let payload = character as u64;
         let index = self.payloads.len() as u16;
         let hash = {
@@ -57,8 +62,6 @@ impl ConstantTable {
     }
 
     pub fn add_float(&mut self, float: f64) -> u16 {
-        self.verify_table_length();
-
         let payload = float.to_bits();
         let index = self.payloads.len() as u16;
         let hash = {
@@ -76,8 +79,6 @@ impl ConstantTable {
     }
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
-        self.verify_table_length();
-
         let payload = integer as u64;
         let index = self.payloads.len() as u16;
         let hash = {
@@ -94,10 +95,7 @@ impl ConstantTable {
         index
     }
 
-    pub fn add_string(&mut self, string: &str) -> u16 {
-        self.verify_table_length();
-        self.verify_string_pool_length(string);
-
+    pub fn add_string(&mut self, string: &str) -> (u32, u32) {
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -107,7 +105,11 @@ impl ConstantTable {
         };
 
         if let Some(existing_index) = self.payloads.get_index_of(&hash) {
-            existing_index as u16
+            let payload = self.payloads[existing_index];
+            let start = (payload >> 32) as u32;
+            let end = (payload & 0xFFFFFFFF) as u32;
+
+            (start, end)
         } else {
             let start = self.string_pool.len();
 
@@ -115,18 +117,15 @@ impl ConstantTable {
 
             let end = self.string_pool.len();
             let payload = (start as u64) << 32 | (end as u64);
-            let index = self.payloads.len() as u16;
 
             self.payloads.insert(hash, payload);
             self.tags.push(OperandType::STRING);
 
-            index
+            (start as u32, end as u32)
         }
     }
 
-    pub fn add_to_string_pool(&mut self, string: &str) -> (u32, u32) {
-        self.verify_string_pool_length(string);
-
+    pub fn push_str_to_string_pool(&mut self, string: &str) -> (u32, u32) {
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -153,8 +152,6 @@ impl ConstantTable {
     }
 
     pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
-        self.verify_table_length();
-
         let string = &self.string_pool[start as usize..end as usize];
         let hash = {
             let mut hasher = FxHasher::default();
@@ -174,64 +171,6 @@ impl ConstantTable {
             self.tags.push(OperandType::STRING);
 
             index
-        }
-    }
-
-    pub fn concatenate_strings(&mut self, left_index: u16, right_index: u16) -> u16 {
-        if left_index + 1 == right_index {
-            let start = self.payloads[left_index as usize] >> 32;
-            let end = self.payloads[right_index as usize] & 0xFFFFFFFF;
-            let payload = (start << 32) | end;
-            let index = self.payloads.len() as u16;
-            let hash = {
-                let mut hasher = FxHasher::default();
-                let string = &self.string_pool[start as usize..end as usize];
-
-                string.hash(&mut hasher);
-
-                hasher.finish()
-            };
-
-            if let Some(existing_index) = self.payloads.get_index_of(&hash) {
-                existing_index as u16
-            } else {
-                self.payloads.insert(hash, payload);
-                self.tags.push(OperandType::STRING);
-
-                index
-            }
-        } else {
-            let left_payload = self.payloads[left_index as usize];
-            let right_payload = self.payloads[right_index as usize];
-            let left_start = (left_payload >> 32) as usize;
-            let left_end = (left_payload & 0xFFFFFFFF) as usize;
-            let right_start = (right_payload >> 32) as usize;
-            let right_end = (right_payload & 0xFFFFFFFF) as usize;
-            let left_string = &self.string_pool[left_start..left_end];
-            let right_string = &self.string_pool[right_start..right_end];
-            let concatenated_string = format!("{}{}", left_string, right_string);
-
-            self.add_string(&concatenated_string)
-        }
-    }
-
-    fn verify_string_pool_length(&self, new_string: &str) {
-        let distance_to_max = u32::MAX as usize - self.string_pool.len();
-
-        if new_string.len() > distance_to_max {
-            panic!(
-                "String pool overflow. Cannot store more than {} bytes in the string pool.",
-                u32::MAX
-            );
-        }
-    }
-
-    fn verify_table_length(&self) {
-        if self.payloads.len() > u16::MAX as usize {
-            panic!(
-                "Constant table overflow. Cannot store more than {} constants.",
-                u16::MAX
-            );
         }
     }
 }

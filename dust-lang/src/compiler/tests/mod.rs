@@ -453,3 +453,28 @@ fn constant_string_concatenation() {
         }
     );
 }
+
+#[test]
+fn constant_character_concatentation() {
+    let source = cases::CONSTANT_CHARACTER_CONCATENATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_string("qq");
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::String),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::STRING
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
