@@ -1,10 +1,14 @@
+use std::hash::{Hash, Hasher};
+
+use indexmap::IndexMap;
+use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
 use crate::{OperandType, Value};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
-    payloads: Vec<u64>,
+    payloads: IndexMap<u64, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
     string_pool: String,
 }
@@ -12,7 +16,7 @@ pub struct ConstantTable {
 impl ConstantTable {
     pub fn new() -> Self {
         Self {
-            payloads: Vec::new(),
+            payloads: IndexMap::default(),
             tags: Vec::new(),
             string_pool: String::new(),
         }
@@ -38,8 +42,15 @@ impl ConstantTable {
 
         let payload = character as u64;
         let index = self.payloads.len() as u16;
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.payloads.push(payload);
+            character.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        self.payloads.insert(hash, payload);
         self.tags.push(OperandType::CHARACTER);
 
         index
@@ -50,8 +61,15 @@ impl ConstantTable {
 
         let payload = float.to_bits();
         let index = self.payloads.len() as u16;
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.payloads.push(payload);
+            payload.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        self.payloads.insert(hash, payload);
         self.tags.push(OperandType::FLOAT);
 
         index
@@ -62,8 +80,15 @@ impl ConstantTable {
 
         let payload = integer as u64;
         let index = self.payloads.len() as u16;
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.payloads.push(payload);
+            integer.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        self.payloads.insert(hash, payload);
         self.tags.push(OperandType::INTEGER);
 
         index
@@ -73,42 +98,83 @@ impl ConstantTable {
         self.verify_table_length();
         self.verify_string_pool_length(string);
 
-        let start = self.string_pool.len();
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.string_pool.push_str(string);
+            string.hash(&mut hasher);
 
-        let end = self.string_pool.len();
-        let payload = (start as u64) << 32 | (end as u64);
-        let index = self.payloads.len() as u16;
+            hasher.finish()
+        };
 
-        self.payloads.push(payload);
-        self.tags.push(OperandType::STRING);
+        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+            existing_index as u16
+        } else {
+            let start = self.string_pool.len();
 
-        index
+            self.string_pool.push_str(string);
+
+            let end = self.string_pool.len();
+            let payload = (start as u64) << 32 | (end as u64);
+            let index = self.payloads.len() as u16;
+
+            self.payloads.insert(hash, payload);
+            self.tags.push(OperandType::STRING);
+
+            index
+        }
     }
 
     pub fn add_to_string_pool(&mut self, string: &str) -> (u32, u32) {
         self.verify_string_pool_length(string);
 
-        let start = self.string_pool.len() as u32;
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.string_pool.push_str(string);
+            string.hash(&mut hasher);
 
-        let end = self.string_pool.len() as u32;
+            hasher.finish()
+        };
 
-        (start, end)
+        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+            let payload = self.payloads[existing_index];
+            let start = (payload >> 32) as u32;
+            let end = (payload & 0xFFFFFFFF) as u32;
+
+            (start, end)
+        } else {
+            let start = self.string_pool.len() as u32;
+
+            self.string_pool.push_str(string);
+
+            let end = self.string_pool.len() as u32;
+
+            (start, end)
+        }
     }
 
     pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
         self.verify_table_length();
 
-        let payload = (start as u64) << 32 | (end as u64);
-        let index = self.payloads.len() as u16;
+        let string = &self.string_pool[start as usize..end as usize];
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        self.payloads.push(payload);
-        self.tags.push(OperandType::STRING);
+            string.hash(&mut hasher);
 
-        index
+            hasher.finish()
+        };
+
+        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+            existing_index as u16
+        } else {
+            let payload = (start as u64) << 32 | (end as u64);
+            let index = self.payloads.len() as u16;
+
+            self.payloads.insert(hash, payload);
+            self.tags.push(OperandType::STRING);
+
+            index
+        }
     }
 
     pub fn concatenate_strings(&mut self, left_index: u16, right_index: u16) -> u16 {
@@ -117,11 +183,23 @@ impl ConstantTable {
             let end = self.payloads[right_index as usize] & 0xFFFFFFFF;
             let payload = (start << 32) | end;
             let index = self.payloads.len() as u16;
+            let hash = {
+                let mut hasher = FxHasher::default();
+                let string = &self.string_pool[start as usize..end as usize];
 
-            self.payloads.push(payload);
-            self.tags.push(OperandType::STRING);
+                string.hash(&mut hasher);
 
-            index
+                hasher.finish()
+            };
+
+            if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+                existing_index as u16
+            } else {
+                self.payloads.insert(hash, payload);
+                self.tags.push(OperandType::STRING);
+
+                index
+            }
         } else {
             let left_payload = self.payloads[left_index as usize];
             let right_payload = self.payloads[right_index as usize];
@@ -190,5 +268,15 @@ impl Iterator for ConstantTableIterator<'_> {
         self.index += 1;
 
         Some(value)
+    }
+}
+
+impl Eq for ConstantTable {}
+
+impl PartialEq for ConstantTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.payloads == other.payloads
+            && self.tags == other.tags
+            && self.string_pool == other.string_pool
     }
 }

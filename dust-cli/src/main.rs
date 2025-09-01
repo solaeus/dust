@@ -300,7 +300,11 @@ fn main() {
 
                 let mut disassembler = Disassembler::new(&chunk, &mut stdout);
 
-                disassembler.disassemble().unwrap();
+                disassembler
+                    .source(&source)
+                    .style(true)
+                    .disassemble()
+                    .unwrap();
             }
             Err(error) => eprintln!("{}", error.report()),
         }

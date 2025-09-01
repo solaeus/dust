@@ -7,7 +7,7 @@ use std::{
 
 pub use list::List;
 
-use crate::{Chunk, OperandType};
+use crate::OperandType;
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -18,7 +18,7 @@ pub enum Value {
     Integer(i64),
     String(String),
     List(List),
-    Function(Box<Chunk>),
+    Function(u16),
 }
 
 impl Value {
@@ -142,13 +142,13 @@ impl Value {
         }
     }
 
-    pub fn function(chunk: Chunk) -> Self {
-        Value::Function(Box::new(chunk))
+    pub fn function(prototype_index: u16) -> Self {
+        Value::Function(prototype_index)
     }
 
-    pub fn as_function(&self) -> Option<&Chunk> {
-        if let Value::Function(chunk) = self {
-            Some(chunk)
+    pub fn as_function(&self) -> Option<u16> {
+        if let Value::Function(prototype_index) = self {
+            Some(*prototype_index)
         } else {
             None
         }

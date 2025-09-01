@@ -20,7 +20,7 @@ use crate::{Address, ConstantTable, FunctionType, Instruction, OperandType};
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
     pub(crate) name: Option<String>,
     pub(crate) r#type: FunctionType,

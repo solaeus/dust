@@ -1,6 +1,5 @@
 mod error;
 mod local;
-// mod fold_constants;
 
 #[cfg(test)]
 mod tests;
@@ -128,7 +127,7 @@ impl<'a> ChunkCompiler<'a> {
             .iter()
             .fold(self.minimum_register, |acc, instruction| {
                 if instruction.yields_value() {
-                    acc.max(instruction.destination().index)
+                    acc.max(instruction.destination().index + 1)
                 } else {
                     acc
                 }
