@@ -45,6 +45,18 @@ impl ConstantTable {
         index
     }
 
+    pub fn add_float(&mut self, float: f64) -> u16 {
+        self.verify_table_length();
+
+        let payload = float.to_bits();
+        let index = self.payloads.len() as u16;
+
+        self.payloads.push(payload);
+        self.tags.push(OperandType::FLOAT);
+
+        index
+    }
+
     pub fn add_integer(&mut self, integer: i64) -> u16 {
         self.verify_table_length();
 

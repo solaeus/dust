@@ -12,7 +12,6 @@ use tracing::{Level, span};
 
 use crate::{
     Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Operation, Resolver,
-    Value,
     dust_error::DustError,
     parser::{ParseResult, Parser},
     resolver::{DeclarationId, ScopeId, TypeId},
@@ -31,7 +30,7 @@ pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
         return Err(DustError::parse(errors, source));
     }
 
-    let compiler = ChunkCompiler::new(&syntax_tree, &resolver);
+    let compiler = ChunkCompiler::new(&syntax_tree, resolver);
 
     compiler
         .compile()
@@ -54,7 +53,25 @@ impl Compiler {
 
 pub enum Emission {
     Instruction(Instruction),
-    Constant(Value),
+    Constant(Constant),
+}
+
+pub enum Constant {
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String(u16),
+}
+
+impl Constant {
+    fn operand_type(&self) -> OperandType {
+        match self {
+            Constant::Character(_) => OperandType::CHARACTER,
+            Constant::Float(_) => OperandType::FLOAT,
+            Constant::Integer(_) => OperandType::INTEGER,
+            Constant::String(_) => OperandType::STRING,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -63,10 +80,7 @@ pub struct ChunkCompiler<'a> {
     syntax_tree: &'a SyntaxTree,
 
     /// Context for modules, types and declarations provided by the parser.
-    resolver: &'a Resolver,
-
-    /// Runtime constant table that is filled during compilation.
-    constant_table: ConstantTable,
+    resolver: Resolver,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -97,11 +111,10 @@ pub struct ChunkCompiler<'a> {
 }
 
 impl<'a> ChunkCompiler<'a> {
-    pub fn new(syntax_tree: &'a SyntaxTree, resolver: &'a Resolver) -> Self {
+    pub fn new(syntax_tree: &'a SyntaxTree, resolver: Resolver) -> Self {
         Self {
             syntax_tree,
             resolver,
-            constant_table: ConstantTable::new(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
@@ -130,7 +143,7 @@ impl<'a> ChunkCompiler<'a> {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
-            constants: self.constant_table,
+            constants: self.resolver.constants,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count: self.used_regisers,
@@ -149,23 +162,23 @@ impl<'a> ChunkCompiler<'a> {
         next
     }
 
-    fn add_constant(&mut self, value: Value) -> u16 {
-        match value {
-            Value::Character(character) => self.constant_table.add_character(character),
-            Value::Integer(integer) => self.constant_table.add_integer(integer),
-            Value::String(string) => self.constant_table.add_string(&string),
-            _ => todo!("Handle other constant types"),
+    fn add_constant(&mut self, constant: Constant) -> u16 {
+        match constant {
+            Constant::Character(character) => self.resolver.constants.add_character(character),
+            Constant::Float(float) => self.resolver.constants.add_float(float),
+            Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
+            Constant::String(string_index) => string_index,
         }
     }
 
     fn combine_constants(
         &mut self,
-        left: Value,
-        right: Value,
+        left: Constant,
+        right: Constant,
         operation: SyntaxKind,
-    ) -> Result<Value, CompileError> {
+    ) -> Result<Constant, CompileError> {
         let combined = match (left, right) {
-            (Value::Integer(left), Value::Integer(right)) => {
+            (Constant::Integer(left), Constant::Integer(right)) => {
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => left.saturating_add(right),
                     SyntaxKind::SubtractionExpression => left.saturating_sub(right),
@@ -175,7 +188,7 @@ impl<'a> ChunkCompiler<'a> {
                     _ => todo!(),
                 };
 
-                Value::Integer(combined)
+                Constant::Integer(combined)
             }
             _ => todo!(),
         };
@@ -276,6 +289,11 @@ impl<'a> ChunkCompiler<'a> {
 
                     match return_type {
                         OperandType::BOOLEAN => self.return_type = TypeId::BOOLEAN,
+                        OperandType::BYTE => self.return_type = TypeId::BYTE,
+                        OperandType::CHARACTER => self.return_type = TypeId::CHARACTER,
+                        OperandType::FLOAT => self.return_type = TypeId::FLOAT,
+                        OperandType::INTEGER => self.return_type = TypeId::INTEGER,
+                        OperandType::STRING => self.return_type = TypeId::STRING,
                         _ => todo!(),
                     }
                 }
@@ -294,6 +312,7 @@ impl<'a> ChunkCompiler<'a> {
         let declaration = self
             .resolver
             .get_declaration_from_id(declaration_id)
+            .copied()
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
         let expression_node = self
             .syntax_tree
@@ -338,8 +357,11 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         match node.kind {
             SyntaxKind::BooleanExpression => self.compile_boolean_expression(node),
+            SyntaxKind::ByteExpression => self.compile_byte_expression(node),
             SyntaxKind::CharacterExpression => self.compile_character_expression(node_id, node),
+            SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
+            SyntaxKind::StringExpression => self.compile_string_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -355,10 +377,22 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_boolean_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        let boolean = node.payload.0 != 0;
         let destination = Address::register(self.get_next_register());
-        let operand = Address::encoded(boolean as u16);
+        let operand = Address::encoded(node.payload.0 as u16);
         let r#type = OperandType::BOOLEAN;
+
+        Ok(Emission::Instruction(Instruction::load(
+            destination,
+            operand,
+            r#type,
+            false,
+        )))
+    }
+
+    fn compile_byte_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        let destination = Address::register(self.get_next_register());
+        let operand = Address::encoded(node.payload.0 as u16);
+        let r#type = OperandType::BYTE;
 
         Ok(Emission::Instruction(Instruction::load(
             destination,
@@ -375,13 +409,25 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         let character = char::from_u32(node.payload.0).unwrap_or_default();
 
-        Ok(Emission::Constant(Value::Character(character)))
+        Ok(Emission::Constant(Constant::Character(character)))
+    }
+
+    fn compile_float_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        let float = SyntaxNode::decode_float(node.payload);
+
+        Ok(Emission::Constant(Constant::Float(float)))
     }
 
     fn compile_integer_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         let integer = SyntaxNode::decode_integer(node.payload);
 
-        Ok(Emission::Constant(Value::Integer(integer)))
+        Ok(Emission::Constant(Constant::Integer(integer)))
+    }
+
+    fn compile_string_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        let string_index = node.payload.0 as u16;
+
+        Ok(Emission::Constant(Constant::String(string_index)))
     }
 
     fn compile_binary_expression(
