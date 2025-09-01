@@ -13,4 +13,12 @@ pub mod cases {
     pub const CONSTANT_BYTE_SUBTRACTION: &str = "0x2C - 0x02";
     pub const CONSTANT_FLOAT_SUBTRACTION: &str = "44.0 - 2.0";
     pub const CONSTANT_INTEGER_SUBTRACTION: &str = "44 - 2";
+
+    pub const CONSTANT_BYTE_MULTIPLICATION: &str = "0x0E * 0x03";
+    pub const CONSTANT_FLOAT_MULTIPLICATION: &str = "14.0 * 3.0";
+    pub const CONSTANT_INTEGER_MULTIPLICATION: &str = "14 * 3";
+
+    pub const CONSTANT_BYTE_DIVISION: &str = "0x54 / 0x02";
+    pub const CONSTANT_FLOAT_DIVISION: &str = "84.0 / 2.0";
+    pub const CONSTANT_INTEGER_DIVISION: &str = "84 / 2";
 }

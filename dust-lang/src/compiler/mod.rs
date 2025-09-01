@@ -51,29 +51,6 @@ impl Compiler {
     // pub fn compile(&self, sources: &[(&str, &str)]) -> Result<Program, DustError<'_>> {}
 }
 
-pub enum Emission {
-    Instruction(Instruction),
-    Constant(Constant),
-}
-
-pub enum Constant {
-    Character(char),
-    Float(f64),
-    Integer(i64),
-    String(u16),
-}
-
-impl Constant {
-    fn operand_type(&self) -> OperandType {
-        match self {
-            Constant::Character(_) => OperandType::CHARACTER,
-            Constant::Float(_) => OperandType::FLOAT,
-            Constant::Integer(_) => OperandType::INTEGER,
-            Constant::String(_) => OperandType::STRING,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
@@ -102,12 +79,7 @@ pub struct ChunkCompiler<'a> {
     /// Number of registers that are used by local variables.
     locals: Vec<Local>,
 
-    /// Counter that tracks the available register. Every block resets this counter to its value at
-    /// the start of the block, allowing the compiler to reuse registers.
-    next_register: u16,
-
-    /// The highest register index that has been used so far.
-    used_regisers: u16,
+    minimum_register: u16,
 }
 
 impl<'a> ChunkCompiler<'a> {
@@ -121,8 +93,7 @@ impl<'a> ChunkCompiler<'a> {
             return_type: TypeId::NONE,
             prototype_index: 0,
             locals: Vec::new(),
-            next_register: 0,
-            used_regisers: 0,
+            minimum_register: 0,
         }
     }
 
@@ -138,6 +109,7 @@ impl<'a> ChunkCompiler<'a> {
                 .ok_or(CompileError::MissingType {
                     type_id: self.return_type,
                 })?;
+        let register_count = self.get_next_register() + 1;
 
         Ok(Chunk {
             name: Some("main".to_string()),
@@ -146,29 +118,34 @@ impl<'a> ChunkCompiler<'a> {
             constants: self.resolver.constants,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
-            register_count: self.used_regisers,
+            register_count,
             prototype_index: self.prototype_index,
         })
     }
 
     fn get_next_register(&mut self) -> u16 {
-        let next = self.next_register;
-        self.next_register += 1;
-
-        if self.next_register > self.used_regisers {
-            self.used_regisers = self.next_register;
-        }
-
-        next
+        self.instructions
+            .iter()
+            .fold(self.minimum_register, |acc, instruction| {
+                if instruction.yields_value() {
+                    acc.max(instruction.destination().index)
+                } else {
+                    acc
+                }
+            })
     }
 
-    fn add_constant(&mut self, constant: Constant) -> u16 {
-        match constant {
+    fn get_constant_address(&mut self, constant: Constant) -> Address {
+        let index = match constant {
+            Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
+            Constant::Byte(byte) => return Address::encoded(byte as u16),
             Constant::Character(character) => self.resolver.constants.add_character(character),
             Constant::Float(float) => self.resolver.constants.add_float(float),
             Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
             Constant::String(string_index) => string_index,
-        }
+        };
+
+        Address::constant(index)
     }
 
     fn combine_constants(
@@ -178,6 +155,30 @@ impl<'a> ChunkCompiler<'a> {
         operation: SyntaxKind,
     ) -> Result<Constant, CompileError> {
         let combined = match (left, right) {
+            (Constant::Byte(left), Constant::Byte(right)) => {
+                let combined = match operation {
+                    SyntaxKind::AdditionExpression => left.saturating_add(right),
+                    SyntaxKind::SubtractionExpression => left.saturating_sub(right),
+                    SyntaxKind::MultiplicationExpression => left.saturating_mul(right),
+                    SyntaxKind::DivisionExpression => left.saturating_div(right),
+                    SyntaxKind::ModuloExpression => left % right,
+                    _ => todo!(),
+                };
+
+                Constant::Byte(combined)
+            }
+            (Constant::Float(left), Constant::Float(right)) => {
+                let combined = match operation {
+                    SyntaxKind::AdditionExpression => left + right,
+                    SyntaxKind::SubtractionExpression => left - right,
+                    SyntaxKind::MultiplicationExpression => left * right,
+                    SyntaxKind::DivisionExpression => left / right,
+                    SyntaxKind::ModuloExpression => left % right,
+                    _ => todo!(),
+                };
+
+                Constant::Float(combined)
+            }
             (Constant::Integer(left), Constant::Integer(right)) => {
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => left.saturating_add(right),
@@ -267,23 +268,19 @@ impl<'a> ChunkCompiler<'a> {
                     self.compile_statement(child_id)?;
                 } else {
                     let return_emission = self.compile_expression(child_id, child_node)?;
-                    let return_type = match return_emission {
+                    let (return_operand, return_type) = match return_emission {
                         Emission::Instruction(instruction) => {
-                            self.instructions.push(instruction);
-
-                            instruction.operand_type()
+                            (self.handle_operand(instruction), instruction.operand_type())
                         }
                         Emission::Constant(constant) => {
                             let r#type = constant.operand_type();
-                            let constant_index = self.add_constant(constant);
+                            let address = self.get_constant_address(constant);
                             let destination = Address::register(self.get_next_register());
-                            let address = Address::constant(constant_index);
                             let instruction =
                                 Instruction::load(destination, address, r#type, false);
+                            let return_operand = self.handle_operand(instruction);
 
-                            self.instructions.push(instruction);
-
-                            r#type
+                            (return_operand, r#type)
                         }
                     };
 
@@ -296,6 +293,14 @@ impl<'a> ChunkCompiler<'a> {
                         OperandType::STRING => self.return_type = TypeId::STRING,
                         _ => todo!(),
                     }
+
+                    let return_instruction = Instruction::r#return(
+                        return_type != OperandType::NONE,
+                        return_operand,
+                        return_type,
+                    );
+
+                    self.instructions.push(return_instruction);
                 }
             } else {
                 self.compile_statement(child_id)?;
@@ -329,9 +334,8 @@ impl<'a> ChunkCompiler<'a> {
             }
             Emission::Constant(constant) => {
                 let r#type = constant.operand_type();
-                let constant_index = self.add_constant(constant);
+                let address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let address = Address::constant(constant_index);
                 let instruction = Instruction::load(destination, address, r#type, false);
 
                 self.instructions.push(instruction);
@@ -377,29 +381,11 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_boolean_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        let destination = Address::register(self.get_next_register());
-        let operand = Address::encoded(node.payload.0 as u16);
-        let r#type = OperandType::BOOLEAN;
-
-        Ok(Emission::Instruction(Instruction::load(
-            destination,
-            operand,
-            r#type,
-            false,
-        )))
+        Ok(Emission::Constant(Constant::Boolean(node.payload.0 != 0)))
     }
 
     fn compile_byte_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        let destination = Address::register(self.get_next_register());
-        let operand = Address::encoded(node.payload.0 as u16);
-        let r#type = OperandType::BYTE;
-
-        Ok(Emission::Instruction(Instruction::load(
-            destination,
-            operand,
-            r#type,
-            false,
-        )))
+        Ok(Emission::Constant(Constant::Byte(node.payload.0 as u8)))
     }
 
     fn compile_character_expression(
@@ -461,9 +447,8 @@ impl<'a> ChunkCompiler<'a> {
             }
             (Emission::Instruction(left_instruction), Emission::Constant(constant)) => {
                 let r#type = constant.operand_type();
-                let constant_index = self.add_constant(constant);
+                let right_address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let right_address = Address::constant(constant_index);
                 let right_instruction =
                     Instruction::load(destination, right_address, r#type, false);
 
@@ -471,9 +456,8 @@ impl<'a> ChunkCompiler<'a> {
             }
             (Emission::Constant(constant), Emission::Instruction(right_instruction)) => {
                 let r#type = constant.operand_type();
-                let constant_index = self.add_constant(constant);
+                let left_address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let left_address = Address::constant(constant_index);
                 let left_instruction = Instruction::load(destination, left_address, r#type, false);
 
                 (left_instruction, right_instruction)
@@ -567,5 +551,32 @@ impl<'a> ChunkCompiler<'a> {
         // self.instructions.push(r#return);
 
         Ok(())
+    }
+}
+
+pub enum Emission {
+    Instruction(Instruction),
+    Constant(Constant),
+}
+
+pub enum Constant {
+    Boolean(bool),
+    Byte(u8),
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String(u16),
+}
+
+impl Constant {
+    fn operand_type(&self) -> OperandType {
+        match self {
+            Constant::Boolean(_) => OperandType::BOOLEAN,
+            Constant::Byte(_) => OperandType::BYTE,
+            Constant::Character(_) => OperandType::CHARACTER,
+            Constant::Float(_) => OperandType::FLOAT,
+            Constant::Integer(_) => OperandType::INTEGER,
+            Constant::String(_) => OperandType::STRING,
+        }
     }
 }

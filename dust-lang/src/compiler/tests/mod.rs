@@ -13,11 +13,10 @@ fn boolean() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::encoded(true as u16),
-                OperandType::BOOLEAN,
-                false
+                OperandType::BOOLEAN
             )],
             register_count: 1,
             ..Default::default()
@@ -35,11 +34,10 @@ fn byte() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::Byte),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::encoded(42),
-                OperandType::BYTE,
-                false
+                OperandType::BYTE
             )],
             register_count: 1,
             ..Default::default()
@@ -60,11 +58,10 @@ fn character() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::Character),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::constant(0),
-                OperandType::CHARACTER,
-                false
+                OperandType::CHARACTER
             )],
             register_count: 1,
             constants,
@@ -86,11 +83,10 @@ fn float() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::Float),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::constant(0),
-                OperandType::FLOAT,
-                false
+                OperandType::FLOAT
             )],
             register_count: 1,
             constants,
@@ -112,11 +108,10 @@ fn integer() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::constant(0),
-                OperandType::INTEGER,
-                false
+                OperandType::INTEGER
             )],
             register_count: 1,
             constants,
@@ -138,11 +133,294 @@ fn string() {
         Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
-            instructions: vec![Instruction::load(
-                Address::register(0),
+            instructions: vec![Instruction::r#return(
+                true,
                 Address::constant(0),
-                OperandType::STRING,
-                false
+                OperandType::STRING
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_addition() {
+    let source = cases::CONSTANT_BYTE_ADDITION;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(42),
+                OperandType::BYTE
+            )],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_addition() {
+    let source = cases::CONSTANT_FLOAT_ADDITION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_float(42.0);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_addition() {
+    let source = cases::CONSTANT_INTEGER_ADDITION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_subtraction() {
+    let source = cases::CONSTANT_BYTE_SUBTRACTION;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(42),
+                OperandType::BYTE
+            )],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_subtraction() {
+    let source = cases::CONSTANT_FLOAT_SUBTRACTION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_float(42.0);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_subtraction() {
+    let source = cases::CONSTANT_INTEGER_SUBTRACTION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_multiplication() {
+    let source = cases::CONSTANT_BYTE_MULTIPLICATION;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(42),
+                OperandType::BYTE
+            )],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_multiplication() {
+    let source = cases::CONSTANT_FLOAT_MULTIPLICATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_float(42.0);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_multiplication() {
+    let source = cases::CONSTANT_INTEGER_MULTIPLICATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_division() {
+    let source = cases::CONSTANT_BYTE_DIVISION;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(42),
+                OperandType::BYTE
+            )],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_division() {
+    let source = cases::CONSTANT_FLOAT_DIVISION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_float(42.0);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_division() {
+    let source = cases::CONSTANT_INTEGER_DIVISION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
             )],
             register_count: 1,
             constants,
