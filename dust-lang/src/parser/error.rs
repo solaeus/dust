@@ -1,5 +1,3 @@
-use std::fmt::{self, Display, Formatter};
-
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
@@ -125,7 +123,7 @@ impl AnnotatedError for ParseError {
                     ),
                 )
             }
-            ParseError::ExpectedItem { actual, position } => {
+            ParseError::ExpectedItem { position, .. } => {
                 let title = "Expected an item".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -133,7 +131,7 @@ impl AnnotatedError for ParseError {
                         .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
                 )
             }
-            ParseError::ExpectedStatement { actual, position } => {
+            ParseError::ExpectedStatement { position, .. } => {
                 let title = "Expected a statement".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -141,7 +139,7 @@ impl AnnotatedError for ParseError {
                         .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
                 )
             }
-            ParseError::ExpectedExpression { actual, position } => {
+            ParseError::ExpectedExpression { position, .. } => {
                 let title = "Expected an expression".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -173,24 +171,10 @@ impl AnnotatedError for ParseError {
                         ),
                 )
             }
-            ParseError::OperandTypeMismatch {
-                operator,
-                left_type,
-                left_position,
-                right_type,
-                right_position,
-                position,
-            } => todo!(),
-            ParseError::UndeclaredVariable {
-                identifier,
-                position,
-            } => todo!(),
-            ParseError::DeclarationConflict {
-                identifier,
-                first_declaration,
-                second_declaration,
-            } => todo!(),
-            ParseError::MissingNode { id } => todo!(),
+            ParseError::OperandTypeMismatch { .. } => todo!(),
+            ParseError::UndeclaredVariable { .. } => todo!(),
+            ParseError::DeclarationConflict { .. } => todo!(),
+            ParseError::MissingNode { .. } => todo!(),
         }
     }
 }

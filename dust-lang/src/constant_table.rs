@@ -26,8 +26,8 @@ impl ConstantTable {
         self.payloads.is_empty()
     }
 
-    pub fn iter(&self) -> ConstatntTableIterator {
-        ConstatntTableIterator {
+    pub fn iter<'a>(&'a self) -> ConstantTableIterator<'a> {
+        ConstantTableIterator {
             table: self,
             index: 0,
         }
@@ -96,12 +96,12 @@ impl ConstantTable {
     }
 }
 
-pub struct ConstatntTableIterator<'a> {
+pub struct ConstantTableIterator<'a> {
     table: &'a ConstantTable,
     index: usize,
 }
 
-impl Iterator for ConstatntTableIterator<'_> {
+impl Iterator for ConstantTableIterator<'_> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {

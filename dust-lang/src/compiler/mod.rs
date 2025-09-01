@@ -36,13 +36,13 @@ pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
 }
 
 pub struct Compiler {
-    allow_native_functions: bool,
+    _allow_native_functions: bool,
 }
 
 impl Compiler {
     pub fn new(allow_native_functions: bool) -> Self {
         Self {
-            allow_native_functions,
+            _allow_native_functions: allow_native_functions,
         }
     }
 
@@ -459,13 +459,13 @@ impl<'a> ChunkCompiler<'a> {
 
     fn parse_path_expression(
         &mut self,
-        node_id: SyntaxId,
-        node: &SyntaxNode,
+        _node_id: SyntaxId,
+        _node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         todo!()
     }
 
-    fn compile_implicit_return(&mut self, expression: SyntaxId) -> Result<(), CompileError> {
+    fn _compile_implicit_return(&mut self, _expression: SyntaxId) -> Result<(), CompileError> {
         // let definition = self.module_resolver.get_definition();
         // let expression_type = self.syntax_tree.resolve_type(expression);
         // let expression_node =

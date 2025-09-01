@@ -3,14 +3,6 @@ use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
-enum Yo {
-    X,
-    Y,
-    Z,
-}
-
-const X: u8 = Yo::X as u8;
-
 /// One-byte representation of a value type.
 ///
 /// This type is primarily used for encoding the types of operands in instructions, but it is also

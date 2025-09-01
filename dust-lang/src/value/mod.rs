@@ -3,10 +3,7 @@ mod list;
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
-    hash::{Hash, Hasher},
 };
-
-use serde::{Deserialize, Serialize};
 
 pub use list::List;
 

@@ -1,6 +1,9 @@
 mod error;
 mod parse_rule;
 
+#[cfg(test)]
+mod tests;
+
 pub use error::ParseError;
 
 use std::mem::{replace, take};
@@ -280,7 +283,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_statement(&mut self) -> Result<(), ParseError> {
+    fn _parse_statement(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
         if let Some(node) = self.syntax_tree.last_node()

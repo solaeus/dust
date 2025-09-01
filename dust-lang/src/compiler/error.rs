@@ -7,7 +7,7 @@ use crate::{
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
-const INVALID_TREE: &str = "The syntax tree is invalid, this is a bug in the parser.";
+const _INVALID_TREE: &str = "The syntax tree is invalid, this is a bug in the parser.";
 
 #[derive(Debug, Clone)]
 pub enum CompileError {
@@ -51,37 +51,37 @@ pub enum CompileError {
 }
 
 impl AnnotatedError for CompileError {
-    fn annotated_error(&self, source: &str) -> Group {
+    fn annotated_error<'a>(&'a self, _source: &str) -> Group<'a> {
         match self {
             CompileError::InvalidEncodedConstant {
-                node_kind,
-                position,
-                payload,
+                node_kind: _,
+                position: _,
+                payload: _,
             } => todo!(),
             CompileError::DivisionByZero {
-                node_kind,
-                position,
+                node_kind: _,
+                position: _,
             } => todo!(),
             CompileError::ExpectedItem {
-                node_kind,
-                position,
+                node_kind: _,
+                position: _,
             } => todo!(),
             CompileError::ExpectedStatement {
-                node_kind,
-                position,
+                node_kind: _,
+                position: _,
             } => todo!(),
             CompileError::ExpectedExpression {
-                node_kind,
-                position,
+                node_kind: _,
+                position: _,
             } => todo!(),
             CompileError::MissingChild {
-                parent_kind,
-                child_index,
+                parent_kind: _,
+                child_index: _,
             } => todo!(),
-            CompileError::MissingConstant { constant_index } => todo!(),
-            CompileError::MissingDeclaration { id } => todo!(),
-            CompileError::MissingSyntaxNode { id } => todo!(),
-            CompileError::MissingType { type_id } => todo!(),
+            CompileError::MissingConstant { constant_index: _ } => todo!(),
+            CompileError::MissingDeclaration { id: _ } => todo!(),
+            CompileError::MissingSyntaxNode { id: _ } => todo!(),
+            CompileError::MissingType { type_id: _ } => todo!(),
         }
     }
 }
