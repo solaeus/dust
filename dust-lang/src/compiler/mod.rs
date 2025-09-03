@@ -14,7 +14,7 @@ use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::{DeclarationId, ScopeId, TypeId},
+    resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -76,8 +76,8 @@ pub struct ChunkCompiler<'a> {
     /// this is 0 as a default but the main chunk is actually the last one in the list.
     prototype_index: u16,
 
-    /// Registers that are used by local variables.
-    local_registers: HashMap<DeclarationId, u16, FxBuildHasher>,
+    /// Local variables registers and a boolean indicating if they are mutable.
+    locals: HashMap<DeclarationId, Local, FxBuildHasher>,
 
     minimum_register: u16,
 }
@@ -92,7 +92,7 @@ impl<'a> ChunkCompiler<'a> {
             drop_lists: Vec::new(),
             return_type: TypeId::NONE,
             prototype_index: 0,
-            local_registers: HashMap::default(),
+            locals: HashMap::default(),
             minimum_register: 0,
         }
     }
@@ -109,7 +109,7 @@ impl<'a> ChunkCompiler<'a> {
                 .ok_or(CompileError::MissingType {
                     type_id: self.return_type,
                 })?;
-        let register_count = self.get_next_register() + 1;
+        let register_count = self.get_next_register();
 
         self.resolver.constants.trim_string_pool();
 
@@ -358,7 +358,9 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode { id: node_id })?;
 
         match node.kind {
-            SyntaxKind::LetStatement => self.compile_let_statement(&node),
+            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
+                self.compile_let_statement(&node)
+            }
             SyntaxKind::FunctionStatement => todo!("Compile function statement"),
             SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
@@ -500,9 +502,14 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling let statement");
 
-        let declaration_id = DeclarationId(node.children.0);
+        let declaration_id = DeclarationId(node.payload);
         let expression_id = SyntaxId(node.children.1);
 
+        let declaration = self
+            .resolver
+            .get_declaration_from_id(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
+        let is_mutable = declaration.kind == DeclarationKind::LocalMutable;
         let expression_node = self
             .syntax_tree
             .get_node(expression_id)
@@ -528,8 +535,13 @@ impl<'a> ChunkCompiler<'a> {
             }
         };
 
-        self.local_registers
-            .insert(declaration_id, destination_register);
+        self.locals.insert(
+            declaration_id,
+            Local {
+                register: destination_register,
+                is_mutable,
+            },
+        );
 
         Ok(())
     }
@@ -735,10 +747,11 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling path expression");
 
         let declaration_id = DeclarationId(node.children.0);
-        let destination_register = *self
-            .local_registers
+        let destination_register = self
+            .locals
             .get(&declaration_id)
-            .ok_or(CompileError::MissingLocalRegister { declaration_id })?;
+            .ok_or(CompileError::MissingLocalRegister { declaration_id })?
+            .register;
         let r#type = self
             .resolver
             .resolve_type(TypeId(node.payload))
@@ -817,4 +830,10 @@ impl Constant {
             Constant::String { .. } => OperandType::STRING,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+struct Local {
+    register: u16,
+    is_mutable: bool,
 }

@@ -785,3 +785,40 @@ fn local_declaration() {
         ]
     );
 }
+
+#[test]
+fn local_mut_declaration() {
+    let source = cases::LOCAL_MUT_DECLARATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 20),
+                payload: TypeId::NONE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 2),
+                position: Span(0, 20),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(11, 14),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                position: Span(17, 19),
+                payload: TypeId::INTEGER.0,
+            }
+        ]
+    );
+}

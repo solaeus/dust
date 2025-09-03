@@ -192,6 +192,7 @@ pub struct Declaration {
 pub enum DeclarationKind {
     Function,
     Local,
+    LocalMutable,
     Module,
     Type,
 }

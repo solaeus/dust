@@ -174,6 +174,7 @@ impl SyntaxKind {
                 | SyntaxKind::ExpressionStatement
                 | SyntaxKind::FunctionStatement
                 | SyntaxKind::LetStatement
+                | SyntaxKind::LetMutStatement
                 | SyntaxKind::SemicolonStatement
         )
     }

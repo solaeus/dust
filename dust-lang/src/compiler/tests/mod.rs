@@ -18,7 +18,6 @@ fn boolean() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -39,7 +38,6 @@ fn byte() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -63,7 +61,6 @@ fn character() {
                 Address::constant(0),
                 OperandType::CHARACTER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -88,7 +85,6 @@ fn float() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -113,7 +109,6 @@ fn integer() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -139,7 +134,6 @@ fn string() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -161,7 +155,6 @@ fn constant_byte_addition() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -185,7 +178,6 @@ fn constant_float_addition() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -210,7 +202,6 @@ fn constant_integer_addition() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -232,7 +223,6 @@ fn constant_byte_subtraction() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -256,7 +246,6 @@ fn constant_float_subtraction() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -281,7 +270,6 @@ fn constant_integer_subtraction() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -303,7 +291,6 @@ fn constant_byte_multiplication() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -327,7 +314,6 @@ fn constant_float_multiplication() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -352,7 +338,6 @@ fn constant_integer_multiplication() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -374,7 +359,6 @@ fn constant_byte_division() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            register_count: 1,
             ..Default::default()
         }
     );
@@ -398,7 +382,6 @@ fn constant_float_division() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -423,7 +406,6 @@ fn constant_integer_division() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -449,7 +431,6 @@ fn constant_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -475,7 +456,6 @@ fn constant_character_concatentation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -501,7 +481,6 @@ fn constant_string_character_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            register_count: 1,
             constants,
             ..Default::default()
         }
@@ -528,6 +507,63 @@ fn constant_character_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn local_declaration() {
+    let source = cases::LOCAL_DECLARATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::None),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::r#return(false, Address::default(), OperandType::NONE),
+            ],
+            register_count: 1,
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn local_mut_declaration() {
+    let source = cases::LOCAL_MUT_DECLARATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::None),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::r#return(false, Address::default(), OperandType::NONE),
+            ],
             register_count: 1,
             constants,
             ..Default::default()

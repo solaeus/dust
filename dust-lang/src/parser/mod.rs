@@ -525,12 +525,11 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let kind = if self.allow(Token::Mut)? {
-            SyntaxKind::LetMutStatement
+        let (syntax_kind, declaration_kind) = if self.allow(Token::Mut)? {
+            (SyntaxKind::LetMutStatement, DeclarationKind::LocalMutable)
         } else {
-            SyntaxKind::LetStatement
+            (SyntaxKind::LetStatement, DeclarationKind::Local)
         };
-
         let identifier_text = if self.current_token == Token::Identifier {
             let text = self.current_source();
 
@@ -544,7 +543,6 @@ impl<'src> Parser<'src> {
                 position: self.current_position,
             });
         };
-
         let (explicit_type, type_node_id) = if self.allow(Token::Colon)? {
             (Some(self.parse_type()?), self.syntax_tree.last_node_id())
         } else {
@@ -570,14 +568,14 @@ impl<'src> Parser<'src> {
         }
 
         let declaration = Declaration {
-            kind: DeclarationKind::Local,
+            kind: declaration_kind,
             scope: self.current_scope,
             r#type: TypeId(expression_type),
             identifier_position: self.current_position,
         };
         let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
         let node = SyntaxNode {
-            kind,
+            kind: syntax_kind,
             position: Span(start, end),
             children: (type_node_id.0, expression_id.0),
             payload: declaration_id.0,
