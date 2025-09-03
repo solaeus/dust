@@ -822,3 +822,46 @@ fn local_mut_declaration() {
         ]
     );
 }
+
+#[test]
+fn local_evaluation() {
+    let source = cases::LOCAL_EVALUATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 2),
+                position: Span(0, 18),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (1, 2),
+                position: Span(0, 16),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(7, 10),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                position: Span(13, 15),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(17, 18),
+                payload: TypeId::INTEGER.0,
+            }
+        ]
+    );
+}

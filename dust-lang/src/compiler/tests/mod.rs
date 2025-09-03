@@ -570,3 +570,27 @@ fn local_mut_declaration() {
         }
     );
 }
+
+#[test]
+fn local_evalutation() {
+    let source = cases::LOCAL_EVALUATION;
+    let chunk = compile(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            ),],
+            constants,
+            ..Default::default()
+        }
+    );
+}
