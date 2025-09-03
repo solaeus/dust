@@ -127,6 +127,7 @@ fn string() {
     let mut constants = ConstantTable::new();
 
     constants.add_string("foobar");
+    constants.trim_string_pool();
 
     assert_eq!(
         chunk,
@@ -436,6 +437,7 @@ fn constant_string_concatenation() {
     let mut constants = ConstantTable::new();
 
     constants.add_string("foobar");
+    constants.trim_string_pool();
 
     assert_eq!(
         chunk,
@@ -461,6 +463,7 @@ fn constant_character_concatentation() {
     let mut constants = ConstantTable::new();
 
     constants.add_string("qq");
+    constants.trim_string_pool();
 
     assert_eq!(
         chunk,
@@ -486,6 +489,7 @@ fn constant_string_character_concatenation() {
     let mut constants = ConstantTable::new();
 
     constants.add_string("fooq");
+    constants.trim_string_pool();
 
     assert_eq!(
         chunk,
@@ -510,7 +514,9 @@ fn constant_character_string_concatenation() {
     let chunk = compile(source).unwrap();
     let mut constants = ConstantTable::new();
 
+    constants.push_str_to_string_pool("foo");
     constants.add_string("qfoo");
+    constants.trim_string_pool();
 
     assert_eq!(
         chunk,

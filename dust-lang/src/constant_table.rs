@@ -44,6 +44,30 @@ impl ConstantTable {
         &self.string_pool[range]
     }
 
+    pub fn trim_string_pool(&mut self) {
+        let mut new_string_pool = String::with_capacity(self.string_pool.len());
+
+        for (payload, tag) in self.payloads.values_mut().zip(self.tags.iter()) {
+            if *tag == OperandType::STRING {
+                let start = (*payload >> 32) as usize;
+                let end = (*payload & 0xFFFFFFFF) as usize;
+
+                let string = &self.string_pool[start..end];
+                let new_start = self.string_pool.len();
+
+                new_string_pool.push_str(string);
+
+                let new_end = self.string_pool.len();
+
+                *payload = (new_start as u64) << 32 | (new_end as u64);
+            }
+        }
+
+        new_string_pool.shrink_to_fit();
+
+        self.string_pool = new_string_pool;
+    }
+
     pub fn add_character(&mut self, character: char) -> u16 {
         let payload = character as u64;
         let index = self.payloads.len() as u16;

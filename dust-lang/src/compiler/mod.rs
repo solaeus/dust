@@ -111,6 +111,8 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let register_count = self.get_next_register() + 1;
 
+        self.resolver.constants.trim_string_pool();
+
         Ok(Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], return_type),
