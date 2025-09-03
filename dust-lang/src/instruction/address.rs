@@ -56,7 +56,9 @@ impl Address {
 
     pub fn display(&self, f: &mut Formatter<'_>, r#type: OperandType) -> fmt::Result {
         match r#type {
-            OperandType::BOOLEAN => write!(f, "{}", self.index != 0),
+            OperandType::BOOLEAN if self.memory == MemoryKind::ENCODED => {
+                write!(f, "{}", self.index != 0)
+            }
             OperandType::FUNCTION => {
                 if self.index == u16::MAX {
                     write!(f, "self")

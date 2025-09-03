@@ -168,6 +168,15 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         let combined = match (left, right) {
+            (Constant::Boolean(left), Constant::Boolean(right)) => {
+                let combined = match operation {
+                    SyntaxKind::AndExpression => left && right,
+                    SyntaxKind::OrExpression => left || right,
+                    _ => todo!(),
+                };
+
+                Constant::Boolean(combined)
+            }
             (Constant::Byte(left), Constant::Byte(right)) => {
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => left.saturating_add(right),
@@ -410,50 +419,58 @@ impl<'a> ChunkCompiler<'a> {
                     self.instructions.push(return_instruction);
                 } else {
                     let return_emission = self.compile_expression(child_id, child_node)?;
-                    let (mut return_operand, return_type, return_operand_type) =
-                        match return_emission {
-                            Emission::Instruction(instruction, r#type) => {
-                                let operand_type = self
-                                    .resolver
-                                    .resolve_type(r#type)
-                                    .ok_or(CompileError::MissingType { type_id: r#type })?
-                                    .as_operand_type();
+                    let (return_operand, return_type, return_operand_type) = match return_emission {
+                        Emission::Instruction(instruction, r#type) => {
+                            let operand_type = self
+                                .resolver
+                                .resolve_type(r#type)
+                                .ok_or(CompileError::MissingType { type_id: r#type })?
+                                .as_operand_type();
+                            let mut return_operand = self.handle_operand(instruction);
 
-                                (self.handle_operand(instruction), r#type, operand_type)
+                            if let Some(last_instruction) = self.instructions.last()
+                                && last_instruction.operation() == Operation::LOAD
+                                && last_instruction.destination() == return_operand
+                            {
+                                return_operand = last_instruction.b_address();
+
+                                self.instructions.pop();
                             }
-                            Emission::Constant(constant) => {
-                                let (r#type, operand_type) = match constant {
-                                    Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
-                                    Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
-                                    Constant::Character(_) => {
-                                        (TypeId::CHARACTER, OperandType::CHARACTER)
-                                    }
-                                    Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
-                                    Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
-                                    Constant::String { .. } => {
-                                        (TypeId::STRING, OperandType::STRING)
-                                    }
-                                };
-                                let address = self.get_constant_address(constant);
-                                let destination = Address::register(self.get_next_register());
-                                let instruction =
-                                    Instruction::load(destination, address, operand_type, false);
-                                let return_operand = self.handle_operand(instruction);
 
-                                (return_operand, r#type, operand_type)
-                            }
-                        };
+                            (return_operand, r#type, operand_type)
+                        }
+                        Emission::Instructions(instructions, r#type) => {
+                            let last_instruction = instructions.last().unwrap();
+                            let operand_type = self
+                                .resolver
+                                .resolve_type(r#type)
+                                .ok_or(CompileError::MissingType { type_id: r#type })?
+                                .as_operand_type();
 
-                    if let Some(last_instruction) = self.instructions.last()
-                        && last_instruction.operation() == Operation::LOAD
-                        && last_instruction.destination() == return_operand
-                    {
-                        return_operand = last_instruction.b_address();
+                            self.instructions.extend(instructions.iter());
 
-                        self.instructions.pop();
-                    }
+                            (last_instruction.destination(), r#type, operand_type)
+                        }
+                        Emission::Constant(constant) => {
+                            let (r#type, operand_type) = match constant {
+                                Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
+                                Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
+                                Constant::Character(_) => {
+                                    (TypeId::CHARACTER, OperandType::CHARACTER)
+                                }
+                                Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
+                                Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
+                                Constant::String { .. } => (TypeId::STRING, OperandType::STRING),
+                            };
+                            let address = self.get_constant_address(constant);
+                            let destination = Address::register(self.get_next_register());
+                            let instruction =
+                                Instruction::load(destination, address, operand_type, false);
+                            let return_operand = self.handle_operand(instruction);
 
-                    println!("{}", self.resolver.resolve_type(return_type).unwrap());
+                            (return_operand, r#type, operand_type)
+                        }
+                    };
 
                     self.return_type = return_type;
                     let return_instruction = Instruction::r#return(
@@ -485,6 +502,9 @@ impl<'a> ChunkCompiler<'a> {
         match expression_emission {
             Emission::Instruction(instruction, _) => {
                 self.instructions.push(instruction);
+            }
+            Emission::Instructions(instructions, _) => {
+                self.instructions.extend(instructions.iter());
             }
             Emission::Constant(constant) => {
                 let r#type = constant.operand_type();
@@ -520,6 +540,14 @@ impl<'a> ChunkCompiler<'a> {
                 let destination_register = instruction.destination().index;
 
                 self.instructions.push(instruction);
+
+                destination_register
+            }
+            Emission::Instructions(instructions, _) => {
+                let first_instruction = instructions[0];
+                let destination_register = first_instruction.destination().index;
+
+                self.instructions.extend(instructions.iter());
 
                 destination_register
             }
@@ -563,6 +591,9 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression => self.compile_binary_expression(node_id, node),
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
+                self.compile_logical_expression(node_id, node)
+            }
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
             SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
             _ => Err(CompileError::ExpectedExpression {
@@ -645,43 +676,23 @@ impl<'a> ChunkCompiler<'a> {
 
         let left_emission = self.compile_expression(left_index, left)?;
         let right_emission = self.compile_expression(right_index, right)?;
-        let (left_instruction, right_instruction) = match (left_emission, right_emission) {
-            (Emission::Instruction(left, _), Emission::Instruction(right, _)) => (left, right),
-            (Emission::Constant(left_value), Emission::Constant(right_value)) => {
-                let combined = self.combine_constants(left_value, right_value, node.kind)?;
 
-                return Ok(Emission::Constant(combined));
-            }
-            (Emission::Instruction(left_instruction, _), Emission::Constant(constant)) => {
-                let r#type = constant.operand_type();
-                let right_address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
-                let right_instruction =
-                    Instruction::load(destination, right_address, r#type, false);
+        if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
+            (&left_emission, &right_emission)
+        {
+            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
 
-                (left_instruction, right_instruction)
-            }
-            (Emission::Constant(constant), Emission::Instruction(right_instruction, _)) => {
-                let r#type = constant.operand_type();
-                let left_address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
-                let left_instruction = Instruction::load(destination, left_address, r#type, false);
+            return Ok(Emission::Constant(combined));
+        }
 
-                (left_instruction, right_instruction)
-            }
-        };
+        let left_address = left_emission.handle_as_operand(self);
+        let right_address = right_emission.handle_as_operand(self);
 
-        let left_address = self.handle_operand(left_instruction);
-        let right_address = self.handle_operand(right_instruction);
-        let (combined_type, combined_operand_type) = match (
-            left_instruction.operand_type(),
-            right_instruction.operand_type(),
-        ) {
-            (OperandType::CHARACTER, OperandType::CHARACTER) => {
-                (TypeId::STRING, OperandType::STRING)
-            }
-            (left_type, _) => (TypeId(left.payload), left_type),
-        };
+        let (combined_type, combined_operand_type) =
+            match (TypeId(left.payload), TypeId(right.payload)) {
+                (TypeId::CHARACTER, TypeId::CHARACTER) => (TypeId::STRING, OperandType::STRING),
+                (left_type, _) => (left_type, left_type.as_operand_type()),
+            };
         let destination = Address::register(self.get_next_register());
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => Instruction::add(
@@ -718,6 +729,104 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         Ok(Emission::Instruction(instruction, combined_type))
+    }
+
+    fn compile_logical_expression(
+        &mut self,
+        _node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling logical expression");
+
+        let left_index = SyntaxId(node.children.0);
+        let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+            CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.0,
+            },
+        )?;
+        let right_index = SyntaxId(node.children.1);
+        let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
+            CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.1,
+            },
+        )?;
+
+        let left_emission = self.compile_expression(left_index, left)?;
+        let right_emission = self.compile_expression(right_index, right)?;
+
+        if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
+            (&left_emission, &right_emission)
+        {
+            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let destination = Address::register(self.get_next_register());
+        let left_instruction = match &left_emission {
+            Emission::Instruction(instruction, _) => {
+                let mut instruction = *instruction;
+
+                instruction.set_destination(destination);
+
+                instruction
+            }
+            Emission::Instructions(instructions, _) => {
+                let mut instruction = instructions[0];
+
+                instruction.set_destination(destination);
+
+                instruction
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(*constant);
+
+                Instruction::load(destination, address, r#type, false)
+            }
+        };
+        let right_instruction = match right_emission {
+            Emission::Instruction(instruction, _) => {
+                let mut instruction = instruction;
+
+                instruction.set_destination(destination);
+
+                instruction
+            }
+            Emission::Instructions(instructions, _) => {
+                let mut instruction = instructions[0];
+
+                instruction.set_destination(destination);
+
+                instruction
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(constant);
+
+                Instruction::load(destination, address, r#type, false)
+            }
+        };
+        let comparator = match node.kind {
+            SyntaxKind::AndExpression => true,
+            SyntaxKind::OrExpression => false,
+            _ => unreachable!("Expected logical expression, found {}", node.kind),
+        };
+        let left_address = left_instruction.destination();
+        let test_instruction = Instruction::test(left_address, comparator);
+        let jump_instruction = Instruction::jump(1, true);
+
+        Ok(Emission::Instructions(
+            vec![
+                left_instruction,
+                test_instruction,
+                jump_instruction,
+                right_instruction,
+            ],
+            TypeId::BOOLEAN,
+        ))
     }
 
     fn compile_grouped_expression(
@@ -803,10 +912,37 @@ impl<'a> ChunkCompiler<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Emission {
     Instruction(Instruction, TypeId),
+    Instructions(Vec<Instruction>, TypeId),
     Constant(Constant),
+}
+
+impl Emission {
+    fn handle_as_operand(self, compiler: &mut ChunkCompiler) -> Address {
+        match self {
+            Emission::Instruction(instruction, _) => compiler.handle_operand(instruction),
+            Emission::Instructions(instructions, _) => {
+                let first_instruction = instructions[0];
+                let destination = first_instruction.destination();
+
+                compiler.instructions.extend(instructions.iter());
+
+                destination
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = compiler.get_constant_address(constant);
+                let destination = Address::register(compiler.get_next_register());
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                compiler.instructions.push(load_instruction);
+
+                compiler.handle_operand(load_instruction)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

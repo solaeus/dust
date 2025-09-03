@@ -750,6 +750,111 @@ fn constant_character_string_concatenation() {
 }
 
 #[test]
+fn constant_boolean_and() {
+    let source = cases::CONSTANT_BOOLEAN_AND;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (true as u32, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AndExpression,
+                children: (1, 2),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (false as u32, 0),
+                position: Span(8, 13),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_or() {
+    let source = cases::CONSTANT_BOOLEAN_OR;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (true as u32, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::OrExpression,
+                children: (1, 2),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (false as u32, 0),
+                position: Span(8, 13),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_not() {
+    let source = cases::CONSTANT_BOOLEAN_NOT;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 5),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::NotExpression,
+                children: (1, 0),
+                position: Span(0, 5),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (true as u32, 0),
+                position: Span(1, 5),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
 fn local_declaration() {
     let source = cases::LOCAL_DECLARATION;
     let (syntax_tree, error) = parse_main(source);

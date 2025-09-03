@@ -42,6 +42,6 @@ impl Display for Jump {
         } = self;
         let sign = if *is_positive { "+" } else { "-" };
 
-        write!(f, "JUMP {sign}{offset}")
+        write!(f, "jump {sign}{offset}")
     }
 }

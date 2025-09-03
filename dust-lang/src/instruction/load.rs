@@ -61,7 +61,7 @@ impl Display for Load {
             r#type,
         } = self;
 
-        destination.display(f, *r#type)?;
+        write!(f, "reg_{}", destination.index)?;
         write!(f, " = ")?;
         operand.display(f, *r#type)?;
 

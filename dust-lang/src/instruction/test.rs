@@ -48,9 +48,6 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        // Default to OperandType::BOOLEAN for display
-        write!(f, "if {bang}")?;
-        operand.display(f, crate::OperandType::BOOLEAN)?;
-        write!(f, " {{ JUMP +1 }}")
+        write!(f, "if {bang}reg_{} {{ jump + 1 }}", operand.index)
     }
 }

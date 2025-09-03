@@ -122,12 +122,28 @@ pub enum SyntaxKind {
     IntegerExpression,
     StringExpression,
 
-    // Math Expressions
+    // Binary Math Expressions
     AdditionExpression,
     SubtractionExpression,
     MultiplicationExpression,
     DivisionExpression,
     ModuloExpression,
+
+    // Binary Logic Expressions
+    AndExpression,
+    OrExpression,
+
+    // Binary Comparison Expressions
+    GreaterThanExpression,
+    LessThanExpression,
+    GreaterThanOrEqualExpression,
+    LessThanOrEqualExpression,
+    EqualExpression,
+    NotEqualExpression,
+
+    // Unary Expressions
+    NegationExpression,
+    NotExpression,
 
     // Other Expressions
     ArrayExpression,
@@ -193,6 +209,16 @@ impl SyntaxKind {
                 | SyntaxKind::MultiplicationExpression
                 | SyntaxKind::DivisionExpression
                 | SyntaxKind::ModuloExpression
+                | SyntaxKind::AndExpression
+                | SyntaxKind::OrExpression
+                | SyntaxKind::GreaterThanExpression
+                | SyntaxKind::LessThanExpression
+                | SyntaxKind::GreaterThanOrEqualExpression
+                | SyntaxKind::LessThanOrEqualExpression
+                | SyntaxKind::EqualExpression
+                | SyntaxKind::NotEqualExpression
+                | SyntaxKind::NegationExpression
+                | SyntaxKind::NotExpression
                 | SyntaxKind::ArrayExpression
                 | SyntaxKind::ArrayIndexExpression
                 | SyntaxKind::BlockExpression
@@ -237,6 +263,18 @@ impl Display for SyntaxKind {
             SyntaxKind::MultiplicationExpression => write!(f, "multiplication expression"),
             SyntaxKind::DivisionExpression => write!(f, "division expression"),
             SyntaxKind::ModuloExpression => write!(f, "modulo expression"),
+            SyntaxKind::AndExpression => write!(f, "and expression"),
+            SyntaxKind::OrExpression => write!(f, "or expression"),
+            SyntaxKind::GreaterThanExpression => write!(f, "greater than expression"),
+            SyntaxKind::LessThanExpression => write!(f, "less than expression"),
+            SyntaxKind::GreaterThanOrEqualExpression => {
+                write!(f, "greater than or equal expression")
+            }
+            SyntaxKind::LessThanOrEqualExpression => write!(f, "less than or equal expression"),
+            SyntaxKind::EqualExpression => write!(f, "equal expression"),
+            SyntaxKind::NotEqualExpression => write!(f, "not equal expression"),
+            SyntaxKind::NegationExpression => write!(f, "negation expression"),
+            SyntaxKind::NotExpression => write!(f, "not expression"),
             SyntaxKind::ArrayExpression => write!(f, "array expression"),
             SyntaxKind::ArrayIndexExpression => write!(f, "array index expression"),
             SyntaxKind::BlockExpression => write!(f, "block expression"),

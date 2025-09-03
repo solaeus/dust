@@ -46,12 +46,22 @@ pub enum ParseError {
         right_position: Span,
         position: Span,
     },
-    OperandTypeMismatch {
+    BinaryOperandTypeMismatch {
         operator: Token,
         left_type: Type,
         left_position: Span,
         right_type: Type,
         right_position: Span,
+        position: Span,
+    },
+    NegationTypeMismatch {
+        operand_type: Type,
+        operand_position: Span,
+        position: Span,
+    },
+    NotTypeMismatch {
+        operand_type: Type,
+        operand_position: Span,
         position: Span,
     },
 
@@ -171,7 +181,7 @@ impl AnnotatedError for ParseError {
                         ),
                 )
             }
-            ParseError::OperandTypeMismatch {
+            ParseError::BinaryOperandTypeMismatch {
                 operator,
                 left_type,
                 left_position,
@@ -195,6 +205,40 @@ impl AnnotatedError for ParseError {
                             AnnotationKind::Context
                                 .span(right_position.as_usize_range())
                                 .label(format!("Right operand is of type {right_type}")),
+                        ),
+                )
+            }
+            ParseError::NegationTypeMismatch {
+                operand_type,
+                operand_position,
+                position,
+            } => {
+                let title = format!("Cannot negate type {operand_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(operand_position.as_usize_range())
+                                .label(format!("Operand is of type {operand_type}")),
+                        ),
+                )
+            }
+            ParseError::NotTypeMismatch {
+                operand_type,
+                operand_position,
+                position,
+            } => {
+                let title = format!("Cannot apply 'not' to type {operand_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(operand_position.as_usize_range())
+                                .label(format!("Operand is of type {operand_type}")),
                         ),
                 )
             }

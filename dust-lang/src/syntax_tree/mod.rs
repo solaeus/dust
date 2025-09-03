@@ -163,7 +163,7 @@ impl SyntaxTree {
                 }
             }
             SyntaxKind::BooleanExpression => {
-                let boolean = node.children.1 != 0;
+                let boolean = node.children.0 != 0;
                 let boolean_display = format!(": {boolean}");
 
                 output.push_str(&boolean_display);
@@ -211,6 +211,13 @@ impl SyntaxTree {
 
                 if let Some(right_expression) = self.nodes.get(node.children.1 as usize) {
                     self.display_node(right_expression, depth + 1, output);
+                } else {
+                    push_error(output);
+                }
+            }
+            SyntaxKind::NegationExpression | SyntaxKind::NotExpression => {
+                if let Some(expression) = self.nodes.get(node.children.0 as usize) {
+                    self.display_node(expression, depth + 1, output);
                 } else {
                     push_error(output);
                 }

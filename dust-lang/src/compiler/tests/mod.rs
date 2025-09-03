@@ -514,6 +514,46 @@ fn constant_character_string_concatenation() {
 }
 
 #[test]
+fn constant_boolean_and() {
+    let source = cases::CONSTANT_BOOLEAN_AND;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(false as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_or() {
+    let source = cases::CONSTANT_BOOLEAN_OR;
+    let chunk = compile(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn local_declaration() {
     let source = cases::LOCAL_DECLARATION;
     let chunk = compile(source).unwrap();

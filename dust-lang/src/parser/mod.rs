@@ -749,7 +749,76 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_unary(&mut self) -> Result<(), ParseError> {
-        todo!()
+        let operator = self.current_token;
+        let node_kind = match operator {
+            Token::Minus => SyntaxKind::NegationExpression,
+            Token::Bang => SyntaxKind::NotExpression,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: &[Token::Minus, Token::Bang],
+                    actual: operator,
+                    position: self.current_position,
+                });
+            }
+        };
+        let operator_precedence = ParseRule::from(operator).precedence;
+        let start = self.current_position.0;
+
+        self.advance()?;
+        self.parse_sub_expression(operator_precedence)?;
+
+        let operand = self.syntax_tree.last_node_id();
+        let operand_node = self
+            .syntax_tree
+            .get_node(operand)
+            .ok_or(ParseError::MissingNode { id: operand })?;
+        let end = self.previous_position.1;
+        let r#type = match operator {
+            Token::Minus => match TypeId(operand_node.payload) {
+                TypeId::BYTE => TypeId::BYTE,
+                TypeId::INTEGER => TypeId::INTEGER,
+                TypeId::FLOAT => TypeId::FLOAT,
+                _ => {
+                    let operand_type = self
+                        .resolver
+                        .resolve_type(TypeId(operand_node.payload))
+                        .unwrap_or(Type::None);
+
+                    return Err(ParseError::NegationTypeMismatch {
+                        operand_type,
+                        operand_position: operand_node.position,
+                        position: Span(start, end),
+                    });
+                }
+            },
+            Token::Bang => match TypeId(operand_node.payload) {
+                TypeId::BOOLEAN => TypeId::BOOLEAN,
+                _ => {
+                    let operand_type = self
+                        .resolver
+                        .resolve_type(TypeId(operand_node.payload))
+                        .unwrap_or(Type::None);
+
+                    return Err(ParseError::NotTypeMismatch {
+                        operand_type,
+                        operand_position: operand_node.position,
+                        position: Span(start, end),
+                    });
+                }
+            },
+            _ => unreachable!(),
+        };
+
+        let node = SyntaxNode {
+            kind: node_kind,
+            position: Span(start, end),
+            children: (operand.0, 0),
+            payload: r#type.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
@@ -837,7 +906,7 @@ impl<'src> Parser<'src> {
                         .resolve_type(TypeId(right_node.payload))
                         .unwrap_or(Type::None);
 
-                    return Err(ParseError::OperandTypeMismatch {
+                    return Err(ParseError::BinaryOperandTypeMismatch {
                         operator,
                         left_type,
                         left_position: left_node.position,
@@ -862,7 +931,38 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
-        todo!()
+        let start = self.previous_position.0;
+        let left = self.syntax_tree.last_node_id();
+        let operator = self.current_token;
+        let node_kind = match operator {
+            Token::DoubleAmpersand => SyntaxKind::AndExpression,
+            Token::DoublePipe => SyntaxKind::OrExpression,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: &[Token::DoubleAmpersand, Token::DoubleColon],
+                    actual: operator,
+                    position: self.current_position,
+                });
+            }
+        };
+        let operator_precedence = ParseRule::from(operator).precedence;
+
+        self.advance()?;
+        self.parse_sub_expression(operator_precedence)?;
+
+        let right = self.syntax_tree.last_node_id();
+        let end = self.previous_position.1;
+
+        let node = SyntaxNode {
+            kind: node_kind,
+            position: Span(start, end),
+            children: (left.0, right.0),
+            payload: TypeId::BOOLEAN.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_call(&mut self) -> Result<(), ParseError> {

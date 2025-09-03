@@ -6,7 +6,7 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{ConstantTable, Span, Type};
+use crate::{ConstantTable, OperandType, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -208,6 +208,18 @@ impl TypeId {
     pub const FLOAT: Self = TypeId(u32::MAX - 4);
     pub const INTEGER: Self = TypeId(u32::MAX - 5);
     pub const STRING: Self = TypeId(u32::MAX - 6);
+
+    pub fn as_operand_type(&self) -> OperandType {
+        match *self {
+            TypeId::BOOLEAN => OperandType::BOOLEAN,
+            TypeId::BYTE => OperandType::BYTE,
+            TypeId::CHARACTER => OperandType::CHARACTER,
+            TypeId::FLOAT => OperandType::FLOAT,
+            TypeId::INTEGER => OperandType::INTEGER,
+            TypeId::STRING => OperandType::STRING,
+            _ => OperandType::NONE,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
