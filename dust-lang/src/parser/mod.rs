@@ -138,8 +138,8 @@ impl<'src> Parser<'src> {
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             position: Span::default(),
-            payload: (0, 0),
-            r#type: TypeId::NONE,
+            children: (0, 0),
+            payload: TypeId::NONE.0,
         };
 
         self.syntax_tree.push_node(placeholder_node);
@@ -201,7 +201,7 @@ impl<'src> Parser<'src> {
         let (next_token, next_position) = self.lexer.next_token();
 
         if next_token.is_whitespace() {
-            return self.parse_trivia();
+            return self.advance();
         }
 
         self.previous_token = replace(&mut self.current_token, next_token);
@@ -266,24 +266,6 @@ impl<'src> Parser<'src> {
 
     fn current_source(&self) -> &'src str {
         &self.lexer.source()[self.current_position.as_usize_range()]
-    }
-
-    fn parse_trivia(&mut self) -> Result<(), ParseError> {
-        let start = self.current_position.0;
-
-        self.advance()?;
-
-        let end = self.previous_position.1;
-        let node = SyntaxNode {
-            kind: SyntaxKind::Trivia,
-            position: Span(start, end),
-            payload: (0, 0),
-            r#type: TypeId::NONE,
-        };
-
-        self.syntax_tree.trivia.push(node);
-
-        Ok(())
     }
 
     fn parse_item(&mut self) -> Result<(), ParseError> {
@@ -359,8 +341,8 @@ impl<'src> Parser<'src> {
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             position: Span::default(),
-            payload: (0, 0),
-            r#type: TypeId::NONE,
+            children: (0, 0),
+            payload: TypeId::NONE.0,
         };
 
         self.syntax_tree.push_node(placeholder_node);
@@ -377,11 +359,13 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let last_node_type = self
-            .syntax_tree
-            .last_node()
-            .map(|node| node.r#type)
-            .unwrap_or(TypeId::NONE);
+        let last_node_type = if let Some(last_node) = self.syntax_tree.last_node()
+            && last_node.kind.is_expression()
+        {
+            last_node.payload
+        } else {
+            TypeId::NONE.0
+        };
 
         let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
@@ -389,8 +373,8 @@ impl<'src> Parser<'src> {
         self.syntax_tree.nodes[0] = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             position: Span(0, self.current_position.1),
-            payload: (first_child, child_count),
-            r#type: last_node_type,
+            children: (first_child, child_count),
+            payload: last_node_type,
         };
 
         self.syntax_tree.children.extend(children);
@@ -415,8 +399,8 @@ impl<'src> Parser<'src> {
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::ModuleItem,
             position: Span::default(),
-            payload: (0, 0),
-            r#type: TypeId::NONE,
+            children: (0, 0),
+            payload: TypeId::NONE.0,
         };
 
         self.syntax_tree.push_node(placeholder_node);
@@ -434,8 +418,8 @@ impl<'src> Parser<'src> {
         self.syntax_tree.nodes[node_index] = SyntaxNode {
             kind: SyntaxKind::ModuleItem,
             position: Span(0, self.current_position.1),
-            payload: (first_child, child_count),
-            r#type: TypeId::NONE,
+            children: (first_child, child_count),
+            payload: TypeId::NONE.0,
         };
 
         self.syntax_tree.children.extend(children);
@@ -466,8 +450,8 @@ impl<'src> Parser<'src> {
                 let node = SyntaxNode {
                     kind: SyntaxKind::FunctionStatement,
                     position: Span(start, end),
-                    payload: (declaration_id.0, function_expression_id.0),
-                    r#type: TypeId::NONE,
+                    children: (declaration_id.0, function_expression_id.0),
+                    payload: TypeId::NONE.0,
                 };
 
                 self.syntax_tree.push_node(node);
@@ -527,8 +511,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: node_kind,
             position: Span(start, end),
-            payload: (0, 0),
-            r#type: TypeId::NONE,
+            children: (0, 0),
+            payload: 0,
         };
 
         self.syntax_tree.push_node(node);
@@ -561,33 +545,42 @@ impl<'src> Parser<'src> {
             });
         };
 
-        if self.allow(Token::Colon)? {
-            self.parse_type()?;
-        }
+        let (explicit_type, type_node_id) = if self.allow(Token::Colon)? {
+            (Some(self.parse_type()?), self.syntax_tree.last_node_id())
+        } else {
+            (None, SyntaxId::NONE)
+        };
 
         self.expect(Token::Equal)?;
         self.parse_expression()?;
         self.allow(Token::Semicolon)?;
 
+        let end = self.previous_position.1;
         let expression_id = self.syntax_tree.last_node_id();
         let expression_type = self
             .syntax_tree
             .get_node(expression_id)
-            .map(|node| node.r#type)
+            .map(|node| node.payload)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
-        let end = self.previous_position.1;
+
+        if let Some(explicit_type) = explicit_type
+            && explicit_type.0 != expression_type
+        {
+            todo!("Error");
+        }
+
         let declaration = Declaration {
             kind: DeclarationKind::Local,
             scope: self.current_scope,
-            r#type: expression_type,
+            r#type: TypeId(expression_type),
             identifier_position: self.current_position,
         };
         let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
         let node = SyntaxNode {
             kind,
             position: Span(start, end),
-            payload: (declaration_id.0, expression_id.0),
-            r#type: expression_type,
+            children: (type_node_id.0, expression_id.0),
+            payload: declaration_id.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -610,8 +603,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::BooleanExpression,
             position: self.current_position,
-            payload: (boolean_payload, 0),
-            r#type: TypeId::BOOLEAN,
+            children: (boolean_payload, 0),
+            payload: TypeId::BOOLEAN.0,
         };
 
         self.advance()?;
@@ -630,8 +623,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::ByteExpression,
             position,
-            payload: (byte_payload, 0),
-            r#type: TypeId::BYTE,
+            children: (byte_payload, 0),
+            payload: TypeId::BYTE.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -650,8 +643,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::CharacterExpression,
             position: Span(start, end),
-            payload: (character_payload, 0),
-            r#type: TypeId::CHARACTER,
+            children: (character_payload, 0),
+            payload: TypeId::CHARACTER.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -675,8 +668,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::FloatExpression,
             position: Span(start, end),
-            payload,
-            r#type: TypeId::FLOAT,
+            children: payload,
+            payload: TypeId::FLOAT.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -696,8 +689,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::IntegerExpression,
             position: Span(start, end),
-            payload: (left_payload, right_payload),
-            r#type: TypeId::INTEGER,
+            children: (left_payload, right_payload),
+            payload: TypeId::INTEGER.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -748,8 +741,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
             position,
-            payload,
-            r#type: TypeId::STRING,
+            children: payload,
+            payload: TypeId::STRING.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -805,7 +798,7 @@ impl<'src> Parser<'src> {
             .ok_or(ParseError::MissingNode { id: right })?;
         let end = self.previous_position.1;
         let r#type = match operator {
-            Token::Plus => match (left_node.r#type, right_node.r#type) {
+            Token::Plus => match (TypeId(left_node.payload), TypeId(right_node.payload)) {
                 (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
                 (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
                 (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
@@ -816,11 +809,11 @@ impl<'src> Parser<'src> {
                 _ => {
                     let left_type = self
                         .resolver
-                        .resolve_type(left_node.r#type)
+                        .resolve_type(TypeId(left_node.payload))
                         .unwrap_or(Type::None);
                     let right_type = self
                         .resolver
-                        .resolve_type(right_node.r#type)
+                        .resolve_type(TypeId(right_node.payload))
                         .unwrap_or(Type::None);
 
                     return Err(ParseError::AdditionTypeMismatch {
@@ -832,18 +825,18 @@ impl<'src> Parser<'src> {
                     });
                 }
             },
-            _ => match (left_node.r#type, right_node.r#type) {
+            _ => match (TypeId(left_node.payload), TypeId(right_node.payload)) {
                 (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
                 (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
                 (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
                 _ => {
                     let left_type = self
                         .resolver
-                        .resolve_type(left_node.r#type)
+                        .resolve_type(TypeId(left_node.payload))
                         .unwrap_or(Type::None);
                     let right_type = self
                         .resolver
-                        .resolve_type(right_node.r#type)
+                        .resolve_type(TypeId(right_node.payload))
                         .unwrap_or(Type::None);
 
                     return Err(ParseError::OperandTypeMismatch {
@@ -861,8 +854,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: node_kind,
             position: Span(start, end),
-            payload: (left.0, right.0),
-            r#type,
+            children: (left.0, right.0),
+            payload: r#type.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -890,13 +883,13 @@ impl<'src> Parser<'src> {
         let r#type = self
             .syntax_tree
             .get_node(expression_id)
-            .map(|node| node.r#type)
+            .map(|node| node.payload)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
         let node = SyntaxNode {
             kind: SyntaxKind::GroupedExpression,
             position: Span(start, end),
-            payload: (expression_id.0, 0),
-            r#type,
+            children: (expression_id.0, 0),
+            payload: r#type,
         };
 
         self.syntax_tree.push_node(node);
@@ -942,8 +935,8 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             position,
-            payload: (declaration_id.0, 0),
-            r#type: declaration.r#type,
+            children: (declaration_id.0, 0),
+            payload: declaration.r#type.0,
         };
 
         self.syntax_tree.push_node(node);
@@ -981,8 +974,8 @@ impl<'src> Parser<'src> {
             SyntaxNode {
                 kind: SyntaxKind::SemicolonStatement,
                 position: Span(start, end),
-                payload: (is_optional as u32, 0),
-                r#type: TypeId::NONE,
+                children: (is_optional as u32, 0),
+                payload: TypeId::NONE.0,
             }
         } else {
             let span = Span(last_node.position.0, end);
@@ -991,8 +984,8 @@ impl<'src> Parser<'src> {
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 position: span,
-                payload: (expression_id.0, 0),
-                r#type: last_node.r#type,
+                children: (expression_id.0, 0),
+                payload: last_node.payload,
             }
         };
 

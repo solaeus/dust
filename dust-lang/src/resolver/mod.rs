@@ -6,7 +6,7 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{ConstantTable, OperandType, Span, Type};
+use crate::{ConstantTable, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {

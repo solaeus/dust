@@ -90,10 +90,6 @@ enum Mode {
 struct ParseOptions {
     #[command(flatten)]
     input: InputOptions,
-
-    /// Print the syntax tree as a flat list of nodes, defaults to false
-    #[arg(short, long, default_value = "false")]
-    flat: bool,
 }
 
 #[derive(Args)]
@@ -272,28 +268,23 @@ fn main() {
 
     if let Mode::Parse(ParseOptions {
         input: InputOptions { eval, stdin, file },
-        flat: whitespace,
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let (syntax_tree, error) = parse_main(&source);
         let parse_time = start_time.elapsed();
 
-        if whitespace {
-            for node in syntax_tree.nodes {
-                println!("{}", node.kind);
-            }
-        } else {
-            println!("{}", syntax_tree.display());
+        if no_output {
+            return;
         }
 
-        if let Some(error) = error
-            && !no_output
-        {
+        println!("{}", syntax_tree.display());
+
+        if let Some(error) = error {
             eprintln!("{}", error.report());
         }
 
-        if time && !no_output {
+        if time {
             print_times(&[(source_name.as_deref(), parse_time, None)]);
         }
 

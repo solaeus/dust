@@ -9,34 +9,6 @@
 //! to the output.
 //!
 //! If the 'source' option is set, the disassembler will include the source code in the output.
-//!
-//! # Output
-//!
-//! The disassembler will output a human-readable representation of the chunk by writing to any type
-//! that implements the [Write][] trait.
-//!
-//! ```text
-//! ╭──────────────────────────────────────────────────────────────────────────────────╮
-//! │                            write_line("hello world")                             │
-//! │                                                                                  │
-//! │               3 instructions, 1 constants, 0 locals, returns none                │
-//! │                                                                                  │
-//! │                                   Instructions                                   │
-//! │ ╭─────┬────────────┬─────────────────┬─────────────────────────────────────────╮ │
-//! │ │  i  │  POSITION  │    OPERATION    │                  INFO                   │ │
-//! │ ├─────┼────────────┼─────────────────┼─────────────────────────────────────────┤ │
-//! │ │  0  │  (11, 24)  │  LOAD_CONSTANT  │              R_STR_0 = C0               │ │
-//! │ │  1  │  (0, 25)   │   CALL_NATIVE   │             write_line(R0)              │ │
-//! │ │  2  │  (25, 25)  │     RETURN      │                 RETURN                  │ │
-//! │ ╰─────┴────────────┴─────────────────┴─────────────────────────────────────────╯ │
-//! │                                    Constants                                     │
-//! │          ╭─────┬──────────────────────────┬──────────────────────────╮           │
-//! │          │  i  │           TYPE           │          VALUE           │           │
-//! │          ├─────┼──────────────────────────┼──────────────────────────┤           │
-//! │          │  0  │           str            │       hello world        │           │
-//! │          ╰─────┴──────────────────────────┴──────────────────────────╯           │
-//! ╰──────────────────────────────────────────────────────────────────────────────────╯
-//! ```
 use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};

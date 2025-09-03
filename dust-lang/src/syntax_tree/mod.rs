@@ -5,6 +5,14 @@ pub use syntax_node::{SyntaxKind, SyntaxNode};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
 
+impl SyntaxId {
+    pub const NONE: SyntaxId = SyntaxId(u32::MAX);
+
+    pub fn is_none(&self) -> bool {
+        *self == SyntaxId::NONE
+    }
+}
+
 /// Lossless abstract syntax tree representing a Dust source code file.
 #[derive(Debug, Default)]
 pub struct SyntaxTree {
@@ -15,8 +23,6 @@ pub struct SyntaxTree {
     /// Concatenated list of node indexes that represent children for nodes whose child indexes
     /// cannot be stored directly in the node (i.e. blocks and the root node).
     pub children: Vec<SyntaxId>,
-
-    pub trivia: Vec<SyntaxNode>,
 }
 
 impl SyntaxTree {
@@ -122,8 +128,8 @@ impl SyntaxTree {
                     return;
                 }
 
-                let children_start = node.payload.0 as usize;
-                let children_end = children_start + node.payload.1 as usize;
+                let children_start = node.children.0 as usize;
+                let children_end = children_start + node.children.1 as usize;
                 let children = &self.children[children_start..children_end];
 
                 for child_id in children {
@@ -135,51 +141,59 @@ impl SyntaxTree {
                 }
             }
             SyntaxKind::ExpressionStatement | SyntaxKind::GroupedExpression => {
-                if let Some(expression) = self.nodes.get(node.payload.0 as usize) {
+                if let Some(expression) = self.nodes.get(node.children.0 as usize) {
                     self.display_node(expression, depth + 1, output);
                 } else {
                     push_error(output);
                 }
             }
-            SyntaxKind::LetStatement => {
-                if let Some(expression) = self.nodes.get(node.payload.1 as usize) {
+            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
+                if !SyntaxId(node.children.0).is_none() {
+                    if let Some(identifier) = self.nodes.get(node.children.0 as usize) {
+                        self.display_node(identifier, depth + 1, output);
+                    } else {
+                        push_error(output);
+                    }
+                }
+
+                if let Some(expression) = self.nodes.get(node.children.1 as usize) {
                     self.display_node(expression, depth + 1, output);
                 } else {
                     push_error(output);
                 }
             }
             SyntaxKind::BooleanExpression => {
-                let boolean = node.payload.1 != 0;
+                let boolean = node.children.1 != 0;
                 let boolean_display = format!(": {boolean}");
 
                 output.push_str(&boolean_display);
             }
             SyntaxKind::ByteExpression => {
-                let byte = node.payload.0 as u8;
+                let byte = node.children.0 as u8;
                 let byte_display = format!(": {byte:02x}");
 
                 output.push_str(&byte_display);
             }
             SyntaxKind::CharacterExpression => {
-                let character = SyntaxNode::decode_character(node.payload);
+                let character = SyntaxNode::decode_character(node.children);
                 let character_display = format!(": '{character}'");
 
                 output.push_str(&character_display);
             }
             SyntaxKind::FloatExpression => {
-                let float = SyntaxNode::decode_float(node.payload).to_string();
+                let float = SyntaxNode::decode_float(node.children).to_string();
                 let float_display = format!(": {float}", float = float);
 
                 output.push_str(&float_display);
             }
             SyntaxKind::IntegerExpression => {
-                let integer_value = node.payload.0 as i64;
+                let integer_value = node.children.0 as i64;
                 let integer_display = format!(": {integer_value}", integer_value = integer_value);
 
                 output.push_str(&integer_display);
             }
             SyntaxKind::StringExpression => {
-                let string_index = node.payload.0 as usize;
+                let string_index = node.children.0 as usize;
                 let string_display = format!("<string constant: {string_index}>");
 
                 output.push_str(&string_display);
@@ -189,13 +203,13 @@ impl SyntaxTree {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression => {
-                if let Some(left_expression) = self.nodes.get(node.payload.0 as usize) {
+                if let Some(left_expression) = self.nodes.get(node.children.0 as usize) {
                     self.display_node(left_expression, depth + 1, output);
                 } else {
                     push_error(output);
                 }
 
-                if let Some(right_expression) = self.nodes.get(node.payload.1 as usize) {
+                if let Some(right_expression) = self.nodes.get(node.children.1 as usize) {
                     self.display_node(right_expression, depth + 1, output);
                 } else {
                     push_error(output);

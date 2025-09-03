@@ -1,13 +1,11 @@
 mod error;
-mod local;
 
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
-
 pub use error::CompileError;
-use local::Local;
+
+use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
@@ -372,7 +370,7 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_main_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling main function");
 
-        let (start_children, child_count) = (node.payload.0 as usize, node.payload.1 as usize);
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
         let end_children = start_children + child_count;
 
         let mut current_child_index = start_children;
@@ -408,36 +406,56 @@ impl<'a> ChunkCompiler<'a> {
                     self.instructions.push(return_instruction);
                 } else {
                     let return_emission = self.compile_expression(child_id, child_node)?;
-                    let (return_operand, return_type) = match return_emission {
-                        Emission::Instruction(instruction) => {
-                            (self.handle_operand(instruction), instruction.operand_type())
-                        }
-                        Emission::Constant(constant) => {
-                            let r#type = constant.operand_type();
-                            let address = self.get_constant_address(constant);
-                            let destination = Address::register(self.get_next_register());
-                            let instruction =
-                                Instruction::load(destination, address, r#type, false);
-                            let return_operand = self.handle_operand(instruction);
+                    let (mut return_operand, return_type, return_operand_type) =
+                        match return_emission {
+                            Emission::Instruction(instruction, r#type) => {
+                                let operand_type = self
+                                    .resolver
+                                    .resolve_type(r#type)
+                                    .ok_or(CompileError::MissingType { type_id: r#type })?
+                                    .as_operand_type();
 
-                            (return_operand, r#type)
-                        }
-                    };
+                                (self.handle_operand(instruction), r#type, operand_type)
+                            }
+                            Emission::Constant(constant) => {
+                                let (r#type, operand_type) = match constant {
+                                    Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
+                                    Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
+                                    Constant::Character(_) => {
+                                        (TypeId::CHARACTER, OperandType::CHARACTER)
+                                    }
+                                    Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
+                                    Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
+                                    Constant::String { .. } => {
+                                        (TypeId::STRING, OperandType::STRING)
+                                    }
+                                };
+                                let address = self.get_constant_address(constant);
+                                let destination = Address::register(self.get_next_register());
+                                let instruction =
+                                    Instruction::load(destination, address, operand_type, false);
+                                let return_operand = self.handle_operand(instruction);
 
-                    match return_type {
-                        OperandType::BOOLEAN => self.return_type = TypeId::BOOLEAN,
-                        OperandType::BYTE => self.return_type = TypeId::BYTE,
-                        OperandType::CHARACTER => self.return_type = TypeId::CHARACTER,
-                        OperandType::FLOAT => self.return_type = TypeId::FLOAT,
-                        OperandType::INTEGER => self.return_type = TypeId::INTEGER,
-                        OperandType::STRING => self.return_type = TypeId::STRING,
-                        _ => todo!(),
+                                (return_operand, r#type, operand_type)
+                            }
+                        };
+
+                    if let Some(last_instruction) = self.instructions.last()
+                        && last_instruction.operation() == Operation::LOAD
+                        && last_instruction.destination() == return_operand
+                    {
+                        return_operand = last_instruction.b_address();
+
+                        self.instructions.pop();
                     }
 
+                    println!("{}", self.resolver.resolve_type(return_type).unwrap());
+
+                    self.return_type = return_type;
                     let return_instruction = Instruction::r#return(
-                        return_type != OperandType::NONE,
+                        return_operand_type != OperandType::NONE,
                         return_operand,
-                        return_type,
+                        return_operand_type,
                     );
 
                     self.instructions.push(return_instruction);
@@ -453,7 +471,7 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling expression statement");
 
-        let expression_id = SyntaxId(node.payload.0);
+        let expression_id = SyntaxId(node.children.0);
         let expression_node = self
             .syntax_tree
             .get_node(expression_id)
@@ -461,7 +479,7 @@ impl<'a> ChunkCompiler<'a> {
         let expression_emission = self.compile_expression(expression_id, expression_node)?;
 
         match expression_emission {
-            Emission::Instruction(instruction) => {
+            Emission::Instruction(instruction, _) => {
                 self.instructions.push(instruction);
             }
             Emission::Constant(constant) => {
@@ -480,21 +498,16 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling let statement");
 
-        let declaration_id = DeclarationId(node.payload.0);
-        let expression_id = SyntaxId(node.payload.1);
+        let declaration_id = DeclarationId(node.children.0);
+        let expression_id = SyntaxId(node.children.1);
 
-        let declaration = self
-            .resolver
-            .get_declaration_from_id(declaration_id)
-            .copied()
-            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
         let expression_node = self
             .syntax_tree
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
         let expression_emission = self.compile_expression(expression_id, expression_node)?;
         let destination_register = match expression_emission {
-            Emission::Instruction(instruction) => {
+            Emission::Instruction(instruction, _) => {
                 let destination_register = instruction.destination().index;
 
                 self.instructions.push(instruction);
@@ -548,13 +561,13 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_boolean_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling boolean expression");
 
-        Ok(Emission::Constant(Constant::Boolean(node.payload.0 != 0)))
+        Ok(Emission::Constant(Constant::Boolean(node.children.0 != 0)))
     }
 
     fn compile_byte_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling byte expression");
 
-        Ok(Emission::Constant(Constant::Byte(node.payload.0 as u8)))
+        Ok(Emission::Constant(Constant::Byte(node.children.0 as u8)))
     }
 
     fn compile_character_expression(
@@ -564,7 +577,7 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling character expression");
 
-        let character = char::from_u32(node.payload.0).unwrap_or_default();
+        let character = char::from_u32(node.children.0).unwrap_or_default();
 
         Ok(Emission::Constant(Constant::Character(character)))
     }
@@ -572,7 +585,7 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_float_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling float expression");
 
-        let float = SyntaxNode::decode_float(node.payload);
+        let float = SyntaxNode::decode_float(node.children);
 
         Ok(Emission::Constant(Constant::Float(float)))
     }
@@ -580,7 +593,7 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_integer_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling integer expression");
 
-        let integer = SyntaxNode::decode_integer(node.payload);
+        let integer = SyntaxNode::decode_integer(node.children);
 
         Ok(Emission::Constant(Constant::Integer(integer)))
     }
@@ -589,8 +602,8 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling string expression");
 
         Ok(Emission::Constant(Constant::String {
-            pool_start: node.payload.0,
-            pool_end: node.payload.1,
+            pool_start: node.children.0,
+            pool_end: node.children.1,
         }))
     }
 
@@ -601,31 +614,31 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling binary expression");
 
-        let left_index = SyntaxId(node.payload.0);
+        let left_index = SyntaxId(node.children.0);
         let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
-                child_index: node.payload.0,
+                child_index: node.children.0,
             },
         )?;
-        let right_index = SyntaxId(node.payload.1);
+        let right_index = SyntaxId(node.children.1);
         let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
-                child_index: node.payload.1,
+                child_index: node.children.1,
             },
         )?;
 
         let left_emission = self.compile_expression(left_index, left)?;
         let right_emission = self.compile_expression(right_index, right)?;
         let (left_instruction, right_instruction) = match (left_emission, right_emission) {
-            (Emission::Instruction(left), Emission::Instruction(right)) => (left, right),
+            (Emission::Instruction(left, _), Emission::Instruction(right, _)) => (left, right),
             (Emission::Constant(left_value), Emission::Constant(right_value)) => {
                 let combined = self.combine_constants(left_value, right_value, node.kind)?;
 
                 return Ok(Emission::Constant(combined));
             }
-            (Emission::Instruction(left_instruction), Emission::Constant(constant)) => {
+            (Emission::Instruction(left_instruction, _), Emission::Constant(constant)) => {
                 let r#type = constant.operand_type();
                 let right_address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
@@ -634,7 +647,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 (left_instruction, right_instruction)
             }
-            (Emission::Constant(constant), Emission::Instruction(right_instruction)) => {
+            (Emission::Constant(constant), Emission::Instruction(right_instruction, _)) => {
                 let r#type = constant.operand_type();
                 let left_address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
@@ -646,34 +659,51 @@ impl<'a> ChunkCompiler<'a> {
 
         let left_address = self.handle_operand(left_instruction);
         let right_address = self.handle_operand(right_instruction);
-        let combined_type = match (
+        let (combined_type, combined_operand_type) = match (
             left_instruction.operand_type(),
             right_instruction.operand_type(),
         ) {
-            (OperandType::CHARACTER, OperandType::CHARACTER) => OperandType::STRING,
-            (left_type, _) => left_type,
+            (OperandType::CHARACTER, OperandType::CHARACTER) => {
+                (TypeId::STRING, OperandType::STRING)
+            }
+            (left_type, _) => (TypeId(left.payload), left_type),
         };
         let destination = Address::register(self.get_next_register());
         let instruction = match node.kind {
-            SyntaxKind::AdditionExpression => {
-                Instruction::add(destination, left_address, right_address, combined_type)
-            }
-            SyntaxKind::SubtractionExpression => {
-                Instruction::subtract(destination, left_address, right_address, combined_type)
-            }
-            SyntaxKind::MultiplicationExpression => {
-                Instruction::multiply(destination, left_address, right_address, combined_type)
-            }
-            SyntaxKind::DivisionExpression => {
-                Instruction::divide(destination, left_address, right_address, combined_type)
-            }
-            SyntaxKind::ModuloExpression => {
-                Instruction::modulo(destination, left_address, right_address, combined_type)
-            }
+            SyntaxKind::AdditionExpression => Instruction::add(
+                destination,
+                left_address,
+                right_address,
+                combined_operand_type,
+            ),
+            SyntaxKind::SubtractionExpression => Instruction::subtract(
+                destination,
+                left_address,
+                right_address,
+                combined_operand_type,
+            ),
+            SyntaxKind::MultiplicationExpression => Instruction::multiply(
+                destination,
+                left_address,
+                right_address,
+                combined_operand_type,
+            ),
+            SyntaxKind::DivisionExpression => Instruction::divide(
+                destination,
+                left_address,
+                right_address,
+                combined_operand_type,
+            ),
+            SyntaxKind::ModuloExpression => Instruction::modulo(
+                destination,
+                left_address,
+                right_address,
+                combined_operand_type,
+            ),
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
 
-        Ok(Emission::Instruction(instruction))
+        Ok(Emission::Instruction(instruction, combined_type))
     }
 
     fn compile_grouped_expression(
@@ -683,13 +713,13 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling grouped expression");
 
-        let child_id = SyntaxId(node.payload.0);
+        let child_id = SyntaxId(node.children.0);
         let child_node = self
             .syntax_tree
             .get_node(child_id)
             .ok_or(CompileError::MissingChild {
                 parent_kind: node.kind,
-                child_index: node.payload.0,
+                child_index: node.children.0,
             })?;
 
         self.compile_expression(node_id, child_node)
@@ -702,14 +732,14 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
-        let declaration_id = DeclarationId(node.payload.0);
+        let declaration_id = DeclarationId(node.children.0);
         let destination_register = *self
             .local_registers
             .get(&declaration_id)
             .ok_or(CompileError::MissingLocalRegister { declaration_id })?;
         let r#type = self
             .resolver
-            .resolve_type(node.r#type)
+            .resolve_type(TypeId(node.payload))
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?
             .as_operand_type();
         let load_instruction = Instruction::load(
@@ -719,7 +749,10 @@ impl<'a> ChunkCompiler<'a> {
             false,
         );
 
-        Ok(Emission::Instruction(load_instruction))
+        Ok(Emission::Instruction(
+            load_instruction,
+            TypeId(node.payload),
+        ))
     }
 
     fn _compile_implicit_return(&mut self, _expression: SyntaxId) -> Result<(), CompileError> {
@@ -757,7 +790,7 @@ impl<'a> ChunkCompiler<'a> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Emission {
-    Instruction(Instruction),
+    Instruction(Instruction, TypeId),
     Constant(Constant),
 }
 

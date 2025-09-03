@@ -140,6 +140,10 @@ impl ConstantTable {
             let end = (payload & 0xFFFFFFFF) as u32;
 
             (start, end)
+        } else if string.starts_with(&self.string_pool) {
+            self.string_pool.replace_range(.., string);
+
+            (0, string.len() as u32)
         } else {
             let start = self.string_pool.len() as u32;
 

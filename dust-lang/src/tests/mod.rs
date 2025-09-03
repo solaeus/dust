@@ -26,4 +26,8 @@ pub mod cases {
     pub const CONSTANT_CHARACTER_CONCATENATION: &str = "'q' + 'q'";
     pub const CONSTANT_STRING_CHARACTER_CONCATENATION: &str = "\"foo\" + 'q'";
     pub const CONSTANT_CHARACTER_STRING_CONCATENATION: &str = "'q' + \"foo\"";
+
+    pub const LOCAL_DECLARATION: &str = "let x: int = 42;";
+    pub const LOCAL_MUT_DECLARATION: &str = "let mut x: int = 42;";
+    pub const LOCAL_EVALUATION: &str = "let x: int = 42; x";
 }
