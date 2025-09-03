@@ -46,7 +46,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Bang => ParseRule {
-                prefix: Some(Parser::parse_unary),
+                prefix: Some(Parser::parse_unary_expression),
                 infix: None,
                 precedence: Precedence::Unary,
             },
@@ -211,8 +211,8 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::LeftParenthesis => ParseRule {
-                prefix: Some(Parser::parse_grouped),
-                infix: Some(Parser::parse_call),
+                prefix: Some(Parser::parse_grouped_expression),
+                infix: Some(Parser::parse_call_expression),
                 precedence: Precedence::Call,
             },
             Token::LeftSquareBracket => ParseRule {
@@ -251,7 +251,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Minus => ParseRule {
-                prefix: Some(Parser::parse_unary),
+                prefix: Some(Parser::parse_unary_expression),
                 infix: Some(Parser::parse_math_binary),
                 precedence: Precedence::SecondaryMath,
             },
@@ -316,8 +316,8 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Semicolon => ParseRule {
-                prefix: Some(Parser::parse_semicolon),
-                infix: None,
+                prefix: None,
+                infix: Some(Parser::parse_semicolon),
                 precedence: Precedence::None,
             },
             Token::Slash => ParseRule {

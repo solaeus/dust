@@ -183,6 +183,7 @@ impl<'src> Parser<'src> {
 
         while precedence <= infix_rule.precedence
             && let Some(infix_parser) = infix_rule.infix
+            && self.previous_token != Token::Semicolon
         {
             debug!(
                 "{} at {} as infix {}",
@@ -206,8 +207,6 @@ impl<'src> Parser<'src> {
 
         self.previous_token = replace(&mut self.current_token, next_token);
         self.previous_position = replace(&mut self.current_position, next_position);
-
-        info!("{} at {}", self.current_token, self.current_position);
 
         Ok(())
     }
@@ -432,6 +431,8 @@ impl<'src> Parser<'src> {
 
         match self.current_token {
             Token::Identifier => {
+                info!("Parsing function statement");
+
                 let identifier_position = self.current_position;
                 let identifier_text = self.current_source();
 
@@ -472,10 +473,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_function_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing function expression");
+
         todo!()
     }
 
     fn parse_type(&mut self) -> Result<TypeId, ParseError> {
+        info!("Parsing type");
+
         let start = self.current_position.0;
 
         let (node_kind, r#type) = match self.current_token {
@@ -521,6 +526,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_let_statement(&mut self) -> Result<(), ParseError> {
+        info!("Parsing let statement");
+
         let start = self.current_position.0;
 
         self.advance()?;
@@ -550,16 +557,23 @@ impl<'src> Parser<'src> {
         };
 
         self.expect(Token::Equal)?;
-        self.parse_expression()?;
-        self.allow(Token::Semicolon)?;
+        self.pratt(Precedence::None)?;
 
         let end = self.previous_position.1;
         let expression_id = self.syntax_tree.last_node_id();
-        let expression_type = self
+        let expression_node = self
             .syntax_tree
             .get_node(expression_id)
-            .map(|node| node.payload)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
+        let expression_type = expression_node.payload;
+
+        if expression_node.kind != SyntaxKind::ExpressionStatement {
+            return Err(ParseError::ExpectedToken {
+                actual: self.current_token,
+                expected: Token::Semicolon,
+                position: self.current_position,
+            });
+        }
 
         if let Some(explicit_type) = explicit_type
             && explicit_type.0 != expression_type
@@ -587,6 +601,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing boolean expression");
+
         let boolean_payload = match self.current_token {
             Token::TrueValue => true as u32,
             Token::FalseValue => false as u32,
@@ -612,6 +628,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_byte_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing byte expression");
+
         let position = self.current_position;
         let byte_text_utf8 = &self.current_source().as_bytes()[2..]; // Skip the "0x" prefix
 
@@ -631,6 +649,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_character_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing character expression");
+
         let start = self.current_position.0;
         let character_text = self.current_source();
 
@@ -651,6 +671,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_float_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing float expression");
+
         let start = self.current_position.0;
         let float_text = self.current_source();
 
@@ -676,6 +698,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_integer_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing integer expression");
+
         let start = self.current_position.0;
         let integer_text = self.current_source();
 
@@ -726,6 +750,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_string_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing string expression");
+
         let position = self.current_position;
         let string_text = {
             let token_text = self.current_source();
@@ -748,7 +774,9 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_unary(&mut self) -> Result<(), ParseError> {
+    fn parse_unary_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing unary expression");
+
         let operator = self.current_token;
         let node_kind = match operator {
             Token::Minus => SyntaxKind::NegationExpression,
@@ -822,10 +850,14 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
+        info!("Parsing comparison binary expression");
+
         todo!()
     }
 
     fn parse_math_binary(&mut self) -> Result<(), ParseError> {
+        info!("Parsing math binary expression");
+
         let left = self.syntax_tree.last_node_id();
         let left_node = *self
             .syntax_tree
@@ -931,6 +963,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
+        info!("Parsing logical binary expression");
+
         let start = self.previous_position.0;
         let left = self.syntax_tree.last_node_id();
         let operator = self.current_token;
@@ -965,11 +999,13 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_call(&mut self) -> Result<(), ParseError> {
+    fn parse_call_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing call expression");
+
         todo!()
     }
 
-    fn parse_grouped(&mut self) -> Result<(), ParseError> {
+    fn parse_grouped_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
 
         self.advance()?;
@@ -1016,6 +1052,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_path_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing path expression");
+
         let position = self.current_position;
         let identifier_text = self.current_source();
 
@@ -1069,6 +1107,8 @@ impl<'src> Parser<'src> {
         let is_optional = last_node.kind.has_block();
 
         let node = if is_optional {
+            info!("Parsing semicolon statement");
+
             SyntaxNode {
                 kind: SyntaxKind::SemicolonStatement,
                 position: Span(start, end),
@@ -1076,6 +1116,8 @@ impl<'src> Parser<'src> {
                 payload: TypeId::NONE.0,
             }
         } else {
+            info!("Parsing expression statement");
+
             let span = Span(last_node.position.0, end);
             let expression_id = self.syntax_tree.last_node_id();
 
