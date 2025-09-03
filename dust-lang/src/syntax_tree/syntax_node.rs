@@ -157,6 +157,9 @@ pub enum SyntaxKind {
     IntegerType,
     StringType,
     TypePath,
+
+    // Ignored
+    Trivia,
 }
 
 impl SyntaxKind {
@@ -257,6 +260,7 @@ impl Display for SyntaxKind {
             SyntaxKind::StringType => write!(f, "string type"),
             SyntaxKind::TypePath => write!(f, "type path"),
             SyntaxKind::UseItem => write!(f, "use item"),
+            SyntaxKind::Trivia => write!(f, "whitespace or comment"),
         }
     }
 }

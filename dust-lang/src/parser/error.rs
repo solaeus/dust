@@ -171,10 +171,75 @@ impl AnnotatedError for ParseError {
                         ),
                 )
             }
-            ParseError::OperandTypeMismatch { .. } => todo!(),
-            ParseError::UndeclaredVariable { .. } => todo!(),
-            ParseError::DeclarationConflict { .. } => todo!(),
-            ParseError::MissingNode { .. } => todo!(),
+            ParseError::OperandTypeMismatch {
+                operator,
+                left_type,
+                left_position,
+                right_type,
+                right_position,
+                position,
+            } => {
+                let title = format!(
+                    "Cannot apply operator {operator} to types {left_type} and {right_type}"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(left_position.as_usize_range())
+                                .label(format!("Left operand is of type {left_type}")),
+                        )
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(right_position.as_usize_range())
+                                .label(format!("Right operand is of type {right_type}")),
+                        ),
+                )
+            }
+            ParseError::UndeclaredVariable {
+                identifier,
+                position,
+            } => {
+                let title = format!("Use of undeclared variable `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("The variable `{identifier}` is not declared")),
+                    ),
+                )
+            }
+            ParseError::DeclarationConflict {
+                identifier,
+                first_declaration,
+                second_declaration,
+            } => {
+                let title = format!("Declaration conflict for variable `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(second_declaration.as_usize_range())
+                                .label(format!(
+                                    "The variable `{identifier}` is declared here again"
+                                )),
+                        )
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(first_declaration.as_usize_range())
+                                .label(format!("First declaration of `{identifier}` is here")),
+                        ),
+                )
+            }
+            ParseError::MissingNode { id } => {
+                let title = format!("Internal error: Missing syntax node with ID {}", id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
         }
     }
 }

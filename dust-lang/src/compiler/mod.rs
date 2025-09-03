@@ -233,6 +233,13 @@ impl<'a> ChunkCompiler<'a> {
                     todo!("Error");
                 }
 
+                if left_pool_end == right_pool_start {
+                    return Ok(Constant::String {
+                        pool_start: left_pool_start,
+                        pool_end: right_pool_end,
+                    });
+                }
+
                 let left = self
                     .resolver
                     .constants

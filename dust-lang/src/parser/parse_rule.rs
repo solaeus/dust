@@ -271,7 +271,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Newline => ParseRule {
-                prefix: Some(Parser::advance),
+                prefix: Some(Parser::parse_trivia),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -331,7 +331,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::Assignment,
             },
             Token::Space => ParseRule {
-                prefix: Some(Parser::advance),
+                prefix: Some(Parser::parse_trivia),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -356,7 +356,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Tab => ParseRule {
-                prefix: Some(Parser::advance),
+                prefix: Some(Parser::parse_trivia),
                 infix: None,
                 precedence: Precedence::None,
             },

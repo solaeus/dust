@@ -15,6 +15,8 @@ pub struct SyntaxTree {
     /// Concatenated list of node indexes that represent children for nodes whose child indexes
     /// cannot be stored directly in the node (i.e. blocks and the root node).
     pub children: Vec<SyntaxId>,
+
+    pub trivia: Vec<SyntaxNode>,
 }
 
 impl SyntaxTree {

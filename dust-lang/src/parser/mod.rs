@@ -201,7 +201,7 @@ impl<'src> Parser<'src> {
         let (next_token, next_position) = self.lexer.next_token();
 
         if next_token.is_whitespace() {
-            return self.advance();
+            return self.parse_trivia();
         }
 
         self.previous_token = replace(&mut self.current_token, next_token);
@@ -266,6 +266,24 @@ impl<'src> Parser<'src> {
 
     fn current_source(&self) -> &'src str {
         &self.lexer.source()[self.current_position.as_usize_range()]
+    }
+
+    fn parse_trivia(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+
+        self.advance()?;
+
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::Trivia,
+            position: Span(start, end),
+            payload: (0, 0),
+            r#type: TypeId::NONE,
+        };
+
+        self.syntax_tree.trivia.push(node);
+
+        Ok(())
     }
 
     fn parse_item(&mut self) -> Result<(), ParseError> {

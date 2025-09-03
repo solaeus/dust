@@ -71,7 +71,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Mode {
     #[command(alias = "p")]
-    Parse(InputOptions),
+    Parse(ParseOptions),
 
     /// Compile and run the program (default)
     #[command(alias = "r")]
@@ -84,6 +84,16 @@ enum Mode {
     /// Lex the source code and print the tokens
     #[command(alias = "t")]
     Tokenize(InputOptions),
+}
+
+#[derive(Args)]
+struct ParseOptions {
+    #[command(flatten)]
+    input: InputOptions,
+
+    /// Print the syntax tree as a flat list of nodes, defaults to false
+    #[arg(short, long, default_value = "false")]
+    flat: bool,
 }
 
 #[derive(Args)]
@@ -260,12 +270,22 @@ fn main() {
     //     return;
     // }
 
-    if let Mode::Parse(InputOptions { eval, stdin, file }) = mode {
+    if let Mode::Parse(ParseOptions {
+        input: InputOptions { eval, stdin, file },
+        flat: whitespace,
+    }) = mode
+    {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let (syntax_tree, error) = parse_main(&source);
         let parse_time = start_time.elapsed();
 
-        println!("{}", syntax_tree.display());
+        if whitespace {
+            for node in syntax_tree.nodes {
+                println!("{}", node.kind);
+            }
+        } else {
+            println!("{}", syntax_tree.display());
+        }
 
         if let Some(error) = error
             && !no_output
