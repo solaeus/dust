@@ -6,7 +6,7 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{ConstantTable, Span, Type};
+use crate::{ConstantTable, OperandType, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -64,6 +64,24 @@ impl Resolver {
         };
 
         self.declarations.get(&hash)
+    }
+
+    pub fn get_declaration_full(
+        &mut self,
+        identifier: &str,
+        scope: ScopeId,
+    ) -> Option<(DeclarationId, &Declaration)> {
+        let hash = {
+            let mut hasher = FxHasher::default();
+
+            identifier.hash(&mut hasher);
+            scope.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        self.declarations
+            .get_full(&hash)
+            .map(|(index, _, value)| (DeclarationId(index as u32), value))
     }
 
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {

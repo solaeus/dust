@@ -4,9 +4,12 @@ mod local;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashMap;
+
 pub use error::CompileError;
 use local::Local;
 
+use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
 use crate::{
@@ -75,8 +78,8 @@ pub struct ChunkCompiler<'a> {
     /// this is 0 as a default but the main chunk is actually the last one in the list.
     prototype_index: u16,
 
-    /// Number of registers that are used by local variables.
-    locals: Vec<Local>,
+    /// Registers that are used by local variables.
+    local_registers: HashMap<DeclarationId, u16, FxBuildHasher>,
 
     minimum_register: u16,
 }
@@ -91,7 +94,7 @@ impl<'a> ChunkCompiler<'a> {
             drop_lists: Vec::new(),
             return_type: TypeId::NONE,
             prototype_index: 0,
-            locals: Vec::new(),
+            local_registers: HashMap::default(),
             minimum_register: 0,
         }
     }
@@ -509,13 +512,9 @@ impl<'a> ChunkCompiler<'a> {
                 destination.index
             }
         };
-        let local = Local {
-            declaration_id,
-            register: destination_register,
-            r#type: declaration.r#type,
-        };
 
-        self.locals.push(local);
+        self.local_registers
+            .insert(declaration_id, destination_register);
 
         Ok(())
     }
@@ -538,7 +537,7 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression => self.compile_binary_expression(node_id, node),
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
-            SyntaxKind::PathExpression => self.parse_path_expression(node_id, node),
+            SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.position,
@@ -696,14 +695,31 @@ impl<'a> ChunkCompiler<'a> {
         self.compile_expression(node_id, child_node)
     }
 
-    fn parse_path_expression(
+    fn compile_path_expression(
         &mut self,
         _node_id: SyntaxId,
-        _node: &SyntaxNode,
+        node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
-        todo!()
+        let declaration_id = DeclarationId(node.payload.0);
+        let destination_register = *self
+            .local_registers
+            .get(&declaration_id)
+            .ok_or(CompileError::MissingLocalRegister { declaration_id })?;
+        let r#type = self
+            .resolver
+            .resolve_type(node.r#type)
+            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?
+            .as_operand_type();
+        let load_instruction = Instruction::load(
+            Address::register(self.get_next_register()),
+            Address::register(destination_register),
+            r#type,
+            false,
+        );
+
+        Ok(Emission::Instruction(load_instruction))
     }
 
     fn _compile_implicit_return(&mut self, _expression: SyntaxId) -> Result<(), CompileError> {

@@ -930,9 +930,9 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let Some(declaration) = self
+        let Some((declaration_id, declaration)) = self
             .resolver
-            .get_declaration(identifier_text, self.current_scope)
+            .get_declaration_full(identifier_text, self.current_scope)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
@@ -942,7 +942,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             position,
-            payload: (0, 0),
+            payload: (declaration_id.0, 0),
             r#type: declaration.r#type,
         };
 

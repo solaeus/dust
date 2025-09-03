@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    ops::{Index, Range},
+    ops::Range,
 };
 
 use indexmap::IndexMap;

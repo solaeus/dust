@@ -42,6 +42,9 @@ pub enum CompileError {
     MissingDeclaration {
         id: DeclarationId,
     },
+    MissingLocalRegister {
+        declaration_id: DeclarationId,
+    },
     MissingSyntaxNode {
         id: SyntaxId,
     },
@@ -90,6 +93,7 @@ impl AnnotatedError for CompileError {
             } => todo!(),
             CompileError::MissingConstant { constant_index: _ } => todo!(),
             CompileError::MissingDeclaration { id: _ } => todo!(),
+            CompileError::MissingLocalRegister { declaration_id: _ } => todo!(),
             CompileError::MissingSyntaxNode { id: _ } => todo!(),
             CompileError::MissingType { type_id: _ } => todo!(),
         }
