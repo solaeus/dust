@@ -31,8 +31,7 @@ impl Thread {
         let name = program
             .main_chunk()
             .name
-            .as_ref()
-            .map(|name| name.clone())
+            .clone()
             .unwrap_or_else(|| "anonymous".to_string());
 
         info!("Spawning thread {name}");

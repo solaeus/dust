@@ -81,7 +81,9 @@ impl<'a> JitCompiler<'a> {
         self.main_function_id = self
             .module
             .declare_function("main", Linkage::Local, &stackless_signature)
-            .map_err(|error| JitError::CraneliftModuleError { error })?;
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+            })?;
 
         for (index, chunk) in self.program.prototypes.iter().enumerate() {
             let name = chunk
@@ -101,11 +103,15 @@ impl<'a> JitCompiler<'a> {
             let direct_function_id = self
                 .module
                 .declare_function(&direct_name, Linkage::Local, &direct_signature)
-                .map_err(|error| JitError::CraneliftModuleError { error })?;
+                .map_err(|error| JitError::CraneliftModuleError {
+                    error: Box::new(error),
+                })?;
             let stackless_function_id = self
                 .module
                 .declare_function(&stackless_name, Linkage::Local, &stackless_signature)
-                .map_err(|error| JitError::CraneliftModuleError { error })?;
+                .map_err(|error| JitError::CraneliftModuleError {
+                    error: Box::new(error),
+                })?;
 
             self.function_ids.push(FunctionIds {
                 direct: direct_function_id,
@@ -159,7 +165,9 @@ impl<'a> JitCompiler<'a> {
         let loop_function_id = self
             .module
             .declare_function("loop", Linkage::Local, &context.func.signature)
-            .map_err(|error| JitError::CraneliftModuleError { error })?;
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+            })?;
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut function_builder =
             FunctionBuilder::new(&mut context.func, &mut function_builder_context);
@@ -352,10 +360,14 @@ impl<'a> JitCompiler<'a> {
         function_builder.finalize();
         self.module
             .define_function(loop_function_id, &mut context)
-            .map_err(|error| JitError::CraneliftModuleError { error })?;
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+            })?;
         self.module
             .finalize_definitions()
-            .map_err(|error| JitError::CraneliftModuleError { error })?;
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+            })?;
 
         let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer) };
@@ -452,7 +464,9 @@ impl<'a> JitCompiler<'a> {
         let function_id = self
             .module
             .declare_function(name, Linkage::Import, &signature)
-            .map_err(|error| JitError::CraneliftModuleError { error })?;
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+            })?;
         let function_reference = self
             .module
             .declare_func_in_func(function_id, function_builder.func);

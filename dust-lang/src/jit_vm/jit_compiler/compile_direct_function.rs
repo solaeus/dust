@@ -72,7 +72,7 @@ pub fn compile_direct_function(
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
     #[cfg(debug_assertions)]
-    let log_operation_function = {
+    let log_operation_and_ip_function = {
         use cranelift::prelude::{Signature, types::I8};
 
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
@@ -130,7 +130,7 @@ pub fn compile_direct_function(
             let ip_instruction = function_builder.ins().iconst(I64, ip as i64);
 
             function_builder.ins().call(
-                log_operation_function,
+                log_operation_and_ip_function,
                 &[operation_code_instruction, ip_instruction],
             );
         }

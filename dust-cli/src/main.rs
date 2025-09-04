@@ -192,7 +192,7 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref().unwrap_or("anonymous");
 
-        let compiler = Compiler::new(true);
+        let compiler = Compiler::new(!no_std);
         let compile_result = compiler.compile(&[(source_name, &source)]);
         let compile_time = start_time.elapsed();
 
@@ -209,7 +209,6 @@ fn main() {
             }
         };
 
-        let prototypes = program.prototypes.clone();
         let vm = JitVm::new();
         let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
         let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);

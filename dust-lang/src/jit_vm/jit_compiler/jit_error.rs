@@ -47,7 +47,7 @@ pub enum JitError {
         total_register_count: usize,
     },
     CraneliftModuleError {
-        error: ModuleError,
+        error: Box<ModuleError>,
     },
 }
 

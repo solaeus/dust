@@ -50,7 +50,7 @@ impl Compiler {
     }
 
     pub fn compile<'src>(&self, sources: &[(&str, &'src str)]) -> Result<Program, DustError<'src>> {
-        let mut prototypes = Rc::new(RefCell::new(Vec::new()));
+        let prototypes = Rc::new(RefCell::new(Vec::new()));
 
         let mut parser = Parser::new();
         let ParseResult {

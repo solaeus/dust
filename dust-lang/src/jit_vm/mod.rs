@@ -16,7 +16,7 @@ pub use thread::{Thread, ThreadResult};
 
 use std::sync::{Arc, RwLock};
 
-use crate::{DustError, Value, compile_main, compiler::Compiler, dust_crate::Program};
+use crate::{DustError, Value, compiler::Compiler, dust_crate::Program};
 
 pub const MINIMUM_OBJECT_HEAP_DEFAULT: usize = if cfg!(debug_assertions) {
     1024
@@ -31,8 +31,8 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
-pub fn run(source: &'_ str, use_standard_library: bool) -> Result<Option<Value>, DustError<'_>> {
-    let compiler = Compiler::new(use_standard_library);
+pub fn run_main(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
+    let compiler = Compiler::new(true);
     let program = compiler.compile(&[("", source)])?;
     let vm = JitVm::new();
 
@@ -60,7 +60,7 @@ impl JitVm {
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Result<Option<Value>, DustError<'src>> {
-        let mut cells = Vec::with_capacity(program.cell_count as usize);
+        let mut cells = Vec::with_capacity(program.cell_count);
 
         for _ in 0..program.cell_count {
             cells.push(Cell::default());
