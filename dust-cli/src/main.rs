@@ -13,7 +13,13 @@ use clap::{
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
-use dust_lang::{Disassembler, compile, parser::parse_main, tokenize};
+use dust_lang::{
+    Disassembler, compile_main,
+    compiler::Compiler,
+    jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
+    parser::parse_main,
+    tokenize,
+};
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -177,100 +183,69 @@ fn main() {
         start_logging(log_level, start_time);
     }
 
-    // if let Mode::Run(RunOptions {
-    //     input,
-    //     min_heap,
-    //     min_sweep,
-    //     shared_options: options,
-    // }) = mode
-    // {
-    //     let SharedOptions {
-    //         log,
-    //         pretty_log,
-    //         time,
-    //         no_output,
-    //         no_std,
-    //         name,
-    //         source: Source { eval, stdin, file },
-    //     } = options;
+    if let Mode::Run(RunOptions {
+        input: InputOptions { eval, stdin, file },
+        min_heap,
+        min_sweep,
+    }) = mode
+    {
+        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_name = source_name.as_deref().unwrap_or("anonymous");
 
-    //     if let Some(log_level) = log {
-    //         start_logging(log_level, pretty_log, start_time);
-    //     }
+        let compiler = Compiler::new(true);
+        let compile_result = compiler.compile(&[(source_name, &source)]);
+        let compile_time = start_time.elapsed();
 
-    //     let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-    //     let source_name = source_name.as_deref();
+        let program = match compile_result {
+            Ok(program) => program,
+            Err(error) => {
+                let report = error.report();
 
-    //     let dust_program = match input {
-    //         Format::Dust => {
-    //             let compiler = Compiler::new();
+                if !no_output {
+                    eprintln!("{report}");
+                }
 
-    //             match compiler.compile_program(source_name, &source, !no_std) {
-    //                 Ok(chunk) => chunk,
-    //                 Err(error) => {
-    //                     handle_compile_error(error, &source);
+                return;
+            }
+        };
 
-    //                     return;
-    //                 }
-    //             }
-    //         }
-    //         Format::Json => {
-    //             serde_json::from_str(&source).expect("Failed to deserialize JSON into chunk")
-    //         }
-    //         Format::Postcard => {
-    //             todo!()
-    //         }
-    //         Format::Ron => {
-    //             ron::de::from_str(&source).expect("Failed to deserialize RON into chunk")
-    //         }
-    //         Format::Yaml => {
-    //             serde_yaml::from_str(&source).expect("Failed to deserialize YAML into chunk")
-    //         }
-    //     };
-    //     let compile_time = start_time.elapsed();
-    //     let prototypes = dust_program.prototypes.clone();
-    //     let vm = JitVm::new();
-    //     let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
-    //     let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
-    //     let run_result = vm.run(dust_program, min_heap, min_sweep);
-    //     let run_time = start_time.elapsed() - compile_time;
+        let prototypes = program.prototypes.clone();
+        let vm = JitVm::new();
+        let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
+        let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
+        let run_result = vm.run(program, min_heap, min_sweep);
+        let run_time = start_time.elapsed() - compile_time;
 
-    //     let return_value = match run_result {
-    //         Ok(value) => value,
-    //         Err(dust_error) => {
-    //             let report = dust_error.report();
+        let return_value = match run_result {
+            Ok(value) => value,
+            Err(dust_error) => {
+                let report = dust_error.report();
 
-    //             if !no_output {
-    //                 eprintln!("{report}");
-    //             }
+                if !no_output {
+                    eprintln!("{report}");
+                }
 
-    //             return;
-    //         }
-    //     };
+                return;
+            }
+        };
 
-    //     if !no_output && let Some(return_value) = return_value {
-    //         let mut buffer = String::new();
+        if !no_output && let Some(return_value) = return_value {
+            println!("{return_value}");
+        }
 
-    //         let _ = return_value.display(
-    //             &mut Formatter::new(&mut buffer, FormattingOptions::default()),
-    //             &prototypes,
-    //         );
+        if time && !no_output {
+            print_times(&[(source_name, compile_time, Some(run_time))]);
+        }
 
-    //         println!("{buffer}");
-    //     }
-
-    //     if time && !no_output {
-    //         print_times(&[(source_name, compile_time, Some(run_time))]);
-    //     }
-
-    //     return;
-    // }
+        return;
+    }
 
     if let Mode::Parse(ParseOptions {
         input: InputOptions { eval, stdin, file },
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_name = source_name.as_deref().unwrap_or("anonymous");
         let (syntax_tree, error) = parse_main(&source);
         let parse_time = start_time.elapsed();
 
@@ -285,7 +260,7 @@ fn main() {
         }
 
         if time {
-            print_times(&[(source_name.as_deref(), parse_time, None)]);
+            print_times(&[(source_name, parse_time, None)]);
         }
 
         return;
@@ -301,8 +276,8 @@ fn main() {
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref();
-        let compile_result = compile(&source);
+        let source_name = source_name.as_deref().unwrap_or("anonymous");
+        let compile_result = compile_main(&source);
         let compile_time = start_time.elapsed();
 
         match compile_result {
@@ -382,7 +357,8 @@ fn main() {
     }
 
     if let Mode::Tokenize(InputOptions { eval, stdin, file }) = mode {
-        let (source, _) = get_source_and_name(file, name, stdin, eval);
+        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_name = source_name.as_deref().unwrap_or("anonymous");
         let tokens = tokenize(&source).expect("Failed to tokenize the source code");
         let tokenize_time = start_time.elapsed();
 
@@ -420,7 +396,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(None, tokenize_time, None)]);
+            print_times(&[(source_name, tokenize_time, None)]);
         }
     }
 }
@@ -527,9 +503,8 @@ where
     }
 }
 
-fn print_times(times: &[(Option<&str>, Duration, Option<Duration>)]) {
+fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
     for (source_name, compile_time, run_time) in times {
-        let name = source_name.unwrap_or("anonymous");
         let total_time = run_time
             .map(|run_time| run_time + *compile_time)
             .unwrap_or(*compile_time);
@@ -540,7 +515,7 @@ fn print_times(times: &[(Option<&str>, Duration, Option<Duration>)]) {
         let total_time_display = format!("{}ms", total_time.as_millis_f64());
 
         println!(
-            "{name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
+            "{source_name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
         );
     }
 }

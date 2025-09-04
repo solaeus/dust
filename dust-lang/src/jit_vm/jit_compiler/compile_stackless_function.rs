@@ -13,9 +13,12 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation, Register,
+    Address, Chunk, MemoryKind, OperandType, Operation,
     instruction::{Call, Drop, Jump, Load, NewList, Return, SetList},
-    jit_vm::{RegisterTag, call_stack::get_call_frame, thread::ThreadContext},
+    jit_vm::{
+        JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
+        thread::ThreadContext,
+    },
 };
 
 pub fn compile_stackless_function(
@@ -26,7 +29,10 @@ pub fn compile_stackless_function(
 ) -> Result<(), JitError> {
     info!(
         "Compiling stackless function {}",
-        chunk.name.as_ref().map_or("anonymous", |path| path.inner())
+        chunk
+            .name
+            .as_ref()
+            .map_or("anonymous", |name| name.as_str())
     );
 
     let mut function_builder_context = FunctionBuilderContext::new();
@@ -347,11 +353,16 @@ pub fn compile_stackless_function(
                 };
             }
             Operation::DROP => {
-                let Drop { drop_list_index } = Drop::from(*current_instruction);
+                let Drop {
+                    drop_list_start,
+                    drop_list_end,
+                } = Drop::from(*current_instruction);
+                let drop_list_range = drop_list_start as usize..=drop_list_end as usize;
 
-                let safepoint_registers = chunk.drop_lists.get(drop_list_index as usize).ok_or(
-                    JitError::SafepointIndexOutOfBounds {
-                        safepoint_index: drop_list_index as usize,
+                let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
+                    JitError::DropListRangeOutOfBounds {
+                        drop_list_start,
+                        drop_list_end,
                         total_safepoint_count: chunk.drop_lists.len(),
                     },
                 )?;
@@ -792,13 +803,29 @@ pub fn compile_stackless_function(
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(callee_function_ids.direct, function_builder.func);
-                let call_arguments_list = chunk
-                    .call_argument_lists
-                    .get(arguments_index as usize)
-                    .ok_or(JitError::ArgumentsIndexOutOfBounds {
-                    arguments_index: arguments_index as usize,
-                    total_argument_count: chunk.call_argument_lists.len(),
-                })?;
+
+                let argument_count = compiler
+                    .program
+                    .prototypes
+                    .get(prototype_index as usize)
+                    .ok_or(JitError::FunctionIndexOutOfBounds {
+                        ip,
+                        function_index: prototype_index as usize,
+                        total_function_count: compiler.program.prototypes.len(),
+                    })?
+                    .r#type
+                    .value_parameters
+                    .len();
+                let arguments_range =
+                    arguments_index as usize..(arguments_index as usize + argument_count);
+
+                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                    JitError::ArgumentsRangeOutOfBounds {
+                        arguments_list_start: arguments_index,
+                        arguments_list_end: arguments_index + argument_count as u16,
+                        total_argument_count: chunk.call_arguments.len(),
+                    },
+                )?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
 
                 for (address, r#type) in call_arguments_list {
@@ -1145,18 +1172,28 @@ pub fn compile_stackless_function(
                     .iter()
                     .map(|error| format!("\n{error}"))
                     .collect::<String>();
+                let cranelift_ir = compilation_context.func.display().to_string();
 
-                JitError::CraneliftModuleError { message }
+                JitError::CompilationError {
+                    message,
+                    cranelift_ir,
+                }
             } else {
-                JitError::CraneliftModuleError {
+                let cranelift_ir = compilation_context.func.display().to_string();
+
+                JitError::CompilationError {
                     message: error.to_string(),
+                    cranelift_ir,
                 }
             }
         })?;
 
     info!(
         "Finished compiling stackless function {}",
-        chunk.name.as_ref().map_or("anonymous", |path| path.inner()),
+        chunk
+            .name
+            .as_ref()
+            .map_or("anonymous", |path| path.as_str()),
     );
 
     compiler.module.clear_context(&mut compilation_context);
@@ -1243,20 +1280,12 @@ fn get_character(
                 .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
-            let constant = chunk.constants.get(address.index as usize).ok_or(
+            let character = chunk.constants.get_character(address.index).ok_or(
                 JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index as usize,
+                    constant_index: address.index,
                     total_constant_count: chunk.constants.len(),
                 },
             )?;
-            let character = match constant.as_character() {
-                Some(character) => character,
-                None => {
-                    return Err(JitError::InvalidConstantType {
-                        expected_type: OperandType::CHARACTER,
-                    });
-                }
-            };
 
             function_builder.ins().iconst(I64, character as i64)
         }
@@ -1276,44 +1305,34 @@ fn get_float(
     chunk: &Chunk,
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
-    let address_index = address.index as usize;
-    let jit_value =
-        match address.memory {
-            MemoryKind::REGISTER => {
-                let relative_index = function_builder.ins().iconst(I64, address.index as i64);
-                let byte_offset = function_builder
-                    .ins()
-                    .imul_imm(relative_index, size_of::<Register>() as i64);
-                let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => {
+            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
+            let byte_offset = function_builder
+                .ins()
+                .imul_imm(relative_index, size_of::<Register>() as i64);
+            let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-                function_builder
-                    .ins()
-                    .load(I64, MemFlags::new(), address, 0)
-            }
-            MemoryKind::CONSTANT => {
-                let constant = chunk.constants.get(address_index).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
-                        constant_index: address_index,
-                        total_constant_count: chunk.constants.len(),
-                    },
-                )?;
-                let float = match constant.as_float() {
-                    Some(float_value) => float_value,
-                    None => {
-                        return Err(JitError::InvalidConstantType {
-                            expected_type: OperandType::FLOAT,
-                        });
-                    }
-                };
+            function_builder
+                .ins()
+                .load(I64, MemFlags::new(), address, 0)
+        }
+        MemoryKind::CONSTANT => {
+            let float = chunk.constants.get_float(address.index).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
 
-                function_builder.ins().iconst(I64, float.to_bits() as i64)
-            }
-            _ => {
-                return Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                });
-            }
-        };
+            function_builder.ins().iconst(I64, float as i64)
+        }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
 
     Ok(jit_value)
 }
@@ -1342,20 +1361,12 @@ fn get_integer(
                 .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
-            let constant = chunk.constants.get(address.index as usize).ok_or(
+            let integer = chunk.constants.get_integer(address.index).ok_or(
                 JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index as usize,
+                    constant_index: address.index,
                     total_constant_count: chunk.constants.len(),
                 },
             )?;
-            let integer = match constant.as_integer() {
-                Some(integer) => integer,
-                None => {
-                    return Err(JitError::InvalidConstantType {
-                        expected_type: OperandType::INTEGER,
-                    });
-                }
-            };
 
             function_builder.ins().iconst(I64, integer)
         }
@@ -1393,20 +1404,12 @@ fn get_string(
                 .load(I64, MemFlags::new(), register_address, 0)
         }
         MemoryKind::CONSTANT => {
-            let constant = chunk.constants.get(address.index as usize).ok_or(
+            let string = chunk.constants.get_string(address.index).ok_or(
                 JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index as usize,
+                    constant_index: address.index,
                     total_constant_count: chunk.constants.len(),
                 },
             )?;
-            let string = match constant.as_string() {
-                Some(string) => string,
-                None => {
-                    return Err(JitError::InvalidConstantType {
-                        expected_type: OperandType::STRING,
-                    });
-                }
-            };
             let string_pointer = function_builder
                 .ins()
                 .iconst(I64, string.as_ptr() as usize as i64);

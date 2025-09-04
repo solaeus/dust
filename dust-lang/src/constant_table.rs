@@ -85,6 +85,12 @@ impl ConstantTable {
         index
     }
 
+    pub fn get_character(&self, index: u16) -> Option<char> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+
+        std::char::from_u32(payload as u32)
+    }
+
     pub fn add_float(&mut self, float: f64) -> u16 {
         let payload = float.to_bits();
         let index = self.payloads.len() as u16;
@@ -102,6 +108,12 @@ impl ConstantTable {
         index
     }
 
+    pub fn get_float(&self, index: u16) -> Option<f64> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+
+        Some(f64::from_bits(payload))
+    }
+
     pub fn add_integer(&mut self, integer: i64) -> u16 {
         let payload = integer as u64;
         let index = self.payloads.len() as u16;
@@ -117,6 +129,12 @@ impl ConstantTable {
         self.tags.push(OperandType::INTEGER);
 
         index
+    }
+
+    pub fn get_integer(&self, index: u16) -> Option<i64> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+
+        Some(payload as i64)
     }
 
     pub fn add_string(&mut self, string: &str) -> (u32, u32) {
@@ -147,6 +165,14 @@ impl ConstantTable {
 
             (start as u32, end as u32)
         }
+    }
+
+    pub fn get_string(&self, index: u16) -> Option<&str> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+        let start = (payload >> 32) as usize;
+        let end = (payload & 0xFFFFFFFF) as usize;
+
+        self.string_pool.get(start..end)
     }
 
     pub fn push_str_to_string_pool(&mut self, string: &str) -> (u32, u32) {

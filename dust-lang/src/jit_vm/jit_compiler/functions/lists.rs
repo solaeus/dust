@@ -1,6 +1,6 @@
 use crate::{
-    Object, OperandType,
-    jit_vm::{object::ObjectValue, thread::ThreadContext},
+    OperandType,
+    jit_vm::{Object, object::ObjectValue, thread::ThreadContext},
 };
 
 /// # Safety

@@ -11,24 +11,22 @@ use functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
 use cranelift::{
-    codegen::{
-        CodegenError,
-        ir::{FuncRef, InstBuilder},
-    },
+    codegen::ir::{FuncRef, InstBuilder},
     frontend::Switch,
     prelude::{
-        AbiParam, Block, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags, Signature,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags, Signature,
         Value as CraneliftValue, Variable, types::I64,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{FuncId, Linkage, Module, ModuleError};
+use cranelift_module::{FuncId, Linkage, Module};
 use tracing::Level;
 
 use crate::{
-    OperandType, Program, Register, ThreadResult,
+    OperandType,
+    dust_crate::Program,
     jit_vm::{
-        RegisterTag,
+        Register, RegisterTag, ThreadResult,
         call_stack::{get_frame_function_index, push_call_frame},
         thread::ThreadContext,
     },
@@ -83,9 +81,7 @@ impl<'a> JitCompiler<'a> {
         self.main_function_id = self
             .module
             .declare_function("main", Linkage::Local, &stackless_signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: error.to_string(),
-            })?;
+            .map_err(|error| JitError::CraneliftModuleError { error })?;
 
         for (index, chunk) in self.program.prototypes.iter().enumerate() {
             let name = chunk
@@ -105,15 +101,11 @@ impl<'a> JitCompiler<'a> {
             let direct_function_id = self
                 .module
                 .declare_function(&direct_name, Linkage::Local, &direct_signature)
-                .map_err(|error| JitError::CraneliftModuleError {
-                    message: error.to_string(),
-                })?;
+                .map_err(|error| JitError::CraneliftModuleError { error })?;
             let stackless_function_id = self
                 .module
                 .declare_function(&stackless_name, Linkage::Local, &stackless_signature)
-                .map_err(|error| JitError::CraneliftModuleError {
-                    message: error.to_string(),
-                })?;
+                .map_err(|error| JitError::CraneliftModuleError { error })?;
 
             self.function_ids.push(FunctionIds {
                 direct: direct_function_id,
@@ -128,7 +120,7 @@ impl<'a> JitCompiler<'a> {
 
             compile_stackless_function(
                 self.main_function_id,
-                &self.program.main_chunk,
+                self.program.main_chunk(),
                 true,
                 self,
             )?;
@@ -167,9 +159,7 @@ impl<'a> JitCompiler<'a> {
         let loop_function_id = self
             .module
             .declare_function("loop", Linkage::Local, &context.func.signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: error.to_string(),
-            })?;
+            .map_err(|error| JitError::CraneliftModuleError { error })?;
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut function_builder =
             FunctionBuilder::new(&mut context.func, &mut function_builder_context);
@@ -221,7 +211,7 @@ impl<'a> JitCompiler<'a> {
             let zero = function_builder.ins().iconst(I64, 0);
             let register_count = function_builder
                 .ins()
-                .iconst(I64, self.program.main_chunk.register_count as i64);
+                .iconst(I64, self.program.main_chunk().register_count as i64);
             let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
 
             push_call_frame(
@@ -362,63 +352,15 @@ impl<'a> JitCompiler<'a> {
         function_builder.finalize();
         self.module
             .define_function(loop_function_id, &mut context)
-            .map_err(|error| {
-                if let ModuleError::Compilation(CodegenError::Verifier(errors)) = error {
-                    let message = errors
-                        .0
-                        .iter()
-                        .map(|error| format!("\n{error}"))
-                        .collect::<String>();
-
-                    JitError::CraneliftModuleError { message }
-                } else {
-                    JitError::CraneliftModuleError {
-                        message: error.to_string(),
-                    }
-                }
-            })?;
+            .map_err(|error| JitError::CraneliftModuleError { error })?;
         self.module
             .finalize_definitions()
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: error.to_string(),
-            })?;
+            .map_err(|error| JitError::CraneliftModuleError { error })?;
 
         let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer) };
 
         Ok(jit_logic)
-    }
-
-    fn emit_jump(
-        &self,
-        ip: usize,
-        jump_distance: isize,
-        function_builder: &mut FunctionBuilder,
-        instruction_blocks: &[Block],
-    ) -> Result<(), JitError> {
-        let target_ip = ip as isize + jump_distance;
-
-        if target_ip < 0 {
-            return Err(JitError::JumpTargetOutOfBounds {
-                target_instruction_pointer: target_ip,
-                total_instruction_count: instruction_blocks.len(),
-            });
-        }
-
-        let target_ip = target_ip as usize;
-
-        if target_ip >= instruction_blocks.len() {
-            return Err(JitError::JumpTargetOutOfBounds {
-                target_instruction_pointer: target_ip as isize,
-                total_instruction_count: instruction_blocks.len(),
-            });
-        }
-
-        function_builder
-            .ins()
-            .jump(instruction_blocks[target_ip], &[]);
-
-        Ok(())
     }
 
     fn set_register(
@@ -510,9 +452,7 @@ impl<'a> JitCompiler<'a> {
         let function_id = self
             .module
             .declare_function(name, Linkage::Import, &signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                message: format!("Failed to declare {name} function: {error}"),
-            })?;
+            .map_err(|error| JitError::CraneliftModuleError { error })?;
         let function_reference = self
             .module
             .declare_func_in_func(function_id, function_builder.func);

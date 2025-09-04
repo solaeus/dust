@@ -193,8 +193,11 @@ impl Instruction {
         })
     }
 
-    pub fn drop(drop_list_index: u16) -> Instruction {
-        Instruction::from(Drop { drop_list_index })
+    pub fn drop(drop_list_start: u16, drop_list_end: u16) -> Instruction {
+        Instruction::from(Drop {
+            drop_list_start,
+            drop_list_end,
+        })
     }
 
     pub fn new_list(

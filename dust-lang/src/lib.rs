@@ -17,10 +17,11 @@
 
 pub mod chunk;
 pub mod compiler;
+pub mod constant_table;
+pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
-// pub mod jit_vm;
-pub mod constant_table;
+pub mod jit_vm;
 pub mod lexer;
 pub mod native_function;
 pub mod parser;
@@ -35,9 +36,9 @@ pub mod value;
 mod tests;
 
 pub use chunk::{Chunk, Disassembler};
-pub use compiler::{ChunkCompiler, CompileError, compile};
+pub use compiler::{ChunkCompiler, CompileError, compile_main};
 pub use constant_table::ConstantTable;
-// pub use dust_error::{AnnotatedError, DustError, ErrorMessage};
+pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };

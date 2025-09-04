@@ -1,9 +1,6 @@
 use std::{ptr, slice};
 
-use crate::{
-    Object,
-    jit_vm::{jit_compiler::ERROR_REPLACEMENT_STR, thread::ThreadContext},
-};
+use crate::jit_vm::{Object, jit_compiler::ERROR_REPLACEMENT_STR, thread::ThreadContext};
 
 pub unsafe extern "C" fn allocate_string(
     string_pointer: *mut u8,

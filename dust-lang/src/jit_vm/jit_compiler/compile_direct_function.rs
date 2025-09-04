@@ -9,9 +9,34 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Chunk, JitCompiler, JitError, MemoryKind, OperandType, Operation,
+    Address, Chunk, MemoryKind, OperandType, Operation,
     instruction::{Add, Call, Jump, Load, Return, Subtract},
+    jit_vm::{JitCompiler, JitError},
 };
+
+fn get_integer(
+    address: Address,
+    chunk: &Chunk,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    match address.memory {
+        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::CONSTANT => {
+            let integer = chunk.constants.get_integer(address.index).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+
+            Ok(function_builder.ins().iconst(I64, integer))
+        }
+        _ => Err(JitError::UnsupportedMemoryKind {
+            memory_kind: address.memory,
+        }),
+    }
+}
 
 pub fn compile_direct_function(
     compiler: &mut JitCompiler,
@@ -20,7 +45,10 @@ pub fn compile_direct_function(
 ) -> Result<(), JitError> {
     info!(
         "Compiling direct function {}",
-        chunk.name.as_ref().map_or("anonymous", |path| path.inner())
+        chunk
+            .name
+            .as_ref()
+            .map_or("anonymous", |path| path.as_str())
     );
 
     let mut function_builder_context = FunctionBuilderContext::new();
@@ -50,11 +78,12 @@ pub fn compile_direct_function(
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
 
         log_operation_signature.params.push(AbiParam::new(I8));
+        log_operation_signature.params.push(AbiParam::new(I64));
         log_operation_signature.returns = vec![];
 
         compiler.declare_imported_function(
             &mut function_builder,
-            "log_operation",
+            "log_operation_and_ip",
             log_operation_signature,
         )?
     };
@@ -98,10 +127,12 @@ pub fn compile_direct_function(
             use cranelift::prelude::types::I8;
 
             let operation_code_instruction = function_builder.ins().iconst(I8, operation.0 as i64);
+            let ip_instruction = function_builder.ins().iconst(I64, ip as i64);
 
-            function_builder
-                .ins()
-                .call(log_operation_function, &[operation_code_instruction]);
+            function_builder.ins().call(
+                log_operation_function,
+                &[operation_code_instruction, ip_instruction],
+            );
         }
 
         match operation {
@@ -113,36 +144,10 @@ pub fn compile_direct_function(
                     jump_next,
                 } = Load::from(*current_instruction);
                 let destination_index = destination.index as usize;
-                let operand_index = operand.index as usize;
                 let value = match r#type {
                     OperandType::INTEGER => {
-                        let jit_value = match operand.memory {
-                            MemoryKind::REGISTER => ssa_registers
-                                .get(operand_index)
-                                .copied()
-                                .ok_or(JitError::RegisterIndexOutOfBounds {
-                                    register_index: destination_index,
-                                    total_register_count: function_arguments.len(),
-                                })?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[operand_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: operand.memory,
-                                });
-                            }
-                        };
-
-                        Ok(jit_value)
-                    }?,
+                        self::get_integer(operand, chunk, &ssa_registers, &mut function_builder)?
+                    }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -153,7 +158,7 @@ pub fn compile_direct_function(
                 ssa_registers[destination_index] = value;
 
                 if jump_next {
-                    compiler.emit_jump(ip, 2, &mut function_builder, &[])?;
+                    function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
                 }
 
                 Ok(())
@@ -161,9 +166,7 @@ pub fn compile_direct_function(
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 let comparator = current_instruction.a_field();
                 let left = current_instruction.b_address();
-                let left_index = left.index as usize;
                 let right = current_instruction.c_address();
-                let right_index = right.index as usize;
                 let r#type = current_instruction.operand_type();
                 let operation = current_instruction.operation();
                 let comparison = match (operation, comparator != 0) {
@@ -177,52 +180,10 @@ pub fn compile_direct_function(
                 };
                 let comparison_result = match r#type {
                     OperandType::INTEGER => {
-                        let left_value = match left.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(left_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: left_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[left_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: left.memory,
-                                });
-                            }
-                        };
-                        let right_value = match right.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(right_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: right_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[right_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: right.memory,
-                                });
-                            }
-                        };
+                        let left_value =
+                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
+                        let right_value =
+                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
 
                         function_builder
                             .ins()
@@ -253,55 +214,12 @@ pub fn compile_direct_function(
                     r#type,
                 } = Add::from(*current_instruction);
                 let destination_index = destination.index as usize;
-                let left_index = left.index as usize;
-                let right_index = right.index as usize;
                 let sum = match r#type {
                     OperandType::INTEGER => {
-                        let left_value = match left.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(left_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: left_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[left_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: left.memory,
-                                });
-                            }
-                        };
-                        let right_value = match right.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(right_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: right_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => match chunk.constants[right_index].as_integer()
-                            {
-                                Some(integer) => function_builder.ins().iconst(I64, integer),
-                                None => {
-                                    return Err(JitError::InvalidConstantType {
-                                        expected_type: OperandType::INTEGER,
-                                    });
-                                }
-                            },
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: right.memory,
-                                });
-                            }
-                        };
+                        let left_value =
+                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
+                        let right_value =
+                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
 
                         function_builder.ins().iadd(left_value, right_value)
                     }
@@ -324,55 +242,12 @@ pub fn compile_direct_function(
                     r#type,
                 } = Subtract::from(*current_instruction);
                 let destination_index = destination.index as usize;
-                let left_index = left.index as usize;
-                let right_index = right.index as usize;
                 let difference = match r#type {
                     OperandType::INTEGER => {
-                        let left_value = match left.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(left_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: left_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[left_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: left.memory,
-                                });
-                            }
-                        };
-                        let right_value = match right.memory {
-                            MemoryKind::REGISTER => ssa_registers.get(right_index).copied().ok_or(
-                                JitError::RegisterIndexOutOfBounds {
-                                    register_index: right_index,
-                                    total_register_count: function_arguments.len(),
-                                },
-                            )?,
-                            MemoryKind::CONSTANT => match chunk.constants[right_index].as_integer()
-                            {
-                                Some(integer) => function_builder.ins().iconst(I64, integer),
-                                None => {
-                                    return Err(JitError::InvalidConstantType {
-                                        expected_type: OperandType::INTEGER,
-                                    });
-                                }
-                            },
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: right.memory,
-                                });
-                            }
-                        };
+                        let left_value =
+                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
+                        let right_value =
+                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
 
                         function_builder.ins().isub(left_value, right_value)
                     }
@@ -396,7 +271,6 @@ pub fn compile_direct_function(
                 } = Call::from(*current_instruction);
                 let destination_index = destination.index as usize;
                 let prototype_index = prototype_index as usize;
-                let arguments_index = arguments_index as usize;
                 let callee_function_ids = compiler.function_ids.get(prototype_index).ok_or(
                     JitError::FunctionIndexOutOfBounds {
                         ip,
@@ -408,45 +282,39 @@ pub fn compile_direct_function(
                     .module
                     .declare_func_in_func(callee_function_ids.direct, function_builder.func);
 
-                let call_arguments_list = chunk.call_argument_lists.get(arguments_index).ok_or(
-                    JitError::ArgumentsIndexOutOfBounds {
-                        arguments_index,
-                        total_argument_count: chunk.call_argument_lists.len(),
+                let arguments_count = compiler
+                    .program
+                    .prototypes
+                    .get(prototype_index)
+                    .ok_or(JitError::FunctionIndexOutOfBounds {
+                        ip,
+                        function_index: prototype_index,
+                        total_function_count: compiler.program.prototypes.len(),
+                    })?
+                    .r#type
+                    .value_parameters
+                    .len();
+                let arguments_range =
+                    arguments_index as usize..(arguments_index as usize + arguments_count);
+
+                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                    JitError::ArgumentsRangeOutOfBounds {
+                        arguments_list_start: arguments_index,
+                        arguments_list_end: arguments_index + arguments_count as u16,
+                        total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
 
                 for (address, r#type) in call_arguments_list {
-                    let address_index = address.index as usize;
                     let argument_value = match *r#type {
                         OperandType::INTEGER => {
-                            let integer_value = match address.memory {
-                                MemoryKind::REGISTER => {
-                                    ssa_registers.get(address_index).copied().ok_or(
-                                        JitError::RegisterIndexOutOfBounds {
-                                            register_index: address_index,
-                                            total_register_count: function_arguments.len(),
-                                        },
-                                    )?
-                                }
-                                MemoryKind::CONSTANT => {
-                                    match chunk.constants[address_index].as_integer() {
-                                        Some(integer) => {
-                                            function_builder.ins().iconst(I64, integer)
-                                        }
-                                        None => {
-                                            return Err(JitError::InvalidConstantType {
-                                                expected_type: OperandType::INTEGER,
-                                            });
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    return Err(JitError::UnsupportedMemoryKind {
-                                        memory_kind: address.memory,
-                                    });
-                                }
-                            };
+                            let integer_value = get_integer(
+                                *address,
+                                chunk,
+                                &ssa_registers,
+                                &mut function_builder,
+                            )?;
 
                             Ok(integer_value)
                         }?,
@@ -476,19 +344,15 @@ pub fn compile_direct_function(
                 } = Jump::from(*current_instruction);
 
                 if is_positive {
-                    compiler.emit_jump(
-                        ip,
-                        (offset + 1) as isize,
-                        &mut function_builder,
-                        &instruction_blocks,
-                    )?;
+                    let offset = offset + 1;
+
+                    function_builder
+                        .ins()
+                        .jump(instruction_blocks[ip + (offset as usize)], &[]);
                 } else {
-                    compiler.emit_jump(
-                        ip,
-                        -(offset as isize),
-                        &mut function_builder,
-                        &instruction_blocks,
-                    )?;
+                    function_builder
+                        .ins()
+                        .jump(instruction_blocks[ip - (offset as usize)], &[]);
                 }
             }
             Operation::RETURN => {
@@ -497,34 +361,15 @@ pub fn compile_direct_function(
                     return_value_address,
                     r#type,
                 } = Return::from(*current_instruction);
-                let return_value_index = return_value_address.index as usize;
 
                 if should_return_value {
                     let value_to_return = match r#type {
-                        OperandType::INTEGER => match return_value_address.memory {
-                            MemoryKind::REGISTER => ssa_registers
-                                .get(return_value_index)
-                                .copied()
-                                .ok_or(JitError::RegisterIndexOutOfBounds {
-                                    register_index: return_value_index,
-                                    total_register_count: function_arguments.len(),
-                                })?,
-                            MemoryKind::CONSTANT => {
-                                match chunk.constants[return_value_index].as_integer() {
-                                    Some(integer) => function_builder.ins().iconst(I64, integer),
-                                    None => {
-                                        return Err(JitError::InvalidConstantType {
-                                            expected_type: OperandType::INTEGER,
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(JitError::UnsupportedMemoryKind {
-                                    memory_kind: return_value_address.memory,
-                                });
-                            }
-                        },
+                        OperandType::INTEGER => get_integer(
+                            return_value_address,
+                            chunk,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?,
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: r#type,
@@ -553,7 +398,7 @@ pub fn compile_direct_function(
                 | Operation::JUMP
                 | Operation::RETURN
         ) {
-            compiler.emit_jump(ip, 1, &mut function_builder, &instruction_blocks)?;
+            function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
         }
     }
 
@@ -576,18 +421,28 @@ pub fn compile_direct_function(
                     .iter()
                     .map(|error| format!("\n{error}"))
                     .collect::<String>();
+                let cranelift_ir = compilation_context.func.display().to_string();
 
-                JitError::CraneliftModuleError { message }
+                JitError::CompilationError {
+                    message,
+                    cranelift_ir,
+                }
             } else {
-                JitError::CraneliftModuleError {
+                let cranelift_ir = compilation_context.func.display().to_string();
+
+                JitError::CompilationError {
                     message: error.to_string(),
+                    cranelift_ir,
                 }
             }
         })?;
 
     info!(
         "Finished compiling direct function {}",
-        chunk.name.as_ref().map_or("anonymous", |path| path.inner()),
+        chunk
+            .name
+            .as_ref()
+            .map_or("anonymous", |name| name.as_str())
     );
 
     compiler.module.clear_context(&mut compilation_context);

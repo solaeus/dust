@@ -1,225 +1,136 @@
-use crate::{ErrorMessage, MemoryKind, OperandType, Operation, Span, dust_error::AnnotatedError};
+use annotate_snippets::{Group, Level};
+use cranelift_module::ModuleError;
+
+use crate::{MemoryKind, OperandType, Operation, dust_error::AnnotatedError};
 
 pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum JitError {
-    ArgumentsIndexOutOfBounds {
-        arguments_index: usize,
-        total_argument_count: usize,
-    },
-    JumpToSelf {
-        ip: usize,
-    },
-    JumpTargetOutOfBounds {
-        target_instruction_pointer: isize,
-        total_instruction_count: usize,
-    },
-    BranchTargetOutOfBounds {
-        branch_target_instruction_pointer: usize,
-        total_instruction_count: usize,
-    },
-    InvalidConstantType {
-        expected_type: OperandType,
+    CompilationError {
+        message: String,
+        cranelift_ir: String,
     },
     UnsupportedOperandType {
         operand_type: OperandType,
     },
-    UnsupportedMemoryKind {
-        memory_kind: MemoryKind,
+    DropListRangeOutOfBounds {
+        drop_list_start: u16,
+        drop_list_end: u16,
+        total_safepoint_count: usize,
     },
     UnhandledOperation {
         operation: Operation,
     },
-    CraneliftModuleError {
-        message: String,
-    },
-    FunctionCompilationError {
-        message: String,
-        cranelift_ir: String,
+    UnsupportedMemoryKind {
+        memory_kind: MemoryKind,
     },
     FunctionIndexOutOfBounds {
         ip: usize,
         function_index: usize,
         total_function_count: usize,
     },
-    RegisterIndexOutOfBounds {
-        register_index: usize,
-        total_register_count: usize,
+    ArgumentsRangeOutOfBounds {
+        arguments_list_start: u16,
+        arguments_list_end: u16,
+        total_argument_count: usize,
     },
     ConstantIndexOutOfBounds {
-        constant_index: usize,
+        constant_index: u16,
         total_constant_count: usize,
     },
-    SafepointIndexOutOfBounds {
-        safepoint_index: usize,
-        total_safepoint_count: usize,
+    InvalidConstantType {
+        expected_type: OperandType,
+    },
+    RegisterIndexOutOfBounds {
+        register_index: u16,
+        total_register_count: usize,
+    },
+    CraneliftModuleError {
+        error: ModuleError,
     },
 }
 
 impl AnnotatedError for JitError {
-    fn annotated_error(&self) -> ErrorMessage {
-        let title = "JIT Compilation Error";
-
-        let (description, detail_snippets, help_snippet) = match self {
-            JitError::ArgumentsIndexOutOfBounds {
-                arguments_index,
-                total_argument_count,
-            } => (
-                "Arguments index out of bounds",
-                vec![(
-                    format!(
-                        "Arguments index {arguments_index} is out of bounds for total argument count {total_argument_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::JumpToSelf { ip } => (
-                "Jump to self detected",
-                vec![(
-                    format!("Jump to self detected at instruction pointer {ip}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::JumpTargetOutOfBounds {
-                target_instruction_pointer,
-                total_instruction_count,
-            } => (
-                "Jump target out of bounds",
-                vec![(
-                    format!(
-                        "Jump target {target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::BranchTargetOutOfBounds {
-                branch_target_instruction_pointer,
-                total_instruction_count,
-            } => (
-                "Branch target out of bounds",
-                vec![(
-                    format!(
-                        "Branch target {branch_target_instruction_pointer} is out of bounds for total instruction count {total_instruction_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::InvalidConstantType { expected_type } => (
-                "Invalid constant type",
-                vec![(
-                    format!("Constant expected type was {expected_type}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::UnsupportedOperandType { operand_type } => (
-                "Unsupported operand type",
-                vec![(
-                    format!("Unsupported operand type: {operand_type}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::UnsupportedMemoryKind { memory_kind } => (
-                "Unsupported memory kind",
-                vec![(
-                    format!("Unsupported memory kind: {memory_kind}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::UnhandledOperation { operation } => (
-                "Unhandled operation",
-                vec![(
-                    format!("Unhandled operation: {operation}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::CraneliftModuleError { message } => (
-                "Cranelift module error",
-                vec![(
-                    format!("Cranelift module error: {message}."),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::FunctionCompilationError {
-                message,
-                cranelift_ir,
-            } => (
-                "Function compilation error",
-                vec![(
-                    format!("Function compilation error: {message}\nCranelift IR:\n{cranelift_ir}"),
-                    Span::default(),
-                )],
-                None,
-            ),
+    fn annotated_error<'a>(&'a self, _source: &'a str) -> Group<'a> {
+        match self {
+            JitError::CompilationError { message, .. } => {
+                let title = format!("JIT compilation failed: {message}");
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnsupportedOperandType { operand_type } => {
+                let title = format!("Unsupported operand type for JIT: {:?}", operand_type);
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::DropListRangeOutOfBounds {
+                drop_list_start,
+                drop_list_end,
+                total_safepoint_count,
+            } => {
+                let title = format!(
+                    "Drop list range [{}, {}) is out of bounds (safepoints: {})",
+                    drop_list_start, drop_list_end, total_safepoint_count
+                );
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnhandledOperation { operation } => {
+                let title = format!("Unhandled operation in JIT: {:?}", operation);
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnsupportedMemoryKind { memory_kind } => {
+                let title = format!("Unsupported memory kind in JIT: {:?}", memory_kind);
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             JitError::FunctionIndexOutOfBounds {
                 ip,
                 function_index,
                 total_function_count,
-            } => (
-                "Function index out of bounds",
-                vec![(
-                    format!(
-                        "Function index {function_index} at instruction pointer {ip} is out of bounds for total function count {total_function_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::RegisterIndexOutOfBounds {
-                register_index,
-                total_register_count,
-            } => (
-                "Register index out of bounds",
-                vec![(
-                    format!(
-                        "Register index {register_index} is out of bounds for total register count {total_register_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
+            } => {
+                let title = format!(
+                    "Function index {} out of bounds at instruction pointer {} (total functions: {})",
+                    function_index, ip, total_function_count
+                );
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::ArgumentsRangeOutOfBounds {
+                arguments_list_start,
+                arguments_list_end,
+                total_argument_count,
+            } => {
+                let title = format!(
+                    "Arguments list range [{}, {}) is out of bounds (total arguments: {})",
+                    arguments_list_start, arguments_list_end, total_argument_count
+                );
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             JitError::ConstantIndexOutOfBounds {
                 constant_index,
                 total_constant_count,
-            } => (
-                "Constant index out of bounds",
-                vec![(
-                    format!(
-                        "Constant index {constant_index} is out of bounds for total constant count {total_constant_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-            JitError::SafepointIndexOutOfBounds {
-                safepoint_index,
-                total_safepoint_count,
-            } => (
-                "Safepoint index out of bounds",
-                vec![(
-                    format!(
-                        "Safepoint index {safepoint_index} is out of bounds for total safepoint count {total_safepoint_count}."
-                    ),
-                    Span::default(),
-                )],
-                None,
-            ),
-        };
-
-        ErrorMessage {
-            title,
-            description,
-            detail_snippets,
-            help_snippet,
+            } => {
+                let title = format!(
+                    "Constant index {} out of bounds (total constants: {})",
+                    constant_index, total_constant_count
+                );
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::InvalidConstantType { expected_type } => {
+                let title = format!("Invalid constant type; expected {:?}", expected_type);
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::RegisterIndexOutOfBounds {
+                register_index,
+                total_register_count,
+            } => {
+                let title = format!(
+                    "Register index {} out of bounds (total registers: {})",
+                    register_index, total_register_count
+                );
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::CraneliftModuleError { error } => {
+                let title = format!("Cranelift module error: {}", error);
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
         }
     }
 }

@@ -1,12 +1,12 @@
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile,
+    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
     tests::constant_cases,
 };
 
 #[test]
 fn boolean() {
     let source = constant_cases::BOOLEAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -26,7 +26,7 @@ fn boolean() {
 #[test]
 fn byte() {
     let source = constant_cases::BYTE;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -46,7 +46,7 @@ fn byte() {
 #[test]
 fn character() {
     let source = constant_cases::CHARACTER;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_character('q');
@@ -70,7 +70,7 @@ fn character() {
 #[test]
 fn float() {
     let source = constant_cases::FLOAT;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_float(42.0);
@@ -94,7 +94,7 @@ fn float() {
 #[test]
 fn integer() {
     let source = constant_cases::INTEGER;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -118,7 +118,7 @@ fn integer() {
 #[test]
 fn string() {
     let source = constant_cases::STRING;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_string("foobar");
@@ -143,7 +143,7 @@ fn string() {
 #[test]
 fn constant_byte_addition() {
     let source = constant_cases::CONSTANT_BYTE_ADDITION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -163,7 +163,7 @@ fn constant_byte_addition() {
 #[test]
 fn constant_float_addition() {
     let source = constant_cases::CONSTANT_FLOAT_ADDITION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_float(42.0);
@@ -187,7 +187,7 @@ fn constant_float_addition() {
 #[test]
 fn constant_integer_addition() {
     let source = constant_cases::CONSTANT_INTEGER_ADDITION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -211,7 +211,7 @@ fn constant_integer_addition() {
 #[test]
 fn constant_byte_subtraction() {
     let source = constant_cases::CONSTANT_BYTE_SUBTRACTION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -231,7 +231,7 @@ fn constant_byte_subtraction() {
 #[test]
 fn constant_float_subtraction() {
     let source = constant_cases::CONSTANT_FLOAT_SUBTRACTION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_float(42.0);
@@ -255,7 +255,7 @@ fn constant_float_subtraction() {
 #[test]
 fn constant_integer_subtraction() {
     let source = constant_cases::CONSTANT_INTEGER_SUBTRACTION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -279,7 +279,7 @@ fn constant_integer_subtraction() {
 #[test]
 fn constant_byte_multiplication() {
     let source = constant_cases::CONSTANT_BYTE_MULTIPLICATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -299,7 +299,7 @@ fn constant_byte_multiplication() {
 #[test]
 fn constant_float_multiplication() {
     let source = constant_cases::CONSTANT_FLOAT_MULTIPLICATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_float(42.0);
@@ -323,7 +323,7 @@ fn constant_float_multiplication() {
 #[test]
 fn constant_integer_multiplication() {
     let source = constant_cases::CONSTANT_INTEGER_MULTIPLICATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -347,7 +347,7 @@ fn constant_integer_multiplication() {
 #[test]
 fn constant_byte_division() {
     let source = constant_cases::CONSTANT_BYTE_DIVISION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -367,7 +367,7 @@ fn constant_byte_division() {
 #[test]
 fn constant_float_division() {
     let source = constant_cases::CONSTANT_FLOAT_DIVISION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_float(42.0);
@@ -391,7 +391,7 @@ fn constant_float_division() {
 #[test]
 fn constant_integer_division() {
     let source = constant_cases::CONSTANT_INTEGER_DIVISION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -415,7 +415,7 @@ fn constant_integer_division() {
 #[test]
 fn constant_string_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CONCATENATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_string("foobar");
@@ -440,7 +440,7 @@ fn constant_string_concatenation() {
 #[test]
 fn constant_character_concatentation() {
     let source = constant_cases::CONSTANT_CHARACTER_CONCATENATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_string("qq");
@@ -465,7 +465,7 @@ fn constant_character_concatentation() {
 #[test]
 fn constant_string_character_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CHARACTER_CONCATENATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_string("fooq");
@@ -490,7 +490,7 @@ fn constant_string_character_concatenation() {
 #[test]
 fn constant_character_string_concatenation() {
     let source = constant_cases::CONSTANT_CHARACTER_STRING_CONCATENATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.push_str_to_string_pool("foo");
@@ -516,7 +516,7 @@ fn constant_character_string_concatenation() {
 #[test]
 fn constant_boolean_and() {
     let source = constant_cases::CONSTANT_BOOLEAN_AND;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -536,7 +536,7 @@ fn constant_boolean_and() {
 #[test]
 fn constant_boolean_or() {
     let source = constant_cases::CONSTANT_BOOLEAN_OR;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -556,7 +556,7 @@ fn constant_boolean_or() {
 #[test]
 fn constant_byte_less_than_or_equal() {
     let source = constant_cases::CONSTANT_BYTE_LESS_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -576,7 +576,7 @@ fn constant_byte_less_than_or_equal() {
 #[test]
 fn constant_byte_equal() {
     let source = constant_cases::CONSTANT_BYTE_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -596,7 +596,7 @@ fn constant_byte_equal() {
 #[test]
 fn constant_byte_not_equal() {
     let source = constant_cases::CONSTANT_BYTE_NOT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -616,7 +616,7 @@ fn constant_byte_not_equal() {
 #[test]
 fn constant_character_greater_than() {
     let source = constant_cases::CONSTANT_CHARACTER_GREATER_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -636,7 +636,7 @@ fn constant_character_greater_than() {
 #[test]
 fn constant_character_less_than() {
     let source = constant_cases::CONSTANT_CHARACTER_LESS_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -656,7 +656,7 @@ fn constant_character_less_than() {
 #[test]
 fn constant_character_greater_than_or_equal() {
     let source = constant_cases::CONSTANT_CHARACTER_GREATER_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -676,7 +676,7 @@ fn constant_character_greater_than_or_equal() {
 #[test]
 fn constant_character_less_than_or_equal() {
     let source = constant_cases::CONSTANT_CHARACTER_LESS_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -696,7 +696,7 @@ fn constant_character_less_than_or_equal() {
 #[test]
 fn constant_character_equal() {
     let source = constant_cases::CONSTANT_CHARACTER_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -716,7 +716,7 @@ fn constant_character_equal() {
 #[test]
 fn constant_character_not_equal() {
     let source = constant_cases::CONSTANT_CHARACTER_NOT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -736,7 +736,7 @@ fn constant_character_not_equal() {
 #[test]
 fn constant_float_greater_than() {
     let source = constant_cases::CONSTANT_FLOAT_GREATER_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -756,7 +756,7 @@ fn constant_float_greater_than() {
 #[test]
 fn constant_float_less_than() {
     let source = constant_cases::CONSTANT_FLOAT_LESS_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -776,7 +776,7 @@ fn constant_float_less_than() {
 #[test]
 fn constant_float_greater_than_or_equal() {
     let source = constant_cases::CONSTANT_FLOAT_GREATER_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -796,7 +796,7 @@ fn constant_float_greater_than_or_equal() {
 #[test]
 fn constant_float_less_than_or_equal() {
     let source = constant_cases::CONSTANT_FLOAT_LESS_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -816,7 +816,7 @@ fn constant_float_less_than_or_equal() {
 #[test]
 fn constant_float_equal() {
     let source = constant_cases::CONSTANT_FLOAT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -836,7 +836,7 @@ fn constant_float_equal() {
 #[test]
 fn constant_float_not_equal() {
     let source = constant_cases::CONSTANT_FLOAT_NOT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -856,7 +856,7 @@ fn constant_float_not_equal() {
 #[test]
 fn constant_integer_greater_than() {
     let source = constant_cases::CONSTANT_INTEGER_GREATER_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -876,7 +876,7 @@ fn constant_integer_greater_than() {
 #[test]
 fn constant_integer_less_than() {
     let source = constant_cases::CONSTANT_INTEGER_LESS_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -896,7 +896,7 @@ fn constant_integer_less_than() {
 #[test]
 fn constant_integer_greater_than_or_equal() {
     let source = constant_cases::CONSTANT_INTEGER_GREATER_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -916,7 +916,7 @@ fn constant_integer_greater_than_or_equal() {
 #[test]
 fn constant_integer_less_than_or_equal() {
     let source = constant_cases::CONSTANT_INTEGER_LESS_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -936,7 +936,7 @@ fn constant_integer_less_than_or_equal() {
 #[test]
 fn constant_integer_equal() {
     let source = constant_cases::CONSTANT_INTEGER_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -956,7 +956,7 @@ fn constant_integer_equal() {
 #[test]
 fn constant_integer_not_equal() {
     let source = constant_cases::CONSTANT_INTEGER_NOT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -976,7 +976,7 @@ fn constant_integer_not_equal() {
 #[test]
 fn constant_string_greater_than() {
     let source = constant_cases::CONSTANT_STRING_GREATER_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -996,7 +996,7 @@ fn constant_string_greater_than() {
 #[test]
 fn constant_string_less_than() {
     let source = constant_cases::CONSTANT_STRING_LESS_THAN;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -1016,7 +1016,7 @@ fn constant_string_less_than() {
 #[test]
 fn constant_string_greater_than_or_equal() {
     let source = constant_cases::CONSTANT_STRING_GREATER_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -1036,7 +1036,7 @@ fn constant_string_greater_than_or_equal() {
 #[test]
 fn constant_string_less_than_or_equal() {
     let source = constant_cases::CONSTANT_STRING_LESS_THAN_OR_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -1056,7 +1056,7 @@ fn constant_string_less_than_or_equal() {
 #[test]
 fn constant_string_equal() {
     let source = constant_cases::CONSTANT_STRING_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
@@ -1076,7 +1076,7 @@ fn constant_string_equal() {
 #[test]
 fn constant_string_not_equal() {
     let source = constant_cases::CONSTANT_STRING_NOT_EQUAL;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,

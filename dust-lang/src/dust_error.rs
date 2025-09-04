@@ -4,7 +4,11 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Group, Renderer};
 
-use crate::{CompileError, parser::ParseError};
+use crate::{
+    CompileError,
+    jit_vm::{JIT_ERROR_TEXT, JitError},
+    parser::ParseError,
+};
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
@@ -28,12 +32,12 @@ impl<'src> DustError<'src> {
         }
     }
 
-    // pub fn jit(error: JitError) -> Self {
-    //     DustError {
-    //         error: DustErrorKind::Jit(error),
-    //         source: JIT_ERROR_TEXT,
-    //     }
-    // }
+    pub fn jit(error: JitError) -> Self {
+        DustError {
+            error: DustErrorKind::Jit(error),
+            source: JIT_ERROR_TEXT,
+        }
+    }
 
     pub fn report(&self) -> String {
         match &self.error {
@@ -56,6 +60,12 @@ impl<'src> DustError<'src> {
 
                 renderer.render(&report)
             }
+            DustErrorKind::Jit(jit_error) => {
+                let report = [jit_error.annotated_error(self.source)];
+                let renderer = Renderer::styled();
+
+                renderer.render(&report)
+            }
         }
     }
 }
@@ -64,7 +74,7 @@ impl<'src> DustError<'src> {
 pub enum DustErrorKind {
     Parse(Vec<ParseError>),
     Compile(CompileError),
-    // Jit(JitError),
+    Jit(JitError),
 }
 
 impl Display for DustError<'_> {

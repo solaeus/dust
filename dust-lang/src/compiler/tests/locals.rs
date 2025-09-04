@@ -1,12 +1,12 @@
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile,
-    tests::local_cases,
+    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type,
+    compile_main, tests::local_cases,
 };
 
 #[test]
 fn local_declaration() {
     let source = local_cases::LOCAL_DECLARATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -35,7 +35,7 @@ fn local_declaration() {
 #[test]
 fn local_mut_declaration() {
     let source = local_cases::LOCAL_MUT_DECLARATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);
@@ -64,7 +64,7 @@ fn local_mut_declaration() {
 #[test]
 fn local_evalutation() {
     let source = local_cases::LOCAL_EVALUATION;
-    let chunk = compile(source).unwrap();
+    let chunk = compile_main(source).unwrap();
     let mut constants = ConstantTable::new();
 
     constants.add_integer(42);

@@ -2,10 +2,7 @@ use std::{pin::Pin, time::Instant};
 
 use tracing::{debug, trace};
 
-use crate::{
-    Object, Register,
-    jit_vm::{RegisterTag, object::ObjectValue},
-};
+use crate::jit_vm::{Object, Register, RegisterTag, object::ObjectValue};
 
 #[repr(C)]
 pub struct ObjectPool {

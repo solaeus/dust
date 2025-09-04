@@ -1,6 +1,6 @@
 use cranelift::prelude::{Type as CraneliftType, types::I8};
 
-use crate::Object;
+use crate::jit_vm::Object;
 
 #[derive(Clone, Copy)]
 #[repr(C)]

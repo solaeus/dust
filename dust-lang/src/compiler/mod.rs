@@ -5,20 +5,21 @@ mod tests;
 
 pub use error::CompileError;
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
 use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Operation, Resolver,
+    dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
-pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
+pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
     let parser = Parser::new();
     let ParseResult {
         syntax_tree,
@@ -30,9 +31,9 @@ pub fn compile(source: &'_ str) -> Result<Chunk, DustError<'_>> {
         return Err(DustError::parse(errors, source));
     }
 
-    let compiler = ChunkCompiler::new(&syntax_tree, resolver);
+    let chunk_compiler = ChunkCompiler::new(&syntax_tree, resolver);
 
-    compiler
+    chunk_compiler
         .compile()
         .map_err(|error| DustError::compile(error, source))
 }
@@ -48,7 +49,38 @@ impl Compiler {
         }
     }
 
-    // pub fn compile(&self, sources: &[(&str, &str)]) -> Result<Program, DustError<'_>> {}
+    pub fn compile<'src>(&self, sources: &[(&str, &'src str)]) -> Result<Program, DustError<'src>> {
+        let mut prototypes = Rc::new(RefCell::new(Vec::new()));
+
+        let mut parser = Parser::new();
+        let ParseResult {
+            syntax_tree,
+            resolver,
+            errors,
+        } = parser.parse(sources[0].1, ScopeId::MAIN);
+
+        if !errors.is_empty() {
+            return Err(DustError::parse(errors, sources[0].1));
+        }
+
+        prototypes.borrow_mut().push(Chunk::default());
+
+        let chunk_compiler = ChunkCompiler::new(&syntax_tree, resolver);
+        let main_chunk = chunk_compiler
+            .compile()
+            .map_err(|error| DustError::compile(error, sources[0].1))?;
+
+        prototypes.borrow_mut()[0] = main_chunk;
+
+        let prototypes = Rc::into_inner(prototypes)
+            .expect("Unneccessary borrow of 'prototypes'")
+            .into_inner();
+
+        Ok(Program {
+            prototypes,
+            cell_count: 0,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -789,10 +821,14 @@ impl<'a> ChunkCompiler<'a> {
                 self.handle_operand(*instruction),
                 instruction.operand_type(),
             ),
-            Emission::Instructions(instructions, _) => (
-                self.handle_operand(instructions[0]),
-                instructions[0].operand_type(),
-            ),
+            Emission::Instructions(instructions, _) => {
+                self.instructions.extend(instructions);
+
+                (
+                    instructions[0].destination(),
+                    instructions[0].operand_type(),
+                )
+            }
             Emission::Constant(constant) => {
                 let r#type = constant.operand_type();
                 let address = self.get_constant_address(*constant);
@@ -805,10 +841,14 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Instruction(instruction, _) => {
                 (self.handle_operand(instruction), instruction.operand_type())
             }
-            Emission::Instructions(instructions, _) => (
-                self.handle_operand(instructions[0]),
-                instructions[0].operand_type(),
-            ),
+            Emission::Instructions(mut instructions, _) => {
+                let destination = instructions[0].destination();
+                let operand_type = instructions[0].operand_type();
+
+                self.instructions.append(&mut instructions);
+
+                (destination, operand_type)
+            }
             Emission::Constant(constant) => {
                 let r#type = constant.operand_type();
                 let address = self.get_constant_address(constant);
@@ -849,7 +889,7 @@ impl<'a> ChunkCompiler<'a> {
             destination,
             Address::encoded(true as u16),
             OperandType::BOOLEAN,
-            false,
+            true,
         );
         let load_false_instruction = Instruction::load(
             destination,
@@ -902,69 +942,53 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined));
         }
 
-        let destination = Address::register(self.get_next_register());
-        let left_instruction = match &left_emission {
+        let left_address = match &left_emission {
             Emission::Instruction(instruction, _) => {
-                let mut instruction = *instruction;
+                self.instructions.push(*instruction);
 
-                instruction.set_destination(destination);
-
-                instruction
+                instruction.destination()
             }
             Emission::Instructions(instructions, _) => {
-                let mut instruction = instructions[0];
+                self.instructions.extend(instructions.iter());
 
-                instruction.set_destination(destination);
-
-                instruction
+                instructions.last().unwrap().destination()
             }
             Emission::Constant(constant) => {
                 let r#type = constant.operand_type();
                 let address = self.get_constant_address(*constant);
+                let destination = Address::register(self.get_next_register());
+                let load_instruction = Instruction::load(destination, address, r#type, false);
 
-                Instruction::load(destination, address, r#type, false)
+                self.handle_operand(load_instruction)
             }
         };
-        let right_instruction = match right_emission {
-            Emission::Instruction(instruction, _) => {
-                let mut instruction = instruction;
 
-                instruction.set_destination(destination);
-
-                instruction
-            }
-            Emission::Instructions(instructions, _) => {
-                let mut instruction = instructions[0];
-
-                instruction.set_destination(destination);
-
-                instruction
-            }
-            Emission::Constant(constant) => {
-                let r#type = constant.operand_type();
-                let address = self.get_constant_address(constant);
-
-                Instruction::load(destination, address, r#type, false)
-            }
-        };
         let comparator = match node.kind {
             SyntaxKind::AndExpression => true,
             SyntaxKind::OrExpression => false,
             _ => unreachable!("Expected logical expression, found {}", node.kind),
         };
-        let left_address = left_instruction.destination();
         let test_instruction = Instruction::test(left_address, comparator);
         let jump_instruction = Instruction::jump(1, true);
 
-        Ok(Emission::Instructions(
-            vec![
-                left_instruction,
-                test_instruction,
-                jump_instruction,
-                right_instruction,
-            ],
-            TypeId::BOOLEAN,
-        ))
+        self.instructions.push(test_instruction);
+        self.instructions.push(jump_instruction);
+
+        let emission = match right_emission {
+            Emission::Instruction(instruction, _) => {
+                let mut instruction = instruction;
+
+                instruction.set_destination(left_address);
+
+                Emission::Instruction(instruction, TypeId(right.payload))
+            }
+            Emission::Instructions(instructions, r#type) => {
+                Emission::Instructions(instructions, r#type)
+            }
+            Emission::Constant(constant) => Emission::Constant(constant),
+        };
+
+        Ok(emission)
     }
 
     fn compile_grouped_expression(
