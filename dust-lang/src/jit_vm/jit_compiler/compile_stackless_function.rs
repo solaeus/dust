@@ -259,7 +259,7 @@ pub fn compile_stackless_function(
 
         function_builder.switch_to_block(instruction_block);
 
-        info!("Compiling {operation} at IP {ip}");
+        info!("Compiling {operation} at IP {ip} in stackless function");
 
         #[cfg(debug_assertions)]
         {

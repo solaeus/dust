@@ -60,7 +60,7 @@ impl<'a> JitCompiler<'a> {
             module,
             program,
             main_function_id: FuncId::from_u32(0),
-            function_ids: Vec::with_capacity(program.prototypes.len()),
+            function_ids: Vec::with_capacity(program.prototypes.len() - 1),
         }
     }
 
@@ -85,7 +85,7 @@ impl<'a> JitCompiler<'a> {
                 error: Box::new(error),
             })?;
 
-        for (index, chunk) in self.program.prototypes.iter().enumerate() {
+        for (index, chunk) in self.program.prototypes.iter().skip(1).enumerate() {
             let name = chunk
                 .name
                 .as_ref()
@@ -134,7 +134,7 @@ impl<'a> JitCompiler<'a> {
             reference
         };
         let function_references = {
-            let mut references = Vec::with_capacity(self.program.prototypes.len());
+            let mut references = Vec::with_capacity(self.program.prototypes.len() - 1);
 
             for (index, FunctionIds { direct, stackless }) in
                 self.function_ids.clone().into_iter().enumerate()

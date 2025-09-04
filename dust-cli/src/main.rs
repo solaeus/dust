@@ -77,9 +77,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Mode {
     #[command(alias = "p")]
+    /// Parse the source code and print the syntax tree
     Parse(ParseOptions),
 
-    /// Compile and run the program (default)
+    /// Parse, compile and run the program (default)
     #[command(alias = "r")]
     Run(RunOptions),
 
@@ -268,7 +269,7 @@ fn main() {
     if let Mode::Compile(CompileOptions {
         time,
         no_output,
-        no_std,
+        no_std: _,
         name,
         input: InputOptions { eval, stdin, file },
         style,
@@ -287,7 +288,7 @@ fn main() {
 
                 disassembler
                     .source(&source)
-                    .style(true)
+                    .style(style)
                     .disassemble()
                     .unwrap();
             }

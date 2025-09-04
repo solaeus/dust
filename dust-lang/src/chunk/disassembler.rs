@@ -36,11 +36,11 @@ const ARGUMENT_LIST_BORDERS: [&str; 3] = [
     "╰────────────────────────────────────────────────────╯",
 ];
 
-const DROP_LIST_COLUMNS: [(&str, usize); 2] = [("i", 5), ("REGISTERS", 46)];
+const DROP_LIST_COLUMNS: (&str, usize) = ("REGISTERS", 52);
 const DROP_LIST_BORDERS: [&str; 3] = [
-    "╭─────┬──────────────────────────────────────────────╮",
-    "├─────┼──────────────────────────────────────────────┤",
-    "╰─────┴──────────────────────────────────────────────╯",
+    "╭────────────────────────────────────────────────────╮",
+    "├────────────────────────────────────────────────────┤",
+    "╰────────────────────────────────────────────────────╯",
 ];
 
 const TOP_BORDER: [char; 3] = ['╭', '─', '╮'];
@@ -140,9 +140,9 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
             self.write_call_arguments_section(self.chunk)?;
         }
 
-        // if !chunk.drop_lists.is_empty() {
-        //     self.write_drop_list_section(chunk)?;
-        // }
+        if !self.chunk.drop_lists.is_empty() {
+            self.write_drop_list_section(self.chunk)?;
+        }
 
         self.write_page_border(BOTTOM_BORDER)
     }
@@ -341,32 +341,33 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    // fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
-    //     let mut column_name_line = String::new();
+    fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+        let mut column_name_line = String::new();
 
-    //     for (column_name, width) in DROP_LIST_COLUMNS {
-    //         column_name_line.push_str(&format!("│{column_name:^width$}"));
-    //     }
+        column_name_line.push_str(&format!(
+            "│{column_name:^width$}",
+            column_name = DROP_LIST_COLUMNS.0,
+            width = DROP_LIST_COLUMNS.1
+        ));
 
-    //     column_name_line.push('│');
-    //     self.write_center_border_bold("Drop Lists")?;
-    //     self.write_center_border(DROP_LIST_BORDERS[0])?;
-    //     self.write_center_border_bold(&column_name_line)?;
-    //     self.write_center_border(DROP_LIST_BORDERS[1])?;
+        column_name_line.push('│');
+        self.write_center_border_bold("Drop Lists")?;
+        self.write_center_border(DROP_LIST_BORDERS[0])?;
+        self.write_center_border_bold(&column_name_line)?;
+        self.write_center_border(DROP_LIST_BORDERS[1])?;
 
-    //     for (index, drop_list) in chunk.drop_lists.iter().enumerate() {
-    //         let registers_display = drop_list
-    //             .iter()
-    //             .map(|index| format!("reg_{index}"))
-    //             .collect::<Vec<_>>()
-    //             .join(", ");
-    //         let row = format!("│{index:^5}│{registers_display:^46}│");
+        let registers_display = chunk
+            .drop_lists
+            .iter()
+            .map(|index| format!("reg_{index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let row = format!("│{registers_display:^52}│");
 
-    //         self.write_center_border(&row)?;
-    //     }
+        self.write_center_border(&row)?;
 
-    //     self.write_center_border(DROP_LIST_BORDERS[2])?;
+        self.write_center_border(DROP_LIST_BORDERS[2])?;
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }
