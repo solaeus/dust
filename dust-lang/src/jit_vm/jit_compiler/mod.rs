@@ -85,11 +85,11 @@ impl<'a> JitCompiler<'a> {
                 error: Box::new(error),
             })?;
 
-        for (index, chunk) in self.program.prototypes.iter().skip(1).enumerate() {
+        for (index, chunk) in self.program.prototypes.iter().enumerate().skip(1) {
             let name = chunk
                 .name
                 .as_ref()
-                .map_or_else(|| format!("proto_{index}"), |path| path.to_string());
+                .map_or_else(|| format!("proto_{index}"), |name| name.to_string());
             let direct_name = format!("{name}_direct");
             let stackless_name = format!("{name}_stackless");
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());

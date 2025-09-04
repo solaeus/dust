@@ -1,5 +1,6 @@
 use std::thread::{Builder as ThreadBuilder, JoinHandle};
 
+use bumpalo::Bump;
 use cranelift::prelude::{
     Type as CraneliftType,
     types::{I32, I64},
@@ -70,8 +71,9 @@ fn run(
     };
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
     let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
+    let bump_arena = Bump::new();
 
-    let mut object_pool = ObjectPool::new(minimum_object_sweep, minimum_object_heap);
+    let mut object_pool = ObjectPool::new(&bump_arena, minimum_object_sweep, minimum_object_heap);
 
     let mut return_register = Register { empty: () };
     let mut return_type = OperandType::NONE;
@@ -172,7 +174,7 @@ impl ThreadResult {
 }
 
 #[repr(C)]
-pub struct ThreadContext {
+pub struct ThreadContext<'a> {
     pub call_stack_vec_pointer: *mut Vec<u8>,
     pub call_stack_buffer_pointer: *mut u8,
     pub call_stack_allocated_length_pointer: *mut usize,
@@ -186,7 +188,7 @@ pub struct ThreadContext {
     pub register_tags_vec_pointer: *mut Vec<RegisterTag>,
     pub register_tags_buffer_pointer: *mut RegisterTag,
 
-    pub object_pool_pointer: *mut ObjectPool,
+    pub object_pool_pointer: *mut ObjectPool<'a>,
 
     pub return_register_pointer: *mut Register,
     pub return_type_pointer: *mut OperandType,

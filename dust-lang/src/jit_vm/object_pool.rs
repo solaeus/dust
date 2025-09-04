@@ -1,12 +1,14 @@
 use std::{pin::Pin, time::Instant};
 
+use bumpalo::{Bump, boxed::Box as BumpBox, collections::Vec as BumpVec};
 use tracing::{debug, trace};
 
 use crate::jit_vm::{Object, Register, RegisterTag, object::ObjectValue};
 
 #[repr(C)]
-pub struct ObjectPool {
-    objects: Vec<Pin<Box<Object>>>,
+pub struct ObjectPool<'a> {
+    objects: BumpVec<'a, Pin<BumpBox<'a, Object>>>,
+    arena: &'a Bump,
 
     allocated: usize,
     next_sweep_threshold: usize,
@@ -24,10 +26,11 @@ pub struct ObjectPool {
     total_collections: usize,
 }
 
-impl ObjectPool {
-    pub fn new(minimum_sweep_threshold: usize, minimum_heap_size: usize) -> Self {
+impl<'a> ObjectPool<'a> {
+    pub fn new(arena: &'a Bump, minimum_sweep_threshold: usize, minimum_heap_size: usize) -> Self {
         Self {
-            objects: Vec::new(),
+            objects: BumpVec::new_in(arena),
+            arena,
             allocated: 0,
             next_sweep_threshold: minimum_heap_size,
             minimum_sweep_threshold,
@@ -79,7 +82,7 @@ impl ObjectPool {
 
         trace!("Allocating object with {size} bytes: {object}");
 
-        let mut pinned = Box::pin(object);
+        let mut pinned = BumpBox::pin_in(object, self.arena);
         let pointer = &mut *pinned as *mut Object;
 
         self.objects.push(pinned);
