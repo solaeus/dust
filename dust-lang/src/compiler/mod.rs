@@ -168,69 +168,83 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         let combined = match (left, right) {
-            (Constant::Boolean(left), Constant::Boolean(right)) => {
-                let combined = match operation {
-                    SyntaxKind::AndExpression => left && right,
-                    SyntaxKind::OrExpression => left || right,
-                    _ => todo!(),
-                };
-
-                Constant::Boolean(combined)
-            }
-            (Constant::Byte(left), Constant::Byte(right)) => {
-                let combined = match operation {
-                    SyntaxKind::AdditionExpression => left.saturating_add(right),
-                    SyntaxKind::SubtractionExpression => left.saturating_sub(right),
-                    SyntaxKind::MultiplicationExpression => left.saturating_mul(right),
-                    SyntaxKind::DivisionExpression => left.saturating_div(right),
-                    SyntaxKind::ModuloExpression => left % right,
-                    _ => todo!(),
-                };
-
-                Constant::Byte(combined)
-            }
-            (Constant::Float(left), Constant::Float(right)) => {
-                let combined = match operation {
-                    SyntaxKind::AdditionExpression => left + right,
-                    SyntaxKind::SubtractionExpression => left - right,
-                    SyntaxKind::MultiplicationExpression => left * right,
-                    SyntaxKind::DivisionExpression => left / right,
-                    SyntaxKind::ModuloExpression => left % right,
-                    _ => todo!(),
-                };
-
-                Constant::Float(combined)
-            }
-            (Constant::Integer(left), Constant::Integer(right)) => {
-                let combined = match operation {
-                    SyntaxKind::AdditionExpression => left.saturating_add(right),
-                    SyntaxKind::SubtractionExpression => left.saturating_sub(right),
-                    SyntaxKind::MultiplicationExpression => left.saturating_mul(right),
-                    SyntaxKind::DivisionExpression => left.saturating_div(right),
-                    SyntaxKind::ModuloExpression => left % right,
-                    _ => todo!(),
-                };
-
-                Constant::Integer(combined)
-            }
-            (Constant::Character(left), Constant::Character(right)) => {
-                let mut string = String::with_capacity(2);
-
-                string.push(left);
-                string.push(right);
-
-                let combined = match operation {
-                    SyntaxKind::AdditionExpression => {
-                        self.resolver.constants.push_str_to_string_pool(&string)
-                    }
-                    _ => todo!("Error"),
-                };
-
-                Constant::String {
-                    pool_start: combined.0,
-                    pool_end: combined.1,
+            (Constant::Boolean(left), Constant::Boolean(right)) => match operation {
+                SyntaxKind::AndExpression => Constant::Boolean(left && right),
+                SyntaxKind::OrExpression => Constant::Boolean(left || right),
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left && right),
+                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                SyntaxKind::LessThanExpression => Constant::Boolean(left || right),
+                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                _ => todo!(),
+            },
+            (Constant::Byte(left), Constant::Byte(right)) => match operation {
+                SyntaxKind::AdditionExpression => Constant::Byte(left.saturating_add(right)),
+                SyntaxKind::SubtractionExpression => Constant::Byte(left.saturating_sub(right)),
+                SyntaxKind::MultiplicationExpression => Constant::Byte(left.saturating_mul(right)),
+                SyntaxKind::DivisionExpression => Constant::Byte(left.saturating_div(right)),
+                SyntaxKind::ModuloExpression => Constant::Byte(left % right),
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                _ => todo!(),
+            },
+            (Constant::Float(left), Constant::Float(right)) => match operation {
+                SyntaxKind::AdditionExpression => Constant::Float(left + right),
+                SyntaxKind::SubtractionExpression => Constant::Float(left - right),
+                SyntaxKind::MultiplicationExpression => Constant::Float(left * right),
+                SyntaxKind::DivisionExpression => Constant::Float(left / right),
+                SyntaxKind::ModuloExpression => Constant::Float(left % right),
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                _ => todo!(),
+            },
+            (Constant::Integer(left), Constant::Integer(right)) => match operation {
+                SyntaxKind::AdditionExpression => Constant::Integer(left.saturating_add(right)),
+                SyntaxKind::SubtractionExpression => Constant::Integer(left.saturating_sub(right)),
+                SyntaxKind::MultiplicationExpression => {
+                    Constant::Integer(left.saturating_mul(right))
                 }
-            }
+                SyntaxKind::DivisionExpression => Constant::Integer(left.saturating_div(right)),
+                SyntaxKind::ModuloExpression => Constant::Integer(left % right),
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                _ => todo!(),
+            },
+            (Constant::Character(left), Constant::Character(right)) => match operation {
+                SyntaxKind::AdditionExpression => {
+                    let mut string = String::with_capacity(2);
+
+                    string.push(left);
+                    string.push(right);
+
+                    let combined = self.resolver.constants.push_str_to_string_pool(&string);
+
+                    Constant::String {
+                        pool_start: combined.0,
+                        pool_end: combined.1,
+                    }
+                }
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                _ => todo!("Error"),
+            },
             (
                 Constant::String {
                     pool_start: left_pool_start,
@@ -241,17 +255,6 @@ impl<'a> ChunkCompiler<'a> {
                     pool_end: right_pool_end,
                 },
             ) => {
-                if operation != SyntaxKind::AdditionExpression {
-                    todo!("Error");
-                }
-
-                if left_pool_end == right_pool_start {
-                    return Ok(Constant::String {
-                        pool_start: left_pool_start,
-                        pool_end: right_pool_end,
-                    });
-                }
-
                 let left = self
                     .resolver
                     .constants
@@ -260,16 +263,35 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .constants
                     .get_string_pool(right_pool_start as usize..right_pool_end as usize);
-                let mut string = String::with_capacity(left.len() + right.len());
 
-                string.push_str(left);
-                string.push_str(right);
+                match operation {
+                    SyntaxKind::AdditionExpression => {
+                        if left_pool_end == right_pool_start {
+                            return Ok(Constant::String {
+                                pool_start: left_pool_start,
+                                pool_end: right_pool_end,
+                            });
+                        }
 
-                let combined = self.resolver.constants.push_str_to_string_pool(&string);
+                        let mut string = String::with_capacity(left.len() + right.len());
 
-                Constant::String {
-                    pool_start: combined.0,
-                    pool_end: combined.1,
+                        string.push_str(left);
+                        string.push_str(right);
+
+                        let combined = self.resolver.constants.push_str_to_string_pool(&string);
+
+                        Constant::String {
+                            pool_start: combined.0,
+                            pool_end: combined.1,
+                        }
+                    }
+                    SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
+                    SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
+                    SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
+                    SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
+                    SyntaxKind::EqualExpression => Constant::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                    _ => todo!("Error"),
                 }
             }
             (
@@ -596,7 +618,13 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
-            | SyntaxKind::ModuloExpression => self.compile_binary_expression(node_id, node),
+            | SyntaxKind::ModuloExpression => self.compile_math_expression(node_id, node),
+            SyntaxKind::GreaterThanExpression
+            | SyntaxKind::GreaterThanOrEqualExpression
+            | SyntaxKind::LessThanExpression
+            | SyntaxKind::LessThanOrEqualExpression
+            | SyntaxKind::EqualExpression
+            | SyntaxKind::NotEqualExpression => self.compile_comparison_expression(node_id, node),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.compile_logical_expression(node_id, node)
             }
@@ -658,12 +686,12 @@ impl<'a> ChunkCompiler<'a> {
         }))
     }
 
-    fn compile_binary_expression(
+    fn compile_math_expression(
         &mut self,
         _node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
-        info!("Compiling binary expression");
+        info!("Compiling math expression");
 
         let left_index = SyntaxId(node.children.0);
         let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
@@ -694,47 +722,151 @@ impl<'a> ChunkCompiler<'a> {
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
 
-        let (combined_type, combined_operand_type) =
-            match (TypeId(left.payload), TypeId(right.payload)) {
-                (TypeId::CHARACTER, TypeId::CHARACTER) => (TypeId::STRING, OperandType::STRING),
-                (left_type, _) => (left_type, left_type.as_operand_type()),
-            };
+        let operand_type = self
+            .resolver
+            .resolve_type(TypeId(node.payload))
+            .ok_or(CompileError::MissingType {
+                type_id: TypeId(node.payload),
+            })?
+            .as_operand_type();
         let destination = Address::register(self.get_next_register());
         let instruction = match node.kind {
-            SyntaxKind::AdditionExpression => Instruction::add(
-                destination,
-                left_address,
-                right_address,
-                combined_operand_type,
-            ),
-            SyntaxKind::SubtractionExpression => Instruction::subtract(
-                destination,
-                left_address,
-                right_address,
-                combined_operand_type,
-            ),
-            SyntaxKind::MultiplicationExpression => Instruction::multiply(
-                destination,
-                left_address,
-                right_address,
-                combined_operand_type,
-            ),
-            SyntaxKind::DivisionExpression => Instruction::divide(
-                destination,
-                left_address,
-                right_address,
-                combined_operand_type,
-            ),
-            SyntaxKind::ModuloExpression => Instruction::modulo(
-                destination,
-                left_address,
-                right_address,
-                combined_operand_type,
-            ),
+            SyntaxKind::AdditionExpression => {
+                Instruction::add(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::SubtractionExpression => {
+                Instruction::subtract(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::MultiplicationExpression => {
+                Instruction::multiply(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::DivisionExpression => {
+                Instruction::divide(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::ModuloExpression => {
+                Instruction::modulo(destination, left_address, right_address, operand_type)
+            }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
 
-        Ok(Emission::Instruction(instruction, combined_type))
+        Ok(Emission::Instruction(instruction, TypeId(node.payload)))
+    }
+
+    fn compile_comparison_expression(
+        &mut self,
+        _node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        let left_index = SyntaxId(node.children.0);
+        let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+            CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.0,
+            },
+        )?;
+        let right_index = SyntaxId(node.children.1);
+        let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
+            CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.1,
+            },
+        )?;
+
+        let left_emission = self.compile_expression(left_index, left)?;
+        let right_emission = self.compile_expression(right_index, right)?;
+
+        if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
+            (&left_emission, &right_emission)
+        {
+            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let destination = Address::register(self.get_next_register());
+        let (left_address, left_type) = match &left_emission {
+            Emission::Instruction(instruction, _) => (
+                self.handle_operand(*instruction),
+                instruction.operand_type(),
+            ),
+            Emission::Instructions(instructions, _) => (
+                self.handle_operand(instructions[0]),
+                instructions[0].operand_type(),
+            ),
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(*constant);
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                (self.handle_operand(load_instruction), r#type)
+            }
+        };
+        let (right_address, right_type) = match right_emission {
+            Emission::Instruction(instruction, _) => {
+                (self.handle_operand(instruction), instruction.operand_type())
+            }
+            Emission::Instructions(instructions, _) => (
+                self.handle_operand(instructions[0]),
+                instructions[0].operand_type(),
+            ),
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(constant);
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                (self.handle_operand(load_instruction), r#type)
+            }
+        };
+
+        if left_type != right_type {
+            todo!("Error");
+        }
+
+        let destination = Address::register(self.get_next_register());
+        let comparison_instruction = match node.kind {
+            SyntaxKind::GreaterThanExpression => {
+                Instruction::less_equal(false, left_address, right_address, left_type)
+            }
+            SyntaxKind::GreaterThanOrEqualExpression => {
+                Instruction::less(false, left_address, right_address, left_type)
+            }
+            SyntaxKind::LessThanExpression => {
+                Instruction::less(true, left_address, right_address, left_type)
+            }
+            SyntaxKind::LessThanOrEqualExpression => {
+                Instruction::less_equal(true, left_address, right_address, left_type)
+            }
+            SyntaxKind::EqualExpression => {
+                Instruction::equal(true, left_address, right_address, left_type)
+            }
+            SyntaxKind::NotEqualExpression => {
+                Instruction::equal(false, left_address, right_address, left_type)
+            }
+            _ => unreachable!("Expected comparison expression, found {}", node.kind),
+        };
+        let jump_instruction = Instruction::jump(1, true);
+        let load_true_instruction = Instruction::load(
+            destination,
+            Address::encoded(true as u16),
+            OperandType::BOOLEAN,
+            false,
+        );
+        let load_false_instruction = Instruction::load(
+            destination,
+            Address::encoded(false as u16),
+            OperandType::BOOLEAN,
+            false,
+        );
+
+        Ok(Emission::Instructions(
+            vec![
+                comparison_instruction,
+                jump_instruction,
+                load_true_instruction,
+                load_false_instruction,
+            ],
+            TypeId::BOOLEAN,
+        ))
     }
 
     fn compile_logical_expression(
