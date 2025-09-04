@@ -871,7 +871,7 @@ fn local_declaration() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 2),
+                children: (1, 3),
                 position: Span(0, 16),
                 payload: 0,
             },
@@ -885,6 +885,12 @@ fn local_declaration() {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
                 position: Span(13, 15),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(13, 16),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -908,7 +914,7 @@ fn local_mut_declaration() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (1, 2),
+                children: (1, 3),
                 position: Span(0, 20),
                 payload: 0,
             },
@@ -922,6 +928,12 @@ fn local_mut_declaration() {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
                 position: Span(17, 19),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(17, 20),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -945,7 +957,7 @@ fn local_evaluation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 2),
+                children: (1, 3),
                 position: Span(0, 16),
                 payload: 0,
             },
@@ -959,6 +971,12 @@ fn local_evaluation() {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
                 position: Span(13, 15),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(13, 16),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {

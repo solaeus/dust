@@ -523,13 +523,19 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling let statement");
 
         let declaration_id = DeclarationId(node.payload);
-        let expression_id = SyntaxId(node.children.1);
+        let expression_statement_id = SyntaxId(node.children.1);
 
         let declaration = self
             .resolver
             .get_declaration_from_id(declaration_id)
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
         let is_mutable = declaration.kind == DeclarationKind::LocalMutable;
+        let expression_statement_node = self.syntax_tree.get_node(expression_statement_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                id: expression_statement_id,
+            },
+        )?;
+        let expression_id = SyntaxId(expression_statement_node.children.0);
         let expression_node = self
             .syntax_tree
             .get_node(expression_id)
