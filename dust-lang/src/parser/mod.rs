@@ -849,13 +849,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_comparison_binary(&mut self) -> Result<(), ParseError> {
-        info!("Parsing comparison binary expression");
-
-        todo!()
-    }
-
-    fn parse_math_binary(&mut self) -> Result<(), ParseError> {
+    fn parse_binary_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing math binary expression");
 
         let left = self.syntax_tree.last_node_id();
@@ -871,6 +865,14 @@ impl<'src> Parser<'src> {
             Token::Asterisk => SyntaxKind::MultiplicationExpression,
             Token::Slash => SyntaxKind::DivisionExpression,
             Token::Percent => SyntaxKind::ModuloExpression,
+            Token::Greater => SyntaxKind::GreaterThanExpression,
+            Token::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
+            Token::Less => SyntaxKind::LessThanExpression,
+            Token::LessEqual => SyntaxKind::LessThanOrEqualExpression,
+            Token::DoubleEqual => SyntaxKind::EqualExpression,
+            Token::BangEqual => SyntaxKind::NotEqualExpression,
+            Token::DoubleAmpersand => SyntaxKind::AndExpression,
+            Token::DoublePipe => SyntaxKind::OrExpression,
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
@@ -898,13 +900,9 @@ impl<'src> Parser<'src> {
         let end = self.previous_position.1;
         let r#type = match operator {
             Token::Plus => match (TypeId(left_node.payload), TypeId(right_node.payload)) {
-                (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
-                (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
-                (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
-                (TypeId::CHARACTER, TypeId::CHARACTER) => TypeId::STRING,
-                (TypeId::CHARACTER, TypeId::STRING) => TypeId::STRING,
-                (TypeId::STRING, TypeId::CHARACTER) => TypeId::STRING,
-                (TypeId::STRING, TypeId::STRING) => TypeId::STRING,
+                (TypeId::CHARACTER, TypeId::CHARACTER)
+                | (TypeId::CHARACTER, TypeId::STRING)
+                | (TypeId::STRING, TypeId::CHARACTER) => TypeId::STRING,
                 _ => {
                     let left_type = self
                         .resolver
@@ -915,29 +913,36 @@ impl<'src> Parser<'src> {
                         .resolve_type(TypeId(right_node.payload))
                         .unwrap_or(Type::None);
 
-                    return Err(ParseError::AdditionTypeMismatch {
-                        left_type,
-                        left_position: left_node.position,
-                        right_type,
-                        right_position: right_node.position,
-                        position: Span(start, end),
-                    });
+                    if left_type != right_type {
+                        return Err(ParseError::AdditionTypeMismatch {
+                            left_type,
+                            left_position: left_node.position,
+                            right_type,
+                            right_position: right_node.position,
+                            position: Span(start, end),
+                        });
+                    }
+
+                    TypeId(left_node.payload)
                 }
             },
-            _ => match (TypeId(left_node.payload), TypeId(right_node.payload)) {
-                (TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
-                (TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
-                (TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
-                _ => {
-                    let left_type = self
-                        .resolver
-                        .resolve_type(TypeId(left_node.payload))
-                        .unwrap_or(Type::None);
-                    let right_type = self
-                        .resolver
-                        .resolve_type(TypeId(right_node.payload))
-                        .unwrap_or(Type::None);
+            Token::Greater
+            | Token::GreaterEqual
+            | Token::Less
+            | Token::LessEqual
+            | Token::DoubleEqual
+            | Token::BangEqual => TypeId::BOOLEAN,
+            _ => {
+                let left_type = self
+                    .resolver
+                    .resolve_type(TypeId(left_node.payload))
+                    .unwrap_or(Type::None);
+                let right_type = self
+                    .resolver
+                    .resolve_type(TypeId(right_node.payload))
+                    .unwrap_or(Type::None);
 
+                if left_type != right_type {
                     return Err(ParseError::BinaryOperandTypeMismatch {
                         operator,
                         left_type,
@@ -947,7 +952,9 @@ impl<'src> Parser<'src> {
                         position: Span(start, end),
                     });
                 }
-            },
+
+                TypeId(left_node.payload)
+            }
         };
 
         let node = SyntaxNode {
@@ -955,43 +962,6 @@ impl<'src> Parser<'src> {
             position: Span(start, end),
             children: (left.0, right.0),
             payload: r#type.0,
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
-    }
-
-    fn parse_logical_binary(&mut self) -> Result<(), ParseError> {
-        info!("Parsing logical binary expression");
-
-        let start = self.previous_position.0;
-        let left = self.syntax_tree.last_node_id();
-        let operator = self.current_token;
-        let node_kind = match operator {
-            Token::DoubleAmpersand => SyntaxKind::AndExpression,
-            Token::DoublePipe => SyntaxKind::OrExpression,
-            _ => {
-                return Err(ParseError::ExpectedMultipleTokens {
-                    expected: &[Token::DoubleAmpersand, Token::DoubleColon],
-                    actual: operator,
-                    position: self.current_position,
-                });
-            }
-        };
-        let operator_precedence = ParseRule::from(operator).precedence;
-
-        self.advance()?;
-        self.parse_sub_expression(operator_precedence)?;
-
-        let right = self.syntax_tree.last_node_id();
-        let end = self.previous_position.1;
-
-        let node = SyntaxNode {
-            kind: node_kind,
-            position: Span(start, end),
-            children: (left.0, right.0),
-            payload: TypeId::BOOLEAN.0,
         };
 
         self.syntax_tree.push_node(node);

@@ -37,7 +37,7 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Asterisk => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::PrimaryMath,
             },
             Token::Async => ParseRule {
@@ -52,7 +52,7 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::BangEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::Bool => ParseRule {
@@ -122,7 +122,7 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::DoubleAmpersand => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_logical_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Logic,
             },
             Token::DoubleColon => ParseRule {
@@ -132,12 +132,12 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::DoublePipe => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_logical_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Logic,
             },
             Token::DoubleDot => ParseRule {
@@ -177,12 +177,12 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Greater => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::GreaterEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::Identifier => ParseRule {
@@ -222,12 +222,12 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Less => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::LessEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_comparison_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
             Token::Let => ParseRule {
@@ -252,12 +252,12 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Minus => ParseRule {
                 prefix: Some(Parser::parse_unary_expression),
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::SecondaryMath,
             },
             Token::MinusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
             Token::Mod => ParseRule {
@@ -277,22 +277,22 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Percent => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::PrimaryMath,
             },
             Token::PercentEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
             Token::Plus => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::SecondaryMath,
             },
             Token::PlusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
             Token::Return => ParseRule {
@@ -322,12 +322,12 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Slash => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::PrimaryMath,
             },
             Token::SlashEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
             Token::Space => ParseRule {
@@ -337,7 +337,7 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::StarEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_math_binary),
+                infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
             Token::Str => ParseRule {

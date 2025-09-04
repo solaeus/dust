@@ -855,6 +855,339 @@ fn constant_boolean_not() {
 }
 
 #[test]
+fn constant_boolean_greater_than() {
+    let source = cases::CONSTANT_BOOLEAN_GREATER_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GreaterThanExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (0, 0),
+                position: Span(7, 12),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_less_than() {
+    let source = cases::CONSTANT_BOOLEAN_LESS_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (0, 0),
+                position: Span(0, 5),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LessThanExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(8, 12),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_greater_than_or_equal() {
+    let source = cases::CONSTANT_BOOLEAN_GREATER_THAN_OR_EQUAL;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GreaterThanOrEqualExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(8, 12),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_less_than_or_equal() {
+    let source = cases::CONSTANT_BOOLEAN_LESS_THAN_OR_EQUAL;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LessThanOrEqualExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(8, 12),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_equal() {
+    let source = cases::CONSTANT_BOOLEAN_EQUAL;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::EqualExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(8, 12),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_boolean_not_equal() {
+    let source = cases::CONSTANT_BOOLEAN_NOT_EQUAL;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(0, 4),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::NotEqualExpression,
+                children: (1, 2),
+                position: Span(0, 13),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (0, 0),
+                position: Span(8, 13),
+                payload: TypeId::BOOLEAN.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_byte_greater_than() {
+    let source = cases::CONSTANT_BYTE_GREATER_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 11),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (43, 0),
+                position: Span(0, 4),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GreaterThanExpression,
+                children: (1, 2),
+                position: Span(0, 11),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (42, 0),
+                position: Span(7, 11),
+                payload: TypeId::BYTE.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_byte_less_than() {
+    let source = cases::CONSTANT_BYTE_LESS_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 11),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (41, 0),
+                position: Span(0, 4),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LessThanExpression,
+                children: (1, 2),
+                position: Span(0, 11),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (42, 0),
+                position: Span(7, 11),
+                payload: TypeId::BYTE.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_byte_greater_than_or_equal() {
+    let source = cases::CONSTANT_BYTE_GREATER_THAN_OR_EQUAL;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (42, 0),
+                position: Span(0, 4),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GreaterThanOrEqualExpression,
+                children: (1, 2),
+                position: Span(0, 12),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (42, 0),
+                position: Span(8, 12),
+                payload: TypeId::BYTE.0,
+            }
+        ]
+    );
+}
+
+#[test]
 fn local_declaration() {
     let source = cases::LOCAL_DECLARATION;
     let (syntax_tree, error) = parse_main(source);
