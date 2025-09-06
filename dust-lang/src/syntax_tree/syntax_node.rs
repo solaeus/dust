@@ -245,8 +245,8 @@ impl SyntaxKind {
 impl Display for SyntaxKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SyntaxKind::MainFunctionItem => write!(f, "item: main function"),
-            SyntaxKind::ModuleItem => write!(f, "item: module"),
+            SyntaxKind::MainFunctionItem => write!(f, "main function item"),
+            SyntaxKind::ModuleItem => write!(f, "module item"),
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::FunctionStatement => write!(f, " function statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),

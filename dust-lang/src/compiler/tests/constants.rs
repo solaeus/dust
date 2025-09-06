@@ -413,6 +413,54 @@ fn constant_integer_division() {
 }
 
 #[test]
+fn constant_integer_negation() {
+    let source = constant_cases::CONSTANT_INTEGER_NEGATION;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(-42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_negation() {
+    let source = constant_cases::CONSTANT_FLOAT_NEGATION;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_float(-42.0);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            constants,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn constant_string_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CONCATENATION;
     let chunk = compile_main(source).unwrap();
@@ -546,6 +594,26 @@ fn constant_boolean_or() {
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_not() {
+    let source = constant_cases::CONSTANT_BOOLEAN_NOT;
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
             ..Default::default()

@@ -1012,9 +1012,16 @@ impl<'a> ChunkCompiler<'a> {
         let child_emission = self.compile_expression(child_id, child_node)?;
 
         if let Emission::Constant(child_value) = &child_emission {
-            let combined = self.combine_constants(*child_value, *child_value, node.kind)?;
+            let evaluated = match (node.kind, child_value) {
+                (SyntaxKind::NotExpression, Constant::Boolean(value)) => Constant::Boolean(!value),
+                (SyntaxKind::NegationExpression, Constant::Integer(value)) => {
+                    Constant::Integer(-value)
+                }
+                (SyntaxKind::NegationExpression, Constant::Float(value)) => Constant::Float(-value),
+                _ => todo!("Error"),
+            };
 
-            return Ok(Emission::Constant(combined));
+            return Ok(Emission::Constant(evaluated));
         }
 
         let child_address = child_emission.handle_as_operand(self);

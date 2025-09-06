@@ -96,7 +96,7 @@ impl SyntaxTree {
         let mut output = String::new();
 
         if let Some(top_node) = self.top_node() {
-            output.push_str("Syntax Tree:\n");
+            output.push_str("Syntax Tree:");
             self.display_node(top_node, 0, &mut output);
         } else {
             output.push_str(" <empty>");
@@ -182,12 +182,12 @@ impl SyntaxTree {
             }
             SyntaxKind::FloatExpression => {
                 let float = SyntaxNode::decode_float(node.children).to_string();
-                let float_display = format!(": {float}", float = float);
+                let float_display = format!(": {float}");
 
                 output.push_str(&float_display);
             }
             SyntaxKind::IntegerExpression => {
-                let integer_value = node.children.0 as i64;
+                let integer_value = SyntaxNode::decode_integer(node.children);
                 let integer_display = format!(": {integer_value}", integer_value = integer_value);
 
                 output.push_str(&integer_display);

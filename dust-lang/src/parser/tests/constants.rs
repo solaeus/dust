@@ -601,6 +601,80 @@ fn constant_integer_division() {
 }
 
 #[test]
+fn constant_integer_negation() {
+    let source = constant_cases::CONSTANT_INTEGER_NEGATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 5),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::NegationExpression,
+                children: (2, 0),
+                position: Span(0, 5),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GroupedExpression,
+                children: (1, 0),
+                position: Span(1, 5),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                position: Span(2, 4),
+                payload: TypeId::INTEGER.0,
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_float_negation() {
+    let source = constant_cases::CONSTANT_FLOAT_NEGATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                position: Span(0, 7),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::NegationExpression,
+                children: (2, 0),
+                position: Span(0, 7),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::GroupedExpression,
+                children: (1, 0),
+                position: Span(1, 7),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(42.0),
+                position: Span(2, 6),
+                payload: TypeId::FLOAT.0,
+            }
+        ]
+    );
+}
+
+#[test]
 fn constant_string_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CONCATENATION;
     let (syntax_tree, error) = parse_main(source);
