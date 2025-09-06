@@ -87,6 +87,22 @@ let b: int = 2;
 a / b
 "#;
 
+pub const LOCAL_BYTE_MODULO: &str = r#"
+let a: byte = 0x54;
+let b: byte = 0x05;
+a % b
+"#;
+pub const LOCAL_FLOAT_MODULO: &str = r#"
+let a: float = 84.0;
+let b: float = 5.0;
+a % b
+"#;
+pub const LOCAL_INTEGER_MODULO: &str = r#"
+let a: int = 84;
+let b: int = 5;
+a % b
+"#;
+
 pub const LOCAL_STRING_CONCATENATION: &str = r#"
 let a: str = "foo";
 let b: str = "bar";
