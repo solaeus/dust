@@ -660,6 +660,9 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.compile_logical_expression(node_id, node)
             }
+            SyntaxKind::NotExpression | SyntaxKind::NegationExpression => {
+                self.compile_unary_expression(node_id, node)
+            }
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
             SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
             _ => Err(CompileError::ExpectedExpression {
@@ -989,6 +992,46 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         Ok(emission)
+    }
+
+    fn compile_unary_expression(
+        &mut self,
+        _node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling unary expression");
+
+        let child_id = SyntaxId(node.children.0);
+        let child_node = self
+            .syntax_tree
+            .get_node(child_id)
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.0,
+            })?;
+        let child_emission = self.compile_expression(child_id, child_node)?;
+
+        if let Emission::Constant(child_value) = &child_emission {
+            let combined = self.combine_constants(*child_value, *child_value, node.kind)?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let child_address = child_emission.handle_as_operand(self);
+        let operand_type = self
+            .resolver
+            .resolve_type(TypeId(node.payload))
+            .ok_or(CompileError::MissingType {
+                type_id: TypeId(node.payload),
+            })?
+            .as_operand_type();
+        let destination = Address::register(self.get_next_register());
+        let negate_instruction = Instruction::negate(destination, child_address, operand_type);
+
+        Ok(Emission::Instruction(
+            negate_instruction,
+            TypeId(node.payload),
+        ))
     }
 
     fn compile_grouped_expression(
