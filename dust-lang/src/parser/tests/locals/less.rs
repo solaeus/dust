@@ -7,6 +7,91 @@ use crate::{
 };
 
 #[test]
+fn local_boolean_less_than() {
+    let source = local_cases::LOCAL_BOOLEAN_LESS_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 48),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (1, 3),
+                position: Span(1, 21),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanType,
+                children: (0, 0),
+                position: Span(8, 12),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (0, 0),
+                position: Span(15, 20),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(15, 21),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (5, 7),
+                position: Span(22, 41),
+                payload: 1
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanType,
+                children: (0, 0),
+                position: Span(29, 33),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                position: Span(36, 40),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (6, 0),
+                position: Span(36, 41),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(42, 43),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LessThanExpression,
+                children: (9, 10),
+                position: Span(42, 47),
+                payload: TypeId::BOOLEAN.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (1, 0),
+                position: Span(46, 47),
+                payload: TypeId::BOOLEAN.0
+            },
+        ]
+    );
+}
+
+#[test]
 fn local_byte_less_than() {
     let source = local_cases::LOCAL_BYTE_LESS_THAN;
     let (syntax_tree, error) = parse_main(source);
@@ -341,6 +426,91 @@ fn local_integer_less_than() {
                 children: (1, 0),
                 position: Span(39, 40),
                 payload: TypeId::INTEGER.0
+            },
+        ]
+    );
+}
+
+#[test]
+fn local_string_less_than() {
+    let source = local_cases::LOCAL_STRING_LESS_THAN;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 47),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (1, 3),
+                position: Span(1, 20),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringType,
+                children: (0, 0),
+                position: Span(8, 11),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                children: (0, 3),
+                position: Span(14, 19),
+                payload: TypeId::STRING.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(14, 20),
+                payload: TypeId::STRING.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (5, 7),
+                position: Span(21, 40),
+                payload: 1,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringType,
+                children: (0, 0),
+                position: Span(28, 31),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                children: (3, 6),
+                position: Span(34, 39),
+                payload: TypeId::STRING.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (6, 0),
+                position: Span(34, 40),
+                payload: TypeId::STRING.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(41, 42),
+                payload: TypeId::STRING.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LessThanExpression,
+                children: (9, 10),
+                position: Span(41, 46),
+                payload: TypeId::BOOLEAN.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (1, 0),
+                position: Span(45, 46),
+                payload: TypeId::STRING.0,
             },
         ]
     );
