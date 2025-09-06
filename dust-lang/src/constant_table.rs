@@ -70,7 +70,6 @@ impl ConstantTable {
 
     pub fn add_character(&mut self, character: char) -> u16 {
         let payload = character as u64;
-        let index = self.payloads.len() as u16;
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -79,10 +78,10 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        self.payloads.insert(hash, payload);
+        let (index, _) = self.payloads.insert_full(hash, payload);
         self.tags.push(OperandType::CHARACTER);
 
-        index
+        index as u16
     }
 
     pub fn get_character(&self, index: u16) -> Option<char> {
@@ -93,7 +92,6 @@ impl ConstantTable {
 
     pub fn add_float(&mut self, float: f64) -> u16 {
         let payload = float.to_bits();
-        let index = self.payloads.len() as u16;
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -102,10 +100,10 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        self.payloads.insert(hash, payload);
+        let (index, _) = self.payloads.insert_full(hash, payload);
         self.tags.push(OperandType::FLOAT);
 
-        index
+        index as u16
     }
 
     pub fn get_float(&self, index: u16) -> Option<f64> {
@@ -116,7 +114,6 @@ impl ConstantTable {
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
         let payload = integer as u64;
-        let index = self.payloads.len() as u16;
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -125,10 +122,10 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        self.payloads.insert(hash, payload);
+        let (index, _) = self.payloads.insert_full(hash, payload);
         self.tags.push(OperandType::INTEGER);
 
-        index
+        index as u16
     }
 
     pub fn get_integer(&self, index: u16) -> Option<i64> {
@@ -219,12 +216,11 @@ impl ConstantTable {
             existing_index as u16
         } else {
             let payload = (start as u64) << 32 | (end as u64);
-            let index = self.payloads.len() as u16;
 
-            self.payloads.insert(hash, payload);
+            let (index, _) = self.payloads.insert_full(hash, payload);
             self.tags.push(OperandType::STRING);
 
-            index
+            index as u16
         }
     }
 }
