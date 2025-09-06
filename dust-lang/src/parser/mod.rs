@@ -499,7 +499,18 @@ impl<'src> Parser<'src> {
             Token::Int => (SyntaxKind::IntegerType, TypeId::INTEGER),
             Token::Str => (SyntaxKind::StringType, TypeId::STRING),
             Token::Identifier => {
-                todo!()
+                let identifier_text = self.current_source();
+
+                let type_id = self
+                    .resolver
+                    .get_declaration(identifier_text, self.current_scope)
+                    .ok_or(ParseError::UndeclaredType {
+                        identifier: identifier_text.to_string(),
+                        position: self.current_position,
+                    })?
+                    .r#type;
+
+                (SyntaxKind::TypePath, type_id)
             }
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {

@@ -64,16 +64,20 @@ pub enum ParseError {
         operand_position: Span,
         position: Span,
     },
-
-    // Variable Errors
-    UndeclaredVariable {
+    UndeclaredType {
         identifier: String,
         position: Span,
     },
+
+    // Variable Errors
     DeclarationConflict {
         identifier: String,
         first_declaration: Span,
         second_declaration: Span,
+    },
+    UndeclaredVariable {
+        identifier: String,
+        position: Span,
     },
 
     // Internal Errors
@@ -242,17 +246,17 @@ impl AnnotatedError for ParseError {
                         ),
                 )
             }
-            ParseError::UndeclaredVariable {
+            ParseError::UndeclaredType {
                 identifier,
                 position,
             } => {
-                let title = format!("Use of undeclared variable `{identifier}`");
+                let title = format!("Use of undeclared type `{identifier}`");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
                             .span(position.as_usize_range())
-                            .label(format!("The variable `{identifier}` is not declared")),
+                            .label(format!("The type `{identifier}` is not declared")),
                     ),
                 )
             }
@@ -277,6 +281,20 @@ impl AnnotatedError for ParseError {
                                 .span(first_declaration.as_usize_range())
                                 .label(format!("First declaration of `{identifier}` is here")),
                         ),
+                )
+            }
+            ParseError::UndeclaredVariable {
+                identifier,
+                position,
+            } => {
+                let title = format!("Use of undeclared variable `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("The variable `{identifier}` is not declared")),
+                    ),
                 )
             }
             ParseError::MissingNode { id } => {
