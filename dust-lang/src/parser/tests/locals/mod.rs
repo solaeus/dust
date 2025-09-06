@@ -1,0 +1,15 @@
+mod addition;
+mod and;
+mod division;
+mod equal;
+mod greater;
+mod greater_equal;
+mod less;
+mod less_equal;
+mod modulo;
+mod multiplication;
+mod not;
+mod not_equal;
+mod or;
+mod subtraction;
+mod values;
