@@ -78,8 +78,11 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        let (index, _) = self.payloads.insert_full(hash, payload);
-        self.tags.push(OperandType::CHARACTER);
+        let (index, found) = self.payloads.insert_full(hash, payload);
+
+        if found.is_none() {
+            self.tags.push(OperandType::CHARACTER);
+        }
 
         index as u16
     }
@@ -100,8 +103,11 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        let (index, _) = self.payloads.insert_full(hash, payload);
-        self.tags.push(OperandType::FLOAT);
+        let (index, found) = self.payloads.insert_full(hash, payload);
+
+        if found.is_none() {
+            self.tags.push(OperandType::FLOAT);
+        }
 
         index as u16
     }
@@ -122,8 +128,11 @@ impl ConstantTable {
             hasher.finish()
         };
 
-        let (index, _) = self.payloads.insert_full(hash, payload);
-        self.tags.push(OperandType::INTEGER);
+        let (index, found) = self.payloads.insert_full(hash, payload);
+
+        if found.is_none() {
+            self.tags.push(OperandType::INTEGER);
+        }
 
         index as u16
     }
@@ -157,8 +166,11 @@ impl ConstantTable {
             let end = self.string_pool.len();
             let payload = (start as u64) << 32 | (end as u64);
 
-            self.payloads.insert(hash, payload);
-            self.tags.push(OperandType::STRING);
+            let (_, found) = self.payloads.insert_full(hash, payload);
+
+            if found.is_none() {
+                self.tags.push(OperandType::STRING);
+            }
 
             (start as u32, end as u32)
         }
