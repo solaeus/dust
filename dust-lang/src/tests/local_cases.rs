@@ -19,7 +19,7 @@ let x: int = 42;
 x
 "#;
 pub const LOCAL_STRING: &str = r#"
-let x: string = "foobar";
+let x: str = "foobar";
 x
 "#;
 
@@ -88,8 +88,8 @@ a / b
 "#;
 
 pub const LOCAL_STRING_CONCATENATION: &str = r#"
-let a: string = "foo";
-let b: string = "bar";
+let a: str = "foo";
+let b: str = "bar";
 a + b
 "#;
 pub const LOCAL_CHARACTER_CONCATENATION: &str = r#"
@@ -279,32 +279,32 @@ a != b
 "#;
 
 pub const LOCAL_STRING_GREATER_THAN: &str = r#"
-let a: string = "bar";
-let b: string = "foo";
+let a: str = "bar";
+let b: str = "foo";
 a > b
 "#;
 pub const LOCAL_STRING_LESS_THAN: &str = r#"
-let a: string = "foo";
-let b: string = "bar";
+let a: str = "foo";
+let b: str = "bar";
 a < b
 "#;
 pub const LOCAL_STRING_GREATER_THAN_OR_EQUAL: &str = r#"
-let a: string = "foo";
-let b: string = "foo";
+let a: str = "foo";
+let b: str = "foo";
 a >= b
 "#;
 pub const LOCAL_STRING_LESS_THAN_OR_EQUAL: &str = r#"
-let a: string = "foo";
-let b: string = "foo";
+let a: str = "foo";
+let b: str = "foo";
 a <= b
 "#;
 pub const LOCAL_STRING_EQUAL: &str = r#"
-let a: string = "foo";
-let b: string = "foo";
+let a: str = "foo";
+let b: str = "foo";
 a == b
 "#;
 pub const LOCAL_STRING_NOT_EQUAL: &str = r#"
-let a: string = "foo";
-let b: string = "bar";
+let a: str = "foo";
+let b: str = "bar";
 a != b
 "#;
