@@ -71,7 +71,7 @@ fn run(
     };
     let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
     let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
-    let bump_arena = Bump::new();
+    let bump_arena = Bump::with_capacity(minimum_object_heap);
 
     let mut object_pool = ObjectPool::new(&bump_arena, minimum_object_sweep, minimum_object_heap);
 

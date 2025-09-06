@@ -168,6 +168,10 @@ impl<'src> Parser<'src> {
     }
 
     fn pratt(&mut self, precedence: Precedence) -> Result<(), ParseError> {
+        if self.current_token.is_whitespace() {
+            self.advance()?;
+        }
+
         let prefix_rule = ParseRule::from(self.current_token);
 
         if let Some(prefix_parser) = prefix_rule.prefix {
@@ -353,6 +357,10 @@ impl<'src> Parser<'src> {
                 self.recover(error);
             } else {
                 let child_id = self.syntax_tree.last_node_id();
+
+                if child_id == SyntaxId(0) {
+                    break;
+                }
 
                 children.push(child_id);
             }

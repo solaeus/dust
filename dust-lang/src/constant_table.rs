@@ -53,11 +53,11 @@ impl ConstantTable {
                 let end = (*payload & 0xFFFFFFFF) as usize;
 
                 let string = &self.string_pool[start..end];
-                let new_start = self.string_pool.len();
+                let new_start = new_string_pool.len();
 
                 new_string_pool.push_str(string);
 
-                let new_end = self.string_pool.len();
+                let new_end = new_string_pool.len();
 
                 *payload = (new_start as u64) << 32 | (new_end as u64);
             }
@@ -247,14 +247,10 @@ impl Iterator for ConstantTableIterator<'_> {
         let value = match tag {
             OperandType::CHARACTER => Value::Character(std::char::from_u32(payload as u32)?),
             OperandType::INTEGER => Value::Integer(payload as i64),
-            OperandType::STRING => {
-                let start = (payload >> 32) as usize;
-                let end = (payload & 0xFFFFFFFF) as usize;
-
-                let string = self.table.string_pool.get(start..end)?;
-
-                Value::String(string.to_string())
-            }
+            OperandType::STRING => self
+                .table
+                .get_string(self.index as u16)
+                .map(Value::string)?,
             _ => todo!(),
         };
 
