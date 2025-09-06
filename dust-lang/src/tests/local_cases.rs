@@ -98,13 +98,13 @@ let b: char = 'q';
 a + b
 "#;
 pub const LOCAL_STRING_CHARACTER_CONCATENATION: &str = r#"
-let a: string = "foo";
+let a: str = "foo";
 let b: char = 'q';
 a + b
 "#;
 pub const LOCAL_CHARACTER_STRING_CONCATENATION: &str = r#"
 let a: char = 'q';
-let b: string = "foo";
+let b: str = "foo";
 a + b
 "#;
 
