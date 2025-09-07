@@ -440,6 +440,15 @@ impl<'a> ChunkCompiler<'a> {
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
         let end_children = start_children + child_count;
 
+        if child_count == 0 {
+            let return_instruction =
+                Instruction::r#return(false, Address::default(), OperandType::NONE);
+
+            self.instructions.push(return_instruction);
+
+            return Ok(());
+        }
+
         let mut current_child_index = start_children;
 
         while current_child_index < end_children {
@@ -524,6 +533,7 @@ impl<'a> ChunkCompiler<'a> {
 
                             (return_operand, r#type, operand_type)
                         }
+                        Emission::None => (Address::default(), TypeId::NONE, OperandType::NONE),
                     };
 
                     self.return_type = return_type;
@@ -568,6 +578,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 self.instructions.push(load_instruction);
             }
+            Emission::None => {}
         }
 
         Ok(())
@@ -620,6 +631,12 @@ impl<'a> ChunkCompiler<'a> {
                 self.instructions.push(instruction);
 
                 destination.index
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: expression_node.kind,
+                    position: expression_node.position,
+                });
             }
         };
 
@@ -840,6 +857,12 @@ impl<'a> ChunkCompiler<'a> {
 
                 (self.handle_operand(load_instruction), r#type)
             }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: left.kind,
+                    position: left.position,
+                });
+            }
         };
         let (right_address, right_type) = match right_emission {
             Emission::Instruction(instruction, _) => {
@@ -859,6 +882,12 @@ impl<'a> ChunkCompiler<'a> {
                 let load_instruction = Instruction::load(destination, address, r#type, false);
 
                 (self.handle_operand(load_instruction), r#type)
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: right.kind,
+                    position: right.position,
+                });
             }
         };
 
@@ -965,6 +994,12 @@ impl<'a> ChunkCompiler<'a> {
 
                 self.handle_operand(load_instruction)
             }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: left.kind,
+                    position: left.position,
+                });
+            }
         };
 
         let comparator = match node.kind {
@@ -990,6 +1025,12 @@ impl<'a> ChunkCompiler<'a> {
                 Emission::Instructions(instructions, r#type)
             }
             Emission::Constant(constant) => Emission::Constant(constant),
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: right.kind,
+                    position: right.position,
+                });
+            }
         };
 
         Ok(emission)
@@ -1071,9 +1112,13 @@ impl<'a> ChunkCompiler<'a> {
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
         let end_children = start_children + child_count;
 
+        if start_children == end_children {
+            return Ok(Emission::None);
+        }
+
         let mut current_child_index = start_children;
 
-        while current_child_index < end_children - 1 {
+        while current_child_index < end_children.saturating_sub(1) {
             let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
                 CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1171,6 +1216,7 @@ pub enum Emission {
     Instruction(Instruction, TypeId),
     Instructions(Vec<Instruction>, TypeId),
     Constant(Constant),
+    None,
 }
 
 impl Emission {
@@ -1195,6 +1241,7 @@ impl Emission {
 
                 compiler.handle_operand(load_instruction)
             }
+            Emission::None => Address::default(),
         }
     }
 }
