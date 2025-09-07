@@ -646,6 +646,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
+            SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -664,7 +665,7 @@ impl<'a> ChunkCompiler<'a> {
                 self.compile_unary_expression(node_id, node)
             }
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
-            SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
+            SyntaxKind::BlockExpression => self.compile_block_expression(node_id, node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.position,
@@ -1058,6 +1059,54 @@ impl<'a> ChunkCompiler<'a> {
             })?;
 
         self.compile_expression(node_id, child_node)
+    }
+
+    fn compile_block_expression(
+        &mut self,
+        _node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling block expression");
+
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let end_children = start_children + child_count;
+
+        let mut current_child_index = start_children;
+        let mut last_emission = None;
+
+        while current_child_index < end_children {
+            let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
+                CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: current_child_index as u32,
+                },
+            )?;
+            current_child_index += 1;
+
+            let child_node = self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+
+            if child_node.kind.is_statement() {
+                self.compile_statement(child_id)?;
+                last_emission = None;
+            } else if child_node.kind.is_expression() {
+                let emission = self.compile_expression(child_id, child_node)?;
+                last_emission = Some(emission);
+            } else {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: child_node.kind,
+                    position: child_node.position,
+                });
+            }
+        }
+
+        if let Some(emission) = last_emission {
+            Ok(emission)
+        } else {
+            Ok(Emission::Constant(Constant::Boolean(false))) // Default to false if no expression
+        }
     }
 
     fn compile_path_expression(

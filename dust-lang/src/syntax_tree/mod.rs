@@ -230,6 +230,19 @@ impl SyntaxTree {
                     push_error(output);
                 }
             }
+            SyntaxKind::BlockExpression => {
+                let children_start = node.children.0 as usize;
+                let children_end = children_start + node.children.1 as usize;
+                let children = &self.children[children_start..children_end];
+
+                for child_id in children {
+                    if let Some(child) = self.get_node(*child_id) {
+                        self.display_node(child, depth + 1, output);
+                    } else {
+                        push_error(output);
+                    }
+                }
+            }
             _ => {}
         }
     }

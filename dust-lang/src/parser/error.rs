@@ -3,6 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Span, Token, Type,
     dust_error::AnnotatedError,
+    resolver::ScopeId,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -83,6 +84,9 @@ pub enum ParseError {
     // Internal Errors
     MissingNode {
         id: SyntaxId,
+    },
+    MissingScope {
+        id: ScopeId,
     },
 }
 
@@ -299,6 +303,11 @@ impl AnnotatedError for ParseError {
             }
             ParseError::MissingNode { id } => {
                 let title = format!("Internal error: Missing syntax node with ID {}", id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            ParseError::MissingScope { id } => {
+                let title = format!("Internal error: Missing scope with ID {}", id.0);
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

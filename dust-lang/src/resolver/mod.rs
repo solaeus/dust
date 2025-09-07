@@ -1,10 +1,7 @@
-mod scope;
-
 use std::hash::{Hash, Hasher};
 
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
-use serde::{Deserialize, Serialize};
 
 use crate::{ConstantTable, OperandType, Span, Type};
 
@@ -30,6 +27,18 @@ impl Resolver {
             r#types: IndexSet::default(),
             type_members: Vec::new(),
         }
+    }
+
+    pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
+        let id = ScopeId(self.scopes.len() as u32);
+
+        self.scopes.push(scope);
+
+        id
+    }
+
+    pub fn get_scope(&self, id: ScopeId) -> Option<&Scope> {
+        self.scopes.get(id.0 as usize)
     }
 
     pub fn get_declaration_from_id(&self, id: DeclarationId) -> Option<&Declaration> {
@@ -173,7 +182,7 @@ pub struct Scope {
     pub imports: (u32, u32),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationId(pub u32);
 
 impl DeclarationId {
@@ -197,7 +206,7 @@ pub enum DeclarationKind {
     Type,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(pub u32);
 
 impl TypeId {

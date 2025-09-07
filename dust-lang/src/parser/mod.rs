@@ -16,7 +16,7 @@ use crate::{
     Lexer, Resolver, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::{Declaration, DeclarationKind, ScopeId, TypeId},
+    resolver::{Declaration, DeclarationKind, Scope, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -1020,15 +1020,61 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_block(&mut self) -> Result<(), ParseError> {
+        let start = self.current_position.0;
+        let starting_scope_id = self.current_scope;
+        let new_scope = Scope {
+            parent: self.current_scope,
+            imports: (0, 0),
+        };
+        self.current_scope = self.resolver.add_scope(new_scope);
+
+        let mut children = Self::new_child_buffer();
+
+        self.advance()?;
+
+        while !self.allow(Token::RightCurlyBrace)? {
+            if let Err(error) = self.pratt(Precedence::None) {
+                self.recover(error);
+            } else {
+                let child_id = self.syntax_tree.last_node_id();
+
+                if child_id == SyntaxId(0) {
+                    break;
+                }
+
+                children.push(child_id);
+            }
+        }
+
+        let last_node_type = if let Some(last_node) = self.syntax_tree.last_node()
+            && last_node.kind.is_expression()
+        {
+            last_node.payload
+        } else {
+            TypeId::NONE.0
+        };
+        let first_child = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+        let node = SyntaxNode {
+            kind: SyntaxKind::BlockExpression,
+            position: Span(start, self.previous_position.1),
+            children: (first_child, child_count),
+            payload: last_node_type,
+        };
+        self.current_scope = starting_scope_id;
+
+        self.syntax_tree.push_node(node);
+        self.syntax_tree.children.extend(children);
+
+        Ok(())
+    }
+
     fn parse_if(&mut self) -> Result<(), ParseError> {
         todo!()
     }
 
     fn parse_while(&mut self) -> Result<(), ParseError> {
-        todo!()
-    }
-
-    fn parse_block(&mut self) -> Result<(), ParseError> {
         todo!()
     }
 
