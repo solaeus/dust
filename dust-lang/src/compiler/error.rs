@@ -42,7 +42,7 @@ pub enum CompileError {
     MissingDeclaration {
         id: DeclarationId,
     },
-    MissingLocalRegister {
+    MissingLocal {
         declaration_id: DeclarationId,
     },
     MissingSyntaxNode {
@@ -57,45 +57,113 @@ impl AnnotatedError for CompileError {
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
             CompileError::InvalidEncodedConstant {
-                node_kind: _,
-                position: _,
-                payload: _,
-            } => todo!(),
-            CompileError::DivisionByZero {
-                node_kind: _,
-                position: _,
-            } => todo!(),
-            CompileError::ExpectedItem {
-                node_kind: _,
-                position: _,
-            } => todo!(),
-            CompileError::ExpectedStatement {
-                node_kind: _,
-                position: _,
-            } => todo!(),
-            CompileError::ExpectedExpression {
                 node_kind,
                 position,
+                payload,
             } => {
-                let title = "Expected an expression".to_string();
+                let title = "Invalid encoded constant".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
                             .span(position.as_usize_range())
-                            .label(format!("Found {node_kind} but expected an expression here")),
+                            .label(format!(
+                                "Found {node_kind} with invalid encoded constant {payload:?} here"
+                            )),
                     ),
                 )
             }
+            CompileError::DivisionByZero {
+                node_kind,
+                position,
+            } => {
+                let title = "Division by zero".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("Found {node_kind} that divides by zero here")),
+                    ),
+                )
+            }
+            CompileError::ExpectedItem {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected an item, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedStatement {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected a statement, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedExpression {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected an expression, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
             CompileError::MissingChild {
-                parent_kind: _,
-                child_index: _,
-            } => todo!(),
-            CompileError::MissingConstant { constant_index: _ } => todo!(),
-            CompileError::MissingDeclaration { id: _ } => todo!(),
-            CompileError::MissingLocalRegister { declaration_id: _ } => todo!(),
-            CompileError::MissingSyntaxNode { id: _ } => todo!(),
-            CompileError::MissingType { type_id: _ } => todo!(),
+                parent_kind,
+                child_index,
+            } => {
+                let title = format!(
+                    "Expected child {child_index} on {parent_kind}, but it was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingConstant { constant_index: _ } => {
+                let title =
+                    "A constant was missing, this is a bug in the parser or compiler".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingDeclaration { id } => {
+                let title = format!(
+                    "Declaration with id {id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingLocal { declaration_id } => {
+                let title = format!(
+                    "Local for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingSyntaxNode { id } => {
+                let title = format!(
+                    "Syntax node with id {id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingType { type_id } => {
+                let title = format!(
+                    "Type with id {type_id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
         }
     }
 }

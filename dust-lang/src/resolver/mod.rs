@@ -56,14 +56,12 @@ impl Resolver {
             hasher.finish()
         };
 
-        let id = DeclarationId(self.declarations.len() as u32);
+        let (index, _) = self.declarations.insert_full(hash, declaration);
 
-        self.declarations.insert(hash, declaration);
-
-        id
+        DeclarationId(index as u32)
     }
 
-    pub fn get_declaration(&mut self, identifier: &str, scope: ScopeId) -> Option<&Declaration> {
+    pub fn get_declaration(&mut self, identifier: &str, scope: &ScopeId) -> Option<&Declaration> {
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -78,8 +76,8 @@ impl Resolver {
     pub fn get_declaration_full(
         &mut self,
         identifier: &str,
-        scope: ScopeId,
-    ) -> Option<(DeclarationId, &Declaration)> {
+        scope: &ScopeId,
+    ) -> Option<(DeclarationId, Declaration)> {
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -90,7 +88,7 @@ impl Resolver {
 
         self.declarations
             .get_full(&hash)
-            .map(|(index, _, value)| (DeclarationId(index as u32), value))
+            .map(|(index, _, value)| (DeclarationId(index as u32), *value))
     }
 
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
@@ -173,13 +171,21 @@ impl Default for Resolver {
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const MAIN: Self = ScopeId(u32::MAX);
+    pub const MAIN: Self = ScopeId(0);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scope {
     pub parent: ScopeId,
     pub imports: (u32, u32),
+    pub depth: u8,
+    pub index: u16,
+}
+
+impl Scope {
+    pub fn contains(&self, other: &Scope) -> bool {
+        self.depth >= other.depth && self.index <= other.index
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

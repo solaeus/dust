@@ -76,6 +76,10 @@ pub enum ParseError {
         first_declaration: Span,
         second_declaration: Span,
     },
+    OutOfScopeVariable {
+        position: Span,
+        declaration_position: Span,
+    },
     UndeclaredVariable {
         identifier: String,
         position: Span,
@@ -284,6 +288,26 @@ impl AnnotatedError for ParseError {
                             AnnotationKind::Context
                                 .span(first_declaration.as_usize_range())
                                 .label(format!("First declaration of `{identifier}` is here")),
+                        ),
+                )
+            }
+            ParseError::OutOfScopeVariable {
+                position,
+                declaration_position,
+            } => {
+                let title = "Use of out-of-scope variable".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.as_usize_range())
+                                .label("This variable is used out of its scope"),
+                        )
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(declaration_position.as_usize_range())
+                                .label("The variable is declared here"),
                         ),
                 )
             }

@@ -53,7 +53,8 @@ pub struct Parser<'src> {
     previous_token: Token,
     previous_position: Span,
 
-    current_scope: ScopeId,
+    current_scope_id: ScopeId,
+    scope_count: u16,
 
     errors: Vec<ParseError>,
 }
@@ -68,8 +69,9 @@ impl<'src> Parser<'src> {
             current_position: Span::default(),
             previous_token: Token::Eof,
             previous_position: Span::default(),
-            current_scope: ScopeId::MAIN,
+            current_scope_id: ScopeId(0),
             errors: Vec::new(),
+            scope_count: 0,
         }
     }
 
@@ -80,7 +82,7 @@ impl<'src> Parser<'src> {
 
         self.current_token = token;
         self.current_position = span;
-        self.current_scope = scope;
+        self.current_scope_id = scope;
 
         if scope == ScopeId::MAIN {
             self.parse_main_function_item();
@@ -102,7 +104,7 @@ impl<'src> Parser<'src> {
 
         self.current_token = token;
         self.current_position = span;
-        self.current_scope = scope;
+        self.current_scope_id = scope;
 
         if scope == ScopeId::MAIN {
             self.parse_main_function_item();
@@ -133,7 +135,7 @@ impl<'src> Parser<'src> {
 
         self.current_token = token;
         self.current_position = span;
-        self.current_scope = scope;
+        self.current_scope_id = scope;
 
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
@@ -347,6 +349,12 @@ impl<'src> Parser<'src> {
             children: (0, 0),
             payload: TypeId::NONE.0,
         };
+        self.current_scope_id = self.resolver.add_scope(Scope {
+            parent: ScopeId(0),
+            imports: (0, 0),
+            depth: 0,
+            index: 0,
+        });
 
         self.syntax_tree.push_node(placeholder_node);
 
@@ -450,7 +458,7 @@ impl<'src> Parser<'src> {
                 let end = self.previous_position.1;
                 let declaration = Declaration {
                     kind: DeclarationKind::Function,
-                    scope: self.current_scope,
+                    scope: self.current_scope_id,
                     r#type: TypeId::NONE,
                     identifier_position,
                 };
@@ -503,7 +511,7 @@ impl<'src> Parser<'src> {
 
                 let type_id = self
                     .resolver
-                    .get_declaration(identifier_text, self.current_scope)
+                    .get_declaration(identifier_text, &self.current_scope_id)
                     .ok_or(ParseError::UndeclaredType {
                         identifier: identifier_text.to_string(),
                         position: self.current_position,
@@ -556,6 +564,7 @@ impl<'src> Parser<'src> {
         } else {
             (SyntaxKind::LetStatement, DeclarationKind::Local)
         };
+        let identifier_position = self.current_position;
         let identifier_text = if self.current_token == Token::Identifier {
             let text = self.current_source();
 
@@ -602,9 +611,9 @@ impl<'src> Parser<'src> {
 
         let declaration = Declaration {
             kind: declaration_kind,
-            scope: self.current_scope,
+            scope: self.current_scope_id,
             r#type: TypeId(expression_type),
-            identifier_position: self.current_position,
+            identifier_position,
         };
         let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
         let node = SyntaxNode {
@@ -1021,13 +1030,24 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_block(&mut self) -> Result<(), ParseError> {
+        info!("Parsing block expression");
+
         let start = self.current_position.0;
-        let starting_scope_id = self.current_scope;
+        let starting_scope_id = self.current_scope_id;
+        let starting_scope =
+            self.resolver
+                .get_scope(self.current_scope_id)
+                .ok_or(ParseError::MissingScope {
+                    id: self.current_scope_id,
+                })?;
         let new_scope = Scope {
-            parent: self.current_scope,
+            parent: starting_scope_id,
             imports: (0, 0),
+            depth: starting_scope.depth + 1,
+            index: self.scope_count,
         };
-        self.current_scope = self.resolver.add_scope(new_scope);
+        self.scope_count += 1;
+        self.current_scope_id = self.resolver.add_scope(new_scope);
 
         let mut children = Self::new_child_buffer();
 
@@ -1047,25 +1067,42 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let last_node_type = if let Some(last_node) = self.syntax_tree.last_node()
-            && last_node.kind.is_expression()
-        {
-            last_node.payload
-        } else {
-            TypeId::NONE.0
-        };
         let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
-        let node = SyntaxNode {
-            kind: SyntaxKind::BlockExpression,
-            position: Span(start, self.previous_position.1),
-            children: (first_child, child_count),
-            payload: last_node_type,
-        };
-        self.current_scope = starting_scope_id;
+        self.current_scope_id = starting_scope_id;
 
-        self.syntax_tree.push_node(node);
-        self.syntax_tree.children.extend(children);
+        if let Some(last_node) = self.syntax_tree.last_node()
+            && last_node.kind.is_expression()
+        {
+            let block_node = SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                position: Span(start, self.previous_position.1),
+                children: (first_child, child_count),
+                payload: last_node.payload,
+            };
+
+            self.syntax_tree.push_node(block_node);
+            self.syntax_tree.children.extend(children);
+        } else {
+            let block_node = SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                position: Span(start, self.previous_position.1),
+                children: (first_child, child_count),
+                payload: TypeId::NONE.0,
+            };
+            let block_node_id = self.syntax_tree.push_node(block_node);
+
+            self.syntax_tree.children.extend(children);
+
+            let expression_statement_node = SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                position: block_node.position,
+                children: (block_node_id.0, 0),
+                payload: TypeId::NONE.0,
+            };
+
+            self.syntax_tree.push_node(expression_statement_node);
+        }
 
         Ok(())
     }
@@ -1096,17 +1133,38 @@ impl<'src> Parser<'src> {
 
         let Some((declaration_id, declaration)) = self
             .resolver
-            .get_declaration_full(identifier_text, self.current_scope)
+            .get_declaration_full(identifier_text, &self.current_scope_id)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
                 position,
             });
         };
+        let current_scope =
+            self.resolver
+                .get_scope(self.current_scope_id)
+                .ok_or(ParseError::MissingScope {
+                    id: self.current_scope_id,
+                })?;
+        let declaration_scope =
+            self.resolver
+                .get_scope(declaration.scope)
+                .ok_or(ParseError::MissingScope {
+                    id: declaration.scope,
+                })?;
+        let declaration_is_in_scope = declaration_scope.contains(current_scope);
+
+        if !declaration_is_in_scope {
+            return Err(ParseError::OutOfScopeVariable {
+                position,
+                declaration_position: declaration.identifier_position,
+            });
+        }
+
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             position,
-            children: (declaration_id.0, 0),
+            children: (declaration_id.0, declaration.scope.0),
             payload: declaration.r#type.0,
         };
 

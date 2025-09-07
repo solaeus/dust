@@ -108,7 +108,7 @@ pub struct ChunkCompiler<'a> {
     /// this is 0 as a default but the main chunk is actually the last one in the list.
     prototype_index: u16,
 
-    /// Local variables registers and a boolean indicating if they are mutable.
+    /// Local variables declared in the function being compiled.
     locals: HashMap<DeclarationId, Local, FxBuildHasher>,
 
     minimum_register: u16,
@@ -590,7 +590,7 @@ impl<'a> ChunkCompiler<'a> {
         let declaration_id = DeclarationId(node.payload);
         let expression_statement_id = SyntaxId(node.children.1);
 
-        let declaration = self
+        let declaration = *self
             .resolver
             .get_declaration_from_id(declaration_id)
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
@@ -1161,10 +1161,11 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling path expression");
 
         let declaration_id = DeclarationId(node.children.0);
+
         let destination_register = self
             .locals
             .get(&declaration_id)
-            .ok_or(CompileError::MissingLocalRegister { declaration_id })?
+            .ok_or(CompileError::MissingLocal { declaration_id })?
             .register;
         let r#type = self
             .resolver
