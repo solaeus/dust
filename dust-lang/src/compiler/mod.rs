@@ -1144,7 +1144,13 @@ impl<'a> ChunkCompiler<'a> {
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
 
-        self.compile_expression(last_child_id, last_child_node)
+        if last_child_node.kind.is_statement() {
+            self.compile_statement(last_child_id)?;
+
+            Ok(Emission::None)
+        } else {
+            self.compile_expression(last_child_id, last_child_node)
+        }
     }
 
     fn compile_path_expression(
