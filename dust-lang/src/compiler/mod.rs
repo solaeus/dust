@@ -1072,9 +1072,8 @@ impl<'a> ChunkCompiler<'a> {
         let end_children = start_children + child_count;
 
         let mut current_child_index = start_children;
-        let mut last_emission = None;
 
-        while current_child_index < end_children {
+        while current_child_index < end_children - 1 {
             let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
                 CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1083,30 +1082,24 @@ impl<'a> ChunkCompiler<'a> {
             )?;
             current_child_index += 1;
 
-            let child_node = self
+            self.compile_statement(child_id)?;
+        }
+
+        let last_child_id =
+            *self
                 .syntax_tree
-                .get_node(child_id)
-                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+                .children
+                .get(end_children - 1)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: (end_children - 1) as u32,
+                })?;
+        let last_child_node = self
+            .syntax_tree
+            .get_node(last_child_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
 
-            if child_node.kind.is_statement() {
-                self.compile_statement(child_id)?;
-                last_emission = None;
-            } else if child_node.kind.is_expression() {
-                let emission = self.compile_expression(child_id, child_node)?;
-                last_emission = Some(emission);
-            } else {
-                return Err(CompileError::ExpectedExpression {
-                    node_kind: child_node.kind,
-                    position: child_node.position,
-                });
-            }
-        }
-
-        if let Some(emission) = last_emission {
-            Ok(emission)
-        } else {
-            Ok(Emission::Constant(Constant::Boolean(false))) // Default to false if no expression
-        }
+        self.compile_expression(last_child_id, last_child_node)
     }
 
     fn compile_path_expression(
