@@ -117,3 +117,58 @@ fn block_statement_and_expression() {
         }
     );
 }
+
+#[test]
+fn parent_scope_access() {
+    let source = block_cases::PARENT_SCOPE_ACCESS;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            ),],
+            constants,
+            register_count: 0,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn scope_shadowing() {
+    let source = block_cases::SCOPE_SHADOWING;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+    constants.add_integer(43);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::r#return(true, Address::constant(1), OperandType::INTEGER),
+            ],
+            constants,
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
