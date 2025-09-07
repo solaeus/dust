@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Span,
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, SymbolId, TypeId},
+    resolver::{DeclarationId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -50,9 +50,6 @@ pub enum CompileError {
     },
     MissingType {
         type_id: TypeId,
-    },
-    MissingSymbol {
-        id: SymbolId,
     },
 }
 
@@ -163,13 +160,6 @@ impl AnnotatedError for CompileError {
             CompileError::MissingType { type_id } => {
                 let title = format!(
                     "Type with id {type_id:?} was missing, this is a bug in the parser or compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingSymbol { id } => {
-                let title = format!(
-                    "Symbol with id {id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

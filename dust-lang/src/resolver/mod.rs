@@ -9,13 +9,9 @@ use crate::{ConstantTable, OperandType, Span, Type};
 pub struct Resolver {
     pub constants: ConstantTable,
 
-    declarations: Vec<Declaration>,
-
-    scoped_declarations: IndexMap<(Symbol, ScopeId), DeclarationId, FxBuildHasher>,
+    declarations: IndexMap<(Symbol, ScopeId), Declaration, FxBuildHasher>,
 
     scopes: Vec<Scope>,
-
-    symbols: IndexSet<Symbol, FxBuildHasher>,
 
     types: IndexSet<TypeNode, FxBuildHasher>,
 
@@ -26,10 +22,8 @@ impl Resolver {
     pub fn new() -> Self {
         Self {
             constants: ConstantTable::new(),
-            declarations: Vec::new(),
-            scoped_declarations: IndexMap::default(),
+            declarations: IndexMap::default(),
             scopes: Vec::new(),
-            symbols: IndexSet::default(),
             r#types: IndexSet::default(),
             type_members: Vec::new(),
         }
@@ -48,7 +42,9 @@ impl Resolver {
     }
 
     pub fn get_declaration(&self, id: DeclarationId) -> Option<&Declaration> {
-        self.declarations.get(id.0 as usize)
+        self.declarations
+            .get_index(id.0 as usize)
+            .map(|(_, declaration)| declaration)
     }
 
     pub fn add_declaration(
@@ -68,36 +64,24 @@ impl Resolver {
                 hash: hasher.finish(),
             }
         };
-        let symbol_id = if let Some(existing) = self.symbols.get_index_of(&symbol) {
-            SymbolId(existing as u32)
-        } else {
-            let id = SymbolId(self.symbols.len() as u32);
-
-            self.symbols.insert(symbol);
-
-            id
-        };
         let declaration = Declaration {
             kind,
-            symbol_id,
             scope_id,
             type_id,
             identifier_position,
         };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
-        self.declarations.push(declaration);
-        self.add_scoped_declaration(identifier, scope_id, declaration_id);
+        self.declarations.insert((symbol, scope_id), declaration);
 
         declaration_id
     }
 
-    pub fn add_scoped_declaration(
+    pub fn find_declaration_in_scope_chain(
         &mut self,
         identifier: &str,
-        scope_id: ScopeId,
-        declaration_id: DeclarationId,
-    ) {
+        mut scope: ScopeId,
+    ) -> Option<DeclarationId> {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -108,17 +92,8 @@ impl Resolver {
             }
         };
 
-        self.scoped_declarations
-            .insert((symbol, scope_id), declaration_id);
-    }
-
-    pub fn find_declaration_in_scope_chain(
-        &mut self,
-        identifier: &str,
-        mut scope: ScopeId,
-    ) -> Option<DeclarationId> {
         loop {
-            if let Some(declaration_id) = self.get_scoped_declaration(identifier, scope) {
+            if let Some(declaration_id) = self.get_scoped_declaration(symbol, scope) {
                 return Some(declaration_id);
             }
 
@@ -132,22 +107,8 @@ impl Resolver {
         None
     }
 
-    pub fn get_scoped_declaration(
-        &mut self,
-        identifier: &str,
-        scope: ScopeId,
-    ) -> Option<DeclarationId> {
-        let symbol = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-
-            Symbol {
-                hash: hasher.finish(),
-            }
-        };
-
-        self.scoped_declarations
+    fn get_scoped_declaration(&mut self, symbol: Symbol, scope: ScopeId) -> Option<DeclarationId> {
+        self.declarations
             .get_index_of(&(symbol, scope))
             .map(|index| DeclarationId(index as u32))
     }
@@ -229,9 +190,6 @@ impl Default for Resolver {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SymbolId(pub u32);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol {
     hash: u64,
 }
@@ -267,7 +225,6 @@ impl DeclarationId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
     pub kind: DeclarationKind,
-    pub symbol_id: SymbolId,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
     pub identifier_position: Span,

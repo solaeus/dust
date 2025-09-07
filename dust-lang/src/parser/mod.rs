@@ -510,7 +510,7 @@ impl<'src> Parser<'src> {
                 let identifier_text = self.current_source();
                 let declaration_id = self
                     .resolver
-                    .get_scoped_declaration(identifier_text, self.current_scope_id)
+                    .find_declaration_in_scope_chain(identifier_text, self.current_scope_id)
                     .ok_or(ParseError::UndeclaredType {
                         identifier: identifier_text.to_string(),
                         position: self.current_position,
