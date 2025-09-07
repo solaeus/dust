@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Span, Token, Type,
     dust_error::AnnotatedError,
-    resolver::ScopeId,
+    resolver::{DeclarationId, ScopeId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -91,6 +91,9 @@ pub enum ParseError {
     },
     MissingScope {
         id: ScopeId,
+    },
+    MissingDeclaration {
+        id: DeclarationId,
     },
 }
 
@@ -332,6 +335,14 @@ impl AnnotatedError for ParseError {
             }
             ParseError::MissingScope { id } => {
                 let title = format!("Internal error: Missing scope with ID {}", id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            ParseError::MissingDeclaration { id } => {
+                let title = format!(
+                    "Internal error: Missing scope for declaration with ID {}",
+                    id.0
+                );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

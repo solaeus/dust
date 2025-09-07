@@ -592,7 +592,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let declaration = *self
             .resolver
-            .get_declaration_from_id(declaration_id)
+            .get_declaration(declaration_id)
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
         let is_mutable = declaration.kind == DeclarationKind::LocalMutable;
         let expression_statement_node = self.syntax_tree.get_node(expression_statement_id).ok_or(
@@ -1161,7 +1161,6 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling path expression");
 
         let declaration_id = DeclarationId(node.children.0);
-
         let destination_register = self
             .locals
             .get(&declaration_id)

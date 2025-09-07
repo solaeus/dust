@@ -9,9 +9,13 @@ use crate::{ConstantTable, OperandType, Span, Type};
 pub struct Resolver {
     pub constants: ConstantTable,
 
-    declarations: IndexMap<u64, Declaration, FxBuildHasher>,
+    declarations: Vec<Declaration>,
+
+    scoped_declarations: IndexMap<(Symbol, ScopeId), DeclarationId, FxBuildHasher>,
 
     scopes: Vec<Scope>,
+
+    symbols: IndexSet<Symbol, FxBuildHasher>,
 
     types: IndexSet<TypeNode, FxBuildHasher>,
 
@@ -22,8 +26,10 @@ impl Resolver {
     pub fn new() -> Self {
         Self {
             constants: ConstantTable::new(),
-            declarations: IndexMap::default(),
+            declarations: Vec::new(),
+            scoped_declarations: IndexMap::default(),
             scopes: Vec::new(),
+            symbols: IndexSet::default(),
             r#types: IndexSet::default(),
             type_members: Vec::new(),
         }
@@ -41,54 +47,109 @@ impl Resolver {
         self.scopes.get(id.0 as usize)
     }
 
-    pub fn get_declaration_from_id(&self, id: DeclarationId) -> Option<&Declaration> {
-        self.declarations
-            .get_index(id.0 as usize)
-            .map(|(_, declaration)| declaration)
+    pub fn get_declaration(&self, id: DeclarationId) -> Option<&Declaration> {
+        self.declarations.get(id.0 as usize)
     }
 
-    pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
-        let hash = {
+    pub fn add_declaration(
+        &mut self,
+        kind: DeclarationKind,
+        scope_id: ScopeId,
+        type_id: TypeId,
+        identifier: &str,
+        identifier_position: Span,
+    ) -> DeclarationId {
+        let symbol = {
             let mut hasher = FxHasher::default();
 
             identifier.hash(&mut hasher);
-            declaration.scope.hash(&mut hasher);
-            hasher.finish()
+
+            Symbol {
+                hash: hasher.finish(),
+            }
         };
+        let symbol_id = if let Some(existing) = self.symbols.get_index_of(&symbol) {
+            SymbolId(existing as u32)
+        } else {
+            let id = SymbolId(self.symbols.len() as u32);
 
-        let (index, _) = self.declarations.insert_full(hash, declaration);
+            self.symbols.insert(symbol);
 
-        DeclarationId(index as u32)
+            id
+        };
+        let declaration = Declaration {
+            kind,
+            symbol_id,
+            scope_id,
+            type_id,
+            identifier_position,
+        };
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
+
+        self.declarations.push(declaration);
+        self.add_scoped_declaration(identifier, scope_id, declaration_id);
+
+        declaration_id
     }
 
-    pub fn get_declaration(&mut self, identifier: &str, scope: &ScopeId) -> Option<&Declaration> {
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-            scope.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        self.declarations.get(&hash)
-    }
-
-    pub fn get_declaration_full(
+    pub fn add_scoped_declaration(
         &mut self,
         identifier: &str,
-        scope: &ScopeId,
-    ) -> Option<(DeclarationId, Declaration)> {
-        let hash = {
+        scope_id: ScopeId,
+        declaration_id: DeclarationId,
+    ) {
+        let symbol = {
             let mut hasher = FxHasher::default();
 
             identifier.hash(&mut hasher);
-            scope.hash(&mut hasher);
-            hasher.finish()
+
+            Symbol {
+                hash: hasher.finish(),
+            }
         };
 
-        self.declarations
-            .get_full(&hash)
-            .map(|(index, _, value)| (DeclarationId(index as u32), *value))
+        self.scoped_declarations
+            .insert((symbol, scope_id), declaration_id);
+    }
+
+    pub fn find_declaration_in_scope_chain(
+        &mut self,
+        identifier: &str,
+        mut scope: ScopeId,
+    ) -> Option<DeclarationId> {
+        loop {
+            if let Some(declaration_id) = self.get_scoped_declaration(identifier, scope) {
+                return Some(declaration_id);
+            }
+
+            if scope == ScopeId::MAIN {
+                break;
+            }
+
+            scope = self.scopes.get(scope.0 as usize)?.parent;
+        }
+
+        None
+    }
+
+    pub fn get_scoped_declaration(
+        &mut self,
+        identifier: &str,
+        scope: ScopeId,
+    ) -> Option<DeclarationId> {
+        let symbol = {
+            let mut hasher = FxHasher::default();
+
+            identifier.hash(&mut hasher);
+
+            Symbol {
+                hash: hasher.finish(),
+            }
+        };
+
+        self.scoped_declarations
+            .get_index_of(&(symbol, scope))
+            .map(|index| DeclarationId(index as u32))
     }
 
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
@@ -168,6 +229,14 @@ impl Default for Resolver {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SymbolId(pub u32);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Symbol {
+    hash: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
@@ -198,8 +267,9 @@ impl DeclarationId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
     pub kind: DeclarationKind,
-    pub scope: ScopeId,
-    pub r#type: TypeId,
+    pub symbol_id: SymbolId,
+    pub scope_id: ScopeId,
+    pub type_id: TypeId,
     pub identifier_position: Span,
 }
 

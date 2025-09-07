@@ -16,7 +16,7 @@ use crate::{
     Lexer, Resolver, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::{Declaration, DeclarationKind, Scope, ScopeId, TypeId},
+    resolver::{DeclarationKind, Scope, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -456,13 +456,13 @@ impl<'src> Parser<'src> {
                 self.parse_function_expression()?;
 
                 let end = self.previous_position.1;
-                let declaration = Declaration {
-                    kind: DeclarationKind::Function,
-                    scope: self.current_scope_id,
-                    r#type: TypeId::NONE,
+                let declaration_id = self.resolver.add_declaration(
+                    DeclarationKind::Function,
+                    self.current_scope_id,
+                    TypeId::NONE,
+                    identifier_text,
                     identifier_position,
-                };
-                let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
+                );
                 let function_expression_id = self.syntax_tree.last_node_id();
                 let node = SyntaxNode {
                     kind: SyntaxKind::FunctionStatement,
@@ -508,17 +508,19 @@ impl<'src> Parser<'src> {
             Token::Str => (SyntaxKind::StringType, TypeId::STRING),
             Token::Identifier => {
                 let identifier_text = self.current_source();
-
-                let type_id = self
+                let declaration_id = self
                     .resolver
-                    .get_declaration(identifier_text, &self.current_scope_id)
+                    .get_scoped_declaration(identifier_text, self.current_scope_id)
                     .ok_or(ParseError::UndeclaredType {
                         identifier: identifier_text.to_string(),
                         position: self.current_position,
-                    })?
-                    .r#type;
+                    })?;
+                let declaration = self
+                    .resolver
+                    .get_declaration(declaration_id)
+                    .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
 
-                (SyntaxKind::TypePath, type_id)
+                (SyntaxKind::TypePath, declaration.type_id)
             }
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
@@ -609,13 +611,13 @@ impl<'src> Parser<'src> {
             todo!("Error");
         }
 
-        let declaration = Declaration {
-            kind: declaration_kind,
-            scope: self.current_scope_id,
-            r#type: TypeId(expression_type),
+        let declaration_id = self.resolver.add_declaration(
+            declaration_kind,
+            self.current_scope_id,
+            TypeId(expression_type),
+            identifier_text,
             identifier_position,
-        };
-        let declaration_id = self.resolver.add_declaration(identifier_text, declaration);
+        );
         let node = SyntaxNode {
             kind: syntax_kind,
             position: Span(start, end),
@@ -1131,41 +1133,32 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        let Some((declaration_id, declaration)) = self
+        let Some(declaration_id) = self
             .resolver
-            .get_declaration_full(identifier_text, &self.current_scope_id)
+            .find_declaration_in_scope_chain(identifier_text, self.current_scope_id)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
                 position,
             });
         };
-        let current_scope =
-            self.resolver
-                .get_scope(self.current_scope_id)
-                .ok_or(ParseError::MissingScope {
-                    id: self.current_scope_id,
-                })?;
-        let declaration_scope =
-            self.resolver
-                .get_scope(declaration.scope)
-                .ok_or(ParseError::MissingScope {
-                    id: declaration.scope,
-                })?;
-        let declaration_is_in_scope = declaration_scope.contains(current_scope);
+        let declaration = self
+            .resolver
+            .get_declaration(declaration_id)
+            .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
 
-        if !declaration_is_in_scope {
-            return Err(ParseError::OutOfScopeVariable {
-                position,
-                declaration_position: declaration.identifier_position,
-            });
-        }
+        // if !current_scope.contains(&declaration_scope) {
+        //     return Err(ParseError::OutOfScopeVariable {
+        //         position,
+        //         declaration_position: declaration.identifier_position,
+        //     });
+        // }
 
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             position,
-            children: (declaration_id.0, declaration.scope.0),
-            payload: declaration.r#type.0,
+            children: (declaration_id.0, 0),
+            payload: declaration.type_id.0,
         };
 
         self.syntax_tree.push_node(node);
