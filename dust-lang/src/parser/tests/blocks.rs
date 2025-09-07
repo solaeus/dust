@@ -252,6 +252,109 @@ fn parent_scope_access() {
 }
 
 #[test]
+fn nested_parrent_scope_access() {
+    let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (5, 1),
+                position: Span(0, 100),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (3, 2),
+                position: Span(1, 99),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (1, 3),
+                position: Span(7, 23),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(14, 17),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (41, 0),
+                position: Span(20, 22),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(20, 23),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (1, 2),
+                position: Span(28, 97),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (5, 7),
+                position: Span(38, 53),
+                payload: 1,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(45, 48),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (1, 0),
+                position: Span(51, 52),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (6, 0),
+                position: Span(51, 53),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (0, 1),
+                position: Span(62, 91),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(76, 77),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                children: (9, 10),
+                position: Span(76, 81),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (1, 0),
+                position: Span(80, 81),
+                payload: TypeId::INTEGER.0,
+            },
+        ]
+    );
+}
+
+#[test]
 fn scope_shadowing() {
     let source = block_cases::SCOPE_SHADOWING;
     let (syntax_tree, error) = parse_main(source);
@@ -330,6 +433,97 @@ fn scope_shadowing() {
                 kind: SyntaxKind::PathExpression,
                 children: (1, 0),
                 position: Span(63, 64),
+                payload: TypeId::INTEGER.0,
+            },
+        ]
+    );
+}
+
+#[test]
+fn scope_deshadowing() {
+    let source = block_cases::SCOPE_DESHADOWING;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (4, 1),
+                position: Span(0, 68),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (1, 3),
+                position: Span(1, 67),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (1, 3),
+                position: Span(7, 23),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(14, 17),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                position: Span(20, 22),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(20, 23),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (0, 1),
+                position: Span(28, 59),
+                payload: TypeId::NONE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (9, 0),
+                position: Span(28, 59),
+                payload: TypeId::NONE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (5, 7),
+                position: Span(38, 53),
+                payload: 1,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(45, 48),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (1, 0),
+                position: Span(51, 52),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (6, 0),
+                position: Span(51, 53),
+                payload: TypeId::INTEGER.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(64, 65),
                 payload: TypeId::INTEGER.0,
             },
         ]

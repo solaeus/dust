@@ -144,6 +144,48 @@ fn parent_scope_access() {
 }
 
 #[test]
+fn nested_parrent_scope_access() {
+    let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(41);
+    constants.add_integer(1);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::load(
+                    Address::register(1),
+                    Address::constant(1),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::add(
+                    Address::register(2),
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            constants,
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn scope_shadowing() {
     let source = block_cases::SCOPE_SHADOWING;
     let chunk = compile_main(source).unwrap();
@@ -168,6 +210,42 @@ fn scope_shadowing() {
             ],
             constants,
             register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn scope_deshadowing() {
+    let source = block_cases::SCOPE_DESHADOWING;
+    let chunk = compile_main(source).unwrap();
+    let mut constants = ConstantTable::new();
+
+    constants.add_integer(42);
+    constants.add_integer(1);
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            name: Some("main".to_string()),
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::load(
+                    Address::register(0),
+                    Address::constant(0),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::load(
+                    Address::register(1),
+                    Address::constant(1),
+                    OperandType::INTEGER,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+            ],
+            constants,
+            register_count: 2,
             ..Default::default()
         }
     );
