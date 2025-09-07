@@ -335,7 +335,7 @@ impl From<Token> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            Token::StarEqual => ParseRule {
+            Token::AsteriskEqual => ParseRule {
                 prefix: None,
                 infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
@@ -371,7 +371,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::While => ParseRule {
-                prefix: Some(Parser::parse_while),
+                prefix: Some(Parser::parse_while_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

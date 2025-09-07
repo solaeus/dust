@@ -203,6 +203,11 @@ impl SyntaxTree {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
+            | SyntaxKind::AdditionAssignmentExpression
+            | SyntaxKind::SubtractionAssignmentExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
+            | SyntaxKind::DivisionAssignmentExpression
+            | SyntaxKind::ModuloAssignmentExpression
             | SyntaxKind::AndExpression
             | SyntaxKind::OrExpression
             | SyntaxKind::EqualExpression
@@ -210,7 +215,8 @@ impl SyntaxTree {
             | SyntaxKind::LessThanExpression
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::GreaterThanExpression
-            | SyntaxKind::GreaterThanOrEqualExpression => {
+            | SyntaxKind::GreaterThanOrEqualExpression
+            | SyntaxKind::WhileExpression => {
                 if let Some(left_expression) = self.nodes.get(node.children.0 as usize) {
                     self.display_node(left_expression, depth + 1, output);
                 } else {

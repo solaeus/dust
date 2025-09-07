@@ -1,4 +1,7 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt::{self, Display, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
@@ -237,6 +240,18 @@ pub enum DeclarationKind {
     LocalMutable,
     Module,
     Type,
+}
+
+impl Display for DeclarationKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            DeclarationKind::Function => write!(f, "function"),
+            DeclarationKind::Local => write!(f, "local variable"),
+            DeclarationKind::LocalMutable => write!(f, "mutable local variable"),
+            DeclarationKind::Module => write!(f, "module"),
+            DeclarationKind::Type => write!(f, "type"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

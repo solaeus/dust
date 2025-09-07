@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Span, Token, Type,
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, ScopeId},
+    resolver::{DeclarationId, DeclarationKind, ScopeId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -47,12 +47,24 @@ pub enum ParseError {
         right_position: Span,
         position: Span,
     },
+    AssignmentToImmutable {
+        found: DeclarationKind,
+        position: Span,
+    },
     BinaryOperandTypeMismatch {
         operator: Token,
         left_type: Type,
         left_position: Span,
         right_type: Type,
         right_position: Span,
+        position: Span,
+    },
+    ExpectedBooleanCondition {
+        condition_type: Type,
+        condition_position: Span,
+    },
+    InvalidAssignmentTarget {
+        found: SyntaxKind,
         position: Span,
     },
     NegationTypeMismatch {
@@ -196,6 +208,17 @@ impl AnnotatedError for ParseError {
                         ),
                 )
             }
+            ParseError::AssignmentToImmutable { found, position } => {
+                let title = format!("Cannot assign to immutable {found}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("This {found} is not mutable")),
+                    ),
+                )
+            }
             ParseError::BinaryOperandTypeMismatch {
                 operator,
                 left_type,
@@ -221,6 +244,31 @@ impl AnnotatedError for ParseError {
                                 .span(right_position.as_usize_range())
                                 .label(format!("Right operand is of type {right_type}")),
                         ),
+                )
+            }
+            ParseError::ExpectedBooleanCondition {
+                condition_type,
+                condition_position,
+            } => {
+                let title = format!("Expected a boolean condition, found type {condition_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(condition_position.as_usize_range())
+                            .label(format!("Condition is of type {condition_type}")),
+                    ),
+                )
+            }
+            ParseError::InvalidAssignmentTarget { found, position } => {
+                let title = format!("Invalid assignment target: found {found}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("{found} cannot be assigned to here")),
+                    ),
                 )
             }
             ParseError::NegationTypeMismatch {

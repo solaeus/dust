@@ -129,6 +129,13 @@ pub enum SyntaxKind {
     DivisionExpression,
     ModuloExpression,
 
+    // Binary Math Assignment Expressions
+    AdditionAssignmentExpression,
+    SubtractionAssignmentExpression,
+    MultiplicationAssignmentExpression,
+    DivisionAssignmentExpression,
+    ModuloAssignmentExpression,
+
     // Binary Logic Expressions
     AndExpression,
     OrExpression,
@@ -155,7 +162,7 @@ pub enum SyntaxKind {
     IfExpression,
     OperatorExpression,
     PathExpression,
-    PredicateLoopExpression,
+    WhileExpression,
     ReturnExpression,
 
     // Sub-Syntax
@@ -165,7 +172,7 @@ pub enum SyntaxKind {
     FunctionReturnType,
     Identifier,
 
-    // Types
+    // Types (Sub-Syntax)
     BooleanType,
     ByteType,
     CharacterType,
@@ -227,7 +234,7 @@ impl SyntaxKind {
                 | SyntaxKind::GroupedExpression
                 | SyntaxKind::IfExpression
                 | SyntaxKind::PathExpression
-                | SyntaxKind::PredicateLoopExpression
+                | SyntaxKind::WhileExpression
                 | SyntaxKind::ReturnExpression
         )
     }
@@ -235,9 +242,7 @@ impl SyntaxKind {
     pub fn has_block(self) -> bool {
         matches!(
             self,
-            SyntaxKind::BlockExpression
-                | SyntaxKind::IfExpression
-                | SyntaxKind::PredicateLoopExpression
+            SyntaxKind::BlockExpression | SyntaxKind::IfExpression | SyntaxKind::WhileExpression
         )
     }
 }
@@ -263,6 +268,21 @@ impl Display for SyntaxKind {
             SyntaxKind::MultiplicationExpression => write!(f, "multiplication expression"),
             SyntaxKind::DivisionExpression => write!(f, "division expression"),
             SyntaxKind::ModuloExpression => write!(f, "modulo expression"),
+            SyntaxKind::AdditionAssignmentExpression => {
+                write!(f, "addition assignment expression")
+            }
+            SyntaxKind::SubtractionAssignmentExpression => {
+                write!(f, "subtraction assignment expression")
+            }
+            SyntaxKind::MultiplicationAssignmentExpression => {
+                write!(f, "multiplication assignment expression")
+            }
+            SyntaxKind::DivisionAssignmentExpression => {
+                write!(f, "division assignment expression")
+            }
+            SyntaxKind::ModuloAssignmentExpression => {
+                write!(f, "modulo assignment expression")
+            }
             SyntaxKind::AndExpression => write!(f, "and expression"),
             SyntaxKind::OrExpression => write!(f, "or expression"),
             SyntaxKind::GreaterThanExpression => write!(f, "greater than expression"),
@@ -284,7 +304,7 @@ impl Display for SyntaxKind {
             SyntaxKind::IfExpression => write!(f, "if expression"),
             SyntaxKind::OperatorExpression => write!(f, "operator expression"),
             SyntaxKind::PathExpression => write!(f, "path expression"),
-            SyntaxKind::PredicateLoopExpression => write!(f, "predicate loop expression"),
+            SyntaxKind::WhileExpression => write!(f, "while loop expression"),
             SyntaxKind::ReturnExpression => write!(f, "return expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
             SyntaxKind::FunctionParameterList => write!(f, "function parameter list"),

@@ -51,6 +51,7 @@ pub enum Token {
     // Symbols (operators and punctuation)
     ArrowThin,
     Asterisk,
+    AsteriskEqual,
     BangEqual,
     Bang,
     Colon,
@@ -81,7 +82,6 @@ pub enum Token {
     Semicolon,
     Slash,
     SlashEqual,
-    StarEqual,
 
     // Whitespace
     Newline,
@@ -134,6 +134,7 @@ impl Display for Token {
             Token::While => write!(f, "'while' keyword"),
             Token::ArrowThin => write!(f, "-> symbol"),
             Token::Asterisk => write!(f, "* symbol"),
+            Token::AsteriskEqual => write!(f, "*= symbol"),
             Token::BangEqual => write!(f, "!= symbol"),
             Token::Bang => write!(f, "! symbol"),
             Token::Colon => write!(f, ": symbol"),
@@ -164,7 +165,6 @@ impl Display for Token {
             Token::Semicolon => write!(f, "; symbol"),
             Token::Slash => write!(f, "/ symbol"),
             Token::SlashEqual => write!(f, "/= symbol"),
-            Token::StarEqual => write!(f, "*= symbol"),
             Token::Newline => write!(f, "newline"),
             Token::Space => write!(f, "space"),
             Token::Tab => write!(f, "tab"),

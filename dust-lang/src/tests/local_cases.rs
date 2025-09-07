@@ -39,6 +39,22 @@ let b: int = 2;
 a + b
 "#;
 
+pub const LOCAL_MUT_BYTE_ADDITION: &str = r#"
+let mut a: byte = 0x28;
+a += 0x02;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_ADDITION: &str = r#"
+let mut a: float = 40.0;
+a += 2.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_ADDITION: &str = r#"
+let mut a: int = 40;
+a += 2;
+a
+"#;
+
 pub const LOCAL_BYTE_SUBTRACTION: &str = r#"
 let a: byte = 0x2C;
 let b: byte = 0x02;
@@ -53,6 +69,22 @@ pub const LOCAL_INTEGER_SUBTRACTION: &str = r#"
 let a: int = 44;
 let b: int = 2;
 a - b
+"#;
+
+pub const LOCAL_MUT_BYTE_SUBTRACTION: &str = r#"
+let mut a: byte = 0x2C;
+a -= 0x02;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_SUBTRACTION: &str = r#"
+let mut a: float = 44.0;
+a -= 2.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_SUBTRACTION: &str = r#"
+let mut a: int = 44;
+a -= 2;
+a
 "#;
 
 pub const LOCAL_BYTE_MULTIPLICATION: &str = r#"
@@ -71,6 +103,22 @@ let b: int = 3;
 a * b
 "#;
 
+pub const LOCAL_MUT_BYTE_MULTIPLICATION: &str = r#"
+let mut a: byte = 0x0E;
+a *= 0x03;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_MULTIPLICATION: &str = r#"
+let mut a: float = 14.0;
+a *= 3.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_MULTIPLICATION: &str = r#"
+let mut a: int = 14;
+a *= 3;
+a
+"#;
+
 pub const LOCAL_BYTE_DIVISION: &str = r#"
 let a: byte = 0x54;
 let b: byte = 0x02;
@@ -87,6 +135,22 @@ let b: int = 2;
 a / b
 "#;
 
+pub const LOCAL_MUT_BYTE_DIVISION: &str = r#"
+let mut a: byte = 0x54;
+a /= 0x02;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_DIVISION: &str = r#"
+let mut a: float = 84.0;
+a /= 2.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_DIVISION: &str = r#"
+let mut a: int = 84;
+a /= 2;
+a
+"#;
+
 pub const LOCAL_BYTE_MODULO: &str = r#"
 let a: byte = 0x54;
 let b: byte = 0x05;
@@ -101,6 +165,22 @@ pub const LOCAL_INTEGER_MODULO: &str = r#"
 let a: int = 84;
 let b: int = 5;
 a % b
+"#;
+
+pub const LOCAL_MUT_BYTE_MODULO: &str = r#"
+let mut a: byte = 0x54;
+a %= 0x05;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_MODULO: &str = r#"
+let mut a: float = 84.0;
+a %= 5.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_MODULO: &str = r#"
+let mut a: int = 84;
+a %= 5;
+a
 "#;
 
 pub const LOCAL_STRING_CONCATENATION: &str = r#"

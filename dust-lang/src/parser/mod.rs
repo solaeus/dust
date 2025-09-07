@@ -16,7 +16,7 @@ use crate::{
     Lexer, Resolver, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::{DeclarationKind, Scope, ScopeId, TypeId},
+    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -891,10 +891,15 @@ impl<'src> Parser<'src> {
         let operator = self.current_token;
         let node_kind = match operator {
             Token::Plus => SyntaxKind::AdditionExpression,
+            Token::PlusEqual => SyntaxKind::AdditionAssignmentExpression,
             Token::Minus => SyntaxKind::SubtractionExpression,
+            Token::MinusEqual => SyntaxKind::SubtractionAssignmentExpression,
             Token::Asterisk => SyntaxKind::MultiplicationExpression,
+            Token::AsteriskEqual => SyntaxKind::MultiplicationAssignmentExpression,
             Token::Slash => SyntaxKind::DivisionExpression,
+            Token::SlashEqual => SyntaxKind::DivisionAssignmentExpression,
             Token::Percent => SyntaxKind::ModuloExpression,
+            Token::PercentEqual => SyntaxKind::ModuloAssignmentExpression,
             Token::Greater => SyntaxKind::GreaterThanExpression,
             Token::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
             Token::Less => SyntaxKind::LessThanExpression,
@@ -917,6 +922,36 @@ impl<'src> Parser<'src> {
                 });
             }
         };
+
+        if matches!(
+            operator,
+            Token::PlusEqual
+                | Token::MinusEqual
+                | Token::AsteriskEqual
+                | Token::SlashEqual
+                | Token::PercentEqual
+        ) {
+            let declaration = if left_node.kind == SyntaxKind::PathExpression {
+                self.resolver
+                    .get_declaration(DeclarationId(left_node.children.0))
+                    .ok_or(ParseError::MissingDeclaration {
+                        id: DeclarationId(left_node.children.0),
+                    })?
+            } else {
+                return Err(ParseError::InvalidAssignmentTarget {
+                    found: left_node.kind,
+                    position: left_node.position,
+                });
+            };
+
+            if declaration.kind != DeclarationKind::LocalMutable {
+                return Err(ParseError::AssignmentToImmutable {
+                    found: declaration.kind,
+                    position: left_node.position,
+                });
+            }
+        }
+
         let operator_precedence = ParseRule::from(operator).precedence;
 
         self.advance()?;
@@ -1006,6 +1041,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_grouped_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing grouped expression");
+
         let start = self.current_position.0;
 
         self.advance()?;
@@ -1113,8 +1150,47 @@ impl<'src> Parser<'src> {
         todo!()
     }
 
-    fn parse_while(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_while_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing while expression");
+
+        let start = self.current_position.0;
+
+        self.advance()?;
+        self.parse_expression()?;
+
+        let condition_id = self.syntax_tree.last_node_id();
+        let condition_node = self
+            .syntax_tree
+            .get_node(condition_id)
+            .ok_or(ParseError::MissingNode { id: condition_id })?;
+        let condition_type = TypeId(condition_node.payload);
+
+        if condition_type != TypeId::BOOLEAN {
+            let condition_type = self
+                .resolver
+                .resolve_type(condition_type)
+                .unwrap_or(Type::None);
+
+            return Err(ParseError::ExpectedBooleanCondition {
+                condition_type,
+                condition_position: condition_node.position,
+            });
+        }
+
+        self.parse_block()?;
+
+        let body_id = self.syntax_tree.last_node_id();
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::WhileExpression,
+            position: Span(start, end),
+            children: (condition_id.0, body_id.0),
+            payload: TypeId::NONE.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_array(&mut self) -> Result<(), ParseError> {

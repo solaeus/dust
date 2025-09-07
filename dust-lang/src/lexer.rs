@@ -363,7 +363,7 @@ impl<'src> Lexer<'src> {
         if self.peek_char() == Some('=') {
             self.advance();
 
-            (Token::StarEqual, Span::new(start, self.position))
+            (Token::AsteriskEqual, Span::new(start, self.position))
         } else {
             (Token::Asterisk, Span::new(start, self.position))
         }
