@@ -228,10 +228,7 @@ impl<'src> Parser<'src> {
             return;
         }
 
-        while !matches!(
-            self.current_token,
-            Token::Semicolon | Token::RightCurlyBrace | Token::Eof
-        ) {
+        while !matches!(self.current_token, Token::Semicolon | Token::Eof) {
             let _ = self.advance().map_err(|error| self.recover(error));
         }
 
@@ -240,7 +237,7 @@ impl<'src> Parser<'src> {
             self.current_token, self.current_position
         );
 
-        if self.current_token == Token::Semicolon {
+        if matches!(self.current_token, Token::Semicolon) {
             let _ = self.advance().map_err(|error| self.recover(error));
         }
     }

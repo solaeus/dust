@@ -782,51 +782,124 @@ impl<'a> ChunkCompiler<'a> {
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
 
-        let operand_type = self
-            .resolver
-            .resolve_type(TypeId(node.payload))
-            .ok_or(CompileError::MissingType {
-                type_id: TypeId(node.payload),
-            })?
-            .as_operand_type();
         let destination = Address::register(self.get_next_register());
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(node.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 Instruction::add(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::AdditionAssignmentExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(left.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 self.instructions.truncate(instructions_count_before);
 
                 Instruction::add(left_address, left_address, right_address, operand_type)
             }
             SyntaxKind::SubtractionExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(node.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 Instruction::subtract(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::SubtractionAssignmentExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(left.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 self.instructions.truncate(instructions_count_before);
 
                 Instruction::subtract(left_address, left_address, right_address, operand_type)
             }
             SyntaxKind::MultiplicationExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(node.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 Instruction::multiply(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::MultiplicationAssignmentExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(left.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 self.instructions.truncate(instructions_count_before);
 
                 Instruction::multiply(left_address, left_address, right_address, operand_type)
             }
             SyntaxKind::DivisionExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(node.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 Instruction::divide(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::DivisionAssignmentExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(left.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 self.instructions.truncate(instructions_count_before);
 
                 Instruction::divide(left_address, left_address, right_address, operand_type)
             }
             SyntaxKind::ModuloExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(node.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 Instruction::modulo(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::ModuloAssignmentExpression => {
+                let operand_type = self
+                    .resolver
+                    .resolve_type(TypeId(left.payload))
+                    .ok_or(CompileError::MissingType {
+                        type_id: TypeId(node.payload),
+                    })?
+                    .as_operand_type();
+
                 self.instructions.truncate(instructions_count_before);
 
                 Instruction::modulo(left_address, left_address, right_address, operand_type)
