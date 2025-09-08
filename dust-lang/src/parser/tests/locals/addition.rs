@@ -650,13 +650,13 @@ fn local_mut_byte_addition() {
                 kind: SyntaxKind::AdditionAssignmentExpression,
                 children: (5, 6),
                 position: Span(25, 34),
-                payload: TypeId::BYTE.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(25, 35),
-                payload: TypeId::BYTE.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
@@ -723,13 +723,13 @@ fn local_mut_float_addition() {
                 kind: SyntaxKind::AdditionAssignmentExpression,
                 children: (5, 6),
                 position: Span(26, 34),
-                payload: TypeId::FLOAT.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(26, 35),
-                payload: TypeId::FLOAT.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
@@ -796,13 +796,13 @@ fn local_mut_integer_addition() {
                 kind: SyntaxKind::AdditionAssignmentExpression,
                 children: (5, 6),
                 position: Span(22, 28),
-                payload: TypeId::INTEGER.0
+                payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(22, 29),
-                payload: TypeId::INTEGER.0
+                payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
@@ -815,6 +815,152 @@ fn local_mut_integer_addition() {
                 children: (0, 0),
                 position: Span(30, 31),
                 payload: TypeId::INTEGER.0
+            },
+        ]
+    );
+}
+
+#[test]
+fn local_mut_string_concatenation() {
+    let source = local_cases::LOCAL_MUT_STRING_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 39),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 3),
+                position: Span(1, 24),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringType,
+                children: (0, 0),
+                position: Span(12, 15),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                children: (0, 3),
+                position: Span(18, 23),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(18, 24),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(25, 26),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionAssignmentExpression,
+                children: (5, 6),
+                position: Span(25, 35),
+                payload: TypeId::NONE.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (7, 0),
+                position: Span(25, 36),
+                payload: TypeId::NONE.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                children: (3, 6),
+                position: Span(30, 35),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(37, 38),
+                payload: TypeId::STRING.0
+            },
+        ]
+    );
+}
+
+#[test]
+fn local_mut_string_character_concatenation() {
+    let source = local_cases::LOCAL_MUT_STRING_CHARACTER_CONCATENATION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 37),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 3),
+                position: Span(1, 24),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringType,
+                children: (0, 0),
+                position: Span(12, 15),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::StringExpression,
+                children: (0, 3),
+                position: Span(18, 23),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(18, 24),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(25, 26),
+                payload: TypeId::STRING.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionAssignmentExpression,
+                children: (5, 6),
+                position: Span(25, 33),
+                payload: TypeId::NONE.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (7, 0),
+                position: Span(25, 34),
+                payload: TypeId::NONE.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CharacterExpression,
+                children: ('q' as u32, 0),
+                position: Span(30, 33),
+                payload: TypeId::CHARACTER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(35, 36),
+                payload: TypeId::STRING.0
             },
         ]
     );

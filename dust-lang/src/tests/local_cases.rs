@@ -204,6 +204,17 @@ let b: str = "foo";
 a + b
 "#;
 
+pub const LOCAL_MUT_STRING_CONCATENATION: &str = r#"
+let mut a: str = "foo";
+a += "bar";
+a
+"#;
+pub const LOCAL_MUT_STRING_CHARACTER_CONCATENATION: &str = r#"
+let mut a: str = "foo";
+a += 'q';
+a
+"#;
+
 pub const LOCAL_BOOLEAN_AND: &str = r#"
 let a: bool = true;
 let b: bool = false;

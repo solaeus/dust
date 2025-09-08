@@ -668,7 +668,12 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
-            | SyntaxKind::ModuloExpression => self.compile_math_expression(node_id, node),
+            | SyntaxKind::ModuloExpression
+            | SyntaxKind::AdditionAssignmentExpression
+            | SyntaxKind::SubtractionAssignmentExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
+            | SyntaxKind::DivisionAssignmentExpression
+            | SyntaxKind::ModuloAssignmentExpression => self.compile_math_expression(node_id, node),
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanExpression
@@ -683,6 +688,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
             SyntaxKind::BlockExpression => self.compile_block_expression(node_id, node),
+            SyntaxKind::WhileExpression => self.compile_while_expression(node_id, node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.position,
@@ -772,6 +778,7 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined));
         }
 
+        let instructions_count_before = self.instructions.len();
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
 
@@ -787,17 +794,42 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::AdditionExpression => {
                 Instruction::add(destination, left_address, right_address, operand_type)
             }
+            SyntaxKind::AdditionAssignmentExpression => {
+                self.instructions.truncate(instructions_count_before);
+
+                Instruction::add(left_address, left_address, right_address, operand_type)
+            }
             SyntaxKind::SubtractionExpression => {
                 Instruction::subtract(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::SubtractionAssignmentExpression => {
+                self.instructions.truncate(instructions_count_before);
+
+                Instruction::subtract(left_address, left_address, right_address, operand_type)
             }
             SyntaxKind::MultiplicationExpression => {
                 Instruction::multiply(destination, left_address, right_address, operand_type)
             }
+            SyntaxKind::MultiplicationAssignmentExpression => {
+                self.instructions.truncate(instructions_count_before);
+
+                Instruction::multiply(left_address, left_address, right_address, operand_type)
+            }
             SyntaxKind::DivisionExpression => {
                 Instruction::divide(destination, left_address, right_address, operand_type)
             }
+            SyntaxKind::DivisionAssignmentExpression => {
+                self.instructions.truncate(instructions_count_before);
+
+                Instruction::divide(left_address, left_address, right_address, operand_type)
+            }
             SyntaxKind::ModuloExpression => {
                 Instruction::modulo(destination, left_address, right_address, operand_type)
+            }
+            SyntaxKind::ModuloAssignmentExpression => {
+                self.instructions.truncate(instructions_count_before);
+
+                Instruction::modulo(left_address, left_address, right_address, operand_type)
             }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
@@ -1182,6 +1214,73 @@ impl<'a> ChunkCompiler<'a> {
             load_instruction,
             TypeId(node.payload),
         ))
+    }
+
+    fn compile_while_expression(
+        &mut self,
+        _node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling while expression");
+
+        let condition_id = SyntaxId(node.children.0);
+        let body_id = SyntaxId(node.children.1);
+
+        let condition_node =
+            self.syntax_tree
+                .get_node(condition_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.0,
+                })?;
+        let body_node = self
+            .syntax_tree
+            .get_node(body_id)
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind,
+                child_index: node.children.1,
+            })?;
+        let condition_emission = self.compile_expression(condition_id, condition_node)?;
+
+        match condition_emission {
+            Emission::Instruction(instruction, _) => {
+                self.handle_operand(instruction);
+            }
+            Emission::Instructions(instructions, _) => {
+                let comparison_or_test_instruction = instructions[0];
+
+                self.instructions.push(comparison_or_test_instruction);
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(constant);
+                let destination = Address::register(self.get_next_register());
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                self.handle_operand(load_instruction);
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: condition_node.kind,
+                    position: condition_node.position,
+                });
+            }
+        }
+
+        let jump_forward_index = self.instructions.len();
+
+        self.instructions.push(Instruction::no_op());
+        self.compile_expression_statement(body_node)?;
+
+        let jump_distance = (self.instructions.len() - jump_forward_index) as u16;
+
+        let jump_forward_instruction = Instruction::jump(jump_distance, true);
+        let jump_back_instruction = Instruction::jump(jump_distance, false);
+
+        self.instructions[jump_forward_index] = jump_forward_instruction;
+        self.instructions.push(jump_back_instruction);
+
+        Ok(Emission::None)
     }
 
     fn _compile_implicit_return(&mut self, _expression: SyntaxId) -> Result<(), CompileError> {

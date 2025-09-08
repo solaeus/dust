@@ -40,6 +40,11 @@ impl From<Token> for ParseRule<'_> {
                 infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::PrimaryMath,
             },
+            Token::AsteriskEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary_expression),
+                precedence: Precedence::Assignment,
+            },
             Token::Async => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
@@ -334,11 +339,6 @@ impl From<Token> for ParseRule<'_> {
                 prefix: None,
                 infix: None,
                 precedence: Precedence::None,
-            },
-            Token::AsteriskEqual => ParseRule {
-                prefix: None,
-                infix: Some(Parser::parse_binary_expression),
-                precedence: Precedence::Assignment,
             },
             Token::Str => ParseRule {
                 prefix: Some(Parser::parse_str),

@@ -310,13 +310,13 @@ fn local_mut_byte_division() {
                 kind: SyntaxKind::DivisionAssignmentExpression,
                 children: (5, 6),
                 position: Span(25, 34),
-                payload: TypeId::BYTE.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(25, 35),
-                payload: TypeId::BYTE.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
@@ -383,13 +383,13 @@ fn local_mut_float_division() {
                 kind: SyntaxKind::DivisionAssignmentExpression,
                 children: (5, 6),
                 position: Span(26, 34),
-                payload: TypeId::FLOAT.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(26, 35),
-                payload: TypeId::FLOAT.0,
+                payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
@@ -456,13 +456,13 @@ fn local_mut_integer_division() {
                 kind: SyntaxKind::DivisionAssignmentExpression,
                 children: (5, 6),
                 position: Span(22, 28),
-                payload: TypeId::INTEGER.0
+                payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
                 position: Span(22, 29),
-                payload: TypeId::INTEGER.0
+                payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,

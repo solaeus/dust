@@ -997,6 +997,11 @@ impl<'src> Parser<'src> {
             | Token::LessEqual
             | Token::DoubleEqual
             | Token::BangEqual => TypeId::BOOLEAN,
+            Token::PlusEqual
+            | Token::MinusEqual
+            | Token::AsteriskEqual
+            | Token::SlashEqual
+            | Token::PercentEqual => TypeId::NONE,
             _ => {
                 let left_type = self
                     .resolver
@@ -1182,14 +1187,21 @@ impl<'src> Parser<'src> {
 
         let body_id = self.syntax_tree.last_node_id();
         let end = self.previous_position.1;
-        let node = SyntaxNode {
+        let while_node = SyntaxNode {
             kind: SyntaxKind::WhileExpression,
             position: Span(start, end),
             children: (condition_id.0, body_id.0),
             payload: TypeId::NONE.0,
         };
+        let while_node_id = self.syntax_tree.push_node(while_node);
+        let expression_statement_node = SyntaxNode {
+            kind: SyntaxKind::ExpressionStatement,
+            position: while_node.position,
+            children: (while_node_id.0, 0),
+            payload: TypeId::NONE.0,
+        };
 
-        self.syntax_tree.push_node(node);
+        self.syntax_tree.push_node(expression_statement_node);
 
         Ok(())
     }
