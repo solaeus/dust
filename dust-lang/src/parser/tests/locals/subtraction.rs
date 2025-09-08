@@ -260,3 +260,222 @@ fn local_integer_subtraction() {
         ]
     );
 }
+
+#[test]
+fn local_mut_byte_subtraction() {
+    let source = local_cases::LOCAL_MUT_BYTE_SUBTRACTION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 38),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 3),
+                position: Span(1, 24),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteType,
+                children: (0, 0),
+                position: Span(12, 16),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (44, 0),
+                position: Span(19, 23),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(19, 24),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(25, 26),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::SubtractionAssignmentExpression,
+                children: (5, 6),
+                position: Span(25, 34),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (7, 0),
+                position: Span(25, 35),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (2, 0),
+                position: Span(30, 34),
+                payload: TypeId::BYTE.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(36, 37),
+                payload: TypeId::BYTE.0,
+            },
+        ]
+    );
+}
+
+#[test]
+fn local_mut_float_subtraction() {
+    let source = local_cases::LOCAL_MUT_FLOAT_SUBTRACTION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 38),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 3),
+                position: Span(1, 25),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatType,
+                children: (0, 0),
+                position: Span(12, 17),
+                payload: 0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(44.0),
+                position: Span(20, 24),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(20, 25),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(26, 27),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::SubtractionAssignmentExpression,
+                children: (5, 6),
+                position: Span(26, 34),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (7, 0),
+                position: Span(26, 35),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(2.0),
+                position: Span(31, 34),
+                payload: TypeId::FLOAT.0,
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(36, 37),
+                payload: TypeId::FLOAT.0,
+            },
+        ]
+    );
+}
+
+#[test]
+fn local_mut_integer_subtraction() {
+    let source = local_cases::LOCAL_MUT_INTEGER_SUBTRACTION;
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 3),
+                position: Span(0, 32),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetMutStatement,
+                children: (1, 3),
+                position: Span(1, 21),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                position: Span(12, 15),
+                payload: 0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (44, 0),
+                position: Span(18, 20),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (2, 0),
+                position: Span(18, 21),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(22, 23),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::SubtractionAssignmentExpression,
+                children: (5, 6),
+                position: Span(22, 28),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (7, 0),
+                position: Span(22, 29),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (2, 0),
+                position: Span(27, 28),
+                payload: TypeId::INTEGER.0
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (0, 0),
+                position: Span(30, 31),
+                payload: TypeId::INTEGER.0
+            },
+        ]
+    );
+}

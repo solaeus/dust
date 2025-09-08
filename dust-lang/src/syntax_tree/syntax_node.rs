@@ -164,6 +164,7 @@ pub enum SyntaxKind {
     PathExpression,
     WhileExpression,
     ReturnExpression,
+    BreakExpression,
 
     // Sub-Syntax
     FunctionSignature,
@@ -236,6 +237,7 @@ impl SyntaxKind {
                 | SyntaxKind::PathExpression
                 | SyntaxKind::WhileExpression
                 | SyntaxKind::ReturnExpression
+                | SyntaxKind::BreakExpression
         )
     }
 
@@ -306,6 +308,7 @@ impl Display for SyntaxKind {
             SyntaxKind::PathExpression => write!(f, "path expression"),
             SyntaxKind::WhileExpression => write!(f, "while loop expression"),
             SyntaxKind::ReturnExpression => write!(f, "return expression"),
+            SyntaxKind::BreakExpression => write!(f, "break expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
             SyntaxKind::FunctionParameterList => write!(f, "function parameter list"),
             SyntaxKind::FunctionParameter => write!(f, "function parameter"),

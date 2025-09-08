@@ -71,7 +71,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Break => ParseRule {
-                prefix: Some(Parser::parse_unexpected),
+                prefix: Some(Parser::parse_break_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -206,7 +206,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::LeftCurlyBrace => ParseRule {
-                prefix: Some(Parser::parse_block),
+                prefix: Some(Parser::parse_block_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

@@ -1068,7 +1068,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_block(&mut self) -> Result<(), ParseError> {
+    fn parse_block_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing block expression");
 
         let start = self.current_position.0;
@@ -1112,6 +1112,7 @@ impl<'src> Parser<'src> {
 
         if let Some(last_node) = self.syntax_tree.last_node()
             && last_node.kind.is_expression()
+            && last_node.payload != TypeId::NONE.0
         {
             let block_node = SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
@@ -1177,7 +1178,7 @@ impl<'src> Parser<'src> {
             });
         }
 
-        self.parse_block()?;
+        self.parse_block_expression()?;
 
         let body_id = self.syntax_tree.last_node_id();
         let end = self.previous_position.1;
@@ -1185,6 +1186,27 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::WhileExpression,
             position: Span(start, end),
             children: (condition_id.0, body_id.0),
+            payload: TypeId::NONE.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_break_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing break statement");
+
+        let start = self.current_position.0;
+
+        self.advance()?;
+        self.allow(Token::Semicolon)?;
+
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::BreakExpression,
+            position: Span(start, end),
+            children: (0, 0),
             payload: TypeId::NONE.0,
         };
 
