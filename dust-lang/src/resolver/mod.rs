@@ -229,7 +229,8 @@ pub enum ScopeKind {
 pub struct DeclarationId(pub u32);
 
 impl DeclarationId {
-    pub const MAIN: Self = DeclarationId(u32::MAX);
+    pub const ANONYMOUS: Self = DeclarationId(u32::MAX);
+    pub const MAIN: Self = DeclarationId(u32::MAX - 1);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

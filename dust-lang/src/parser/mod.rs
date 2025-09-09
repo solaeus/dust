@@ -520,6 +520,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_signature(&mut self) -> Result<(SyntaxId, TypeId), ParseError> {
+        info!("Parsing function signature");
+
         let start = self.current_position.0;
         let (value_parameter_list_node_id, type_children) =
             self.parse_function_value_parameters()?;
@@ -547,6 +549,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_value_parameters(&mut self) -> Result<(SyntaxId, (u32, u32)), ParseError> {
+        info!("Parsing function value parameters");
+
         let start = self.current_position.0;
 
         self.expect(Token::LeftParenthesis)?;
@@ -555,6 +559,8 @@ impl<'a> Parser<'a> {
         let mut type_children = SmallVec::<[TypeId; 4]>::new();
 
         while !self.allow(Token::RightParenthesis)? {
+            info!("Parsing function value parameter");
+
             let parameter_start = self.current_position.0;
             let identifier_position = self.current_position;
             let identifier_text = if self.current_token == Token::Identifier {

@@ -37,14 +37,15 @@ pub struct ChunkCompiler<'a> {
     /// to reflect the actual return type of the function
     return_type: TypeId,
 
-    /// Index of the the chunk being compiled in the program's prototype list. For the main function,
-    /// this is 0 as a default but the main chunk is actually the last one in the list.
-    prototype_index: u16,
-
     /// Local variables declared in the function being compiled.
     locals: HashMap<DeclarationId, Local, FxBuildHasher>,
 
+    /// Lowest register index after registers have been allocated for function arguments.
     minimum_register: u16,
+
+    /// Index of the the chunk being compiled in the program's prototype list. For the main function,
+    /// this is 0 as a default but the main chunk is actually the last one in the list.
+    prototype_index: u16,
 }
 
 impl<'a> ChunkCompiler<'a> {
@@ -64,9 +65,9 @@ impl<'a> ChunkCompiler<'a> {
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             return_type: TypeId::NONE,
-            prototype_index: 0,
             locals: HashMap::default(),
             minimum_register: 0,
+            prototype_index: 0,
         }
     }
 
@@ -358,7 +359,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(&node)
             }
-            SyntaxKind::FunctionStatement => todo!("Compile function statement"),
+            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
             SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
@@ -507,6 +508,22 @@ impl<'a> ChunkCompiler<'a> {
         Ok(())
     }
 
+    fn compile_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling function statement");
+
+        let declaration_id = DeclarationId(node.children.0);
+        let function_expression_id = SyntaxId(node.children.1);
+        let function_node = *self.syntax_tree.get_node(function_expression_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                id: function_expression_id,
+            },
+        )?;
+
+        self.compile_function_expression(&function_node, declaration_id)?;
+
+        Ok(())
+    }
+
     fn compile_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         match node.kind {
             SyntaxKind::BooleanExpression => self.compile_boolean_expression(node),
@@ -541,7 +558,9 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node),
             SyntaxKind::BlockExpression => self.compile_block_expression(node),
             SyntaxKind::WhileExpression => self.compile_while_expression(node),
-            SyntaxKind::FunctionExpression => self.compile_function_expression(node),
+            SyntaxKind::FunctionExpression => {
+                self.compile_function_expression(node, DeclarationId::ANONYMOUS)
+            }
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.position,
@@ -1196,7 +1215,11 @@ impl<'a> ChunkCompiler<'a> {
         Ok(Emission::None)
     }
 
-    fn compile_function_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+    fn compile_function_expression(
+        &mut self,
+        node: &SyntaxNode,
+        declaration_id: DeclarationId,
+    ) -> Result<Emission, CompileError> {
         info!("Compiling function expression");
 
         let function_signature_id = SyntaxId(node.children.0);
@@ -1233,11 +1256,15 @@ impl<'a> ChunkCompiler<'a> {
             return_type,
         }) = self.resolver.get_type_node(function_type_id)
         else {
-            todo!("Error");
+            return Err(CompileError::MissingType {
+                type_id: function_type_id,
+            });
         };
         let Some(Type::Function(function_type)) = self.resolver.resolve_type(function_type_id)
         else {
-            todo!("Error");
+            return Err(CompileError::MissingType {
+                type_id: function_type_id,
+            });
         };
         let Some(value_parameter_nodes) = self
             .syntax_tree
@@ -1286,9 +1313,22 @@ impl<'a> ChunkCompiler<'a> {
             );
         }
 
+        let name = if declaration_id == DeclarationId::ANONYMOUS {
+            None
+        } else {
+            let declaration = self
+                .resolver
+                .get_declaration(declaration_id)
+                .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
+            let name_range = declaration.identifier_position.as_usize_range();
+            let name = self.source[name_range].to_string();
+
+            Some(name)
+        };
+
         let _ = function_compiler.compile_block_expression(&block_node)?;
         let function_chunk = Chunk {
-            name: None,
+            name,
             r#type: *function_type,
             register_count: function_compiler.get_next_register(),
             instructions: function_compiler.instructions,
