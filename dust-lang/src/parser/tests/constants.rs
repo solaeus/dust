@@ -148,7 +148,7 @@ fn string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 6),
+                children: (0, 0),
                 position: Span(0, 8),
                 payload: TypeId::STRING.0,
             }
@@ -691,7 +691,7 @@ fn constant_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -703,7 +703,7 @@ fn constant_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
@@ -765,7 +765,7 @@ fn constant_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -814,7 +814,7 @@ fn constant_character_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(6, 11),
                 payload: TypeId::STRING.0,
             }
@@ -2054,7 +2054,7 @@ fn constant_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2066,7 +2066,7 @@ fn constant_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
@@ -2091,7 +2091,7 @@ fn constant_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2103,7 +2103,7 @@ fn constant_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
@@ -2128,7 +2128,7 @@ fn constant_string_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2140,7 +2140,7 @@ fn constant_string_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
@@ -2165,7 +2165,7 @@ fn constant_string_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2177,7 +2177,7 @@ fn constant_string_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
@@ -2202,7 +2202,7 @@ fn constant_string_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2214,7 +2214,7 @@ fn constant_string_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
@@ -2239,7 +2239,7 @@ fn constant_string_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
@@ -2251,7 +2251,7 @@ fn constant_string_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(9, 14),
                 payload: TypeId::STRING.0,
             }

@@ -280,7 +280,7 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 6),
+                children: (0, 0),
                 position: Span(14, 22),
                 payload: TypeId::STRING.0,
             },

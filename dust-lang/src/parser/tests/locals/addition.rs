@@ -290,7 +290,7 @@ fn local_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(14, 19),
                 payload: TypeId::STRING.0
             },
@@ -314,7 +314,7 @@ fn local_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(34, 39),
                 payload: TypeId::STRING.0
             },
@@ -460,7 +460,7 @@ fn local_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(14, 19),
                 payload: TypeId::STRING.0
             },
@@ -569,7 +569,7 @@ fn local_character_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(33, 38),
                 payload: TypeId::STRING.0
             },
@@ -849,7 +849,7 @@ fn local_mut_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(18, 23),
                 payload: TypeId::STRING.0
             },
@@ -879,7 +879,7 @@ fn local_mut_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (3, 6),
+                children: (0, 0),
                 position: Span(30, 35),
                 payload: TypeId::STRING.0
             },
@@ -922,7 +922,7 @@ fn local_mut_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(18, 23),
                 payload: TypeId::STRING.0
             },

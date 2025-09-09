@@ -460,7 +460,7 @@ fn local_string_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(14, 19),
                 payload: TypeId::STRING.0
             },
@@ -484,7 +484,7 @@ fn local_string_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 3),
+                children: (0, 0),
                 position: Span(34, 39),
                 payload: TypeId::STRING.0
             },
