@@ -3,7 +3,7 @@
 use std::{
     fmt::{self},
     fs::OpenOptions,
-    io::{self, Read, stdout},
+    io::{self, Read},
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -14,8 +14,8 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use dust_lang::{
-    Disassembler, compile_main,
-    compiler::Compiler,
+    chunk::TuiDisassembler,
+    compiler::{Compiler, Sources},
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
     tokenize,
@@ -170,7 +170,7 @@ fn main() {
         log,
         time,
         no_output,
-        no_std,
+        no_std: _,
         name,
         output: output_format,
     } = Cli::parse();
@@ -193,8 +193,11 @@ fn main() {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref().unwrap_or("anonymous");
 
-        let mut compiler = Compiler::new(!no_std);
-        let compile_result = compiler.compile(&[(source_name, &source)]);
+        let mut compiler = Compiler::new(Sources {
+            main: &source,
+            modules: Vec::new(),
+        });
+        let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         let program = match compile_result {
@@ -272,25 +275,23 @@ fn main() {
         no_std: _,
         name,
         input: InputOptions { eval, stdin, file },
-        style,
+        style: _,
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref().unwrap_or("anonymous");
-        let compile_result = compile_main(&source);
+        let mut compiler = Compiler::new(Sources {
+            main: &source,
+            modules: Vec::new(),
+        });
+        let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         match compile_result {
-            Ok(chunk) => {
-                let mut stdout = stdout();
+            Ok(program) => {
+                let disassembler = TuiDisassembler::new(&program, Some(&source));
 
-                let mut disassembler = Disassembler::new(&chunk, &mut stdout);
-
-                disassembler
-                    .source(&source)
-                    .style(style)
-                    .disassemble()
-                    .unwrap();
+                disassembler.disassemble().unwrap();
             }
             Err(error) => eprintln!("{}", error.report()),
         }

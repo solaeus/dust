@@ -18,8 +18,8 @@ impl Program {
         }
     }
 
-    pub fn main_chunk(&self) -> &Chunk {
-        &self.prototypes[0]
+    pub fn main_chunk(&self) -> Option<&Chunk> {
+        self.prototypes.last()
     }
 }
 

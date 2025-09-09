@@ -119,17 +119,13 @@ impl<'a> JitCompiler<'a> {
             });
         }
 
+        let main_chunk = self.program.main_chunk().expect("main chunk missing");
         let main_function_reference = {
             let reference = self
                 .module
                 .declare_func_in_func(self.main_function_id, &mut context.func);
 
-            compile_stackless_function(
-                self.main_function_id,
-                self.program.main_chunk(),
-                true,
-                self,
-            )?;
+            compile_stackless_function(self.main_function_id, main_chunk, true, self)?;
 
             reference
         };
@@ -219,7 +215,7 @@ impl<'a> JitCompiler<'a> {
             let zero = function_builder.ins().iconst(I64, 0);
             let register_count = function_builder
                 .ins()
-                .iconst(I64, self.program.main_chunk().register_count as i64);
+                .iconst(I64, main_chunk.register_count as i64);
             let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
 
             push_call_frame(

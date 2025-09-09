@@ -8,10 +8,10 @@
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
 mod disassembler;
-// mod tui_disassembler;
+mod tui_disassembler;
 
 pub use disassembler::Disassembler;
-// pub use tui_disassembler::TuiDisassembler;
+pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::{Debug, Display};
 

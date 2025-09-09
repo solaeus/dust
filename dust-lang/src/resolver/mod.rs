@@ -77,7 +77,7 @@ impl Resolver {
         declaration_id
     }
 
-    pub fn find_declaration_in_scope_chain(
+    pub fn find_declaration_in_block_scope(
         &mut self,
         identifier: &str,
         target_scope_id: ScopeId,
@@ -100,7 +100,7 @@ impl Resolver {
                 return Some(DeclarationId(index as u32));
             }
 
-            if current_scope.kind == ScopeKind::Function || current_scope_id == ScopeId::MAIN {
+            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId::MAIN {
                 break;
             }
 
@@ -158,7 +158,7 @@ impl Resolver {
         }
     }
 
-    pub fn register_type(&mut self, type_node: TypeNode) -> TypeId {
+    pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
         if let Some(existing) = self.types.get_index_of(&type_node) {
             TypeId(existing as u32)
         } else {
@@ -168,6 +168,10 @@ impl Resolver {
 
             id
         }
+    }
+
+    pub fn get_type_node(&self, id: TypeId) -> Option<&TypeNode> {
+        self.types.get_index(id.0 as usize)
     }
 
     pub fn push_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
@@ -216,8 +220,9 @@ impl Scope {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ScopeKind {
-    Function,
     Block,
+    Function,
+    Module,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

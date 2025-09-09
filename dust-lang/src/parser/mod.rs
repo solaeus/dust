@@ -521,7 +521,8 @@ impl<'a> Parser<'a> {
 
     fn parse_function_signature(&mut self) -> Result<(SyntaxId, TypeId), ParseError> {
         let start = self.current_position.0;
-        let (parameter_list_node_id, value_parameters) = self.parse_function_value_parameters()?;
+        let (value_parameter_list_node_id, type_children) =
+            self.parse_function_value_parameters()?;
         let return_type = if self.allow(Token::ArrowThin)? {
             self.parse_type()?
         } else {
@@ -530,14 +531,14 @@ impl<'a> Parser<'a> {
         let end = self.previous_position.1;
         let function_type = TypeNode::Function {
             type_parameters: (0, 0),
-            value_parameters,
+            value_parameters: type_children,
             return_type,
         };
-        let function_type_id = self.resolver.register_type(function_type);
+        let function_type_id = self.resolver.add_type(function_type);
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionSignature,
             position: Span(start, end),
-            children: (parameter_list_node_id.0, 0),
+            children: (value_parameter_list_node_id.0, 0),
             payload: 0,
         };
         let node_id = self.syntax_tree.push_node(node);
@@ -550,7 +551,8 @@ impl<'a> Parser<'a> {
 
         self.expect(Token::LeftParenthesis)?;
 
-        let mut children = Self::new_child_buffer();
+        let mut syntax_children = Self::new_child_buffer();
+        let mut type_children = SmallVec::<[TypeId; 4]>::new();
 
         while !self.allow(Token::RightParenthesis)? {
             let parameter_start = self.current_position.0;
@@ -577,8 +579,12 @@ impl<'a> Parser<'a> {
             let parameter_name_node_id = self.syntax_tree.push_node(parameter_name_node);
 
             self.expect(Token::Colon)?;
+
             let type_position = self.current_position;
             let type_id = self.parse_type()?;
+
+            type_children.push(type_id);
+
             let type_node = SyntaxNode {
                 kind: SyntaxKind::FunctionValueParameterType,
                 position: type_position,
@@ -602,13 +608,13 @@ impl<'a> Parser<'a> {
             };
             let node_id = self.syntax_tree.push_node(node);
 
-            children.push(node_id);
+            syntax_children.push(node_id);
 
             self.allow(Token::Comma)?;
         }
 
         let first_child = self.syntax_tree.children.len() as u32;
-        let child_count = children.len() as u32;
+        let child_count = syntax_children.len() as u32;
         let end = self.previous_position.1;
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionValueParameters,
@@ -619,9 +625,11 @@ impl<'a> Parser<'a> {
 
         let node_id = self.syntax_tree.push_node(node);
 
-        self.syntax_tree.children.extend(children);
+        self.syntax_tree.children.extend(syntax_children);
 
-        Ok((node_id, (first_child, child_count)))
+        let type_children = self.resolver.push_type_members(&type_children);
+
+        Ok((node_id, type_children))
     }
 
     fn parse_type(&mut self) -> Result<TypeId, ParseError> {
@@ -640,7 +648,7 @@ impl<'a> Parser<'a> {
                 let identifier_text = self.current_source();
                 let declaration_id = self
                     .resolver
-                    .find_declaration_in_scope_chain(identifier_text, self.current_scope_id)
+                    .find_declaration_in_block_scope(identifier_text, self.current_scope_id)
                     .ok_or(ParseError::UndeclaredType {
                         identifier: identifier_text.to_string(),
                         position: self.current_position,
@@ -912,26 +920,14 @@ impl<'a> Parser<'a> {
     fn parse_string_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing string expression");
 
-        let position = self.current_position;
-        let string_text = {
-            let token_text = self.current_source();
-
-            &token_text[1..token_text.len() - 1]
-        };
-        let payload = self
-            .syntax_tree
-            .constants
-            .push_str_to_string_pool(string_text);
-
-        self.advance()?;
-
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
-            position,
-            children: payload,
+            position: self.current_position,
+            children: (0, 0),
             payload: TypeId::STRING.0,
         };
 
+        self.advance()?;
         self.syntax_tree.push_node(node);
 
         Ok(())
@@ -1379,7 +1375,7 @@ impl<'a> Parser<'a> {
 
         let Some(declaration_id) = self
             .resolver
-            .find_declaration_in_scope_chain(identifier_text, self.current_scope_id)
+            .find_declaration_in_block_scope(identifier_text, self.current_scope_id)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
@@ -1390,14 +1386,6 @@ impl<'a> Parser<'a> {
             .resolver
             .get_declaration(declaration_id)
             .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
-
-        // if !current_scope.contains(&declaration_scope) {
-        //     return Err(ParseError::OutOfScopeVariable {
-        //         position,
-        //         declaration_position: declaration.identifier_position,
-        //     });
-        // }
-
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
             position,

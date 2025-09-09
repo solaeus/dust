@@ -31,6 +31,7 @@ impl Thread {
     ) -> Result<Self, JitError> {
         let name = program
             .main_chunk()
+            .expect("Program must have a main chunk")
             .name
             .clone()
             .unwrap_or_else(|| "anonymous".to_string());
@@ -65,7 +66,7 @@ fn run(
 
     let mut register_stack_used_length = 0;
     let mut register_stack_allocated_length = if program.prototypes.is_empty() {
-        program.main_chunk().register_count as usize
+        program.main_chunk().unwrap().register_count as usize
     } else {
         1024 * 1024 * 4
     };
@@ -150,7 +151,7 @@ fn run(
         | OperandType::LIST_STRING
         | OperandType::LIST_LIST
         | OperandType::LIST_FUNCTION => {
-            let full_type = &program.main_chunk().r#type.return_type;
+            let full_type = &program.main_chunk().unwrap().r#type.return_type;
             let list = get_list_from_register(return_register, full_type)?;
 
             Ok(Some(Value::List(list)))

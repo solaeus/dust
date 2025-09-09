@@ -10,11 +10,12 @@ pub use error::CompileError;
 pub use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    Chunk, OperandType, Resolver,
+    Chunk, Resolver, Span,
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::ScopeId,
+    resolver::{DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    syntax_tree::SyntaxTree,
 };
 
 pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
@@ -29,50 +30,95 @@ pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
         return Err(DustError::parse(errors, source));
     }
 
-    let chunk_compiler = ChunkCompiler::new(syntax_tree, &resolver);
+    let chunk_compiler = ChunkCompiler::new(
+        syntax_tree,
+        source,
+        &resolver,
+        Rc::new(RefCell::new(Vec::new())),
+    );
 
     chunk_compiler
         .compile()
         .map_err(|error| DustError::compile(error, source))
 }
 
-pub struct Compiler {
-    resolver: Resolver,
-    _allow_native_functions: bool,
+pub struct Sources<'src> {
+    pub main: &'src str,
+    pub modules: Vec<(&'src str, &'src str)>,
 }
 
-impl Compiler {
-    pub fn new(allow_native_functions: bool) -> Self {
+pub struct Compiler<'src> {
+    sources: Sources<'src>,
+    module_trees: Vec<SyntaxTree>,
+    resolver: Resolver,
+}
+
+impl<'src> Compiler<'src> {
+    pub fn new(sources: Sources<'src>) -> Self {
         Self {
+            sources,
+            module_trees: Vec::new(),
             resolver: Resolver::new(),
-            _allow_native_functions: allow_native_functions,
         }
     }
 
-    pub fn compile<'src>(
-        &mut self,
-        sources: &[(&str, &'src str)],
-    ) -> Result<Program, DustError<'src>> {
-        let prototypes = Rc::new(RefCell::new(Vec::new()));
-
-        let mut parser = Parser::new(&mut self.resolver);
+    pub fn compile(&mut self) -> Result<Program, DustError<'src>> {
         let ParseResult {
             syntax_tree,
-            errors,
-        } = parser.parse(sources[0].1, ScopeId::MAIN);
+            mut errors,
+        } = {
+            let parser = Parser::new(&mut self.resolver);
 
-        if !errors.is_empty() {
-            return Err(DustError::parse(errors, sources[0].1));
+            parser.parse_once(self.sources.main, ScopeId::MAIN)
+        };
+
+        for (module_name, module_source) in &self.sources.modules {
+            let scope = Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::MAIN,
+                imports: (0, 0),
+                depth: 0,
+                index: 0,
+            };
+            let scope_id = self.resolver.add_scope(scope);
+
+            self.resolver.add_declaration(
+                DeclarationKind::Module,
+                scope_id,
+                TypeId::NONE,
+                module_name,
+                Span::default(),
+            );
+
+            let ParseResult {
+                syntax_tree,
+                errors: module_errors,
+            } = {
+                let parser = Parser::new(&mut self.resolver);
+
+                parser.parse_once(module_source, scope_id)
+            };
+
+            self.module_trees.push(syntax_tree);
+            errors.extend(module_errors);
         }
 
-        prototypes.borrow_mut().push(Chunk::default());
+        if !errors.is_empty() {
+            return Err(DustError::parse(errors, self.sources.main));
+        }
 
-        let chunk_compiler = ChunkCompiler::new(syntax_tree, &self.resolver);
-        let main_chunk = chunk_compiler
+        let prototypes = Rc::new(RefCell::new(Vec::new()));
+        let chunk_compiler = ChunkCompiler::new(
+            syntax_tree,
+            self.sources.main,
+            &self.resolver,
+            prototypes.clone(),
+        );
+        let chunk = chunk_compiler
             .compile()
-            .map_err(|error| DustError::compile(error, sources[0].1))?;
+            .map_err(|error| DustError::compile(error, self.sources.main))?;
 
-        prototypes.borrow_mut()[0] = main_chunk;
+        prototypes.borrow_mut().push(chunk);
 
         let prototypes = Rc::into_inner(prototypes)
             .expect("Unneccessary borrow of 'prototypes'")
@@ -83,33 +129,4 @@ impl Compiler {
             cell_count: 0,
         })
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Constant {
-    Boolean(bool),
-    Byte(u8),
-    Character(char),
-    Float(f64),
-    Integer(i64),
-    String { pool_start: u32, pool_end: u32 },
-}
-
-impl Constant {
-    fn operand_type(&self) -> OperandType {
-        match self {
-            Constant::Boolean(_) => OperandType::BOOLEAN,
-            Constant::Byte(_) => OperandType::BYTE,
-            Constant::Character(_) => OperandType::CHARACTER,
-            Constant::Float(_) => OperandType::FLOAT,
-            Constant::Integer(_) => OperandType::INTEGER,
-            Constant::String { .. } => OperandType::STRING,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-struct Local {
-    register: u16,
-    is_mutable: bool,
 }

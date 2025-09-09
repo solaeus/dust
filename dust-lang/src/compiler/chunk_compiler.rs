@@ -1,22 +1,28 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
 use crate::{
-    Address, Chunk, CompileError, FunctionType, Instruction, OperandType, Operation, Resolver,
-    compiler::{Constant, Local},
-    resolver::{DeclarationId, DeclarationKind, TypeId},
+    Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, OperandType, Operation,
+    Resolver, Type,
+    resolver::{DeclarationId, DeclarationKind, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
-    syntax_tree: SyntaxTree,
+    syntax_tree: Rc<SyntaxTree>,
+
+    source: &'a str,
+
+    constants: ConstantTable,
 
     /// Context for modules, types and declarations provided by the parser.
     resolver: &'a Resolver,
+
+    prototypes: Rc<RefCell<Vec<Chunk>>>,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -42,10 +48,18 @@ pub struct ChunkCompiler<'a> {
 }
 
 impl<'a> ChunkCompiler<'a> {
-    pub fn new(syntax_tree: SyntaxTree, resolver: &'a Resolver) -> Self {
+    pub fn new(
+        syntax_tree: SyntaxTree,
+        source: &'a str,
+        resolver: &'a Resolver,
+        prototypes: Rc<RefCell<Vec<Chunk>>>,
+    ) -> Self {
         Self {
-            syntax_tree,
+            syntax_tree: Rc::new(syntax_tree),
+            source,
+            constants: ConstantTable::new(),
             resolver,
+            prototypes,
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
@@ -70,13 +84,13 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let register_count = self.get_next_register();
 
-        self.syntax_tree.constants.trim_string_pool();
+        self.constants.trim_string_pool();
 
         Ok(Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
-            constants: self.syntax_tree.constants,
+            constants: self.constants,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
@@ -100,16 +114,13 @@ impl<'a> ChunkCompiler<'a> {
         let index = match constant {
             Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
             Constant::Byte(byte) => return Address::encoded(byte as u16),
-            Constant::Character(character) => self.syntax_tree.constants.add_character(character),
-            Constant::Float(float) => self.syntax_tree.constants.add_float(float),
-            Constant::Integer(integer) => self.syntax_tree.constants.add_integer(integer),
+            Constant::Character(character) => self.constants.add_character(character),
+            Constant::Float(float) => self.constants.add_float(float),
+            Constant::Integer(integer) => self.constants.add_integer(integer),
             Constant::String {
                 pool_start,
                 pool_end,
-            } => self
-                .syntax_tree
-                .constants
-                .add_pooled_string(pool_start, pool_end),
+            } => self.constants.add_pooled_string(pool_start, pool_end),
         };
 
         Address::constant(index)
@@ -189,7 +200,7 @@ impl<'a> ChunkCompiler<'a> {
                     string.push(left);
                     string.push(right);
 
-                    let combined = self.syntax_tree.constants.push_str_to_string_pool(&string);
+                    let combined = self.constants.push_str_to_string_pool(&string);
 
                     Constant::String {
                         pool_start: combined.0,
@@ -215,11 +226,9 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let left = self
-                    .syntax_tree
                     .constants
                     .get_string_pool(left_pool_start as usize..left_pool_end as usize);
                 let right = self
-                    .syntax_tree
                     .constants
                     .get_string_pool(right_pool_start as usize..right_pool_end as usize);
 
@@ -237,7 +246,7 @@ impl<'a> ChunkCompiler<'a> {
                         string.push_str(left);
                         string.push_str(right);
 
-                        let combined = self.syntax_tree.constants.push_str_to_string_pool(&string);
+                        let combined = self.constants.push_str_to_string_pool(&string);
 
                         Constant::String {
                             pool_start: combined.0,
@@ -261,7 +270,6 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let right = self
-                    .syntax_tree
                     .constants
                     .get_string_pool(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(1 + right.len());
@@ -271,7 +279,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.syntax_tree.constants.push_str_to_string_pool(&string)
+                        self.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -289,7 +297,6 @@ impl<'a> ChunkCompiler<'a> {
                 Constant::Character(right),
             ) => {
                 let left = self
-                    .syntax_tree
                     .constants
                     .get_string_pool(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(left.len() + 1);
@@ -299,7 +306,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.syntax_tree.constants.push_str_to_string_pool(&string)
+                        self.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -393,85 +400,7 @@ impl<'a> ChunkCompiler<'a> {
                     .get_node(child_id)
                     .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
 
-                if child_node.kind.is_item() {
-                    self.compile_item(child_id)?;
-
-                    let return_instruction =
-                        Instruction::r#return(false, Address::default(), OperandType::NONE);
-
-                    self.instructions.push(return_instruction);
-                } else if child_node.kind.is_statement() {
-                    self.compile_statement(child_id)?;
-
-                    let return_instruction =
-                        Instruction::r#return(false, Address::default(), OperandType::NONE);
-
-                    self.instructions.push(return_instruction);
-                } else {
-                    let return_emission = self.compile_expression(child_id, &child_node)?;
-                    let (return_operand, return_type, return_operand_type) = match return_emission {
-                        Emission::Instruction(instruction, r#type) => {
-                            let operand_type = self
-                                .resolver
-                                .resolve_type(r#type)
-                                .ok_or(CompileError::MissingType { type_id: r#type })?
-                                .as_operand_type();
-                            let mut return_operand = self.handle_operand(instruction);
-
-                            if let Some(last_instruction) = self.instructions.last()
-                                && last_instruction.operation() == Operation::LOAD
-                                && last_instruction.destination() == return_operand
-                            {
-                                return_operand = last_instruction.b_address();
-
-                                self.instructions.pop();
-                            }
-
-                            (return_operand, r#type, operand_type)
-                        }
-                        Emission::Instructions(instructions, r#type) => {
-                            let last_instruction = instructions.last().unwrap();
-                            let operand_type = self
-                                .resolver
-                                .resolve_type(r#type)
-                                .ok_or(CompileError::MissingType { type_id: r#type })?
-                                .as_operand_type();
-
-                            self.instructions.extend(instructions.iter());
-
-                            (last_instruction.destination(), r#type, operand_type)
-                        }
-                        Emission::Constant(constant) => {
-                            let (r#type, operand_type) = match constant {
-                                Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
-                                Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
-                                Constant::Character(_) => {
-                                    (TypeId::CHARACTER, OperandType::CHARACTER)
-                                }
-                                Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
-                                Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
-                                Constant::String { .. } => (TypeId::STRING, OperandType::STRING),
-                            };
-                            let address = self.get_constant_address(constant);
-                            let destination = Address::register(self.get_next_register());
-                            let instruction =
-                                Instruction::load(destination, address, operand_type, false);
-                            let return_operand = self.handle_operand(instruction);
-
-                            (return_operand, r#type, operand_type)
-                        }
-                        Emission::None => (Address::default(), TypeId::NONE, OperandType::NONE),
-                    };
-
-                    self.return_type = return_type;
-                    let return_instruction = Instruction::r#return(
-                        return_operand_type != OperandType::NONE,
-                        return_operand,
-                        return_operand_type,
-                    );
-
-                    self.instructions.push(return_instruction);
-                }
+                self.compile_implicit_return(child_id, &child_node)?;
             } else {
                 self.compile_statement(child_id)?;
             }
@@ -616,6 +545,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
             SyntaxKind::BlockExpression => self.compile_block_expression(node_id, node),
             SyntaxKind::WhileExpression => self.compile_while_expression(node_id, node),
+            SyntaxKind::FunctionExpression => self.compile_function_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: node.position,
@@ -666,9 +596,14 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_string_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling string expression");
 
+        let string_start = node.position.0 + 1;
+        let string_end = node.position.1 - 1;
+        let string = &self.source[string_start as usize..string_end as usize];
+        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(string);
+
         Ok(Emission::Constant(Constant::String {
-            pool_start: node.children.0,
-            pool_end: node.children.1,
+            pool_start,
+            pool_end,
         }))
     }
 
@@ -1286,35 +1221,210 @@ impl<'a> ChunkCompiler<'a> {
         Ok(Emission::None)
     }
 
-    fn _compile_implicit_return(&mut self, _expression: SyntaxId) -> Result<(), CompileError> {
-        // let definition = self.module_resolver.get_definition();
-        // let expression_type = self.syntax_tree.resolve_type(expression);
-        // let expression_node =
-        //     self.syntax_tree
-        //         .get_node(expression)
-        //         .copied()
-        //         .ok_or(CompileError::MissingChild {
-        //             parent_kind: SyntaxKind::MainFunctionItem,
-        //             child_index: expression,
-        //         })?;
-        // let expression_instruction = self.compile_expression(expression_node)?;
-        // let (returns_value, value_address) = if expression_type == Type::None {
-        //     self.instructions.push(expression_instruction);
+    fn compile_function_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling function expression");
 
-        //     (false, Address::default())
-        // } else {
-        //     let address = self.handle_operand(expression_instruction);
+        let function_signature_id = SyntaxId(node.children.0);
+        let block_id = SyntaxId(node.children.1);
+        let function_signature_node = *self.syntax_tree.get_node(function_signature_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                id: function_signature_id,
+            },
+        )?;
 
-        //     (true, address)
-        // };
-        // let r#return = Instruction::r#return(
-        //     returns_value,
-        //     value_address,
-        //     expression_type.as_operand_type(),
-        // );
+        debug_assert_eq!(function_signature_node.kind, SyntaxKind::FunctionSignature);
 
-        // self.instructions.push(r#return);
+        let value_parameters_node_id = function_signature_node.children.0;
+        let value_parameters_node = *self
+            .syntax_tree
+            .get_node(SyntaxId(value_parameters_node_id))
+            .ok_or(CompileError::MissingSyntaxNode {
+                id: SyntaxId(value_parameters_node_id),
+            })?;
 
+        debug_assert_eq!(
+            value_parameters_node.kind,
+            SyntaxKind::FunctionValueParameters
+        );
+
+        let block_node = *self
+            .syntax_tree
+            .get_node(block_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: block_id })?;
+        let function_type_id = TypeId(function_signature_node.payload);
+        let Some(TypeNode::Function {
+            type_parameters: _,
+            value_parameters,
+            return_type,
+        }) = self.resolver.get_type_node(function_type_id)
+        else {
+            todo!("Error");
+        };
+        let Some(Type::Function(function_type)) = self.resolver.resolve_type(function_type_id)
+        else {
+            todo!("Error");
+        };
+        let Some(value_parameter_nodes) = self
+            .syntax_tree
+            .get_children(
+                value_parameters_node.children.0,
+                value_parameters_node.children.1,
+            )
+            .map(|children| children.to_vec())
+        else {
+            return Err(CompileError::MissingChild {
+                parent_kind: function_signature_node.kind,
+                child_index: value_parameters.0,
+            });
+        };
+
+        let mut function_compiler = ChunkCompiler {
+            syntax_tree: self.syntax_tree.clone(),
+            source: self.source,
+            constants: ConstantTable::new(),
+            resolver: self.resolver,
+            prototypes: self.prototypes.clone(),
+            instructions: Vec::new(),
+            call_arguments: Vec::new(),
+            drop_lists: Vec::new(),
+            return_type: *return_type,
+            prototype_index: self.prototype_index + 1,
+            locals: HashMap::default(),
+            minimum_register: 0,
+        };
+
+        for syntax_id in value_parameter_nodes {
+            let parameter_node = *self
+                .syntax_tree
+                .get_node(syntax_id)
+                .ok_or(CompileError::MissingSyntaxNode { id: syntax_id })?;
+            let parameter_declaration_id = DeclarationId(parameter_node.payload);
+            let register = function_compiler.get_next_register();
+            function_compiler.minimum_register += 1;
+
+            function_compiler.locals.insert(
+                parameter_declaration_id,
+                Local {
+                    register,
+                    is_mutable: false,
+                },
+            );
+        }
+
+        let _ = function_compiler.compile_block_expression(block_id, &block_node)?;
+        let block_last_child_id = *self
+            .syntax_tree
+            .children
+            .get((block_node.children.0 + block_node.children.1 - 1) as usize)
+            .ok_or(CompileError::MissingChild {
+                parent_kind: block_node.kind,
+                child_index: block_node.children.0 + block_node.children.1 - 1,
+            })?;
+        let block_last_child_node = *self.syntax_tree.get_node(block_last_child_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                id: block_last_child_id,
+            },
+        )?;
+
+        function_compiler.compile_implicit_return(block_last_child_id, &block_last_child_node)?;
+
+        let function_chunk = Chunk {
+            name: None,
+            r#type: *function_type,
+            register_count: function_compiler.get_next_register(),
+            instructions: function_compiler.instructions,
+            constants: function_compiler.constants,
+            call_arguments: function_compiler.call_arguments,
+            drop_lists: function_compiler.drop_lists,
+            prototype_index: self.prototype_index + 1,
+        };
+
+        self.prototypes.borrow_mut().push(function_chunk);
+
+        Ok(Emission::None)
+    }
+
+    fn compile_implicit_return(
+        &mut self,
+        node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<(), CompileError> {
+        if node.kind.is_item() {
+            self.compile_item(node_id)?;
+
+            let return_instruction =
+                Instruction::r#return(false, Address::default(), OperandType::NONE);
+
+            self.instructions.push(return_instruction);
+        } else if node.kind.is_statement() {
+            self.compile_statement(node_id)?;
+
+            let return_instruction =
+                Instruction::r#return(false, Address::default(), OperandType::NONE);
+
+            self.instructions.push(return_instruction);
+        } else {
+            let return_emission = self.compile_expression(node_id, node)?;
+            let (return_operand, return_type, return_operand_type) = match return_emission {
+                Emission::Instruction(instruction, r#type) => {
+                    let operand_type = self
+                        .resolver
+                        .resolve_type(r#type)
+                        .ok_or(CompileError::MissingType { type_id: r#type })?
+                        .as_operand_type();
+                    let mut return_operand = self.handle_operand(instruction);
+
+                    if let Some(last_instruction) = self.instructions.last()
+                        && last_instruction.operation() == Operation::LOAD
+                        && last_instruction.destination() == return_operand
+                    {
+                        return_operand = last_instruction.b_address();
+
+                        self.instructions.pop();
+                    }
+
+                    (return_operand, r#type, operand_type)
+                }
+                Emission::Instructions(instructions, r#type) => {
+                    let last_instruction = instructions.last().unwrap();
+                    let operand_type = self
+                        .resolver
+                        .resolve_type(r#type)
+                        .ok_or(CompileError::MissingType { type_id: r#type })?
+                        .as_operand_type();
+
+                    self.instructions.extend(instructions.iter());
+
+                    (last_instruction.destination(), r#type, operand_type)
+                }
+                Emission::Constant(constant) => {
+                    let (r#type, operand_type) = match constant {
+                        Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
+                        Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
+                        Constant::Character(_) => (TypeId::CHARACTER, OperandType::CHARACTER),
+                        Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
+                        Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
+                        Constant::String { .. } => (TypeId::STRING, OperandType::STRING),
+                    };
+                    let address = self.get_constant_address(constant);
+                    let destination = Address::register(self.get_next_register());
+                    let instruction = Instruction::load(destination, address, operand_type, false);
+                    let return_operand = self.handle_operand(instruction);
+
+                    (return_operand, r#type, operand_type)
+                }
+                Emission::None => (Address::default(), TypeId::NONE, OperandType::NONE),
+            };
+
+            self.return_type = return_type;
+            let return_instruction = Instruction::r#return(
+                return_operand_type != OperandType::NONE,
+                return_operand,
+                return_operand_type,
+            );
+
+            self.instructions.push(return_instruction);
+        }
         Ok(())
     }
 }
@@ -1352,4 +1462,33 @@ impl Emission {
             Emission::None => Address::default(),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Constant {
+    Boolean(bool),
+    Byte(u8),
+    Character(char),
+    Float(f64),
+    Integer(i64),
+    String { pool_start: u32, pool_end: u32 },
+}
+
+impl Constant {
+    fn operand_type(&self) -> OperandType {
+        match self {
+            Constant::Boolean(_) => OperandType::BOOLEAN,
+            Constant::Byte(_) => OperandType::BYTE,
+            Constant::Character(_) => OperandType::CHARACTER,
+            Constant::Float(_) => OperandType::FLOAT,
+            Constant::Integer(_) => OperandType::INTEGER,
+            Constant::String { .. } => OperandType::STRING,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+struct Local {
+    register: u16,
+    is_mutable: bool,
 }
