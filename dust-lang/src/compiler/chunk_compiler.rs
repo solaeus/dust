@@ -6,7 +6,7 @@ use tracing::{Level, debug, info, span};
 use crate::{
     Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, OperandType, Operation,
     Resolver, Type,
-    resolver::{DeclarationId, DeclarationKind, TypeId, TypeNode},
+    resolver::{DeclarationId, DeclarationKind, ScopeId, ScopeKind, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -417,7 +417,7 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(expression_id, &expression_node)?;
+        let expression_emission = self.compile_expression(&expression_node)?;
 
         match expression_emission {
             Emission::Instruction(instruction, _) => {
@@ -461,7 +461,7 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(expression_id, &expression_node)?;
+        let expression_emission = self.compile_expression(&expression_node)?;
         let destination_register = match expression_emission {
             Emission::Instruction(instruction, _) => {
                 let destination_register = instruction.destination().index;
@@ -507,19 +507,15 @@ impl<'a> ChunkCompiler<'a> {
         Ok(())
     }
 
-    fn compile_expression(
-        &mut self,
-        node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         match node.kind {
             SyntaxKind::BooleanExpression => self.compile_boolean_expression(node),
             SyntaxKind::ByteExpression => self.compile_byte_expression(node),
-            SyntaxKind::CharacterExpression => self.compile_character_expression(node_id, node),
+            SyntaxKind::CharacterExpression => self.compile_character_expression(node),
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
-            SyntaxKind::PathExpression => self.compile_path_expression(node_id, node),
+            SyntaxKind::PathExpression => self.compile_path_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -529,22 +525,22 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationAssignmentExpression
             | SyntaxKind::DivisionAssignmentExpression
-            | SyntaxKind::ModuloAssignmentExpression => self.compile_math_expression(node_id, node),
+            | SyntaxKind::ModuloAssignmentExpression => self.compile_math_expression(node),
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanExpression
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
-            | SyntaxKind::NotEqualExpression => self.compile_comparison_expression(node_id, node),
+            | SyntaxKind::NotEqualExpression => self.compile_comparison_expression(node),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
-                self.compile_logical_expression(node_id, node)
+                self.compile_logical_expression(node)
             }
             SyntaxKind::NotExpression | SyntaxKind::NegationExpression => {
-                self.compile_unary_expression(node_id, node)
+                self.compile_unary_expression(node)
             }
-            SyntaxKind::GroupedExpression => self.compile_grouped_expression(node_id, node),
-            SyntaxKind::BlockExpression => self.compile_block_expression(node_id, node),
-            SyntaxKind::WhileExpression => self.compile_while_expression(node_id, node),
+            SyntaxKind::GroupedExpression => self.compile_grouped_expression(node),
+            SyntaxKind::BlockExpression => self.compile_block_expression(node),
+            SyntaxKind::WhileExpression => self.compile_while_expression(node),
             SyntaxKind::FunctionExpression => self.compile_function_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
@@ -567,7 +563,6 @@ impl<'a> ChunkCompiler<'a> {
 
     fn compile_character_expression(
         &mut self,
-        _node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         info!("Compiling character expression");
@@ -607,11 +602,7 @@ impl<'a> ChunkCompiler<'a> {
         }))
     }
 
-    fn compile_math_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_math_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling math expression");
 
         let left_index = SyntaxId(node.children.0);
@@ -629,8 +620,8 @@ impl<'a> ChunkCompiler<'a> {
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, &left)?;
-        let right_emission = self.compile_expression(right_index, &right)?;
+        let left_emission = self.compile_expression(&left)?;
+        let right_emission = self.compile_expression(&right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -774,7 +765,6 @@ impl<'a> ChunkCompiler<'a> {
 
     fn compile_comparison_expression(
         &mut self,
-        _node_id: SyntaxId,
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         let left_index = SyntaxId(node.children.0);
@@ -792,8 +782,8 @@ impl<'a> ChunkCompiler<'a> {
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, &left)?;
-        let right_emission = self.compile_expression(right_index, &right)?;
+        let left_emission = self.compile_expression(&left)?;
+        let right_emission = self.compile_expression(&right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -909,11 +899,7 @@ impl<'a> ChunkCompiler<'a> {
         ))
     }
 
-    fn compile_logical_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_logical_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling logical expression");
 
         let left_index = SyntaxId(node.children.0);
@@ -931,8 +917,8 @@ impl<'a> ChunkCompiler<'a> {
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, &left)?;
-        let right_emission = self.compile_expression(right_index, &right)?;
+        let left_emission = self.compile_expression(&left)?;
+        let right_emission = self.compile_expression(&right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -1003,11 +989,7 @@ impl<'a> ChunkCompiler<'a> {
         Ok(emission)
     }
 
-    fn compile_unary_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_unary_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling unary expression");
 
         let child_id = SyntaxId(node.children.0);
@@ -1019,7 +1001,7 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: node.children.0,
                 })?;
-        let child_emission = self.compile_expression(child_id, &child_node)?;
+        let child_emission = self.compile_expression(&child_node)?;
 
         if let Emission::Constant(child_value) = &child_emission {
             let evaluated = match (node.kind, child_value) {
@@ -1051,11 +1033,7 @@ impl<'a> ChunkCompiler<'a> {
         ))
     }
 
-    fn compile_grouped_expression(
-        &mut self,
-        node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_grouped_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling grouped expression");
 
         let child_id = SyntaxId(node.children.0);
@@ -1068,26 +1046,22 @@ impl<'a> ChunkCompiler<'a> {
                     child_index: node.children.0,
                 })?;
 
-        self.compile_expression(node_id, &child_node)
+        self.compile_expression(&child_node)
     }
 
-    fn compile_block_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_block_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling block expression");
 
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
-        let end_children = start_children + child_count;
 
-        if start_children == end_children {
+        if child_count == 0 {
             return Ok(Emission::None);
         }
 
+        let end_children = start_children + child_count - 1;
         let mut current_child_index = start_children;
 
-        while current_child_index < end_children.saturating_sub(1) {
+        while current_child_index < end_children {
             let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
                 CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1103,30 +1077,35 @@ impl<'a> ChunkCompiler<'a> {
             *self
                 .syntax_tree
                 .children
-                .get(end_children - 1)
+                .get(end_children)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
-                    child_index: (end_children - 1) as u32,
+                    child_index: end_children as u32,
                 })?;
         let last_child_node = *self
             .syntax_tree
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
+        let outer_scope_id = ScopeId(node.payload);
+        let outer_scope = self
+            .resolver
+            .get_scope(outer_scope_id)
+            .ok_or(CompileError::MissingScope { id: outer_scope_id })?;
 
         if last_child_node.kind.is_statement() {
             self.compile_statement(last_child_id)?;
 
             Ok(Emission::None)
+        } else if outer_scope.kind == ScopeKind::Function && outer_scope_id != ScopeId::MAIN {
+            self.compile_implicit_return(last_child_id, &last_child_node)?;
+
+            Ok(Emission::None)
         } else {
-            self.compile_expression(last_child_id, &last_child_node)
+            self.compile_expression(&last_child_node)
         }
     }
 
-    fn compile_path_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_path_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
         let declaration_id = DeclarationId(node.children.0);
@@ -1153,11 +1132,7 @@ impl<'a> ChunkCompiler<'a> {
         ))
     }
 
-    fn compile_while_expression(
-        &mut self,
-        _node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
+    fn compile_while_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling while expression");
 
         let condition_id = SyntaxId(node.children.0);
@@ -1178,7 +1153,7 @@ impl<'a> ChunkCompiler<'a> {
                 parent_kind: node.kind,
                 child_index: node.children.1,
             })?;
-        let condition_emission = self.compile_expression(condition_id, &condition_node)?;
+        let condition_emission = self.compile_expression(&condition_node)?;
 
         match condition_emission {
             Emission::Instruction(instruction, _) => {
@@ -1311,23 +1286,7 @@ impl<'a> ChunkCompiler<'a> {
             );
         }
 
-        let _ = function_compiler.compile_block_expression(block_id, &block_node)?;
-        let block_last_child_id = *self
-            .syntax_tree
-            .children
-            .get((block_node.children.0 + block_node.children.1 - 1) as usize)
-            .ok_or(CompileError::MissingChild {
-                parent_kind: block_node.kind,
-                child_index: block_node.children.0 + block_node.children.1 - 1,
-            })?;
-        let block_last_child_node = *self.syntax_tree.get_node(block_last_child_id).ok_or(
-            CompileError::MissingSyntaxNode {
-                id: block_last_child_id,
-            },
-        )?;
-
-        function_compiler.compile_implicit_return(block_last_child_id, &block_last_child_node)?;
-
+        let _ = function_compiler.compile_block_expression(&block_node)?;
         let function_chunk = Chunk {
             name: None,
             r#type: *function_type,
@@ -1364,7 +1323,7 @@ impl<'a> ChunkCompiler<'a> {
 
             self.instructions.push(return_instruction);
         } else {
-            let return_emission = self.compile_expression(node_id, node)?;
+            let return_emission = self.compile_expression(node)?;
             let (return_operand, return_type, return_operand_type) = match return_emission {
                 Emission::Instruction(instruction, r#type) => {
                     let operand_type = self
@@ -1454,8 +1413,6 @@ impl Emission {
                 let address = compiler.get_constant_address(constant);
                 let destination = Address::register(compiler.get_next_register());
                 let load_instruction = Instruction::load(destination, address, r#type, false);
-
-                compiler.instructions.push(load_instruction);
 
                 compiler.handle_operand(load_instruction)
             }

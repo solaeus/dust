@@ -1253,7 +1253,7 @@ impl<'a> Parser<'a> {
                 kind: SyntaxKind::BlockExpression,
                 position: Span(start, self.previous_position.1),
                 children: (first_child, child_count),
-                payload: last_node.payload,
+                payload: starting_scope_id.0,
             };
 
             self.syntax_tree.push_node(block_node);
@@ -1263,7 +1263,7 @@ impl<'a> Parser<'a> {
                 kind: SyntaxKind::BlockExpression,
                 position: Span(start, self.previous_position.1),
                 children: (first_child, child_count),
-                payload: TypeId::NONE.0,
+                payload: starting_scope_id.0,
             };
             let block_node_id = self.syntax_tree.push_node(block_node);
 
