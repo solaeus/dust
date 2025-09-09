@@ -15,20 +15,13 @@ both the design and implementation of the language.
 
 ## Design Principles
 
-## Compilation
-
-Compilation is handled in a single read of the source code. The lexer produces tokens and the compiler provides a collection of parsers, which are just functions, that consume tokens and produce instructions.
-
 ### Lexing
 
-Dust's entire process of lexing and parsing is zero-copy. This starts at the lexer and its tokens, which are references to sections of the source code and are accompanied by the exact byte range they cover. This forms the basis for compile-time errors that can point to the exact location of a problem in the source code.
-
-The lexer works like an iterator, producing one token at a time. Coupled with a single-pass compilation strategy, this makes the foundation for the entire compilation process very efficient,
-especially compared to tokenizing the entire source code before parsing it or constructing an abstract syntax tree.
+Dust's entire process of lexing and parsing is zero-copy. This starts at the lexer and its tokens, which are are accompanied by the exact byte range they cover. This forms the basis for compile-time errors that can point to the exact location of a problem in the source code.
 
 ### Parsing
 
-### Instruction Emission
+### Compilation
 
 ## Dust's Intermediate Representation
 

@@ -2,6 +2,8 @@ mod syntax_node;
 
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 
+use crate::ConstantTable;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
 
@@ -23,6 +25,8 @@ pub struct SyntaxTree {
     /// Concatenated list of node indexes that represent children for nodes whose child indexes
     /// cannot be stored directly in the node (i.e. blocks and the root node).
     pub children: Vec<SyntaxId>,
+
+    pub constants: ConstantTable,
 }
 
 impl SyntaxTree {
@@ -140,7 +144,9 @@ impl SyntaxTree {
                     }
                 }
             }
-            SyntaxKind::ExpressionStatement | SyntaxKind::GroupedExpression => {
+            SyntaxKind::ExpressionStatement
+            | SyntaxKind::GroupedExpression
+            | SyntaxKind::FunctionSignature => {
                 if let Some(expression) = self.nodes.get(node.children.0 as usize) {
                     self.display_node(expression, depth + 1, output);
                 } else {
@@ -198,7 +204,9 @@ impl SyntaxTree {
 
                 output.push_str(&string_display);
             }
-            SyntaxKind::AdditionExpression
+            SyntaxKind::FunctionExpression
+            | SyntaxKind::FunctionValueParameter
+            | SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
@@ -236,7 +244,7 @@ impl SyntaxTree {
                     push_error(output);
                 }
             }
-            SyntaxKind::BlockExpression => {
+            SyntaxKind::BlockExpression | SyntaxKind::FunctionValueParameters => {
                 let children_start = node.children.0 as usize;
                 let children_end = children_start + node.children.1 as usize;
                 let children = &self.children[children_start..children_end];

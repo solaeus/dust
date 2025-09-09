@@ -6,12 +6,10 @@ use std::{
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 
-use crate::{ConstantTable, OperandType, Span, Type};
+use crate::{OperandType, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
-    pub constants: ConstantTable,
-
     declarations: IndexMap<(Symbol, ScopeId), Declaration, FxBuildHasher>,
 
     scopes: Vec<Scope>,
@@ -24,7 +22,6 @@ pub struct Resolver {
 impl Resolver {
     pub fn new() -> Self {
         Self {
-            constants: ConstantTable::new(),
             declarations: IndexMap::default(),
             scopes: Vec::new(),
             r#types: IndexSet::default(),
@@ -83,7 +80,7 @@ impl Resolver {
     pub fn find_declaration_in_scope_chain(
         &mut self,
         identifier: &str,
-        mut scope: ScopeId,
+        target_scope_id: ScopeId,
     ) -> Option<DeclarationId> {
         let symbol = {
             let mut hasher = FxHasher::default();
@@ -95,25 +92,23 @@ impl Resolver {
             }
         };
 
+        let mut current_scope_id = target_scope_id;
+        let mut current_scope = self.get_scope(current_scope_id)?;
+
         loop {
-            if let Some(declaration_id) = self.get_scoped_declaration(symbol, scope) {
-                return Some(declaration_id);
+            if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
+                return Some(DeclarationId(index as u32));
             }
 
-            if scope == ScopeId::MAIN {
+            if current_scope.kind == ScopeKind::Function || current_scope_id == ScopeId::MAIN {
                 break;
             }
 
-            scope = self.scopes.get(scope.0 as usize)?.parent;
+            current_scope_id = current_scope.parent;
+            current_scope = self.get_scope(current_scope_id)?;
         }
 
         None
-    }
-
-    fn get_scoped_declaration(&mut self, symbol: Symbol, scope: ScopeId) -> Option<DeclarationId> {
-        self.declarations
-            .get_index_of(&(symbol, scope))
-            .map(|index| DeclarationId(index as u32))
     }
 
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
@@ -140,8 +135,8 @@ impl Resolver {
                         Some(Type::list(element_type))
                     }
                     TypeNode::Function {
-                        type_arguments: (type_args_start, type_args_end),
-                        value_arguments: (value_args_start, value_args_end),
+                        type_parameters: (type_args_start, type_args_end),
+                        value_parameters: (value_args_start, value_args_end),
                         return_type,
                     } => {
                         let type_arguments = self.type_members
@@ -206,16 +201,23 @@ impl ScopeId {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scope {
+    pub kind: ScopeKind,
     pub parent: ScopeId,
     pub imports: (u32, u32),
-    pub depth: u8,
-    pub index: u16,
+    pub depth: u32,
+    pub index: u32,
 }
 
 impl Scope {
     pub fn contains(&self, other: &Scope) -> bool {
         self.depth >= other.depth && self.index <= other.index
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ScopeKind {
+    Function,
+    Block,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -284,8 +286,8 @@ pub enum TypeNode {
     Array(TypeId, u32),
     List(TypeId),
     Function {
-        type_arguments: (u32, u32),
-        value_arguments: (u32, u32),
+        type_parameters: (u32, u32),
+        value_parameters: (u32, u32),
         return_type: TypeId,
     },
 }

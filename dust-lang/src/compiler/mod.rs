@@ -20,10 +20,10 @@ use crate::{
 };
 
 pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
-    let parser = Parser::new();
+    let mut resolver = Resolver::new();
+    let parser = Parser::new(&mut resolver);
     let ParseResult {
         syntax_tree,
-        resolver,
         errors,
     } = parser.parse_once(source, ScopeId::MAIN);
 
@@ -31,7 +31,7 @@ pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
         return Err(DustError::parse(errors, source));
     }
 
-    let chunk_compiler = ChunkCompiler::new(&syntax_tree, resolver);
+    let chunk_compiler = ChunkCompiler::new(syntax_tree, &resolver);
 
     chunk_compiler
         .compile()
@@ -39,23 +39,27 @@ pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
 }
 
 pub struct Compiler {
+    resolver: Resolver,
     _allow_native_functions: bool,
 }
 
 impl Compiler {
     pub fn new(allow_native_functions: bool) -> Self {
         Self {
+            resolver: Resolver::new(),
             _allow_native_functions: allow_native_functions,
         }
     }
 
-    pub fn compile<'src>(&self, sources: &[(&str, &'src str)]) -> Result<Program, DustError<'src>> {
+    pub fn compile<'src>(
+        &mut self,
+        sources: &[(&str, &'src str)],
+    ) -> Result<Program, DustError<'src>> {
         let prototypes = Rc::new(RefCell::new(Vec::new()));
 
-        let mut parser = Parser::new();
+        let mut parser = Parser::new(&mut self.resolver);
         let ParseResult {
             syntax_tree,
-            resolver,
             errors,
         } = parser.parse(sources[0].1, ScopeId::MAIN);
 
@@ -65,7 +69,7 @@ impl Compiler {
 
         prototypes.borrow_mut().push(Chunk::default());
 
-        let chunk_compiler = ChunkCompiler::new(&syntax_tree, resolver);
+        let chunk_compiler = ChunkCompiler::new(syntax_tree, &self.resolver);
         let main_chunk = chunk_compiler
             .compile()
             .map_err(|error| DustError::compile(error, sources[0].1))?;
@@ -86,10 +90,10 @@ impl Compiler {
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
-    syntax_tree: &'a SyntaxTree,
+    syntax_tree: SyntaxTree,
 
     /// Context for modules, types and declarations provided by the parser.
-    resolver: Resolver,
+    resolver: &'a Resolver,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -115,7 +119,7 @@ pub struct ChunkCompiler<'a> {
 }
 
 impl<'a> ChunkCompiler<'a> {
-    pub fn new(syntax_tree: &'a SyntaxTree, resolver: Resolver) -> Self {
+    pub fn new(syntax_tree: SyntaxTree, resolver: &'a Resolver) -> Self {
         Self {
             syntax_tree,
             resolver,
@@ -143,13 +147,13 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let register_count = self.get_next_register();
 
-        self.resolver.constants.trim_string_pool();
+        self.syntax_tree.constants.trim_string_pool();
 
         Ok(Chunk {
             name: Some("main".to_string()),
             r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
-            constants: self.resolver.constants,
+            constants: self.syntax_tree.constants,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
@@ -173,14 +177,14 @@ impl<'a> ChunkCompiler<'a> {
         let index = match constant {
             Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
             Constant::Byte(byte) => return Address::encoded(byte as u16),
-            Constant::Character(character) => self.resolver.constants.add_character(character),
-            Constant::Float(float) => self.resolver.constants.add_float(float),
-            Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
+            Constant::Character(character) => self.syntax_tree.constants.add_character(character),
+            Constant::Float(float) => self.syntax_tree.constants.add_float(float),
+            Constant::Integer(integer) => self.syntax_tree.constants.add_integer(integer),
             Constant::String {
                 pool_start,
                 pool_end,
             } => self
-                .resolver
+                .syntax_tree
                 .constants
                 .add_pooled_string(pool_start, pool_end),
         };
@@ -262,7 +266,7 @@ impl<'a> ChunkCompiler<'a> {
                     string.push(left);
                     string.push(right);
 
-                    let combined = self.resolver.constants.push_str_to_string_pool(&string);
+                    let combined = self.syntax_tree.constants.push_str_to_string_pool(&string);
 
                     Constant::String {
                         pool_start: combined.0,
@@ -288,11 +292,11 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let left = self
-                    .resolver
+                    .syntax_tree
                     .constants
                     .get_string_pool(left_pool_start as usize..left_pool_end as usize);
                 let right = self
-                    .resolver
+                    .syntax_tree
                     .constants
                     .get_string_pool(right_pool_start as usize..right_pool_end as usize);
 
@@ -310,7 +314,7 @@ impl<'a> ChunkCompiler<'a> {
                         string.push_str(left);
                         string.push_str(right);
 
-                        let combined = self.resolver.constants.push_str_to_string_pool(&string);
+                        let combined = self.syntax_tree.constants.push_str_to_string_pool(&string);
 
                         Constant::String {
                             pool_start: combined.0,
@@ -334,7 +338,7 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let right = self
-                    .resolver
+                    .syntax_tree
                     .constants
                     .get_string_pool(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(1 + right.len());
@@ -344,7 +348,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.resolver.constants.push_str_to_string_pool(&string)
+                        self.syntax_tree.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -362,7 +366,7 @@ impl<'a> ChunkCompiler<'a> {
                 Constant::Character(right),
             ) => {
                 let left = self
-                    .resolver
+                    .syntax_tree
                     .constants
                     .get_string_pool(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(left.len() + 1);
@@ -372,7 +376,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.resolver.constants.push_str_to_string_pool(&string)
+                        self.syntax_tree.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -461,7 +465,7 @@ impl<'a> ChunkCompiler<'a> {
             current_child_index += 1;
 
             if current_child_index == end_children {
-                let child_node = self
+                let child_node = *self
                     .syntax_tree
                     .get_node(child_id)
                     .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
@@ -481,7 +485,7 @@ impl<'a> ChunkCompiler<'a> {
 
                     self.instructions.push(return_instruction);
                 } else {
-                    let return_emission = self.compile_expression(child_id, child_node)?;
+                    let return_emission = self.compile_expression(child_id, &child_node)?;
                     let (return_operand, return_type, return_operand_type) = match return_emission {
                         Emission::Instruction(instruction, r#type) => {
                             let operand_type = self
@@ -557,11 +561,11 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling expression statement");
 
         let expression_id = SyntaxId(node.children.0);
-        let expression_node = self
+        let expression_node = *self
             .syntax_tree
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(expression_id, expression_node)?;
+        let expression_emission = self.compile_expression(expression_id, &expression_node)?;
 
         match expression_emission {
             Emission::Instruction(instruction, _) => {
@@ -601,11 +605,11 @@ impl<'a> ChunkCompiler<'a> {
             },
         )?;
         let expression_id = SyntaxId(expression_statement_node.children.0);
-        let expression_node = self
+        let expression_node = *self
             .syntax_tree
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(expression_id, expression_node)?;
+        let expression_emission = self.compile_expression(expression_id, &expression_node)?;
         let destination_register = match expression_emission {
             Emission::Instruction(instruction, _) => {
                 let destination_register = instruction.destination().index;
@@ -753,22 +757,22 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling math expression");
 
         let left_index = SyntaxId(node.children.0);
-        let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
+        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, left)?;
-        let right_emission = self.compile_expression(right_index, right)?;
+        let left_emission = self.compile_expression(left_index, &left)?;
+        let right_emission = self.compile_expression(right_index, &right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -916,22 +920,22 @@ impl<'a> ChunkCompiler<'a> {
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         let left_index = SyntaxId(node.children.0);
-        let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
+        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, left)?;
-        let right_emission = self.compile_expression(right_index, right)?;
+        let left_emission = self.compile_expression(left_index, &left)?;
+        let right_emission = self.compile_expression(right_index, &right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -1055,22 +1059,22 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling logical expression");
 
         let left_index = SyntaxId(node.children.0);
-        let left = self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
+        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
             },
         )?;
 
-        let left_emission = self.compile_expression(left_index, left)?;
-        let right_emission = self.compile_expression(right_index, right)?;
+        let left_emission = self.compile_expression(left_index, &left)?;
+        let right_emission = self.compile_expression(right_index, &right)?;
 
         if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
             (&left_emission, &right_emission)
@@ -1149,14 +1153,15 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling unary expression");
 
         let child_id = SyntaxId(node.children.0);
-        let child_node = self
-            .syntax_tree
-            .get_node(child_id)
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind,
-                child_index: node.children.0,
-            })?;
-        let child_emission = self.compile_expression(child_id, child_node)?;
+        let child_node =
+            *self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.0,
+                })?;
+        let child_emission = self.compile_expression(child_id, &child_node)?;
 
         if let Emission::Constant(child_value) = &child_emission {
             let evaluated = match (node.kind, child_value) {
@@ -1196,15 +1201,16 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling grouped expression");
 
         let child_id = SyntaxId(node.children.0);
-        let child_node = self
-            .syntax_tree
-            .get_node(child_id)
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind,
-                child_index: node.children.0,
-            })?;
+        let child_node =
+            *self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.0,
+                })?;
 
-        self.compile_expression(node_id, child_node)
+        self.compile_expression(node_id, &child_node)
     }
 
     fn compile_block_expression(
@@ -1244,7 +1250,7 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: (end_children - 1) as u32,
                 })?;
-        let last_child_node = self
+        let last_child_node = *self
             .syntax_tree
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
@@ -1254,7 +1260,7 @@ impl<'a> ChunkCompiler<'a> {
 
             Ok(Emission::None)
         } else {
-            self.compile_expression(last_child_id, last_child_node)
+            self.compile_expression(last_child_id, &last_child_node)
         }
     }
 
@@ -1300,20 +1306,21 @@ impl<'a> ChunkCompiler<'a> {
         let body_id = SyntaxId(node.children.1);
 
         let condition_node =
-            self.syntax_tree
+            *self
+                .syntax_tree
                 .get_node(condition_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
                     child_index: node.children.0,
                 })?;
-        let body_node = self
+        let body_node = *self
             .syntax_tree
             .get_node(body_id)
             .ok_or(CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
             })?;
-        let condition_emission = self.compile_expression(condition_id, condition_node)?;
+        let condition_emission = self.compile_expression(condition_id, &condition_node)?;
 
         match condition_emission {
             Emission::Instruction(instruction, _) => {
@@ -1343,7 +1350,7 @@ impl<'a> ChunkCompiler<'a> {
         let jump_forward_index = self.instructions.len();
 
         self.instructions.push(Instruction::no_op());
-        self.compile_expression_statement(body_node)?;
+        self.compile_expression_statement(&body_node)?;
 
         let jump_distance = (self.instructions.len() - jump_forward_index) as u16;
 

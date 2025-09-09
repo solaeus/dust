@@ -32,7 +32,7 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run_main(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
-    let compiler = Compiler::new(true);
+    let mut compiler = Compiler::new(true);
     let program = compiler.compile(&[("", source)])?;
     let vm = JitVm::new();
 

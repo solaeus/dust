@@ -16,12 +16,13 @@ use crate::{
     Lexer, Resolver, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, TypeId},
+    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
-    let parser = Parser::new();
+    let mut resolver = Resolver::new();
+    let parser = Parser::new(&mut resolver);
     let ParseResult {
         syntax_tree,
         errors,
@@ -38,13 +39,12 @@ pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
 
 pub struct ParseResult {
     pub syntax_tree: SyntaxTree,
-    pub resolver: Resolver,
     pub errors: Vec<ParseError>,
 }
 
-pub struct Parser<'src> {
-    lexer: Lexer<'src>,
-    resolver: Resolver,
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
+    resolver: &'a mut Resolver,
 
     syntax_tree: SyntaxTree,
 
@@ -54,16 +54,16 @@ pub struct Parser<'src> {
     previous_position: Span,
 
     current_scope_id: ScopeId,
-    scope_count: u16,
+    scope_count: u32,
 
     errors: Vec<ParseError>,
 }
 
-impl<'src> Parser<'src> {
-    pub fn new() -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(resolver: &'a mut Resolver) -> Self {
         Self {
             lexer: Lexer::new(),
-            resolver: Resolver::new(),
+            resolver,
             syntax_tree: SyntaxTree::default(),
             current_token: Token::Eof,
             current_position: Span::default(),
@@ -77,7 +77,7 @@ impl<'src> Parser<'src> {
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse_once(mut self, source: &'src str, scope: ScopeId) -> ParseResult {
+    pub fn parse_once(mut self, source: &'a str, scope: ScopeId) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, 0);
 
         self.current_token = token;
@@ -92,14 +92,13 @@ impl<'src> Parser<'src> {
 
         ParseResult {
             syntax_tree: self.syntax_tree,
-            resolver: self.resolver,
             errors: self.errors,
         }
     }
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// Afterwards, the parser is reset and can be reused.
-    pub fn parse(&mut self, source: &'src str, scope: ScopeId) -> ParseResult {
+    pub fn parse(&mut self, source: &'a str, scope: ScopeId) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, 0);
 
         self.current_token = token;
@@ -113,24 +112,17 @@ impl<'src> Parser<'src> {
         }
 
         let syntax_tree = take(&mut self.syntax_tree);
-        let resolver = take(&mut self.resolver);
         let errors = take(&mut self.errors);
 
         ParseResult {
             syntax_tree,
-            resolver,
             errors,
         }
     }
 
     /// Parses a source string, allowing it to be a subtree of a larger syntax tree. Afterwards, the
     /// parser is reset and can be reused.
-    pub fn parse_subtree(
-        &mut self,
-        source: &'src str,
-        offset: usize,
-        scope: ScopeId,
-    ) -> ParseResult {
+    pub fn parse_subtree(&mut self, source: &'a str, offset: usize, scope: ScopeId) -> ParseResult {
         let (token, span) = self.lexer.initialize(source, offset);
 
         self.current_token = token;
@@ -155,18 +147,29 @@ impl<'src> Parser<'src> {
         self.syntax_tree.nodes.swap_remove(0);
 
         let syntax_tree = take(&mut self.syntax_tree);
-        let resolver = take(&mut self.resolver);
         let errors = take(&mut self.errors);
 
         ParseResult {
             syntax_tree,
-            resolver,
             errors,
         }
     }
 
     fn new_child_buffer() -> SmallVec<[SyntaxId; 4]> {
         SmallVec::<[SyntaxId; 4]>::new()
+    }
+
+    fn new_child_scope(&mut self, kind: ScopeKind) -> ScopeId {
+        let scope_id = self.resolver.add_scope(Scope {
+            kind,
+            parent: self.current_scope_id,
+            imports: (0, 0),
+            depth: self.scope_count,
+            index: 0,
+        });
+        self.scope_count += 1;
+
+        scope_id
     }
 
     fn pratt(&mut self, precedence: Precedence) -> Result<(), ParseError> {
@@ -228,7 +231,10 @@ impl<'src> Parser<'src> {
             return;
         }
 
-        while !matches!(self.current_token, Token::Semicolon | Token::Eof) {
+        while !matches!(
+            self.current_token,
+            Token::Semicolon | Token::RightCurlyBrace | Token::Eof
+        ) {
             let _ = self.advance().map_err(|error| self.recover(error));
         }
 
@@ -266,7 +272,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn current_source(&self) -> &'src str {
+    fn current_source(&self) -> &'a str {
         &self.lexer.source()[self.current_position.as_usize_range()]
     }
 
@@ -347,6 +353,7 @@ impl<'src> Parser<'src> {
             payload: TypeId::NONE.0,
         };
         self.current_scope_id = self.resolver.add_scope(Scope {
+            kind: ScopeKind::Function,
             parent: ScopeId(0),
             imports: (0, 0),
             depth: 0,
@@ -488,7 +495,133 @@ impl<'src> Parser<'src> {
     fn parse_function_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing function expression");
 
-        todo!()
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = self.new_child_scope(ScopeKind::Function);
+
+        let start = self.current_position.0;
+        let (function_signature_id, function_type_id) = self.parse_function_signature()?;
+
+        self.parse_block_expression()?;
+
+        let block_id = self.syntax_tree.last_node_id();
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::FunctionExpression,
+            position: Span(start, end),
+            children: (function_signature_id.0, block_id.0),
+            payload: function_type_id.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        self.current_scope_id = starting_scope_id;
+
+        Ok(())
+    }
+
+    fn parse_function_signature(&mut self) -> Result<(SyntaxId, TypeId), ParseError> {
+        let start = self.current_position.0;
+        let (parameter_list_node_id, value_parameters) = self.parse_function_value_parameters()?;
+        let return_type = if self.allow(Token::ArrowThin)? {
+            self.parse_type()?
+        } else {
+            TypeId::NONE
+        };
+        let end = self.previous_position.1;
+        let function_type = TypeNode::Function {
+            type_parameters: (0, 0),
+            value_parameters,
+            return_type,
+        };
+        let function_type_id = self.resolver.register_type(function_type);
+        let node = SyntaxNode {
+            kind: SyntaxKind::FunctionSignature,
+            position: Span(start, end),
+            children: (parameter_list_node_id.0, 0),
+            payload: 0,
+        };
+        let node_id = self.syntax_tree.push_node(node);
+
+        Ok((node_id, function_type_id))
+    }
+
+    fn parse_function_value_parameters(&mut self) -> Result<(SyntaxId, (u32, u32)), ParseError> {
+        let start = self.current_position.0;
+
+        self.expect(Token::LeftParenthesis)?;
+
+        let mut children = Self::new_child_buffer();
+
+        while !self.allow(Token::RightParenthesis)? {
+            let parameter_start = self.current_position.0;
+            let identifier_position = self.current_position;
+            let identifier_text = if self.current_token == Token::Identifier {
+                let text = self.current_source();
+
+                self.advance()?;
+
+                text
+            } else {
+                return Err(ParseError::ExpectedToken {
+                    expected: Token::Identifier,
+                    actual: self.current_token,
+                    position: self.current_position,
+                });
+            };
+            let parameter_name_node = SyntaxNode {
+                kind: SyntaxKind::FunctionValueParameterName,
+                position: identifier_position,
+                children: (0, 0),
+                payload: 0,
+            };
+            let parameter_name_node_id = self.syntax_tree.push_node(parameter_name_node);
+
+            self.expect(Token::Colon)?;
+            let type_position = self.current_position;
+            let type_id = self.parse_type()?;
+            let type_node = SyntaxNode {
+                kind: SyntaxKind::FunctionValueParameterType,
+                position: type_position,
+                children: (0, 0),
+                payload: 0,
+            };
+            let type_node_id = self.syntax_tree.push_node(type_node);
+            let parameter_end = self.previous_position.1;
+            let declaration_id = self.resolver.add_declaration(
+                DeclarationKind::Local,
+                self.current_scope_id,
+                type_id,
+                identifier_text,
+                identifier_position,
+            );
+            let node = SyntaxNode {
+                kind: SyntaxKind::FunctionValueParameter,
+                position: Span(parameter_start, parameter_end),
+                children: (parameter_name_node_id.0, type_node_id.0),
+                payload: declaration_id.0,
+            };
+            let node_id = self.syntax_tree.push_node(node);
+
+            children.push(node_id);
+
+            self.allow(Token::Comma)?;
+        }
+
+        let first_child = self.syntax_tree.children.len() as u32;
+        let child_count = children.len() as u32;
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::FunctionValueParameters,
+            position: Span(start, end),
+            children: (first_child, child_count),
+            payload: 0,
+        };
+
+        let node_id = self.syntax_tree.push_node(node);
+
+        self.syntax_tree.children.extend(children);
+
+        Ok((node_id, (first_child, child_count)))
     }
 
     fn parse_type(&mut self) -> Result<TypeId, ParseError> {
@@ -785,7 +918,10 @@ impl<'src> Parser<'src> {
 
             &token_text[1..token_text.len() - 1]
         };
-        let payload = self.resolver.constants.push_str_to_string_pool(string_text);
+        let payload = self
+            .syntax_tree
+            .constants
+            .push_str_to_string_pool(string_text);
 
         self.advance()?;
 
@@ -1082,6 +1218,7 @@ impl<'src> Parser<'src> {
                     id: self.current_scope_id,
                 })?;
         let new_scope = Scope {
+            kind: ScopeKind::Block,
             parent: starting_scope_id,
             imports: (0, 0),
             depth: starting_scope.depth + 1,
@@ -1329,11 +1466,5 @@ impl<'src> Parser<'src> {
 
     fn parse_str(&mut self) -> Result<(), ParseError> {
         todo!()
-    }
-}
-
-impl<'src> Default for Parser<'src> {
-    fn default() -> Self {
-        Self::new()
     }
 }

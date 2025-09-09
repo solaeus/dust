@@ -168,10 +168,11 @@ pub enum SyntaxKind {
 
     // Sub-Syntax
     FunctionSignature,
-    FunctionParameterList,
-    FunctionParameter,
-    FunctionReturnType,
-    Identifier,
+    FunctionValueParameters,
+    FunctionValueParameter,
+    FunctionValueParameterName,
+    FunctionValueParameterType,
+    FunctionTypeParameters,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -310,10 +311,11 @@ impl Display for SyntaxKind {
             SyntaxKind::ReturnExpression => write!(f, "return expression"),
             SyntaxKind::BreakExpression => write!(f, "break expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
-            SyntaxKind::FunctionParameterList => write!(f, "function parameter list"),
-            SyntaxKind::FunctionParameter => write!(f, "function parameter"),
-            SyntaxKind::FunctionReturnType => write!(f, "function return type"),
-            SyntaxKind::Identifier => write!(f, "identifier"),
+            SyntaxKind::FunctionValueParameters => write!(f, "function value parameters"),
+            SyntaxKind::FunctionValueParameter => write!(f, "function value parameter"),
+            SyntaxKind::FunctionValueParameterName => write!(f, "function value parameter name"),
+            SyntaxKind::FunctionValueParameterType => write!(f, "function value parameter type"),
+            SyntaxKind::FunctionTypeParameters => write!(f, "function type parameters"),
             SyntaxKind::BooleanType => write!(f, "boolean type"),
             SyntaxKind::ByteType => write!(f, "byte type"),
             SyntaxKind::CharacterType => write!(f, "character type"),
