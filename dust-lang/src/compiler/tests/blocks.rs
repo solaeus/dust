@@ -97,22 +97,16 @@ fn block_statement_and_expression() {
                     OperandType::INTEGER,
                     false
                 ),
-                Instruction::load(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::INTEGER,
-                    false
-                ),
                 Instruction::add(
-                    Address::register(2),
+                    Address::register(1),
                     Address::register(0),
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
             ],
             constants,
-            register_count: 3,
+            register_count: 2,
             ..Default::default()
         }
     );

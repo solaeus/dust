@@ -25,7 +25,7 @@ fn empty_block() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 0),
                 position: Span(0, 2),
-                payload: TypeId::NONE.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
@@ -50,13 +50,13 @@ fn block_expression() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (1, 1),
                 position: Span(0, 6),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 1),
                 position: Span(0, 6),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
@@ -87,7 +87,7 @@ fn block_statement() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 1),
                 position: Span(0, 20),
-                payload: TypeId::NONE.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
@@ -136,13 +136,13 @@ fn block_statement_and_expression() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (2, 1),
                 position: Span(0, 26),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 2),
                 position: Span(0, 26),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -203,13 +203,13 @@ fn parent_scope_access() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (3, 1),
                 position: Span(0, 36),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (1, 2),
                 position: Span(1, 35),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -239,7 +239,7 @@ fn parent_scope_access() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 1),
                 position: Span(28, 33),
-                payload: TypeId::INTEGER.0,
+                payload: 1,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
@@ -264,13 +264,13 @@ fn nested_parrent_scope_access() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (5, 1),
                 position: Span(0, 100),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (3, 2),
                 position: Span(1, 99),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -300,7 +300,7 @@ fn nested_parrent_scope_access() {
                 kind: SyntaxKind::BlockExpression,
                 children: (1, 2),
                 position: Span(28, 97),
-                payload: TypeId::INTEGER.0,
+                payload: 1,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -330,7 +330,7 @@ fn nested_parrent_scope_access() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 1),
                 position: Span(62, 91),
-                payload: TypeId::INTEGER.0,
+                payload: 2,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
@@ -367,13 +367,13 @@ fn scope_shadowing() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (4, 1),
                 position: Span(0, 73),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (2, 2),
                 position: Span(1, 72),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -403,7 +403,7 @@ fn scope_shadowing() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 2),
                 position: Span(28, 70),
-                payload: TypeId::INTEGER.0,
+                payload: 1,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -452,13 +452,13 @@ fn scope_deshadowing() {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (4, 1),
                 position: Span(0, 68),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 children: (1, 3),
                 position: Span(1, 67),
-                payload: TypeId::INTEGER.0,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
@@ -488,7 +488,7 @@ fn scope_deshadowing() {
                 kind: SyntaxKind::BlockExpression,
                 children: (0, 1),
                 position: Span(28, 59),
-                payload: TypeId::NONE.0,
+                payload: 1,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
