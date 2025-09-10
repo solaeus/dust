@@ -101,14 +101,10 @@ impl<'a> TuiDisassembler<'a> {
             _,
         ] = areas.areas(inner_area);
 
-        if chunk.prototype_index == u16::MAX {
-            Paragraph::new("main")
-        } else {
-            Paragraph::new(format!("proto_{}", chunk.prototype_index))
-        }
-        .centered()
-        .wrap(Wrap { trim: true })
-        .render(prototype_area, buffer);
+        Paragraph::new(format!("proto_{}", chunk.prototype_index))
+            .centered()
+            .wrap(Wrap { trim: true })
+            .render(prototype_area, buffer);
 
         Paragraph::new(format!(
             "{} instructions, {} constants",
@@ -222,7 +218,7 @@ impl Widget for &TuiDisassembler<'_> {
             chunks_tabs_content_area,
         ] = frame_areas.areas(area);
 
-        let main_chunk = &self.program.main_chunk().expect("main chunk missing");
+        let main_chunk = &self.program.main_chunk();
 
         Paragraph::new(format!(
             "main function type: {} ({} other prototypes)",
@@ -247,9 +243,7 @@ impl Widget for &TuiDisassembler<'_> {
 
         let mut function_names = Vec::with_capacity(self.program.prototypes.len() + 1);
 
-        function_names.push("main".to_string());
-
-        for prototype in &self.program.prototypes[..self.program.prototypes.len() - 1] {
+        for prototype in &self.program.prototypes {
             if let Some(name) = &prototype.name {
                 function_names.push(name.to_string());
             } else {
@@ -267,7 +261,7 @@ impl Widget for &TuiDisassembler<'_> {
                 self.draw_chunk_tab(main_chunk, chunks_tabs_content_area, buf);
             }
             _ => {
-                if let Some(chunk) = self.program.prototypes.get(self.selected_tab - 1) {
+                if let Some(chunk) = self.program.prototypes.get(self.selected_tab) {
                     self.draw_chunk_tab(chunk, chunks_tabs_content_area, buf);
                 }
             }

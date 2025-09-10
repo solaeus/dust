@@ -107,18 +107,19 @@ impl<'src> Compiler<'src> {
             return Err(DustError::parse(errors, self.sources.main));
         }
 
-        let prototypes = Rc::new(RefCell::new(Vec::new()));
+        let prototypes = Rc::new(RefCell::new(vec![Chunk::default()]));
+
         let chunk_compiler = ChunkCompiler::new(
             syntax_tree,
             self.sources.main,
             &self.resolver,
             prototypes.clone(),
         );
-        let chunk = chunk_compiler
+        let main_chunk = chunk_compiler
             .compile()
             .map_err(|error| DustError::compile(error, self.sources.main))?;
 
-        prototypes.borrow_mut().push(chunk);
+        prototypes.borrow_mut()[0] = main_chunk;
 
         let prototypes = Rc::into_inner(prototypes)
             .expect("Unneccessary borrow of 'prototypes'")

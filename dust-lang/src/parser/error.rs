@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Span, Token, Type,
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, DeclarationKind, ScopeId},
+    resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -36,6 +36,10 @@ pub enum ParseError {
     },
     ExpectedExpression {
         actual: SyntaxKind,
+        position: Span,
+    },
+    ExpectedFunction {
+        found: SyntaxKind,
         position: Span,
     },
 
@@ -106,6 +110,9 @@ pub enum ParseError {
     },
     MissingDeclaration {
         id: DeclarationId,
+    },
+    MissingType {
+        id: TypeId,
     },
 }
 
@@ -182,6 +189,17 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
                         .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
+            ParseError::ExpectedFunction { found, position } => {
+                let title = format!("Expected a function, found {found}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("This {found} is not a function")),
+                    ),
                 )
             }
             ParseError::AdditionTypeMismatch {
@@ -391,6 +409,11 @@ impl AnnotatedError for ParseError {
                     "Internal error: Missing scope for declaration with ID {}",
                     id.0
                 );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            ParseError::MissingType { id } => {
+                let title = format!("Internal error: Missing type with ID {}", id.0);
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

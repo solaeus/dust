@@ -18,8 +18,10 @@ impl Program {
         }
     }
 
-    pub fn main_chunk(&self) -> Option<&Chunk> {
-        self.prototypes.last()
+    pub fn main_chunk(&self) -> &Chunk {
+        self.prototypes
+            .first()
+            .expect("Program should always have a main chunk")
     }
 }
 

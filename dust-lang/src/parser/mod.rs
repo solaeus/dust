@@ -459,11 +459,12 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 self.parse_function_expression()?;
 
+                let type_id = self.syntax_tree.last_node().unwrap().payload;
                 let end = self.previous_position.1;
                 let declaration_id = self.resolver.add_declaration(
                     DeclarationKind::Function,
                     self.current_scope_id,
-                    TypeId::NONE,
+                    TypeId(type_id),
                     identifier_text,
                     identifier_position,
                 );
@@ -1177,7 +1178,74 @@ impl<'a> Parser<'a> {
     fn parse_call_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing call expression");
 
-        todo!()
+        self.advance()?;
+
+        let function_node_id = self.syntax_tree.last_node_id();
+        let function_node =
+            *self
+                .syntax_tree
+                .get_node(function_node_id)
+                .ok_or(ParseError::MissingNode {
+                    id: function_node_id,
+                })?;
+
+        let function_node_type = self.resolver.get_type_node(TypeId(function_node.payload));
+
+        if !matches!(function_node_type, Some(TypeNode::Function { .. })) {
+            return Err(ParseError::ExpectedFunction {
+                found: function_node.kind,
+                position: function_node.position,
+            });
+        };
+        let start = function_node.position.0;
+
+        let mut children = Self::new_child_buffer();
+
+        while !self.allow(Token::RightParenthesis)? {
+            self.parse_expression()?;
+
+            let argument_id = self.syntax_tree.last_node_id();
+
+            children.push(argument_id);
+
+            self.allow(Token::Comma)?;
+        }
+
+        let call_value_arguments_node = SyntaxNode {
+            kind: SyntaxKind::CallValueArguments,
+            position: Span(function_node.position.1, self.previous_position.1),
+            children: (
+                self.syntax_tree.children.len() as u32,
+                children.len() as u32,
+            ),
+            payload: 0,
+        };
+        let function_type_node = self
+            .resolver
+            .get_type_node(TypeId(function_node.payload))
+            .ok_or(ParseError::MissingType {
+                id: TypeId(function_node.payload),
+            })?;
+        let TypeNode::Function { return_type, .. } = function_type_node else {
+            return Err(ParseError::ExpectedFunction {
+                found: function_node.kind,
+                position: function_node.position,
+            });
+        };
+
+        let call_value_arguments_id = self.syntax_tree.push_node(call_value_arguments_node);
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::CallExpression,
+            position: Span(start, end),
+            children: (function_node_id.0, call_value_arguments_id.0),
+            payload: return_type.0,
+        };
+
+        self.syntax_tree.push_node(node);
+        self.syntax_tree.children.extend(children);
+
+        Ok(())
     }
 
     fn parse_grouped_expression(&mut self) -> Result<(), ParseError> {

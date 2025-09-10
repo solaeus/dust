@@ -34,6 +34,6 @@ impl Span {
 
 impl Display for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.0, self.1)
+        write!(f, "{}..{}", self.0, self.1)
     }
 }

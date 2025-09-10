@@ -173,6 +173,7 @@ pub enum SyntaxKind {
     FunctionValueParameterName,
     FunctionValueParameterType,
     FunctionTypeParameters,
+    CallValueArguments,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -256,7 +257,7 @@ impl Display for SyntaxKind {
             SyntaxKind::MainFunctionItem => write!(f, "main function item"),
             SyntaxKind::ModuleItem => write!(f, "module item"),
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
-            SyntaxKind::FunctionStatement => write!(f, " function statement"),
+            SyntaxKind::FunctionStatement => write!(f, "function statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
             SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
@@ -316,6 +317,8 @@ impl Display for SyntaxKind {
             SyntaxKind::FunctionValueParameterName => write!(f, "function value parameter name"),
             SyntaxKind::FunctionValueParameterType => write!(f, "function value parameter type"),
             SyntaxKind::FunctionTypeParameters => write!(f, "function type parameters"),
+
+            SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
             SyntaxKind::BooleanType => write!(f, "boolean type"),
             SyntaxKind::ByteType => write!(f, "byte type"),
             SyntaxKind::CharacterType => write!(f, "character type"),

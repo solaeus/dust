@@ -17,7 +17,7 @@ use crate::{
     instruction::{Call, Drop, Jump, Load, NewList, Return, SetList},
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
-        thread::ThreadContext,
+        jit_compiler::FunctionIds, thread::ThreadContext,
     },
 };
 
@@ -797,20 +797,22 @@ pub fn compile_stackless_function(
                     .get(prototype_index as usize)
                     .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
-                        function_index: prototype_index as usize,
+                        function_index: prototype_index,
                         total_function_count: compiler.function_ids.len(),
                     })?;
+                let FunctionIds::Other { direct, .. } = callee_function_ids else {
+                    unreachable!();
+                };
                 let callee_function_reference = compiler
                     .module
-                    .declare_func_in_func(callee_function_ids.direct, function_builder.func);
-
+                    .declare_func_in_func(*direct, function_builder.func);
                 let argument_count = compiler
                     .program
                     .prototypes
                     .get(prototype_index as usize)
                     .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
-                        function_index: prototype_index as usize,
+                        function_index: prototype_index,
                         total_function_count: compiler.program.prototypes.len(),
                     })?
                     .r#type

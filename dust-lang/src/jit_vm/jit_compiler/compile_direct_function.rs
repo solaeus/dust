@@ -10,8 +10,8 @@ use tracing::info;
 
 use crate::{
     Address, Chunk, MemoryKind, OperandType, Operation,
-    instruction::{Add, Call, Jump, Load, Return, Subtract},
-    jit_vm::{JitCompiler, JitError},
+    instruction::{Add, Call, Jump, Load, Return},
+    jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
 };
 
 fn get_integer(
@@ -159,6 +159,8 @@ pub fn compile_direct_function(
 
                 if jump_next {
                     function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
+                } else {
+                    function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 }
 
                 Ok(())
@@ -232,33 +234,7 @@ pub fn compile_direct_function(
 
                 ssa_registers[destination_index] = sum;
 
-                Ok(())
-            }?,
-            Operation::SUBTRACT => {
-                let Subtract {
-                    destination,
-                    left,
-                    right,
-                    r#type,
-                } = Subtract::from(*current_instruction);
-                let destination_index = destination.index as usize;
-                let difference = match r#type {
-                    OperandType::INTEGER => {
-                        let left_value =
-                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
-                        let right_value =
-                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
-
-                        function_builder.ins().isub(left_value, right_value)
-                    }
-                    _ => {
-                        return Err(JitError::UnsupportedOperandType {
-                            operand_type: r#type,
-                        });
-                    }
-                };
-
-                ssa_registers[destination_index] = difference;
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
 
                 Ok(())
             }?,
@@ -269,23 +245,24 @@ pub fn compile_direct_function(
                     arguments_index,
                     return_type: _,
                 } = Call::from(*current_instruction);
-                let destination_index = destination.index as usize;
-                let prototype_index = prototype_index as usize;
-                let callee_function_ids = compiler.function_ids.get(prototype_index).ok_or(
-                    JitError::FunctionIndexOutOfBounds {
+                let callee_function_ids = compiler
+                    .function_ids
+                    .get(prototype_index as usize)
+                    .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
                         function_index: prototype_index,
                         total_function_count: compiler.function_ids.len(),
-                    },
-                )?;
+                    })?;
+                let FunctionIds::Other { direct, .. } = callee_function_ids else {
+                    unreachable!();
+                };
                 let callee_function_reference = compiler
                     .module
-                    .declare_func_in_func(callee_function_ids.direct, function_builder.func);
-
+                    .declare_func_in_func(*direct, function_builder.func);
                 let arguments_count = compiler
                     .program
                     .prototypes
-                    .get(prototype_index)
+                    .get(prototype_index as usize)
                     .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
                         function_index: prototype_index,
@@ -333,7 +310,7 @@ pub fn compile_direct_function(
                     .call(callee_function_reference, &arguments);
                 let return_value = function_builder.inst_results(call_instruction)[0];
 
-                ssa_registers[destination_index] = return_value;
+                ssa_registers[destination.index as usize] = return_value;
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
@@ -342,18 +319,16 @@ pub fn compile_direct_function(
                     offset,
                     is_positive,
                 } = Jump::from(*current_instruction);
-
-                if is_positive {
-                    let offset = offset + 1;
-
-                    function_builder
-                        .ins()
-                        .jump(instruction_blocks[ip + (offset as usize)], &[]);
+                let offset = offset + 1;
+                let next_ip = if is_positive {
+                    ip + offset as usize
                 } else {
-                    function_builder
-                        .ins()
-                        .jump(instruction_blocks[ip - (offset as usize)], &[]);
-                }
+                    ip - offset as usize
+                };
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[next_ip], &[]);
             }
             Operation::RETURN => {
                 let Return {
@@ -387,18 +362,6 @@ pub fn compile_direct_function(
             _ => {
                 return Err(JitError::UnhandledOperation { operation });
             }
-        }
-
-        if !matches!(
-            operation,
-            Operation::EQUAL
-                | Operation::LESS
-                | Operation::LESS_EQUAL
-                | Operation::CALL
-                | Operation::JUMP
-                | Operation::RETURN
-        ) {
-            function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
         }
     }
 

@@ -27,7 +27,7 @@ pub enum JitError {
     },
     FunctionIndexOutOfBounds {
         ip: usize,
-        function_index: usize,
+        function_index: u16,
         total_function_count: usize,
     },
     ArgumentsRangeOutOfBounds {
@@ -48,6 +48,7 @@ pub enum JitError {
     },
     CraneliftModuleError {
         error: Box<ModuleError>,
+        cranelift_ir: String,
     },
 }
 
@@ -127,9 +128,13 @@ impl AnnotatedError for JitError {
                 );
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            JitError::CraneliftModuleError { error } => {
+            JitError::CraneliftModuleError {
+                error,
+                cranelift_ir,
+            } => {
                 let title = format!("Cranelift module error: {}", error);
                 Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::INFO.message(cranelift_ir))
             }
         }
     }

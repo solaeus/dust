@@ -37,7 +37,6 @@ const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
 pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
-    main_function_id: FuncId,
     function_ids: Vec<FunctionIds>,
 }
 
@@ -59,8 +58,7 @@ impl<'a> JitCompiler<'a> {
         Self {
             module,
             program,
-            main_function_id: FuncId::from_u32(0),
-            function_ids: Vec::with_capacity(program.prototypes.len() - 1),
+            function_ids: Vec::with_capacity(program.prototypes.len()),
         }
     }
 
@@ -78,14 +76,28 @@ impl<'a> JitCompiler<'a> {
 
         stackless_signature.params.push(AbiParam::new(pointer_type));
 
-        self.main_function_id = self
-            .module
-            .declare_function("main", Linkage::Local, &stackless_signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                error: Box::new(error),
-            })?;
+        for (index, chunk) in self.program.prototypes.iter().enumerate() {
+            if index == 0 {
+                let name = chunk
+                    .name
+                    .as_ref()
+                    .map_or_else(|| "main".to_string(), |name| name.to_string());
+                let stackless_function_id = self
+                    .module
+                    .declare_function(&name, Linkage::Local, &stackless_signature)
+                    .map_err(|error| JitError::CraneliftModuleError {
+                        error: Box::new(error),
+                        cranelift_ir: context.func.display().to_string(),
+                    })?;
+                let main_function_ids = FunctionIds::Main {
+                    stackless: stackless_function_id,
+                };
 
-        for (index, chunk) in self.program.prototypes.iter().enumerate().skip(1) {
+                self.function_ids.push(main_function_ids);
+
+                continue;
+            }
+
             let name = chunk
                 .name
                 .as_ref()
@@ -105,47 +117,51 @@ impl<'a> JitCompiler<'a> {
                 .declare_function(&direct_name, Linkage::Local, &direct_signature)
                 .map_err(|error| JitError::CraneliftModuleError {
                     error: Box::new(error),
+                    cranelift_ir: context.func.display().to_string(),
                 })?;
             let stackless_function_id = self
                 .module
                 .declare_function(&stackless_name, Linkage::Local, &stackless_signature)
                 .map_err(|error| JitError::CraneliftModuleError {
                     error: Box::new(error),
+                    cranelift_ir: context.func.display().to_string(),
                 })?;
 
-            self.function_ids.push(FunctionIds {
+            self.function_ids.push(FunctionIds::Other {
                 direct: direct_function_id,
                 stackless: stackless_function_id,
             });
         }
 
-        let main_chunk = self.program.main_chunk().expect("main chunk missing");
-        let main_function_reference = {
-            let reference = self
-                .module
-                .declare_func_in_func(self.main_function_id, &mut context.func);
-
-            compile_stackless_function(self.main_function_id, main_chunk, true, self)?;
-
-            reference
-        };
+        let main_chunk = &self.program.prototypes[0];
         let function_references = {
-            let mut references = Vec::with_capacity(self.program.prototypes.len() - 1);
+            let mut references = Vec::with_capacity(self.program.prototypes.len());
 
-            for (index, FunctionIds { direct, stackless }) in
-                self.function_ids.clone().into_iter().enumerate()
-            {
-                let direct_reference = self.module.declare_func_in_func(direct, &mut context.func);
-                let stackless_reference = self
-                    .module
-                    .declare_func_in_func(stackless, &mut context.func);
+            for (index, function_ids) in self.function_ids.clone().into_iter().enumerate() {
+                match function_ids {
+                    FunctionIds::Main { stackless } => {
+                        let main_reference = self
+                            .module
+                            .declare_func_in_func(stackless, &mut context.func);
 
-                references.push((direct_reference, stackless_reference));
+                        references.push(main_reference);
+                        compile_stackless_function(stackless, main_chunk, true, self)?;
 
-                let chunk = &self.program.prototypes[index];
+                        continue;
+                    }
+                    FunctionIds::Other { direct, stackless } => {
+                        let stackless_reference = self
+                            .module
+                            .declare_func_in_func(stackless, &mut context.func);
+                        let chunk = &self.program.prototypes[index];
 
-                compile_direct_function(self, direct, chunk)?;
-                compile_stackless_function(stackless, chunk, false, self)?;
+                        references.push(stackless_reference);
+                        compile_direct_function(self, direct, chunk)?;
+                        compile_stackless_function(stackless, chunk, false, self)?;
+
+                        continue;
+                    }
+                }
             }
 
             references
@@ -163,6 +179,7 @@ impl<'a> JitCompiler<'a> {
             .declare_function("loop", Linkage::Local, &context.func.signature)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
+                cranelift_ir: context.func.display().to_string(),
             })?;
         let mut function_builder_context = FunctionBuilderContext::new();
         let mut function_builder =
@@ -179,7 +196,6 @@ impl<'a> JitCompiler<'a> {
         let check_for_empty_call_stack_block = function_builder.create_block();
         let check_for_error_function_index_out_of_bounds_block = function_builder.create_block();
         let loop_block = function_builder.create_block();
-        let main_function_block = function_builder.create_block();
         let function_blocks = {
             let mut blocks = Vec::with_capacity(self.program.prototypes.len());
 
@@ -314,28 +330,19 @@ impl<'a> JitCompiler<'a> {
                 &mut function_builder,
             );
 
-            switch.emit(&mut function_builder, function_index, main_function_block);
+            switch.emit(&mut function_builder, function_index, function_blocks[0]);
         }
 
         {
-            function_builder.switch_to_block(main_function_block);
-            function_builder
-                .ins()
-                .call(main_function_reference, &[thread_context_pointer]);
-            function_builder
-                .ins()
-                .jump(check_for_empty_call_stack_block, &[]);
-        }
-
-        {
-            for (block, (_direct, stackless)) in function_blocks
+            for (block, stackless_reference) in function_blocks
                 .into_iter()
                 .zip(function_references.into_iter())
             {
                 function_builder.switch_to_block(block);
+
                 function_builder
                     .ins()
-                    .call(stackless, &[thread_context_pointer]);
+                    .call(stackless_reference, &[thread_context_pointer]);
                 function_builder
                     .ins()
                     .jump(check_for_empty_call_stack_block, &[]);
@@ -358,11 +365,13 @@ impl<'a> JitCompiler<'a> {
             .define_function(loop_function_id, &mut context)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
+                cranelift_ir: context.func.display().to_string(),
             })?;
         self.module
             .finalize_definitions()
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
+                cranelift_ir: context.func.display().to_string(),
             })?;
 
         let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
@@ -462,6 +471,7 @@ impl<'a> JitCompiler<'a> {
             .declare_function(name, Linkage::Import, &signature)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
+                cranelift_ir: function_builder.func.display().to_string(),
             })?;
         let function_reference = self
             .module
@@ -472,9 +482,9 @@ impl<'a> JitCompiler<'a> {
 }
 
 #[derive(Clone, Copy)]
-struct FunctionIds {
-    direct: FuncId,
-    stackless: FuncId,
+enum FunctionIds {
+    Main { stackless: FuncId },
+    Other { direct: FuncId, stackless: FuncId },
 }
 
 pub type JitLogic = fn(&mut ThreadContext) -> ThreadResult;

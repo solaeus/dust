@@ -32,6 +32,7 @@ pub struct Chunk {
 
     pub(crate) register_count: u16,
     pub(crate) prototype_index: u16,
+    pub(crate) is_recursive: bool,
 }
 
 impl Display for Chunk {

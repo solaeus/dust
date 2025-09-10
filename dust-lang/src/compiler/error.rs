@@ -32,6 +32,10 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Span,
     },
+    ExpectedFunction {
+        node_kind: SyntaxKind,
+        position: Span,
+    },
     MissingChild {
         parent_kind: SyntaxKind,
         child_index: u32,
@@ -117,6 +121,17 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 let title = format!("Expected an expression, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedFunction {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected a function, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)

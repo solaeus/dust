@@ -199,8 +199,7 @@ impl SyntaxTree {
                 output.push_str(&integer_display);
             }
             SyntaxKind::StringExpression => {
-                let string_index = node.children.0 as usize;
-                let string_display = format!("<string constant: {string_index}>");
+                let string_display = format!(": <source {}>", node.position);
 
                 output.push_str(&string_display);
             }
@@ -224,7 +223,8 @@ impl SyntaxTree {
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
-            | SyntaxKind::WhileExpression => {
+            | SyntaxKind::WhileExpression
+            | SyntaxKind::CallExpression => {
                 if let Some(left_expression) = self.nodes.get(node.children.0 as usize) {
                     self.display_node(left_expression, depth + 1, output);
                 } else {
@@ -244,7 +244,9 @@ impl SyntaxTree {
                     push_error(output);
                 }
             }
-            SyntaxKind::BlockExpression | SyntaxKind::FunctionValueParameters => {
+            SyntaxKind::BlockExpression
+            | SyntaxKind::FunctionValueParameters
+            | SyntaxKind::CallValueArguments => {
                 let children_start = node.children.0 as usize;
                 let children_end = children_start + node.children.1 as usize;
                 let children = &self.children[children_start..children_end];
