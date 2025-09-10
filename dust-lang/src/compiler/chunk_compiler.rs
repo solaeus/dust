@@ -15,13 +15,17 @@ pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
     syntax_tree: Rc<SyntaxTree>,
 
+    /// Target source code for compilation.
     source: &'a str,
 
+    /// Constant collection from parsing that is pre-filled with strings. Other constant types are
+    /// added during compilation after constant expression folding is applied.
     constants: ConstantTable,
 
     /// Context for modules, types and declarations provided by the parser.
     resolver: &'a Resolver,
 
+    /// Global list of function prototypes that is filled during compilation.
     prototypes: Rc<RefCell<Vec<Chunk>>>,
 
     /// Bytecode instruction collection that is filled during compilation.

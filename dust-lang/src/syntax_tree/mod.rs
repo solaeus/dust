@@ -26,6 +26,8 @@ pub struct SyntaxTree {
     /// cannot be stored directly in the node (i.e. blocks and the root node).
     pub children: Vec<SyntaxId>,
 
+    /// Collection for constants, only used for strings during parsing. Other constant types are
+    /// encoded in the syntax nodes.
     pub constants: ConstantTable,
 }
 
