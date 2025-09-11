@@ -409,7 +409,7 @@ fn scope_shadowing() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(38, 54),
-                payload: 1,
+                payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -431,7 +431,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (0, 0),
                 position: Span(63, 64),
                 payload: TypeId::INTEGER.0,
             },
