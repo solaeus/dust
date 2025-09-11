@@ -34,7 +34,7 @@ pub const SCOPE_DESHADOWING: &str = r#"
 {
     let a: int = 42;
     {
-        let b: int = 1;
+        let a: int = 1;
     }
     a
 }

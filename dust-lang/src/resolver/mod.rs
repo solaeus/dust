@@ -55,30 +55,29 @@ impl Resolver {
         identifier: &str,
         identifier_position: Span,
     ) -> DeclarationId {
-        if let Some(shadowed_id) = self.find_declaration_in_block_scope(identifier, scope_id) {
-            shadowed_id
-        } else {
-            let symbol = {
-                let mut hasher = FxHasher::default();
+        let symbol = {
+            let mut hasher = FxHasher::default();
 
-                identifier.hash(&mut hasher);
+            identifier.hash(&mut hasher);
 
-                Symbol {
-                    hash: hasher.finish(),
-                }
-            };
-            let declaration = Declaration {
-                kind,
-                scope_id,
-                type_id,
-                identifier_position,
-            };
-            let declaration_id = DeclarationId(self.declarations.len() as u32);
+            Symbol {
+                hash: hasher.finish(),
+            }
+        };
 
-            self.declarations.insert((symbol, scope_id), declaration);
+        let shadowed = self.find_declaration_in_block_scope(identifier, scope_id);
+        let declaration = Declaration {
+            kind,
+            scope_id,
+            type_id,
+            identifier_position,
+            shadowed,
+        };
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
 
-            declaration_id
-        }
+        self.declarations.insert((symbol, scope_id), declaration);
+
+        declaration_id
     }
 
     pub fn find_declaration_in_block_scope(
@@ -243,6 +242,7 @@ pub struct Declaration {
     pub scope_id: ScopeId,
     pub type_id: TypeId,
     pub identifier_position: Span,
+    pub shadowed: Option<DeclarationId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
