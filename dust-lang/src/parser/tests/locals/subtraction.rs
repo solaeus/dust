@@ -25,7 +25,7 @@ fn local_byte_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(1, 20),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -49,7 +49,7 @@ fn local_byte_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(21, 40),
-                payload: 1,
+                payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -71,7 +71,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(41, 42),
                 payload: TypeId::BYTE.0,
             },
@@ -83,7 +83,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(45, 46),
                 payload: TypeId::BYTE.0,
             },
@@ -110,7 +110,7 @@ fn local_float_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(1, 21),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -134,7 +134,7 @@ fn local_float_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(22, 41),
-                payload: 1,
+                payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -156,7 +156,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(42, 43),
                 payload: TypeId::FLOAT.0,
             },
@@ -168,7 +168,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(46, 47),
                 payload: TypeId::FLOAT.0,
             },
@@ -195,7 +195,7 @@ fn local_integer_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(1, 17),
-                payload: 0
+                payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -219,7 +219,7 @@ fn local_integer_subtraction() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(18, 33),
-                payload: 1
+                payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -241,7 +241,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(34, 35),
                 payload: TypeId::INTEGER.0
             },
@@ -253,7 +253,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(38, 39),
                 payload: TypeId::INTEGER.0
             },
@@ -280,7 +280,7 @@ fn local_mut_byte_subtraction() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 position: Span(1, 24),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -302,7 +302,7 @@ fn local_mut_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(25, 26),
                 payload: TypeId::BYTE.0,
             },
@@ -326,7 +326,7 @@ fn local_mut_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(36, 37),
                 payload: TypeId::BYTE.0,
             },
@@ -353,7 +353,7 @@ fn local_mut_float_subtraction() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 position: Span(1, 25),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -375,7 +375,7 @@ fn local_mut_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(26, 27),
                 payload: TypeId::FLOAT.0,
             },
@@ -399,7 +399,7 @@ fn local_mut_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(36, 37),
                 payload: TypeId::FLOAT.0,
             },
@@ -426,7 +426,7 @@ fn local_mut_integer_subtraction() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 position: Span(1, 21),
-                payload: 0
+                payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -448,7 +448,7 @@ fn local_mut_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(22, 23),
                 payload: TypeId::INTEGER.0
             },
@@ -472,7 +472,7 @@ fn local_mut_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(30, 31),
                 payload: TypeId::INTEGER.0
             },

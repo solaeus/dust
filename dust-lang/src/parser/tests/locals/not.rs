@@ -25,7 +25,7 @@ fn local_boolean_not() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(1, 20),
-                payload: 0
+                payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -53,7 +53,7 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(22, 23),
                 payload: TypeId::BOOLEAN.0
             },

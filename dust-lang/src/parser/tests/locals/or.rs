@@ -25,7 +25,7 @@ fn local_boolean_or() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(1, 20),
-                payload: 0
+                payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -49,7 +49,7 @@ fn local_boolean_or() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(21, 41),
-                payload: 1
+                payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -71,7 +71,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(42, 43),
                 payload: TypeId::BOOLEAN.0
             },
@@ -83,7 +83,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(47, 48),
                 payload: TypeId::BOOLEAN.0
             },

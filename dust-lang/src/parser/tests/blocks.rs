@@ -99,7 +99,7 @@ fn block_statement() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(2, 18),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -148,7 +148,7 @@ fn block_statement_and_expression() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(2, 18),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -170,7 +170,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(19, 20),
                 payload: TypeId::INTEGER.0,
             },
@@ -215,7 +215,7 @@ fn parent_scope_access() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(7, 23),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -243,7 +243,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(30, 31),
                 payload: TypeId::INTEGER.0,
             },
@@ -276,7 +276,7 @@ fn nested_parrent_scope_access() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(7, 23),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -306,7 +306,7 @@ fn nested_parrent_scope_access() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(38, 53),
-                payload: 1,
+                payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -334,7 +334,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(76, 77),
                 payload: TypeId::INTEGER.0,
             },
@@ -346,7 +346,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(80, 81),
                 payload: TypeId::INTEGER.0,
             },
@@ -379,7 +379,7 @@ fn scope_shadowing() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(7, 23),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -409,7 +409,7 @@ fn scope_shadowing() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(38, 54),
-                payload: 1,
+                payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -431,7 +431,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (1, 0),
+                children: (257, 0),
                 position: Span(63, 64),
                 payload: TypeId::INTEGER.0,
             },
@@ -464,7 +464,7 @@ fn scope_deshadowing() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 position: Span(7, 23),
-                payload: 0,
+                payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -500,7 +500,7 @@ fn scope_deshadowing() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 position: Span(38, 53),
-                payload: 1,
+                payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -522,7 +522,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (0, 0),
+                children: (256, 0),
                 position: Span(64, 65),
                 payload: TypeId::INTEGER.0,
             },

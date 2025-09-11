@@ -59,6 +59,21 @@ impl Resolver {
             );
         }
 
+        #[cfg(test)]
+        {
+            while resolver.declarations.len() < 256 {
+                let identifier = format!("__reserved_{}__", resolver.declarations.len());
+
+                resolver.add_declaration(
+                    DeclarationKind::Local,
+                    ScopeId::MAIN,
+                    TypeId::INTEGER,
+                    &identifier,
+                    Span::default(),
+                );
+            }
+        }
+
         resolver
     }
 
