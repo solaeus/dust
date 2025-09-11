@@ -6,7 +6,7 @@ use std::{
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 
-use crate::{OperandType, Span, Type};
+use crate::{NativeFunction, OperandType, Span, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -20,13 +20,46 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(with_native_functions: bool) -> Self {
+        let mut resolver = Self {
             declarations: IndexMap::default(),
             scopes: Vec::new(),
             types: IndexSet::default(),
             type_members: Vec::new(),
+        };
+
+        if with_native_functions {
+            let read_line_type_id = resolver.add_type(TypeNode::Function {
+                type_parameters: (0, 0),
+                value_parameters: (0, 0),
+                return_type: TypeId::STRING,
+            });
+
+            resolver.add_declaration(
+                DeclarationKind::NativeFunction,
+                ScopeId::MAIN,
+                read_line_type_id,
+                NativeFunction { index: 1 }.name(),
+                Span::default(),
+            );
+
+            let value_parameters = resolver.push_type_members(&[TypeId::STRING]);
+            let write_line_type_id = resolver.add_type(TypeNode::Function {
+                type_parameters: (0, 0),
+                value_parameters,
+                return_type: TypeId::NONE,
+            });
+
+            resolver.add_declaration(
+                DeclarationKind::NativeFunction,
+                ScopeId::MAIN,
+                write_line_type_id,
+                NativeFunction { index: 2 }.name(),
+                Span::default(),
+            );
         }
+
+        resolver
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
@@ -188,12 +221,6 @@ impl Resolver {
     }
 }
 
-impl Default for Resolver {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol {
     hash: u64,
@@ -234,6 +261,7 @@ pub struct DeclarationId(pub u32);
 impl DeclarationId {
     pub const ANONYMOUS: Self = DeclarationId(u32::MAX);
     pub const MAIN: Self = DeclarationId(u32::MAX - 1);
+    pub const NATIVE: Self = DeclarationId(u32::MAX - 2);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -248,6 +276,7 @@ pub struct Declaration {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
     Function,
+    NativeFunction,
     Local,
     LocalMutable,
     Module,
@@ -258,6 +287,7 @@ impl Display for DeclarationKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             DeclarationKind::Function => write!(f, "function"),
+            DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local => write!(f, "local variable"),
             DeclarationKind::LocalMutable => write!(f, "mutable local variable"),
             DeclarationKind::Module => write!(f, "module"),

@@ -22,6 +22,9 @@ pub enum JitError {
     UnhandledOperation {
         operation: Operation,
     },
+    UnhandledNativeFunction {
+        function_name: String,
+    },
     UnsupportedMemoryKind {
         memory_kind: MemoryKind,
     },
@@ -57,10 +60,12 @@ impl AnnotatedError for JitError {
         match self {
             JitError::CompilationError { message, .. } => {
                 let title = format!("JIT compilation failed: {message}");
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::UnsupportedOperandType { operand_type } => {
                 let title = format!("Unsupported operand type for JIT: {:?}", operand_type);
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::DropListRangeOutOfBounds {
@@ -72,14 +77,22 @@ impl AnnotatedError for JitError {
                     "Drop list range [{}, {}) is out of bounds (safepoints: {})",
                     drop_list_start, drop_list_end, total_safepoint_count
                 );
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::UnhandledOperation { operation } => {
                 let title = format!("Unhandled operation in JIT: {:?}", operation);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnhandledNativeFunction { function_name } => {
+                let title = format!("Unhandled native function in JIT: {}", function_name);
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::UnsupportedMemoryKind { memory_kind } => {
                 let title = format!("Unsupported memory kind in JIT: {:?}", memory_kind);
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::FunctionIndexOutOfBounds {
@@ -91,6 +104,7 @@ impl AnnotatedError for JitError {
                     "Function index {} out of bounds at instruction pointer {} (total functions: {})",
                     function_index, ip, total_function_count
                 );
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::ArgumentsRangeOutOfBounds {
@@ -102,6 +116,7 @@ impl AnnotatedError for JitError {
                     "Arguments list range [{}, {}) is out of bounds (total arguments: {})",
                     arguments_list_start, arguments_list_end, total_argument_count
                 );
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::ConstantIndexOutOfBounds {
@@ -112,10 +127,12 @@ impl AnnotatedError for JitError {
                     "Constant index {} out of bounds (total constants: {})",
                     constant_index, total_constant_count
                 );
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::InvalidConstantType { expected_type } => {
                 let title = format!("Invalid constant type; expected {:?}", expected_type);
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::RegisterIndexOutOfBounds {
@@ -126,6 +143,7 @@ impl AnnotatedError for JitError {
                     "Register index {} out of bounds (total registers: {})",
                     register_index, total_register_count
                 );
+
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::CraneliftModuleError {
@@ -133,6 +151,7 @@ impl AnnotatedError for JitError {
                 cranelift_ir,
             } => {
                 let title = format!("Cranelift module error: {}", error);
+
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::INFO.message(cranelift_ir))
             }

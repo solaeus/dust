@@ -11,7 +11,7 @@ macro_rules! define_native_function {
         /// A Dust-native function.
         ///
         /// See the [module-level documentation](index.html) for more information.
-        #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+        #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
         pub struct NativeFunction {
             pub index: u16,
 
@@ -81,27 +81,27 @@ macro_rules! define_native_function {
 define_native_function! {
     (
         0,
-        "_no_op",
+        "no_op",
         FunctionType::new([], [], Type::None)
     ),
     (
         1,
-        "_int_to_str",
-        FunctionType::new([], [Type::Integer], Type::String)
-    ),
-    (
-        2,
-        "_read_line",
+        "read_line",
         FunctionType::new([], [], Type::String)
     ),
     (
-        3,
-        "_write_line",
+        2,
+        "write_line",
         FunctionType::new([], [Type::String], Type::None)
     ),
     (
+        3,
+        "int_to_str",
+        FunctionType::new([], [Type::Integer], Type::String)
+    ),
+    (
         4,
-        "_spawn",
+        "spawn",
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None)
     )
 }

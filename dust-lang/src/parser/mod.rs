@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError<'_>>) {
-    let mut resolver = Resolver::new();
+    let mut resolver = Resolver::new(true);
     let parser = Parser::new(&mut resolver);
     let ParseResult {
         syntax_tree,
@@ -1252,8 +1252,8 @@ impl<'a> Parser<'a> {
                 .ok_or(ParseError::MissingNode {
                     id: function_node_id,
                 })?;
-
         let function_node_type = self.resolver.get_type_node(TypeId(function_node.payload));
+        let start = function_node.position.0;
 
         if !matches!(function_node_type, Some(TypeNode::Function { .. })) {
             return Err(ParseError::ExpectedFunction {
@@ -1261,7 +1261,6 @@ impl<'a> Parser<'a> {
                 position: function_node.position,
             });
         };
-        let start = function_node.position.0;
 
         let mut children = Self::new_child_buffer();
 

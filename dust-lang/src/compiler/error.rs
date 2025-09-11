@@ -14,6 +14,10 @@ pub enum CompileError {
         position: Span,
         payload: (u32, u32),
     },
+    InvalidNativeFunction {
+        name: String,
+        position: Span,
+    },
     DivisionByZero {
         node_kind: SyntaxKind,
         position: Span,
@@ -75,6 +79,17 @@ impl AnnotatedError for CompileError {
                             .label(format!(
                                 "Found {node_kind} with invalid encoded constant {payload:?} here"
                             )),
+                    ),
+                )
+            }
+            CompileError::InvalidNativeFunction { name, position } => {
+                let title = format!("Invalid native function: {name}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.as_usize_range())
+                            .label(format!("Found invalid native function {name} here")),
                     ),
                 )
             }

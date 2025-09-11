@@ -159,6 +159,7 @@ pub enum SyntaxKind {
     BlockExpression,
     CallExpression,
     FunctionExpression,
+    NativeFunctionExpression,
     GroupedExpression,
     IfExpression,
     OperatorExpression,
@@ -307,6 +308,7 @@ impl Display for SyntaxKind {
             SyntaxKind::BlockExpression => write!(f, "block expression"),
             SyntaxKind::CallExpression => write!(f, "call expression"),
             SyntaxKind::FunctionExpression => write!(f, "function expression"),
+            SyntaxKind::NativeFunctionExpression => write!(f, "native function expression"),
             SyntaxKind::GroupedExpression => write!(f, "grouped expression"),
             SyntaxKind::IfExpression => write!(f, "if expression"),
             SyntaxKind::OperatorExpression => write!(f, "operator expression"),
@@ -320,7 +322,6 @@ impl Display for SyntaxKind {
             SyntaxKind::FunctionValueParameterName => write!(f, "function value parameter name"),
             SyntaxKind::FunctionValueParameterType => write!(f, "function value parameter type"),
             SyntaxKind::FunctionTypeParameters => write!(f, "function type parameters"),
-
             SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
             SyntaxKind::BooleanType => write!(f, "boolean type"),
             SyntaxKind::ByteType => write!(f, "byte type"),

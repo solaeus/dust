@@ -13,8 +13,8 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, MemoryKind, OperandType, Operation,
-    instruction::{Call, Drop, Jump, Load, NewList, Return, SetList},
+    Address, Chunk, MemoryKind, OperandType, Operation, Type,
+    instruction::{Call, CallNative, Drop, Jump, Load, NewList, Return, SetList},
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
         jit_compiler::FunctionIds, thread::ThreadContext,
@@ -120,6 +120,34 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "concatenate_strings",
             concatenate_strings_signature,
+        )?
+    };
+
+    let read_line_function = {
+        let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        read_line_signature.params.push(AbiParam::new(pointer_type));
+        read_line_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "read_line",
+            read_line_signature,
+        )?
+    };
+
+    let write_line_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(I64)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line",
+            write_line_signature,
         )?
     };
 
@@ -867,6 +895,76 @@ pub fn compile_stackless_function(
                     &hot_registers,
                     &mut function_builder,
                 )?;
+
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+            }
+            Operation::CALL_NATIVE => {
+                let CallNative {
+                    destination,
+                    function,
+                    arguments_index,
+                } = CallNative::from(*current_instruction);
+
+                let function_type = function.r#type();
+                let argument_count = function_type.value_parameters.len();
+                let arguments_range =
+                    arguments_index as usize..(arguments_index as usize + argument_count);
+                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                    JitError::ArgumentsRangeOutOfBounds {
+                        arguments_list_start: arguments_index,
+                        arguments_list_end: arguments_index + argument_count as u16,
+                        total_argument_count: chunk.call_arguments.len(),
+                    },
+                )?;
+                let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);
+
+                for (address, r#type) in call_arguments_list {
+                    let argument_value = match *r#type {
+                        OperandType::STRING => get_string(
+                            *address,
+                            chunk,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?,
+                        _ => {
+                            return Err(JitError::UnsupportedOperandType {
+                                operand_type: *r#type,
+                            });
+                        }
+                    };
+
+                    arguments.push(argument_value);
+                }
+
+                arguments.push(thread_context);
+
+                let function_reference = match function.name() {
+                    "read_line" => read_line_function,
+                    "write_line" => write_line_function,
+                    _ => {
+                        return Err(JitError::UnhandledNativeFunction {
+                            function_name: function.name().to_string(),
+                        });
+                    }
+                };
+
+                let call_instruction = function_builder.ins().call(function_reference, &arguments);
+
+                if function_type.return_type != Type::None {
+                    let return_value = function_builder.inst_results(call_instruction)[0];
+
+                    JitCompiler::set_register(
+                        destination.index,
+                        return_value,
+                        function_type.return_type.as_operand_type(),
+                        current_frame_base_register_address,
+                        current_frame_base_tag_address,
+                        &hot_registers,
+                        &mut function_builder,
+                    )?;
+                }
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }

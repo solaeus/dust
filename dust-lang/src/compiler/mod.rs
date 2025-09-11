@@ -19,7 +19,7 @@ use crate::{
 };
 
 pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
-    let mut resolver = Resolver::new();
+    let mut resolver = Resolver::new(true);
     let parser = Parser::new(&mut resolver);
     let ParseResult {
         syntax_tree,
@@ -58,7 +58,7 @@ impl<'src> Compiler<'src> {
         Self {
             sources,
             module_trees: Vec::new(),
-            resolver: Resolver::new(),
+            resolver: Resolver::new(true),
         }
     }
 

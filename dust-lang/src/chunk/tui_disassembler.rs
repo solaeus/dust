@@ -153,7 +153,7 @@ impl<'a> TuiDisassembler<'a> {
                 .collect::<Vec<_>>();
             let widths = [
                 Constraint::Length(5),
-                Constraint::Length(10),
+                Constraint::Length(12),
                 Constraint::Length(30),
             ];
 

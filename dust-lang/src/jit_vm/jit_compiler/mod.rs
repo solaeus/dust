@@ -1,13 +1,13 @@
 mod compile_direct_function;
 mod compile_stackless_function;
-mod functions;
+mod ffi_functions;
 mod jit_error;
 
 use std::mem::{offset_of, transmute};
 
 use compile_direct_function::compile_direct_function;
 use compile_stackless_function::compile_stackless_function;
-use functions::*;
+use ffi_functions::*;
 pub use jit_error::{JIT_ERROR_TEXT, JitError};
 
 use cranelift::{
@@ -49,6 +49,9 @@ impl<'a> JitCompiler<'a> {
 
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
+
+        builder.symbol("read_line", read_line as *const u8);
+        builder.symbol("write_line", write_line as *const u8);
 
         #[cfg(debug_assertions)]
         builder.symbol("log_operation_and_ip", log_operation_and_ip as *const u8);
