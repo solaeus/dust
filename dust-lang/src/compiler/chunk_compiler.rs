@@ -6,7 +6,7 @@ use tracing::{Level, debug, info, span};
 use crate::{
     Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, OperandType, Operation,
     Resolver, Type,
-    resolver::{DeclarationId, DeclarationKind, ScopeId, ScopeKind, TypeId, TypeNode},
+    resolver::{DeclarationId, ScopeId, ScopeKind, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -364,11 +364,12 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode { id: node_id })?;
 
         match node.kind {
+            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
+            SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(&node)
             }
-            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
-            SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
+            SyntaxKind::ReassignStatement => self.compile_reassign_statement(&node),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
@@ -455,11 +456,6 @@ impl<'a> ChunkCompiler<'a> {
         let declaration_id = DeclarationId(node.payload);
         let expression_statement_id = SyntaxId(node.children.1);
 
-        let declaration = *self
-            .resolver
-            .get_declaration(declaration_id)
-            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
-        let is_mutable = declaration.kind == DeclarationKind::LocalMutable;
         let expression_statement_node = self.syntax_tree.get_node(expression_statement_id).ok_or(
             CompileError::MissingSyntaxNode {
                 id: expression_statement_id,
@@ -509,9 +505,58 @@ impl<'a> ChunkCompiler<'a> {
             declaration_id,
             Local {
                 location: destination_register,
-                is_mutable,
             },
         );
+
+        Ok(())
+    }
+
+    fn compile_reassign_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling reassign statement");
+
+        let declaration_id = DeclarationId(node.payload);
+        let expression_id = SyntaxId(node.children.1);
+
+        let local = *self
+            .locals
+            .get(&declaration_id)
+            .ok_or(CompileError::MissingLocal { declaration_id })?;
+        let expression_node = *self
+            .syntax_tree
+            .get_node(expression_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
+        let expression_emission = self.compile_expression(&expression_node)?;
+        let destination_register = local.location;
+        match expression_emission {
+            Emission::Instruction(instruction, _) => {
+                let mut instruction = instruction;
+
+                instruction.set_destination(Address::register(destination_register));
+
+                self.instructions.push(instruction);
+            }
+            Emission::Instructions(instructions, _) => {
+                for mut instruction in instructions {
+                    instruction.set_destination(Address::register(destination_register));
+
+                    self.instructions.push(instruction);
+                }
+            }
+            Emission::Constant(constant) => {
+                let r#type = constant.operand_type();
+                let address = self.get_constant_address(constant);
+                let destination = Address::register(destination_register);
+                let load_instruction = Instruction::load(destination, address, r#type, false);
+
+                self.instructions.push(load_instruction);
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: expression_node.kind,
+                    position: expression_node.position,
+                });
+            }
+        };
 
         Ok(())
     }
@@ -541,7 +586,6 @@ impl<'a> ChunkCompiler<'a> {
             declaration_id,
             Local {
                 location: prototype_index,
-                is_mutable: false,
             },
         );
 
@@ -1336,13 +1380,9 @@ impl<'a> ChunkCompiler<'a> {
             let register = function_compiler.get_next_register();
             function_compiler.minimum_register += 1;
 
-            function_compiler.locals.insert(
-                parameter_declaration_id,
-                Local {
-                    location: register,
-                    is_mutable: false,
-                },
-            );
+            function_compiler
+                .locals
+                .insert(parameter_declaration_id, Local { location: register });
         }
 
         let name = if declaration_id == DeclarationId::ANONYMOUS {
@@ -1617,5 +1657,4 @@ impl Constant {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 struct Local {
     location: u16,
-    is_mutable: bool,
 }

@@ -205,7 +205,8 @@ impl SyntaxTree {
 
                 output.push_str(&string_display);
             }
-            SyntaxKind::FunctionExpression
+            SyntaxKind::ReassignStatement
+            | SyntaxKind::FunctionExpression
             | SyntaxKind::FunctionValueParameter
             | SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression

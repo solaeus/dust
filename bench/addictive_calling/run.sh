@@ -4,13 +4,13 @@ hyperfine \
     --shell none \
     --prepare 'sync' \
     --warmup 5 \
+    'target/release/dust bench/addictive_calling/addictive_calling.ds' \
     'lua bench/addictive_calling/addictive_calling.lua' \
     'python bench/addictive_calling/addictive_calling.py' \
     'ruby bench/addictive_calling/addictive_calling.rb' \
     'php bench/addictive_calling/addictive_calling.php' \
     'perl bench/addictive_calling/addictive_calling.pl' \
     'Rscript bench/addictive_calling/addictive_calling.R' \
-    'target/release/dust bench/addictive_calling/addictive_calling.ds' \
     'luajit bench/addictive_calling/addictive_calling.lua' \
     'java bench/addictive_calling/addictive_calling.java' \
     'julia bench/addictive_calling/addictive_calling.jl' \

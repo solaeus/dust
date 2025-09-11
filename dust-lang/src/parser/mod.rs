@@ -775,6 +775,70 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn parse_reassign_statement(&mut self) -> Result<(), ParseError> {
+        info!("Parsing reassign statement");
+
+        let operator = self.current_token;
+        let operator_precedence = ParseRule::from(operator).precedence;
+
+        let path_node_id = self.syntax_tree.last_node_id();
+        let path_node = *self
+            .syntax_tree
+            .get_node(path_node_id)
+            .ok_or(ParseError::MissingNode { id: path_node_id })?;
+        let declaration_id = DeclarationId(path_node.children.0);
+        let start = path_node.position.0;
+
+        if path_node.kind != SyntaxKind::PathExpression {
+            return Err(ParseError::InvalidAssignmentTarget {
+                found: path_node.kind,
+                position: path_node.position,
+            });
+        }
+
+        let declaration = *self
+            .resolver
+            .get_declaration(declaration_id)
+            .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
+
+        if declaration.kind != DeclarationKind::LocalMutable {
+            return Err(ParseError::AssignmentToImmutable {
+                found: declaration.kind,
+                position: path_node.position,
+            });
+        }
+
+        self.expect(Token::Equal)?;
+        self.parse_sub_expression(operator_precedence)?;
+
+        let expression_id = self.syntax_tree.last_node_id();
+        let expression_node = self
+            .syntax_tree
+            .get_node(expression_id)
+            .ok_or(ParseError::MissingNode { id: expression_id })?;
+        let expression_type = expression_node.payload;
+
+        if expression_node.kind != SyntaxKind::ExpressionStatement {
+            self.expect(Token::Semicolon)?;
+        }
+
+        if declaration.type_id.0 != expression_type {
+            todo!("Error");
+        }
+
+        let end = self.previous_position.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::ReassignStatement,
+            position: Span(start, end),
+            children: (path_node_id.0, expression_id.0),
+            payload: declaration_id.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing boolean expression");
 
@@ -1201,7 +1265,11 @@ impl<'a> Parser<'a> {
 
         let mut children = Self::new_child_buffer();
 
+        info!("Parsing call arguments");
+
         while !self.allow(Token::RightParenthesis)? {
+            info!("Parsing call argument");
+
             self.parse_expression()?;
 
             let argument_id = self.syntax_tree.last_node_id();

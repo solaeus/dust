@@ -112,6 +112,7 @@ pub enum SyntaxKind {
     FunctionStatement,
     LetStatement,
     LetMutStatement,
+    ReassignStatement,
     SemicolonStatement,
 
     // Literal Expressions
@@ -201,6 +202,7 @@ impl SyntaxKind {
                 | SyntaxKind::FunctionStatement
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
+                | SyntaxKind::ReassignStatement
                 | SyntaxKind::SemicolonStatement
         )
     }
@@ -260,6 +262,7 @@ impl Display for SyntaxKind {
             SyntaxKind::FunctionStatement => write!(f, "function statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
+            SyntaxKind::ReassignStatement => write!(f, "reassign statement"),
             SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
             SyntaxKind::BooleanExpression => write!(f, "boolean expression"),
             SyntaxKind::ByteExpression => write!(f, "byte expression"),

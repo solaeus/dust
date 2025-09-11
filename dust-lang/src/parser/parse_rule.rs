@@ -157,7 +157,7 @@ impl From<Token> for ParseRule<'_> {
             },
             Token::Equal => ParseRule {
                 prefix: None,
-                infix: None,
+                infix: Some(Parser::parse_reassign_statement),
                 precedence: Precedence::Assignment,
             },
             Token::Else => ParseRule {

@@ -7,8 +7,6 @@ use crate::{
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
-const _INVALID_TREE: &str = "The syntax tree is invalid, this is a bug in the parser.";
-
 #[derive(Debug, Clone)]
 pub enum CompileError {
     InvalidEncodedConstant {
