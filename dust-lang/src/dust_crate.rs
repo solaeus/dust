@@ -6,13 +6,15 @@ pub enum DustCrate {
 }
 
 pub struct Program {
+    pub name: String,
     pub prototypes: Vec<Chunk>,
     pub cell_count: usize,
 }
 
 impl Program {
-    pub fn new(main_chunk: Chunk) -> Self {
+    pub fn new(name: String, main_chunk: Chunk) -> Self {
         Self {
+            name,
             prototypes: vec![main_chunk],
             cell_count: 0,
         }

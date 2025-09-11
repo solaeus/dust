@@ -25,7 +25,7 @@ impl<'a> TuiDisassembler<'a> {
             program,
             source,
             state: TuiState::Run,
-            selected_tab: 0,
+            selected_tab: 1,
             tab_count: program.prototypes.len() + 1,
         }
     }
@@ -68,6 +68,25 @@ impl<'a> TuiDisassembler<'a> {
         Ok(())
     }
 
+    fn draw_source_tab(&self, source: Option<&str>, area: Rect, buffer: &mut Buffer) {
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .title(Span::styled("Source", Style::default().bold()))
+            .title_alignment(Alignment::Center);
+        let inner_area = block.inner(area);
+
+        block.render(area, buffer);
+
+        let paragraph = if let Some(source) = source {
+            Paragraph::new(source).wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new("No source available").wrap(Wrap { trim: true })
+        };
+
+        paragraph.render(inner_area, buffer);
+    }
+
     fn draw_chunk_tab(&self, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
         let block = Block::new()
             .borders(Borders::ALL)
@@ -86,6 +105,8 @@ impl<'a> TuiDisassembler<'a> {
             Constraint::Length(chunk.instructions.len() as u16 + 3),
             Constraint::Length(1),
             Constraint::Length(chunk.constants.len() as u16 + 3),
+            Constraint::Length(1),
+            Constraint::Length(chunk.call_arguments.len() as u16 + 3),
             Constraint::Fill(1),
         ]);
         let [
@@ -98,6 +119,8 @@ impl<'a> TuiDisassembler<'a> {
             instructions_area,
             _,
             constants_area,
+            _,
+            arguments_area,
             _,
         ] = areas.areas(inner_area);
 
@@ -120,6 +143,7 @@ impl<'a> TuiDisassembler<'a> {
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
 
+        // Instructions section
         {
             let horizontal_areas =
                 Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
@@ -163,6 +187,7 @@ impl<'a> TuiDisassembler<'a> {
             instructions_table.render(center_area, buffer);
         }
 
+        // Constants section
         {
             let horizontal_areas =
                 Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
@@ -196,11 +221,56 @@ impl<'a> TuiDisassembler<'a> {
 
             instructions_table.render(center_area, buffer);
         }
+
+        // Arguments section
+        {
+            let horizontal_areas =
+                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
+            let [_, block_area, _] = horizontal_areas.areas(arguments_area);
+
+            let block = Block::new()
+                .title(Span::styled("Arguments", Style::default()))
+                .title_alignment(Alignment::Center)
+                .title_style(Style::default().bold())
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded);
+
+            let instructions_table_area = block.inner(block_area);
+
+            block.render(block_area, buffer);
+
+            let horizontal_areas =
+                Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
+            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
+
+            let address_rows = chunk
+                .call_arguments
+                .iter()
+                .enumerate()
+                .map(|(index, (address, r#type))| {
+                    Row::new(vec![
+                        index.to_string(),
+                        address.to_string(*r#type),
+                        r#type.to_string(),
+                    ])
+                })
+                .collect::<Vec<_>>();
+            let widths = [
+                Constraint::Length(5),
+                Constraint::Min(10),
+                Constraint::Min(10),
+            ];
+
+            let address_table = Table::new(address_rows, widths)
+                .header(Row::new(["i", "Address", "Type"]).add_modifier(Modifier::BOLD));
+
+            address_table.render(center_area, buffer);
+        }
     }
 }
 
 impl Widget for &TuiDisassembler<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer)
+    fn render(self, area: Rect, buffer: &mut Buffer)
     where
         Self: Sized,
     {
@@ -208,17 +278,33 @@ impl Widget for &TuiDisassembler<'_> {
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Min(0),
         ])
         .margin(1);
         let [
+            title_area,
+            _,
+            program_name_area,
             program_info_area,
-            source_area,
+            _,
             chunk_tabs_header_area,
-            chunks_tabs_content_area,
+            tab_content_area,
         ] = frame_areas.areas(area);
 
+        Paragraph::new("Dust Disassembler".bold())
+            .centered()
+            .wrap(Wrap { trim: true })
+            .render(title_area, buffer);
+
         let main_chunk = &self.program.main_chunk();
+
+        Paragraph::new(format!("program: {}", self.program.name))
+            .centered()
+            .wrap(Wrap { trim: true })
+            .render(program_name_area, buffer);
 
         Paragraph::new(format!(
             "main function type: {} ({} other prototypes)",
@@ -227,42 +313,36 @@ impl Widget for &TuiDisassembler<'_> {
         ))
         .centered()
         .wrap(Wrap { trim: true })
-        .render(program_info_area, buf);
+        .render(program_info_area, buffer);
 
-        let source = self
-            .source
-            .unwrap_or("<source unavailable>")
-            .split_whitespace()
-            .intersperse(" ")
-            .collect::<String>();
+        let mut tab_labels = Vec::with_capacity(self.program.prototypes.len() + 1);
 
-        Paragraph::new(source)
-            .centered()
-            .wrap(Wrap { trim: true })
-            .render(source_area, buf);
+        tab_labels.push("source".to_string());
+        tab_labels.push("main".to_string());
 
-        let mut function_names = Vec::with_capacity(self.program.prototypes.len() + 1);
-
-        for prototype in &self.program.prototypes {
+        for prototype in self.program.prototypes.iter().skip(1) {
             if let Some(name) = &prototype.name {
-                function_names.push(name.to_string());
+                tab_labels.push(name.to_string());
             } else {
-                function_names.push("anonymous".to_string());
+                tab_labels.push("anonymous".to_string());
             }
         }
 
-        Tabs::new(function_names)
+        Tabs::new(tab_labels)
             .highlight_style(Style::default().cyan().on_black())
             .select(self.selected_tab)
-            .render(chunk_tabs_header_area, buf);
+            .render(chunk_tabs_header_area, buffer);
 
         match self.selected_tab {
             0 => {
-                self.draw_chunk_tab(main_chunk, chunks_tabs_content_area, buf);
+                self.draw_source_tab(self.source, tab_content_area, buffer);
+            }
+            1 => {
+                self.draw_chunk_tab(main_chunk, tab_content_area, buffer);
             }
             _ => {
-                if let Some(chunk) = self.program.prototypes.get(self.selected_tab) {
-                    self.draw_chunk_tab(chunk, chunks_tabs_content_area, buf);
+                if let Some(chunk) = self.program.prototypes.get(self.selected_tab - 1) {
+                    self.draw_chunk_tab(chunk, tab_content_area, buffer);
                 }
             }
         }

@@ -43,6 +43,7 @@ pub fn compile_main(source: &'_ str) -> Result<Chunk, DustError<'_>> {
 }
 
 pub struct Sources<'src> {
+    pub name: String,
     pub main: &'src str,
     pub modules: Vec<(&'src str, &'src str)>,
 }
@@ -62,7 +63,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    pub fn compile(&mut self) -> Result<Program, DustError<'src>> {
+    pub fn compile(mut self) -> Result<Program, DustError<'src>> {
         let ParseResult {
             syntax_tree,
             mut errors,
@@ -126,6 +127,7 @@ impl<'src> Compiler<'src> {
             .into_inner();
 
         Ok(Program {
+            name: self.sources.name,
             prototypes,
             cell_count: 0,
         })

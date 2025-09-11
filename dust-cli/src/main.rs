@@ -191,9 +191,10 @@ fn main() {
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref().unwrap_or("anonymous");
+        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
 
-        let mut compiler = Compiler::new(Sources {
+        let compiler = Compiler::new(Sources {
+            name: source_name.clone(),
             main: &source,
             modules: Vec::new(),
         });
@@ -237,7 +238,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(source_name, compile_time, Some(run_time))]);
+            print_times(&[(&source_name, compile_time, Some(run_time))]);
         }
 
         return;
@@ -279,8 +280,9 @@ fn main() {
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref().unwrap_or("anonymous");
-        let mut compiler = Compiler::new(Sources {
+        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
+        let compiler = Compiler::new(Sources {
+            name: source_name.clone(),
             main: &source,
             modules: Vec::new(),
         });
@@ -351,7 +353,7 @@ fn main() {
         // }
 
         if time && !no_output {
-            print_times(&[(source_name, compile_time, None)]);
+            print_times(&[(&source_name, compile_time, None)]);
         }
 
         return;

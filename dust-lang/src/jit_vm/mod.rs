@@ -35,8 +35,9 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
-pub fn run_main(source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
-    let mut compiler = Compiler::new(Sources {
+pub fn run_main(name: String, source: &'_ str) -> Result<Option<Value>, DustError<'_>> {
+    let compiler = Compiler::new(Sources {
+        name,
         main: source,
         modules: Vec::new(),
     });

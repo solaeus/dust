@@ -16,7 +16,7 @@ while i < 10_000_000 {
 ";
 
 fn addictive_calling(source: &str) {
-    run_main(source).unwrap();
+    run_main("addictive_calling".to_string(), source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
